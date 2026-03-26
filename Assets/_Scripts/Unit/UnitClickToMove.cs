@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Click-to-move для NavMeshAgent + UnitController (RifleAnimsetPro / TPP).
-/// Цель движения — <b>точка на NavMesh под кликом по земле</b> (не клик по врагу). Враги для поворота — отдельно <c>UnitEnemyFacing</c>.
+/// Цель движения — <b>точка на NavMesh под кликом по земле</b> (не клик по врагу).
 /// Root motion выключен; поворот тела вручную (updateRotation = false).
 /// ПКМ — ходьба, Shift+ПКМ — бег, двойной ПКМ — спринт; Space — жёсткая остановка.
 /// </summary>
@@ -83,6 +83,16 @@ public class UnitClickToMove : MonoBehaviour
 	[Header("Stopping — IsStopRU / IsStopLU")]
 	[SerializeField, Min(0.01f)] private float m_StopVelocityThreshold = 0.1f;
 	[SerializeField, Min(0.01f)] private float m_StopAnglePulseDuration = 0.14f;
+	[Header("Foot shuffle / stop jitter")]
+	[Tooltip("Гистерезис скорости: выше — считаем «идём», ниже — «стоим», чтобы не дёргать walk/idle на границе порога.")]
+	[SerializeField] private bool m_LocomotionSpeedHysteresis = true;
+	[SerializeField, Min(0.02f)] private float m_MovingEnterSpeed = 0.12f;
+	[SerializeField, Min(0.01f)] private float m_MovingExitSpeed = 0.06f;
+	[Tooltip("У конечной точки: пока remaining меньше stoppingDistance + этот запас, «движение» для анимации держим только если скорость не микроскопическая — иначе pathPending даёт лишние шаги на месте.")]
+	[SerializeField, Min(0f)] private float m_NearDestinationArrivalBuffer = 0.18f;
+	[SerializeField, Min(0.01f)] private float m_MinSpeedNearDestinationForWalkAnim = 0.07f;
+	[Tooltip("Не чаще одного стоп-пивота подряд (меньше двойных IsStopRU/LU при дрожании moving).")]
+	[SerializeField, Min(0.05f)] private float m_MinIntervalBetweenStopPivots = 0.28f;
 
 	[Header("Foot slide / blend")]
 	[Tooltip("Уменьшает «плавание»: масштабирует InputMagnitude к отношению фактической скорости к agent.speed (угол, разгон, торможение NavMesh).")]
@@ -94,7 +104,7 @@ public class UnitClickToMove : MonoBehaviour
 	[Tooltip("Мёртвая зона по боковой оси (локальный X): меньше дёрганья между поворотами в Idle/Turn blend при почти прямом беге.")]
 	[SerializeField, Range(0f, 0.2f)] private float m_StrafeDeadZone = 0.06f;
 	[Tooltip("Чуть резче следование H/V к цели при движении (меньше — меньше скольжение при смене направления).")]
-	[SerializeField, Min(0.01f)] private float m_HvSmoothTimeMoving = 0.045f;
+	[SerializeField, Min(0.01f)] private float m_HvSmoothTimeMoving = 0.028f;
 	[Tooltip("Сглаживание InputMagnitude при движении.")]
 	[SerializeField, Min(0.01f)] private float m_MagnitudeSmoothTimeMoving = 0.055f;
 	#endregion
@@ -115,6 +125,8 @@ public class UnitClickToMove : MonoBehaviour
 	private bool m_NeedSprintCrossfade;
 	private bool m_NeedWalkingBlendCrossfade;
 	private int m_SuppressLocomotionFrames;
+	private bool m_StickyMovingAnim;
+	private float m_LastStopPivotTime = -1000f;
 	#endregion
 
 	private enum MoveMode
@@ -244,6 +256,7 @@ public class UnitClickToMove : MonoBehaviour
 	/// </summary>
 	private void PerformHardStop()
 	{
+		m_StickyMovingAnim = false;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
 
@@ -369,19 +382,71 @@ public class UnitClickToMove : MonoBehaviour
 		       s.IsName("Rifle_SprintStop_LU") || s.IsName("Rifle_SprintStop_RU");
 	}
 
+	/// <summary>
+	/// Одно направление для поворота тела и для H/V: при движении — по фактической <see cref="NavMeshAgent.velocity"/>,
+	/// иначе на стеринг (как в blend tree). Совпадение с анимацией убирает «занос» при резких поворотах от рассинхрона с desiredVelocity.
+	/// </summary>
+	private Vector3 GetPlanarLocomotionFacingDirection(out float _speed, out bool _pathPending)
+	{
+		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		_speed = planarVel.magnitude;
+		_pathPending = m_Agent.hasPath &&
+		               m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
+
+		if (_speed > m_StopVelocityThreshold)
+			return planarVel.normalized;
+
+		if (_pathPending)
+		{
+			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+			toSteer.y = 0f;
+			return toSteer.sqrMagnitude > 0.0001f ? toSteer.normalized : transform.forward;
+		}
+
+		return transform.forward;
+	}
+
 	private void UpdateRotation()
 	{
-		// UnitEnemyFacing крутит тело в LateUpdate; без этого следующий кадр снова тянет yaw на desiredVelocity.
-		if (TryGetComponent<UnitEnemyFacing>(out UnitEnemyFacing enemyFacing) &&
-		    enemyFacing.ShouldSuppressMovementRotationTowardVelocity())
-			return;
-
-		Vector3 planar = new Vector3(m_Agent.desiredVelocity.x, 0f, m_Agent.desiredVelocity.z);
+		Vector3 planar = GetPlanarLocomotionFacingDirection(out _, out _);
 		if (planar.sqrMagnitude < 0.0001f)
 			return;
 
 		Quaternion target = Quaternion.LookRotation(planar.normalized, Vector3.up);
 		transform.rotation = Quaternion.Slerp(transform.rotation, target, m_RotationSpeed * Time.deltaTime);
+	}
+
+	private bool ComputeMovingForAnimator(float _speed, bool _pathPending)
+	{
+		bool speedMove = m_LocomotionSpeedHysteresis
+			? (m_StickyMovingAnim ? _speed > m_MovingExitSpeed : _speed > m_MovingEnterSpeed)
+			: _speed > m_StopVelocityThreshold;
+
+		bool pathOk = false;
+		if (m_Agent.hasPath && _pathPending)
+		{
+			float rem = m_Agent.remainingDistance;
+			float sd = m_Agent.stoppingDistance;
+			bool nearEnd = rem <= sd + m_NearDestinationArrivalBuffer;
+			pathOk = !nearEnd || _speed >= m_MinSpeedNearDestinationForWalkAnim;
+		}
+
+		bool rawMoving = speedMove || pathOk;
+		if (!m_LocomotionSpeedHysteresis)
+		{
+			m_StickyMovingAnim = rawMoving;
+			return m_StickyMovingAnim;
+		}
+
+		if (m_StickyMovingAnim)
+		{
+			if (!rawMoving)
+				m_StickyMovingAnim = false;
+		}
+		else if (rawMoving)
+			m_StickyMovingAnim = true;
+
+		return m_StickyMovingAnim;
 	}
 	#endregion
 
@@ -395,26 +460,11 @@ public class UnitClickToMove : MonoBehaviour
 		if (m_SuppressLocomotionFrames > 0)
 			m_SuppressLocomotionFrames--;
 
-		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-		float speed = planarVel.magnitude;
-		bool pathPending = m_Agent.hasPath &&
-		                   m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
-		bool moving = speed > m_StopVelocityThreshold || pathPending;
+		Vector3 worldDir = GetPlanarLocomotionFacingDirection(out float speed, out bool pathPending);
+		bool moving = ComputeMovingForAnimator(speed, pathPending);
 
-		Vector3 worldDir;
 		if (speed > m_StopVelocityThreshold)
-		{
-			worldDir = planarVel.normalized;
 			m_LastPlanarMoveDir = worldDir;
-		}
-		else if (pathPending)
-		{
-			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-			toSteer.y = 0f;
-			worldDir = toSteer.sqrMagnitude > 0.0001f ? toSteer.normalized : transform.forward;
-		}
-		else
-			worldDir = transform.forward;
 
 		Vector3 local = transform.InverseTransformDirection(worldDir);
 		if (m_StrafeDeadZone > 0f && Mathf.Abs(local.x) < m_StrafeDeadZone &&
@@ -505,9 +555,13 @@ public class UnitClickToMove : MonoBehaviour
 
 	private void TriggerStopPivot(float _signedAngleFromForwardToVelocity)
 	{
+		if (Time.time - m_LastStopPivotTime < m_MinIntervalBetweenStopPivots)
+			return;
+
 		if (m_StopPulseRoutine != null)
 			StopCoroutine(m_StopPulseRoutine);
 
+		m_LastStopPivotTime = Time.time;
 		m_StopPulseRoutine = StartCoroutine(StopPivotPulseRoutine(_signedAngleFromForwardToVelocity));
 	}
 
@@ -533,6 +587,8 @@ public class UnitClickToMove : MonoBehaviour
 		m_RunInputMagnitude = Mathf.Clamp(m_RunInputMagnitude, 0.11f, c_MaxInputMagForWalkingBlendTree);
 		if (m_SprintInputMagnitude < c_MinInputMagForSprintBranch)
 			m_SprintInputMagnitude = c_MinInputMagForSprintBranch;
+		if (m_MovingExitSpeed > m_MovingEnterSpeed)
+			m_MovingExitSpeed = m_MovingEnterSpeed * 0.5f;
 	}
 #endif
 }
