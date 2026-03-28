@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
-/// Панель со списком ячеек. Если задан префаб — каждое новое добавление (без стака) создаёт новую ячейку под контент.
+/// Панель со списком ячеек. Если задан префаб — каждое добавление создаёт новую ячейку под контент.
 /// Без префаба — ищется пустая ячейка в иерархии.
 /// </summary>
 [DisallowMultipleComponent]
@@ -15,6 +16,12 @@ public class InventoryPanelView : MonoBehaviour
 	[SerializeField] private InventorySlotView m_SlotPrefab;
 	[Tooltip("После ClearAllSlots уничтожать ячейки, созданные из префаба (ручные в сцене не трогаем).")]
 	[SerializeField] private bool m_DestroySpawnedSlotsOnClearAll = true;
+
+	[Header("Связи Canvas (опционально)")]
+	[Tooltip("Для панели инвентаря персонажа: зона drag-and-drop с «земли». Заполняется на общем Canvas.")]
+	[SerializeField] private InventoryCharacterBagDropZone m_CharacterBagDropZone;
+	[Tooltip("Для панели «земля»: зона сброса из рюкзака.")]
+	[SerializeField] private InventoryGroundDropZone m_GroundDropZone;
 	#endregion
 
 	#region Private Fields
@@ -24,12 +31,18 @@ public class InventoryPanelView : MonoBehaviour
 
 	#region Public Properties
 	public IReadOnlyList<InventorySlotView> Slots => m_Slots;
+	public InventoryCharacterBagDropZone CharacterBagDropZone => m_CharacterBagDropZone;
+	public InventoryGroundDropZone GroundDropZone => m_GroundDropZone;
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
 		RefreshSlotsFromHierarchy();
+		if (m_CharacterBagDropZone != null)
+			m_CharacterBagDropZone.BindBagPanel(this);
+		if (m_GroundDropZone != null)
+			m_GroundDropZone.BindGroundPanel(this);
 	}
 	#endregion
 
@@ -41,6 +54,104 @@ public class InventoryPanelView : MonoBehaviour
 		Transform root = m_SlotsContainer != null ? m_SlotsContainer : transform;
 		m_Slots.AddRange(root.GetComponentsInChildren<InventorySlotView>(true));
 		m_SpawnedSlots.RemoveAll(_s => _s == null);
+		for (int i = m_SpawnedSlots.Count - 1; i >= 0; i--)
+		{
+			if (!m_Slots.Contains(m_SpawnedSlots[i]))
+				m_SpawnedSlots.RemoveAt(i);
+		}
+
+		for (int i = 0; i < m_Slots.Count; i++)
+		{
+			InventorySlotView s = m_Slots[i];
+			if (s != null && s.IsRuntimeSpawned && !m_SpawnedSlots.Contains(s))
+				m_SpawnedSlots.Add(s);
+		}
+	}
+
+	/// <summary>Убрать ячейку из учёта панели перед перетаскиванием (иерархию не трогает).</summary>
+	public void DetachSlotForDrag(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+		m_Slots.Remove(_slot);
+		m_SpawnedSlots.Remove(_slot);
+	}
+
+	/// <summary>Перепривязать перетаскиваемую ячейку к контенту этой панели (рюкзак / земля).</summary>
+	public bool AdoptDraggedSlot(InventorySlotView _slot)
+	{
+		if (_slot == null || m_SlotsContainer == null)
+			return false;
+
+		_slot.transform.SetParent(m_SlotsContainer, false);
+		_slot.transform.SetAsLastSibling();
+		if (!m_Slots.Contains(_slot))
+			m_Slots.Add(_slot);
+		if (_slot.IsRuntimeSpawned && !m_SpawnedSlots.Contains(_slot))
+			m_SpawnedSlots.Add(_slot);
+
+		RebuildContentLayout();
+		return true;
+	}
+
+	public void RebuildContentLayout()
+	{
+		if (m_SlotsContainer is RectTransform rt)
+			LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+	}
+
+	/// <summary>После переноса предмета с «земли»: убрать пустую строку из префаба или оставить пустую ручную ячейку.</summary>
+	public void NotifyGroundSlotItemTakenAway(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+
+		if (_slot.IsRuntimeSpawned)
+		{
+			m_Slots.Remove(_slot);
+			m_SpawnedSlots.Remove(_slot);
+			Destroy(_slot.gameObject);
+		}
+
+		RefreshSlotsFromHierarchy();
+		RebuildContentLayout();
+	}
+
+	/// <summary>Убрать строку «земли» для лута (выход из радиуса подбора и т.п.).</summary>
+	public bool TryRemoveGroundListingForPickup(WorldPickupItem _pickup)
+	{
+		if (_pickup == null)
+			return false;
+
+		RefreshSlotsFromHierarchy();
+		for (int i = 0; i < m_Slots.Count; i++)
+		{
+			InventorySlotView slot = m_Slots[i];
+			if (slot == null || !slot.HasItem)
+				continue;
+			if (slot.Data.WorldSource != _pickup)
+				continue;
+
+			_pickup.ClearGroundUiListing();
+
+			if (slot.IsRuntimeSpawned)
+			{
+				m_Slots.Remove(slot);
+				m_SpawnedSlots.Remove(slot);
+				Destroy(slot.gameObject);
+			}
+			else
+				slot.Clear();
+
+			RefreshSlotsFromHierarchy();
+			RebuildContentLayout();
+			return true;
+		}
+
+		if (_pickup.IsListedInGroundUi)
+			_pickup.ClearGroundUiListing();
+
+		return false;
 	}
 
 	public bool TryAdd(InventorySlotRuntimeData _data)
@@ -69,34 +180,18 @@ public class InventoryPanelView : MonoBehaviour
 		return false;
 	}
 
-	/// <summary>Первый занятый слот с совпадающим именем и тем же Definition (стак).</summary>
-	public bool TryStackOrAdd(InventorySlotRuntimeData _data)
+	public void ClearAllSlots()
 	{
-		if (_data.IsEmpty)
-			return TryAdd(_data);
-
-		EnsureSlotsCached();
-
 		for (int i = 0; i < m_Slots.Count; i++)
 		{
-			var s = m_Slots[i];
-			if (s == null || !s.HasItem)
-				continue;
-			var d = s.Data;
-			if (d.Definition == _data.Definition && d.Definition != null &&
-			    d.DisplayName == _data.DisplayName)
+			if (m_Slots[i] != null && m_Slots[i].HasItem)
 			{
-				d.StackCount += _data.StackCount;
-				s.SetItem(d);
-				return true;
+				InventorySlotRuntimeData d = m_Slots[i].Data;
+				if (d.WorldSource != null)
+					d.WorldSource.ClearGroundUiListing();
 			}
 		}
 
-		return TryAdd(_data);
-	}
-
-	public void ClearAllSlots()
-	{
 		for (int i = 0; i < m_Slots.Count; i++)
 		{
 			if (m_Slots[i] != null)
@@ -129,6 +224,7 @@ public class InventoryPanelView : MonoBehaviour
 		InventorySlotView created = Instantiate(m_SlotPrefab, m_SlotsContainer);
 		created.gameObject.name = $"{m_SlotPrefab.name}_{m_SpawnedSlots.Count}";
 		created.Clear();
+		created.MarkRuntimeSpawned();
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
 		return created;
