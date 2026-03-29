@@ -30,6 +30,9 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private Vector3 m_RightHandLocalEulerAngles;
 	[Tooltip("Имя дочернего объекта на префабе оружия: мировая позиция/поворот для IK левой кисти. Пусто — левая рука без IK.")]
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
+	[Header("Анимация (Equipment)")]
+	[Tooltip("Какую ветку локомоции включать при экипировке этого предмета. Должен совпадать с переходами по WeaponMode в Animator.")]
+	[SerializeField] private LocomotionWeaponMode m_LocomotionWeaponMode = LocomotionWeaponMode.Rifle;
 	#endregion
 
 	#region Public Properties
@@ -46,5 +49,7 @@ public class ItemDefinition : ScriptableObject
 	public string LeftHandIkTargetChildName => m_LeftHandIkTargetChildName;
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
+	/// <summary>Режим аниматора при экипировке; для не-Equipment не используется.</summary>
+	public LocomotionWeaponMode LocomotionWeaponMode => m_LocomotionWeaponMode;
 	#endregion
 }

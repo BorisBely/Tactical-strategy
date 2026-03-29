@@ -1,165 +1,105 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Click-to-move для NavMeshAgent + UnitController (RifleAnimsetPro / TPP).
-/// Цель движения — <b>точка на NavMesh под кликом по земле</b> (не клик по врагу).
-/// Root motion выключен; поворот тела вручную (updateRotation = false).
-/// ПКМ — ходьба, Shift+ПКМ — бег, двойной ПКМ — спринт; Space — жёсткая остановка.
+/// NavMesh: ПКМ — точка на поверхности, Shift+ПКМ — бег, двойной ПКМ — спринт, F — жёсткий стоп.
+/// Поворот по направлению движения, root motion у Animator выключен.
+/// Параметры аниматора: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance (см. константы <see cref="UnitClickToMove"/>).
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
-public class UnitClickToMove : MonoBehaviour
+public sealed class UnitClickToMove : MonoBehaviour
 {
-	#region Animator Hashes
-	private static readonly int s_HashInputAngle = Animator.StringToHash("InputAngle");
-	private static readonly int s_HashWalkStartAngle = Animator.StringToHash("WalkStartAngle");
-	private static readonly int s_HashWalkStopAngle = Animator.StringToHash("WalkStopAngle");
-	private static readonly int s_HashHorizontal = Animator.StringToHash("Horizontal");
-	private static readonly int s_HashVertical = Animator.StringToHash("Vertical");
-	private static readonly int s_HashInputMagnitude = Animator.StringToHash("InputMagnitude");
-	private static readonly int s_HashIsStopRU = Animator.StringToHash("IsStopRU");
-	private static readonly int s_HashIsStopLU = Animator.StringToHash("IsStopLU");
-	// IsRU is driven by animation curves in UnitController — do not SetFloat from script (Unity warns).
-	#endregion
+	/// <summary>0..1 — интенсивность локомоции (скорость относительно спринта).</summary>
+	public const string ParamNavSpeed = "NavSpeed";
 
-	#region Serialized Fields
-	[Tooltip("Камера для луча ПКМ → земля. Если пусто, в Awake подставится Camera.main.")]
+	/// <summary>Локальная ось X направления движения (−1..1), для стрейфа в blend tree.</summary>
+	public const string ParamNavStrafe = "NavStrafe";
+
+	/// <summary>Локальная ось Z направления движения (−1..1), вперёд/назад.</summary>
+	public const string ParamNavForward = "NavForward";
+
+	/// <summary>Ярус скорости заказа: 0 walk, 1 run, 2 sprint — выбор start/loop/stop в Animator.</summary>
+	public const string ParamLocomotionTier = "LocomotionTier";
+
+	private static readonly int s_NavSpeed = Animator.StringToHash(ParamNavSpeed);
+	private static readonly int s_NavStrafe = Animator.StringToHash(ParamNavStrafe);
+	private static readonly int s_NavForward = Animator.StringToHash(ParamNavForward);
+	private static readonly int s_LocomotionTier = Animator.StringToHash(ParamLocomotionTier);
+
 	[SerializeField] private Camera m_RayCamera;
 	[SerializeField] private Animator m_Animator;
+	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
-	[Tooltip("Applied in Awake. Small value = точнее остановка у точки; совпадает с логикой «дошёл до цели».")]
-	[SerializeField, Min(0f)] private float m_AgentStoppingDistance = 0.15f;
-	[Tooltip("If the agent spawns outside the baked surface, warp to the nearest valid position (avoids broken paths).")]
-	[SerializeField] private bool m_AutoWarpToNavMeshOnStart = true;
+	[SerializeField, Min(0f)] private float m_StoppingDistance = 0.15f;
+	[SerializeField, Min(1f)] private float m_AgentAcceleration = 40f;
+	[SerializeField] private bool m_WarpToNavMeshOnStart = true;
 	[SerializeField, Min(0.5f)] private float m_WarpSearchRadius = 12f;
 
-	[Header("Agent speeds")]
+	[Header("Speeds")]
 	[SerializeField, Min(0.1f)] private float m_WalkSpeed = 1.5f;
 	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3.5f;
 	[SerializeField, Min(0.1f)] private float m_SprintSpeed = 7.25f;
-
-	[Header("Animator — InputMagnitude vs UnitController")]
-	[Tooltip("Locomotion «ввод» для переходов idle→move. Держите < 0.5 вместе с ходьбой/бегом по 2D blend (см. ниже).")]
-	[SerializeField, Range(0.11f, 0.49f)] private float m_WalkInputMagnitude = 0.35f;
-	[Tooltip("Бег в том же Walking Blend Tree: ОБЯЗАТЕЛЬНО < 0.5 — иначе граф уходит в WalkStarts (старт/спринт), а не в устойчивый бег по ±0.9.")]
-	[SerializeField, Range(0.11f, 0.49f)] private float m_RunInputMagnitude = 0.45f;
-	[Tooltip("Спринт / WalkStarts: ≥ 0.5 по контроллеру — переход к веткам старта и отдельному Sprint sub-state.")]
-	[SerializeField, Range(0.51f, 1f)] private float m_SprintInputMagnitude = 1f;
-
-	[Header("Walking Blend Tree — 2D Cartesian (как в UnitController)")]
-	[Tooltip("Ходьба: точки клипов WalkFwd/WalkBwd/стрейф — порядка ±0.2.")]
-	[SerializeField, Range(0.05f, 0.35f)] private float m_WalkBlendExtent = 0.2f;
-	[Tooltip("Бег в том же дереве: RunFwd/RunBwd и т.д. — порядка ±0.9 (не смешивать с 0.2 при скорости ходьбы — будет «плыть»).")]
-	[SerializeField, Range(0.4f, 1f)] private float m_RunBlendExtent = 0.9f;
-
-	[Header("Sprint — отдельное под-состояние в UnitController (не Walking Blend Tree)")]
-	[Tooltip("Путь состояния для CrossFade (Base Layer). По умолчанию: под-граф Sprint → Rifle_SprintStart.")]
-	[SerializeField] private string m_SprintCrossFadeState = "Sprint.Rifle_SprintStart";
-	[SerializeField, Min(0.02f)] private float m_SprintCrossFadeDuration = 0.12f;
-	[Tooltip("Возврат к ходьбе/бегу по тому же 2D дереву Walking.")]
-	[SerializeField] private string m_WalkingBlendCrossFadeState = "Walking.Walking Blend Tree";
-	[SerializeField, Min(0.02f)] private float m_WalkingBlendCrossFadeDuration = 0.15f;
+	[SerializeField, Range(0.1f, 1f)] private float m_CrouchSpeedMul = 0.55f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ProneSpeedMul = 0.35f;
 
 	[Header("Rotation")]
-	[SerializeField, Min(0.1f)] private float m_RotationSpeed = 12f;
+	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 12f;
 
 	[Header("Input")]
-	[SerializeField, Min(0.05f)] private float m_DoubleClickWindow = 0.25f;
-	[SerializeField] private bool m_BlockWhenPointerOverUi = true;
+	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
+	[SerializeField] private bool m_BlockClicksOverUi = true;
+	[SerializeField] private bool m_HardStopEnabled = true;
+	[SerializeField] private Key m_HardStopKey = Key.F;
 
-	[Header("Hard stop (cancel movement)")]
-	[SerializeField] private bool m_EnableHardStopKey = true;
-	[SerializeField] private Key m_HardStopKey = Key.Space;
-	[Tooltip("When true, InputMagnitude / H/V snap down faster after a hard stop (still runs WalkStopAngle + pivot).")]
-	[SerializeField] private bool m_FastAnimatorBlendOnHardStop = true;
+	[Header("Animator smoothing")]
+	[SerializeField, Min(0.01f)] private float m_SpeedSmoothTime = 0.1f;
+	[Tooltip("Отдельное сглаживание при наборе NavSpeed (меньше — быстрее реакция старта).")]
+	[SerializeField, Min(0.005f)] private float m_SpeedSmoothTimeAccelerate = 0.028f;
+	[SerializeField, Min(0.01f)] private float m_DirectionSmoothTime = 0.06f;
+	[Tooltip("Быстрее выравнивать NavForward/Strafe при почти нулевой скорости и активном заказе движения.")]
+	[SerializeField, Min(0.005f)] private float m_DirectionSmoothTimeMoveStart = 0.02f;
+	[SerializeField, Min(0.01f)] private float m_StopVelocityEpsilon = 0.08f;
+	[Tooltip("Пока фактическая скорость агента ниже доли круиза, NavSpeed не ниже этого уровня от круиза — чтобы стартовые клипы не отставали от разгона NavMeshAgent.")]
+	[SerializeField, Range(0.35f, 1f)] private float m_StartNavSpeedFloor = 0.88f;
+	[Tooltip("За сколько метров до цели (поверх stopping distance) начинать снижать NavSpeed, чтобы клип остановки шёл во время замедления, а не после полной остановки.")]
+	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
 
-	[Header("Stopping — IsStopRU / IsStopLU")]
-	[SerializeField, Min(0.01f)] private float m_StopVelocityThreshold = 0.1f;
-	[SerializeField, Min(0.01f)] private float m_StopAnglePulseDuration = 0.14f;
-	[Header("Foot shuffle / stop jitter")]
-	[Tooltip("Гистерезис скорости: выше — считаем «идём», ниже — «стоим», чтобы не дёргать walk/idle на границе порога.")]
-	[SerializeField] private bool m_LocomotionSpeedHysteresis = true;
-	[SerializeField, Min(0.02f)] private float m_MovingEnterSpeed = 0.12f;
-	[SerializeField, Min(0.01f)] private float m_MovingExitSpeed = 0.06f;
-	[Tooltip("У конечной точки: пока remaining меньше stoppingDistance + этот запас, «движение» для анимации держим только если скорость не микроскопическая — иначе pathPending даёт лишние шаги на месте.")]
-	[SerializeField, Min(0f)] private float m_NearDestinationArrivalBuffer = 0.18f;
-	[SerializeField, Min(0.01f)] private float m_MinSpeedNearDestinationForWalkAnim = 0.07f;
-	[Tooltip("Не чаще одного стоп-пивота подряд (меньше двойных IsStopRU/LU при дрожании moving).")]
-	[SerializeField, Min(0.05f)] private float m_MinIntervalBetweenStopPivots = 0.28f;
-
-	[Header("Foot slide / blend")]
-	[Tooltip("Уменьшает «плавание»: масштабирует InputMagnitude к отношению фактической скорости к agent.speed (угол, разгон, торможение NavMesh).")]
-	[SerializeField] private bool m_MatchInputMagnitudeToAgentSpeed = true;
-	[Tooltip("Нижняя граница масштаба при движении — чтобы не проваливаться в почти-idle на микропаузах.")]
-	[SerializeField, Range(0.05f, 0.6f)] private float m_InputMagSpeedScaleFloor = 0.28f;
-	[Tooltip("Доля desiredVelocity: пока агент разгоняется или упирается в угол, реальная velocity мала — иначе анимация «бежит», тело стоит.")]
-	[SerializeField, Range(0f, 1f)] private float m_DesiredVelocityForSpeedMatch = 0.45f;
-	[Tooltip("Мёртвая зона по боковой оси (локальный X): меньше дёрганья между поворотами в Idle/Turn blend при почти прямом беге.")]
-	[SerializeField, Range(0f, 0.2f)] private float m_StrafeDeadZone = 0.06f;
-	[Tooltip("Чуть резче следование H/V к цели при движении (меньше — меньше скольжение при смене направления).")]
-	[SerializeField, Min(0.01f)] private float m_HvSmoothTimeMoving = 0.028f;
-	[Tooltip("Сглаживание InputMagnitude при движении.")]
-	[SerializeField, Min(0.01f)] private float m_MagnitudeSmoothTimeMoving = 0.055f;
-	#endregion
-
-	#region Private Fields
 	private NavMeshAgent m_Agent;
-	private float m_LastClickTime = -1f;
-	private MoveMode m_CurrentMode = MoveMode.Walk;
-	private float m_TargetInputMagnitude;
-	private float m_SmoothedMagnitude;
-	private float m_MagnitudeSmoothVel;
-	private Vector2 m_SmoothHV;
-	private Vector2 m_HvSmoothVel;
-	private bool m_WasMoving;
-	private Vector3 m_LastPlanarMoveDir;
-	private Coroutine m_StopPulseRoutine;
-	private bool m_HardStopBlend;
-	private bool m_NeedSprintCrossfade;
-	private bool m_NeedWalkingBlendCrossfade;
-	private int m_SuppressLocomotionFrames;
-	private bool m_StickyMovingAnim;
-	private float m_LastStopPivotTime = -1000f;
-	#endregion
+	private MoveTier m_Mode = MoveTier.Walk;
+	private LocomotionStance m_LastStance = LocomotionStance.Standing;
+	private float m_LastRightClickTime = -1f;
 
-	private enum MoveMode
-	{
-		Walk,
-		Run,
-		Sprint
-	}
+	private float m_SmoothSpeed01;
+	private float m_SmoothSpeedVel;
+	private Vector2 m_SmoothDir;
+	private Vector2 m_SmoothDirVel;
 
-	/// <summary>Внешние системы (например поворот к врагу): true, если заказан режим спринта (двойной ПКМ).</summary>
-	public bool IsSprintMoveMode => m_CurrentMode == MoveMode.Sprint;
+	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
 
-	/// <summary>Ходьба или бег (не спринт) — для логики «смотреть на врага только в walk/run».</summary>
-	public bool IsWalkOrRunMoveMode =>
-		m_CurrentMode == MoveMode.Walk || m_CurrentMode == MoveMode.Run;
+	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 
-	/// <summary>Задать точку на NavMesh из кода (текущий режим Walk/Run/Sprint не меняется).</summary>
 	public bool TrySetDestination(Vector3 _worldPosition)
 	{
 		if (m_Agent == null)
 			return false;
 
-		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit navHit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
 
 		m_Agent.isStopped = false;
-		ApplyModeToAgent();
+		ApplyTierSpeed();
 		m_Agent.ResetPath();
-		m_Agent.SetDestination(navHit.position);
+		m_Agent.SetDestination(hit.position);
+		PrimeAnimatorForMoveStart();
 		return true;
 	}
 
-	#region Unity Lifecycle
 	private void Awake()
 	{
 		m_Agent = GetComponent<NavMeshAgent>();
@@ -170,14 +110,14 @@ public class UnitClickToMove : MonoBehaviour
 			m_RayCamera = Camera.main;
 
 		m_Agent.updateRotation = false;
-		m_Agent.stoppingDistance = m_AgentStoppingDistance;
+		m_Agent.stoppingDistance = m_StoppingDistance;
 
 		if (m_Animator != null)
 			m_Animator.applyRootMotion = false;
 
-		m_TargetInputMagnitude = 0f;
-		m_SmoothedMagnitude = 0f;
-		m_Agent.speed = m_WalkSpeed;
+		ApplyTierSpeed();
+		if (m_StanceSource != null)
+			m_LastStance = m_StanceSource.CurrentStance;
 	}
 
 	private void Start()
@@ -190,22 +130,19 @@ public class UnitClickToMove : MonoBehaviour
 			m_RayCamera = Object.FindObjectOfType<Camera>();
 #endif
 			if (m_RayCamera == null)
-				Debug.LogError(
-					"UnitClickToMove: не назначена Ray Camera и в сцене нет камеры — клик по земле не работает. " +
-					"Повесь камеру на слот или добавьте объект с тегом MainCamera.",
-					this);
+				Debug.LogError("UnitClickToMove: нет камеры для луча ПКМ.", this);
 		}
 
-		if (m_Agent == null || !m_AutoWarpToNavMeshOnStart || m_Agent.isOnNavMesh)
-			return;
-
-		if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, m_WarpSearchRadius, NavMesh.AllAreas))
+		if (m_Agent != null && m_WarpToNavMeshOnStart && !m_Agent.isOnNavMesh)
 		{
-			m_Agent.Warp(hit.position);
-			Debug.LogWarning("UnitClickToMove: NavMeshAgent was not on a NavMesh — moved to nearest baked surface. Adjust spawn or rebake NavMesh.", this);
+			if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, m_WarpSearchRadius, NavMesh.AllAreas))
+			{
+				m_Agent.Warp(hit.position);
+				Debug.LogWarning("UnitClickToMove: юнит не на NavMesh — перенос к ближайшей точке.", this);
+			}
+			else
+				Debug.LogError("UnitClickToMove: нет точки на NavMesh в радиусе Warp Search Radius.", this);
 		}
-		else
-			Debug.LogError("UnitClickToMove: not on NavMesh and no valid position within Warp Search Radius. Bake AI Navigation or move the unit.", this);
 	}
 
 	private void Update()
@@ -213,66 +150,50 @@ public class UnitClickToMove : MonoBehaviour
 		if (m_Agent == null)
 			return;
 
-		HandleHardStopInput();
+		if (m_StanceSource != null)
+		{
+			LocomotionStance stance = m_StanceSource.CurrentStance;
+			if (stance != m_LastStance)
+			{
+				m_LastStance = stance;
+				ApplyTierSpeed();
+			}
+		}
+
+		if (m_HardStopEnabled && Keyboard.current != null &&
+		    Keyboard.current[m_HardStopKey].wasPressedThisFrame &&
+		    IsMovingOnNavMesh())
+			HardStop();
+
 		if (m_RayCamera != null)
-			HandleClickInput();
+			TryRightClick();
 
-		ProcessAnimatorCrossfades();
-		UpdateRotation();
-		UpdateAnimatorLocomotion();
-	}
-	#endregion
-
-	#region Input
-	private void HandleHardStopInput()
-	{
-		if (!m_EnableHardStopKey || Keyboard.current == null)
-			return;
-
-		if (!Keyboard.current[m_HardStopKey].wasPressedThisFrame)
-			return;
-
-		if (!IsAgentActuallyMoving())
-			return;
-
-		PerformHardStop();
+		UpdateFacing();
+		PushAnimator();
 	}
 
-	private bool IsAgentActuallyMoving()
+	private bool IsMovingOnNavMesh()
 	{
 		Vector3 v = m_Agent.velocity;
 		v.y = 0f;
-		if (v.sqrMagnitude > m_StopVelocityThreshold * m_StopVelocityThreshold)
+		if (v.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon)
 			return true;
 
-		if (!m_Agent.hasPath)
-			return false;
-
-		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.05f;
+		return m_Agent.hasPath && m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.05f;
 	}
 
-	/// <summary>
-	/// Cancels NavMesh movement immediately. isStopped is cleared again on the next valid click-to-move.
-	/// </summary>
-	private void PerformHardStop()
+	private void HardStop()
 	{
-		m_StickyMovingAnim = false;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
-
-		if (m_FastAnimatorBlendOnHardStop)
-			m_HardStopBlend = true;
 	}
 
-	private void HandleClickInput()
+	private void TryRightClick()
 	{
-		if (Mouse.current == null)
+		if (Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame)
 			return;
 
-		if (!Mouse.current.rightButton.wasPressedThisFrame)
-			return;
-
-		if (m_BlockWhenPointerOverUi && EventSystem.current != null &&
+		if (m_BlockClicksOverUi && EventSystem.current != null &&
 		    EventSystem.current.IsPointerOverGameObject())
 			return;
 
@@ -285,310 +206,197 @@ public class UnitClickToMove : MonoBehaviour
 
 		m_Agent.isStopped = false;
 
-		MoveMode modeBefore = m_CurrentMode;
-
 		bool shift = Keyboard.current != null &&
 		             (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
-
-		bool doubleClick = m_LastClickTime >= 0f &&
-		                   (Time.time - m_LastClickTime) <= m_DoubleClickWindow;
+		bool doubleClick = m_LastRightClickTime >= 0f &&
+		                   Time.time - m_LastRightClickTime <= m_DoubleClickSeconds;
 
 		if (doubleClick)
-			m_CurrentMode = MoveMode.Sprint;
+			m_Mode = MoveTier.Sprint;
 		else if (shift)
-			m_CurrentMode = MoveMode.Run;
+			m_Mode = MoveTier.Run;
 		else
-			m_CurrentMode = MoveMode.Walk;
+			m_Mode = MoveTier.Walk;
 
-		m_LastClickTime = Time.time;
+		m_LastRightClickTime = Time.time;
 
-		if (m_CurrentMode == MoveMode.Sprint && modeBefore != MoveMode.Sprint)
-			m_NeedSprintCrossfade = true;
-		if (m_CurrentMode != MoveMode.Sprint && modeBefore == MoveMode.Sprint)
-			m_NeedWalkingBlendCrossfade = true;
-
-		ApplyModeToAgent();
+		ApplyTierSpeed();
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(navHit.position);
+		PrimeAnimatorForMoveStart();
 	}
-	#endregion
 
-	#region Movement / Rotation
-	private void ApplyModeToAgent()
+	private void ApplyTierSpeed()
 	{
-		switch (m_CurrentMode)
+		float baseSpeed = m_WalkSpeed;
+		switch (m_Mode)
 		{
-			case MoveMode.Walk:
-				m_Agent.speed = m_WalkSpeed;
-				m_TargetInputMagnitude = Mathf.Min(m_WalkInputMagnitude, c_MaxInputMagForWalkingBlendTree);
+			case MoveTier.Walk:
+				baseSpeed = m_WalkSpeed;
 				break;
-			case MoveMode.Run:
-				m_Agent.speed = m_RunSpeed;
-				m_TargetInputMagnitude = Mathf.Min(m_RunInputMagnitude, c_MaxInputMagForWalkingBlendTree);
+			case MoveTier.Run:
+				baseSpeed = m_RunSpeed;
 				break;
-			case MoveMode.Sprint:
-				m_Agent.speed = m_SprintSpeed;
-				m_TargetInputMagnitude = Mathf.Max(m_SprintInputMagnitude, c_MinInputMagForSprintBranch);
+			case MoveTier.Sprint:
+				baseSpeed = m_SprintSpeed;
 				break;
 		}
-	}
 
-	/// <summary>Ниже этого порога остаёмся в «Walking Blend Tree» (устойчивый бег по ±0.9 без ухода в WalkStarts).</summary>
-	private const float c_MaxInputMagForWalkingBlendTree = 0.49f;
-
-	/// <summary>Выше 0.5 в UnitController — переходы к WalkStarts / спринту.</summary>
-	private const float c_MinInputMagForSprintBranch = 0.51f;
-
-	private float GetBlendExtentForCurrentMode()
-	{
-		switch (m_CurrentMode)
+		float mul = 1f;
+		if (m_StanceSource != null)
 		{
-			case MoveMode.Walk:
-				return m_WalkBlendExtent;
-			case MoveMode.Run:
-				return m_RunBlendExtent;
-			case MoveMode.Sprint:
-				// Пока не в под-графе Sprint, не смешиваем «бег ±0.9» как устойчивый бег — CrossFade уведёт в Sprint.
-				return m_RunBlendExtent;
-			default:
-				return m_WalkBlendExtent;
-		}
-	}
-
-	private void ProcessAnimatorCrossfades()
-	{
-		if (m_Animator == null)
-			return;
-
-		if (m_NeedSprintCrossfade)
-		{
-			m_Animator.CrossFade(m_SprintCrossFadeState, m_SprintCrossFadeDuration, 0, 0f);
-			m_NeedSprintCrossfade = false;
-			m_SuppressLocomotionFrames = 2;
+			switch (m_StanceSource.CurrentStance)
+			{
+				case LocomotionStance.Crouch:
+					mul = m_CrouchSpeedMul;
+					break;
+				case LocomotionStance.Prone:
+					mul = m_ProneSpeedMul;
+					break;
+			}
 		}
 
-		if (m_NeedWalkingBlendCrossfade)
-		{
-			m_Animator.CrossFade(m_WalkingBlendCrossFadeState, m_WalkingBlendCrossFadeDuration, 0, 0f);
-			m_NeedWalkingBlendCrossfade = false;
-			m_SuppressLocomotionFrames = 2;
-		}
+		float maxSpeed = baseSpeed * mul;
+		m_Agent.speed = maxSpeed;
+		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, maxSpeed * 4.5f);
 	}
 
-	private static bool IsInSprintLocomotionState(Animator _animator)
+	/// <summary>Есть заказ двигаться: путь считается или уже есть и до цели дальше чем stopping distance.</summary>
+	private bool HasActiveMoveIntent()
 	{
-		AnimatorStateInfo s = _animator.GetCurrentAnimatorStateInfo(0);
-		return s.IsName("Rifle_SprintStart") || s.IsName("Rifle_SprintLoop") ||
-		       s.IsName("Rifle_SprintStop_LU") || s.IsName("Rifle_SprintStop_RU");
+		if (m_Agent.isStopped)
+			return false;
+		if (m_Agent.pathPending)
+			return true;
+		if (!m_Agent.hasPath)
+			return false;
+		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
+			return false;
+		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 
-	/// <summary>
-	/// Одно направление для поворота тела и для H/V: при движении — по фактической <see cref="NavMeshAgent.velocity"/>,
-	/// иначе на стеринг (как в blend tree). Совпадение с анимацией убирает «занос» при резких поворотах от рассинхрона с desiredVelocity.
-	/// </summary>
-	private Vector3 GetPlanarLocomotionFacingDirection(out float _speed, out bool _pathPending)
+	private Vector3 PlanarLocomotionDirection(out float _planarSpeed, out bool _hasGoalAhead)
 	{
-		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-		_speed = planarVel.magnitude;
-		_pathPending = m_Agent.hasPath &&
-		               m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
+		Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		_planarSpeed = vel.magnitude;
+		_hasGoalAhead = HasActiveMoveIntent();
 
-		if (_speed > m_StopVelocityThreshold)
-			return planarVel.normalized;
+		if (_planarSpeed > m_StopVelocityEpsilon)
+			return vel.normalized;
 
-		if (_pathPending)
+		if (_hasGoalAhead)
 		{
-			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-			toSteer.y = 0f;
-			return toSteer.sqrMagnitude > 0.0001f ? toSteer.normalized : transform.forward;
+			Vector3 to = m_Agent.steeringTarget - transform.position;
+			to.y = 0f;
+			return to.sqrMagnitude > 1e-4f ? to.normalized : transform.forward;
 		}
 
 		return transform.forward;
 	}
 
-	private void UpdateRotation()
+	private void UpdateFacing()
 	{
-		Vector3 planar = GetPlanarLocomotionFacingDirection(out _, out _);
-		if (planar.sqrMagnitude < 0.0001f)
+		Vector3 dir = PlanarLocomotionDirection(out _, out _);
+		if (dir.sqrMagnitude < 1e-6f)
 			return;
 
-		Quaternion target = Quaternion.LookRotation(planar.normalized, Vector3.up);
-		transform.rotation = Quaternion.Slerp(transform.rotation, target, m_RotationSpeed * Time.deltaTime);
+		Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
+		transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
 	}
 
-	private bool ComputeMovingForAnimator(float _speed, bool _pathPending)
+	private void PrimeAnimatorForMoveStart()
 	{
-		bool speedMove = m_LocomotionSpeedHysteresis
-			? (m_StickyMovingAnim ? _speed > m_MovingExitSpeed : _speed > m_MovingEnterSpeed)
-			: _speed > m_StopVelocityThreshold;
+		if (m_Animator == null || m_SprintSpeed < 0.01f)
+			return;
 
-		bool pathOk = false;
-		if (m_Agent.hasPath && _pathPending)
-		{
-			float rem = m_Agent.remainingDistance;
-			float sd = m_Agent.stoppingDistance;
-			bool nearEnd = rem <= sd + m_NearDestinationArrivalBuffer;
-			pathOk = !nearEnd || _speed >= m_MinSpeedNearDestinationForWalkAnim;
-		}
-
-		bool rawMoving = speedMove || pathOk;
-		if (!m_LocomotionSpeedHysteresis)
-		{
-			m_StickyMovingAnim = rawMoving;
-			return m_StickyMovingAnim;
-		}
-
-		if (m_StickyMovingAnim)
-		{
-			if (!rawMoving)
-				m_StickyMovingAnim = false;
-		}
-		else if (rawMoving)
-			m_StickyMovingAnim = true;
-
-		return m_StickyMovingAnim;
+		float cruise01 = Mathf.Clamp01(m_Agent.speed / m_SprintSpeed);
+		float floor = cruise01 * m_StartNavSpeedFloor;
+		m_SmoothSpeed01 = Mathf.Max(m_SmoothSpeed01, floor);
+		m_SmoothSpeedVel = 0f;
 	}
-	#endregion
 
-	#region Animator
-	private void UpdateAnimatorLocomotion()
+	private void PushAnimator()
 	{
 		if (m_Animator == null)
 			return;
 
-		bool suppressBlendWrites = m_SuppressLocomotionFrames > 0;
-		if (m_SuppressLocomotionFrames > 0)
-			m_SuppressLocomotionFrames--;
+		Vector3 worldDir = PlanarLocomotionDirection(out float planarSpeed, out bool hasMoveIntent);
+		bool moving = planarSpeed > m_StopVelocityEpsilon || hasMoveIntent;
 
-		Vector3 worldDir = GetPlanarLocomotionFacingDirection(out float speed, out bool pathPending);
-		bool moving = ComputeMovingForAnimator(speed, pathPending);
+		Vector3 local = moving
+			? transform.InverseTransformDirection(worldDir)
+			: Vector3.forward;
 
-		if (speed > m_StopVelocityThreshold)
-			m_LastPlanarMoveDir = worldDir;
+		float target01 = 0f;
+		if (moving && m_SprintSpeed > 0.01f)
+			target01 = Mathf.Clamp01(planarSpeed / m_SprintSpeed);
 
-		Vector3 local = transform.InverseTransformDirection(worldDir);
-		if (m_StrafeDeadZone > 0f && Mathf.Abs(local.x) < m_StrafeDeadZone &&
-		    Mathf.Abs(local.z) > m_StrafeDeadZone)
-			local = new Vector3(0f, local.y, local.z).normalized;
-
-		float blendExtent = GetBlendExtentForCurrentMode();
-		Vector2 hvRaw = new Vector2(local.x, local.z);
-		if (hvRaw.sqrMagnitude > 1e-6f)
-			hvRaw = hvRaw.normalized * blendExtent;
-
-		float inputAngle = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
-
-		bool sprintClipActive = m_CurrentMode == MoveMode.Sprint && IsInSprintLocomotionState(m_Animator);
-		if (sprintClipActive)
+		bool inBrakeZone = false;
+		if (!m_Agent.pathPending &&
+		    m_BrakeAnimLeadDistance > 0.01f &&
+		    m_Agent.hasPath &&
+		    !float.IsPositiveInfinity(m_Agent.remainingDistance))
 		{
-			if (!suppressBlendWrites)
-				m_Animator.SetFloat(s_HashInputAngle, inputAngle);
-
-			if (!moving && m_WasMoving)
+			float rem = m_Agent.remainingDistance;
+			float sd = Mathf.Max(m_Agent.stoppingDistance, 0.02f);
+			float bandEnd = sd + m_BrakeAnimLeadDistance;
+			if (rem < bandEnd)
 			{
-				float stopAngle = Vector3.SignedAngle(transform.forward, m_LastPlanarMoveDir, Vector3.up);
-				m_Animator.SetFloat(s_HashWalkStopAngle, stopAngle);
-				TriggerStopPivot(stopAngle);
+				inBrakeZone = true;
+				float goalCap = Mathf.Clamp01((rem - sd) / m_BrakeAnimLeadDistance);
+				target01 = Mathf.Min(target01, goalCap);
 			}
-
-			m_WasMoving = moving;
-			return;
 		}
 
-		float magTarget = moving ? m_TargetInputMagnitude : 0f;
-		// Пока CrossFade ведёт в под-граф Sprint, не поднимаем InputMagnitude до ветки WalkStarts (≥0.5).
-		if (moving && m_CurrentMode == MoveMode.Sprint && !IsInSprintLocomotionState(m_Animator))
-			magTarget = Mathf.Min(m_RunInputMagnitude, c_MaxInputMagForWalkingBlendTree);
-
-		if (moving && m_MatchInputMagnitudeToAgentSpeed)
+		bool pathCommitted = HasActiveMoveIntent();
+		if (pathCommitted && !inBrakeZone && moving && m_SprintSpeed > 0.01f)
 		{
-			float maxSpeed = Mathf.Max(m_Agent.speed, 0.01f);
-			Vector3 desiredPlanar = new Vector3(m_Agent.desiredVelocity.x, 0f, m_Agent.desiredVelocity.z);
-			float drive = Mathf.Max(speed, desiredPlanar.magnitude * m_DesiredVelocityForSpeedMatch);
-			float speedRatio = Mathf.Clamp01(drive / maxSpeed);
-			float scale = Mathf.Lerp(m_InputMagSpeedScaleFloor, 1f, speedRatio);
-			magTarget *= scale;
+			float cruise01 = Mathf.Clamp01(m_Agent.speed / m_SprintSpeed);
+			float vel01 = Mathf.Clamp01(planarSpeed / m_SprintSpeed);
+			if (cruise01 > 0.004f && vel01 < cruise01 * 0.55f)
+				target01 = Mathf.Max(target01, cruise01 * m_StartNavSpeedFloor);
 		}
 
-		float magSmooth = m_HardStopBlend && !moving ? 0.02f : (moving ? m_MagnitudeSmoothTimeMoving : 0.08f);
-		float hvSmooth = m_HardStopBlend && !moving ? 0.02f : (moving ? m_HvSmoothTimeMoving : 0.06f);
-
-		m_SmoothedMagnitude = Mathf.SmoothDamp(
-			m_SmoothedMagnitude,
-			magTarget,
-			ref m_MagnitudeSmoothVel,
-			magSmooth,
+		float speedSmooth = target01 > m_SmoothSpeed01 + 0.002f
+			? m_SpeedSmoothTimeAccelerate
+			: m_SpeedSmoothTime;
+		m_SmoothSpeed01 = Mathf.SmoothDamp(
+			m_SmoothSpeed01,
+			target01,
+			ref m_SmoothSpeedVel,
+			speedSmooth,
 			Mathf.Infinity,
 			Time.deltaTime);
 
-		m_SmoothHV = Vector2.SmoothDamp(
-			m_SmoothHV,
-			moving ? hvRaw : Vector2.zero,
-			ref m_HvSmoothVel,
-			hvSmooth,
+		Vector2 targetDir = new Vector2(local.x, local.z);
+		if (targetDir.sqrMagnitude > 1e-6f)
+			targetDir.Normalize();
+
+		float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
+			? m_DirectionSmoothTimeMoveStart
+			: m_DirectionSmoothTime;
+		m_SmoothDir = Vector2.SmoothDamp(
+			m_SmoothDir,
+			moving ? targetDir : Vector2.zero,
+			ref m_SmoothDirVel,
+			dirSmooth,
 			Mathf.Infinity,
 			Time.deltaTime);
 
-		if (m_HardStopBlend && !moving && m_SmoothedMagnitude < 0.02f && m_SmoothHV.sqrMagnitude < 0.0001f)
-			m_HardStopBlend = false;
+		m_Animator.SetFloat(s_NavSpeed, m_SmoothSpeed01);
+		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
+		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
-		if (!suppressBlendWrites)
-		{
-			m_Animator.SetFloat(s_HashHorizontal, m_SmoothHV.x);
-			m_Animator.SetFloat(s_HashVertical, m_SmoothHV.y);
-			m_Animator.SetFloat(s_HashInputMagnitude, m_SmoothedMagnitude);
-			m_Animator.SetFloat(s_HashInputAngle, inputAngle);
-
-			if (moving && !m_WasMoving)
-				m_Animator.SetFloat(s_HashWalkStartAngle, inputAngle);
-		}
-
-		if (!moving && m_WasMoving)
-		{
-			float stopAngle = Vector3.SignedAngle(transform.forward, m_LastPlanarMoveDir, Vector3.up);
-			m_Animator.SetFloat(s_HashWalkStopAngle, stopAngle);
-			TriggerStopPivot(stopAngle);
-		}
-
-		m_WasMoving = moving;
+		int tier = (int)m_Mode;
+		if (m_StanceSource != null && m_StanceSource.CurrentStance != LocomotionStance.Standing)
+			tier = 0;
+		m_Animator.SetInteger(s_LocomotionTier, tier);
 	}
 
-	private void TriggerStopPivot(float _signedAngleFromForwardToVelocity)
+	private enum MoveTier
 	{
-		if (Time.time - m_LastStopPivotTime < m_MinIntervalBetweenStopPivots)
-			return;
-
-		if (m_StopPulseRoutine != null)
-			StopCoroutine(m_StopPulseRoutine);
-
-		m_LastStopPivotTime = Time.time;
-		m_StopPulseRoutine = StartCoroutine(StopPivotPulseRoutine(_signedAngleFromForwardToVelocity));
+		Walk,
+		Run,
+		Sprint
 	}
-
-	private IEnumerator StopPivotPulseRoutine(float _signedAngle)
-	{
-		// Right turn while stopping → RU, left → LU (tune if your animator expects the opposite).
-		bool ru = _signedAngle > 0f;
-		m_Animator.SetBool(s_HashIsStopRU, ru);
-		m_Animator.SetBool(s_HashIsStopLU, !ru);
-
-		yield return new WaitForSeconds(m_StopAnglePulseDuration);
-
-		m_Animator.SetBool(s_HashIsStopRU, false);
-		m_Animator.SetBool(s_HashIsStopLU, false);
-		m_StopPulseRoutine = null;
-	}
-	#endregion
-
-#if UNITY_EDITOR
-	private void OnValidate()
-	{
-		m_WalkInputMagnitude = Mathf.Clamp(m_WalkInputMagnitude, 0.11f, c_MaxInputMagForWalkingBlendTree);
-		m_RunInputMagnitude = Mathf.Clamp(m_RunInputMagnitude, 0.11f, c_MaxInputMagForWalkingBlendTree);
-		if (m_SprintInputMagnitude < c_MinInputMagForSprintBranch)
-			m_SprintInputMagnitude = c_MinInputMagForSprintBranch;
-		if (m_MovingExitSpeed > m_MovingEnterSpeed)
-			m_MovingExitSpeed = m_MovingEnterSpeed * 0.5f;
-	}
-#endif
 }

@@ -18,3 +18,16 @@ public enum EquipmentSlotType
 	/// <summary>Основное оружие (единственный слот на данный момент).</summary>
 	MainHand = 1
 }
+
+/// <summary>
+/// Соответствует int-параметру <c>WeaponMode</c> на Animator (см. <c>NavMeshLocomotion</c> и граф локомоции).
+/// </summary>
+public enum LocomotionWeaponMode
+{
+	Unarmed = 0,
+	Rifle = 1,
+	/// <summary>В Animator сейчас та же ветка, что и <see cref="Rifle"/> (WeaponMode &gt; 0).</summary>
+	RifleCrouchProne = 2,
+	/// <summary>Временно: в NavMeshLocomotion используется винтовочная локомоция до отдельного графа пистолета.</summary>
+	Pistol = 3
+}
