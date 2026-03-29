@@ -24,14 +24,17 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 	private bool m_Dragging;
 	private bool m_DropAccepted;
 	private Vector2 m_DragOffsetLocal;
-	private int m_CapturedCharacterSlotIndex = -1;
+	private bool m_CapturedFromMainHandEquipmentSlot;
+	private int m_CapturedBagIndex;
 	#endregion
 
 	#region Public Properties
 	public InventorySlotView SlotView => m_Slot;
 	public bool WasDraggingThisFrame => m_Dragging;
-	/// <summary>Индекс в <see cref="CharacterInventory"/> на момент начала drag (до Detach).</summary>
-	public int CapturedCharacterSlotIndex => m_CapturedCharacterSlotIndex;
+	/// <summary>Слот основного оружия (первая ячейка снаряжения на панели).</summary>
+	public bool CapturedFromMainHandEquipmentSlot => m_CapturedFromMainHandEquipmentSlot;
+	/// <summary>Индекс в <see cref="CharacterInventory.BagItems"/> (если не слот оружия).</summary>
+	public int CapturedBagIndex => m_CapturedBagIndex;
 	#endregion
 
 	#region Unity Lifecycle
@@ -60,31 +63,19 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		PlayerInventoryCoordinator coordinator = InventoryScreenBindings.Instance != null
 			? InventoryScreenBindings.Instance.Coordinator
 			: null;
-		if (coordinator == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
+		CharacterInventory inv = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.ActiveCharacterInventory
+			: null;
+
+		if (coordinator == null || inv == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
 			return;
 
 		m_CharacterPanel = GetComponentInParent<InventoryPanelView>();
 		if (m_CharacterPanel == null || m_CharacterPanel != coordinator.CharacterInventoryPanel)
 			return;
 
-		IReadOnlyList<InventorySlotView> slots = m_CharacterPanel.Slots;
-		m_CapturedCharacterSlotIndex = -1;
-		int filledIndex = 0;
-		for (int i = 0; i < slots.Count; i++)
-		{
-			InventorySlotView s = slots[i];
-			if (s == null || !s.HasItem)
-				continue;
-			if (s == m_Slot)
-			{
-				m_CapturedCharacterSlotIndex = filledIndex;
-				break;
-			}
-
-			filledIndex++;
-		}
-
-		if (m_CapturedCharacterSlotIndex < 0)
+		if (!coordinator.TryResolveCharacterInventorySlot(m_Slot, inv, out m_CapturedFromMainHandEquipmentSlot,
+			    out m_CapturedBagIndex))
 			return;
 
 		m_RootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
@@ -142,7 +133,6 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 
 		m_DropAccepted = false;
 		m_CharacterContentParent = null;
-		m_CapturedCharacterSlotIndex = -1;
 	}
 	#endregion
 

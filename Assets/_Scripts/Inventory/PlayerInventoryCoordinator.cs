@@ -51,6 +51,9 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>
+	/// Сброс в мир: <c>-1</c> — слот основного оружия, иначе индекс в <see cref="CharacterInventory.BagItems"/>.
+	/// </summary>
 	public bool TryMoveCharacterSlotToGround(int _characterSlotIndex)
 	{
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
@@ -59,15 +62,23 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		if (inv == null || m_GroundPanel == null || m_CharacterInventoryPanel == null)
 			return false;
 
-		if (!inv.TryRemoveAt(_characterSlotIndex, out InventorySlotRuntimeData data))
-			return false;
+		InventorySlotRuntimeData data;
+		if (_characterSlotIndex == -1)
+		{
+			if (!inv.TryRemoveMainHandEquipment(out data))
+				return false;
+		}
+		else
+		{
+			if (!inv.TryRemoveBagAt(_characterSlotIndex, out data))
+				return false;
+		}
 
-		return TryCompleteCharacterToGroundTransfer(inv, data, null);
+		return TryCompleteCharacterToGroundTransfer(inv, data, null, _characterSlotIndex == -1);
 	}
 
 	/// <summary>
-	/// Ctrl + ЛКМ по занятой ячейке: один путь с данными, без дублирования в списке.
-	/// Индекс в рюкзаке считается только по занятым слотам (как порядок в <see cref="CharacterInventory"/>).
+	/// Ctrl + ЛКМ по занятой ячейке: быстрый перенос на землю / с земли.
 	/// </summary>
 	public bool TryQuickTransferCtrlClick(InventorySlotView _slot)
 	{
@@ -86,6 +97,38 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 			return TryQuickTransferCharacterToGroundInternal(inv, _slot);
 
 		return false;
+	}
+
+	/// <summary>
+	/// Определить, откуда снять предмет: слот основного оружия (первый на панели) или сумка.
+	/// </summary>
+	public bool TryResolveCharacterInventorySlot(InventorySlotView _slot, CharacterInventory _inv, out bool _isMainHand,
+		out int _bagIndex)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+
+		if (m_CharacterInventoryPanel == null || _slot == null || _inv == null || !_slot.HasItem)
+			return false;
+
+		if (!IsSlotOnPanel(_slot, m_CharacterInventoryPanel))
+			return false;
+
+		int containerIndex = m_CharacterInventoryPanel.GetInventorySlotContainerIndex(_slot);
+		if (containerIndex < 0)
+			return false;
+
+		int lead = m_CharacterInventoryPanel.LeadingEquipmentSlotCount;
+		if (containerIndex < lead)
+		{
+			if (containerIndex != 0)
+				return false;
+			_isMainHand = true;
+			return _inv.HasMainHandEquipment;
+		}
+
+		_bagIndex = containerIndex - lead;
+		return _bagIndex >= 0 && _bagIndex < _inv.BagCount;
 	}
 
 	private static bool IsSlotOnPanel(InventorySlotView _slot, InventoryPanelView _panel)
@@ -126,40 +169,22 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 
 	private bool TryQuickTransferCharacterToGroundInternal(CharacterInventory _inv, InventorySlotView _slot)
 	{
-		int invIndex = GetCharacterInventoryIndexForOccupiedSlot(m_CharacterInventoryPanel, _slot, _inv);
-		if (invIndex < 0)
+		if (!TryResolveCharacterInventorySlot(_slot, _inv, out bool isMainHand, out int bagIndex))
 			return false;
 
-		if (!_inv.TryRemoveAt(invIndex, out InventorySlotRuntimeData data))
-			return false;
-
-		return TryCompleteCharacterToGroundTransfer(_inv, data, null);
-	}
-
-	private static int GetCharacterInventoryIndexForOccupiedSlot(InventoryPanelView _bag, InventorySlotView _target,
-		CharacterInventory _inv)
-	{
-		if (_bag == null || _target == null || _inv == null || !_target.HasItem)
-			return -1;
-
-		int filledIndex = 0;
-		var slots = _bag.Slots;
-		for (int i = 0; i < slots.Count; i++)
+		InventorySlotRuntimeData data;
+		if (isMainHand)
 		{
-			InventorySlotView s = slots[i];
-			if (s == null || !s.HasItem)
-				continue;
-			if (s == _target)
-			{
-				if (filledIndex >= _inv.Count)
-					return -1;
-				return filledIndex;
-			}
-
-			filledIndex++;
+			if (!_inv.TryRemoveMainHandEquipment(out data))
+				return false;
+		}
+		else
+		{
+			if (!_inv.TryRemoveBagAt(bagIndex, out data))
+				return false;
 		}
 
-		return -1;
+		return TryCompleteCharacterToGroundTransfer(_inv, data, null, isMainHand);
 	}
 
 	private static WorldPickupItem SpawnDropWorldPickup(CharacterInventory _inv, ItemDefinition _def, string _displayName)
@@ -177,9 +202,6 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		return pickup;
 	}
 
-	/// <summary>
-	/// Завершение drag-and-drop: та же ячейка переезжает в UI рюкзака, данные — в <see cref="CharacterInventory"/>.
-	/// </summary>
 	public bool TryAcceptDraggedGroundSlot(InventoryGroundToCharacterDrag _drag)
 	{
 		if (_drag == null || !_drag.WasDraggingThisFrame)
@@ -204,16 +226,14 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		slot.SetItem(forInv);
 		if (!m_CharacterInventoryPanel.AdoptDraggedSlot(slot))
 		{
-			inv.TryRemoveAt(inv.Count - 1, out _);
+			if (inv.BagCount > 0)
+				inv.TryRemoveBagAt(inv.BagCount - 1, out _);
 			return false;
 		}
 
 		return true;
 	}
 
-	/// <summary>
-	/// Завершение drag-and-drop: ячейка рюкзака переезжает на панель «земля», слот удаляется из <see cref="CharacterInventory"/>.
-	/// </summary>
 	public bool TryAcceptDraggedCharacterSlot(InventoryCharacterToGroundDrag _drag)
 	{
 		if (_drag == null || !_drag.WasDraggingThisFrame)
@@ -222,21 +242,30 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
 		CharacterInventory inv = bindings != null ? bindings.ActiveCharacterInventory : null;
 		InventorySlotView slot = _drag.SlotView;
-		int index = _drag.CapturedCharacterSlotIndex;
 
 		if (inv == null || m_GroundPanel == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
 			return false;
-		if (index < 0 || index >= inv.Count)
-			return false;
 
-		if (!inv.TryRemoveAt(index, out InventorySlotRuntimeData data))
-			return false;
+		InventorySlotRuntimeData data;
+		if (_drag.CapturedFromMainHandEquipmentSlot)
+		{
+			if (!inv.TryRemoveMainHandEquipment(out data))
+				return false;
+		}
+		else
+		{
+			int bagIndex = _drag.CapturedBagIndex;
+			if (bagIndex < 0 || bagIndex >= inv.BagCount)
+				return false;
+			if (!inv.TryRemoveBagAt(bagIndex, out data))
+				return false;
+		}
 
-		return TryCompleteCharacterToGroundTransfer(inv, data, slot);
+		return TryCompleteCharacterToGroundTransfer(inv, data, slot, _drag.CapturedFromMainHandEquipmentSlot);
 	}
 
 	private bool TryCompleteCharacterToGroundTransfer(CharacterInventory _inv, InventorySlotRuntimeData _data,
-		InventorySlotView _adoptExistingSlotOrNull)
+		InventorySlotView _adoptExistingSlotOrNull, bool _removedFromMainHandSlot)
 	{
 		WorldPickupItem spawned = null;
 		ItemDefinition def = _data.Definition;
@@ -245,7 +274,7 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 			spawned = SpawnDropWorldPickup(_inv, def, _data.DisplayName);
 			if (spawned == null)
 			{
-				_inv.TryAdd(_data);
+				_inv.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
 				_inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
 				return false;
 			}
@@ -259,7 +288,7 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 		{
 			if (!m_GroundPanel.AdoptDraggedSlot(_adoptExistingSlotOrNull))
 			{
-				_inv.TryAdd(_data);
+				_inv.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
 				_inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
 				if (spawned != null)
 					Object.Destroy(spawned.gameObject);
@@ -274,7 +303,7 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 
 		if (!placed)
 		{
-			_inv.TryAdd(_data);
+			_inv.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
 			_inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
 			if (spawned != null)
 				Object.Destroy(spawned.gameObject);
@@ -285,6 +314,60 @@ public class PlayerInventoryCoordinator : MonoBehaviour
 			spawned.RegisterListedInGroundUi();
 
 		_inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	#endregion
+
+	#region Equipment
+	/// <summary>
+	/// Двойной клик: слот оружия — снять в сумку; сумка — экипировать.
+	/// Если в руках уже тот же <see cref="ItemDefinition"/>, что и у строки сумки, повторный клик по сумке снимает с рук в сумку (без обмена).
+	/// </summary>
+	public bool TryEquipFromCharacterBagDoubleClick(InventorySlotView _slot)
+	{
+		if (_slot == null || !_slot.HasItem)
+			return false;
+
+		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
+		CharacterInventory inv = bindings != null ? bindings.ActiveCharacterInventory : null;
+		if (inv == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		if (!TryResolveCharacterInventorySlot(_slot, inv, out bool isMainHand, out int bagIndex))
+			return false;
+
+		if (isMainHand)
+		{
+			if (!inv.TryUnequipMainHandToBag())
+				return false;
+			inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return true;
+		}
+
+		InventorySlotRuntimeData data = _slot.Data;
+		if (data.Definition == null || !data.Definition.IsEquipment)
+			return false;
+
+		if (inv.HasMainHandEquipment && inv.MainHandEquipment.Definition == data.Definition)
+		{
+			if (!inv.TryUnequipMainHandToBag())
+				return false;
+			inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return true;
+		}
+
+		UnitEquipment equipment = inv.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+		{
+			Debug.LogWarning($"{nameof(PlayerInventoryCoordinator)}: на юните нет {nameof(UnitEquipment)}.", this);
+			return false;
+		}
+
+		if (!inv.TryMoveBagItemToMainHand(bagIndex, equipment))
+			return false;
+
+		inv.RepaintInventoryPanel(m_CharacterInventoryPanel);
 		return true;
 	}
 	#endregion

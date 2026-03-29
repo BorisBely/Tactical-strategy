@@ -17,6 +17,10 @@ public class InventoryPanelView : MonoBehaviour
 	[Tooltip("После ClearAllSlots уничтожать ячейки, созданные из префаба (ручные в сцене не трогаем).")]
 	[SerializeField] private bool m_DestroySpawnedSlotsOnClearAll = true;
 
+	[Header("Панель рюкзака персонажа")]
+	[Tooltip("Сколько первых ячеек под снаряжение (0 = только сумка). Обычно 1 = основное оружие, далее броня и т.д.")]
+	[SerializeField] private int m_LeadingEquipmentSlotCount;
+
 	[Header("Связи Canvas (опционально)")]
 	[Tooltip("Для панели инвентаря персонажа: зона drag-and-drop с «земли». Заполняется на общем Canvas.")]
 	[SerializeField] private InventoryCharacterBagDropZone m_CharacterBagDropZone;
@@ -31,6 +35,7 @@ public class InventoryPanelView : MonoBehaviour
 
 	#region Public Properties
 	public IReadOnlyList<InventorySlotView> Slots => m_Slots;
+	public int LeadingEquipmentSlotCount => m_LeadingEquipmentSlotCount;
 	public InventoryCharacterBagDropZone CharacterBagDropZone => m_CharacterBagDropZone;
 	public InventoryGroundDropZone GroundDropZone => m_GroundDropZone;
 	#endregion
@@ -178,6 +183,51 @@ public class InventoryPanelView : MonoBehaviour
 		}
 
 		return false;
+	}
+
+	/// <summary>Перерисовать ячейки: сначала слоты снаряжения (оружие в первом), затем сумка. Нужны Slot Prefab и Slots Container.</summary>
+	public void RepaintFromCharacterInventory(CharacterInventory _inventory)
+	{
+		if (_inventory == null || m_SlotPrefab == null || m_SlotsContainer == null)
+			return;
+
+		ClearAllSlots();
+
+		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
+		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
+		IReadOnlyList<InventorySlotRuntimeData> bag = _inventory.BagItems;
+
+		for (int i = 0; i < lead; i++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			if (i == 0 && !main.IsEmpty)
+				cell.SetItem(main);
+		}
+
+		for (int b = 0; b < bag.Count; b++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			cell.SetItem(bag[b]);
+		}
+
+		RefreshSlotsFromHierarchy();
+		RebuildContentLayout();
+	}
+
+	/// <summary>Индекс ячейки среди прямых детей контента (0 = первая строка).</summary>
+	public int GetInventorySlotContainerIndex(InventorySlotView _slot)
+	{
+		if (_slot == null || m_SlotsContainer == null)
+			return -1;
+
+		Transform t = _slot.transform;
+		for (int i = 0; i < m_SlotsContainer.childCount; i++)
+		{
+			if (m_SlotsContainer.GetChild(i) == t)
+				return i;
+		}
+
+		return -1;
 	}
 
 	public void ClearAllSlots()

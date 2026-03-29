@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
-/// Хранилище лута на юните. UI панели инвентаря — только отображение; источник правды — этот список.
+/// Инвентарь юнита: первый слот UI — основное оружие (снаряжение), далее — сумка.
+/// Сброс на землю из слота оружия снимает модель с рук.
 /// </summary>
 [DisallowMultipleComponent]
 public class CharacterInventory : MonoBehaviour
@@ -17,16 +19,25 @@ public class CharacterInventory : MonoBehaviour
 	#endregion
 
 	#region Private Fields
-	private readonly List<InventorySlotRuntimeData> m_Items = new List<InventorySlotRuntimeData>();
+	[SerializeField] private InventorySlotRuntimeData m_MainHandEquipment;
+	[FormerlySerializedAs("m_Items")]
+	[SerializeField] private List<InventorySlotRuntimeData> m_BagItems = new List<InventorySlotRuntimeData>();
 	#endregion
 
 	#region Public Properties
-	public IReadOnlyList<InventorySlotRuntimeData> Items => m_Items;
-	public int Count => m_Items.Count;
+	/// <summary>Слот основного оружия (первый на панели при LeadingEquipmentSlotCount ≥ 1).</summary>
+	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
+
+	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
+	public int BagCount => m_BagItems.Count;
+	public bool HasMainHandEquipment => !m_MainHandEquipment.IsEmpty;
+
+	/// <summary>Число предметов в сумке + занятый слот оружия (для общих оценок).</summary>
+	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0);
 	#endregion
 
 	#region Public Methods
-	/// <summary>Добавить копию предмета (ссылка на <see cref="InventorySlotRuntimeData.WorldSource"/> не сохраняется).</summary>
+	/// <summary>Добавить в сумку (не в слот оружия).</summary>
 	public bool TryAdd(InventorySlotRuntimeData _data)
 	{
 		if (_data.IsEmpty)
@@ -34,40 +45,88 @@ public class CharacterInventory : MonoBehaviour
 
 		InventorySlotRuntimeData copy = _data;
 		copy.WorldSource = null;
-		m_Items.Add(copy);
+		m_BagItems.Add(copy);
 		return true;
 	}
 
-	public bool TryRemoveAt(int _index, out InventorySlotRuntimeData _removed)
+	public bool TryRemoveBagAt(int _index, out InventorySlotRuntimeData _removed)
 	{
-		if (_index < 0 || _index >= m_Items.Count)
+		if (_index < 0 || _index >= m_BagItems.Count)
 		{
 			_removed = default;
 			return false;
 		}
 
-		_removed = m_Items[_index];
-		m_Items.RemoveAt(_index);
+		_removed = m_BagItems[_index];
+		m_BagItems.RemoveAt(_index);
+		return true;
+	}
+
+	/// <summary>Снять основное оружие со слота (например выброс на землю). Снимает и визуал с юнита.</summary>
+	public bool TryRemoveMainHandEquipment(out InventorySlotRuntimeData _removed)
+	{
+		if (m_MainHandEquipment.IsEmpty)
+		{
+			_removed = default;
+			return false;
+		}
+
+		_removed = m_MainHandEquipment;
+		m_MainHandEquipment = default;
+		ClearUnitEquipmentVisual();
+		return true;
+	}
+
+	/// <summary>Переместить предмет из сумки в слот основного оружия и обновить модель на юните. Старый слот оружия, если был, вставляется на место строки в сумке.</summary>
+	public bool TryMoveBagItemToMainHand(int _bagIndex, UnitEquipment _equipment)
+	{
+		if (_equipment == null || _bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
+		if (picked.Definition == null || !picked.Definition.IsEquipment)
+			return false;
+
+		InventorySlotRuntimeData previousMain = m_MainHandEquipment;
+		m_BagItems.RemoveAt(_bagIndex);
+		m_MainHandEquipment = picked;
+
+		if (!previousMain.IsEmpty)
+			m_BagItems.Insert(_bagIndex, previousMain);
+
+		_equipment.TryEquip(m_MainHandEquipment.Definition);
+		return true;
+	}
+
+	/// <summary>Двойной клик по слоту оружия: убрать в сумку и снять модель с рук.</summary>
+	public bool TryUnequipMainHandToBag()
+	{
+		if (m_MainHandEquipment.IsEmpty)
+			return false;
+
+		InventorySlotRuntimeData mh = m_MainHandEquipment;
+		m_MainHandEquipment = default;
+		ClearUnitEquipmentVisual();
+		m_BagItems.Add(mh);
 		return true;
 	}
 
 	public void Clear()
 	{
-		m_Items.Clear();
+		m_MainHandEquipment = default;
+		m_BagItems.Clear();
+		ClearUnitEquipmentVisual();
 	}
 
-	/// <summary>Синхронизировать общую UI-панель рюкзака с содержимым этого инвентаря.</summary>
+	/// <summary>Синхронизировать панель рюкзака (слоты экипировки + сумка).</summary>
 	public void RepaintInventoryPanel(InventoryPanelView _panel)
 	{
 		if (_panel == null)
 			return;
 
-		_panel.ClearAllSlots();
-		for (int i = 0; i < m_Items.Count; i++)
-			_panel.TryAdd(m_Items[i]);
+		_panel.RepaintFromCharacterInventory(this);
 	}
 
-	/// <summary>Точка перед юнитом для <see cref="ItemDefinition.DropWorldPrefab"/>.</summary>
 	public void GetDropWorldPose(out Vector3 _position, out Quaternion _rotation)
 	{
 		Transform origin = transform;
@@ -88,4 +147,31 @@ public class CharacterInventory : MonoBehaviour
 		}
 	}
 	#endregion
+
+	#region Private Methods
+	private void ClearUnitEquipmentVisual()
+	{
+		UnitEquipment equipment = GetComponentInChildren<UnitEquipment>(true);
+		if (equipment != null)
+			equipment.ClearAllEquipment();
+	}
+
+	/// <summary>Вернуть предмет после неудачного выброса (спавн/панель отклонили перенос).</summary>
+	public void RestoreAfterFailedDrop(bool _toMainHand, InventorySlotRuntimeData _data)
+	{
+		if (_data.IsEmpty)
+			return;
+
+		if (_toMainHand)
+		{
+			m_MainHandEquipment = _data;
+			UnitEquipment equipment = GetComponentInChildren<UnitEquipment>(true);
+			if (equipment != null && _data.Definition != null)
+				equipment.TryEquip(_data.Definition);
+		}
+		else
+			TryAdd(_data);
+	}
+	#endregion
 }
+
