@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 /// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
 /// Поворот по направлению движения, root motion у Animator выключен.
-/// Параметры аниматора: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance (см. константы <see cref="UnitClickToMove"/>).
+/// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
@@ -177,11 +177,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 				    m_LastStance == LocomotionStance.Prone)
 					m_PostStandLowNavSpeedUntil = Time.time + m_AfterStandUpWalkAnimHoldSeconds;
 
-				// Стоя ↔ присед по C (или выход из приседа C/Z): всегда шаг. Иначе после бега/спринта → присед → стоя
-				// сохранялся Run/Sprint. ПКМ+Shift/двойной клик не проходит сюда: там ForceStanding() и m_LastStance
-				// выставлены в TryRightClick без пары «был присед» в этом кадре.
+				// Стоя ↔ присед / стоя ↔ лёжа / присед ↔ лёжа (Z, C): заказ скорости — шаг. ПКМ+Shift/двойной клик из приседа/лёжа
+				// не проходит сюда (TryRightClick + ForceStanding).
 				if ((stance == LocomotionStance.Crouch && m_LastStance == LocomotionStance.Standing) ||
-				    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Crouch))
+				    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Crouch) ||
+				    (stance == LocomotionStance.Prone && m_LastStance == LocomotionStance.Standing) ||
+				    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Prone) ||
+				    (stance == LocomotionStance.Prone && m_LastStance == LocomotionStance.Crouch) ||
+				    (stance == LocomotionStance.Crouch && m_LastStance == LocomotionStance.Prone))
 					m_Mode = MoveTier.Walk;
 
 				m_LastStance = stance;
@@ -438,9 +441,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
-		// Всегда отражаем m_Mode. В графе присед не ветвится по tier; принудительный 0 ломал
-		// Entry/переходы в стойку, если UnitAnimatorStance меняет Stance после этого Update.
-		m_Animator.SetInteger(s_LocomotionTier, (int)m_Mode);
+		int tier = (int)m_Mode;
+		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
+			tier = 0;
+		m_Animator.SetInteger(s_LocomotionTier, tier);
 	}
 
 	private enum MoveTier
