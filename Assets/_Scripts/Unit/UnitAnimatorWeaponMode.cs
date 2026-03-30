@@ -24,13 +24,24 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 	}
 
+	private void OnEnable()
+	{
+		m_LastEquipped = null;
+		PushWeaponModeIfChanged(force: true);
+	}
+
 	private void LateUpdate()
+	{
+		PushWeaponModeIfChanged(force: false);
+	}
+
+	private void PushWeaponModeIfChanged(bool force)
 	{
 		if (m_Animator == null)
 			return;
 
 		ItemDefinition current = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
-		if (ReferenceEquals(current, m_LastEquipped))
+		if (!force && ReferenceEquals(current, m_LastEquipped))
 			return;
 
 		m_LastEquipped = current;

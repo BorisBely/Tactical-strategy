@@ -5,6 +5,9 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// NavMesh: ПКМ — точка на поверхности, Shift+ПКМ — бег, двойной ПКМ — спринт, F — жёсткий стоп.
+/// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
+/// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
+/// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
 /// Поворот по направлению движения, root motion у Animator выключен.
 /// Параметры аниматора: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance (см. константы <see cref="UnitClickToMove"/>).
 /// </summary>
@@ -21,7 +24,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Локальная ось Z направления движения (−1..1), вперёд/назад.</summary>
 	public const string ParamNavForward = "NavForward";
 
-	/// <summary>Ярус скорости заказа: 0 walk, 1 run, 2 sprint — выбор start/loop/stop в Animator.</summary>
+	/// <summary>Ярус скорости заказа: 0 walk, 1 run, 2 sprint — выбор loop/stop в стоячей локомоции (и start/loop в приседе и т.д.).</summary>
 	public const string ParamLocomotionTier = "LocomotionTier";
 
 	private static readonly int s_NavSpeed = Animator.StringToHash(ParamNavSpeed);
@@ -45,8 +48,16 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_WalkSpeed = 1.5f;
 	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3.5f;
 	[SerializeField, Min(0.1f)] private float m_SprintSpeed = 7.25f;
-	[SerializeField, Range(0.1f, 1f)] private float m_CrouchSpeedMul = 0.55f;
-	[SerializeField, Range(0.05f, 1f)] private float m_ProneSpeedMul = 0.35f;
+	[Tooltip("Скорость NavMeshAgent в приседе (м/с). Подгоняй под шаг клипа Crouch_WalkFwdLoop (MovementAnimsetPro).")]
+	[SerializeField, Min(0.1f)] private float m_CrouchWalkSpeed = 1.15f;
+	[Tooltip("Скорость ползка лёжа (м/с).")]
+	[SerializeField, Min(0.05f)] private float m_ProneCrawlSpeed = 0.5f;
+
+	[Header("Стояние: анимация вставания при движении")]
+	[Tooltip("После перехода лёжа → стоя при активном пути: время, когда NavSpeed для аниматора ограничен (ниже порога движения), чтобы тянуть граф через Stand_Idle. Из приседа при движении не используется — см. Entry в NavMeshLocomotion (StandUnarmed).")]
+	[SerializeField, Min(0f)] private float m_AfterStandUpWalkAnimHoldSeconds = 0.32f;
+	[Tooltip("Потолок NavSpeed на время удержания после вставания из лёжа (ниже порога движения в контроллере, обычно 0.055).")]
+	[SerializeField, Range(0.01f, 0.054f)] private float m_StandUpNavSpeedAnimatorCeiling = 0.042f;
 
 	[Header("Rotation")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 12f;
@@ -80,6 +91,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private Vector2 m_SmoothDir;
 	private Vector2 m_SmoothDirVel;
 
+	private float m_PostStandLowNavSpeedUntil = -1f;
+
 	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
 
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
@@ -109,6 +122,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_RayCamera == null)
 			m_RayCamera = Camera.main;
 
+		m_Agent.updatePosition = true;
 		m_Agent.updateRotation = false;
 		m_Agent.stoppingDistance = m_StoppingDistance;
 
@@ -155,6 +169,21 @@ public sealed class UnitClickToMove : MonoBehaviour
 			LocomotionStance stance = m_StanceSource.CurrentStance;
 			if (stance != m_LastStance)
 			{
+				// Только из лёжа: искусственно низкий NavSpeed, чтобы граф шёл через Stand_Idle.
+				// Из приседа при движении NavSpeed не режем — иначе Entry (Walk/Run/Sprint) в StandUnarmed не сработает.
+				if (m_AfterStandUpWalkAnimHoldSeconds > 0.001f &&
+				    HasActiveMoveIntent() &&
+				    stance == LocomotionStance.Standing &&
+				    m_LastStance == LocomotionStance.Prone)
+					m_PostStandLowNavSpeedUntil = Time.time + m_AfterStandUpWalkAnimHoldSeconds;
+
+				// Стоя ↔ присед по C (или выход из приседа C/Z): всегда шаг. Иначе после бега/спринта → присед → стоя
+				// сохранялся Run/Sprint. ПКМ+Shift/двойной клик не проходит сюда: там ForceStanding() и m_LastStance
+				// выставлены в TryRightClick без пары «был присед» в этом кадре.
+				if ((stance == LocomotionStance.Crouch && m_LastStance == LocomotionStance.Standing) ||
+				    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Crouch))
+					m_Mode = MoveTier.Walk;
+
 				m_LastStance = stance;
 				ApplyTierSpeed();
 			}
@@ -220,6 +249,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_LastRightClickTime = Time.time;
 
+		if (m_StanceSource != null &&
+		    (m_Mode == MoveTier.Run || m_Mode == MoveTier.Sprint) &&
+		    m_StanceSource.CurrentStance != LocomotionStance.Standing)
+		{
+			LocomotionStance stanceBeforeStand = m_StanceSource.CurrentStance;
+			if (m_AfterStandUpWalkAnimHoldSeconds > 0.001f && stanceBeforeStand == LocomotionStance.Prone)
+				m_PostStandLowNavSpeedUntil = Time.time + m_AfterStandUpWalkAnimHoldSeconds;
+			m_StanceSource.ForceStanding();
+			m_LastStance = LocomotionStance.Standing;
+		}
+
 		ApplyTierSpeed();
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(navHit.position);
@@ -228,37 +268,44 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void ApplyTierSpeed()
 	{
-		float baseSpeed = m_WalkSpeed;
-		switch (m_Mode)
-		{
-			case MoveTier.Walk:
-				baseSpeed = m_WalkSpeed;
-				break;
-			case MoveTier.Run:
-				baseSpeed = m_RunSpeed;
-				break;
-			case MoveTier.Sprint:
-				baseSpeed = m_SprintSpeed;
-				break;
-		}
+		float maxSpeed;
 
-		float mul = 1f;
 		if (m_StanceSource != null)
 		{
 			switch (m_StanceSource.CurrentStance)
 			{
 				case LocomotionStance.Crouch:
-					mul = m_CrouchSpeedMul;
+					maxSpeed = m_CrouchWalkSpeed;
 					break;
 				case LocomotionStance.Prone:
-					mul = m_ProneSpeedMul;
+					maxSpeed = m_ProneCrawlSpeed;
+					break;
+				default:
+					maxSpeed = GetStandingTierSpeed();
 					break;
 			}
 		}
+		else
+			maxSpeed = GetStandingTierSpeed();
 
-		float maxSpeed = baseSpeed * mul;
 		m_Agent.speed = maxSpeed;
 		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, maxSpeed * 4.5f);
+	}
+
+	private float GetStandingTierSpeed()
+	{
+		MoveTier tierForSpeed = m_Mode;
+		switch (tierForSpeed)
+		{
+			case MoveTier.Walk:
+				return m_WalkSpeed;
+			case MoveTier.Run:
+				return m_RunSpeed;
+			case MoveTier.Sprint:
+				return m_SprintSpeed;
+			default:
+				return m_WalkSpeed;
+		}
 	}
 
 	/// <summary>Есть заказ двигаться: путь считается или уже есть и до цели дальше чем stopping distance.</summary>
@@ -383,14 +430,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 			Mathf.Infinity,
 			Time.deltaTime);
 
-		m_Animator.SetFloat(s_NavSpeed, m_SmoothSpeed01);
+		float navSpeedOut = m_SmoothSpeed01;
+		if (m_PostStandLowNavSpeedUntil > Time.time && HasActiveMoveIntent())
+			navSpeedOut = Mathf.Min(navSpeedOut, m_StandUpNavSpeedAnimatorCeiling);
+
+		m_Animator.SetFloat(s_NavSpeed, navSpeedOut);
 		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
-		int tier = (int)m_Mode;
-		if (m_StanceSource != null && m_StanceSource.CurrentStance != LocomotionStance.Standing)
-			tier = 0;
-		m_Animator.SetInteger(s_LocomotionTier, tier);
+		// Всегда отражаем m_Mode. В графе присед не ветвится по tier; принудительный 0 ломал
+		// Entry/переходы в стойку, если UnitAnimatorStance меняет Stance после этого Update.
+		m_Animator.SetInteger(s_LocomotionTier, (int)m_Mode);
 	}
 
 	private enum MoveTier

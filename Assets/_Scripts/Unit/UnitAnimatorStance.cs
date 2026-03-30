@@ -15,10 +15,19 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	private static readonly int s_Stance = Animator.StringToHash(ParamStance);
 
 	[SerializeField] private Animator m_Animator;
+	[Tooltip("Если true, дополнительно к C используется левый Ctrl (удобно при раскладке / когда current-клавиатура не та).")]
+	[SerializeField] private bool m_LeftCtrlAlsoTogglesCrouch = true;
 
 	private LocomotionStance m_Stance = LocomotionStance.Standing;
 
 	public LocomotionStance CurrentStance => m_Stance;
+
+	/// <summary>Встать из приседа/лёжа без ожидания C/Z (например, заказ бега/спринта).</summary>
+	public void ForceStanding()
+	{
+		m_Stance = LocomotionStance.Standing;
+		PushStance();
+	}
 
 	private void Awake()
 	{
@@ -33,11 +42,8 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 
 	private void Update()
 	{
-		if (Keyboard.current == null)
-			return;
-
-		bool zPressed = Keyboard.current.zKey.wasPressedThisFrame;
-		bool cPressed = Keyboard.current.cKey.wasPressedThisFrame;
+		bool zPressed = WasZPressedThisFrame();
+		bool cPressed = WasCrouchKeyPressedThisFrame();
 
 		if (m_Stance == LocomotionStance.Prone)
 		{
@@ -64,5 +70,34 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	{
 		if (m_Animator != null)
 			m_Animator.SetInteger(s_Stance, (int)m_Stance);
+	}
+
+	/// <summary>Обход всех подключённых клавиатур: <see cref="Keyboard.current"/> иногда null или не та раскладка/устройство.</summary>
+	private static bool WasZPressedThisFrame()
+	{
+		for (int i = 0; i < InputSystem.devices.Count; i++)
+		{
+			if (InputSystem.devices[i] is not Keyboard kb)
+				continue;
+			if (kb.zKey.wasPressedThisFrame)
+				return true;
+		}
+
+		return false;
+	}
+
+	private bool WasCrouchKeyPressedThisFrame()
+	{
+		for (int i = 0; i < InputSystem.devices.Count; i++)
+		{
+			if (InputSystem.devices[i] is not Keyboard kb)
+				continue;
+			if (kb.cKey.wasPressedThisFrame)
+				return true;
+			if (m_LeftCtrlAlsoTogglesCrouch && kb.leftCtrlKey.wasPressedThisFrame)
+				return true;
+		}
+
+		return false;
 	}
 }

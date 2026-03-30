@@ -4,6 +4,7 @@ using UnityEngine.AI;
 /// <summary>
 /// Подгоняет размеры <see cref="NavMeshAgent"/> под <see cref="LocomotionStance"/> (стоя / присед / лёжа),
 /// чтобы капсула навигации совпадала с позой персонажа.
+/// После <see cref="NavMeshAgent.Warp"/> путь сбрасывается — при активном движении цель задаётся снова.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
@@ -83,7 +84,30 @@ public sealed class UnitNavMeshStanceSync : MonoBehaviour
 		m_Agent.radius = newRadius;
 		m_Agent.baseOffset = newBaseOffset;
 
+		bool restoreMove = ShouldPreserveMovementIntent();
+		Vector3 savedDestination = m_Agent.destination;
+
 		if (m_Agent.isOnNavMesh)
 			m_Agent.Warp(transform.position);
+
+		if (restoreMove)
+		{
+			m_Agent.isStopped = false;
+			m_Agent.SetDestination(savedDestination);
+		}
+	}
+
+	/// <summary>Тот же смысл, что активный заказ в <c>UnitClickToMove</c>: не терять ПКМ-цель при смене стойки.</summary>
+	private bool ShouldPreserveMovementIntent()
+	{
+		if (m_Agent.isStopped)
+			return false;
+		if (m_Agent.pathPending)
+			return true;
+		if (!m_Agent.hasPath)
+			return false;
+		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
+			return false;
+		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 }
