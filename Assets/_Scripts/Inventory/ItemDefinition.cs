@@ -30,9 +30,14 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private Vector3 m_RightHandLocalEulerAngles;
 	[Tooltip("Имя дочернего объекта на префабе оружия: мировая позиция/поворот для IK левой кисти. Пусто — левая рука без IK.")]
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
-	[Header("Анимация (Equipment)")]
-	[Tooltip("Какую ветку локомоции включать при экипировке этого предмета. Должен совпадать с переходами по WeaponMode в Animator.")]
-	[SerializeField] private LocomotionWeaponMode m_LocomotionWeaponMode = LocomotionWeaponMode.Rifle;
+
+	[Header("Снаряжение (Equipment)")]
+	[SerializeField] private EquipmentKind m_EquipmentKind = EquipmentKind.Weapon;
+
+	[Header("Оружие (Equipment, Kind = Weapon)")]
+	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
+	[SerializeField] private WeaponType m_WeaponType = WeaponType.Primary;
+
 	#endregion
 
 	#region Public Properties
@@ -49,7 +54,9 @@ public class ItemDefinition : ScriptableObject
 	public string LeftHandIkTargetChildName => m_LeftHandIkTargetChildName;
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
-	/// <summary>Режим аниматора при экипировке; для не-Equipment не используется.</summary>
-	public LocomotionWeaponMode LocomotionWeaponMode => m_LocomotionWeaponMode;
+	/// <summary>Подтип снаряжения (для Equipment).</summary>
+	public EquipmentKind EquipmentKind => m_EquipmentKind;
+	/// <summary>Тип оружия (для Equipment).</summary>
+	public WeaponType WeaponType => m_WeaponType;
 	#endregion
 }
