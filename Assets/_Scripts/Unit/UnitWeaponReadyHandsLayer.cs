@@ -23,26 +23,33 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	#region Private Fields
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
 
 	[Header("Ввод")]
 	[SerializeField] private Key m_ToggleReadyKey = Key.E;
 
 	[Header("Слой рук (no aim)")]
-	[SerializeField, Min(0f)] private float m_LayerBlendSeconds = 0.08f;
+	[SerializeField, Min(0f)] private float m_LayerBlendSeconds = 0.12f;
+	[Tooltip("За сколько секунд плавно меняется вес слоя UpperBody_NoAim (0↔1) при смене готов/не готов.")]
+	[SerializeField, Min(0.02f)] private float m_UpperLayerWeightSmoothSeconds = 0.2f;
 
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_LocomotionTier = Animator.StringToHash(UnitClickToMove.ParamLocomotionTier);
 
 	private int m_LayerIndex = -1;
-	private bool m_IsReady;
+	private bool m_UserWantsReady;
 	private ItemDefinition m_LastEquipped;
 	private bool m_WasNoAimLayerActive;
 	private WeaponType m_LastNoAimWeaponTypePlayed;
+	private float m_SmoothedLayerWeight;
+	private bool m_SnapLayerWeightNextFrame;
 	#endregion
 
 	#region Public Methods
 	/// <summary>
-	/// Нужно ли играть безоружную локомоцию при том, что в руках оружие (не на готове в допустимом контексте).
+	/// Нужно ли играть безоружную локомоцию при том, что в руках оружие (не на готове).
+	/// Важно: это НЕ связано с правилами слоя рук — локомоция без оружия должна переключаться и при лёжа/переходах,
+	/// чтобы стойки работали так же, как в полностью безоружном состоянии.
 	/// </summary>
 	public bool ShouldUseUnarmedLocomotionBranch()
 	{
@@ -53,10 +60,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (current == null || !current.IsEquipment || current.EquipmentKind != EquipmentKind.Weapon)
 			return false;
 
-		if (m_IsReady)
+		if (GetEffectiveIsReady())
 			return false;
 
-		return IsUnarmedNotReadyContextAllowed();
+		return true;
 	}
 
 	/// <summary>
@@ -80,6 +87,24 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		return true;
 	}
+
+	/// <summary>
+	/// Нажатие Z (смена стойки): при экипированном оружии включает «на готове» (как перевод E в состояние готов, без переключения).
+	/// При спринте сбрасывает заказ скорости на шаг — как при включении готов по E.
+	/// </summary>
+	public void EnableReadyFromStanceZInput()
+	{
+		if (!IsWeaponEquipped())
+			return;
+
+		if (m_UserWantsReady)
+			return;
+
+		m_UserWantsReady = true;
+
+		if (IsSprintingNow() && m_ClickToMove != null)
+			m_ClickToMove.ForceWalkMoveMode();
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -89,6 +114,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
 
 		if (m_Animator != null)
 			m_LayerIndex = m_Animator.GetLayerIndex(c_LayerName);
@@ -96,9 +123,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private void OnEnable()
 	{
-		m_IsReady = false;
+		m_UserWantsReady = false;
 		m_LastEquipped = null;
 		m_WasNoAimLayerActive = false;
+		m_SmoothedLayerWeight = 0f;
+		m_SnapLayerWeightNextFrame = true;
 		if (m_Animator != null && m_LayerIndex >= 0)
 			m_Animator.SetLayerWeight(m_LayerIndex, 0f);
 	}
@@ -109,11 +138,20 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!ReferenceEquals(current, m_LastEquipped))
 		{
 			m_LastEquipped = current;
-			m_IsReady = false;
+			m_UserWantsReady = false;
+			m_SnapLayerWeightNextFrame = true;
 		}
 
 		if (WasToggleReadyPressedThisFrame() && IsWeaponEquipped())
-			m_IsReady = !m_IsReady;
+		{
+			bool isSprinting = IsSprintingNow();
+			bool nextReady = !m_UserWantsReady;
+			m_UserWantsReady = nextReady;
+
+			// Требование: если вручную включили "готов" во время спринта — юнит сбрасывает скорость на шаг и становится готов.
+			if (isSprinting && nextReady && m_ClickToMove != null)
+				m_ClickToMove.ForceWalkMoveMode();
+		}
 	}
 
 	private void LateUpdate()
@@ -154,11 +192,25 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_Animator == null || m_LayerIndex < 0)
 			return;
 
-		bool shouldShow = ShouldUseUnarmedLocomotionBranch();
+		// Слой рук показываем только в разрешённом контексте (стойка/скорость), даже если "не готов" активен.
+		bool shouldShow = ShouldUseUnarmedLocomotionBranch() && IsUnarmedNotReadyContextAllowed();
 		float targetWeight = shouldShow ? 1f : 0f;
-		m_Animator.SetLayerWeight(m_LayerIndex, targetWeight);
 
-		if (!shouldShow)
+		if (m_SnapLayerWeightNextFrame)
+		{
+			m_SmoothedLayerWeight = targetWeight;
+			m_SnapLayerWeightNextFrame = false;
+		}
+		else
+		{
+			float maxDelta = Time.deltaTime / Mathf.Max(0.0001f, m_UpperLayerWeightSmoothSeconds);
+			m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, maxDelta);
+		}
+
+		m_Animator.SetLayerWeight(m_LayerIndex, m_SmoothedLayerWeight);
+
+		bool effectivelyShowingNoAim = m_SmoothedLayerWeight > 0.02f;
+		if (!effectivelyShowingNoAim)
 		{
 			m_WasNoAimLayerActive = false;
 			return;
@@ -175,6 +227,23 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		}
 
 		m_WasNoAimLayerActive = true;
+	}
+
+	private bool GetEffectiveIsReady()
+	{
+		return m_UserWantsReady;
+	}
+
+	private bool IsSprintingNow()
+	{
+		if (m_ClickToMove != null)
+			return m_ClickToMove.IsSprintMoveMode;
+
+		// Фоллбек: по параметру аниматора (0 walk, 1 run, 2 sprint).
+		if (m_Animator != null)
+			return m_Animator.GetInteger(s_LocomotionTier) == 2;
+
+		return false;
 	}
 	#endregion
 }

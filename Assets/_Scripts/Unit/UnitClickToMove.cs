@@ -4,12 +4,13 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// NavMesh: ПКМ — точка на поверхности, Shift+ПКМ — бег, двойной ПКМ — спринт, F — жёсткий стоп.
+/// NavMesh: ПКМ — точка на поверхности, двойной ПКМ — бег, Shift+ПКМ — спринт (Shift важнее: Shift+двойной ПКМ = спринт), F — жёсткий стоп.
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
 /// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
 /// Поворот по направлению движения, root motion у Animator выключен.
 /// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
+/// На время клипов смены стойки с лёжа (без оружия и с винтовкой, см. <see cref="IsStanceTransitionMovementBlocked"/>) NavMesh и очередь ПКМ замирают до конца клипа.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
@@ -31,6 +32,25 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private static readonly int s_NavStrafe = Animator.StringToHash(ParamNavStrafe);
 	private static readonly int s_NavForward = Animator.StringToHash(ParamNavForward);
 	private static readonly int s_LocomotionTier = Animator.StringToHash(ParamLocomotionTier);
+	private static readonly int s_WeaponMode = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponMode);
+
+	/// <summary>Слой 0, безоружная ветка: вставание из лёжа и укладка в лёжа (стоя или из приседа).</summary>
+	private static readonly string[] s_UnarmedStanceBlockingStateNames =
+	{
+		"Unarmed_Prone2Idle",
+		"Unarmed_Prone2Crouch",
+		"Unarmed_Idle2Prone",
+		"Unarmed_Crouch2Prone",
+	};
+
+	/// <summary>Слой 0, ветка винтовки (и пистолета в том же графе): те же переходы с лёжа.</summary>
+	private static readonly string[] s_RifleStanceBlockingStateNames =
+	{
+		"Rifle_Prone2Idle",
+		"Rifle_Prone2Crouch",
+		"Rifle_Idle2Prone",
+		"Rifle_Crouch2Prone",
+	};
 
 	[SerializeField] private Camera m_RayCamera;
 	[SerializeField] private Animator m_Animator;
@@ -93,9 +113,30 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private float m_PostStandLowNavSpeedUntil = -1f;
 
+	private bool m_HasPendingNavOrder;
+	private Vector3 m_PendingNavDestination;
+	private bool m_PendingNavOverridesMode;
+	private MoveTier m_PendingNavMode;
+
+	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
+	private bool m_StanceMovementWasBlocked;
+
 	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
 
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
+
+	/// <summary>
+	/// Принудительно сбросить заказ скорости на шаг (например, для механик, которым нельзя оставаться в спринте).
+	/// </summary>
+	public void ForceWalkMoveMode()
+	{
+		if (m_Mode == MoveTier.Walk)
+			return;
+
+		m_Mode = MoveTier.Walk;
+		if (m_Agent != null)
+			ApplyTierSpeed();
+	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
 	{
@@ -104,6 +145,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
+
+		if (IsStanceTransitionMovementBlocked())
+		{
+			m_PendingNavDestination = hit.position;
+			m_PendingNavOverridesMode = false;
+			m_HasPendingNavOrder = true;
+			return true;
+		}
 
 		m_Agent.isStopped = false;
 		ApplyTierSpeed();
@@ -164,6 +213,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Agent == null)
 			return;
 
+		if (m_HasPendingNavOrder && !IsStanceTransitionMovementBlocked())
+			ConsumePendingNavOrder();
+
+		bool stanceMovementBlocked = IsStanceTransitionMovementBlocked();
+		if (stanceMovementBlocked)
+			m_Agent.isStopped = true;
+		else if (m_StanceMovementWasBlocked && m_Agent.isStopped && NavAgentHasIncompletePath())
+			m_Agent.isStopped = false;
+
+		m_StanceMovementWasBlocked = stanceMovementBlocked;
+
 		if (m_StanceSource != null)
 		{
 			LocomotionStance stance = m_StanceSource.CurrentStance;
@@ -216,6 +276,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void HardStop()
 	{
+		m_HasPendingNavOrder = false;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
 	}
@@ -236,32 +297,33 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (!NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return;
 
-		m_Agent.isStopped = false;
-
 		bool shift = Keyboard.current != null &&
 		             (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
 		bool doubleClick = m_LastRightClickTime >= 0f &&
 		                   Time.time - m_LastRightClickTime <= m_DoubleClickSeconds;
 
-		if (doubleClick)
-			m_Mode = MoveTier.Sprint;
-		else if (shift)
-			m_Mode = MoveTier.Run;
+		MoveTier chosenMode;
+		if (shift)
+			chosenMode = MoveTier.Sprint;
+		else if (doubleClick)
+			chosenMode = MoveTier.Run;
 		else
-			m_Mode = MoveTier.Walk;
+			chosenMode = MoveTier.Walk;
 
 		m_LastRightClickTime = Time.time;
 
-		if (m_StanceSource != null &&
-		    (m_Mode == MoveTier.Run || m_Mode == MoveTier.Sprint) &&
-		    m_StanceSource.CurrentStance != LocomotionStance.Standing)
+		if (IsStanceTransitionMovementBlocked())
 		{
-			LocomotionStance stanceBeforeStand = m_StanceSource.CurrentStance;
-			if (m_AfterStandUpWalkAnimHoldSeconds > 0.001f && stanceBeforeStand == LocomotionStance.Prone)
-				m_PostStandLowNavSpeedUntil = Time.time + m_AfterStandUpWalkAnimHoldSeconds;
-			m_StanceSource.ForceStanding();
-			m_LastStance = LocomotionStance.Standing;
+			m_PendingNavDestination = navHit.position;
+			m_PendingNavOverridesMode = true;
+			m_PendingNavMode = chosenMode;
+			m_HasPendingNavOrder = true;
+			return;
 		}
+
+		m_Agent.isStopped = false;
+		m_Mode = chosenMode;
+		EnsureStandingForFastMoveIfNeeded();
 
 		ApplyTierSpeed();
 		m_Agent.ResetPath();
@@ -325,6 +387,18 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 
+	/// <summary>Есть незавершённый путь к цели; <c>isStopped</c> не учитывается (для снятия паузы ровно при выходе из блокировки стойки).</summary>
+	private bool NavAgentHasIncompletePath()
+	{
+		if (m_Agent.pathPending)
+			return true;
+		if (!m_Agent.hasPath)
+			return false;
+		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
+			return false;
+		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
+	}
+
 	private Vector3 PlanarLocomotionDirection(out float _planarSpeed, out bool _hasGoalAhead)
 	{
 		Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
@@ -365,10 +439,114 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_SmoothSpeedVel = 0f;
 	}
 
+	private void ConsumePendingNavOrder()
+	{
+		m_HasPendingNavOrder = false;
+		m_Agent.isStopped = false;
+
+		if (m_PendingNavOverridesMode)
+			m_Mode = m_PendingNavMode;
+
+		EnsureStandingForFastMoveIfNeeded();
+
+		ApplyTierSpeed();
+		m_Agent.ResetPath();
+		m_Agent.SetDestination(m_PendingNavDestination);
+		PrimeAnimatorForMoveStart();
+	}
+
+	private void EnsureStandingForFastMoveIfNeeded()
+	{
+		if (m_StanceSource == null)
+			return;
+		if (m_Mode != MoveTier.Run && m_Mode != MoveTier.Sprint)
+			return;
+		if (m_StanceSource.CurrentStance == LocomotionStance.Standing)
+			return;
+
+		LocomotionStance stanceBeforeStand = m_StanceSource.CurrentStance;
+		if (m_AfterStandUpWalkAnimHoldSeconds > 0.001f && stanceBeforeStand == LocomotionStance.Prone)
+			m_PostStandLowNavSpeedUntil = Time.time + m_AfterStandUpWalkAnimHoldSeconds;
+		m_StanceSource.ForceStanding();
+		m_LastStance = LocomotionStance.Standing;
+	}
+
+	/// <summary>
+	/// Пока на слое 0 играет переход в/из лёжа для текущего <c>WeaponMode</c> (без оружия или винтовка/пистолет в том же графе).
+	/// </summary>
+	private bool IsStanceTransitionMovementBlocked()
+	{
+		if (m_Animator == null)
+			return false;
+
+		string[] names = GetStanceBlockingStateNamesForWeaponMode(m_Animator.GetInteger(s_WeaponMode));
+		if (names == null || names.Length == 0)
+			return false;
+
+		if (m_Animator.IsInTransition(0))
+		{
+			AnimatorStateInfo next = m_Animator.GetNextAnimatorStateInfo(0);
+			if (AnimatorStateMatchesAnyName(ref next, names))
+				return true;
+			AnimatorStateInfo cur = m_Animator.GetCurrentAnimatorStateInfo(0);
+			if (AnimatorStateMatchesAnyName(ref cur, names))
+				return true;
+			return false;
+		}
+
+		AnimatorStateInfo info = m_Animator.GetCurrentAnimatorStateInfo(0);
+		if (!AnimatorStateMatchesAnyName(ref info, names))
+			return false;
+
+		float nt = info.normalizedTime;
+		if (info.loop)
+			nt %= 1f;
+		return nt < 0.999f;
+	}
+
+	private static string[] GetStanceBlockingStateNamesForWeaponMode(int _weaponMode)
+	{
+		return _weaponMode switch
+		{
+			(int)LocomotionWeaponMode.Unarmed => s_UnarmedStanceBlockingStateNames,
+			(int)LocomotionWeaponMode.Rifle => s_RifleStanceBlockingStateNames,
+			(int)LocomotionWeaponMode.Pistol => s_RifleStanceBlockingStateNames,
+			_ => null
+		};
+	}
+
+	private static bool AnimatorStateMatchesAnyName(ref AnimatorStateInfo _info, string[] _names)
+	{
+		for (int i = 0; i < _names.Length; i++)
+		{
+			if (_info.IsName(_names[i]))
+				return true;
+		}
+
+		return false;
+	}
+
 	private void PushAnimator()
 	{
 		if (m_Animator == null)
 			return;
+
+		if (IsStanceTransitionMovementBlocked())
+		{
+			m_SmoothSpeed01 = 0f;
+			m_SmoothSpeedVel = 0f;
+			m_SmoothDir = Vector2.zero;
+			m_SmoothDirVel = Vector2.zero;
+
+			m_Animator.SetFloat(s_NavSpeed, 0f);
+			m_Animator.SetFloat(s_NavStrafe, 0f);
+			m_Animator.SetFloat(s_NavForward, 1f);
+			int locomotionTier = (int)m_Mode;
+			if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
+				locomotionTier = 0;
+			m_Animator.SetInteger(s_LocomotionTier, locomotionTier);
+			return;
+		}
 
 		Vector3 worldDir = PlanarLocomotionDirection(out float planarSpeed, out bool hasMoveIntent);
 		bool moving = planarSpeed > m_StopVelocityEpsilon || hasMoveIntent;

@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Задаёт int-параметр <c>Stance</c> на Animator: стоя / присед / лёжа (только без оружия в текущей фазе).
 /// Стоя: C — присесть; Z — лечь. Присед: Z — лечь, C — встать. Лёжа: Z — встать, C — в присед.
+/// Z при экипированном оружии дополнительно включает «на готове» (<see cref="UnitWeaponReadyHandsLayer.EnableReadyFromStanceZInput"/>).
 /// Переход в лёжа и выход из лёжа: сначала полная остановка NavMeshAgent, затем смена <c>Stance</c> (анимация).
 /// Лёжа: клипы Prone_* в NavMeshLocomotion пока из RifleAnimsetPro_CrouchAndProne — плейсхолдер до отдельных безоружных.
 /// </summary>
@@ -17,6 +18,7 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private NavMeshAgent m_Agent;
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[Tooltip("Если true, дополнительно к C используется левый Ctrl (удобно при раскладке / когда current-клавиатура не та).")]
 	[SerializeField] private bool m_LeftCtrlAlsoTogglesCrouch = true;
 	[Tooltip("Планарная скорость агента ниже этого порога считается остановкой (согласуй с UnitClickToMove).")]
@@ -58,6 +60,8 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_Agent == null)
 			m_Agent = GetComponent<NavMeshAgent>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 	}
 
 	private void OnEnable()
@@ -102,6 +106,9 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 
 		bool zPressed = WasZPressedThisFrame();
 		bool cPressed = WasCrouchKeyPressedThisFrame();
+
+		if (zPressed && m_ReadyHands != null)
+			m_ReadyHands.EnableReadyFromStanceZInput();
 
 		if (m_PendingProne || m_PendingStandFromProne || m_PendingCrouchFromProne)
 		{

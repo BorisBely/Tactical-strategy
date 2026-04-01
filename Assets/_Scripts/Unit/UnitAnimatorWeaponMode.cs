@@ -18,6 +18,9 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 
+	[Header("Плавность")]
+	[SerializeField, Min(0.02f)] private float m_WeaponModeCrossFadeSeconds = 0.22f;
+
 	private int m_LastWeaponModeValue = -1;
 
 	private void Awake()
@@ -102,6 +105,6 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 		}
 
 		// Переключаемся на корректный idle в ветке, иначе можно застрять в прежнем подграфе даже при смене WeaponMode.
-		m_Animator.CrossFadeInFixedTime(targetState, 0.06f, 0);
+		m_Animator.CrossFadeInFixedTime(targetState, m_WeaponModeCrossFadeSeconds, 0);
 	}
 }
