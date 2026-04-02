@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Периодическое зрение: дистанция → FOV → пучок лучей к коллайдеру цели → ближайшая видимая цель.
+/// Периодическое зрение: дистанция → FOV (по умолчанию корень; опционально торс или <see cref="m_ViewForwardOverride"/>) → сглаживание оси <see cref="m_VisionForwardSmoothTime"/> → пучок лучей → ближайшая цель.
+/// При оружии «не на готове» половина FOV не уже <see cref="m_MinHalfFovDegreesWhenWeaponNotReady"/>. Пока цель удерживается, к половине FOV добавляется <see cref="m_TrackingHalfFovExtraDegrees"/> — меньше потери цели на краю конуса.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(UnitTeam))]
@@ -19,10 +20,15 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private UnitTeam m_Team;
 	[Tooltip("Коллайдер этого юнита для попадания чужих лучей; если пусто — GetComponentInChildren.")]
 	[SerializeField] private Collider m_BodyCollider;
+	[SerializeField] private Animator m_Animator;
+	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 
 	[Header("Зрение")]
 	[SerializeField, Min(0.5f)] private float m_VisionRange = 18f;
 	[SerializeField, Range(1f, 179f)] private float m_FieldOfViewDegrees = 90f;
+	[Tooltip("Пока в прошлом кадре уже была цель, к половине FOV добавляется этот угол — реже теряем цель на краю конуса (меньше скачков поворота юнита).")]
+	[SerializeField, Range(0f, 30f)] private float m_TrackingHalfFovExtraDegrees = 12f;
 	[SerializeField, Min(0f)] private float m_EyeHeight = 1.6f;
 
 	[Header("Опрос")]
@@ -32,6 +38,16 @@ public sealed class UnitVision : MonoBehaviour
 	[Header("Физика")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
 	[SerializeField] private QueryTriggerInteraction m_QueryTriggerInteraction = QueryTriggerInteraction.Ignore;
+
+	[Header("Ось конуса (FOV)")]
+	[Tooltip("Если задано — горизонтальная ось «куда смотрит» для проверки угла цели (иначе торс humanoid или корень).")]
+	[SerializeField] private Transform m_ViewForwardOverride;
+	[Tooltip("Брать горизонталь с UpperChest/Chest/Spine. У части ригов ось кости ≠ «вперёд» юнита — при странном секторе выключите или задайте View Forward Override.")]
+	[SerializeField] private bool m_UseHumanoidTorsoForward = false;
+	[Tooltip("Сглаживание направления конуса и проверки FOV (сек): торс дёргается от анимации каждый кадр без этого.")]
+	[SerializeField, Min(0f)] private float m_VisionForwardSmoothTime = 0.07f;
+	[Tooltip("При экипированном оружии и «не на готове» корень часто не совпадает с осью взгляда — не даём половине FOV быть уже этого порога (градусы от оси).")]
+	[SerializeField, Range(1f, 89f)] private float m_MinHalfFovDegreesWhenWeaponNotReady = 52f;
 
 	[Header("Отладка")]
 	[SerializeField] private bool m_DrawVisionGizmos = true;
@@ -46,8 +62,7 @@ public sealed class UnitVision : MonoBehaviour
 	private RaycastHit[] m_Hits;
 	private float m_NextScanTime;
 	private Transform m_VisibleTarget;
-	private Vector3 m_DebugEye;
-	private Vector3 m_DebugForwardXZ;
+	private Vector3 m_SmoothedVisionForwardXZ;
 	#endregion
 
 	#region Public Properties
@@ -69,10 +84,17 @@ public sealed class UnitVision : MonoBehaviour
 			m_Team = GetComponent<UnitTeam>();
 		if (m_BodyCollider == null)
 			m_BodyCollider = GetComponentInChildren<Collider>();
+		if (m_Animator == null)
+			m_Animator = GetComponentInChildren<Animator>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 	}
 
 	private void OnEnable()
 	{
+		m_SmoothedVisionForwardXZ = Vector3.zero;
 		ScheduleNextScan(0f);
 		if (m_Registry != null)
 			m_Registry.Register(this);
@@ -88,6 +110,9 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		if (m_Registry == null || m_Team == null)
 			return;
+
+		if (Application.isPlaying)
+			UpdateSmoothedVisionForward();
 
 		if (Time.time < m_NextScanTime)
 			return;
@@ -110,9 +135,7 @@ public sealed class UnitVision : MonoBehaviour
 		m_DebugRays.Clear();
 
 		Vector3 eye = GetEyeWorldPosition();
-		Vector3 forwardXZ = GetForwardXZ();
-		m_DebugEye = eye;
-		m_DebugForwardXZ = forwardXZ;
+		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
 
 		m_Registry.GetOpponents(m_Team.Team, m_OpponentBuffer);
 
@@ -120,6 +143,10 @@ public sealed class UnitVision : MonoBehaviour
 		float bestDistSq = float.MaxValue;
 		float rangeSq = m_VisionRange * m_VisionRange;
 		float halfFov = m_FieldOfViewDegrees * 0.5f;
+		if (ShouldWidenFovForWeaponNotReady())
+			halfFov = Mathf.Max(halfFov, m_MinHalfFovDegreesWhenWeaponNotReady);
+		if (m_VisibleTarget != null)
+			halfFov += m_TrackingHalfFovExtraDegrees;
 
 		for (int i = 0; i < m_OpponentBuffer.Count; i++)
 		{
@@ -167,13 +194,82 @@ public sealed class UnitVision : MonoBehaviour
 		return transform.position + Vector3.up * m_EyeHeight;
 	}
 
-	private Vector3 GetForwardXZ()
+	private Vector3 GetRootForwardXZ()
 	{
 		Vector3 f = transform.forward;
 		f.y = 0f;
 		if (f.sqrMagnitude < 0.0001f)
 			f = Vector3.forward;
 		return f.normalized;
+	}
+
+	/// <summary>Сырое направление «взгляда» без сглаживания (для первого кадра и Edit Mode).</summary>
+	private Vector3 GetVisionForwardXZRaw()
+	{
+		Transform basis = transform;
+		if (m_ViewForwardOverride != null)
+			basis = m_ViewForwardOverride;
+		else if (m_UseHumanoidTorsoForward && m_Animator != null && m_Animator.isHuman)
+		{
+			Transform bone = m_Animator.GetBoneTransform(HumanBodyBones.UpperChest);
+			if (bone == null)
+				bone = m_Animator.GetBoneTransform(HumanBodyBones.Chest);
+			if (bone == null)
+				bone = m_Animator.GetBoneTransform(HumanBodyBones.Spine);
+			if (bone != null)
+				basis = bone;
+		}
+
+		Vector3 f = basis.forward;
+		f.y = 0f;
+		if (f.sqrMagnitude < 0.0001f)
+			return GetRootForwardXZ();
+		f.Normalize();
+
+		// На части FBX ось forward кости смотрит назад относительно корня — проецируем в ту же полусферу, что и корень.
+		Vector3 rootF = GetRootForwardXZ();
+		if (Vector3.Dot(f, rootF) < 0f)
+			f = -f;
+
+		return f;
+	}
+
+	private void UpdateSmoothedVisionForward()
+	{
+		Vector3 raw = GetVisionForwardXZRaw();
+		if (m_VisionForwardSmoothTime <= 0.0001f)
+		{
+			m_SmoothedVisionForwardXZ = raw;
+			return;
+		}
+
+		float t = 1f - Mathf.Exp(-Time.deltaTime / m_VisionForwardSmoothTime);
+		if (m_SmoothedVisionForwardXZ.sqrMagnitude < 1e-6f)
+			m_SmoothedVisionForwardXZ = raw;
+		else
+			m_SmoothedVisionForwardXZ = Vector3.Slerp(m_SmoothedVisionForwardXZ, raw, t).normalized;
+	}
+
+	/// <summary>Направление конуса FOV: в игре сглаженное, в редакторе без Play — мгновенное.</summary>
+	private Vector3 GetVisionForwardXZForGameplay()
+	{
+		if (!Application.isPlaying)
+			return GetVisionForwardXZRaw();
+		if (m_SmoothedVisionForwardXZ.sqrMagnitude < 1e-6f)
+			return GetVisionForwardXZRaw();
+		return m_SmoothedVisionForwardXZ;
+	}
+
+	private bool ShouldWidenFovForWeaponNotReady()
+	{
+		if (m_Equipment == null || m_ReadyHands == null)
+			return false;
+
+		ItemDefinition def = m_Equipment.EquippedDefinition;
+		if (def == null || !def.IsEquipment || def.EquipmentKind != EquipmentKind.Weapon)
+			return false;
+
+		return m_ReadyHands.ShouldUseUnarmedLocomotionBranch();
 	}
 
 	private void BuildBundleWorldPoints(Collider _col, List<Vector3> _out)
@@ -265,13 +361,10 @@ public sealed class UnitVision : MonoBehaviour
 		if (!m_DrawVisionGizmos)
 			return;
 
+		// Конус FOV всегда из текущего положения/оси (торс/корень), иначе в Play Mode он «застывает»
+		// до следующего RunVisionScan — юнит уже повернулся, а зелёные линии остаются старыми.
 		Vector3 eye = GetEyeWorldPosition();
-		Vector3 fwd = GetForwardXZ();
-		if (Application.isPlaying && m_DebugForwardXZ.sqrMagnitude > 0.0001f)
-		{
-			eye = m_DebugEye;
-			fwd = m_DebugForwardXZ;
-		}
+		Vector3 fwd = GetVisionForwardXZForGameplay();
 
 		Gizmos.color = m_GizmoFovColor;
 		Gizmos.DrawWireSphere(eye, 0.12f);

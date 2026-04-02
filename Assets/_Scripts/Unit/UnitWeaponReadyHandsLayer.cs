@@ -69,6 +69,14 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// <summary>
 	/// Стоя — любой tier; присед — только Walk (стоя/шаг). Лёжа и присед с Run/Sprint — нет.
 	/// </summary>
+	/// <summary>
+	/// В руках оружие и включён «на готове» — для разворота корня на <see cref="UnitVision.VisibleTarget"/> и т.п.
+	/// </summary>
+	public bool IsWeaponEquippedAndReady()
+	{
+		return IsWeaponEquipped() && m_UserWantsReady;
+	}
+
 	public bool IsUnarmedNotReadyContextAllowed()
 	{
 		if (m_Animator == null)

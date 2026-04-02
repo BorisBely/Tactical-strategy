@@ -8,7 +8,8 @@ using UnityEngine.InputSystem;
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
 /// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
-/// Поворот по направлению движения, root motion у Animator выключен.
+/// Поворот на цель: только yaw через <see cref="m_FacingTargetYawSmoothTime"/>; при движении NavStrafe/NavForward без второго SmoothDamp (нет гонки с поворотом). Направление движения из steering. В UnitVision — расширение конуса при удержании цели.
+/// Root motion у Animator выключен.
 /// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
 /// На время клипов смены стойки с лёжа (без оружия и с винтовкой, см. <see cref="IsStanceTransitionMovementBlocked"/>) NavMesh и очередь ПКМ замирают до конца клипа.
 /// </summary>
@@ -55,6 +56,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private Camera m_RayCamera;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
+	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
@@ -80,7 +83,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Range(0.01f, 0.054f)] private float m_StandUpNavSpeedAnimatorCeiling = 0.042f;
 
 	[Header("Rotation")]
+	[Tooltip("Скорость разворота корня (на путь или по velocity), коэффициент Slerp.")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 12f;
+	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек). Отдельно от blend tree — NavStrafe/Forward при движении к цели подставляются без SmoothDamp.")]
+	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.1f;
 
 	[Header("Input")]
 	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
@@ -110,6 +116,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private float m_SmoothSpeedVel;
 	private Vector2 m_SmoothDir;
 	private Vector2 m_SmoothDirVel;
+	private float m_EngageYawVelocity;
 
 	private float m_PostStandLowNavSpeedUntil = -1f;
 
@@ -181,6 +188,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 		ApplyTierSpeed();
 		if (m_StanceSource != null)
 			m_LastStance = m_StanceSource.CurrentStance;
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 	}
 
 	private void Start()
@@ -420,12 +431,70 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void UpdateFacing()
 	{
-		Vector3 dir = PlanarLocomotionDirection(out _, out _);
+		Vector3 dir = Vector3.zero;
+		bool visionFacing = false;
+
+		if (IsEngagingVisibleTarget())
+		{
+			Vector3 toTarget = m_Vision.VisibleTarget.position - transform.position;
+			toTarget.y = 0f;
+			if (toTarget.sqrMagnitude < 1e-6f)
+				return;
+			dir = toTarget.normalized;
+			visionFacing = true;
+		}
+		else
+		{
+			m_EngageYawVelocity = 0f;
+			Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+			float planarSpeed = vel.magnitude;
+
+			if (planarSpeed > m_StopVelocityEpsilon)
+				dir = vel.normalized;
+			else if (NavAgentHasIncompletePath())
+			{
+				Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+				toSteer.y = 0f;
+				if (toSteer.sqrMagnitude < 1e-6f)
+					return;
+				dir = toSteer.normalized;
+			}
+			else
+				return;
+		}
+
 		if (dir.sqrMagnitude < 1e-6f)
 			return;
 
 		Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
-		transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
+		if (visionFacing)
+		{
+			float yaw = transform.eulerAngles.y;
+			float targetYaw = q.eulerAngles.y;
+			float newYaw = Mathf.SmoothDampAngle(yaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
+			transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
+		}
+		else
+			transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
+	}
+
+	private bool IsEngagingVisibleTarget()
+	{
+		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	/// <summary>
+	/// Разворот на <see cref="UnitVision.VisibleTarget"/>: только оружие + «готов», без спринта и без ползка лёжа.
+	/// </summary>
+	private bool ShouldRotateRootTowardVisionTarget()
+	{
+		if (m_Mode == MoveTier.Sprint)
+			return false;
+		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
+			return false;
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
 	}
 
 	private void PrimeAnimatorForMoveStart()
@@ -549,6 +618,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		Vector3 worldDir = PlanarLocomotionDirection(out float planarSpeed, out bool hasMoveIntent);
+		if (IsEngagingVisibleTarget() && NavAgentHasIncompletePath())
+		{
+			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+			toSteer.y = 0f;
+			if (toSteer.sqrMagnitude > 1e-4f)
+				worldDir = toSteer.normalized;
+		}
+
 		bool moving = planarSpeed > m_StopVelocityEpsilon || hasMoveIntent;
 
 		Vector3 local = moving
@@ -603,13 +680,23 @@ public sealed class UnitClickToMove : MonoBehaviour
 		float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
 			? m_DirectionSmoothTimeMoveStart
 			: m_DirectionSmoothTime;
-		m_SmoothDir = Vector2.SmoothDamp(
-			m_SmoothDir,
-			moving ? targetDir : Vector2.zero,
-			ref m_SmoothDirVel,
-			dirSmooth,
-			Mathf.Infinity,
-			Time.deltaTime);
+
+		bool snapStrafeForEngageMove = IsEngagingVisibleTarget() && moving;
+		if (snapStrafeForEngageMove)
+		{
+			m_SmoothDir = moving ? targetDir : Vector2.zero;
+			m_SmoothDirVel = Vector2.zero;
+		}
+		else
+		{
+			m_SmoothDir = Vector2.SmoothDamp(
+				m_SmoothDir,
+				moving ? targetDir : Vector2.zero,
+				ref m_SmoothDirVel,
+				dirSmooth,
+				Mathf.Infinity,
+				Time.deltaTime);
+		}
 
 		float navSpeedOut = m_SmoothSpeed01;
 		if (m_PostStandLowNavSpeedUntil > Time.time && HasActiveMoveIntent())
