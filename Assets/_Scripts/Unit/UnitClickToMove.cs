@@ -44,13 +44,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 		"Unarmed_Crouch2Prone",
 	};
 
-	/// <summary>Слой 0, ветка винтовки (и пистолета в том же графе): те же переходы с лёжа.</summary>
 	private static readonly string[] s_RifleStanceBlockingStateNames =
 	{
 		"Rifle_Prone2Idle",
 		"Rifle_Prone2Crouch",
 		"Rifle_Idle2Prone",
 		"Rifle_Crouch2Prone",
+	};
+
+	private static readonly string[] s_PistolStanceBlockingStateNames =
+	{
+		"Pistol_Prone2Idle",
+		"Pistol_Prone2Crouch",
+		"Pistol_Idle2Prone",
+		"Pistol_Crouch2Prone",
 	};
 
 	[SerializeField] private Camera m_RayCamera;
@@ -579,7 +586,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		{
 			(int)LocomotionWeaponMode.Unarmed => s_UnarmedStanceBlockingStateNames,
 			(int)LocomotionWeaponMode.Rifle => s_RifleStanceBlockingStateNames,
-			(int)LocomotionWeaponMode.Pistol => s_RifleStanceBlockingStateNames,
+			(int)LocomotionWeaponMode.Pistol => s_PistolStanceBlockingStateNames,
 			_ => null
 		};
 	}

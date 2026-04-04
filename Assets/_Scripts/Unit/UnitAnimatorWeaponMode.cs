@@ -84,14 +84,22 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 		int stance = m_Animator.GetInteger(s_Stance);
 		string targetState;
 
-		if (m_LastWeaponModeValue == (int)LocomotionWeaponMode.Rifle ||
-		    m_LastWeaponModeValue == (int)LocomotionWeaponMode.Pistol)
+		if (m_LastWeaponModeValue == (int)LocomotionWeaponMode.Rifle)
 		{
 			targetState = stance switch
 			{
 				1 => "RifleCrouch_Idle",
 				2 => "RifleProne_Idle",
 				_ => "RifleStand_Idle"
+			};
+		}
+		else if (m_LastWeaponModeValue == (int)LocomotionWeaponMode.Pistol)
+		{
+			targetState = stance switch
+			{
+				1 => "PistolCrouch_Idle",
+				2 => "PistolProne_Idle",
+				_ => "PistolStand_Idle"
 			};
 		}
 		else
