@@ -1,9 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Правило выбора клипов шага: задаётся слой коллайдера и/или Physics Material.
-/// Оба условия должны выполняться, если поле задано (материал + маска слоёв).
-/// Порядок в списке на <see cref="UnitFootsteps"/> — сначала более специфичные правила.
+/// Правило выбора клипов шага: слой коллайдера и/или Physics Material.
+/// Оба условия должны выполняться, если поля заданы.
+/// Порядок в списке на <see cref="UnitClickToMove"/> — сначала более специфичные правила.
 /// </summary>
 [System.Serializable]
 public sealed class FootstepSurfaceRule

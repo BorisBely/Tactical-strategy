@@ -8,10 +8,11 @@ using UnityEngine.InputSystem;
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
 /// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
-/// Поворот на цель: только yaw через <see cref="m_FacingTargetYawSmoothTime"/>; при движении NavStrafe/NavForward без второго SmoothDamp (нет гонки с поворотом). Направление движения из steering. В UnitVision — расширение конуса при удержании цели.
+/// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>). Направление из steering. В UnitVision — расширение конуса при удержании цели.
 /// Root motion у Animator выключен.
 /// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
 /// На время клипов смены стойки с лёжа (без оружия и с винтовкой, см. <see cref="IsStanceTransitionMovementBlocked"/>) NavMesh и очередь ПКМ замирают до конца клипа.
+/// Луч к полу под ногами для шагов: <see cref="PushFootstepSurfaceClipPool"/> → <see cref="UnitFootsteps.SetActiveFootstepClipPool"/>.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
@@ -92,7 +93,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Header("Rotation")]
 	[Tooltip("Скорость разворота корня (на путь или по velocity), коэффициент Slerp.")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 12f;
-	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек). Отдельно от blend tree — NavStrafe/Forward при движении к цели подставляются без SmoothDamp.")]
+	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек).")]
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.1f;
 
 	[Header("Input")]
@@ -102,17 +103,35 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private Key m_HardStopKey = Key.F;
 
 	[Header("Animator smoothing")]
-	[SerializeField, Min(0.01f)] private float m_SpeedSmoothTime = 0.1f;
+	[SerializeField, Min(0.01f)] private float m_SpeedSmoothTime = 0.12f;
 	[Tooltip("Отдельное сглаживание при наборе NavSpeed (меньше — быстрее реакция старта).")]
-	[SerializeField, Min(0.005f)] private float m_SpeedSmoothTimeAccelerate = 0.028f;
-	[SerializeField, Min(0.01f)] private float m_DirectionSmoothTime = 0.06f;
+	[SerializeField, Min(0.005f)] private float m_SpeedSmoothTimeAccelerate = 0.035f;
+	[Tooltip("Сглаживание NavStrafe/NavForward (2D blend tree). Больше — плавнее смена направления шага/бега.")]
+	[SerializeField, Min(0.01f)] private float m_DirectionSmoothTime = 0.14f;
 	[Tooltip("Быстрее выравнивать NavForward/Strafe при почти нулевой скорости и активном заказе движения.")]
-	[SerializeField, Min(0.005f)] private float m_DirectionSmoothTimeMoveStart = 0.02f;
+	[SerializeField, Min(0.005f)] private float m_DirectionSmoothTimeMoveStart = 0.055f;
+	[Tooltip("Сглаживание направления blend tree при движении к видимой цели (engage). Меньше — острее; 0 — как раньше (мгновенно).")]
+	[SerializeField, Min(0f)] private float m_EngageDirectionSmoothTime = 0.055f;
 	[SerializeField, Min(0.01f)] private float m_StopVelocityEpsilon = 0.08f;
 	[Tooltip("Пока фактическая скорость агента ниже доли круиза, NavSpeed не ниже этого уровня от круиза — чтобы стартовые клипы не отставали от разгона NavMeshAgent.")]
 	[SerializeField, Range(0.35f, 1f)] private float m_StartNavSpeedFloor = 0.88f;
 	[Tooltip("За сколько метров до цели (поверх stopping distance) начинать снижать NavSpeed, чтобы клип остановки шёл во время замедления, а не после полной остановки.")]
 	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
+
+	[Header("Звуки шагов — поверхность под ногами")]
+	[SerializeField] private UnitFootsteps m_Footsteps;
+	[Tooltip("Начало луча вниз; пусто — позиция этого объекта. Обычно тот же объект, что Emit From у UnitFootsteps.")]
+	[SerializeField] private Transform m_FootstepGroundProbeOrigin;
+	[Tooltip("Слои коллайдеров пола под ногами.")]
+	[SerializeField] private LayerMask m_FootstepSurfaceLayers = ~0;
+	[SerializeField, Min(0.01f)] private float m_FootstepSurfaceRayUpOffset = 0.35f;
+	[SerializeField, Min(0.05f)] private float m_FootstepSurfaceRayLength = 2f;
+	[Tooltip("Сверху вниз: первое подходящее правило. Пусто — только клипы по умолчанию в UnitFootsteps.")]
+	[SerializeField] private FootstepSurfaceRule[] m_FootstepSurfaceRules;
+	[Tooltip("Повторный Raycast не чаще интервала, если точка зонда почти не сместилась. 0 — только по сдвигу и кадру.")]
+	[SerializeField, Min(0f)] private float m_FootstepSurfaceRayMinIntervalSeconds = 0.15f;
+	[SerializeField, Min(0.01f)] private float m_FootstepSurfaceRayReusePlanarMeters = 0.3f;
+	[SerializeField, Min(0.05f)] private float m_FootstepSurfaceRayReuseVerticalMeters = 0.35f;
 
 	private NavMeshAgent m_Agent;
 	private MoveTier m_Mode = MoveTier.Walk;
@@ -134,6 +153,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
 	private bool m_StanceMovementWasBlocked;
+
+	private AudioClip[] m_FootstepSurfaceCachedClipPool;
+	private bool m_FootstepSurfaceClipCacheValid;
+	private float m_FootstepSurfaceCacheTime;
+	private Vector2 m_FootstepSurfaceCachePlanarXZ;
+	private float m_FootstepSurfaceCacheEmitY;
 
 	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
 
@@ -199,6 +224,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Footsteps == null)
+			m_Footsteps = GetComponent<UnitFootsteps>();
 	}
 
 	private void Start()
@@ -280,6 +307,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		UpdateFacing();
 		PushAnimator();
+		PushFootstepSurfaceClipPool();
 	}
 
 	private bool IsMovingOnNavMesh()
@@ -688,10 +716,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 			? m_DirectionSmoothTimeMoveStart
 			: m_DirectionSmoothTime;
 
-		bool snapStrafeForEngageMove = IsEngagingVisibleTarget() && moving;
-		if (snapStrafeForEngageMove)
+		bool engageMove = IsEngagingVisibleTarget() && moving;
+		float dirSmoothUse = engageMove && m_EngageDirectionSmoothTime > 0.0001f
+			? m_EngageDirectionSmoothTime
+			: dirSmooth;
+		if (engageMove && m_EngageDirectionSmoothTime <= 0.0001f)
 		{
-			m_SmoothDir = moving ? targetDir : Vector2.zero;
+			m_SmoothDir = targetDir;
 			m_SmoothDirVel = Vector2.zero;
 		}
 		else
@@ -700,7 +731,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 				m_SmoothDir,
 				moving ? targetDir : Vector2.zero,
 				ref m_SmoothDirVel,
-				dirSmooth,
+				dirSmoothUse,
 				Mathf.Infinity,
 				Time.deltaTime);
 		}
@@ -717,6 +748,103 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 			tier = 0;
 		m_Animator.SetInteger(s_LocomotionTier, tier);
+	}
+
+	private void PushFootstepSurfaceClipPool()
+	{
+		if (m_Footsteps == null)
+			return;
+
+		if (m_Footsteps.RtsEconomyMode)
+			return;
+
+		if (m_FootstepSurfaceRules == null || m_FootstepSurfaceRules.Length == 0)
+		{
+			m_Footsteps.SetActiveFootstepClipPool(null);
+			InvalidateFootstepSurfaceClipCache();
+			return;
+		}
+
+		if (!IsMovingOnNavMesh())
+		{
+			m_Footsteps.SetActiveFootstepClipPool(null);
+			InvalidateFootstepSurfaceClipCache();
+			return;
+		}
+
+		Vector3 emit = GetFootstepProbeWorldPosition();
+		AudioClip[] pool = ResolveFootstepSurfaceClipPool(emit);
+		m_Footsteps.SetActiveFootstepClipPool(pool);
+	}
+
+	private Vector3 GetFootstepProbeWorldPosition()
+	{
+		return m_FootstepGroundProbeOrigin != null ? m_FootstepGroundProbeOrigin.position : transform.position;
+	}
+
+	private void InvalidateFootstepSurfaceClipCache()
+	{
+		m_FootstepSurfaceClipCacheValid = false;
+		m_FootstepSurfaceCachedClipPool = null;
+	}
+
+	private bool ShouldRefreshFootstepSurfaceProbe(Vector3 _emitWorld)
+	{
+		if (!m_FootstepSurfaceClipCacheValid)
+			return true;
+
+		float dt = Time.time - m_FootstepSurfaceCacheTime;
+		if (m_FootstepSurfaceRayMinIntervalSeconds > 0f && dt >= m_FootstepSurfaceRayMinIntervalSeconds)
+			return true;
+
+		float dx = _emitWorld.x - m_FootstepSurfaceCachePlanarXZ.x;
+		float dz = _emitWorld.z - m_FootstepSurfaceCachePlanarXZ.y;
+		if (dx * dx + dz * dz >= m_FootstepSurfaceRayReusePlanarMeters * m_FootstepSurfaceRayReusePlanarMeters)
+			return true;
+
+		if (Mathf.Abs(_emitWorld.y - m_FootstepSurfaceCacheEmitY) >= m_FootstepSurfaceRayReuseVerticalMeters)
+			return true;
+
+		return false;
+	}
+
+	private AudioClip[] ProbeFootstepGroundForClipPool()
+	{
+		Vector3 origin = GetFootstepProbeWorldPosition() + Vector3.up * m_FootstepSurfaceRayUpOffset;
+		if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, m_FootstepSurfaceRayLength, m_FootstepSurfaceLayers, QueryTriggerInteraction.Ignore))
+			return null;
+
+		for (int i = 0; i < m_FootstepSurfaceRules.Length; i++)
+		{
+			FootstepSurfaceRule rule = m_FootstepSurfaceRules[i];
+			if (rule.Clips == null || rule.Clips.Length == 0)
+				continue;
+
+			bool hasLayerFilter = rule.Layers.value != 0;
+			bool hasMatFilter = rule.PhysicsMaterial != null;
+			if (!hasLayerFilter && !hasMatFilter)
+				continue;
+
+			bool layerOk = !hasLayerFilter || (((1 << hit.collider.gameObject.layer) & rule.Layers) != 0);
+			bool matOk = !hasMatFilter || hit.collider.sharedMaterial == rule.PhysicsMaterial;
+			if (layerOk && matOk)
+				return rule.Clips;
+		}
+
+		return null;
+	}
+
+	private AudioClip[] ResolveFootstepSurfaceClipPool(Vector3 _emitWorld)
+	{
+		if (!ShouldRefreshFootstepSurfaceProbe(_emitWorld))
+			return m_FootstepSurfaceCachedClipPool;
+
+		m_FootstepSurfaceCachedClipPool = ProbeFootstepGroundForClipPool();
+		m_FootstepSurfaceClipCacheValid = true;
+		m_FootstepSurfaceCacheTime = Time.time;
+		m_FootstepSurfaceCachePlanarXZ = new Vector2(_emitWorld.x, _emitWorld.z);
+		m_FootstepSurfaceCacheEmitY = _emitWorld.y;
+		return m_FootstepSurfaceCachedClipPool;
 	}
 
 	private enum MoveTier

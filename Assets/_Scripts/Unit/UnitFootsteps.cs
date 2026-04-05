@@ -2,38 +2,29 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Звуки шагов: расстояние или Animation Event <see cref="Footstep"/>.
-/// Поверхность — луч вниз от ног (с кэшем: не на каждый шаг, чтобы масштабировать десятки/сотню юнитов).
-/// 3D: звук позиционируется у ног; громкость и панорама считаются относительно <see cref="AudioListener"/> (обычно на главной камере).
+/// Звуки шагов по пройденному расстоянию или Animation Event <see cref="Footstep"/>.
+/// Какие клипы играть, задаёт локомоция (<see cref="UnitClickToMove"/>) через <see cref="SetActiveFootstepClipPool"/>; иначе — «Клипы по умолчанию».
+/// Счёт шагов в <see cref="LateUpdate"/>, чтобы движение успело обновить пул в <c>Update</c>.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [DisallowMultipleComponent]
 public sealed class UnitFootsteps : MonoBehaviour
 {
 	#region Serialized Fields
+	[Tooltip("Пусто — ищется на этом объекте, на Emit From, затем в дочерних (Reset / Awake).")]
 	[SerializeField] private AudioSource m_AudioSource;
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
-	[Tooltip("Точка у ступней для луча и для 3D-позиции, если AudioSource не является её дочерним объектом.")]
+	[Tooltip("Точка у ног для 3D-позиции, если AudioSource не дочерний к Emit From.")]
 	[SerializeField] private Transform m_EmitFrom;
 
-	[Header("Поверхность")]
-	[Tooltip("Слои коллайдеров пола для Raycast.")]
-	[SerializeField] private LayerMask m_GroundLayers = ~0;
-	[SerializeField, Min(0.01f)] private float m_GroundRayUpOffset = 0.35f;
-	[SerializeField, Min(0.05f)] private float m_GroundRayLength = 2f;
-	[Tooltip("Сверху вниз: первое подходящее правило. Запасной набор — «Клипы по умолчанию».")]
-	[SerializeField] private FootstepSurfaceRule[] m_SurfaceRules;
-
-	[Header("Производительность (много юнитов)")]
-	[Tooltip("Повторный Raycast к полу не чаще этого интервала, если ноги почти не сдвинулись. 0 — не ограничивать по времени (только по сдвигу и кадру).")]
-	[SerializeField, Min(0f)] private float m_SurfaceRayMinIntervalSeconds = 0.15f;
-	[Tooltip("Если ноги сместились по горизонтали больше этого значения — снова луч (границы материалов).")]
-	[SerializeField, Min(0.01f)] private float m_SurfaceRayReusePlanarMeters = 0.3f;
-	[Tooltip("Сильное изменение высоты точки эмита — снова луч (ступеньки, склоны).")]
-	[SerializeField, Min(0.05f)] private float m_SurfaceRayReuseVerticalMeters = 0.35f;
+	[Header("RTS / простая экономия")]
+	[Tooltip("2D-звук; игнорировать пул от локомоции — только клипы по умолчанию.")]
+	[SerializeField] private bool m_RtsEconomyMode;
+	[Tooltip("Не играть шаг по плоскости XZ дальше от AudioListener. 0 — не отсекать.")]
+	[SerializeField, Min(0f)] private float m_RtsMaxPlanarDistanceFromListener;
 
 	[Header("Клипы по умолчанию")]
-	[Tooltip("Если луч не попал или ни одно правило не подошло.")]
+	[Tooltip("Если локомоция не передала пул или вернулась к запасному варианту.")]
 	[SerializeField] private AudioClip[] m_FootstepClips;
 
 	[Header("Режим")]
@@ -55,7 +46,7 @@ public sealed class UnitFootsteps : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_SpatialMaxDistance = 22f;
 	[SerializeField] private AudioRolloffMode m_VolumeRolloff = AudioRolloffMode.Logarithmic;
 	[SerializeField, Range(0f, 5f)] private float m_DopplerLevel;
-	[Tooltip("Если AudioSource не привязан к Emit From, перед каждым шагом переносить его в позицию ног (для панорамы и затухания по расстоянию).")]
+	[Tooltip("Если AudioSource не привязан к Emit From, перед каждым шагом переносить его в позицию ног.")]
 	[SerializeField] private bool m_SyncAudioSourceWorldPositionToEmitPoint = true;
 
 	[Header("Вариация")]
@@ -69,22 +60,30 @@ public sealed class UnitFootsteps : MonoBehaviour
 	private float m_DistanceAccumulated;
 	private bool m_HasLastPosition;
 
-	private AudioClip[] m_CachedGroundClipPool;
-	private bool m_HasGroundClipCache;
-	private float m_GroundClipCacheTime;
-	private Vector2 m_GroundClipCachePlanarXZ;
-	private float m_GroundClipCacheEmitY;
+	private AudioClip[] m_ActiveClipPoolOverride;
+
+	private Transform m_ListenerTransform;
+	#endregion
+
+	#region Public Properties
+	/// <summary>Режим RTS: локомоция не должна слать пул по поверхности.</summary>
+	public bool RtsEconomyMode => m_RtsEconomyMode;
 	#endregion
 
 	#region Unity Lifecycle
+	private void Reset()
+	{
+		AssignAudioSourceIfMissing();
+	}
+
 	private void Awake()
 	{
 		m_Agent = GetComponent<NavMeshAgent>();
-		if (m_AudioSource == null)
-			m_AudioSource = GetComponent<AudioSource>();
+		AssignAudioSourceIfMissing();
 		if (m_StanceSource == null)
 			m_StanceSource = GetComponent<UnitAnimatorStance>();
 
+		CacheAudioListenerTransform();
 		ApplySpatialPresetIfNeeded();
 	}
 
@@ -93,6 +92,9 @@ public sealed class UnitFootsteps : MonoBehaviour
 	{
 		if (m_SpatialMaxDistance < m_SpatialMinDistance + 0.01f)
 			m_SpatialMaxDistance = m_SpatialMinDistance + 0.01f;
+
+		if (m_AudioSource == null)
+			AssignAudioSourceIfMissing();
 
 		if (!Application.isPlaying && m_AudioSource != null)
 			ApplySpatialPresetIfNeeded();
@@ -103,10 +105,10 @@ public sealed class UnitFootsteps : MonoBehaviour
 	{
 		m_HasLastPosition = false;
 		m_DistanceAccumulated = 0f;
-		InvalidateGroundClipCache();
+		m_ActiveClipPoolOverride = null;
 	}
 
-	private void Update()
+	private void LateUpdate()
 	{
 		if (m_AnimationEventsOnly || !HasAnyClipsConfigured())
 			return;
@@ -143,6 +145,21 @@ public sealed class UnitFootsteps : MonoBehaviour
 
 	#region Public Methods
 	/// <summary>
+	/// Пул клипов на текущий кадр/движение от <see cref="UnitClickToMove"/> (луч по полу). Null или пустой — только «Клипы по умолчанию».
+	/// В <see cref="m_RtsEconomyMode"/> вызов игнорируется.
+	/// </summary>
+	public void SetActiveFootstepClipPool(AudioClip[] _clips)
+	{
+		if (m_RtsEconomyMode)
+			return;
+
+		if (_clips == null || _clips.Length == 0)
+			m_ActiveClipPoolOverride = null;
+		else
+			m_ActiveClipPoolOverride = _clips;
+	}
+
+	/// <summary>
 	/// Вызов из Animation Event (имя функции в клипе: Footstep).
 	/// </summary>
 	public void Footstep()
@@ -158,27 +175,51 @@ public sealed class UnitFootsteps : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void AssignAudioSourceIfMissing()
+	{
+		if (m_AudioSource != null)
+			return;
+
+		if (TryGetComponent(out AudioSource onSelf))
+		{
+			m_AudioSource = onSelf;
+			return;
+		}
+
+		if (m_EmitFrom != null && m_EmitFrom.TryGetComponent(out AudioSource onEmit))
+		{
+			m_AudioSource = onEmit;
+			return;
+		}
+
+		m_AudioSource = GetComponentInChildren<AudioSource>(true);
+	}
+
 	private bool HasAnyClipsConfigured()
 	{
 		if (m_FootstepClips != null && m_FootstepClips.Length > 0)
 			return true;
 
-		if (m_SurfaceRules == null)
-			return false;
-
-		for (int i = 0; i < m_SurfaceRules.Length; i++)
-		{
-			AudioClip[] c = m_SurfaceRules[i].Clips;
-			if (c != null && c.Length > 0)
-				return true;
-		}
+		if (!m_RtsEconomyMode && m_ActiveClipPoolOverride != null && m_ActiveClipPoolOverride.Length > 0)
+			return true;
 
 		return false;
 	}
 
 	private void ApplySpatialPresetIfNeeded()
 	{
-		if (m_AudioSource == null || !m_ApplySpatialPreset)
+		if (m_AudioSource == null)
+			return;
+
+		if (m_RtsEconomyMode)
+		{
+			m_AudioSource.spatialBlend = 0f;
+			m_AudioSource.spatialize = false;
+			m_AudioSource.dopplerLevel = 0f;
+			return;
+		}
+
+		if (!m_ApplySpatialPreset)
 			return;
 
 		m_AudioSource.spatialBlend = 1f;
@@ -219,77 +260,51 @@ public sealed class UnitFootsteps : MonoBehaviour
 		return m_EmitFrom != null ? m_EmitFrom.position : transform.position;
 	}
 
-	private void InvalidateGroundClipCache()
+	private AudioClip[] GetClipsToPlay()
 	{
-		m_HasGroundClipCache = false;
-		m_CachedGroundClipPool = null;
-	}
-
-	private bool ShouldRefreshGroundSurfaceProbe(Vector3 _emitWorld)
-	{
-		if (!m_HasGroundClipCache)
-			return true;
-
-		float dt = Time.time - m_GroundClipCacheTime;
-		if (m_SurfaceRayMinIntervalSeconds > 0f && dt >= m_SurfaceRayMinIntervalSeconds)
-			return true;
-
-		float dx = _emitWorld.x - m_GroundClipCachePlanarXZ.x;
-		float dz = _emitWorld.z - m_GroundClipCachePlanarXZ.y;
-		if (dx * dx + dz * dz >= m_SurfaceRayReusePlanarMeters * m_SurfaceRayReusePlanarMeters)
-			return true;
-
-		if (Mathf.Abs(_emitWorld.y - m_GroundClipCacheEmitY) >= m_SurfaceRayReuseVerticalMeters)
-			return true;
-
-		return false;
-	}
-
-	private AudioClip[] ProbeGroundSurfaceForClips()
-	{
-		Vector3 origin = GetEmitWorldPosition() + Vector3.up * m_GroundRayUpOffset;
-		if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, m_GroundRayLength, m_GroundLayers, QueryTriggerInteraction.Ignore))
+		if (m_RtsEconomyMode)
 			return m_FootstepClips;
 
-		for (int i = 0; i < m_SurfaceRules.Length; i++)
-		{
-			FootstepSurfaceRule rule = m_SurfaceRules[i];
-			if (rule.Clips == null || rule.Clips.Length == 0)
-				continue;
-
-			bool hasLayerFilter = rule.Layers.value != 0;
-			bool hasMatFilter = rule.PhysicsMaterial != null;
-			if (!hasLayerFilter && !hasMatFilter)
-				continue;
-
-			bool layerOk = !hasLayerFilter || (((1 << hit.collider.gameObject.layer) & rule.Layers) != 0);
-			bool matOk = !hasMatFilter || hit.collider.sharedMaterial == rule.PhysicsMaterial;
-			if (layerOk && matOk)
-				return rule.Clips;
-		}
+		if (m_ActiveClipPoolOverride != null && m_ActiveClipPoolOverride.Length > 0)
+			return m_ActiveClipPoolOverride;
 
 		return m_FootstepClips;
 	}
 
-	private AudioClip[] ResolveClipsForGround()
+	private void CacheAudioListenerTransform()
 	{
-		if (m_SurfaceRules == null || m_SurfaceRules.Length == 0)
-			return m_FootstepClips;
+		if (m_RtsMaxPlanarDistanceFromListener <= 0f)
+			return;
 
-		Vector3 emit = GetEmitWorldPosition();
-		if (!ShouldRefreshGroundSurfaceProbe(emit) && m_CachedGroundClipPool != null)
-			return m_CachedGroundClipPool;
+#if UNITY_2023_1_OR_NEWER
+		AudioListener listener = Object.FindAnyObjectByType<AudioListener>(FindObjectsInactive.Exclude);
+#else
+		AudioListener listener = Object.FindObjectOfType<AudioListener>();
+#endif
+		m_ListenerTransform = listener != null ? listener.transform : null;
+	}
 
-		m_CachedGroundClipPool = ProbeGroundSurfaceForClips();
-		m_HasGroundClipCache = true;
-		m_GroundClipCacheTime = Time.time;
-		m_GroundClipCachePlanarXZ = new Vector2(emit.x, emit.z);
-		m_GroundClipCacheEmitY = emit.y;
-		return m_CachedGroundClipPool;
+	private bool IsBeyondRtsPlanarHearingRange()
+	{
+		if (m_RtsMaxPlanarDistanceFromListener <= 0f)
+			return false;
+
+		if (m_ListenerTransform == null)
+			return false;
+
+		Vector3 e = GetEmitWorldPosition();
+		Vector3 l = m_ListenerTransform.position;
+		float dx = e.x - l.x;
+		float dz = e.z - l.z;
+		float r = m_RtsMaxPlanarDistanceFromListener;
+		return dx * dx + dz * dz > r * r;
 	}
 
 	private void PrepareAudioSourceWorldPositionFor3D()
 	{
+		if (m_RtsEconomyMode)
+			return;
+
 		if (!m_SyncAudioSourceWorldPositionToEmitPoint || m_AudioSource == null || m_EmitFrom == null)
 			return;
 
@@ -303,7 +318,10 @@ public sealed class UnitFootsteps : MonoBehaviour
 
 	private void PlayFootstepInternal()
 	{
-		AudioClip[] pool = ResolveClipsForGround();
+		if (IsBeyondRtsPlanarHearingRange())
+			return;
+
+		AudioClip[] pool = GetClipsToPlay();
 		if (pool == null || pool.Length == 0)
 			return;
 
