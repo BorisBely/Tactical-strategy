@@ -33,8 +33,14 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 		"Unarmed_Idle2Crouch",
 		"Unarmed_Crouch2Prone",
 		"Unarmed_Prone2Crouch",
+		"Rifle_Idle2Prone",
+		"Rifle_Prone2Idle",
 		"Rifle_Crouch2Prone",
 		"Rifle_Prone2Crouch",
+		"Pistol_Idle2Prone",
+		"Pistol_Prone2Idle",
+		"Pistol_Crouch2Prone",
+		"Pistol_Prone2Crouch",
 	};
 
 	private LocomotionStance m_Stance = LocomotionStance.Standing;

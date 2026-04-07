@@ -154,6 +154,12 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		{
 			bool isSprinting = IsSprintingNow();
 			bool nextReady = !m_UserWantsReady;
+
+			// Запрет: в лёже нельзя переключать "готов" → "не готов".
+			// Это исключает ситуацию, когда граф локомоции уходит в безоружную ветку, пока юнит лежит.
+			if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+				return;
+
 			m_UserWantsReady = nextReady;
 
 			// Требование: если вручную включили "готов" во время спринта — юнит сбрасывает скорость на шаг и становится готов.
@@ -239,6 +245,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private bool GetEffectiveIsReady()
 	{
+		if (m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return true;
+
 		return m_UserWantsReady;
 	}
 
