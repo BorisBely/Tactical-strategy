@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
 /// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
-/// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>). Направление из steering. В UnitVision — расширение конуса при удержании цели.
+/// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; при engage горизонталь от <see cref="UnitVision.GetEngageFacingOriginWorld"/> если активен прицел в UnitVision, иначе от корня. NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>). В UnitVision — расширение конуса при удержании цели.
 /// Root motion у Animator выключен.
 /// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
 /// На время клипов смены стойки с лёжа (без оружия и с винтовкой, см. <see cref="IsStanceTransitionMovementBlocked"/>) NavMesh и очередь ПКМ замирают до конца клипа.
@@ -501,7 +501,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (IsEngagingVisibleTarget())
 		{
-			Vector3 toTarget = m_Vision.VisibleTarget.position - transform.position;
+			Vector3 origin = m_Vision != null ? m_Vision.GetEngageFacingOriginWorld() : transform.position;
+			Vector3 toTarget = m_Vision.VisibleTarget.position - origin;
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude < 1e-6f)
 				return;
