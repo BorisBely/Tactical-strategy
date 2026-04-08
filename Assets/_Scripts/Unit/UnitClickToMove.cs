@@ -91,12 +91,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	[Header("Rotation")]
 	[Tooltip("Скорость разворота корня (на путь или по velocity), коэффициент Slerp.")]
-	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 12f;
+	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
 	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек).")]
-	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.1f;
+	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 
 	[Header("Input")]
 	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
+	[Tooltip("Гибрид одиночного/двойного ПКМ: одиночный клик откладывается на небольшой интервал, чтобы Unity успела распознать двойной клик.\nЕсли второй клик пришёл в окно double-click — одиночная команда отменяется и сразу идёт Run.")]
+	[SerializeField, Min(0.01f)] private float m_SingleClickCommitDelaySeconds = 0.12f;
 	[SerializeField] private bool m_BlockClicksOverUi = true;
 	[SerializeField] private bool m_HardStopEnabled = true;
 	[SerializeField] private Key m_HardStopKey = Key.F;
@@ -134,6 +136,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private Vector3 m_PendingNavDestination;
 	private bool m_PendingNavOverridesMode;
 	private MoveTier m_PendingNavMode;
+
+	// Single vs double right-click debounce:
+	// we delay processing single click until the double-click window elapses,
+	// otherwise the unit briefly reacts to walk (slowdown) and only then upgrades to run.
+	private bool m_HasPendingRightClick;
+	private float m_PendingRightClickTime = -1f;
+	private Vector3 m_PendingRightClickDestination;
 
 	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
 	private bool m_StanceMovementWasBlocked;
@@ -278,6 +287,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		    IsMovingOnNavMesh())
 			HardStop();
 
+		TickPendingSingleRightClick();
+
 		if (m_RayCamera != null)
 			TryRightClick();
 
@@ -298,8 +309,55 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private void HardStop()
 	{
 		m_HasPendingNavOrder = false;
+		m_HasPendingRightClick = false;
+		m_PendingRightClickTime = -1f;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+	}
+
+	private void TickPendingSingleRightClick()
+	{
+		if (!m_HasPendingRightClick)
+			return;
+
+		if (m_PendingRightClickTime < 0f)
+		{
+			m_HasPendingRightClick = false;
+			return;
+		}
+
+		// Hybrid: commit single click after short delay (but never later than double-click window).
+		float dt = Time.time - m_PendingRightClickTime;
+		float commitDelay = Mathf.Max(0.01f, Mathf.Min(m_SingleClickCommitDelaySeconds, m_DoubleClickSeconds));
+		if (dt < commitDelay)
+			return;
+
+		m_HasPendingRightClick = false;
+		m_PendingRightClickTime = -1f;
+		IssueNavOrder(m_PendingRightClickDestination, MoveTier.Walk);
+	}
+
+	private void IssueNavOrder(Vector3 _destination, MoveTier _mode)
+	{
+		if (m_Agent == null)
+			return;
+
+		if (IsStanceTransitionMovementBlocked())
+		{
+			m_PendingNavDestination = _destination;
+			m_PendingNavOverridesMode = true;
+			m_PendingNavMode = _mode;
+			m_HasPendingNavOrder = true;
+			return;
+		}
+
+		m_Agent.isStopped = false;
+		m_Mode = _mode;
+		EnsureStandingForFastMoveIfNeeded();
+		ApplyTierSpeed();
+		m_Agent.ResetPath();
+		m_Agent.SetDestination(_destination);
+		PrimeAnimatorForMoveStart();
 	}
 
 	private void TryRightClick()
@@ -323,33 +381,30 @@ public sealed class UnitClickToMove : MonoBehaviour
 		bool doubleClick = m_LastRightClickTime >= 0f &&
 		                   Time.time - m_LastRightClickTime <= m_DoubleClickSeconds;
 
-		MoveTier chosenMode;
-		if (shift)
-			chosenMode = MoveTier.Sprint;
-		else if (doubleClick)
-			chosenMode = MoveTier.Run;
-		else
-			chosenMode = MoveTier.Walk;
-
 		m_LastRightClickTime = Time.time;
 
-		if (IsStanceTransitionMovementBlocked())
+		// Shift always commits immediately.
+		if (shift)
 		{
-			m_PendingNavDestination = navHit.position;
-			m_PendingNavOverridesMode = true;
-			m_PendingNavMode = chosenMode;
-			m_HasPendingNavOrder = true;
+			m_HasPendingRightClick = false;
+			m_PendingRightClickTime = -1f;
+			IssueNavOrder(navHit.position, MoveTier.Sprint);
 			return;
 		}
 
-		m_Agent.isStopped = false;
-		m_Mode = chosenMode;
-		EnsureStandingForFastMoveIfNeeded();
+		// Double click commits immediately as Run (and cancels pending single click).
+		if (doubleClick)
+		{
+			m_HasPendingRightClick = false;
+			m_PendingRightClickTime = -1f;
+			IssueNavOrder(navHit.position, MoveTier.Run);
+			return;
+		}
 
-		ApplyTierSpeed();
-		m_Agent.ResetPath();
-		m_Agent.SetDestination(navHit.position);
-		PrimeAnimatorForMoveStart();
+		// Single click: delay until the double-click window elapses.
+		m_HasPendingRightClick = true;
+		m_PendingRightClickTime = Time.time;
+		m_PendingRightClickDestination = navHit.position;
 	}
 
 	private void ApplyTierSpeed()

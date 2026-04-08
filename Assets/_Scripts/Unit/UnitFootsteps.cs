@@ -50,6 +50,12 @@ public sealed class UnitFootsteps : MonoBehaviour
 	[Tooltip("Не играть шаг, если NavMeshAgent на юните считает, что он стоит (согласуй epsilon с UnitClickToMove).")]
 	[SerializeField] private bool m_RequireNavAgentMoving = true;
 	[SerializeField, Min(0.01f)] private float m_StopVelocityEpsilon = 0.08f;
+
+	[Header("Anti-double (blend/diagonal)")]
+	[Tooltip("Защита от дублей при бленде/диагонали: не более одного шага за кадр.")]
+	[SerializeField] private bool m_LimitOneFootstepPerFrame = true;
+	[Tooltip("Минимальный интервал между звуками шагов (сек). 0 — отключить. Полезно, когда два Animation Event прилетают почти одновременно.")]
+	[SerializeField, Min(0f)] private float m_FootstepMinIntervalSeconds = 0.14f;
 	#endregion
 
 	#region Private Fields
@@ -62,6 +68,9 @@ public sealed class UnitFootsteps : MonoBehaviour
 	private float m_GroundClipCacheEmitY;
 
 	private Transform m_ListenerTransform;
+
+	private int m_LastFootstepFrame = -1;
+	private float m_LastFootstepTime = -999f;
 	#endregion
 
 	#region Public Properties
@@ -116,6 +125,15 @@ public sealed class UnitFootsteps : MonoBehaviour
 
 		if (!HasAnyClipsConfigured())
 			return;
+
+		if (m_LimitOneFootstepPerFrame && m_LastFootstepFrame == Time.frameCount)
+			return;
+
+		if (m_FootstepMinIntervalSeconds > 0f && (Time.time - m_LastFootstepTime) < m_FootstepMinIntervalSeconds)
+			return;
+
+		m_LastFootstepFrame = Time.frameCount;
+		m_LastFootstepTime = Time.time;
 
 		PlayFootstepInternal();
 	}

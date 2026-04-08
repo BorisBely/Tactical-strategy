@@ -43,6 +43,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private WeaponType m_LastNoAimWeaponTypePlayed;
 	private float m_SmoothedLayerWeight;
 	private bool m_SnapLayerWeightNextFrame;
+	private bool m_BlockToggleInput;
 	#endregion
 
 	#region Public Methods
@@ -113,6 +114,12 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (IsSprintingNow() && m_ClickToMove != null)
 			m_ClickToMove.ForceWalkMoveMode();
 	}
+
+	/// <summary>Временная блокировка ввода E (готов/не готов), например для «костыльного» перехода стойки.</summary>
+	public void SetToggleInputBlocked(bool _blocked)
+	{
+		m_BlockToggleInput = _blocked;
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -152,6 +159,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		if (WasToggleReadyPressedThisFrame() && IsWeaponEquipped())
 		{
+			if (m_BlockToggleInput)
+				return;
+
 			bool isSprinting = IsSprintingNow();
 			bool nextReady = !m_UserWantsReady;
 

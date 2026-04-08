@@ -18,11 +18,15 @@ public class UnitEquipment : MonoBehaviour
 	private GameObject m_MainWeaponInstance;
 	private ItemDefinition m_EquippedDefinition;
 	private Transform m_LeftHandIkTarget;
+	private EquippedWeapon m_EquippedWeapon;
 	#endregion
 
 	#region Public Properties
 	/// <summary>Текущее экипированное оружие (тип). Null если слот пуст.</summary>
 	public ItemDefinition EquippedDefinition => m_EquippedDefinition;
+
+	/// <summary>Скрипт на инстансе экипированного оружия (ствол, позже патроны и т.д.). Null если на префабе нет компонента.</summary>
+	public EquippedWeapon EquippedWeapon => m_EquippedWeapon;
 
 	/// <summary>Трансформ цели IK на инстансе оружия (дочерний по имени из ItemDefinition). Иначе null.</summary>
 	public Transform LeftHandIkTargetTransform => m_LeftHandIkTarget;
@@ -39,6 +43,7 @@ public class UnitEquipment : MonoBehaviour
 	{
 		m_EquippedDefinition = null;
 		m_LeftHandIkTarget = null;
+		m_EquippedWeapon = null;
 		if (m_MainWeaponInstance != null)
 		{
 			Destroy(m_MainWeaponInstance);
@@ -69,6 +74,8 @@ public class UnitEquipment : MonoBehaviour
 		m_MainWeaponInstance.transform.localPosition = _item.RightHandLocalPosition;
 		m_MainWeaponInstance.transform.localRotation = _item.RightHandLocalRotation;
 		DisablePhysicsOnEquippedVisual(m_MainWeaponInstance);
+
+		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 
 		string ikName = _item.LeftHandIkTargetChildName;
 		if (!string.IsNullOrWhiteSpace(ikName))
