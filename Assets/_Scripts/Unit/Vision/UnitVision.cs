@@ -88,10 +88,86 @@ public sealed class UnitVision : MonoBehaviour
 	public Collider BodyCollider => m_BodyCollider;
 
 	/// <summary>
-	/// Горизонтальный вектор «на цель» при engage: при активном прицеле — позиция прицела, иначе корень юнита.
+	/// Горизонтальный вектор «на цель» при engage: при оружии в ready только позиция прицела,
+	/// иначе корень юнита. Если для ready-оружия прицел не найден, возвращает <c>false</c>.
+	/// </summary>
+	public bool TryGetEngageFacingOriginWorld(out Vector3 _origin)
+	{
+		if (IsWeaponReadyForSightCone())
+		{
+			Transform sight = GetActiveSightTransform();
+			if (sight == null)
+			{
+				_origin = default;
+				return false;
+			}
+
+			_origin = sight.position;
+			return true;
+		}
+
+		_origin = transform.position;
+		return true;
+	}
+
+	/// <summary>
+	/// Точка, к которой разворачиваемся/целимся по видимой цели: центр коллайдера, иначе позиция корня.
+	/// </summary>
+	public Vector3 GetVisibleTargetAimPointWorld()
+	{
+		if (m_VisibleTarget == null)
+			return Vector3.zero;
+
+		if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision) && targetVision.BodyCollider != null)
+			return targetVision.BodyCollider.bounds.center;
+
+		return m_VisibleTarget.position;
+	}
+
+	/// <summary>
+	/// Горизонтальный forward для разворота на цель: в ready только forward прицела,
+	/// иначе forward корня. Если у ready-оружия прицел не найден, возвращает <c>false</c>.
+	/// </summary>
+	public bool TryGetEngageFacingForwardXZ(out Vector3 _forwardXZ)
+	{
+		if (IsWeaponReadyForSightCone())
+		{
+			Transform sight = GetActiveSightTransform();
+			if (sight == null)
+			{
+				_forwardXZ = default;
+				return false;
+			}
+
+			Vector3 sightFwd = sight.forward;
+			sightFwd.y = 0f;
+			if (sightFwd.sqrMagnitude < 1e-6f)
+			{
+				_forwardXZ = default;
+				return false;
+			}
+
+			sightFwd.Normalize();
+			Vector3 rootFwd = GetRootForwardXZ();
+			if (Vector3.Dot(sightFwd, rootFwd) < 0f)
+				sightFwd = -sightFwd;
+
+			_forwardXZ = sightFwd;
+			return true;
+		}
+
+		_forwardXZ = GetRootForwardXZ();
+		return true;
+	}
+
+	/// <summary>
+	/// Старый совместимый API: если источник не найден, возвращает корень юнита.
 	/// </summary>
 	public Vector3 GetEngageFacingOriginWorld()
 	{
+		if (TryGetEngageFacingOriginWorld(out Vector3 origin))
+			return origin;
+
 		Transform sight = GetActiveSightTransform();
 		if (sight != null)
 			return sight.position;

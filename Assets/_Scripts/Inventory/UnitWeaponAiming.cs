@@ -12,6 +12,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	private const string c_ParamAimPitch = "AimPitch";
 	private const string c_AimLayerName = "UpperBody_AimAdditive";
 	private const float c_PitchDegreesMax = 90f;
+	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	#endregion
 
 	#region Serialized Fields
@@ -37,8 +38,38 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[Tooltip("Не наводить по вертикали во время смены стойки (UnitBusyState + StanceTransition).")]
 	[SerializeField] private bool m_BlockAimDuringStanceTransition = true;
 
+	[Header("Коррекция модели оружия")]
+	[Tooltip("Если включено, после Animator-aim модель оружия локально доворачивается к центру цели. В пределах лимитов линия Barrel -> цель будет точной.")]
+	[SerializeField] private bool m_EnableWeaponModelAimCorrection = true;
+	[Tooltip("Максимальный локальный дововорот модели оружия по горизонту (yaw), в градусах.")]
+	[SerializeField, Min(0f)] private float m_WeaponModelYawLimitDegrees = 20f;
+	[Tooltip("Максимальный локальный подъём модели оружия вверх (pitch up), в градусах.")]
+	[SerializeField, Min(0f)] private float m_WeaponModelPitchUpLimitDegrees = 18f;
+	[Tooltip("Максимальный локальный увод модели оружия вниз (pitch down), в градусах.")]
+	[SerializeField, Min(0f)] private float m_WeaponModelPitchDownLimitDegrees = 10f;
+	[Tooltip("Сглаживание локальной коррекции модели оружия. Больше — мягче, меньше — точнее и быстрее.")]
+	[SerializeField, Min(0f)] private float m_WeaponModelCorrectionSmoothTime = 0.04f;
+
 	[Header("Инспектор (только отображение)")]
+	[Tooltip("Сейчас реально активен боевой vertical aim: есть оружие, включён ready, есть видимая цель и стойка не заблокирована переходом.")]
+	[SerializeField] private bool m_DebugCombatAimActive;
+	[Tooltip("Текущая стойка на Animator: 0 = Standing, 1 = Crouch, 2 = Prone.")]
+	[SerializeField] private int m_DebugCurrentStance;
+	[Tooltip("Мировая точка, в которую сейчас целится vertical aim.")]
+	[SerializeField] private Vector3 m_DebugAimPointWorld;
+	[Tooltip("Сырые градусы pitch до сглаживания Animator.")]
+	[SerializeField] private float m_DebugRawPitchDegrees;
+	[Tooltip("Сырая горизонтальная ошибка (yaw) между Barrel.forward и направлением на цель.")]
+	[SerializeField] private float m_DebugWeaponYawErrorDegrees;
+	[Tooltip("Сырая вертикальная ошибка (pitch) между Barrel.forward и направлением на цель.")]
+	[SerializeField] private float m_DebugWeaponPitchErrorDegrees;
+	[Tooltip("Сколько градусов yaw-коррекции сейчас реально приложено к модели оружия.")]
+	[SerializeField] private float m_DebugWeaponYawAppliedDegrees;
+	[Tooltip("Сколько градусов pitch-коррекции сейчас реально приложено к модели оружия.")]
+	[SerializeField] private float m_DebugWeaponPitchAppliedDegrees;
+	[Tooltip("Итоговое сглаженное значение AimPitch, которое уходит в Animator.")]
 	[SerializeField] private float m_DebugSmoothedPitch01;
+	[Tooltip("Текущий вес слоя UpperBody_AimAdditive.")]
 	[SerializeField, Range(0f, 1f)] private float m_DebugAimLayerWeight;
 
 	[Header("Отладка лучей")]
@@ -58,6 +89,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	private float m_SmoothedPitch01;
 	private float m_PitchVelocity;
 	private float m_SmoothedLayerWeight;
+	private float m_SmoothedWeaponYawDegrees;
+	private float m_SmoothedWeaponPitchDegrees;
+	private float m_WeaponYawVelocity;
+	private float m_WeaponPitchVelocity;
 	#endregion
 
 	#region Unity Lifecycle
@@ -85,6 +120,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		m_SmoothedPitch01 = 0f;
 		m_PitchVelocity = 0f;
 		m_SmoothedLayerWeight = 0f;
+		m_SmoothedWeaponYawDegrees = 0f;
+		m_SmoothedWeaponPitchDegrees = 0f;
+		m_WeaponYawVelocity = 0f;
+		m_WeaponPitchVelocity = 0f;
 		m_BarrelTransform = null;
 		m_LastEquippedDefinition = null;
 		if (m_Animator != null)
@@ -127,10 +166,16 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (!TrySyncWeaponDefinition(weaponRoot, def) || m_BarrelTransform == null)
 			return;
 
-		if (!ShouldApplyWeaponLocalOnlyForAim())
-			return;
-
 		weaponRoot.localRotation = m_BaseWeaponLocalRotation;
+		if (ShouldApplyWeaponLocalOnlyForAim())
+		{
+			Vector3 aimPoint = GetTargetAimPointWorld(m_Vision != null ? m_Vision.VisibleTarget : null);
+			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint);
+		}
+		else
+		{
+			ResetWeaponModelCorrectionDebug();
+		}
 
 		if (m_DrawBarrelForwardRay)
 			Debug.DrawRay(m_BarrelTransform.position, m_BarrelTransform.forward * m_BarrelForwardRayLength, m_BarrelForwardRayColor);
@@ -168,6 +213,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			if (m_AimLayerIndex >= 0)
 				m_Animator.SetLayerWeight(m_AimLayerIndex, 0f);
 		}
+		m_DebugCombatAimActive = false;
+		m_DebugCurrentStance = 0;
+		m_DebugAimPointWorld = Vector3.zero;
+		m_DebugRawPitchDegrees = 0f;
+		ResetWeaponModelCorrectionDebug();
 		m_DebugSmoothedPitch01 = 0f;
 		m_DebugAimLayerWeight = 0f;
 	}
@@ -215,6 +265,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		                    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0;
 
 		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
+		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		float targetLayer = combatAim ? 1f : 0f;
 		float wSmooth = Mathf.Max(0.0001f, m_LayerWeightSmoothSeconds);
@@ -227,15 +278,22 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (combatAim && m_BarrelTransform != null)
 		{
 			Vector3 aimPoint = GetTargetAimPointWorld(target);
+			m_DebugAimPointWorld = aimPoint;
 			Vector3 dir = aimPoint - m_BarrelTransform.position;
 			if (dir.sqrMagnitude > 1e-6f)
 			{
 				dir.Normalize();
 				float horiz = Mathf.Sqrt(dir.x * dir.x + dir.z * dir.z);
 				float pitchDeg = Mathf.Atan2(dir.y, horiz) * Mathf.Rad2Deg;
+				m_DebugRawPitchDegrees = pitchDeg;
 				pitchDeg = Mathf.Clamp(pitchDeg, -c_PitchDegreesMax, c_PitchDegreesMax);
 				targetPitch01 = pitchDeg / c_PitchDegreesMax;
 			}
+		}
+		else
+		{
+			m_DebugAimPointWorld = Vector3.zero;
+			m_DebugRawPitchDegrees = 0f;
 		}
 
 		if (m_PitchSmoothTime <= 0.0001f)
@@ -251,16 +309,110 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 		m_Animator.SetFloat(s_AimPitch, m_SmoothedPitch01);
 
+		m_DebugCombatAimActive = combatAim;
+		m_DebugCurrentStance = currentStance;
 		m_DebugSmoothedPitch01 = m_SmoothedPitch01;
 		m_DebugAimLayerWeight = m_SmoothedLayerWeight;
 	}
 
-	private static Vector3 GetTargetAimPointWorld(Transform _targetRoot)
+	private Vector3 GetTargetAimPointWorld(Transform _targetRoot)
 	{
 		if (_targetRoot != null && _targetRoot.TryGetComponent(out UnitVision uv) && uv.BodyCollider != null)
 			return uv.BodyCollider.bounds.center;
 
 		return _targetRoot != null ? _targetRoot.position + Vector3.up * 1.2f : Vector3.zero;
+	}
+
+	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld)
+	{
+		if (!m_EnableWeaponModelAimCorrection || _weaponRoot == null || _weaponRoot.parent == null)
+		{
+			ResetWeaponModelCorrectionDebug();
+			return;
+		}
+
+		Vector3 desiredWorldDir = _aimPointWorld - m_BarrelTransform.position;
+		if (desiredWorldDir.sqrMagnitude < 1e-6f)
+		{
+			ResetWeaponModelCorrectionDebug();
+			return;
+		}
+
+		Transform parent = _weaponRoot.parent;
+		Vector3 desiredDirParent = parent.InverseTransformDirection(desiredWorldDir.normalized);
+		Vector3 currentForwardParent = parent.InverseTransformDirection(m_BarrelTransform.forward).normalized;
+		Vector3 currentRightParent = parent.InverseTransformDirection(m_BarrelTransform.right).normalized;
+
+		float rawYawError = SignedAngleOnPlane(currentForwardParent, desiredDirParent, Vector3.up);
+		float targetYaw = Mathf.Clamp(rawYawError, -m_WeaponModelYawLimitDegrees, m_WeaponModelYawLimitDegrees);
+
+		Quaternion yawRotation = Quaternion.AngleAxis(targetYaw, Vector3.up);
+		Vector3 yawedForwardParent = yawRotation * currentForwardParent;
+		Vector3 yawedRightParent = (yawRotation * currentRightParent).normalized;
+		float rawPitchError = SignedAngleOnPlane(yawedForwardParent, desiredDirParent, yawedRightParent);
+		float targetPitch = Mathf.Clamp(rawPitchError, -m_WeaponModelPitchDownLimitDegrees, m_WeaponModelPitchUpLimitDegrees);
+
+		float smoothTime = Mathf.Max(0.0001f, m_WeaponModelCorrectionSmoothTime);
+		if (m_WeaponModelCorrectionSmoothTime <= 0.0001f)
+		{
+			m_SmoothedWeaponYawDegrees = targetYaw;
+			m_SmoothedWeaponPitchDegrees = targetPitch;
+			m_WeaponYawVelocity = 0f;
+			m_WeaponPitchVelocity = 0f;
+		}
+		else
+		{
+			m_SmoothedWeaponYawDegrees = Mathf.SmoothDampAngle(
+				m_SmoothedWeaponYawDegrees,
+				targetYaw,
+				ref m_WeaponYawVelocity,
+				smoothTime,
+				Mathf.Infinity,
+				Time.deltaTime);
+
+			m_SmoothedWeaponPitchDegrees = Mathf.SmoothDampAngle(
+				m_SmoothedWeaponPitchDegrees,
+				targetPitch,
+				ref m_WeaponPitchVelocity,
+				smoothTime,
+				Mathf.Infinity,
+				Time.deltaTime);
+		}
+
+		Quaternion appliedYawRotation = Quaternion.AngleAxis(m_SmoothedWeaponYawDegrees, Vector3.up);
+		Vector3 appliedPitchAxis = (appliedYawRotation * currentRightParent).normalized;
+		Quaternion appliedPitchRotation = Quaternion.AngleAxis(m_SmoothedWeaponPitchDegrees, appliedPitchAxis);
+		Quaternion localCorrection = appliedPitchRotation * appliedYawRotation;
+		_weaponRoot.localRotation = localCorrection * m_BaseWeaponLocalRotation;
+
+		m_DebugWeaponYawErrorDegrees = rawYawError;
+		m_DebugWeaponPitchErrorDegrees = rawPitchError;
+		m_DebugWeaponYawAppliedDegrees = m_SmoothedWeaponYawDegrees;
+		m_DebugWeaponPitchAppliedDegrees = m_SmoothedWeaponPitchDegrees;
+	}
+
+	private void ResetWeaponModelCorrectionDebug()
+	{
+		m_SmoothedWeaponYawDegrees = 0f;
+		m_SmoothedWeaponPitchDegrees = 0f;
+		m_WeaponYawVelocity = 0f;
+		m_WeaponPitchVelocity = 0f;
+		m_DebugWeaponYawErrorDegrees = 0f;
+		m_DebugWeaponPitchErrorDegrees = 0f;
+		m_DebugWeaponYawAppliedDegrees = 0f;
+		m_DebugWeaponPitchAppliedDegrees = 0f;
+	}
+
+	private static float SignedAngleOnPlane(Vector3 _from, Vector3 _to, Vector3 _planeNormal)
+	{
+		Vector3 fromProjected = Vector3.ProjectOnPlane(_from, _planeNormal);
+		Vector3 toProjected = Vector3.ProjectOnPlane(_to, _planeNormal);
+		if (fromProjected.sqrMagnitude < 1e-6f || toProjected.sqrMagnitude < 1e-6f)
+			return 0f;
+
+		fromProjected.Normalize();
+		toProjected.Normalize();
+		return Vector3.SignedAngle(fromProjected, toProjected, _planeNormal);
 	}
 	#endregion
 }

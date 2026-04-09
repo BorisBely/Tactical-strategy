@@ -501,13 +501,25 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (IsEngagingVisibleTarget())
 		{
-			Vector3 origin = m_Vision != null ? m_Vision.GetEngageFacingOriginWorld() : transform.position;
-			Vector3 toTarget = m_Vision.VisibleTarget.position - origin;
+			if (m_Vision == null ||
+			    !m_Vision.TryGetEngageFacingOriginWorld(out Vector3 origin) ||
+			    !m_Vision.TryGetEngageFacingForwardXZ(out Vector3 facingForwardXZ))
+				return;
+
+			Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+			Vector3 toTarget = aimPoint - origin;
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude < 1e-6f)
 				return;
 			dir = toTarget.normalized;
 			visionFacing = true;
+
+			float yawError = Vector3.SignedAngle(facingForwardXZ, dir, Vector3.up);
+			float currentYaw = transform.eulerAngles.y;
+			float targetYaw = currentYaw + yawError;
+			float newYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
+			transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
+			return;
 		}
 		else
 		{
@@ -533,14 +545,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 
 		Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
-		if (visionFacing)
-		{
-			float yaw = transform.eulerAngles.y;
-			float targetYaw = q.eulerAngles.y;
-			float newYaw = Mathf.SmoothDampAngle(yaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
-			transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
-		}
-		else
+		if (!visionFacing)
 			transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
 	}
 
@@ -550,13 +555,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Разворот на <see cref="UnitVision.VisibleTarget"/>: только оружие + «готов», без спринта и без ползка лёжа.
+	/// Разворот на <see cref="UnitVision.VisibleTarget"/>: только оружие + «готов», без спринта.
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
 		if (m_Mode == MoveTier.Sprint)
-			return false;
-		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 			return false;
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
