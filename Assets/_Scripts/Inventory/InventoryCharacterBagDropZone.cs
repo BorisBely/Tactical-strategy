@@ -23,17 +23,17 @@ public class InventoryCharacterBagDropZone : MonoBehaviour, IDropHandler
 	public void OnDrop(PointerEventData eventData)
 	{
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
-		PlayerInventoryCoordinator coordinator = bindings != null ? bindings.Coordinator : null;
-		if (coordinator == null || eventData.pointerDrag == null)
+		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
+		if (selectionManager == null || eventData.pointerDrag == null)
 			return;
 
-		if (m_BoundBagPanel != null && coordinator.CharacterInventoryPanel != m_BoundBagPanel)
+		if (m_BoundBagPanel != null && selectionManager.CharacterInventoryPanel != m_BoundBagPanel)
 			return;
 
 		if (!eventData.pointerDrag.TryGetComponent<InventoryGroundToCharacterDrag>(out var drag))
 			return;
 
-		if (coordinator.TryAcceptDraggedGroundSlot(drag))
+		if (selectionManager.TryAcceptDraggedGroundSlot(drag))
 			drag.NotifyDropAccepted();
 	}
 	#endregion

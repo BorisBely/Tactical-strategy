@@ -22,11 +22,11 @@ public class InventoryGroundDropZone : MonoBehaviour, IDropHandler
 	public void OnDrop(PointerEventData eventData)
 	{
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
-		PlayerInventoryCoordinator coordinator = bindings != null ? bindings.Coordinator : null;
-		if (coordinator == null || eventData.pointerDrag == null)
+		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
+		if (selectionManager == null || eventData.pointerDrag == null)
 			return;
 
-		InventoryPanelView groundPanel = coordinator.GroundPanel;
+		InventoryPanelView groundPanel = selectionManager.GroundPanel;
 		if (groundPanel == null)
 			return;
 
@@ -38,7 +38,7 @@ public class InventoryGroundDropZone : MonoBehaviour, IDropHandler
 		if (!eventData.pointerDrag.TryGetComponent<InventoryCharacterToGroundDrag>(out var drag))
 			return;
 
-		if (coordinator.TryAcceptDraggedCharacterSlot(drag))
+		if (selectionManager.TryAcceptDraggedCharacterSlot(drag))
 			drag.NotifyDropAccepted();
 	}
 	#endregion

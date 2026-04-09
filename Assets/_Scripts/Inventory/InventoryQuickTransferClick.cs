@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Ctrl + ЛКМ по занятой ячейке: быстрый перенос через <see cref="PlayerInventoryCoordinator.TryQuickTransferCtrlClick"/>.
+/// Ctrl + ЛКМ по занятой ячейке: быстрый перенос через <see cref="RtsUnitSelectionManager.TryQuickTransferCtrlClick"/>.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(InventorySlotView))]
@@ -42,10 +42,10 @@ public class InventoryQuickTransferClick : MonoBehaviour, IPointerClickHandler
 		if (Time.unscaledTime < m_NextAllowedUnscaledTime)
 			return;
 
-		PlayerInventoryCoordinator coordinator = InventoryScreenBindings.Instance != null
-			? InventoryScreenBindings.Instance.Coordinator
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
 			: null;
-		if (coordinator == null || !coordinator.TryQuickTransferCtrlClick(m_Slot))
+		if (selectionManager == null || !selectionManager.TryQuickTransferCtrlClick(m_Slot))
 			return;
 
 		m_NextAllowedUnscaledTime = Time.unscaledTime + m_ClickCooldown;

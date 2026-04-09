@@ -20,6 +20,8 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	[SerializeField] private NavMeshAgent m_Agent;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitTeam m_Team;
+	[SerializeField] private bool m_EnableKeyboardInput = true;
 	[Tooltip("Если true, дополнительно к C используется левый Ctrl (удобно при раскладке / когда current-клавиатура не та).")]
 	[SerializeField] private bool m_LeftCtrlAlsoTogglesCrouch = true;
 	[Tooltip("Планарная скорость агента ниже этого порога считается остановкой (согласуй с UnitClickToMove).")]
@@ -77,6 +79,94 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 		PushStance();
 	}
 
+	public void SetKeyboardInputEnabled(bool _enabled)
+	{
+		m_EnableKeyboardInput = _enabled;
+	}
+
+	public void RequestStanding()
+	{
+		RequestStance(LocomotionStance.Standing);
+	}
+
+	public void RequestCrouch()
+	{
+		RequestStance(LocomotionStance.Crouch);
+	}
+
+	public void RequestProne()
+	{
+		RequestStance(LocomotionStance.Prone);
+	}
+
+	public void RequestStance(LocomotionStance _targetStance)
+	{
+		if (_targetStance == LocomotionStance.Standing)
+		{
+			StopReadyBeforeProneHack();
+			m_PendingProne = false;
+			m_PendingCrouchFromProne = false;
+
+			if (m_Stance == LocomotionStance.Prone && !IsLocomotionFullyStopped())
+			{
+				m_PendingStandFromProne = true;
+				RequestFullStop();
+			}
+			else
+			{
+				m_PendingStandFromProne = false;
+				m_Stance = LocomotionStance.Standing;
+			}
+		}
+		else if (_targetStance == LocomotionStance.Crouch)
+		{
+			StopReadyBeforeProneHack();
+			m_PendingProne = false;
+			m_PendingStandFromProne = false;
+
+			if (m_Stance == LocomotionStance.Prone && !IsLocomotionFullyStopped())
+			{
+				m_PendingCrouchFromProne = true;
+				RequestFullStop();
+			}
+			else
+			{
+				m_PendingCrouchFromProne = false;
+				m_Stance = LocomotionStance.Crouch;
+			}
+		}
+		else
+		{
+			m_PendingStandFromProne = false;
+			m_PendingCrouchFromProne = false;
+
+			if (m_EnableReadyBeforeProneHack && ShouldStartReadyBeforeProneHack())
+			{
+				StartReadyBeforeProneHack();
+				PushStance();
+				UpdateBusyFlag();
+				return;
+			}
+
+			if (m_ReadyHands != null)
+				m_ReadyHands.EnableReadyFromStanceZInput();
+
+			if (!IsLocomotionFullyStopped())
+			{
+				m_PendingProne = true;
+				RequestFullStop();
+			}
+			else
+			{
+				m_PendingProne = false;
+				m_Stance = LocomotionStance.Prone;
+			}
+		}
+
+		PushStance();
+		UpdateBusyFlag();
+	}
+
 	private void Awake()
 	{
 		if (m_Animator == null)
@@ -87,6 +177,8 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
 	}
 
 	private void OnEnable()
@@ -156,8 +248,9 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 			return;
 		}
 
-		bool zPressed = WasZPressedThisFrame();
-		bool cPressed = WasCrouchKeyPressedThisFrame();
+		bool allowKeyboardInput = CanUseDirectKeyboardInput();
+		bool zPressed = allowKeyboardInput && WasZPressedThisFrame();
+		bool cPressed = allowKeyboardInput && WasCrouchKeyPressedThisFrame();
 
 		if (zPressed && m_ReadyHands != null)
 		{
@@ -322,6 +415,16 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+	}
+
+	private bool CanUseDirectKeyboardInput()
+	{
+		if (!m_EnableKeyboardInput)
+			return false;
+		if (m_Team == null)
+			return true;
+
+		return m_Team.Team == UnitTeamId.Player;
 	}
 
 	private bool IsLocomotionFullyStopped()

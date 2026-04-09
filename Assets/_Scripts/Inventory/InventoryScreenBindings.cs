@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 public class InventoryScreenBindings : MonoBehaviour
 {
 	#region Serialized Fields
-	[SerializeField] private PlayerInventoryCoordinator m_Coordinator;
+	[SerializeField] private RtsUnitSelectionManager m_SelectionManager;
 	[Tooltip("Инвентарь юнита по умолчанию при старте сцены (можно сменить через SetActiveCharacterInventory).")]
 	[SerializeField] private CharacterInventory m_ActiveCharacterInventory;
 	[Header("Открытие / закрытие")]
@@ -28,10 +28,10 @@ public class InventoryScreenBindings : MonoBehaviour
 	#endregion
 
 	#region Public Properties
-	public PlayerInventoryCoordinator Coordinator => m_Coordinator;
-	public InventoryPanelView GroundPanel => m_Coordinator != null ? m_Coordinator.GroundPanel : null;
+	public RtsUnitSelectionManager SelectionManager => m_SelectionManager != null ? m_SelectionManager : RtsUnitSelectionManager.Instance;
+	public InventoryPanelView GroundPanel => SelectionManager != null ? SelectionManager.GroundPanel : null;
 	public InventoryPanelView CharacterInventoryPanel =>
-		m_Coordinator != null ? m_Coordinator.CharacterInventoryPanel : null;
+		SelectionManager != null ? SelectionManager.CharacterInventoryPanel : null;
 	public CharacterInventory ActiveCharacterInventory => m_ActiveCharacterInventory;
 	public bool IsInventoryOpen =>
 		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
@@ -41,6 +41,8 @@ public class InventoryScreenBindings : MonoBehaviour
 	private void Awake()
 	{
 		s_Instance = this;
+		if (m_SelectionManager == null)
+			m_SelectionManager = RtsUnitSelectionManager.Instance;
 		if (m_StartWithInventoryClosed && m_InventoryCanvasRoot != null)
 			m_InventoryCanvasRoot.SetActive(false);
 	}
@@ -73,9 +75,9 @@ public class InventoryScreenBindings : MonoBehaviour
 	#endregion
 
 	#region Public Methods
-	public void SetCoordinator(PlayerInventoryCoordinator _coordinator)
+	public void SetSelectionManager(RtsUnitSelectionManager _selectionManager)
 	{
-		m_Coordinator = _coordinator;
+		m_SelectionManager = _selectionManager;
 		RefreshActiveCharacterPanel();
 	}
 
@@ -88,17 +90,13 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	public void RefreshActiveCharacterPanel()
 	{
-		if (m_Coordinator == null)
-			return;
-
-		InventoryPanelView bagPanel = m_Coordinator.CharacterInventoryPanel;
-		if (bagPanel == null)
+		if (CharacterInventoryPanel == null)
 			return;
 
 		if (m_ActiveCharacterInventory != null)
-			m_ActiveCharacterInventory.RepaintInventoryPanel(bagPanel);
+			m_ActiveCharacterInventory.RepaintInventoryPanel(CharacterInventoryPanel);
 		else
-			bagPanel.ClearAllSlots();
+			CharacterInventoryPanel.ClearAllSlots();
 	}
 
 	/// <summary>Полное обновление UI при открытии: рюкзак из <see cref="CharacterInventory"/>, «земля» из текущих пересечений <see cref="InventoryPickupZone"/>.</summary>

@@ -24,8 +24,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private UnitTeam m_Team;
 
 	[Header("Ввод")]
+	[SerializeField] private bool m_EnableKeyboardInput = true;
 	[SerializeField] private Key m_ToggleReadyKey = Key.E;
 
 	[Header("Слой рук (no aim)")]
@@ -78,6 +81,12 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		return IsWeaponEquipped() && m_UserWantsReady;
 	}
 
+	/// <summary>
+	/// Текущее желаемое состояние "готов" до учёта принудительного Ready в prone.
+	/// Нужен ИИ/скриптам поведения, чтобы управлять режимом без эмуляции клавиши E.
+	/// </summary>
+	public bool WantsReady => m_UserWantsReady;
+
 	public bool IsUnarmedNotReadyContextAllowed()
 	{
 		if (m_Animator == null)
@@ -111,14 +120,47 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		m_UserWantsReady = true;
 
-		if (IsSprintingNow() && m_ClickToMove != null)
-			m_ClickToMove.ForceWalkMoveMode();
+		if (IsSprintingNow())
+		{
+			if (m_LocomotionDriver != null)
+				m_LocomotionDriver.ForceWalkMoveMode();
+			else if (m_ClickToMove != null)
+				m_ClickToMove.ForceWalkMoveMode();
+		}
+	}
+
+	/// <summary>
+	/// Прямое управление состоянием "готов" для ИИ/скриптов.
+	/// Если включаем ready во время спринта, можно принудительно сбросить скорость до шага.
+	/// </summary>
+	public void SetReadyWanted(bool _ready, bool _forceWalkIfNeeded = true)
+	{
+		if (!IsWeaponEquipped())
+		{
+			m_UserWantsReady = false;
+			return;
+		}
+
+		m_UserWantsReady = _ready;
+
+		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
+		{
+			if (m_LocomotionDriver != null)
+				m_LocomotionDriver.ForceWalkMoveMode();
+			else if (m_ClickToMove != null)
+				m_ClickToMove.ForceWalkMoveMode();
+		}
 	}
 
 	/// <summary>Временная блокировка ввода E (готов/не готов), например для «костыльного» перехода стойки.</summary>
 	public void SetToggleInputBlocked(bool _blocked)
 	{
 		m_BlockToggleInput = _blocked;
+	}
+
+	public void SetKeyboardInputEnabled(bool _enabled)
+	{
+		m_EnableKeyboardInput = _enabled;
 	}
 	#endregion
 
@@ -131,6 +173,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
 
 		if (m_Animator != null)
 			m_LayerIndex = m_Animator.GetLayerIndex(c_LayerName);
@@ -157,7 +203,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_SnapLayerWeightNextFrame = true;
 		}
 
-		if (WasToggleReadyPressedThisFrame() && IsWeaponEquipped())
+		if (CanUseDirectKeyboardInput() && WasToggleReadyPressedThisFrame() && IsWeaponEquipped())
 		{
 			if (m_BlockToggleInput)
 				return;
@@ -189,6 +235,16 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	{
 		ItemDefinition current = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
 		return current != null && current.IsEquipment && current.EquipmentKind == EquipmentKind.Weapon;
+	}
+
+	private bool CanUseDirectKeyboardInput()
+	{
+		if (!m_EnableKeyboardInput)
+			return false;
+		if (m_Team == null)
+			return true;
+
+		return m_Team.Team == UnitTeamId.Player;
 	}
 
 	private static bool WasToggleReadyPressedThisFrame(Key _key)
@@ -263,6 +319,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private bool IsSprintingNow()
 	{
+		if (m_LocomotionDriver != null)
+			return m_LocomotionDriver.IsSprintMoveMode;
+
 		if (m_ClickToMove != null)
 			return m_ClickToMove.IsSprintMoveMode;
 

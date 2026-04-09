@@ -30,11 +30,11 @@ public class InventoryEquipDoubleClick : MonoBehaviour, IPointerClickHandler
 			return;
 
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
-		PlayerInventoryCoordinator coordinator = bindings != null ? bindings.Coordinator : null;
-		if (coordinator == null || m_Slot == null)
+		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
+		if (selectionManager == null || m_Slot == null)
 			return;
 
-		coordinator.TryEquipFromCharacterBagDoubleClick(m_Slot);
+		selectionManager.TryEquipFromCharacterBagDoubleClick(m_Slot);
 	}
 	#endregion
 }

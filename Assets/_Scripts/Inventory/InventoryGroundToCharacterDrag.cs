@@ -55,14 +55,14 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 	#region Drag Handlers
 	public void OnBeginDrag(PointerEventData eventData)
 	{
-		PlayerInventoryCoordinator coordinator = InventoryScreenBindings.Instance != null
-			? InventoryScreenBindings.Instance.Coordinator
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
 			: null;
-		if (coordinator == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
+		if (selectionManager == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
 			return;
 
 		m_GroundPanel = GetComponentInParent<InventoryPanelView>();
-		if (m_GroundPanel == null || m_GroundPanel != coordinator.GroundPanel)
+		if (m_GroundPanel == null || m_GroundPanel != selectionManager.GroundPanel)
 			return;
 
 		IReadOnlyList<InventorySlotView> slots = m_GroundPanel.Slots;

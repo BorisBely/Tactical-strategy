@@ -13,4 +13,11 @@ public sealed class UnitTeam : MonoBehaviour
 	#region Public Properties
 	public UnitTeamId Team => m_Team;
 	#endregion
+
+	#region Public Methods
+	public void SetTeam(UnitTeamId _team)
+	{
+		m_Team = _team;
+	}
+	#endregion
 }

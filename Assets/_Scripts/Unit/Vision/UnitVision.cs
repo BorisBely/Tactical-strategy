@@ -183,6 +183,7 @@ public sealed class UnitVision : MonoBehaviour
 	private void Awake()
 	{
 		m_Hits = new RaycastHit[c_RaycastHitBuffer];
+		ResolveRegistryIfNeeded();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
 		if (m_BodyCollider == null)
@@ -197,6 +198,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void OnEnable()
 	{
+		ResolveRegistryIfNeeded();
 		m_SmoothedVisionForwardXZ = Vector3.zero;
 		m_WasUsingSightForward = false;
 		m_CachedSightWeaponDef = null;
@@ -243,6 +245,18 @@ public sealed class UnitVision : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void ResolveRegistryIfNeeded()
+	{
+		if (m_Registry != null)
+			return;
+
+#if UNITY_2023_1_OR_NEWER
+		m_Registry = FindAnyObjectByType<UnitVisionRegistry>(FindObjectsInactive.Exclude);
+#else
+		m_Registry = FindObjectOfType<UnitVisionRegistry>();
+#endif
+	}
+
 	private void ScheduleNextScan(float _delayOffset)
 	{
 		float min = Mathf.Min(m_ScanIntervalMin, m_ScanIntervalMax);

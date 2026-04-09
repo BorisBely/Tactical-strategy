@@ -65,6 +65,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
@@ -96,6 +97,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 
 	[Header("Input")]
+	[SerializeField] private bool m_EnableDirectInput = true;
 	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
 	[Tooltip("Гибрид одиночного/двойного ПКМ: одиночный клик откладывается на небольшой интервал, чтобы Unity успела распознать двойной клик.\nЕсли второй клик пришёл в окно double-click — одиночная команда отменяется и сразу идёт Run.")]
 	[SerializeField, Min(0.01f)] private float m_SingleClickCommitDelaySeconds = 0.12f;
@@ -151,6 +153,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 
+	public bool DirectInputEnabled => m_EnableDirectInput;
+
+	public bool HasMoveIntent => HasActiveMoveIntent();
+
 	/// <summary>
 	/// Принудительно сбросить заказ скорости на шаг (например, для механик, которым нельзя оставаться в спринте).
 	/// </summary>
@@ -188,6 +194,28 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return true;
 	}
 
+	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _mode)
+	{
+		if (m_Agent == null)
+			return false;
+
+		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+			return false;
+
+		IssueNavOrderInternal(hit.position, _mode);
+		return true;
+	}
+
+	public void SetDirectInputEnabled(bool _enabled)
+	{
+		m_EnableDirectInput = _enabled;
+		if (_enabled)
+			return;
+
+		m_HasPendingRightClick = false;
+		m_PendingRightClickTime = -1f;
+	}
+
 	private void Awake()
 	{
 		m_Agent = GetComponent<NavMeshAgent>();
@@ -211,6 +239,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
 	}
 
 	private void Start()
@@ -282,14 +312,16 @@ public sealed class UnitClickToMove : MonoBehaviour
 			}
 		}
 
-		if (m_HardStopEnabled && Keyboard.current != null &&
+		if (CanUseDirectInput() &&
+		    m_HardStopEnabled && Keyboard.current != null &&
 		    Keyboard.current[m_HardStopKey].wasPressedThisFrame &&
 		    IsMovingOnNavMesh())
 			HardStop();
 
-		TickPendingSingleRightClick();
+		if (CanUseDirectInput())
+			TickPendingSingleRightClick();
 
-		if (m_RayCamera != null)
+		if (CanUseDirectInput() && m_RayCamera != null)
 			TryRightClick();
 
 		UpdateFacing();
@@ -306,7 +338,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return m_Agent.hasPath && m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.05f;
 	}
 
-	private void HardStop()
+	private bool CanUseDirectInput()
+	{
+		if (!m_EnableDirectInput)
+			return false;
+		if (m_Team == null)
+			return true;
+
+		return m_Team.Team == UnitTeamId.Player;
+	}
+
+	public void HardStop()
 	{
 		m_HasPendingNavOrder = false;
 		m_HasPendingRightClick = false;
@@ -334,10 +376,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_HasPendingRightClick = false;
 		m_PendingRightClickTime = -1f;
-		IssueNavOrder(m_PendingRightClickDestination, MoveTier.Walk);
+		IssueNavOrderInternal(m_PendingRightClickDestination, MoveTier.Walk);
 	}
 
-	private void IssueNavOrder(Vector3 _destination, MoveTier _mode)
+	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _mode)
 	{
 		if (m_Agent == null)
 			return;
@@ -388,7 +430,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		{
 			m_HasPendingRightClick = false;
 			m_PendingRightClickTime = -1f;
-			IssueNavOrder(navHit.position, MoveTier.Sprint);
+			IssueNavOrderInternal(navHit.position, MoveTier.Sprint);
 			return;
 		}
 
@@ -397,7 +439,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		{
 			m_HasPendingRightClick = false;
 			m_PendingRightClickTime = -1f;
-			IssueNavOrder(navHit.position, MoveTier.Run);
+			IssueNavOrderInternal(navHit.position, MoveTier.Run);
 			return;
 		}
 
@@ -784,7 +826,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetInteger(s_LocomotionTier, tier);
 	}
 
-	private enum MoveTier
+	public enum MoveTier
 	{
 		Walk,
 		Run,

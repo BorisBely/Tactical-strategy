@@ -65,6 +65,11 @@ public class InventoryPickupZone : MonoBehaviour
 	#region Private Methods
 	private void OnTriggerEnter(Collider _other)
 	{
+		bool hasPickup = TryGetPickup(_other, out WorldPickupItem detectedPickup);
+		Debug.Log(
+			$"{nameof(InventoryPickupZone)}: OnTriggerEnter with '{_other.name}', layer={LayerMask.LayerToName(_other.gameObject.layer)} ({_other.gameObject.layer}), hasPickup={hasPickup}.",
+			this);
+
 		if (m_UseLayerMask && m_ItemLayerMask != 0)
 		{
 			int bit = 1 << _other.gameObject.layer;
@@ -72,8 +77,10 @@ public class InventoryPickupZone : MonoBehaviour
 				return;
 		}
 
-		if (!TryGetPickup(_other, out WorldPickupItem pickup))
+		if (!hasPickup)
 			return;
+
+		WorldPickupItem pickup = detectedPickup;
 
 		if (!m_OverlapRefCount.TryGetValue(pickup, out int count))
 			count = 0;
