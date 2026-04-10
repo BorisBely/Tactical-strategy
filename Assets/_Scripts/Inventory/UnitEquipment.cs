@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -7,6 +8,10 @@ using UnityEngine.Serialization;
 [DisallowMultipleComponent]
 public class UnitEquipment : MonoBehaviour
 {
+	#region Events
+	public event Action EquipmentChanged;
+	#endregion
+
 	#region Serialized Fields
 	[Header("Правая рука (оружие)")]
 	[Tooltip("Кость или пустой объект в правой кисти — родитель для Equipped Visual Prefab.")]
@@ -41,14 +46,7 @@ public class UnitEquipment : MonoBehaviour
 	#region Public Methods
 	public void ClearMainWeapon()
 	{
-		m_EquippedDefinition = null;
-		m_LeftHandIkTarget = null;
-		m_EquippedWeapon = null;
-		if (m_MainWeaponInstance != null)
-		{
-			Destroy(m_MainWeaponInstance);
-			m_MainWeaponInstance = null;
-		}
+		ClearMainWeaponInternal(true);
 	}
 
 	/// <summary>Экипировать предмет. Для General возвращает false. Предмет уже должен быть снят из списка инвентаря вызывающим кодом.</summary>
@@ -63,12 +61,15 @@ public class UnitEquipment : MonoBehaviour
 			return false;
 		}
 
-		ClearMainWeapon();
+		ClearMainWeaponInternal(false);
 		m_EquippedDefinition = _item;
 
 		GameObject prefab = _item.EquippedVisualPrefab;
 		if (prefab == null)
+		{
+			NotifyEquipmentChanged();
 			return true;
+		}
 
 		m_MainWeaponInstance = Instantiate(prefab, m_RightHand);
 		m_MainWeaponInstance.transform.localPosition = _item.RightHandLocalPosition;
@@ -81,6 +82,7 @@ public class UnitEquipment : MonoBehaviour
 		if (!string.IsNullOrWhiteSpace(ikName))
 			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, ikName);
 
+		NotifyEquipmentChanged();
 		return true;
 	}
 
@@ -91,6 +93,26 @@ public class UnitEquipment : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void ClearMainWeaponInternal(bool _notifyChanged)
+	{
+		m_EquippedDefinition = null;
+		m_LeftHandIkTarget = null;
+		m_EquippedWeapon = null;
+		if (m_MainWeaponInstance != null)
+		{
+			Destroy(m_MainWeaponInstance);
+			m_MainWeaponInstance = null;
+		}
+
+		if (_notifyChanged)
+			NotifyEquipmentChanged();
+	}
+
+	private void NotifyEquipmentChanged()
+	{
+		EquipmentChanged?.Invoke();
+	}
+
 	private static void DisablePhysicsOnEquippedVisual(GameObject _root)
 	{
 		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);

@@ -74,6 +74,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void Update()
 	{
+		if (PauseMenuController.IsPaused)
+			return;
+
 		HandleLeftMouseSelection();
 		HandleRightMouseCommand();
 		HandleKeyboardCommands();
@@ -806,10 +809,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return TryCompleteCharacterToGroundTransfer(_inventory, data, null, isMainHand);
 	}
 
-	private static WorldPickupItem SpawnDropWorldPickup(CharacterInventory _inventory, ItemDefinition _definition, string _displayName)
+	private static WorldPickupItem SpawnDropWorldPickup(CharacterInventory _inventory, InventorySlotRuntimeData _data)
 	{
+		ItemDefinition definition = _data.Definition;
+		if (definition == null)
+			return null;
+
 		_inventory.GetDropWorldPose(out Vector3 position, out Quaternion rotation);
-		GameObject go = Instantiate(_definition.DropWorldPrefab, position, rotation);
+		GameObject go = Instantiate(definition.DropWorldPrefab, position, rotation);
 		WorldPickupItem pickup = go.GetComponent<WorldPickupItem>();
 		if (pickup == null)
 		{
@@ -817,7 +824,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return null;
 		}
 
-		pickup.ConfigureForDroppedFromInventory(_definition, _displayName);
+		pickup.ConfigureForDroppedFromInventory(_data);
 		return pickup;
 	}
 
@@ -828,7 +835,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		ItemDefinition definition = _data.Definition;
 		if (definition != null && definition.DropWorldPrefab != null)
 		{
-			spawned = SpawnDropWorldPickup(_inventory, definition, _data.DisplayName);
+			spawned = SpawnDropWorldPickup(_inventory, _data);
 			if (spawned == null)
 			{
 				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);

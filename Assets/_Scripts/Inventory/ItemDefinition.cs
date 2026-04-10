@@ -9,12 +9,16 @@ using UnityEngine;
 public class ItemDefinition : ScriptableObject
 {
 	#region Serialized Fields
-	[SerializeField] private string m_DisplayName = "Предмет";
+	[Tooltip("Ключ локализации имени предмета.")]
+	[SerializeField] private string m_LocalizationKey;
 	[TextArea(2, 6)]
+	[Tooltip("Описание предмета для UI и справки.")]
 	[SerializeField] private string m_Description;
+	[Tooltip("Иконка предмета в UI.")]
 	[SerializeField] private Sprite m_Icon;
 
 	[Header("Тип")]
+	[Tooltip("Категория предмета: обычный предмет или экипируемое снаряжение.")]
 	[SerializeField] private ItemCategory m_Category = ItemCategory.General;
 
 	[Header("Выброс из инвентаря на землю")]
@@ -32,16 +36,27 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
 
 	[Header("Снаряжение (Equipment)")]
+	[Tooltip("Подтип снаряжения: оружие или другой экипируемый предмет.")]
 	[SerializeField] private EquipmentKind m_EquipmentKind = EquipmentKind.Weapon;
 
 	[Header("Оружие (Equipment, Kind = Weapon)")]
 	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
 	[SerializeField] private WeaponType m_WeaponType = WeaponType.Primary;
 
+	[Header("Shooting Data")]
+	[Tooltip("Ссылка на базовые данные оружейной платформы для этого предмета.")]
+	[SerializeField] private WeaponDefinition m_WeaponDefinition;
+	[Tooltip("Ссылка на данные патрона, если этот предмет является патроном.")]
+	[SerializeField] private AmmoDefinition m_AmmoDefinition;
+	[Tooltip("Ссылка на данные магазина, если этот предмет является магазином.")]
+	[SerializeField] private MagazineDefinition m_MagazineDefinition;
+	[Tooltip("Ссылка на данные модуля оружия, если этот предмет является аксессуаром.")]
+	[SerializeField] private WeaponAttachmentDefinition m_WeaponAttachmentDefinition;
+
 	#endregion
 
 	#region Public Properties
-	public string DisplayName => m_DisplayName;
+	public string LocalizationKey => m_LocalizationKey;
 	public string Description => m_Description;
 	public Sprite Icon => m_Icon;
 	public ItemCategory Category => m_Category;
@@ -58,5 +73,19 @@ public class ItemDefinition : ScriptableObject
 	public EquipmentKind EquipmentKind => m_EquipmentKind;
 	/// <summary>Тип оружия (для Equipment).</summary>
 	public WeaponType WeaponType => m_WeaponType;
+	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;
+	public AmmoDefinition AmmoDefinition => m_AmmoDefinition;
+	public MagazineDefinition MagazineDefinition => m_MagazineDefinition;
+	public WeaponAttachmentDefinition WeaponAttachmentDefinition => m_WeaponAttachmentDefinition;
+	#endregion
+
+	#region Public Methods
+	public string GetLocalizedDisplayName()
+	{
+		if (string.IsNullOrWhiteSpace(m_LocalizationKey))
+			return LocalizationManager.Get("item.generic", "Item");
+
+		return LocalizationManager.Get(m_LocalizationKey, LocalizationManager.Get("item.generic", "Item"));
+	}
 	#endregion
 }

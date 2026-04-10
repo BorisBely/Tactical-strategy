@@ -11,7 +11,7 @@ public class WorldPickupItem : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private ItemDefinition m_Definition;
-	[SerializeField] private string m_OverrideDisplayName;
+	[SerializeField] private ItemInstanceState m_InstanceState;
 	#endregion
 
 	#region Private Fields
@@ -25,22 +25,19 @@ public class WorldPickupItem : MonoBehaviour
 	#region Public Methods
 	public InventorySlotRuntimeData BuildSlotData()
 	{
-		InventorySlotRuntimeData data;
-
 		if (m_Definition != null)
 		{
-			data = InventorySlotRuntimeData.FromDefinition(m_Definition);
-			if (!string.IsNullOrWhiteSpace(m_OverrideDisplayName))
-				data.DisplayName = m_OverrideDisplayName;
-		}
-		else
-		{
-			string name = string.IsNullOrWhiteSpace(m_OverrideDisplayName) ? gameObject.name : m_OverrideDisplayName;
-			data = InventorySlotRuntimeData.FromDisplayName(name);
+			InventorySlotRuntimeData data = InventorySlotRuntimeData.FromDefinition(m_Definition);
+			if (m_InstanceState == null)
+				m_InstanceState = data.InstanceState;
+			data.InstanceState = m_InstanceState;
+			data.WorldSource = this;
+			return data;
 		}
 
-		data.WorldSource = this;
-		return data;
+		InventorySlotRuntimeData fallbackData = InventorySlotRuntimeData.FromDisplayName(gameObject.name);
+		fallbackData.WorldSource = this;
+		return fallbackData;
 	}
 
 	public void RegisterListedInGroundUi()
@@ -54,13 +51,10 @@ public class WorldPickupItem : MonoBehaviour
 	}
 
 	/// <summary>После спавна при выбросе из рюкзака (данные из инвентаря).</summary>
-	public void ConfigureForDroppedFromInventory(ItemDefinition _definition, string _displayName)
+	public void ConfigureForDroppedFromInventory(InventorySlotRuntimeData _data)
 	{
-		m_Definition = _definition;
-		if (string.IsNullOrWhiteSpace(_displayName) || (_definition != null && _displayName == _definition.DisplayName))
-			m_OverrideDisplayName = null;
-		else
-			m_OverrideDisplayName = _displayName;
+		m_Definition = _data.Definition;
+		m_InstanceState = _data.InstanceState ?? ItemInstanceState.CreateForDefinition(_data.Definition);
 		m_ListedInGroundUi = false;
 	}
 

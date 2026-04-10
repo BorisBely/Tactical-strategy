@@ -16,18 +16,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[SerializeField] private Collider m_SelectionCollider;
 	[SerializeField] private GameObject m_SelectionVisualRoot;
 	[SerializeField] private bool m_DisableDirectInputForRts = true;
-	[Header("RTS Reaction")]
-	[SerializeField, Min(0f)] private float m_ReactionDelayMinSeconds = 0.08f;
-	[SerializeField, Min(0f)] private float m_ReactionDelayMaxSeconds = 0.28f;
-	[SerializeField] private float m_RuntimeReactionDelaySeconds;
-	[SerializeField, Min(0f)] private float m_MoveStartDelayMinSeconds = 0f;
-	[SerializeField, Min(0f)] private float m_MoveStartDelayMaxSeconds = 0f;
-	[SerializeField] private float m_RuntimeMoveStartDelaySeconds;
 	[Header("Animator Variation")]
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMin = 0.97f;
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMax = 1.03f;
@@ -60,6 +54,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_Stance = GetComponent<UnitAnimatorStance>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_CharacterInventory == null)
@@ -67,12 +63,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_SelectionCollider == null)
 			m_SelectionCollider = GetComponent<Collider>();
 
-		m_RuntimeReactionDelaySeconds = UnityEngine.Random.Range(
-			Mathf.Min(m_ReactionDelayMinSeconds, m_ReactionDelayMaxSeconds),
-			Mathf.Max(m_ReactionDelayMinSeconds, m_ReactionDelayMaxSeconds));
-		m_RuntimeMoveStartDelaySeconds = UnityEngine.Random.Range(
-			Mathf.Min(m_MoveStartDelayMinSeconds, m_MoveStartDelayMaxSeconds),
-			Mathf.Max(m_MoveStartDelayMinSeconds, m_MoveStartDelayMaxSeconds));
 		m_RuntimeMoveAnimatorSpeed = UnityEngine.Random.Range(
 			Mathf.Min(m_MoveAnimatorSpeedMin, m_MoveAnimatorSpeedMax),
 			Mathf.Max(m_MoveAnimatorSpeedMin, m_MoveAnimatorSpeedMax));
@@ -131,7 +121,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				};
 				m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
 			}
-		}, m_RuntimeReactionDelaySeconds + m_RuntimeMoveStartDelaySeconds);
+		});
 	}
 
 	public void SetReadyWanted(bool _ready)
@@ -165,6 +155,36 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_LocomotionDriver != null)
 				m_LocomotionDriver.HardStop();
 		});
+	}
+
+	public void StartFiring()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_FireController != null)
+				m_FireController.StartFiring();
+		});
+	}
+
+	public void StopFiring()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_FireController != null)
+				m_FireController.StopFiring();
+		});
+	}
+
+	public WeaponShotAttemptResult TryFireSingleShot()
+	{
+		WeaponShotAttemptResult result = WeaponShotAttemptResult.NoWeapon;
+		ScheduleRtsCommand(() =>
+		{
+			if (m_FireController != null)
+				result = m_FireController.TryFireSingleShot();
+		});
+
+		return result;
 	}
 
 	public bool TryGetCurrentStance(out LocomotionStance _stance)
@@ -205,39 +225,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 	#region Private Methods
 	private void ScheduleRtsCommand(Action _command)
 	{
-		ScheduleRtsCommand(_command, m_RuntimeReactionDelaySeconds);
-	}
-
-	private void ScheduleRtsCommand(Action _command, float _delaySeconds)
-	{
 		if (_command == null)
 			return;
 
 		m_PendingCommandVersion++;
-		int commandVersion = m_PendingCommandVersion;
 
 		if (m_PendingCommandCoroutine != null)
 			StopCoroutine(m_PendingCommandCoroutine);
 
-		if (_delaySeconds <= 0f)
-		{
-			m_PendingCommandCoroutine = null;
-			_command();
-			return;
-		}
-
-		m_PendingCommandCoroutine = StartCoroutine(ExecuteRtsCommandAfterDelay(commandVersion, _delaySeconds, _command));
-	}
-
-	private IEnumerator ExecuteRtsCommandAfterDelay(int _commandVersion, float _delaySeconds, Action _command)
-	{
-		yield return new WaitForSeconds(_delaySeconds);
-
-		if (_commandVersion != m_PendingCommandVersion)
-			yield break;
-
 		m_PendingCommandCoroutine = null;
-		_command?.Invoke();
+		_command();
 	}
 
 	private void CancelPendingCommand()

@@ -36,6 +36,13 @@ public class CharacterInventory : MonoBehaviour
 	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0);
 	#endregion
 
+	#region Unity Lifecycle
+	private void Awake()
+	{
+		EnsureRuntimeStatesInitialized();
+	}
+	#endregion
+
 	#region Public Methods
 	/// <summary>Добавить в сумку (не в слот оружия).</summary>
 	public bool TryAdd(InventorySlotRuntimeData _data)
@@ -44,6 +51,7 @@ public class CharacterInventory : MonoBehaviour
 			return false;
 
 		InventorySlotRuntimeData copy = _data;
+		EnsureSlotHasInstanceState(ref copy);
 		copy.WorldSource = null;
 		m_BagItems.Add(copy);
 		return true;
@@ -149,6 +157,26 @@ public class CharacterInventory : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void EnsureRuntimeStatesInitialized()
+	{
+		EnsureSlotHasInstanceState(ref m_MainHandEquipment);
+
+		for (int i = 0; i < m_BagItems.Count; i++)
+		{
+			InventorySlotRuntimeData slot = m_BagItems[i];
+			EnsureSlotHasInstanceState(ref slot);
+			m_BagItems[i] = slot;
+		}
+	}
+
+	private static void EnsureSlotHasInstanceState(ref InventorySlotRuntimeData _data)
+	{
+		if (_data.Definition == null || _data.InstanceState != null)
+			return;
+
+		_data.InstanceState = ItemInstanceState.CreateForDefinition(_data.Definition);
+	}
+
 	private void ClearUnitEquipmentVisual()
 	{
 		UnitEquipment equipment = GetComponentInChildren<UnitEquipment>(true);
