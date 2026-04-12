@@ -525,7 +525,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (Keyboard.current.cKey.wasPressedThisFrame)
+		{
 			CommandSelectedStance(GetNextCTargetStance());
+			return;
+		}
+
+		if (Keyboard.current.tKey.wasPressedThisFrame)
+			CommandSelectedManualMagazineLoading();
 	}
 
 	private void CommandSelectedStance(LocomotionStance _stance)
@@ -559,6 +565,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 
 			unit.HardStop();
+		}
+	}
+
+	private void CommandSelectedManualMagazineLoading()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			unit.StartManualMagazineLoading();
 		}
 	}
 

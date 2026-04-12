@@ -17,6 +17,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[SerializeField] private Collider m_SelectionCollider;
@@ -56,6 +57,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_CharacterInventory == null)
@@ -185,6 +188,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 		});
 
 		return result;
+	}
+
+	public void StartManualMagazineLoading()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_MagazineLoadingController != null)
+				m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes();
+		});
 	}
 
 	public bool TryGetCurrentStance(out LocomotionStance _stance)

@@ -14,7 +14,7 @@ public sealed class UnitBusyState : MonoBehaviour
 	{
 		None = 0,
 		StanceTransition = 1 << 0,
-		// Future: Reload = 1 << 1,
+		Reload = 1 << 1,
 		// Future: Melee = 1 << 2,
 		// Future: Throw = 1 << 3,
 	}

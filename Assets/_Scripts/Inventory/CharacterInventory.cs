@@ -70,6 +70,15 @@ public class CharacterInventory : MonoBehaviour
 		return true;
 	}
 
+	public bool TrySetBagItemAt(int _index, InventorySlotRuntimeData _updated)
+	{
+		if (_index < 0 || _index >= m_BagItems.Count)
+			return false;
+
+		m_BagItems[_index] = _updated;
+		return true;
+	}
+
 	/// <summary>Снять основное оружие со слота (например выброс на землю). Снимает и визуал с юнита.</summary>
 	public bool TryRemoveMainHandEquipment(out InventorySlotRuntimeData _removed)
 	{

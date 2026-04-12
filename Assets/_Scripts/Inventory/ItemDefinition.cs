@@ -48,6 +48,8 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private WeaponDefinition m_WeaponDefinition;
 	[Tooltip("Ссылка на данные патрона, если этот предмет является патроном.")]
 	[SerializeField] private AmmoDefinition m_AmmoDefinition;
+	[Tooltip("Сколько патронов этого типа находится в одном экземпляре коробки/пачки по умолчанию.")]
+	[SerializeField, Min(0)] private int m_InitialAmmoCount;
 	[Tooltip("Ссылка на данные магазина, если этот предмет является магазином.")]
 	[SerializeField] private MagazineDefinition m_MagazineDefinition;
 	[Tooltip("Ссылка на данные модуля оружия, если этот предмет является аксессуаром.")]
@@ -75,6 +77,7 @@ public class ItemDefinition : ScriptableObject
 	public WeaponType WeaponType => m_WeaponType;
 	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;
 	public AmmoDefinition AmmoDefinition => m_AmmoDefinition;
+	public int InitialAmmoCount => m_InitialAmmoCount;
 	public MagazineDefinition MagazineDefinition => m_MagazineDefinition;
 	public WeaponAttachmentDefinition WeaponAttachmentDefinition => m_WeaponAttachmentDefinition;
 	#endregion

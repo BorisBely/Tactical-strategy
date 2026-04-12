@@ -43,6 +43,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_SemiAutoRecoilMultiplier = 0.85f;
 	[Tooltip("Множитель накопления отдачи при автоматическом огне.")]
 	[SerializeField, Min(0f)] private float m_AutoRecoilMultiplier = 1.25f;
+	[Tooltip("Сколько единиц накопленной отдачи оружие восстанавливает за секунду.")]
+	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
 
 	[Header("Reliability")]
 	[Tooltip("Общая надёжность оружия: устойчивость к износу, загрязнению и проблемам в тяжёлых условиях.")]
@@ -72,6 +74,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float RecoilPerShot => m_RecoilPerShot;
 	public float SemiAutoRecoilMultiplier => m_SemiAutoRecoilMultiplier;
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
+	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
 	public float Reliability => m_Reliability;
 	public float WearJamStartThreshold => m_WearJamStartThreshold;
 	public float FoulingJamStartThreshold => m_FoulingJamStartThreshold;

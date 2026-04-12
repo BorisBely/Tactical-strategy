@@ -8,7 +8,8 @@ public enum CaliberType
 	None = 0,
 	NineByNineteen = 1,
 	Five45By39 = 2,
-	TwelveGauge = 3
+	Five56By45 = 3,
+	TwelveGauge = 4
 }
 
 /// <summary>
