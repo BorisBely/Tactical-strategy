@@ -83,7 +83,8 @@ public enum WeaponShotAttemptResult
 	EmptyMagazine = 3,
 	FireRateLimited = 4,
 	NotReady = 5,
-	NoVisibleTarget = 6
+	NoVisibleTarget = 6,
+	Busy = 7
 }
 
 /// <summary>

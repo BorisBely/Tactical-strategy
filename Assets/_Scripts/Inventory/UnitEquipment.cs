@@ -90,6 +90,14 @@ public class UnitEquipment : MonoBehaviour
 	{
 		ClearMainWeapon();
 	}
+
+	public void SetMainWeaponVisualActive(bool _active)
+	{
+		if (m_MainWeaponInstance == null)
+			return;
+
+		m_MainWeaponInstance.SetActive(_active);
+	}
 	#endregion
 
 	#region Private Methods

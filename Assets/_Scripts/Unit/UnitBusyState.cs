@@ -53,6 +53,14 @@ public sealed class UnitBusyState : MonoBehaviour
 		m_Reasons = BusyReason.None;
 		SyncBusyFlag();
 	}
+
+	public bool HasReason(BusyReason _reason)
+	{
+		if (_reason == BusyReason.None)
+			return false;
+
+		return (m_Reasons & _reason) != 0;
+	}
 	#endregion
 
 	#region Private Methods

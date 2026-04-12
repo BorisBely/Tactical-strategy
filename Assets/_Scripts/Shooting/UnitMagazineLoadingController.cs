@@ -18,6 +18,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[Tooltip("Занятость юнита на время ручной зарядки.")]
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[Tooltip("Для обновления UI, если инвентарь этого юнита сейчас открыт.")]
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
 	[Tooltip("Animator юнита. На нём можно завести bool-параметр IsLoadingMagazine для loop-анимации зарядки.")]
@@ -47,6 +48,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			m_CharacterInventory = GetComponent<CharacterInventory>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponent<UnitEquipment>();
 		if (m_InventoryBindings == null)
 			m_InventoryBindings = InventoryScreenBindings.Instance;
 		if (m_Animator == null)
@@ -80,7 +83,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 		if (m_BusyState != null && m_BusyState.IsBusy)
 		{
-			m_DebugLastFailureReason = "Unit is busy";
+			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
 			return false;
 		}
 
@@ -100,6 +103,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_DebugTargetMagazineBagIndex = targetMagazineIndex;
 		m_DebugLoadedRoundsThisSession = 0;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		m_UnitEquipment?.SetMainWeaponVisualActive(false);
 		AttachCurrentLoadingMagazineVisualToLeftHand();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
@@ -305,6 +309,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_IsLoadingMagazine = false;
 		m_DebugTargetMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
+		m_UnitEquipment?.SetMainWeaponVisualActive(true);
 		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
@@ -344,7 +349,6 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		Destroy(m_LeftHandMagazineVisualInstance);
 		m_LeftHandMagazineVisualInstance = null;
 	}
-
 	private static void DisablePhysicsOnLoadingVisual(GameObject _root)
 	{
 		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);

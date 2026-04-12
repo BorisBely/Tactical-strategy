@@ -531,7 +531,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (Keyboard.current.tKey.wasPressedThisFrame)
+		{
 			CommandSelectedManualMagazineLoading();
+			return;
+		}
+
+		if (Keyboard.current.rKey.wasPressedThisFrame)
+		{
+			CommandSelectedWeaponReload();
+		}
 	}
 
 	private void CommandSelectedStance(LocomotionStance _stance)
@@ -577,6 +585,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 
 			unit.StartManualMagazineLoading();
+		}
+	}
+
+	private void CommandSelectedWeaponReload()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			unit.StartWeaponReload();
 		}
 	}
 

@@ -17,6 +17,8 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
+	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 
 	[Header("Плавность")]
 	[SerializeField, Min(0.02f)] private float m_WeaponModeCrossFadeSeconds = 0.22f;
@@ -31,6 +33,10 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 	}
 
 	private void OnEnable()
@@ -68,7 +74,10 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 		if (current.EquipmentKind != EquipmentKind.Weapon)
 			return (int)LocomotionWeaponMode.Unarmed;
 
-		if (m_ReadyHands != null && m_ReadyHands.ShouldUseUnarmedLocomotionBranch())
+		bool isMagazineLoading = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
+		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadingWeapon;
+		if (!isMagazineLoading && !isWeaponReloading &&
+			m_ReadyHands != null && m_ReadyHands.ShouldUseUnarmedLocomotionBranch())
 			return (int)LocomotionWeaponMode.Unarmed;
 
 		return current.WeaponType == WeaponType.Secondary

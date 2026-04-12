@@ -21,6 +21,7 @@
     { "key": "pause.help.z", "value": "Z - Toggle prone / stand" },
     { "key": "pause.help.c", "value": "C - Toggle crouch / stand" },
     { "key": "pause.help.f", "value": "F - Hard stop" },
+    { "key": "pause.help.r", "value": "R - Reload weapon with a magazine from inventory" },
     { "key": "pause.help.t", "value": "T - Load one magazine from ammo boxes in inventory" },
     { "key": "pause.help.i", "value": "I - Open inventory" },
     { "key": "pause.help.h", "value": "H - Open health window" },

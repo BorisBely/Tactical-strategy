@@ -19,6 +19,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[Tooltip("Текущая видимая цель, если выстрелы требуют target lock.")]
 	[SerializeField] private UnitVision m_Vision;
+	[Tooltip("Во время reload-команд выстрелы блокируются.")]
+	[SerializeField] private UnitBusyState m_BusyState;
 
 	[Header("Fire Conditions")]
 	[Tooltip("Запрещать выстрел, если оружие не на ready.")]
@@ -49,6 +51,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
+		if (m_BusyState == null)
+			m_BusyState = GetComponent<UnitBusyState>();
 	}
 
 	private void Update()
@@ -110,6 +114,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady()))
 			return WeaponShotAttemptResult.NotReady;
+
+		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+			return WeaponShotAttemptResult.Busy;
 
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
 			return WeaponShotAttemptResult.NoVisibleTarget;

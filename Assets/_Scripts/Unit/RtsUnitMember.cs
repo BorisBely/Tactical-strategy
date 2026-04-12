@@ -18,6 +18,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
+	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[SerializeField] private Collider m_SelectionCollider;
@@ -59,6 +60,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_MagazineLoadingController == null)
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_CharacterInventory == null)
@@ -149,6 +152,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			m_MagazineLoadingController?.StopLoading();
+			m_WeaponReloadController?.StopReload();
+			m_FireController?.StopFiring();
+
 			if (m_ClickToMove != null)
 			{
 				m_ClickToMove.HardStop();
@@ -194,8 +201,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
-			if (m_MagazineLoadingController != null)
-				m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes();
+			if (m_MagazineLoadingController == null)
+				return;
+
+			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes();
+		});
+	}
+
+	public void StartWeaponReload()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_WeaponReloadController == null)
+				return;
+
+			m_WeaponReloadController.TryStartReload();
 		});
 	}
 

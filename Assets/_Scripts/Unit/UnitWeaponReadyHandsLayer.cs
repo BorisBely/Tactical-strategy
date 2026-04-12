@@ -27,6 +27,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
+	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 
 	[Header("Ввод")]
 	[SerializeField] private bool m_EnableKeyboardInput = true;
@@ -180,6 +181,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_Team = GetComponent<UnitTeam>();
 		if (m_MagazineLoadingController == null)
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 
 		if (m_Animator != null)
 			m_LayerIndex = m_Animator.GetLayerIndex(c_LayerName);
@@ -276,9 +279,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return;
 
 		bool isMagazineLoading = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
+		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadingWeapon;
 
 		// Слой рук показываем только в разрешённом контексте (стойка/скорость), даже если "не готов" активен.
-		bool shouldShow = isMagazineLoading || (ShouldUseUnarmedLocomotionBranch() && IsUnarmedNotReadyContextAllowed());
+		bool shouldShow = isMagazineLoading || isWeaponReloading || (ShouldUseUnarmedLocomotionBranch() && IsUnarmedNotReadyContextAllowed());
 		float targetWeight = shouldShow ? 1f : 0f;
 
 		if (m_SnapLayerWeightNextFrame)
@@ -301,7 +305,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return;
 		}
 
-		if (isMagazineLoading)
+		if (isMagazineLoading || isWeaponReloading)
 		{
 			m_WasNoAimLayerActive = true;
 			return;
