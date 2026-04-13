@@ -73,11 +73,15 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		}
 
 		if (ReferenceEquals(m_BoundWeaponState, weaponState))
+		{
+			SyncInsertedMagazineVisual();
 			return;
+		}
 
 		m_BoundItemState = itemState;
 		m_BoundWeaponState = weaponState;
 		m_TransientState.Clear();
+		SyncInsertedMagazineVisual();
 	}
 
 	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem)
@@ -85,7 +89,11 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (m_BoundWeaponState == null)
 			return false;
 
-		return m_BoundWeaponState.TryInsertMagazine(_magazineItem);
+		bool inserted = m_BoundWeaponState.TryInsertMagazine(_magazineItem);
+		if (inserted)
+			SyncInsertedMagazineVisual();
+
+		return inserted;
 	}
 
 	public bool TryEjectMagazine(out InventorySlotRuntimeData _magazineItem)
@@ -96,7 +104,11 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 			return false;
 		}
 
-		return m_BoundWeaponState.TryEjectMagazine(out _magazineItem);
+		bool ejected = m_BoundWeaponState.TryEjectMagazine(out _magazineItem);
+		if (ejected)
+			SyncInsertedMagazineVisual();
+
+		return ejected;
 	}
 
 	public bool TryLoadRoundIntoInsertedMagazine(AmmoDefinition _ammoDefinition)
@@ -178,9 +190,36 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 	private void UnbindCurrentWeapon()
 	{
+		ClearInsertedMagazineVisual();
 		m_BoundItemState = null;
 		m_BoundWeaponState = null;
 		m_TransientState.Clear();
+	}
+
+	private void SyncInsertedMagazineVisual()
+	{
+		EquippedWeapon equippedWeapon = m_UnitEquipment != null ? m_UnitEquipment.EquippedWeapon : null;
+		if (equippedWeapon == null)
+			return;
+
+		InventorySlotRuntimeData currentMagazineItem = m_BoundWeaponState != null
+			? m_BoundWeaponState.CurrentMagazineItem
+			: default;
+		ItemDefinition magazineDefinition = currentMagazineItem.Definition;
+		if (magazineDefinition == null || currentMagazineItem.InstanceState == null || currentMagazineItem.InstanceState.MagazineState == null)
+		{
+			equippedWeapon.ClearInsertedMagazineVisual();
+			return;
+		}
+
+		equippedWeapon.SetInsertedMagazineVisual(magazineDefinition);
+	}
+
+	private void ClearInsertedMagazineVisual()
+	{
+		EquippedWeapon equippedWeapon = m_UnitEquipment != null ? m_UnitEquipment.EquippedWeapon : null;
+		if (equippedWeapon != null)
+			equippedWeapon.ClearInsertedMagazineVisual();
 	}
 	#endregion
 }

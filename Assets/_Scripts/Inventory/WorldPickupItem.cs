@@ -22,6 +22,22 @@ public class WorldPickupItem : MonoBehaviour
 	public bool IsListedInGroundUi => m_ListedInGroundUi;
 	#endregion
 
+	#region Unity Lifecycle
+	private void Awake()
+	{
+		EnsureRuntimeStateInitialized();
+		RefreshVisualState();
+	}
+
+#if UNITY_EDITOR
+	private void OnValidate()
+	{
+		if (!Application.isPlaying)
+			RefreshVisualState();
+	}
+#endif
+	#endregion
+
 	#region Public Methods
 	public InventorySlotRuntimeData BuildSlotData()
 	{
@@ -56,6 +72,7 @@ public class WorldPickupItem : MonoBehaviour
 		m_Definition = _data.Definition;
 		m_InstanceState = _data.InstanceState ?? ItemInstanceState.CreateForDefinition(_data.Definition);
 		m_ListedInGroundUi = false;
+		RefreshVisualState();
 	}
 
 	/// <summary>
@@ -66,6 +83,41 @@ public class WorldPickupItem : MonoBehaviour
 	{
 		m_ListedInGroundUi = false;
 		Destroy(gameObject);
+	}
+	#endregion
+
+	#region Private Methods
+	private void EnsureRuntimeStateInitialized()
+	{
+		if (m_Definition == null || m_InstanceState != null)
+			return;
+
+		m_InstanceState = ItemInstanceState.CreateForDefinition(m_Definition);
+	}
+
+	private void RefreshVisualState()
+	{
+		EquippedWeapon equippedWeapon = GetComponentInChildren<EquippedWeapon>(true);
+		if (equippedWeapon == null)
+			return;
+
+		ItemDefinition currentMagazineDefinition = GetInsertedMagazineDefinition();
+		if (currentMagazineDefinition == null)
+			equippedWeapon.ClearInsertedMagazineVisual();
+		else
+			equippedWeapon.SetInsertedMagazineVisual(currentMagazineDefinition);
+	}
+
+	private ItemDefinition GetInsertedMagazineDefinition()
+	{
+		if (m_InstanceState == null || m_InstanceState.WeaponState == null)
+			return null;
+
+		InventorySlotRuntimeData currentMagazineItem = m_InstanceState.WeaponState.CurrentMagazineItem;
+		if (currentMagazineItem.IsEmpty || currentMagazineItem.InstanceState == null || currentMagazineItem.InstanceState.MagazineState == null)
+			return null;
+
+		return currentMagazineItem.Definition;
 	}
 	#endregion
 }

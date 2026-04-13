@@ -67,6 +67,11 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	#region Public Methods
 	public bool TryStartLoadingMagazineFromAmmoBoxes()
 	{
+		return TryStartLoadingMagazineFromAmmoBoxes(-1);
+	}
+
+	public bool TryStartLoadingMagazineFromAmmoBoxes(int _preferredBagIndex)
+	{
 		m_DebugLastFailureReason = null;
 
 		if (m_IsLoadingMagazine)
@@ -87,7 +92,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			return false;
 		}
 
-		if (!TryFindBestMagazineToLoad(out int targetMagazineIndex, out MagazineRuntimeState targetMagazineState))
+		if (!TryFindBestMagazineToLoad(_preferredBagIndex, out int targetMagazineIndex, out MagazineRuntimeState targetMagazineState))
 		{
 			m_DebugLastFailureReason = "No compatible magazine to load";
 			return false;
@@ -180,13 +185,19 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	#endregion
 
 	#region Private Methods
-	private bool TryFindBestMagazineToLoad(out int _bagIndex, out MagazineRuntimeState _magazineState)
+	private bool TryFindBestMagazineToLoad(int _preferredBagIndex, out int _bagIndex, out MagazineRuntimeState _magazineState)
 	{
 		_bagIndex = -1;
 		_magazineState = null;
 
 		if (m_CharacterInventory == null)
 			return false;
+
+		if (TryGetLoadableMagazineStateAt(_preferredBagIndex, out _magazineState))
+		{
+			_bagIndex = _preferredBagIndex;
+			return true;
+		}
 
 		IReadOnlyList<InventorySlotRuntimeData> bagItems = m_CharacterInventory.BagItems;
 		int bestAmmoCount = int.MaxValue;
@@ -215,6 +226,31 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		}
 
 		return _bagIndex >= 0 && _magazineState != null;
+	}
+
+	private bool TryGetLoadableMagazineStateAt(int _bagIndex, out MagazineRuntimeState _magazineState)
+	{
+		_magazineState = null;
+
+		if (m_CharacterInventory == null || _bagIndex < 0 || _bagIndex >= m_CharacterInventory.BagCount)
+			return false;
+
+		InventorySlotRuntimeData item = m_CharacterInventory.BagItems[_bagIndex];
+		MagazineRuntimeState magazineState = item.InstanceState != null ? item.InstanceState.MagazineState : null;
+		MagazineDefinition magazineDefinition = item.Definition != null ? item.Definition.MagazineDefinition : null;
+		if (magazineState == null || magazineDefinition == null)
+			return false;
+		if (magazineState.Definition == null)
+			magazineState.Configure(magazineDefinition, magazineState.LoadedAmmoDefinition, magazineState.CurrentAmmoCount);
+		if (magazineState.Definition == null)
+			return false;
+		if (magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity)
+			return false;
+		if (!HasAmmoBoxForCaliber(magazineState.Definition.SupportedCaliber))
+			return false;
+
+		_magazineState = magazineState;
+		return true;
 	}
 
 	private bool TryFindCurrentLoadingMagazine(out MagazineRuntimeState _magazineState)

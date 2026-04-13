@@ -19,6 +19,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private Transform m_LeftHandAnchor;
@@ -27,12 +28,14 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[SerializeField] private bool m_IsReloadingWeapon;
 	[SerializeField] private bool m_HasEjectedCurrentMagazine;
 	[SerializeField] private int m_DebugSourceBagIndex = -1;
+	[SerializeField] private int m_DebugFallbackMagazineBagIndex = -1;
 	[SerializeField] private string m_DebugLastFailureReason;
 	#endregion
 
 	#region Private Fields
 	private InventorySlotRuntimeData m_PendingReplacementMagazine;
 	private GameObject m_LeftHandMagazineVisualInstance;
+	private bool m_ShouldStartManualMagazineLoadingAfterReload;
 	#endregion
 
 	#region Public Properties
@@ -50,6 +53,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_InventoryBindings == null)
 			m_InventoryBindings = InventoryScreenBindings.Instance;
 		if (m_Animator == null)
@@ -87,7 +92,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
-		if (!TryTakeBestReplacementMagazine(out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine))
+		int fallbackMagazineBagIndex = -1;
+		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
+		if (!hasReplacementMagazine && !TryPrepareFallbackManualLoading(out fallbackMagazineBagIndex))
 		{
 			m_DebugLastFailureReason = "No compatible magazine in bag";
 			return false;
@@ -95,8 +102,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		m_IsReloadingWeapon = true;
 		m_HasEjectedCurrentMagazine = false;
-		m_DebugSourceBagIndex = sourceBagIndex;
-		m_PendingReplacementMagazine = replacementMagazine;
+		m_DebugSourceBagIndex = hasReplacementMagazine ? sourceBagIndex : -1;
+		m_PendingReplacementMagazine = hasReplacementMagazine ? replacementMagazine : default;
+		m_ShouldStartManualMagazineLoadingAfterReload = !hasReplacementMagazine;
+		m_DebugFallbackMagazineBagIndex = hasReplacementMagazine ? -1 : fallbackMagazineBagIndex;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
 		AttachPendingMagazineVisualToLeftHand();
@@ -120,7 +129,14 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 
 		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine))
-			m_CharacterInventory?.TryAdd(ejectedMagazine);
+		{
+			if (m_CharacterInventory != null)
+			{
+				int bagIndexBeforeAdd = m_CharacterInventory.BagCount;
+				if (m_CharacterInventory.TryAdd(ejectedMagazine) && m_ShouldStartManualMagazineLoadingAfterReload)
+					m_DebugFallbackMagazineBagIndex = bagIndexBeforeAdd;
+			}
+		}
 
 		m_HasEjectedCurrentMagazine = true;
 		RefreshInventoryUiIfActive();
@@ -153,7 +169,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon)
 			return;
 
-		StopReloadInternal(true);
+		bool shouldStartManualMagazineLoading = m_ShouldStartManualMagazineLoadingAfterReload;
+		int fallbackMagazineBagIndex = m_DebugFallbackMagazineBagIndex;
+		StopReloadInternal(false);
+
+		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null)
+			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex);
 	}
 	#endregion
 
@@ -178,6 +199,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			MagazineRuntimeState candidateState = candidate.InstanceState != null ? candidate.InstanceState.MagazineState : null;
 			MagazineDefinition candidateDefinition = candidate.Definition != null ? candidate.Definition.MagazineDefinition : null;
 			if (candidateState == null || candidateDefinition == null)
+				continue;
+			if (candidateState.CurrentAmmoCount <= 0)
 				continue;
 
 			bool isFull = candidateState.CurrentAmmoCount >= candidateDefinition.Capacity;
@@ -207,6 +230,42 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		return m_CharacterInventory.TryRemoveBagAt(_bagIndex, out _);
 	}
 
+	private bool TryPrepareFallbackManualLoading(out int _fallbackMagazineBagIndex)
+	{
+		_fallbackMagazineBagIndex = -1;
+
+		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentMagazine == null || m_CharacterInventory == null)
+			return false;
+
+		MagazineRuntimeState currentMagazine = m_WeaponRuntime.CurrentMagazine;
+		if (currentMagazine.Definition == null)
+			return false;
+		if (currentMagazine.CurrentAmmoCount >= currentMagazine.Definition.Capacity)
+			return false;
+
+		CaliberType caliber = currentMagazine.Definition.SupportedCaliber;
+		if (caliber == CaliberType.None)
+			return false;
+
+		for (int i = 0; i < m_CharacterInventory.BagCount; i++)
+		{
+			InventorySlotRuntimeData item = m_CharacterInventory.BagItems[i];
+			AmmoContainerRuntimeState ammoContainerState = item.InstanceState != null ? item.InstanceState.AmmoContainerState : null;
+			AmmoDefinition ammoDefinition = item.Definition != null ? item.Definition.AmmoDefinition : null;
+			if (ammoContainerState == null || ammoDefinition == null)
+				continue;
+			if (!ammoContainerState.HasAmmo)
+				continue;
+			if (ammoDefinition.Caliber != caliber)
+				continue;
+
+			_fallbackMagazineBagIndex = -1;
+			return true;
+		}
+
+		return false;
+	}
+
 	private void RefreshInventoryUiIfActive()
 	{
 		if (m_InventoryBindings == null)
@@ -227,7 +286,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_PendingReplacementMagazine = default;
 		m_IsReloadingWeapon = false;
 		m_HasEjectedCurrentMagazine = false;
+		m_ShouldStartManualMagazineLoadingAfterReload = false;
 		m_DebugSourceBagIndex = -1;
+		m_DebugFallbackMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
 		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();

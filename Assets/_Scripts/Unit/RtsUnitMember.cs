@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -111,6 +110,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
+				m_MagazineLoadingController?.StopLoading();
+
 			if (m_ClickToMove != null)
 			{
 				m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
@@ -143,6 +145,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			if (_stance == LocomotionStance.Prone)
+				m_MagazineLoadingController?.StopLoading();
+
 			if (m_Stance != null)
 				m_Stance.RequestStance(_stance);
 		});
