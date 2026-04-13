@@ -105,6 +105,14 @@ public class InventoryPanelView : MonoBehaviour
 			LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
 	}
 
+	public void SetRuntimeSlotPrefab(InventorySlotView _slotPrefab)
+	{
+		if (_slotPrefab == null)
+			return;
+
+		m_SlotPrefab = _slotPrefab;
+	}
+
 	/// <summary>После переноса предмета с «земли»: убрать пустую строку из префаба или оставить пустую ручную ячейку.</summary>
 	public void NotifyGroundSlotItemTakenAway(InventorySlotView _slot)
 	{

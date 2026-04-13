@@ -494,6 +494,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Есть заказ двигаться: путь считается или уже есть и до цели дальше чем stopping distance.</summary>
 	private bool HasActiveMoveIntent()
 	{
+		if (m_Agent == null)
+			return false;
+
 		if (m_Agent.isStopped)
 			return false;
 		if (m_Agent.pathPending)
@@ -508,6 +511,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Есть незавершённый путь к цели; <c>isStopped</c> не учитывается (для снятия паузы ровно при выходе из блокировки стойки).</summary>
 	private bool NavAgentHasIncompletePath()
 	{
+		if (m_Agent == null)
+			return false;
+
 		if (m_Agent.pathPending)
 			return true;
 		if (!m_Agent.hasPath)

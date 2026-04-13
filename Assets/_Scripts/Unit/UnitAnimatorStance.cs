@@ -343,9 +343,8 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 		if (m_ReadyHands.IsWeaponEquippedAndReady())
 			return false;
 
-		// ShouldUseUnarmedLocomotionBranch() == true означает "не готов" (ветка безоружная) при экипированном оружии.
-		// Нам нужно ровно это: Z из 'не готов' заставляет сначала уйти в 'готов'.
-		return m_ReadyHands.ShouldUseUnarmedLocomotionBranch();
+		// В присяде «не готов» больше не переключает базовый граф на безоружный — проверяем намерение пользователя напрямую.
+		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 
 	private void StartReadyBeforeProneHack()

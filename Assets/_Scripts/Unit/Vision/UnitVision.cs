@@ -488,7 +488,7 @@ public sealed class UnitVision : MonoBehaviour
 		if (def == null || !def.IsEquipment || def.EquipmentKind != EquipmentKind.Weapon)
 			return false;
 
-		return m_ReadyHands.ShouldUseUnarmedLocomotionBranch();
+		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 
 	private void BuildBundleWorldPoints(Collider _col, List<Vector3> _out)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -36,6 +37,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private InventorySlotRuntimeData m_PendingReplacementMagazine;
 	private GameObject m_LeftHandMagazineVisualInstance;
 	private bool m_ShouldStartManualMagazineLoadingAfterReload;
+	private bool m_ShouldStartReloadAfterMagazineLoading;
+	private int m_PendingReloadPreferredBagIndex = -1;
 	#endregion
 
 	#region Public Properties
@@ -65,12 +68,30 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void OnDisable()
 	{
+		if (m_MagazineLoadingController != null)
+			m_MagazineLoadingController.LoadingStopped -= HandleMagazineLoadingStopped;
+
 		StopReloadInternal(true);
+	}
+
+	private void OnEnable()
+	{
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_MagazineLoadingController != null)
+			m_MagazineLoadingController.LoadingStopped += HandleMagazineLoadingStopped;
 	}
 	#endregion
 
 	#region Public Methods
 	public bool TryStartReload()
+	{
+		return TryStartReloadInternal(-1);
+	}
+	#endregion
+
+	#region Private Methods
+	private bool TryStartReloadInternal(int _preferredBagIndex)
 	{
 		m_DebugLastFailureReason = null;
 
@@ -93,9 +114,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		int fallbackMagazineBagIndex = -1;
-		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
+		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(_preferredBagIndex, out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
 		if (!hasReplacementMagazine && !TryPrepareFallbackManualLoading(out fallbackMagazineBagIndex))
 		{
+			if (_preferredBagIndex < 0 && TryStartMagazineLoadingThenReload())
+				return true;
+
 			m_DebugLastFailureReason = "No compatible magazine in bag";
 			return false;
 		}
@@ -176,16 +200,19 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null)
 			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex);
 	}
-	#endregion
-
-	#region Private Methods
-	private bool TryTakeBestReplacementMagazine(out int _bagIndex, out InventorySlotRuntimeData _magazineItem)
+	private bool TryTakeBestReplacementMagazine(int _preferredBagIndex, out int _bagIndex, out InventorySlotRuntimeData _magazineItem)
 	{
 		_bagIndex = -1;
 		_magazineItem = default;
 
 		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return false;
+
+		if (TryTakeSpecificLoadedMagazine(_preferredBagIndex, out _magazineItem))
+		{
+			_bagIndex = _preferredBagIndex;
+			return true;
+		}
 
 		int bestAmmoCount = -1;
 		bool bestIsFull = false;
@@ -230,6 +257,28 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		return m_CharacterInventory.TryRemoveBagAt(_bagIndex, out _);
 	}
 
+	private bool TryTakeSpecificLoadedMagazine(int _bagIndex, out InventorySlotRuntimeData _magazineItem)
+	{
+		_magazineItem = default;
+
+		if (m_CharacterInventory == null || _bagIndex < 0 || _bagIndex >= m_CharacterInventory.BagCount)
+			return false;
+
+		InventorySlotRuntimeData candidate = m_CharacterInventory.BagItems[_bagIndex];
+		if (!m_WeaponRuntime.RuntimeState.CanAcceptMagazineItem(candidate))
+			return false;
+
+		MagazineRuntimeState candidateState = candidate.InstanceState != null ? candidate.InstanceState.MagazineState : null;
+		if (candidateState == null || candidateState.CurrentAmmoCount <= 0)
+			return false;
+
+		if (!m_CharacterInventory.TryRemoveBagAt(_bagIndex, out _))
+			return false;
+
+		_magazineItem = candidate;
+		return true;
+	}
+
 	private bool TryPrepareFallbackManualLoading(out int _fallbackMagazineBagIndex)
 	{
 		_fallbackMagazineBagIndex = -1;
@@ -266,6 +315,82 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		return false;
 	}
 
+	private bool TryStartMagazineLoadingThenReload()
+	{
+		if (m_MagazineLoadingController == null || m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			return false;
+
+		if (!TryFindBestMagazineToLoadBeforeReload(out int bagIndex))
+			return false;
+
+		m_ShouldStartReloadAfterMagazineLoading = true;
+		m_PendingReloadPreferredBagIndex = bagIndex;
+
+		if (m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(bagIndex))
+			return true;
+
+		m_ShouldStartReloadAfterMagazineLoading = false;
+		m_PendingReloadPreferredBagIndex = -1;
+		return false;
+	}
+
+	private bool TryFindBestMagazineToLoadBeforeReload(out int _bagIndex)
+	{
+		_bagIndex = -1;
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			return false;
+
+		int bestAmmoCount = -1;
+		IReadOnlyList<InventorySlotRuntimeData> bagItems = m_CharacterInventory.BagItems;
+
+		for (int i = 0; i < bagItems.Count; i++)
+		{
+			InventorySlotRuntimeData candidate = bagItems[i];
+			if (!m_WeaponRuntime.RuntimeState.CanAcceptMagazineItem(candidate))
+				continue;
+
+			MagazineRuntimeState candidateState = candidate.InstanceState != null ? candidate.InstanceState.MagazineState : null;
+			MagazineDefinition candidateDefinition = candidate.Definition != null ? candidate.Definition.MagazineDefinition : null;
+			if (candidateState == null || candidateDefinition == null)
+				continue;
+			if (candidateState.CurrentAmmoCount >= candidateDefinition.Capacity)
+				continue;
+			if (!HasAmmoBoxForCaliber(candidateDefinition.SupportedCaliber))
+				continue;
+			if (candidateState.CurrentAmmoCount <= bestAmmoCount)
+				continue;
+
+			bestAmmoCount = candidateState.CurrentAmmoCount;
+			_bagIndex = i;
+		}
+
+		return _bagIndex >= 0;
+	}
+
+	private bool HasAmmoBoxForCaliber(CaliberType _caliber)
+	{
+		if (m_CharacterInventory == null)
+			return false;
+
+		for (int i = 0; i < m_CharacterInventory.BagCount; i++)
+		{
+			InventorySlotRuntimeData item = m_CharacterInventory.BagItems[i];
+			AmmoContainerRuntimeState ammoContainerState = item.InstanceState != null ? item.InstanceState.AmmoContainerState : null;
+			AmmoDefinition ammoDefinition = item.Definition != null ? item.Definition.AmmoDefinition : null;
+			if (ammoContainerState == null || ammoDefinition == null)
+				continue;
+			if (!ammoContainerState.HasAmmo)
+				continue;
+			if (ammoDefinition.Caliber != _caliber)
+				continue;
+
+			return true;
+		}
+
+		return false;
+	}
+
 	private void RefreshInventoryUiIfActive()
 	{
 		if (m_InventoryBindings == null)
@@ -287,12 +412,29 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_IsReloadingWeapon = false;
 		m_HasEjectedCurrentMagazine = false;
 		m_ShouldStartManualMagazineLoadingAfterReload = false;
+		m_ShouldStartReloadAfterMagazineLoading = false;
+		m_PendingReloadPreferredBagIndex = -1;
 		m_DebugSourceBagIndex = -1;
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
 		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
+	}
+
+	private void HandleMagazineLoadingStopped(int _bagIndex, bool _completedWithUsableMagazine)
+	{
+		if (!m_ShouldStartReloadAfterMagazineLoading)
+			return;
+
+		int preferredBagIndex = _bagIndex >= 0 ? _bagIndex : m_PendingReloadPreferredBagIndex;
+		m_ShouldStartReloadAfterMagazineLoading = false;
+		m_PendingReloadPreferredBagIndex = -1;
+
+		if (!_completedWithUsableMagazine)
+			return;
+
+		TryStartReloadInternal(preferredBagIndex);
 	}
 
 	private void SyncAnimatorState()

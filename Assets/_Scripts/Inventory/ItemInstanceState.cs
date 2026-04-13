@@ -36,23 +36,39 @@ public sealed class ItemInstanceState
 		if (_definition == null)
 			return;
 
-		if (_definition.WeaponDefinition != null)
-		{
-			m_WeaponState = new WeaponRuntimeState();
-			m_WeaponState.SetWeaponDefinition(_definition.WeaponDefinition);
-		}
-
+		// Сначала магазин/патроны: на одном ItemDefinition не должны одновременно жить WeaponRuntimeState и «магазин как предмет»,
+		// иначе Unity упрётся в глубину сериализации (оружие → слот магазина → ItemInstanceState → снова оружие…).
 		if (_definition.MagazineDefinition != null)
 		{
 			m_MagazineState = new MagazineRuntimeState();
 			m_MagazineState.Configure(_definition.MagazineDefinition, null, 0);
+			return;
 		}
 
 		if (_definition.AmmoDefinition != null)
 		{
 			m_AmmoContainerState = new AmmoContainerRuntimeState();
 			m_AmmoContainerState.Configure(_definition.AmmoDefinition, _definition.InitialAmmoCount);
+			return;
 		}
+
+		if (_definition.WeaponDefinition != null)
+		{
+			m_WeaponState = new WeaponRuntimeState();
+			m_WeaponState.SetWeaponDefinition(_definition.WeaponDefinition);
+		}
+	}
+
+	/// <summary>
+	/// Обёртка для слота магазина без WeaponRuntimeState (вставка в оружие не должна сериализовать вложенное оружие).
+	/// </summary>
+	internal static ItemInstanceState CreateMagazineSlotOwner(ItemDefinition _magazineDefinition, MagazineRuntimeState _magazineRuntimeState)
+	{
+		ItemInstanceState state = new ItemInstanceState();
+		state.m_WeaponState = null;
+		state.m_AmmoContainerState = null;
+		state.m_MagazineState = _magazineRuntimeState;
+		return state;
 	}
 	#endregion
 }

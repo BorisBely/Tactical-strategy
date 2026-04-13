@@ -97,19 +97,26 @@ public sealed class WeaponRuntimeState
 	#region Private Fields
 	[SerializeField] private WeaponDefinition m_WeaponDefinition;
 	[SerializeField] private WeaponFireMode m_SelectedFireMode = WeaponFireMode.SemiAuto;
-	[SerializeField] private InventorySlotRuntimeData m_CurrentMagazineItem;
+	[Tooltip("Вставленный магазин хранится «плоско», без InventorySlotRuntimeData, чтобы не было цикла сериализации ItemInstanceState → Weapon → слот → ItemInstanceState.")]
+	[SerializeField] private ItemDefinition m_CurrentMagazineDefinition;
+	[SerializeField] private string m_CurrentMagazineDisplayName;
+	[SerializeField] private string m_CurrentMagazineLocalizationKey;
+	[SerializeField] private MagazineRuntimeState m_CurrentMagazineRuntimeState;
 	[SerializeField, Range(0f, 1f)] private float m_Wear01;
 	[SerializeField, Range(0f, 1f)] private float m_Fouling01;
+
+	[System.NonSerialized]
+	private ItemInstanceState m_CachedMagazineSlotOwner;
 	#endregion
 
 	#region Public Properties
 	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;
 	public WeaponFireMode SelectedFireMode => m_SelectedFireMode;
-	public InventorySlotRuntimeData CurrentMagazineItem => m_CurrentMagazineItem;
-	public MagazineRuntimeState CurrentMagazine => m_CurrentMagazineItem.InstanceState != null ? m_CurrentMagazineItem.InstanceState.MagazineState : null;
+	public InventorySlotRuntimeData CurrentMagazineItem => BuildCurrentMagazineSlot();
+	public MagazineRuntimeState CurrentMagazine => m_CurrentMagazineRuntimeState;
 	public AmmoDefinition CurrentAmmoDefinition => CurrentMagazine != null ? CurrentMagazine.LoadedAmmoDefinition : null;
 	public int CurrentAmmoCount => CurrentMagazine != null ? CurrentMagazine.CurrentAmmoCount : 0;
-	public bool HasMagazine => !m_CurrentMagazineItem.IsEmpty && CurrentMagazine != null && CurrentMagazine.HasMagazine;
+	public bool HasMagazine => m_CurrentMagazineDefinition != null && CurrentMagazine != null && CurrentMagazine.HasMagazine;
 	public bool HasAmmoInMagazine => CurrentMagazine != null && CurrentMagazine.HasAmmo;
 	public float Wear01 => m_Wear01;
 	public float Fouling01 => m_Fouling01;
@@ -121,7 +128,7 @@ public sealed class WeaponRuntimeState
 	{
 		m_WeaponDefinition = null;
 		m_SelectedFireMode = WeaponFireMode.SemiAuto;
-		m_CurrentMagazineItem = default;
+		ClearInsertedMagazineFields();
 		m_Wear01 = 0f;
 		m_Fouling01 = 0f;
 	}
@@ -130,7 +137,7 @@ public sealed class WeaponRuntimeState
 	{
 		m_WeaponDefinition = _weaponDefinition;
 		m_SelectedFireMode = _weaponDefinition != null ? _weaponDefinition.DefaultFireMode : WeaponFireMode.SemiAuto;
-		m_CurrentMagazineItem = default;
+		ClearInsertedMagazineFields();
 	}
 
 	public void SetSelectedFireMode(WeaponFireMode _fireMode)
@@ -187,7 +194,11 @@ public sealed class WeaponRuntimeState
 			return false;
 
 		_magazineItem.WorldSource = null;
-		m_CurrentMagazineItem = _magazineItem;
+		m_CurrentMagazineDefinition = _magazineItem.Definition;
+		m_CurrentMagazineDisplayName = _magazineItem.DisplayName;
+		m_CurrentMagazineLocalizationKey = _magazineItem.LocalizationKey;
+		m_CurrentMagazineRuntimeState = _magazineItem.InstanceState != null ? _magazineItem.InstanceState.MagazineState : null;
+		m_CachedMagazineSlotOwner = null;
 		return true;
 	}
 
@@ -199,8 +210,8 @@ public sealed class WeaponRuntimeState
 			return false;
 		}
 
-		_magazineItem = m_CurrentMagazineItem;
-		m_CurrentMagazineItem = default;
+		_magazineItem = BuildCurrentMagazineSlot();
+		ClearInsertedMagazineFields();
 		return true;
 	}
 
@@ -242,6 +253,33 @@ public sealed class WeaponRuntimeState
 		}
 
 		return false;
+	}
+
+	private void ClearInsertedMagazineFields()
+	{
+		m_CurrentMagazineDefinition = null;
+		m_CurrentMagazineDisplayName = null;
+		m_CurrentMagazineLocalizationKey = null;
+		m_CurrentMagazineRuntimeState = null;
+		m_CachedMagazineSlotOwner = null;
+	}
+
+	private InventorySlotRuntimeData BuildCurrentMagazineSlot()
+	{
+		if (!HasMagazine)
+			return default;
+
+		if (m_CachedMagazineSlotOwner == null)
+			m_CachedMagazineSlotOwner = ItemInstanceState.CreateMagazineSlotOwner(m_CurrentMagazineDefinition, m_CurrentMagazineRuntimeState);
+
+		return new InventorySlotRuntimeData
+		{
+			DisplayName = m_CurrentMagazineDisplayName,
+			LocalizationKey = m_CurrentMagazineLocalizationKey,
+			Definition = m_CurrentMagazineDefinition,
+			InstanceState = m_CachedMagazineSlotOwner,
+			WorldSource = null
+		};
 	}
 	#endregion
 }

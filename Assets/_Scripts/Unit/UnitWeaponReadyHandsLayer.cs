@@ -4,11 +4,12 @@ using UnityEngine.InputSystem.Controls;
 
 /// <summary>
 /// Подсостояние «на готове / не на готове» при экипированном оружии.
-/// Не на готове: <see cref="UnitAnimatorWeaponMode"/> переключает граф на безоружную ветку (при модели с оружием в руках).
-/// В этом режиме слой <c>UpperBody_NoAim</c> (вес 1) накладывает позу рук «оружие не на готове» поверх безоружной локомоции.
-/// На готове: ветка локомоции по типу оружия, вес слоя 0.
-/// Переключение «не на готове» возможно только стоя (любой LocomotionTier) и в присяде при шаге (tier Walk).
-/// В лёже и в присяде при беге/спринте — всегда ветка оружия.
+/// Не на готове, стоя: <see cref="UnitAnimatorWeaponMode"/> даёт безоружную ветку локомоции; слой <c>UpperBody_NoAim</c> (вес 1)
+/// накладывает позу рук «оружие не на готове» (<c>Upper_Rifle_NoAim</c> / <c>Upper_Pistol_NoAim</c>).
+/// Не на готове, присед: локомоция по типу оружия (винтовка/пистолет), тот же слой — состояния
+/// <c>Upper_Rifle_Crouch_NoAim</c> / <c>Upper_Pistol_Crouch_NoAim</c>.
+/// На готове: ветка оружия, вес слоя 0.
+/// В лёже «не готов» для графа не используется (принудительно готов для переходов).
 /// </summary>
 [DefaultExecutionOrder(50)]
 [DisallowMultipleComponent]
@@ -18,6 +19,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private const string c_LayerName = "UpperBody_NoAim";
 	private const string c_StateRifleNoAim = "Upper_Rifle_NoAim";
 	private const string c_StatePistolNoAim = "Upper_Pistol_NoAim";
+	private const string c_StateRifleCrouchNoAim = "Upper_Rifle_Crouch_NoAim";
+	private const string c_StatePistolCrouchNoAim = "Upper_Pistol_Crouch_NoAim";
 	#endregion
 
 	#region Private Fields
@@ -28,6 +31,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[Tooltip("IK левой руки на объекте Animator; при переходе в «готов» проверяется, что зарядка магазина не блокирует IK.")]
+	[SerializeField] private AnimatorHandIk m_LeftHandIk;
 
 	[Header("Ввод")]
 	[SerializeField] private bool m_EnableKeyboardInput = true;
@@ -45,7 +50,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool m_UserWantsReady;
 	private ItemDefinition m_LastEquipped;
 	private bool m_WasNoAimLayerActive;
-	private WeaponType m_LastNoAimWeaponTypePlayed;
+	private int m_LastNoAimPoseSignature = -1;
 	private float m_SmoothedLayerWeight;
 	private bool m_SnapLayerWeightNextFrame;
 	private bool m_BlockToggleInput;
@@ -53,28 +58,36 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	#region Public Methods
 	/// <summary>
-	/// Нужно ли играть безоружную локомоцию при том, что в руках оружие (не на готове).
-	/// Важно: это НЕ связано с правилами слоя рук — локомоция без оружия должна переключаться и при лёжа/переходах,
-	/// чтобы стойки работали так же, как в полностью безоружном состоянии.
+	/// Оружие экипировано, пользователь в режиме «не готов» (без учёта приседа для базового графа).
+	/// Для FOV и костыля prone до ready.
 	/// </summary>
-	public bool ShouldUseUnarmedLocomotionBranch()
+	public bool IsEquippedWeaponUserNotReady()
 	{
-		if (m_Equipment == null || m_Animator == null)
+		if (m_Equipment == null)
 			return false;
 
 		ItemDefinition current = m_Equipment.EquippedDefinition;
 		if (current == null || !current.IsEquipment || current.EquipmentKind != EquipmentKind.Weapon)
 			return false;
 
-		if (GetEffectiveIsReady())
-			return false;
-
-		return true;
+		return !GetEffectiveIsReady();
 	}
 
 	/// <summary>
-	/// Стоя — любой tier; присед — только Walk (стоя/шаг). Лёжа и присед с Run/Sprint — нет.
+	/// Нужно ли играть безоружную локомоцию при том, что в руках оружие (не на готове).
+	/// В присяде — нет: базовый граф винтовки/пистолета, руки «не готов» даёт слой <c>UpperBody_NoAim</c>.
 	/// </summary>
+	public bool ShouldUseUnarmedLocomotionBranch()
+	{
+		if (!IsEquippedWeaponUserNotReady())
+			return false;
+
+		if (m_Animator == null)
+			return true;
+
+		return m_Animator.GetInteger(s_Stance) != (int)LocomotionStance.Crouch;
+	}
+
 	/// <summary>
 	/// В руках оружие и включён «на готове» — для разворота корня на <see cref="UnitVision.VisibleTarget"/> и т.п.
 	/// </summary>
@@ -89,25 +102,6 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public bool WantsReady => m_UserWantsReady;
 
-	public bool IsUnarmedNotReadyContextAllowed()
-	{
-		if (m_Animator == null)
-			return false;
-
-		int stance = m_Animator.GetInteger(s_Stance);
-		if (stance == (int)LocomotionStance.Prone)
-			return false;
-
-		if (stance == (int)LocomotionStance.Crouch)
-		{
-			int tier = m_Animator.GetInteger(s_LocomotionTier);
-			// В присяде только «шаг» (Walk); Run/Sprint на аниматоре не смешиваем с безоружной веткой.
-			return tier == 0;
-		}
-
-		return true;
-	}
-
 	/// <summary>
 	/// Нажатие Z (смена стойки): при экипированном оружии включает «на готове» (как перевод E в состояние готов, без переключения).
 	/// При спринте сбрасывает заказ скорости на шаг — как при включении готов по E.
@@ -120,15 +114,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_UserWantsReady)
 			return;
 
-		m_UserWantsReady = true;
-
-		if (IsSprintingNow())
-		{
-			if (m_LocomotionDriver != null)
-				m_LocomotionDriver.ForceWalkMoveMode();
-			else if (m_ClickToMove != null)
-				m_ClickToMove.ForceWalkMoveMode();
-		}
+		ApplyReadyWanted(true, true, true);
 	}
 
 	/// <summary>
@@ -137,21 +123,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public void SetReadyWanted(bool _ready, bool _forceWalkIfNeeded = true)
 	{
-		if (!IsWeaponEquipped())
-		{
-			m_UserWantsReady = false;
-			return;
-		}
-
-		m_UserWantsReady = _ready;
-
-		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
-		{
-			if (m_LocomotionDriver != null)
-				m_LocomotionDriver.ForceWalkMoveMode();
-			else if (m_ClickToMove != null)
-				m_ClickToMove.ForceWalkMoveMode();
-		}
+		ApplyReadyWanted(_ready, _forceWalkIfNeeded, true);
 	}
 
 	/// <summary>Временная блокировка ввода E (готов/не готов), например для «костыльного» перехода стойки.</summary>
@@ -185,7 +157,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 
 		if (m_Animator != null)
+		{
 			m_LayerIndex = m_Animator.GetLayerIndex(c_LayerName);
+			if (m_LeftHandIk == null)
+				m_LeftHandIk = m_Animator.GetComponent<AnimatorHandIk>();
+		}
 	}
 
 	private void OnEnable()
@@ -222,11 +198,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 				return;
 
-			m_UserWantsReady = nextReady;
-
-			// Требование: если вручную включили "готов" во время спринта — юнит сбрасывает скорость на шаг и становится готов.
-			if (isSprinting && nextReady && m_ClickToMove != null)
-				m_ClickToMove.ForceWalkMoveMode();
+			ApplyReadyWanted(nextReady, isSprinting, true);
 		}
 	}
 
@@ -281,8 +253,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		bool isMagazineLoading = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
 		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadingWeapon;
 
-		// Слой рук показываем только в разрешённом контексте (стойка/скорость), даже если "не готов" активен.
-		bool shouldShow = isMagazineLoading || isWeaponReloading || (ShouldUseUnarmedLocomotionBranch() && IsUnarmedNotReadyContextAllowed());
+		bool shouldShow = isMagazineLoading || isWeaponReloading || ShouldShowUpperBodyNoAimOverlay();
 		float targetWeight = shouldShow ? 1f : 0f;
 
 		if (m_SnapLayerWeightNextFrame)
@@ -314,14 +285,43 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		ItemDefinition weapon = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
 		WeaponType wt = weapon != null ? weapon.WeaponType : WeaponType.Primary;
 
-		if (!m_WasNoAimLayerActive || wt != m_LastNoAimWeaponTypePlayed)
+		int stance = m_Animator.GetInteger(s_Stance);
+		bool isCrouch = stance == (int)LocomotionStance.Crouch;
+		int poseSignature = ComputeNoAimPoseSignature(wt, isCrouch);
+		if (!m_WasNoAimLayerActive || poseSignature != m_LastNoAimPoseSignature)
 		{
-			string stateName = wt == WeaponType.Secondary ? c_StatePistolNoAim : c_StateRifleNoAim;
+			string stateName = ResolveUpperBodyNoAimStateName(wt, isCrouch);
 			m_Animator.CrossFadeInFixedTime(stateName, m_LayerBlendSeconds, m_LayerIndex);
-			m_LastNoAimWeaponTypePlayed = wt;
+			m_LastNoAimPoseSignature = poseSignature;
 		}
 
 		m_WasNoAimLayerActive = true;
+	}
+
+	private static int ComputeNoAimPoseSignature(WeaponType _weaponType, bool _crouch)
+	{
+		int w = _weaponType == WeaponType.Secondary ? 1 : 0;
+		return w + (_crouch ? 10 : 0);
+	}
+
+	private static string ResolveUpperBodyNoAimStateName(WeaponType _weaponType, bool _crouch)
+	{
+		bool pistol = _weaponType == WeaponType.Secondary;
+		if (_crouch)
+			return pistol ? c_StatePistolCrouchNoAim : c_StateRifleCrouchNoAim;
+		return pistol ? c_StatePistolNoAim : c_StateRifleNoAim;
+	}
+
+	/// <summary>
+	/// Слой «руки не на готове»: стоя при не готов + оружие, в присяде при не готов + оружие (любой tier), не в лёже.
+	/// </summary>
+	private bool ShouldShowUpperBodyNoAimOverlay()
+	{
+		if (!IsEquippedWeaponUserNotReady() || m_Animator == null)
+			return false;
+
+		int stance = m_Animator.GetInteger(s_Stance);
+		return stance != (int)LocomotionStance.Prone;
 	}
 
 	private bool GetEffectiveIsReady()
@@ -345,6 +345,41 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return m_Animator.GetInteger(s_LocomotionTier) == 2;
 
 		return false;
+	}
+
+	private void ApplyReadyWanted(bool _ready, bool _forceWalkIfNeeded, bool _refreshImmediately)
+	{
+		if (!IsWeaponEquipped())
+		{
+			m_UserWantsReady = false;
+			if (_refreshImmediately)
+				MarkVisualReadyStateDirty();
+			return;
+		}
+
+		bool didChange = m_UserWantsReady != _ready;
+		m_UserWantsReady = _ready;
+
+		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
+		{
+			if (m_LocomotionDriver != null)
+				m_LocomotionDriver.ForceWalkMoveMode();
+			else if (m_ClickToMove != null)
+				m_ClickToMove.ForceWalkMoveMode();
+		}
+
+		if (_ready && didChange)
+			m_LeftHandIk?.OnWeaponReadyStateApplied();
+
+		if (didChange && _refreshImmediately)
+			MarkVisualReadyStateDirty();
+	}
+
+	private void MarkVisualReadyStateDirty()
+	{
+		m_SnapLayerWeightNextFrame = true;
+		m_WasNoAimLayerActive = false;
+		m_LastNoAimPoseSignature = -1;
 	}
 	#endregion
 }

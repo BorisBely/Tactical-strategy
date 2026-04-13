@@ -188,8 +188,8 @@ public sealed class PauseMenuController : MonoBehaviour
 
 		m_LeftColumnText = CreateText("LeftColumn", columnsRoot.transform, 24f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
 		m_RightColumnText = CreateText("RightColumn", columnsRoot.transform, 24f, FontStyles.Normal, TextAlignmentOptions.TopLeft);
-		m_LeftColumnText.enableWordWrapping = true;
-		m_RightColumnText.enableWordWrapping = true;
+		m_LeftColumnText.textWrappingMode = TextWrappingModes.Normal;
+		m_RightColumnText.textWrappingMode = TextWrappingModes.Normal;
 
 		LayoutElement leftLayout = m_LeftColumnText.gameObject.AddComponent<LayoutElement>();
 		leftLayout.minWidth = 420f;

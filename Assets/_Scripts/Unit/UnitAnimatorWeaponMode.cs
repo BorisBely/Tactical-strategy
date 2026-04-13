@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Синхронизирует int <c>WeaponMode</c> на <see cref="Animator"/> с экипировкой в <see cref="UnitEquipment"/>.
 /// Без оружия — <see cref="LocomotionWeaponMode.Unarmed"/> (0).
-/// При наличии <see cref="UnitWeaponReadyHandsLayer"/> в «не на готове» в допустимом контексте граф остаётся безоружным, модель оружия — из экипировки.
+/// При наличии <see cref="UnitWeaponReadyHandsLayer"/> в «не на готове» стоя граф безоружный; в присяде — ветка винтовки/пистолета + слой рук.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class UnitAnimatorWeaponMode : MonoBehaviour

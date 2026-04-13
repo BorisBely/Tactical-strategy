@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,10 @@ using UnityEngine;
 [DefaultExecutionOrder(59)]
 public sealed class UnitMagazineLoadingController : MonoBehaviour
 {
+	#region Events
+	public event Action<int, bool> LoadingStopped;
+	#endregion
+
 	#region Constants
 	public const string ParamIsLoadingMagazine = "IsLoadingMagazine";
 	private static readonly int s_IsLoadingMagazine = Animator.StringToHash(ParamIsLoadingMagazine);
@@ -60,7 +65,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	private void OnDisable()
 	{
-		StopLoadingInternal();
+		StopLoadingInternal(false);
 	}
 	#endregion
 
@@ -117,7 +122,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	public void StopLoading()
 	{
-		StopLoadingInternal();
+		StopLoadingInternal(false);
 	}
 
 	/// <summary>
@@ -130,25 +135,25 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 		if (!TryFindCurrentLoadingMagazine(out MagazineRuntimeState targetMagazineState))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(false);
 			return;
 		}
 
 		if (!TryFindBestAmmoBoxIndex(targetMagazineState.Definition.SupportedCaliber, out int ammoBoxIndex))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(m_DebugLoadedRoundsThisSession > 0);
 			return;
 		}
 
 		if (!TryConsumeRoundFromAmmoBox(ammoBoxIndex, out AmmoDefinition ammoDefinition))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(m_DebugLoadedRoundsThisSession > 0);
 			return;
 		}
 
 		if (!targetMagazineState.TryLoadRound(ammoDefinition))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(false);
 			return;
 		}
 
@@ -158,7 +163,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		if (targetMagazineState.CurrentAmmoCount >= targetMagazineState.Definition.Capacity ||
 			!HasAmmoBoxForCaliber(targetMagazineState.Definition.SupportedCaliber))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(true);
 		}
 	}
 
@@ -172,14 +177,14 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 		if (!TryFindCurrentLoadingMagazine(out MagazineRuntimeState targetMagazineState))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(false);
 			return;
 		}
 
 		if (targetMagazineState.CurrentAmmoCount >= targetMagazineState.Definition.Capacity ||
 			!HasAmmoBoxForCaliber(targetMagazineState.Definition.SupportedCaliber))
 		{
-			StopLoadingInternal();
+			StopLoadingInternal(true);
 		}
 	}
 	#endregion
@@ -340,8 +345,19 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_InventoryBindings.RefreshActiveCharacterPanel();
 	}
 
-	private void StopLoadingInternal()
+	private void StopLoadingInternal(bool _completedNaturally)
 	{
+		int stoppedBagIndex = m_DebugTargetMagazineBagIndex;
+		bool hasAmmoAfterStop = false;
+		if (m_CharacterInventory != null &&
+			stoppedBagIndex >= 0 &&
+			stoppedBagIndex < m_CharacterInventory.BagCount)
+		{
+			InventorySlotRuntimeData bagItem = m_CharacterInventory.BagItems[stoppedBagIndex];
+			MagazineRuntimeState magazineState = bagItem.InstanceState != null ? bagItem.InstanceState.MagazineState : null;
+			hasAmmoAfterStop = magazineState != null && magazineState.CurrentAmmoCount > 0;
+		}
+
 		m_IsLoadingMagazine = false;
 		m_DebugTargetMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
@@ -349,6 +365,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
+		LoadingStopped?.Invoke(stoppedBagIndex, _completedNaturally && hasAmmoAfterStop);
 	}
 
 	private void SyncAnimatorState()
