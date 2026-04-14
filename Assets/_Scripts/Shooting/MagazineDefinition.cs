@@ -26,6 +26,11 @@ public sealed class MagazineDefinition : ScriptableObject
 	[Header("Reliability")]
 	[Tooltip("Как этот магазин влияет на риск задержки или клина.")]
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
+
+	[Header("Audio (ручная зарядка)")]
+	[Tooltip("Звуки вставки патрона в магазин — по одному на ивент AnimationEvent_LoadOneRoundIntoMagazine; порядок без повторов до круга.")]
+	[SerializeField] private AudioClip[] m_RoundLoadSounds;
+	[SerializeField, Range(0f, 1f)] private float m_RoundLoadSoundsVolume = 1f;
 	#endregion
 
 	#region Public Properties
@@ -35,5 +40,7 @@ public sealed class MagazineDefinition : ScriptableObject
 	public float RoundLoadTimeSeconds => m_RoundLoadTimeSeconds;
 	public float ReloadTimeModifier => m_ReloadTimeModifier;
 	public float JamRiskModifier => m_JamRiskModifier;
+	public AudioClip[] RoundLoadSounds => m_RoundLoadSounds;
+	public float RoundLoadSoundsVolume => m_RoundLoadSoundsVolume;
 	#endregion
 }

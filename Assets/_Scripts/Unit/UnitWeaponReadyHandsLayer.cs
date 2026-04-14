@@ -97,6 +97,14 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Условие для стрельбы: на готове и не в режиме спринта (спринт заказан отдельно от «готов» и иначе даёт стрельбу на полной скорости).
+	/// </summary>
+	public bool IsWeaponReadyToFire()
+	{
+		return IsWeaponEquippedAndReady() && !IsSprintingNow();
+	}
+
+	/// <summary>
 	/// Текущее желаемое состояние "готов" до учёта принудительного Ready в prone.
 	/// Нужен ИИ/скриптам поведения, чтобы управлять режимом без эмуляции клавиши E.
 	/// </summary>

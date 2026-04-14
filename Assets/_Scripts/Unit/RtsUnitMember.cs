@@ -18,6 +18,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[SerializeField] private Collider m_SelectionCollider;
@@ -61,6 +62,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_CharacterInventory == null)
@@ -221,6 +224,31 @@ public sealed class RtsUnitMember : MonoBehaviour
 				return;
 
 			m_WeaponReloadController.TryStartReload();
+		});
+	}
+
+	/// <summary>Следующий доступный режим огня по <see cref="WeaponDefinition.AvailableFireModes"/>.</summary>
+	public void CycleWeaponFireMode()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			m_FireController?.StopFiring();
+
+			if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			{
+				Debug.LogWarning($"{name}: смена режима огня — нет состояния оружия.", this);
+				return;
+			}
+
+			WeaponFireMode before = m_WeaponRuntime.RuntimeState.SelectedFireMode;
+			if (!m_WeaponRuntime.TryCycleToNextFireMode())
+			{
+				Debug.Log($"{name}: режим огня не изменён (один доступный режим или нет экипированного оружия). Сейчас: {before}.", this);
+				return;
+			}
+
+			WeaponFireMode after = m_WeaponRuntime.RuntimeState.SelectedFireMode;
+			Debug.Log($"{name}: режим огня {before} → {after}.", this);
 		});
 	}
 

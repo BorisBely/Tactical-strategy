@@ -30,6 +30,10 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[Tooltip("Якорь левой руки для временного визуала магазина во время зарядки. Если пусто, пробуем взять кость LeftHand у humanoid Animator.")]
 	[SerializeField] private Transform m_LeftHandAnchor;
+	[Tooltip("Звук вставки патрона; если пусто — дочерний MagazineRoundLoadAudio_Auto.")]
+	[SerializeField] private AudioSource m_RoundLoadAudioSource;
+	[SerializeField, Min(0.01f)] private float m_RoundLoadSoundSpatialMinDistance = 1f;
+	[SerializeField, Min(0.5f)] private float m_RoundLoadSoundSpatialMaxDistance = 45f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsLoadingMagazine;
@@ -40,6 +44,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	#region Private Fields
 	private GameObject m_LeftHandMagazineVisualInstance;
+	private int[] m_RoundLoadSoundShufflePermutation;
+	private int m_RoundLoadSoundShuffleCursor;
 	#endregion
 
 	#region Public Properties
@@ -61,6 +67,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_LeftHandAnchor == null && m_Animator != null && m_Animator.isHuman)
 			m_LeftHandAnchor = m_Animator.GetBoneTransform(HumanBodyBones.LeftHand);
+
+		EnsureRoundLoadAudioSource();
 	}
 
 	private void OnDisable()
@@ -112,6 +120,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_IsLoadingMagazine = true;
 		m_DebugTargetMagazineBagIndex = targetMagazineIndex;
 		m_DebugLoadedRoundsThisSession = 0;
+		PrepareRoundLoadSoundShuffle(targetMagazineState.Definition);
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
 		m_UnitEquipment?.SetMainWeaponVisualActive(false);
 		AttachCurrentLoadingMagazineVisualToLeftHand();
@@ -156,6 +165,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			StopLoadingInternal(false);
 			return;
 		}
+
+		TryPlayRoundLoadSound(targetMagazineState.Definition);
 
 		m_DebugLoadedRoundsThisSession++;
 		RefreshInventoryUiIfActive();
@@ -360,6 +371,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 		m_IsLoadingMagazine = false;
 		m_DebugTargetMagazineBagIndex = -1;
+		m_RoundLoadSoundShufflePermutation = null;
+		m_RoundLoadSoundShuffleCursor = 0;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
 		m_UnitEquipment?.SetMainWeaponVisualActive(true);
 		ClearLeftHandMagazineVisual();
@@ -402,6 +415,119 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		Destroy(m_LeftHandMagazineVisualInstance);
 		m_LeftHandMagazineVisualInstance = null;
 	}
+	private void EnsureRoundLoadAudioSource()
+	{
+		if (m_RoundLoadAudioSource != null && m_RoundLoadAudioSource.transform != transform)
+		{
+			ConfigureRoundLoadAudioSource(m_RoundLoadAudioSource);
+			return;
+		}
+
+		const string c_Name = "MagazineRoundLoadAudio_Auto";
+		Transform child = transform.Find(c_Name);
+		if (child == null)
+		{
+			GameObject go = new GameObject(c_Name);
+			go.transform.SetParent(transform, false);
+			child = go.transform;
+		}
+
+		if (!child.TryGetComponent(out m_RoundLoadAudioSource))
+			m_RoundLoadAudioSource = child.gameObject.AddComponent<AudioSource>();
+
+		m_RoundLoadAudioSource.playOnAwake = false;
+		ConfigureRoundLoadAudioSource(m_RoundLoadAudioSource);
+	}
+
+	private void ConfigureRoundLoadAudioSource(AudioSource _source)
+	{
+		if (_source == null)
+			return;
+
+		_source.spatialBlend = 1f;
+		_source.minDistance = m_RoundLoadSoundSpatialMinDistance;
+		_source.maxDistance = m_RoundLoadSoundSpatialMaxDistance;
+		_source.rolloffMode = AudioRolloffMode.Linear;
+		_source.dopplerLevel = 0f;
+	}
+
+	private void PrepareRoundLoadSoundShuffle(MagazineDefinition _definition)
+	{
+		m_RoundLoadSoundShufflePermutation = null;
+		m_RoundLoadSoundShuffleCursor = 0;
+
+		if (_definition == null)
+			return;
+
+		AudioClip[] clips = _definition.RoundLoadSounds;
+		if (clips == null || clips.Length == 0)
+			return;
+
+		int count = 0;
+		for (int i = 0; i < clips.Length; i++)
+		{
+			if (clips[i] != null)
+				count++;
+		}
+
+		if (count == 0)
+			return;
+
+		m_RoundLoadSoundShufflePermutation = new int[count];
+		int w = 0;
+		for (int i = 0; i < clips.Length; i++)
+		{
+			if (clips[i] != null)
+				m_RoundLoadSoundShufflePermutation[w++] = i;
+		}
+
+		ShuffleIntArrayInPlace(m_RoundLoadSoundShufflePermutation);
+	}
+
+	private void TryPlayRoundLoadSound(MagazineDefinition _definition)
+	{
+		if (_definition == null || m_RoundLoadAudioSource == null)
+			return;
+
+		if (m_RoundLoadAudioSource.transform == transform)
+			EnsureRoundLoadAudioSource();
+		if (m_RoundLoadAudioSource == null || m_RoundLoadAudioSource.transform == transform)
+			return;
+
+		AudioClip[] clips = _definition.RoundLoadSounds;
+		if (clips == null || clips.Length == 0 || m_RoundLoadSoundShufflePermutation == null
+			|| m_RoundLoadSoundShufflePermutation.Length == 0)
+			return;
+
+		if (m_RoundLoadSoundShuffleCursor >= m_RoundLoadSoundShufflePermutation.Length)
+		{
+			PrepareRoundLoadSoundShuffle(_definition);
+			if (m_RoundLoadSoundShufflePermutation == null || m_RoundLoadSoundShufflePermutation.Length == 0)
+				return;
+		}
+
+		int clipIndex = m_RoundLoadSoundShufflePermutation[m_RoundLoadSoundShuffleCursor++];
+		AudioClip clip = clips[clipIndex];
+		if (clip == null)
+			return;
+
+		Vector3 pos = m_LeftHandAnchor != null ? m_LeftHandAnchor.position : transform.position;
+		m_RoundLoadAudioSource.transform.position = pos;
+		m_RoundLoadAudioSource.PlayOneShot(clip, _definition.RoundLoadSoundsVolume);
+	}
+
+	private static void ShuffleIntArrayInPlace(int[] _indices)
+	{
+		if (_indices == null || _indices.Length <= 1)
+			return;
+
+		for (int i = _indices.Length - 1; i > 0; i--)
+		{
+			int j = UnityEngine.Random.Range(0, i + 1);
+			(_indices[i], _indices[j]) = (_indices[j], _indices[i]);
+		}
+	}
+
 	private static void DisablePhysicsOnLoadingVisual(GameObject _root)
 	{
 		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);

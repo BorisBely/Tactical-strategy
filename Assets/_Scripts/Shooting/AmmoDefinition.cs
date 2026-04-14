@@ -27,6 +27,27 @@ public sealed class AmmoDefinition : ScriptableObject
 	[Tooltip("Эффективная дальность самого патрона до сильного ухудшения характеристик.")]
 	[SerializeField, Min(0.1f)] private float m_EffectiveRangeMeters = 100f;
 
+	[Header("Audio")]
+	[Tooltip("Если задан — заменяет звук выстрела оружия (дробь, глушитель и т.д.).")]
+	[SerializeField] private AudioClip m_FireSoundOverride;
+
+	[Header("Гильза (выброс после выстрела)")]
+	[Tooltip("Корень префаба: Rigidbody + Collider + ShellCasingBehaviour на одном объекте (можно дочерний к корню префаба).")]
+	[SerializeField] private GameObject m_ShellPrefab;
+	[SerializeField, Min(0.1f)] private float m_ShellEjectSpeed = 5.5f;
+	[SerializeField, Min(0f)] private float m_ShellEjectSpeedVariance = 0.75f;
+	[SerializeField] private float m_ShellEjectUpSpeed = 1.2f;
+	[SerializeField, Min(0f)] private float m_ShellAngularVelocity = 18f;
+	[Tooltip("Если 0 — звук при ударе с любого слоя. Иначе только если слой объекта входит в маску.")]
+	[SerializeField] private LayerMask m_ShellImpactLayers;
+	[Tooltip("Минимальная относительная скорость удара для звука (м/с). 0 — без порога.")]
+	[SerializeField, Min(0f)] private float m_ShellImpactMinSpeed = 0.35f;
+	[SerializeField] private AudioClip[] m_ShellImpactSounds;
+	[SerializeField, Range(0f, 1f)] private float m_ShellImpactVolume = 0.55f;
+	[SerializeField, Min(0.05f)] private float m_ShellLifetimeAfterImpactSeconds = 3f;
+	[Tooltip("Если за это время не было удара — гильза возвращается в пул (застряла, улетела).")]
+	[SerializeField, Min(0.5f)] private float m_ShellMaxAirborneSeconds = 12f;
+
 	[Header("Shot Modifiers")]
 	[Tooltip("Как этот патрон меняет разброс текущего выстрела.")]
 	[SerializeField, Min(0f)] private float m_SpreadModifier = 1f;
@@ -44,6 +65,18 @@ public sealed class AmmoDefinition : ScriptableObject
 
 	#region Public Properties
 	public CaliberType Caliber => m_Caliber;
+	public AudioClip FireSoundOverride => m_FireSoundOverride;
+	public bool HasShellPrefab => m_ShellPrefab != null;
+	public GameObject ShellPrefab => m_ShellPrefab;
+	public float ShellEjectSpeed => m_ShellEjectSpeed;
+	public float ShellEjectSpeedVariance => m_ShellEjectSpeedVariance;
+	public float ShellEjectUpSpeed => m_ShellEjectUpSpeed;
+	public float ShellAngularVelocity => m_ShellAngularVelocity;
+	public int ShellImpactMaskBits => m_ShellImpactLayers.value;
+	public float ShellImpactMinSpeedSqr => m_ShellImpactMinSpeed * m_ShellImpactMinSpeed;
+	public float ShellImpactVolume => m_ShellImpactVolume;
+	public float ShellLifetimeAfterImpactSeconds => m_ShellLifetimeAfterImpactSeconds;
+	public float ShellMaxAirborneSeconds => m_ShellMaxAirborneSeconds;
 	public float BaseDamage => m_BaseDamage;
 	public float Penetration => m_Penetration;
 	public float ArmorDamage => m_ArmorDamage;
@@ -55,5 +88,40 @@ public sealed class AmmoDefinition : ScriptableObject
 	public float WearModifier => m_WearModifier;
 	public float FoulingModifier => m_FoulingModifier;
 	public float JamRiskModifier => m_JamRiskModifier;
+	#endregion
+
+	#region Public Methods
+	public bool TryPickShellImpactSound(out AudioClip _clip, out float _volume)
+	{
+		_clip = null;
+		_volume = m_ShellImpactVolume;
+		if (m_ShellImpactSounds == null || m_ShellImpactSounds.Length == 0)
+			return false;
+
+		int validCount = 0;
+		for (int i = 0; i < m_ShellImpactSounds.Length; i++)
+		{
+			if (m_ShellImpactSounds[i] != null)
+				validCount++;
+		}
+
+		if (validCount == 0)
+			return false;
+
+		int pick = Random.Range(0, validCount);
+		for (int i = 0; i < m_ShellImpactSounds.Length; i++)
+		{
+			if (m_ShellImpactSounds[i] == null)
+				continue;
+			if (pick == 0)
+			{
+				_clip = m_ShellImpactSounds[i];
+				return true;
+			}
+			pick--;
+		}
+
+		return false;
+	}
 	#endregion
 }

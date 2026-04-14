@@ -87,16 +87,8 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
 
-		float fireModeMultiplier = fireMode switch
-		{
-			WeaponFireMode.FullAuto => weaponDefinition.AutoRecoilMultiplier,
-			_ => weaponDefinition.SemiAutoRecoilMultiplier
-		};
-
-		float ammoModifier = _ammoDefinition != null ? _ammoDefinition.RecoilModifier : 1f;
 		const float attachmentModifier = 1f;
-
-		return weaponDefinition.RecoilPerShot * fireModeMultiplier * ammoModifier * attachmentModifier;
+		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier);
 	}
 
 	private float CalculateCurrentRecoveryPerSecond()

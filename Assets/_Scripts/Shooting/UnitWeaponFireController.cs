@@ -21,20 +21,35 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitVision m_Vision;
 	[Tooltip("Во время reload-команд выстрелы блокируются.")]
 	[SerializeField] private UnitBusyState m_BusyState;
+	[Tooltip("После последнего патрона в магазине — запуск перезарядки (внутри свои проверки на сумку и т.д.).")]
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
+	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
 
 	[Header("Fire Conditions")]
 	[Tooltip("Запрещать выстрел, если оружие не на ready.")]
 	[SerializeField] private bool m_RequireReady = true;
 	[Tooltip("Запрещать выстрел, если сейчас нет видимой цели.")]
 	[SerializeField] private bool m_RequireVisibleTarget = true;
-	[Tooltip("Когда триггер удерживается, FullAuto будет сам пытаться стрелять каждый кадр.")]
+	[Tooltip("При удержании курка: FullAuto стреляет каждый кадр (лимит по RPM), Burst ведёт очереди с паузой.")]
 	[SerializeField] private bool m_EnableAutomaticFireLoop = true;
+	[Tooltip("Если выстрел невозможен из‑за пустого магазина или отсутствия магазина в оружии — периодически вызывать TryStartReload (не каждый кадр, см. интервал).")]
+	[SerializeField] private bool m_TryReloadWhenOutOfAmmo = true;
+	[SerializeField, Min(0.05f)] private float m_OutOfAmmoReloadRetrySeconds = 0.35f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsFiringCommandActive;
 	[SerializeField] private WeaponShotAttemptResult m_LastShotAttemptResult = WeaponShotAttemptResult.NoWeapon;
 	[SerializeField] private AmmoDefinition m_LastFiredAmmoDefinition;
 	[SerializeField] private int m_DebugSuccessfulShotCount;
+	[SerializeField] private int m_DebugBurstShotsRemaining;
+	[SerializeField] private float m_DebugNextBurstWaveTime;
+	#endregion
+
+	#region Private Fields
+	private int m_BurstShotsRemainingInWave;
+	private float m_NextBurstWaveTime;
+	private float m_NextOutOfAmmoReloadAttemptTime;
 	#endregion
 
 	#region Public Properties
@@ -53,6 +68,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_HitscanShooting == null)
+			m_HitscanShooting = GetComponent<UnitWeaponHitscanShooting>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 	}
 
 	private void Update()
@@ -61,10 +80,16 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return;
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return;
-		if (m_WeaponRuntime.RuntimeState.SelectedFireMode != WeaponFireMode.FullAuto)
-			return;
 
-		TryFireSingleShot();
+		WeaponFireMode mode = m_WeaponRuntime.RuntimeState.SelectedFireMode;
+		if (mode == WeaponFireMode.FullAuto)
+		{
+			TryFireSingleShot();
+			return;
+		}
+
+		if (mode == WeaponFireMode.Burst)
+			UpdateBurstFire(Time.time);
 	}
 	#endregion
 
@@ -77,14 +102,17 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
 
-		// Пока burst ведёт себя как одиночный клик. Отдельная очередь burst появится следующим шагом.
-		if (fireMode != WeaponFireMode.FullAuto)
-			TryFireSingleShot();
+		if (fireMode == WeaponFireMode.FullAuto || fireMode == WeaponFireMode.Burst)
+			return;
+
+		TryFireSingleShot();
 	}
 
 	public void StopFiring()
 	{
 		m_IsFiringCommandActive = false;
+		m_BurstShotsRemainingInWave = 0;
+		m_NextBurstWaveTime = 0f;
 	}
 
 	public WeaponShotAttemptResult TryFireSingleShot()
@@ -97,7 +125,16 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (result == WeaponShotAttemptResult.Success)
 		{
 			m_DebugSuccessfulShotCount++;
+			m_HitscanShooting?.ProcessSuccessfulShot(firedAmmoDefinition);
 			ShotFired?.Invoke(firedAmmoDefinition);
+
+			if (m_WeaponRuntime != null && !m_WeaponRuntime.HasAmmoInMagazine)
+				m_ReloadController?.TryStartReload();
+		}
+		else if (m_TryReloadWhenOutOfAmmo &&
+			(result == WeaponShotAttemptResult.EmptyMagazine || result == WeaponShotAttemptResult.NoMagazine))
+		{
+			TryAutoReloadWhenOutOfAmmo();
 		}
 
 		return result;
@@ -112,7 +149,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_WeaponRuntime == null)
 			return WeaponShotAttemptResult.NoWeapon;
 
-		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady()))
+		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return WeaponShotAttemptResult.NotReady;
 
 		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
@@ -122,6 +159,65 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return WeaponShotAttemptResult.NoVisibleTarget;
 
 		return m_WeaponRuntime.TryConsumeShot(_currentTime, out _firedAmmoDefinition);
+	}
+
+	private void UpdateBurstFire(float _time)
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
+		if (weaponDefinition == null)
+			return;
+
+		int burstSize = Mathf.Max(2, weaponDefinition.BurstRounds);
+		float pause = Mathf.Max(0f, weaponDefinition.BurstPauseSeconds);
+
+		if (m_BurstShotsRemainingInWave <= 0)
+		{
+			if (_time < m_NextBurstWaveTime)
+			{
+				m_DebugBurstShotsRemaining = 0;
+				m_DebugNextBurstWaveTime = m_NextBurstWaveTime;
+				return;
+			}
+
+			m_BurstShotsRemainingInWave = burstSize;
+		}
+
+		WeaponShotAttemptResult result = TryFireSingleShot();
+
+		switch (result)
+		{
+			case WeaponShotAttemptResult.Success:
+				m_BurstShotsRemainingInWave--;
+				if (m_BurstShotsRemainingInWave <= 0)
+					m_NextBurstWaveTime = _time + pause;
+				break;
+			case WeaponShotAttemptResult.FireRateLimited:
+			case WeaponShotAttemptResult.Busy:
+				break;
+			default:
+				m_BurstShotsRemainingInWave = 0;
+				m_NextBurstWaveTime = _time + pause;
+				break;
+		}
+
+		m_DebugBurstShotsRemaining = m_BurstShotsRemainingInWave;
+		m_DebugNextBurstWaveTime = m_NextBurstWaveTime;
+	}
+
+	/// <summary>
+	/// Повторные попытки перезарядки с интервалом: при full auto иначе вызывался бы TryStartReload десятки раз в секунду.
+	/// </summary>
+	private void TryAutoReloadWhenOutOfAmmo()
+	{
+		if (m_ReloadController == null || m_ReloadController.IsReloadingWeapon)
+			return;
+
+		float t = Time.time;
+		if (t < m_NextOutOfAmmoReloadAttemptTime)
+			return;
+
+		m_NextOutOfAmmoReloadAttemptTime = t + m_OutOfAmmoReloadRetrySeconds;
+		m_ReloadController.TryStartReload();
 	}
 	#endregion
 }

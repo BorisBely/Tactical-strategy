@@ -124,6 +124,36 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		m_BoundWeaponState.SetSelectedFireMode(_fireMode);
 	}
 
+	/// <summary>Следующий режим из <see cref="WeaponDefinition.AvailableFireModes"/>; false если одно значение или нет оружия.</summary>
+	public bool TryCycleToNextFireMode()
+	{
+		if (m_BoundWeaponState == null)
+			return false;
+
+		WeaponDefinition weaponDefinition = m_BoundWeaponState.WeaponDefinition;
+		if (weaponDefinition == null)
+			return false;
+
+		WeaponFireMode[] modes = weaponDefinition.AvailableFireModes;
+		if (modes == null || modes.Length <= 1)
+			return false;
+
+		WeaponFireMode current = m_BoundWeaponState.SelectedFireMode;
+		int currentIdx = -1;
+		for (int i = 0; i < modes.Length; i++)
+		{
+			if (modes[i] == current)
+			{
+				currentIdx = i;
+				break;
+			}
+		}
+
+		int nextIdx = currentIdx >= 0 ? (currentIdx + 1) % modes.Length : 0;
+		SetSelectedFireMode(modes[nextIdx]);
+		return true;
+	}
+
 	public void SetAimProgress(float _value)
 	{
 		m_TransientState.SetAimProgress(_value);
@@ -185,7 +215,13 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (weaponDefinition == null || weaponDefinition.FireRateRpm <= 0f)
 			return 0.1f;
 
-		return 60f / weaponDefinition.FireRateRpm;
+		float rpm = weaponDefinition.FireRateRpm;
+		if (m_BoundWeaponState != null &&
+			m_BoundWeaponState.SelectedFireMode == WeaponFireMode.SemiAuto &&
+			weaponDefinition.SemiAutoFireRateRpm > 0f)
+			rpm = weaponDefinition.SemiAutoFireRateRpm;
+
+		return rpm > 0f ? 60f / rpm : 0.1f;
 	}
 
 	private void UnbindCurrentWeapon()

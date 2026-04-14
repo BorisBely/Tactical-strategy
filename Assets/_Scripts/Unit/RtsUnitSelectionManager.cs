@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// RTS-выбор юнитов: одиночный ЛКМ, ctrl-toggle, box selection и групповые команды.
 /// Инвентарь всегда привязан к последнему юниту в текущем выделении.
+/// Клавиши (без UI): F стоп, E готов, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RtsUnitSelectionManager : MonoBehaviour
@@ -39,6 +40,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_LeftMouseStartedOverUi;
 	private float m_LastRightClickTime = -1f;
 	private static RtsUnitSelectionManager s_Instance;
+	private static GUIStyle s_RtsHintsGuiStyle;
 	#endregion
 
 	#region Public Properties
@@ -84,12 +86,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void OnGUI()
 	{
-		if (!m_IsDraggingSelection)
-			return;
+		if (m_IsDraggingSelection)
+		{
+			Rect rect = GetSelectionRect(m_LeftMouseDownScreen, Mouse.current != null ? Mouse.current.position.ReadValue() : m_LeftMouseDownScreen);
+			DrawScreenRect(rect, new Color(0.2f, 0.7f, 1f, 0.15f));
+			DrawScreenRectBorder(rect, 1f, new Color(0.2f, 0.7f, 1f, 0.95f));
+		}
 
-		Rect rect = GetSelectionRect(m_LeftMouseDownScreen, Mouse.current != null ? Mouse.current.position.ReadValue() : m_LeftMouseDownScreen);
-		DrawScreenRect(rect, new Color(0.2f, 0.7f, 1f, 0.15f));
-		DrawScreenRectBorder(rect, 1f, new Color(0.2f, 0.7f, 1f, 0.95f));
+		DrawRtsControlHintsIfAnySelection();
 	}
 	#endregion
 
@@ -539,7 +543,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Keyboard.current.rKey.wasPressedThisFrame)
 		{
 			CommandSelectedWeaponReload();
+			return;
 		}
+
+		if (Keyboard.current.vKey.wasPressedThisFrame)
+			CommandSelectedCycleWeaponFireMode();
 	}
 
 	private void CommandSelectedStance(LocomotionStance _stance)
@@ -597,6 +605,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 
 			unit.StartWeaponReload();
+		}
+	}
+
+	private void CommandSelectedCycleWeaponFireMode()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			unit.CycleWeaponFireMode();
 		}
 	}
 
@@ -944,6 +964,33 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		return Keyboard.current != null &&
 		       (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed);
+	}
+
+	private void DrawRtsControlHintsIfAnySelection()
+	{
+		if (PauseMenuController.IsPaused)
+			return;
+		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
+			return;
+
+		const string c_HintText =
+			"Выделение: F стоп · E готов · Z/C стойка · T зарядка магазина · R перезарядка · V режим огня";
+		const float pad = 10f;
+		const float height = 34f;
+
+		if (s_RtsHintsGuiStyle == null)
+		{
+			s_RtsHintsGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 13,
+				alignment = TextAnchor.MiddleCenter,
+				wordWrap = true
+			};
+			s_RtsHintsGuiStyle.normal.textColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+		}
+
+		float width = Mathf.Min(820f, Screen.width - pad * 2f);
+		GUI.Box(new Rect(pad, Screen.height - height - pad, width, height), c_HintText, s_RtsHintsGuiStyle);
 	}
 
 	private static Rect GetSelectionRect(Vector2 _start, Vector2 _end)

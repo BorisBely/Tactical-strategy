@@ -27,8 +27,10 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private WeaponAttachmentSlotDefinition[] m_AttachmentSlots;
 
 	[Header("Combat")]
-	[Tooltip("Теоретическая скорострельность оружия в выстрелах в минуту.")]
+	[Tooltip("Скорострельность для FullAuto и Burst (и для Semi, если Semi Auto Fire Rate Rpm = 0).")]
 	[SerializeField, Min(1f)] private float m_FireRateRpm = 600f;
+	[Tooltip("Если > 0 — отдельный лимит RPM только для SemiAuto (длиннее пауза между выстрелами при быстром клике ИИ). 0 = использовать Fire Rate Rpm.")]
+	[SerializeField, Min(0f)] private float m_SemiAutoFireRateRpm = 0f;
 	[Tooltip("Сколько времени нужно, чтобы выйти на полноценное качество прицеливания.")]
 	[SerializeField, Min(0.01f)] private float m_AimTimeSeconds = 0.28f;
 	[Tooltip("Базовое время смены магазина в этом оружии до модификаторов магазина и модулей.")]
@@ -45,6 +47,25 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_AutoRecoilMultiplier = 1.25f;
 	[Tooltip("Сколько единиц накопленной отдачи оружие восстанавливает за секунду.")]
 	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
+	[Tooltip("Длина очереди в режиме Burst.")]
+	[SerializeField, Min(2)] private int m_BurstRounds = 3;
+	[Tooltip("Пауза между очередями в режиме Burst (сек).")]
+	[SerializeField, Min(0f)] private float m_BurstPauseSeconds = 0.12f;
+
+	[Header("Fire Audio")]
+	[Tooltip("Звук выстрела (воспроизводит UnitWeaponFireAudio на юните; можно переопределить на патроне).")]
+	[SerializeField] private AudioClip m_FireSound;
+	[SerializeField, Range(0f, 1f)] private float m_FireSoundVolume = 1f;
+	[SerializeField, Range(0f, 0.3f)] private float m_FirePitchVariance = 0.04f;
+
+	[Header("Reload Audio")]
+	[Tooltip("Звук снятия магазина — AnimationEvent_EjectCurrentWeaponMagazineToInventory.")]
+	[SerializeField] private AudioClip m_ReloadMagOutSound;
+	[Tooltip("Звук вставки магазина — AnimationEvent_InsertPendingMagazineIntoWeapon.")]
+	[SerializeField] private AudioClip m_ReloadMagInSound;
+	[Tooltip("Звук окончания перезарядки (затвор и т.п.) — AnimationEvent_FinishWeaponReload.")]
+	[SerializeField] private AudioClip m_ReloadFinishSound;
+	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 1f;
 
 	[Header("Reliability")]
 	[Tooltip("Общая надёжность оружия: устойчивость к износу, загрязнению и проблемам в тяжёлых условиях.")]
@@ -67,6 +88,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public WeaponFireMode DefaultFireMode => m_DefaultFireMode;
 	public WeaponAttachmentSlotDefinition[] AttachmentSlots => m_AttachmentSlots;
 	public float FireRateRpm => m_FireRateRpm;
+	public float SemiAutoFireRateRpm => m_SemiAutoFireRateRpm;
 	public float AimTimeSeconds => m_AimTimeSeconds;
 	public float ReloadTimeSeconds => m_ReloadTimeSeconds;
 	public float EffectiveRangeMeters => m_EffectiveRangeMeters;
@@ -75,10 +97,44 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float SemiAutoRecoilMultiplier => m_SemiAutoRecoilMultiplier;
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
 	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
+	public int BurstRounds => m_BurstRounds;
+	public float BurstPauseSeconds => m_BurstPauseSeconds;
+	public AudioClip FireSound => m_FireSound;
+	public float FireSoundVolume => m_FireSoundVolume;
+	public float FirePitchVariance => m_FirePitchVariance;
+	public AudioClip ReloadMagOutSound => m_ReloadMagOutSound;
+	public AudioClip ReloadMagInSound => m_ReloadMagInSound;
+	public AudioClip ReloadFinishSound => m_ReloadFinishSound;
+	public float ReloadSoundsVolume => m_ReloadSoundsVolume;
 	public float Reliability => m_Reliability;
 	public float WearJamStartThreshold => m_WearJamStartThreshold;
 	public float FoulingJamStartThreshold => m_FoulingJamStartThreshold;
 	public float WearJamInfluence => m_WearJamInfluence;
 	public float FoulingJamInfluence => m_FoulingJamInfluence;
+	#endregion
+
+	#region Static Helpers
+	/// <summary>
+	/// Тот же вклад в <see cref="EquippedWeaponTransientState.RecoilPenalty"/>, что и после одного выстрела
+	/// (совпадает с логикой <see cref="UnitWeaponRecoilController"/> при том же модификаторе обвесов).
+	/// </summary>
+	public static float ComputeAddedRecoilPenalty(
+		WeaponDefinition weaponDefinition,
+		WeaponFireMode fireMode,
+		AmmoDefinition ammoDefinition,
+		float attachmentRecoilModifier = 1f)
+	{
+		if (weaponDefinition == null)
+			return 0f;
+
+		float fireModeMultiplier = fireMode switch
+		{
+			WeaponFireMode.FullAuto => weaponDefinition.AutoRecoilMultiplier,
+			_ => weaponDefinition.SemiAutoRecoilMultiplier
+		};
+
+		float ammoModifier = ammoDefinition != null ? ammoDefinition.RecoilModifier : 1f;
+		return weaponDefinition.RecoilPerShot * fireModeMultiplier * ammoModifier * attachmentRecoilModifier;
+	}
 	#endregion
 }

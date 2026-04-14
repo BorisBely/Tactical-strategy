@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -24,6 +25,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private Transform m_LeftHandAnchor;
+	[SerializeField] private UnitEquipment m_Equipment;
+	[Tooltip("Для звуков перезарядки; если пусто — создаётся дочерний ReloadAudioSource_Auto.")]
+	[SerializeField] private AudioSource m_ReloadAudioSource;
+	[SerializeField, Min(0.01f)] private float m_ReloadSoundSpatialMinDistance = 1f;
+	[SerializeField, Min(0.5f)] private float m_ReloadSoundSpatialMaxDistance = 45f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsReloadingWeapon;
@@ -64,6 +70,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_LeftHandAnchor == null && m_Animator != null && m_Animator.isHuman)
 			m_LeftHandAnchor = m_Animator.GetBoneTransform(HumanBodyBones.LeftHand);
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+
+		EnsureReloadAudioSource();
 	}
 
 	private void OnDisable()
@@ -152,6 +162,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon || m_HasEjectedCurrentMagazine || m_WeaponRuntime == null)
 			return;
 
+		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagOutSound);
+
 		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine))
 		{
 			if (m_CharacterInventory != null)
@@ -180,6 +192,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 		}
 
+		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagInSound);
+
 		m_PendingReplacementMagazine = default;
 		ClearLeftHandMagazineVisual();
 		RefreshInventoryUiIfActive();
@@ -193,12 +207,19 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon)
 			return;
 
+		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadFinishSound);
+
 		bool shouldStartManualMagazineLoading = m_ShouldStartManualMagazineLoadingAfterReload;
 		int fallbackMagazineBagIndex = m_DebugFallbackMagazineBagIndex;
 		StopReloadInternal(false);
 
-		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null)
-			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex);
+		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null &&
+			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex))
+		{
+			// Как в TryStartMagazineLoadingThenReload: после дозарядки в сумке снова вставить магазин в оружие.
+			m_ShouldStartReloadAfterMagazineLoading = true;
+			m_PendingReloadPreferredBagIndex = fallbackMagazineBagIndex;
+		}
 	}
 	private bool TryTakeBestReplacementMagazine(int _preferredBagIndex, out int _bagIndex, out InventorySlotRuntimeData _magazineItem)
 	{
@@ -485,6 +506,76 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		WorldPickupItem[] pickups = _root.GetComponentsInChildren<WorldPickupItem>(true);
 		for (int i = 0; i < pickups.Length; i++)
 			pickups[i].enabled = false;
+	}
+
+	private void EnsureReloadAudioSource()
+	{
+		if (m_ReloadAudioSource != null && m_ReloadAudioSource.transform != transform)
+		{
+			ConfigureReloadAudioSource(m_ReloadAudioSource);
+			return;
+		}
+
+		const string c_ReloadAudioChildName = "ReloadAudioSource_Auto";
+		Transform child = transform.Find(c_ReloadAudioChildName);
+		if (child == null)
+		{
+			GameObject go = new GameObject(c_ReloadAudioChildName);
+			go.transform.SetParent(transform, false);
+			child = go.transform;
+		}
+
+		if (!child.TryGetComponent(out m_ReloadAudioSource))
+			m_ReloadAudioSource = child.gameObject.AddComponent<AudioSource>();
+
+		m_ReloadAudioSource.playOnAwake = false;
+		ConfigureReloadAudioSource(m_ReloadAudioSource);
+	}
+
+	private void ConfigureReloadAudioSource(AudioSource _source)
+	{
+		if (_source == null)
+			return;
+
+		_source.spatialBlend = 1f;
+		_source.minDistance = m_ReloadSoundSpatialMinDistance;
+		_source.maxDistance = m_ReloadSoundSpatialMaxDistance;
+		_source.rolloffMode = AudioRolloffMode.Linear;
+		_source.dopplerLevel = 0f;
+	}
+
+	private void TryPlayReloadSoundFromWeaponDefinition(Func<WeaponDefinition, AudioClip> _pickClip)
+	{
+		if (m_ReloadAudioSource == null)
+			EnsureReloadAudioSource();
+		if (m_ReloadAudioSource == null)
+			return;
+
+		WeaponDefinition weaponDefinition = ResolveWeaponDefinitionForReloadAudio();
+		if (weaponDefinition == null)
+			return;
+
+		AudioClip clip = _pickClip(weaponDefinition);
+		if (clip == null)
+			return;
+
+		Vector3 pos = transform.position;
+		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
+			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
+
+		m_ReloadAudioSource.transform.position = pos;
+		m_ReloadAudioSource.PlayOneShot(clip, weaponDefinition.ReloadSoundsVolume);
+	}
+
+	private WeaponDefinition ResolveWeaponDefinitionForReloadAudio()
+	{
+		if (m_WeaponRuntime != null && m_WeaponRuntime.CurrentWeaponDefinition != null)
+			return m_WeaponRuntime.CurrentWeaponDefinition;
+
+		if (m_Equipment != null && m_Equipment.EquippedDefinition != null && m_Equipment.EquippedDefinition.WeaponDefinition != null)
+			return m_Equipment.EquippedDefinition.WeaponDefinition;
+
+		return null;
 	}
 	#endregion
 }

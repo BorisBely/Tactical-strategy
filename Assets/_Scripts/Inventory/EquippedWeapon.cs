@@ -12,6 +12,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[Tooltip("Пустышка на конце дула: позиция и forward — линия выстрела. Если пусто — для геймплея берётся transform этого компонента (часто рукоять, не дуло).")]
 	[SerializeField] private Transform m_Barrel;
 
+	[Header("Гильза")]
+	[Tooltip("Точка выброса гильзы: position и forward — направление выброса. Если пусто — позиция от Barrel, направление −Barrel.right.")]
+	[SerializeField] private Transform m_ShellEject;
+
 	[Header("Прицел (зрение в «готов»)")]
 	[Tooltip("Пустышка прицела: <c>UnitVision</c> берёт отсюда конус FOV и LOS при оружии на готове (ось = forward).")]
 	[SerializeField] private Transform m_SightPivot;
@@ -19,6 +23,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[Header("Магазин")]
 	[Tooltip("Точка, куда крепится отдельный visual вставленного магазина. Если пусто, визуал магазина в оружии не создаётся.")]
 	[SerializeField] private Transform m_MagazineSocket;
+
+	[Header("Визуал отдачи")]
+	[Tooltip("Необязательно: отдельный узел для kick. Если пусто — UnitWeaponVisualRecoilKick крутит корень оружия целиком (после позы аниматора накладывается отдача).")]
+	[SerializeField] private Transform m_VisualRecoilKickPivot;
 
 	[Header("Отладка")]
 	[Tooltip("Луч из пустышки Barrel (только если она назначена). В Game view включи Gizmos на вкладке Game.")]
@@ -31,8 +39,14 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// <summary>Точка выстрела: позиция и <c>forward</c> — направление ствола.</summary>
 	public Transform BarrelTransform => m_Barrel != null ? m_Barrel : transform;
 
+	/// <summary>Точка выброса гильзы; null — эвристика от ствола.</summary>
+	public Transform ShellEjectTransform => m_ShellEject;
+
 	/// <summary>Прицел для конуса зрения; null если не задан.</summary>
 	public Transform SightPivotTransform => m_SightPivot;
+
+	/// <summary>Узел для процедурной отдачи визуала; null — использовать корень инстанса.</summary>
+	public Transform VisualRecoilKickPivot => m_VisualRecoilKickPivot;
 	#endregion
 
 	#region Private Fields
