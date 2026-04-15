@@ -86,7 +86,49 @@ public enum WeaponShotAttemptResult
 	NoVisibleTarget = 6,
 	Busy = 7,
 	/// <summary>Магазин с патронами есть, но патронник пуст — нужно передёргивание затвора.</summary>
-	NeedsBoltCycle = 8
+	NeedsBoltCycle = 8,
+	/// <summary>Оружие в отказе; выстрел невозможен до снятия клина.</summary>
+	MalfunctionStoppage = 9,
+	/// <summary>Только что произошёл отказ (щелчок без выстрела).</summary>
+	MalfunctionOccurred = 10,
+	/// <summary>Оружие в окончательной неисправности (негодно к экипировке).</summary>
+	WeaponBroken = 11
+}
+
+/// <summary>Тип текущего отказа (лёгкий / тяжёлый).</summary>
+public enum WeaponMalfunctionKind
+{
+	None = 0,
+	Light = 1,
+	Heavy = 2
+}
+
+/// <summary>Канал, по которому сработал отказ (износ или загрязнение). Одновременно только один.</summary>
+public enum WeaponMalfunctionChannel
+{
+	None = 0,
+	Wear = 1,
+	Fouling = 2
+}
+
+/// <summary>Фаза единого сценария снятия отказа.</summary>
+public enum WeaponMalfunctionPhase
+{
+	None = 0,
+	/// <summary>Магазин на месте: до трёх rack с лестницей 50/75/100.</summary>
+	PhaseARackWithMag = 1,
+	/// <summary>Тяжёлый: снятие магазина и перезарядка с тем же магазином.</summary>
+	PhaseBStripAndReinsert = 2
+}
+
+/// <summary>Ступень таблицы износа (целостность C) или загрязнения (F).</summary>
+public enum WeaponMalfunctionTier
+{
+	None = 0,
+	LightOnly = 1,
+	LightOrHeavy = 2,
+	HeavyOnly = 3,
+	Terminal = 4
 }
 
 /// <summary>

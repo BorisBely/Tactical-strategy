@@ -47,8 +47,21 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Methods
+	/// <summary>Выброс гильзы без выстрела (например извлечение патронника при снятии отказа).</summary>
+	public void SpawnShellForAmmo(AmmoDefinition _ammo)
+	{
+		SpawnShellInternal(_ammo);
+	}
+	#endregion
+
 	#region Private Methods
 	private void HandleShotFired(AmmoDefinition _ammo)
+	{
+		SpawnShellInternal(_ammo);
+	}
+
+	private void SpawnShellInternal(AmmoDefinition _ammo)
 	{
 		if (_ammo == null || !_ammo.HasShellPrefab)
 			return;

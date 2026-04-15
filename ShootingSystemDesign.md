@@ -24,11 +24,13 @@ Weapon defines:
 - `RecoilPerShot`: base recoil penalty added by one shot.
 - `SemiAutoRecoilMultiplier`: recoil multiplier for semi-auto fire.
 - `AutoRecoilMultiplier`: recoil multiplier for automatic fire.
-- `Reliability`: general resistance to wear, fouling, and malfunctions.
-- `WearJamStartThreshold`: wear threshold after which jams become possible.
-- `FoulingJamStartThreshold`: fouling threshold after which jams become possible.
-- `WearJamInfluence`: how strongly wear affects jam risk after the threshold.
-- `FoulingJamInfluence`: how strongly fouling affects jam risk after the threshold.
+- `Reliability`: scales jam probability (higher reliability → lower per-shot jam factor); see malfunction section.
+- `BaseDurability`: larger value → slower growth of normalized wear `Wear01` (0…1) per shot; see wear accumulation.
+- `BaseFoulingBudget`: larger value → slower growth of normalized fouling `Fouling01` (0…1, 100% max) per shot; see fouling accumulation.
+- `WearJamStartThreshold`: optional extra gate on normalized wear (0…1). `InverseLerp(threshold, 1, Wear01)` must be greater than 0 for wear-channel jam stress. **0** = rely only on integrity tier bands `C` below.
+- `FoulingJamStartThreshold`: same for fouling vs `Fouling01`. **0** = rely only on fouling tier bands `F`.
+- `WearJamInfluence`: global multiplier on **wear-channel** jam probability per trigger pull.
+- `FoulingJamInfluence`: global multiplier on **fouling-channel** jam probability per trigger pull.
 - `SupportedCaliber`: ammo caliber compatibility.
 - `SupportedMagazineType`: magazine compatibility.
 - `AvailableFireModes`: allowed fire modes.
@@ -49,9 +51,9 @@ Ammo defines:
 - `EffectiveRangeMeters`: effective range of the round itself.
 - `SpreadModifier`: modifies current-shot spread.
 - `RecoilModifier`: modifies recoil accumulation.
-- `WearModifier`: modifies weapon wear growth.
-- `FoulingModifier`: modifies weapon fouling growth.
-- `JamRiskModifier`: modifies malfunction risk once the weapon is already in the danger zone.
+- `WearPerShot`: base wear units added per successful shot; actual Δ`Wear01` = `WearPerShot * attachmentWearProduct / Weapon.BaseDurability`.
+- `FoulingPerShot`: base fouling units per shot; Δ`Fouling01` = `FoulingPerShot * attachmentFoulingProduct / Weapon.BaseFoulingBudget`.
+- `JamRiskModifier`: multiplies **both** wear- and fouling-channel jam probability for that shot (with magazine and attachment jam products).
 
 Ammo defines the damaging effect. Weapon only delivers the ammo.
 
@@ -78,14 +80,14 @@ Expected attachment categories:
 - foregrip
 - stock
 
-Attachment data should eventually contain:
+Attachment data includes:
 
-- `AimTimeModifier`: modifies aiming speed.
-- `EffectiveRangeModifier`: modifies effective range.
-- `RecoilModifier`: modifies recoil accumulation.
-- `ReloadTimeModifier`: modifies reload speed.
+- `AimTimeModifier`, `EffectiveRangeModifier`, `RecoilModifier`, `ReloadTimeModifier` (ergonomics / handling).
+- `WearPerShotMultiplier`: multiplies wear gained from the fired round.
+- `FoulingPerShotMultiplier`: multiplies fouling gained from the fired round.
+- `JamRiskModifier`: multiplies jam probability (both channels) for the current shot.
 
-We do not need full attachment logic immediately, but weapon attachment slots should exist in the architecture early.
+Runtime: `WeaponRuntimeState` holds an optional `EquippedAttachments` array (`WeaponAttachmentDefinition[]`). Until the equip pipeline fills it, products default to **1**. Slots on `WeaponDefinition` remain the architecture hook.
 
 ## Unit Contribution
 The unit supplies the human factor of shooting.
@@ -168,40 +170,128 @@ This is affected by:
 - weapon switching or target changes
 
 ## Malfunction Model
-We explicitly do not use a base jam chance in perfect condition.
+We do not want a flat “base jam %” on a mint weapon: **tier bands** on integrity `C` and fouling `F` ensure that in the **none** band there is no jam from that channel. Above that, jam chance scales with **how deep** the weapon is into wear/fouling and with **tier severity**.
 
-Agreed rule:
+### Runtime condition (normalized)
 
-- a weapon in good condition should not jam
-- jam risk appears only after the relevant threshold is crossed
+- **`Wear01`** ∈ [0,1]: 0 = mint, 1 = worst wear. **Integrity** `C = round(100 * (1 - Wear01))`, 100 = mint.
+- **`Fouling01`** ∈ [0,1]: 0 = clean, 1 = **100%** fouling. **`F = round(100 * Fouling01)`**.
 
-### Wear
+After each **successful** shot (round consumed), condition updates:
 
-- `Wear`: current runtime wear value
-- if `Wear <= WearJamStartThreshold`, wear adds no jam risk
-- after threshold, wear adds jam risk progressively
+- `ΔWear01 = Ammo.WearPerShot * Π(WearPerShotMultiplier on attachments) / BaseDurability`
+- `ΔFouling01 = Ammo.FoulingPerShot * Π(FoulingPerShotMultiplier on attachments) / BaseFoulingBudget`
 
-### Fouling
+(`BaseDurability` / `BaseFoulingBudget` are at least 1 in code.)
 
-- `Fouling`: current runtime fouling value
-- if `Fouling <= FoulingJamStartThreshold`, fouling adds no jam risk
-- after threshold, fouling adds jam risk progressively
+### Optional definition thresholds (extra gate)
 
-### Suggested Risk Logic
+Jam **stress** for each channel uses Unity `InverseLerp` from the weapon’s start threshold to 1:
 
-`WearJamFactor = (Wear - WearJamStartThreshold) / (1 - WearJamStartThreshold)` when over threshold
+- Wear: `stressWear = InverseLerp(WearJamStartThreshold, 1, Wear01)` — if **0**, no wear-channel roll (unless tier is terminal).
+- Fouling: `stressFoul = InverseLerp(FoulingJamStartThreshold, 1, Fouling01)` — same.
 
-`FoulingJamFactor = (Fouling - FoulingJamStartThreshold) / (1 - FoulingJamStartThreshold)` when over threshold
+With thresholds **0** (recommended when relying purely on `C`/`F` bands), `stressWear ≈ Wear01` and `stressFoul ≈ Fouling01` for the linear middle range.
+
+### Jam trigger: two channels, mutually exclusive per shot
+
+**Wear** and **fouling** still use **separate** tier tables (bands below). **At most one** channel can produce a jam on a single trigger check.
+
+**Implementation order** (`UnitWeaponMalfunctionController`):
+
+1. Compute **wear-channel** probability `pWear`. If `Random.value < pWear` and wear tier allows a kind → jam **source = wear**, pick light/heavy from wear tier. **Stop.**
+2. Else compute **fouling-channel** probability `pFoul`. If `Random.value < pFoul` and fouling tier allows → **source = fouling**. **Stop.**
+3. Else no jam.
+
+So fouling is **not** rolled if wear already “won” the metaphorical race; the two channels never fire together on one pull.
+
+### Implemented jam probability (per channel)
+
+Let `T` = **tier stress multiplier** (code constants): LightOnly **0.35**, LightOrHeavy **0.70**, HeavyOnly **1.0**; **None** / **Terminal** → this channel’s `p = 0` (terminal handled separately).
+
+Let `R = Lerp(1.35, 0.25, Reliability)` with `Reliability` clamped to [0,1].
+
+Let `J = clamp( JamRiskModifier_ammo * JamRiskModifier_mag * Π(JamRiskModifier_attachments), 0, 10 )` using the round **in chamber** for the attempt.
 
 Then:
 
-`JamRisk = (WearJamFactor * WearJamInfluence) + (FoulingJamFactor * FoulingJamInfluence)`
+- **`pWear = clamp01( stressWear * WearJamInfluence * T * R * J )`**
+- **`pFoul = clamp01( stressFoul * FoulingJamInfluence * T * R * J )**
 
-And final risk:
+(`T` is from the **wear** tier when computing `pWear`, and from the **fouling** tier when computing `pFoul`.)
 
-`FinalJamRisk = JamRisk * Magazine.JamRiskModifier * Ammo.JamRiskModifier`
+**Light vs heavy** in the LightOrHeavy band: single inspector share `LightShareInMixedTier` on the malfunction controller (probability of light; else heavy).
 
-`Reliability` should reduce growth or severity of these effects, not create a base jam chance from zero.
+### Design note vs old “per-tier P_jam table”
+
+An earlier revision described a designer-authored table of `P_jam_on_trigger` per tier per channel. **Current code** replaces that with the **continuous** `stress * influence * T * R * J** formula above; tier bands still define **whether** the channel can jam at all and **`T`**. Designers tune `WearJamInfluence`, `FoulingJamInfluence`, `Reliability`, ammo/mag/attachment jam products, and durability budgets instead of pasting six independent tier probabilities on the controller.
+
+### Operational malfunctions — single unified scenario (agreed gameplay)
+
+One **shared** player-facing flow for **both** light and heavy. **Which** malfunction rolled (light vs heavy) still matters for **when** the fault actually clears and for **ammo/casing** rules in phase A.
+
+#### Common rules
+
+- While **any** malfunction is active, the weapon **cannot fire**: no hitscan, no recoil/spread bookkeeping as for a real shot until the fault is fully cleared.
+- **No** extra “repeat light malfunction” RNG immediately after a fix (that idea is **cancelled**).
+- **Bolt rack ladder** (same numbers everywhere it applies): up to **3** attempts per phase, per-attempt chance that the rack **would** clear a **light** stoppage on that try: **50% → 75% → 100%**.
+- **Failed rack attempt:** no round consumed, no shell casing.
+- **Successful rack that actually clears the malfunction:** consume the chamber round and spawn a shell casing (normal extraction). Applies whenever a phase ends in a **real** clear (see phases below).
+- **Animator:** reuse **existing** parameters, states, and `AnimationEvent` names already wired for reload/bolt; no new parameter naming requirement in this doc.
+- **Reliability:** use to soften malfunction **severity** or **trigger rate** (implementation discretion), without inventing a base jam chance from a mint weapon.
+
+#### Phase A — magazine **seated** (always first)
+
+- Run the rack ladder (50% / 75% / 100%) with the magazine still in the weapon.
+- After each attempt, evaluate RNG:
+  - If **light** malfunction **and** this attempt **succeeds** → malfunction **clears**, apply round + casing, **done** (no phase B).
+  - If **heavy** malfunction → phase A **never** clears the fault, even if RNG “succeeds” on a try: **no** round consumed and **no** casing from phase A (the stoppage is not fixed until phase B completes). Continue through the three attempts, then go to phase B.
+
+#### Phase B — **heavy only:** strip magazine → rack → insert magazine
+
+- **Remove magazine:** magazine returns to inventory with **unchanged** round count; it is **not** marked broken.
+- Run the **same** rack ladder (50% / 75% / 100%) with mag **out**. On an attempt that **succeeds**, apply round + casing and treat the chamber/stoppage as cleared for this sub-step; then **insert magazine** (may be the **same** magazine again — a “new” mag is **not** required).
+- Completing insert after a successful clear in this phase ends the **heavy** malfunction. Chamber feeding after insert follows normal reload/chamber rules.
+
+#### Malfunction **type** vs condition — **exact bands (integer %, debug-friendly)**
+
+Use **integer** percentages in logs and tier lookup so breakpoints are unambiguous.
+
+**Integrity `C`** (0–100): **100 = mint**, **0 = terminal / ruined**. Map from runtime degradation `Wear01` (0 = mint, 1 = worst) with:
+
+`C = Mathf.Clamp(Mathf.RoundToInt(100f * (1f - Wear01)), 0, 100)` (or floor/ceil — pick one and keep consistent).
+
+| Integer `C` | Jam tier (when **wear** channel actually rolls a jam) |
+|-------------|--------------------------------------------------------|
+| **80 ≤ C ≤ 100** | **None** — wear cannot cause a jam |
+| **60 ≤ C ≤ 79** | **Light only** |
+| **40 ≤ C ≤ 59** | **Light or heavy** (one type per incident; split from tuning table) |
+| **1 ≤ C ≤ 39** | **Heavy only** |
+| **C = 0** | **Terminal** — no rack/reload cure; broken / workshop |
+
+**Fouling `F`** (0–100): **0 = clean**, **100 = worst** (your “0–20 clean” maps to **0–20** here).
+
+| Integer `F` | Jam tier (when **fouling** channel actually rolls a jam) |
+|-------------|-----------------------------------------------------------|
+| **0 ≤ F ≤ 20** | **None** |
+| **21 ≤ F ≤ 40** | **Light only** |
+| **41 ≤ F ≤ 60** | **Light or heavy** |
+| **61 ≤ F ≤ 99** | **Heavy only** |
+| **F = 100** | **Terminal** |
+
+Wear and fouling use **identical tier meanings** for **light / mixed / heavy / terminal**, but **separate** rolls and separate `stress` inputs. **Only one** channel can produce a jam on a given check.
+
+#### Balancing (current)
+
+Tune **`WearJamInfluence`**, **`FoulingJamInfluence`**, **`Reliability`**, per-shot **`J`** (ammo, magazine, attachments), **`BaseDurability` / `BaseFoulingBudget`**, and ammo **`WearPerShot` / `FoulingPerShot`**. Tier band table remains the **gate** for “can this channel jam at all?” and sets **`T`**. If a future CSV/SO per-tier `P_jam` is desired, it would replace the closed-form `pWear`/`pFoul` above — not implemented today.
+
+#### AI / unit behavior
+
+- Same sequence for units: phase A rack attempts first; if malfunction is heavy, continue with strip → phase B rack → insert (same mag allowed).
+
+#### Implementation note
+
+Exact marriage to `UnitWeaponReloadController` / fire gating is coding detail; this section locks **behavior and tier logic** only.
 
 ## Runtime State
 Later runtime state should include at least:

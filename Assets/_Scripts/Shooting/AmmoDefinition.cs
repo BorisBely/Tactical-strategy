@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Данные патрона. Именно патрон задаёт поражающие свойства и модификаторы выстрела.
@@ -54,12 +55,14 @@ public sealed class AmmoDefinition : ScriptableObject
 	[Tooltip("Как этот патрон меняет накопление отдачи оружия.")]
 	[SerializeField, Min(0f)] private float m_RecoilModifier = 1f;
 
-	[Header("Weapon Condition")]
-	[Tooltip("Как этот патрон влияет на накопление износа оружия.")]
-	[SerializeField, Min(0f)] private float m_WearModifier = 1f;
-	[Tooltip("Как этот патрон влияет на загрязнение оружия.")]
-	[SerializeField, Min(0f)] private float m_FoulingModifier = 1f;
-	[Tooltip("Как этот патрон меняет риск клина, если оружие уже находится в зоне риска.")]
+	[Header("Weapon Condition (за один выстрел)")]
+	[Tooltip("Базовые единицы износа за выстрел; итог делится на Base Durability оружия и умножается на модули.")]
+	[FormerlySerializedAs("m_WearModifier")]
+	[SerializeField, Min(0f)] private float m_WearPerShot = 1f;
+	[Tooltip("Базовые единицы загрязнения за выстрел; итог делится на Base Fouling Budget оружия и умножается на модули (макс. 100%%).")]
+	[FormerlySerializedAs("m_FoulingModifier")]
+	[SerializeField, Min(0f)] private float m_FoulingPerShot = 1f;
+	[Tooltip("Множитель вероятности клина с этого выстрела (оба канала: износ и загрязнение).")]
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
 	#endregion
 
@@ -85,8 +88,8 @@ public sealed class AmmoDefinition : ScriptableObject
 	public float EffectiveRangeMeters => m_EffectiveRangeMeters;
 	public float SpreadModifier => m_SpreadModifier;
 	public float RecoilModifier => m_RecoilModifier;
-	public float WearModifier => m_WearModifier;
-	public float FoulingModifier => m_FoulingModifier;
+	public float WearPerShot => m_WearPerShot;
+	public float FoulingPerShot => m_FoulingPerShot;
 	public float JamRiskModifier => m_JamRiskModifier;
 	#endregion
 

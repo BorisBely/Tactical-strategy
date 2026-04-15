@@ -22,6 +22,14 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_RecoilModifier = 1f;
 	[Tooltip("Как модуль меняет скорость смены магазина в оружии.")]
 	[SerializeField, Min(0f)] private float m_ReloadTimeModifier = 1f;
+
+	[Header("Weapon condition (за выстрел)")]
+	[Tooltip("Множитель накопления износа от патрона за выстрел.")]
+	[SerializeField, Min(0f)] private float m_WearPerShotMultiplier = 1f;
+	[Tooltip("Множитель накопления загрязнения от патрона за выстрел.")]
+	[SerializeField, Min(0f)] private float m_FoulingPerShotMultiplier = 1f;
+	[Tooltip("Множитель вероятности клина с каждого выстрела (оба канала).")]
+	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
 	#endregion
 
 	#region Public Properties
@@ -31,5 +39,8 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float EffectiveRangeModifier => m_EffectiveRangeModifier;
 	public float RecoilModifier => m_RecoilModifier;
 	public float ReloadTimeModifier => m_ReloadTimeModifier;
+	public float WearPerShotMultiplier => m_WearPerShotMultiplier;
+	public float FoulingPerShotMultiplier => m_FoulingPerShotMultiplier;
+	public float JamRiskModifier => m_JamRiskModifier;
 	#endregion
 }

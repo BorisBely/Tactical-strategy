@@ -104,6 +104,11 @@ public class CharacterInventory : MonoBehaviour
 		if (picked.Definition == null || !picked.Definition.IsEquipment)
 			return false;
 
+		if (picked.InstanceState != null &&
+		    picked.InstanceState.WeaponState != null &&
+		    picked.InstanceState.WeaponState.IsTerminallyBroken)
+			return false;
+
 		InventorySlotRuntimeData previousMain = m_MainHandEquipment;
 		m_BagItems.RemoveAt(_bagIndex);
 		m_MainHandEquipment = picked;

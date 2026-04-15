@@ -74,13 +74,17 @@ public sealed class WeaponDefinition : ScriptableObject
 	[Header("Reliability")]
 	[Tooltip("Общая надёжность оружия: устойчивость к износу, загрязнению и проблемам в тяжёлых условиях.")]
 	[SerializeField, Range(0f, 1f)] private float m_Reliability = 0.8f;
-	[Tooltip("Порог износа, после которого у оружия вообще становится возможен клин.")]
-	[SerializeField, Range(0f, 1f)] private float m_WearJamStartThreshold = 0.7f;
-	[Tooltip("Порог загрязнённости, после которого у оружия вообще становится возможен клин.")]
-	[SerializeField, Range(0f, 1f)] private float m_FoulingJamStartThreshold = 0.55f;
-	[Tooltip("Насколько сильно износ после порога влияет на риск клина.")]
+	[Tooltip("Чем больше — тем медленнее накапливается износ (Wear 0…1) от патронов: прибавка = WearPerShot×множители / это значение.")]
+	[SerializeField, Min(1f)] private float m_BaseDurability = 2000f;
+	[Tooltip("Условный «бюджет» до 100%% загрязнения (Fouling 0…1) при нейтральном патроне 1.0: прибавка = FoulingPerShot×множители / это значение.")]
+	[SerializeField, Min(1f)] private float m_BaseFoulingBudget = 1500f;
+	[Tooltip("Минимальный нормализованный износ (0…1), с которого канал износа может давать клин (поверх ступеней C). 0 = только таблица C.")]
+	[SerializeField, Range(0f, 1f)] private float m_WearJamStartThreshold = 0f;
+	[Tooltip("Минимальная загрязнённость (0…1), с которой канал загрязнения может давать клин (поверх ступеней F). 0 = только таблица F.")]
+	[SerializeField, Range(0f, 1f)] private float m_FoulingJamStartThreshold = 0f;
+	[Tooltip("Общий множитель вероятности клина по каналу износа за выстрел (нагрузка по износу × ступень × патрон/магазин/модули).")]
 	[SerializeField, Min(0f)] private float m_WearJamInfluence = 1f;
-	[Tooltip("Насколько сильно загрязнение после порога влияет на риск клина.")]
+	[Tooltip("Общий множитель вероятности клина по каналу загрязнения за выстрел.")]
 	[SerializeField, Min(0f)] private float m_FoulingJamInfluence = 1f;
 	#endregion
 
@@ -113,6 +117,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	public AudioClip ReloadBoltHoldOpenDelaySound => m_ReloadBoltHoldOpenDelaySound;
 	public float ReloadSoundsVolume => m_ReloadSoundsVolume;
 	public float Reliability => m_Reliability;
+	public float BaseDurability => m_BaseDurability;
+	public float BaseFoulingBudget => m_BaseFoulingBudget;
 	public float WearJamStartThreshold => m_WearJamStartThreshold;
 	public float FoulingJamStartThreshold => m_FoulingJamStartThreshold;
 	public float WearJamInfluence => m_WearJamInfluence;

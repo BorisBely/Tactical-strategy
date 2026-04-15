@@ -30,6 +30,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private Transform m_LeftHandAnchor;
 	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitWeaponMalfunctionController m_MalfunctionController;
 	[Tooltip("Для звуков перезарядки; если пусто — создаётся дочерний ReloadAudioSource_Auto.")]
 	[SerializeField] private AudioSource m_ReloadAudioSource;
 	[SerializeField, Min(0.01f)] private float m_ReloadSoundSpatialMinDistance = 1f;
@@ -58,12 +59,18 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private bool m_MagazineInsertCompletedThisReload;
 	/// <summary>После <see cref="AnimationEvent_FinishWeaponReload"/> логика и патронник уже готовы, но анимация затвора может ещё идти — стрельбу держим до <see cref="AnimationEvent_BoltMotionPresentationFinished"/>.</summary>
 	private bool m_BoltPresentationSuppressesFire;
+	private bool m_MalfunctionStripReinsertReloadActive;
 	#endregion
 
 	#region Public Properties
 	public bool IsReloadingWeapon => m_IsReloadingWeapon;
 	public bool IsCyclingBolt => m_IsCyclingBolt;
-	public bool IsReloadBusy => m_IsReloadingWeapon || m_IsCyclingBolt || m_BoltPresentationSuppressesFire;
+	public bool IsReloadBusy =>
+		m_IsReloadingWeapon ||
+		m_IsCyclingBolt ||
+		m_BoltPresentationSuppressesFire;
+	public bool IsMalfunctionStripReinsertReloadActive => m_MalfunctionStripReinsertReloadActive;
+	public bool MagazineInsertCompletedThisReload => m_MagazineInsertCompletedThisReload;
 	#endregion
 
 	#region Unity Lifecycle
@@ -87,6 +94,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_LeftHandAnchor = m_Animator.GetBoneTransform(HumanBodyBones.LeftHand);
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_MalfunctionController == null)
+			m_MalfunctionController = GetComponent<UnitWeaponMalfunctionController>();
 
 		EnsureReloadAudioSource();
 	}
@@ -116,6 +125,126 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	}
 
 	/// <summary>Только передёргивание затвора: магазин с патронами уже вставлен, патронник пуст.</summary>
+	/// <summary>Передёргивание затвора в сценарии отказа (патронник может быть занят).</summary>
+	public bool TryStartMalfunctionBoltRack()
+	{
+		m_DebugLastFailureReason = null;
+
+		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		{
+			m_DebugLastFailureReason = "Already reloading or bolting";
+			return false;
+		}
+
+		if (m_MalfunctionController == null || !m_MalfunctionController.IsMalfunctionBoltRecoveryContext)
+		{
+			m_DebugLastFailureReason = "No malfunction recovery";
+			return false;
+		}
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+		{
+			m_DebugLastFailureReason = "Missing runtime references";
+			return false;
+		}
+
+		if (m_BusyState != null && m_BusyState.IsBusy &&
+		    (m_BusyState.Reasons & ~UnitBusyState.BusyReason.Reload) != 0)
+		{
+			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
+			return false;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_IsCyclingBolt = true;
+		m_BoltPresentationSuppressesFire = true;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		m_MalfunctionController?.NotifyBoltAnimStarting();
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
+		return true;
+	}
+
+	/// <summary>Тяжёлый клин: полный граф перезарядки без предварительного магазина в левой руке; тот же магазин уходит в pending на ивенте снятия.</summary>
+	public bool TryStartMalfunctionStripReinsertReload()
+	{
+		m_DebugLastFailureReason = null;
+
+		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		{
+			m_DebugLastFailureReason = "Already reloading or bolting";
+			return false;
+		}
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+		{
+			m_DebugLastFailureReason = "Missing runtime references";
+			return false;
+		}
+
+		if (m_BusyState != null && m_BusyState.IsBusy &&
+		    (m_BusyState.Reasons & ~UnitBusyState.BusyReason.Reload) != 0)
+		{
+			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
+			return false;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_MalfunctionStripReinsertReloadActive = true;
+		m_IsReloadingWeapon = true;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		m_HasEjectedCurrentMagazine = false;
+		m_MagazineInsertCompletedThisReload = false;
+		m_PendingReplacementMagazine = default;
+		m_ShouldStartManualMagazineLoadingAfterReload = false;
+		m_DebugSourceBagIndex = -1;
+		m_DebugFallbackMagazineBagIndex = -1;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		AttachPendingMagazineVisualToLeftHand();
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
+		return true;
+	}
+
+	public void TryPlayBoltCycleSoundPublic()
+	{
+		TryPlayBoltCycleSound();
+	}
+
+	/// <summary>Завершить только цикл затвора отказа, не трогая полную перезарядку.</summary>
+	public void NotifyMalfunctionBoltHandledEnd()
+	{
+		if (m_IsReloadingWeapon)
+		{
+			m_IsCyclingBolt = false;
+			m_BoltPresentationSuppressesFire = false;
+			SyncAnimatorState();
+			return;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_BoltPresentationSuppressesFire = false;
+		m_IsCyclingBolt = false;
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
+		SyncAnimatorState();
+	}
+
+	/// <summary>Повторный затвор между снятием и вставкой магазина (тяжёлый клин, фаза B).</summary>
+	public void RestartMalfunctionBoltCycleDuringStripReload()
+	{
+		if (!m_IsReloadingWeapon || !m_MalfunctionStripReinsertReloadActive)
+			return;
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_IsCyclingBolt = true;
+		m_BoltPresentationSuppressesFire = true;
+		m_MalfunctionController?.NotifyBoltAnimStarting();
+		SyncAnimatorState();
+	}
+
 	public bool TryStartBoltCycleOnly()
 	{
 		m_DebugLastFailureReason = null;
@@ -227,12 +356,25 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagOutSound);
 
-		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine))
+		if (m_MalfunctionStripReinsertReloadActive)
+		{
+			if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine))
+			{
+				m_PendingReplacementMagazine = ejectedMagazine;
+				m_HasEjectedCurrentMagazine = true;
+				AttachPendingMagazineVisualToLeftHand();
+			}
+
+			RefreshInventoryUiIfActive();
+			return;
+		}
+
+		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazineNormal))
 		{
 			if (m_CharacterInventory != null)
 			{
 				int bagIndexBeforeAdd = m_CharacterInventory.BagCount;
-				if (m_CharacterInventory.TryAdd(ejectedMagazine) && m_ShouldStartManualMagazineLoadingAfterReload)
+				if (m_CharacterInventory.TryAdd(ejectedMagazineNormal) && m_ShouldStartManualMagazineLoadingAfterReload)
 					m_DebugFallbackMagazineBagIndex = bagIndexBeforeAdd;
 			}
 		}
@@ -265,6 +407,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		m_MagazineInsertCompletedThisReload = true;
 		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagInSound);
+
+		if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
+			m_MalfunctionController.OnMalfunctionStripReloadInsertComplete();
 
 		m_PendingReplacementMagazine = default;
 		ClearLeftHandMagazineVisual();
@@ -309,6 +454,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	public void AnimationEvent_FinishWeaponReload()
 	{
 		if (!m_IsReloadingWeapon && !m_IsCyclingBolt)
+			return;
+
+		if (m_MalfunctionController != null && m_MalfunctionController.TryConsumeBoltFinishEvent())
 			return;
 
 		if (m_IsReloadingWeapon && m_ShouldStartManualMagazineLoadingAfterReload &&
@@ -574,6 +722,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_BoltPresentationSuppressesFire = false;
+		m_MalfunctionStripReinsertReloadActive = false;
 
 		if (_restorePendingMagazineToBag && !m_PendingReplacementMagazine.IsEmpty && m_CharacterInventory != null)
 			m_CharacterInventory.TryAdd(m_PendingReplacementMagazine);

@@ -19,6 +19,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	#region Private Fields
 	private ItemInstanceState m_BoundItemState;
 	private WeaponRuntimeState m_BoundWeaponState;
+	private UnitWeaponMalfunctionController m_MalfunctionController;
 	#endregion
 
 	#region Public Properties
@@ -192,12 +193,28 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		m_TransientState.SetNextAllowedShotTime(_time);
 	}
 
+	public void RegisterMalfunctionController(UnitWeaponMalfunctionController _controller)
+	{
+		m_MalfunctionController = _controller;
+	}
+
+	public void UnregisterMalfunctionController(UnitWeaponMalfunctionController _controller)
+	{
+		if (m_MalfunctionController == _controller)
+			m_MalfunctionController = null;
+	}
+
 	public WeaponShotAttemptResult TryConsumeShot(float _currentTime, out AmmoDefinition _firedAmmoDefinition)
 	{
 		_firedAmmoDefinition = null;
 
 		if (m_BoundWeaponState == null || m_BoundWeaponState.WeaponDefinition == null)
 			return WeaponShotAttemptResult.NoWeapon;
+
+		if (m_MalfunctionController != null &&
+		    m_MalfunctionController.EvaluateBeforeChamberedShot(_currentTime, out WeaponShotAttemptResult malfunctionResult))
+			return malfunctionResult;
+
 		if (_currentTime < m_TransientState.NextAllowedShotTime)
 			return WeaponShotAttemptResult.FireRateLimited;
 
@@ -213,6 +230,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (!m_BoundWeaponState.TryConsumeRound(out _firedAmmoDefinition))
 			return WeaponShotAttemptResult.EmptyMagazine;
 
+		m_BoundWeaponState.ApplyConditionAfterSuccessfulShot(_firedAmmoDefinition);
 		m_TransientState.SetNextAllowedShotTime(_currentTime + GetSecondsPerShot());
 		return WeaponShotAttemptResult.Success;
 	}

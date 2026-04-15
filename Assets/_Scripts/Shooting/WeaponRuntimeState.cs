@@ -104,6 +104,10 @@ public sealed class WeaponRuntimeState
 	[SerializeField] private MagazineRuntimeState m_CurrentMagazineRuntimeState;
 	[SerializeField, Range(0f, 1f)] private float m_Wear01;
 	[SerializeField, Range(0f, 1f)] private float m_Fouling01;
+	[Tooltip("Установленные на этом экземпляре модули (пока вручную или из будущей системы слотов); пусто = множители 1.")]
+	[SerializeField] private WeaponAttachmentDefinition[] m_EquippedAttachments;
+	[Tooltip("Окончательная неисправность: нельзя экипировать, снятие с ремонтом (мастерская) — отдельная фича.")]
+	[SerializeField] private bool m_IsTerminallyBroken;
 	[Tooltip("Патрон в патроннике (после снаряжения затвора). Выстрел идёт из патронника; затем подача из магазина.")]
 	[SerializeField] private bool m_HasRoundInChamber;
 	[SerializeField] private AmmoDefinition m_ChamberedAmmoDefinition;
@@ -125,6 +129,8 @@ public sealed class WeaponRuntimeState
 	public AmmoDefinition ChamberedAmmoDefinition => m_ChamberedAmmoDefinition;
 	public float Wear01 => m_Wear01;
 	public float Fouling01 => m_Fouling01;
+	public WeaponAttachmentDefinition[] EquippedAttachments => m_EquippedAttachments;
+	public bool IsTerminallyBroken => m_IsTerminallyBroken;
 	public bool HasWeapon => m_WeaponDefinition != null;
 	#endregion
 
@@ -136,6 +142,8 @@ public sealed class WeaponRuntimeState
 		ClearInsertedMagazineFields();
 		m_Wear01 = 0f;
 		m_Fouling01 = 0f;
+		m_EquippedAttachments = null;
+		m_IsTerminallyBroken = false;
 		ClearChamber();
 	}
 
@@ -143,8 +151,48 @@ public sealed class WeaponRuntimeState
 	{
 		m_WeaponDefinition = _weaponDefinition;
 		m_SelectedFireMode = _weaponDefinition != null ? _weaponDefinition.DefaultFireMode : WeaponFireMode.SemiAuto;
+		m_IsTerminallyBroken = false;
+		m_EquippedAttachments = null;
 		ClearInsertedMagazineFields();
 		ClearChamber();
+	}
+
+	public void SetEquippedAttachments(WeaponAttachmentDefinition[] _attachments)
+	{
+		m_EquippedAttachments = _attachments;
+	}
+
+	/// <summary>После успешного выстрела: износ и загрязнение от патрона и модулей.</summary>
+	public void ApplyConditionAfterSuccessfulShot(AmmoDefinition _firedAmmo)
+	{
+		if (m_WeaponDefinition == null || _firedAmmo == null)
+			return;
+
+		float wearMul = GetAttachmentWearPerShotProduct();
+		float foulMul = GetAttachmentFoulingPerShotProduct();
+		float dur = Mathf.Max(1f, m_WeaponDefinition.BaseDurability);
+		float foulBudget = Mathf.Max(1f, m_WeaponDefinition.BaseFoulingBudget);
+
+		float dWear = _firedAmmo.WearPerShot * wearMul / dur;
+		float dFoul = _firedAmmo.FoulingPerShot * foulMul / foulBudget;
+
+		SetWear(m_Wear01 + dWear);
+		SetFouling(m_Fouling01 + dFoul);
+	}
+
+	/// <summary>Произведение множителей клина: патрон в патроннике, магазин, модули.</summary>
+	public float GetJamRiskProductForShot(AmmoDefinition _chamberedAmmo)
+	{
+		float m = 1f;
+		if (_chamberedAmmo != null)
+			m *= _chamberedAmmo.JamRiskModifier;
+
+		MagazineRuntimeState mag = CurrentMagazine;
+		if (mag != null && mag.Definition != null)
+			m *= mag.Definition.JamRiskModifier;
+
+		m *= GetAttachmentJamRiskProduct();
+		return Mathf.Clamp(m, 0f, 10f);
 	}
 
 	public void SetSelectedFireMode(WeaponFireMode _fireMode)
@@ -288,6 +336,11 @@ public sealed class WeaponRuntimeState
 	{
 		m_Fouling01 = Mathf.Clamp01(_value);
 	}
+
+	public void SetTerminallyBroken(bool _broken)
+	{
+		m_IsTerminallyBroken = _broken;
+	}
 	#endregion
 
 	#region Private Methods
@@ -313,6 +366,37 @@ public sealed class WeaponRuntimeState
 		m_CurrentMagazineLocalizationKey = null;
 		m_CurrentMagazineRuntimeState = null;
 		m_CachedMagazineSlotOwner = null;
+	}
+
+	private float GetAttachmentWearPerShotProduct()
+	{
+		return ProductAttachmentFloat(static a => a.WearPerShotMultiplier);
+	}
+
+	private float GetAttachmentFoulingPerShotProduct()
+	{
+		return ProductAttachmentFloat(static a => a.FoulingPerShotMultiplier);
+	}
+
+	private float GetAttachmentJamRiskProduct()
+	{
+		return ProductAttachmentFloat(static a => a.JamRiskModifier);
+	}
+
+	private float ProductAttachmentFloat(System.Func<WeaponAttachmentDefinition, float> _selector)
+	{
+		if (m_EquippedAttachments == null || m_EquippedAttachments.Length == 0)
+			return 1f;
+
+		float p = 1f;
+		for (int i = 0; i < m_EquippedAttachments.Length; i++)
+		{
+			WeaponAttachmentDefinition a = m_EquippedAttachments[i];
+			if (a != null)
+				p *= Mathf.Max(0f, _selector(a));
+		}
+
+		return p;
 	}
 
 	private InventorySlotRuntimeData BuildCurrentMagazineSlot()
@@ -345,12 +429,23 @@ public sealed class EquippedWeaponTransientState
 	[SerializeField, Range(0f, 1f)] private float m_AimProgress01;
 	[SerializeField, Min(0f)] private float m_RecoilPenalty;
 	[SerializeField] private float m_NextAllowedShotTime;
+	[SerializeField] private WeaponMalfunctionKind m_MalfunctionKind;
+	[SerializeField] private WeaponMalfunctionChannel m_MalfunctionChannel;
+	[SerializeField] private WeaponMalfunctionPhase m_MalfunctionPhase;
+	[SerializeField, Range(0, 2)] private int m_MalfunctionRackAttemptIndex;
+	[SerializeField] private bool m_MalfunctionBoltAnimInProgress;
 	#endregion
 
 	#region Public Properties
 	public float AimProgress01 => m_AimProgress01;
 	public float RecoilPenalty => m_RecoilPenalty;
 	public float NextAllowedShotTime => m_NextAllowedShotTime;
+	public WeaponMalfunctionKind MalfunctionKind => m_MalfunctionKind;
+	public WeaponMalfunctionChannel MalfunctionChannel => m_MalfunctionChannel;
+	public WeaponMalfunctionPhase MalfunctionPhase => m_MalfunctionPhase;
+	public int MalfunctionRackAttemptIndex => m_MalfunctionRackAttemptIndex;
+	public bool MalfunctionBoltAnimInProgress => m_MalfunctionBoltAnimInProgress;
+	public bool HasActiveMalfunction => m_MalfunctionKind != WeaponMalfunctionKind.None;
 	#endregion
 
 	#region Public Methods
@@ -359,6 +454,41 @@ public sealed class EquippedWeaponTransientState
 		m_AimProgress01 = 0f;
 		m_RecoilPenalty = 0f;
 		m_NextAllowedShotTime = 0f;
+		ClearMalfunction();
+	}
+
+	public void ClearMalfunction()
+	{
+		m_MalfunctionKind = WeaponMalfunctionKind.None;
+		m_MalfunctionChannel = WeaponMalfunctionChannel.None;
+		m_MalfunctionPhase = WeaponMalfunctionPhase.None;
+		m_MalfunctionRackAttemptIndex = 0;
+		m_MalfunctionBoltAnimInProgress = false;
+	}
+
+	public void SetMalfunction(WeaponMalfunctionKind _kind, WeaponMalfunctionChannel _channel, WeaponMalfunctionPhase _phase)
+	{
+		m_MalfunctionKind = _kind;
+		m_MalfunctionChannel = _channel;
+		m_MalfunctionPhase = _phase;
+		m_MalfunctionRackAttemptIndex = 0;
+		m_MalfunctionBoltAnimInProgress = false;
+	}
+
+	public void SetMalfunctionPhase(WeaponMalfunctionPhase _phase)
+	{
+		m_MalfunctionPhase = _phase;
+		m_MalfunctionRackAttemptIndex = 0;
+	}
+
+	public void SetMalfunctionRackAttemptIndex(int _index)
+	{
+		m_MalfunctionRackAttemptIndex = Mathf.Clamp(_index, 0, 2);
+	}
+
+	public void SetMalfunctionBoltAnimInProgress(bool _value)
+	{
+		m_MalfunctionBoltAnimInProgress = _value;
 	}
 
 	public void SetAimProgress(float _value)
