@@ -55,6 +55,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
@@ -77,6 +78,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[Header("Rotation")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
+
+	[Header("Combat: steady stance while firing")]
+	[Tooltip("При engage и активной команде огня, пока агент почти стоит — NavSpeed=0, NavForward=1, NavStrafe=0, чтобы не мешались клипы шага с прицелом.")]
+	[SerializeField] private bool m_SteadyAnimatorLocomotionWhileEngagingAndFiring = true;
+	[SerializeField] private bool m_SteadyLocomotionRequiresFireCommand = true;
+	[SerializeField] private bool m_SteadyLocomotionOnlyWhenNearlyStationary = true;
 
 	[Header("Animator smoothing")]
 	[SerializeField, Min(0.01f)] private float m_SpeedSmoothTime = 0.12f;
@@ -190,6 +197,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
 
 		m_Agent.updatePosition = true;
 		m_Agent.updateRotation = false;
@@ -548,6 +557,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		}
 
 		Vector3 worldDirection = PlanarLocomotionDirection(out float planarSpeed, out bool hasMoveIntent);
+		if (ShouldSnapEngageSteadyLocomotion(planarSpeed))
+		{
+			ApplyEngageSteadyLocomotionAnimatorOutputs();
+			return;
+		}
 		if (IsEngagingVisibleTarget() && NavAgentHasIncompletePath())
 		{
 			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
@@ -637,6 +651,45 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Animator.SetFloat(s_NavSpeed, navSpeedOut);
 		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
+
+		int locomotionTierOut = (int)m_Mode;
+		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
+			locomotionTierOut = 0;
+		m_Animator.SetInteger(s_LocomotionTier, locomotionTierOut);
+	}
+
+	private bool ShouldSnapEngageSteadyLocomotion(float _planarSpeed)
+	{
+		if (!m_SteadyAnimatorLocomotionWhileEngagingAndFiring || !IsEngagingVisibleTarget())
+			return false;
+
+		if (m_SteadyLocomotionRequiresFireCommand)
+		{
+			if (m_FireController == null)
+				m_FireController = GetComponent<UnitWeaponFireController>();
+			if (m_FireController == null || !m_FireController.IsFiringCommandActive)
+				return false;
+		}
+
+		if (m_SteadyLocomotionOnlyWhenNearlyStationary)
+		{
+			if (_planarSpeed > m_StopVelocityEpsilon || HasActiveMoveIntent())
+				return false;
+		}
+
+		return true;
+	}
+
+	private void ApplyEngageSteadyLocomotionAnimatorOutputs()
+	{
+		m_SmoothSpeed01 = 0f;
+		m_SmoothSpeedVel = 0f;
+		m_SmoothDir = new Vector2(0f, 1f);
+		m_SmoothDirVel = Vector2.zero;
+
+		m_Animator.SetFloat(s_NavSpeed, 0f);
+		m_Animator.SetFloat(s_NavStrafe, 0f);
+		m_Animator.SetFloat(s_NavForward, 1f);
 
 		int locomotionTierOut = (int)m_Mode;
 		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)

@@ -29,6 +29,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	public MagazineRuntimeState CurrentMagazine => m_BoundWeaponState != null ? m_BoundWeaponState.CurrentMagazine : null;
 	public bool HasLoadedMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasMagazine;
 	public bool HasAmmoInMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasAmmoInMagazine;
+	public bool HasRoundInChamber => m_BoundWeaponState != null && m_BoundWeaponState.HasRoundInChamber;
 	#endregion
 
 	#region Unity Lifecycle
@@ -116,6 +117,12 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		return m_BoundWeaponState != null && m_BoundWeaponState.TryLoadRoundIntoInsertedMagazine(_ammoDefinition);
 	}
 
+	/// <summary>Подача из магазина в патронник по ивенту анимации затвора.</summary>
+	public bool TryChamberRoundFromMagazine()
+	{
+		return m_BoundWeaponState != null && m_BoundWeaponState.TryChamberRoundFromMagazine();
+	}
+
 	public void SetSelectedFireMode(WeaponFireMode _fireMode)
 	{
 		if (m_BoundWeaponState == null)
@@ -191,10 +198,18 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 		if (m_BoundWeaponState == null || m_BoundWeaponState.WeaponDefinition == null)
 			return WeaponShotAttemptResult.NoWeapon;
-		if (!m_BoundWeaponState.HasMagazine)
-			return WeaponShotAttemptResult.NoMagazine;
 		if (_currentTime < m_TransientState.NextAllowedShotTime)
 			return WeaponShotAttemptResult.FireRateLimited;
+
+		if (!m_BoundWeaponState.HasRoundInChamber)
+		{
+			if (m_BoundWeaponState.HasMagazine && m_BoundWeaponState.HasAmmoInMagazine)
+				return WeaponShotAttemptResult.NeedsBoltCycle;
+			if (!m_BoundWeaponState.HasMagazine)
+				return WeaponShotAttemptResult.NoMagazine;
+			return WeaponShotAttemptResult.EmptyMagazine;
+		}
+
 		if (!m_BoundWeaponState.TryConsumeRound(out _firedAmmoDefinition))
 			return WeaponShotAttemptResult.EmptyMagazine;
 

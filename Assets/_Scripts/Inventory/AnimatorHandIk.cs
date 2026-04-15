@@ -82,7 +82,7 @@ public class AnimatorHandIk : MonoBehaviour
 	{
 		if (m_MagazineLoading != null && m_MagazineLoading.IsLoadingMagazine)
 			return true;
-		if (m_WeaponReload != null && m_WeaponReload.IsReloadingWeapon)
+		if (m_WeaponReload != null && m_WeaponReload.IsReloadBusy)
 			return true;
 		return false;
 	}

@@ -128,13 +128,15 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting?.ProcessSuccessfulShot(firedAmmoDefinition);
 			ShotFired?.Invoke(firedAmmoDefinition);
 
-			if (m_WeaponRuntime != null && !m_WeaponRuntime.HasAmmoInMagazine)
+			if (m_WeaponRuntime != null && !m_WeaponRuntime.HasAmmoInMagazine && !m_WeaponRuntime.HasRoundInChamber)
 				m_ReloadController?.TryStartReload();
 		}
 		else if (m_TryReloadWhenOutOfAmmo &&
-			(result == WeaponShotAttemptResult.EmptyMagazine || result == WeaponShotAttemptResult.NoMagazine))
+			(result == WeaponShotAttemptResult.EmptyMagazine ||
+			 result == WeaponShotAttemptResult.NoMagazine ||
+			 result == WeaponShotAttemptResult.NeedsBoltCycle))
 		{
-			TryAutoReloadWhenOutOfAmmo();
+			TryAutoReloadOrBoltCycle(result);
 		}
 
 		return result;
@@ -153,6 +155,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return WeaponShotAttemptResult.NotReady;
 
 		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+			return WeaponShotAttemptResult.Busy;
+
+		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
@@ -193,6 +198,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 				break;
 			case WeaponShotAttemptResult.FireRateLimited:
 			case WeaponShotAttemptResult.Busy:
+			case WeaponShotAttemptResult.NeedsBoltCycle:
 				break;
 			default:
 				m_BurstShotsRemainingInWave = 0;
@@ -205,11 +211,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Повторные попытки перезарядки с интервалом: при full auto иначе вызывался бы TryStartReload десятки раз в секунду.
+	/// Повторные попытки перезарядки или снаряжения затвора с интервалом.
 	/// </summary>
-	private void TryAutoReloadWhenOutOfAmmo()
+	private void TryAutoReloadOrBoltCycle(WeaponShotAttemptResult _result)
 	{
-		if (m_ReloadController == null || m_ReloadController.IsReloadingWeapon)
+		if (m_ReloadController == null || m_ReloadController.IsReloadBusy)
 			return;
 
 		float t = Time.time;
@@ -217,7 +223,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return;
 
 		m_NextOutOfAmmoReloadAttemptTime = t + m_OutOfAmmoReloadRetrySeconds;
-		m_ReloadController.TryStartReload();
+
+		if (_result == WeaponShotAttemptResult.NeedsBoltCycle)
+			m_ReloadController.TryStartBoltCycleOnly();
+		else
+			m_ReloadController.TryStartReload();
 	}
 	#endregion
 }

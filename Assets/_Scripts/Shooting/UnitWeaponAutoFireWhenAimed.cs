@@ -16,6 +16,7 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 
 	[Header("Условия")]
 	[Tooltip("Считаем «прицелился», когда AimProgress >= этого значения (0..1).")]
@@ -39,6 +40,8 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 	}
 
 	private void Update()
@@ -67,13 +70,18 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 		if (m_WeaponRuntime.CurrentWeaponDefinition == null)
 			return false;
 
-		if (!m_WeaponRuntime.HasAmmoInMagazine)
+		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
+		bool canEventuallyFire = rs != null && (rs.HasRoundInChamber || (rs.HasMagazine && rs.HasAmmoInMagazine));
+		if (!canEventuallyFire)
 			return false;
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return false;
 
 		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+			return false;
+
+		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 			return false;
 
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))

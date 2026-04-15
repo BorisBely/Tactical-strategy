@@ -65,6 +65,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
@@ -95,6 +97,16 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
 	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек).")]
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
+	[Tooltip("Не разворачивать корень на видимую цель (engage) во время перезарядки и передёргивания затвора.")]
+	[SerializeField] private bool m_BlockEngageFacingDuringReload = true;
+
+	[Header("Боёвка: стабильная стойка при стрельбе")]
+	[Tooltip("При engage и активной команде огня, пока агент почти стоит — жёстко выставить NavSpeed=0 и NavForward=1, NavStrafe=0, чтобы blend tree не подмешивал шаг/страф к прицелу.")]
+	[SerializeField] private bool m_SteadyAnimatorLocomotionWhileEngagingAndFiring = true;
+	[Tooltip("Если выключено — залипание idle при любом engage без проверки команды огня.")]
+	[SerializeField] private bool m_SteadyLocomotionRequiresFireCommand = true;
+	[Tooltip("Не отключать анимацию движения, пока агент реально едет или есть незавершённый заказ пути.")]
+	[SerializeField] private bool m_SteadyLocomotionOnlyWhenNearlyStationary = true;
 
 	[Header("Input")]
 	[SerializeField] private bool m_EnableDirectInput = true;
@@ -239,6 +251,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
 	}
@@ -609,6 +625,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		if (m_Mode == MoveTier.Sprint)
 			return false;
+		if (m_BlockEngageFacingDuringReload)
+		{
+			if (m_ReloadController == null)
+				m_ReloadController = GetComponent<UnitWeaponReloadController>();
+			if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+				return false;
+		}
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
@@ -735,6 +758,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		Vector3 worldDir = PlanarLocomotionDirection(out float planarSpeed, out bool hasMoveIntent);
+		if (ShouldSnapEngageSteadyLocomotion(planarSpeed))
+		{
+			ApplyEngageSteadyLocomotionAnimatorOutputs();
+			return;
+		}
 		if (IsEngagingVisibleTarget() && NavAgentHasIncompletePath())
 		{
 			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
@@ -837,5 +865,44 @@ public sealed class UnitClickToMove : MonoBehaviour
 		Walk,
 		Run,
 		Sprint
+	}
+
+	private bool ShouldSnapEngageSteadyLocomotion(float _planarSpeed)
+	{
+		if (!m_SteadyAnimatorLocomotionWhileEngagingAndFiring || !IsEngagingVisibleTarget())
+			return false;
+
+		if (m_SteadyLocomotionRequiresFireCommand)
+		{
+			if (m_FireController == null)
+				m_FireController = GetComponent<UnitWeaponFireController>();
+			if (m_FireController == null || !m_FireController.IsFiringCommandActive)
+				return false;
+		}
+
+		if (m_SteadyLocomotionOnlyWhenNearlyStationary)
+		{
+			if (_planarSpeed > m_StopVelocityEpsilon || HasActiveMoveIntent())
+				return false;
+		}
+
+		return true;
+	}
+
+	private void ApplyEngageSteadyLocomotionAnimatorOutputs()
+	{
+		m_SmoothSpeed01 = 0f;
+		m_SmoothSpeedVel = 0f;
+		m_SmoothDir = new Vector2(0f, 1f);
+		m_SmoothDirVel = Vector2.zero;
+
+		m_Animator.SetFloat(s_NavSpeed, 0f);
+		m_Animator.SetFloat(s_NavStrafe, 0f);
+		m_Animator.SetFloat(s_NavForward, 1f);
+
+		int locomotionTier = (int)m_Mode;
+		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
+			locomotionTier = 0;
+		m_Animator.SetInteger(s_LocomotionTier, locomotionTier);
 	}
 }

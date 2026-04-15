@@ -18,6 +18,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 
 	[Header("Aim Conditions")]
 	[Tooltip("Если true, AimProgress растёт только когда оружие в ready.")]
@@ -26,6 +27,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private bool m_RequireVisibleTarget = true;
 	[Tooltip("Если стойка сейчас в переходе, прицеливание не растёт и плавно теряется.")]
 	[SerializeField] private bool m_BlockDuringStanceTransition = true;
+	[Tooltip("Не накапливать AimProgress во время перезарядки и передёргивания затвора (UnitWeaponReloadController.IsReloadBusy).")]
+	[SerializeField] private bool m_BlockDuringReloadOrBoltCycle = true;
 
 	[Header("Aim Time Multipliers")]
 	[Tooltip("Множитель времени прицеливания стоя.")]
@@ -72,6 +75,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_Stance = GetComponent<UnitAnimatorStance>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 	}
 
 	private void OnEnable()
@@ -129,6 +134,11 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		{
 			return false;
 		}
+
+		if (m_BlockDuringReloadOrBoltCycle &&
+			m_ReloadController != null &&
+			m_ReloadController.IsReloadBusy)
+			return false;
 
 		return true;
 	}

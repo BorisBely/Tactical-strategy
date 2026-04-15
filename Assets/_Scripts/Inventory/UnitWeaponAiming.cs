@@ -24,6 +24,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitWeaponFireController m_FireController;
 
 	[Header("Условия прицела")]
 	[Tooltip("Только при «готов» и видимой цели; иначе AimPitch и слой в ноль.")]
@@ -33,10 +35,15 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	[Header("Вертикаль (Animator)")]
 	[SerializeField, Min(0f)] private float m_PitchSmoothTime = 0.08f;
+	[Tooltip("При активной команде огня увеличить сглаживание AimPitch (меньше дёрганья от коллизий/анимации цели).")]
+	[SerializeField] private bool m_SofterAimPitchWhileFiring = true;
+	[SerializeField, Min(0f)] private float m_PitchSmoothTimeWhileFiring = 0.2f;
 	[SerializeField, Min(0f)] private float m_LayerWeightSmoothSeconds = 0.08f;
 
 	[Tooltip("Не наводить по вертикали во время смены стойки (UnitBusyState + StanceTransition).")]
 	[SerializeField] private bool m_BlockAimDuringStanceTransition = true;
+	[Tooltip("Не вести оружие на цель (слой AimAdditive, pitch, локальная коррекция) во время перезарядки и передёргивания затвора.")]
+	[SerializeField] private bool m_BlockCombatAimDuringReload = true;
 
 	[Header("Коррекция модели оружия")]
 	[Tooltip("Если включено, после Animator-aim модель оружия локально доворачивается к центру цели. В пределах лимитов линия Barrel -> цель будет точной.")]
@@ -49,6 +56,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_WeaponModelPitchDownLimitDegrees = 10f;
 	[Tooltip("Сглаживание локальной коррекции модели оружия. Больше — мягче, меньше — точнее и быстрее.")]
 	[SerializeField, Min(0f)] private float m_WeaponModelCorrectionSmoothTime = 0.04f;
+	[Tooltip("При стрельбе — не ниже этого smooth time для коррекции модели (гасит мелкие колебания).")]
+	[SerializeField] private bool m_SofterWeaponModelCorrectionWhileFiring = true;
+	[SerializeField, Min(0f)] private float m_WeaponModelCorrectionSmoothTimeWhileFiring = 0.12f;
 
 	[Header("Инспектор (только отображение)")]
 	[Tooltip("Сейчас реально активен боевой vertical aim: есть оружие, включён ready, есть видимая цель и стойка не заблокирована переходом.")]
@@ -110,6 +120,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
 
 		ResolveLayerIndex();
 	}
@@ -170,7 +184,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (ShouldApplyWeaponLocalOnlyForAim())
 		{
 			Vector3 aimPoint = GetTargetAimPointWorld(m_Vision != null ? m_Vision.VisibleTarget : null);
-			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint);
+			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint, IsFiringForSteadyAim());
 		}
 		else
 		{
@@ -195,6 +209,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 		if (m_BlockAimDuringStanceTransition && m_BusyState != null && m_BusyState.IsBusy &&
 		    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
+			return false;
+
+		if (m_BlockCombatAimDuringReload &&
+			m_ReloadController != null &&
+			m_ReloadController.IsReloadBusy)
 			return false;
 
 		return true;
@@ -264,7 +283,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		bool stanceBlocks = m_BlockAimDuringStanceTransition && m_BusyState != null && m_BusyState.IsBusy &&
 		                    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0;
 
-		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
+		bool reloadBlocks = m_BlockCombatAimDuringReload &&
+		                    m_ReloadController != null &&
+		                    m_ReloadController.IsReloadBusy;
+
+		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks;
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		float targetLayer = combatAim ? 1f : 0f;
@@ -296,14 +319,18 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_DebugRawPitchDegrees = 0f;
 		}
 
-		if (m_PitchSmoothTime <= 0.0001f)
+		float pitchSmoothUse = m_PitchSmoothTime;
+		if (m_SofterAimPitchWhileFiring && combatAim && IsFiringForSteadyAim())
+			pitchSmoothUse = Mathf.Max(pitchSmoothUse, m_PitchSmoothTimeWhileFiring);
+
+		if (pitchSmoothUse <= 0.0001f)
 		{
 			m_SmoothedPitch01 = targetPitch01;
 			m_PitchVelocity = 0f;
 		}
 		else
 		{
-			m_SmoothedPitch01 = Mathf.SmoothDamp(m_SmoothedPitch01, targetPitch01, ref m_PitchVelocity, m_PitchSmoothTime,
+			m_SmoothedPitch01 = Mathf.SmoothDamp(m_SmoothedPitch01, targetPitch01, ref m_PitchVelocity, pitchSmoothUse,
 				Mathf.Infinity, Time.deltaTime);
 		}
 
@@ -323,7 +350,12 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		return _targetRoot != null ? _targetRoot.position + Vector3.up * 1.2f : Vector3.zero;
 	}
 
-	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld)
+	private bool IsFiringForSteadyAim()
+	{
+		return m_FireController != null && m_FireController.IsFiringCommandActive;
+	}
+
+	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld, bool _useFiringStability)
 	{
 		if (!m_EnableWeaponModelAimCorrection || _weaponRoot == null || _weaponRoot.parent == null)
 		{
@@ -352,7 +384,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		float rawPitchError = SignedAngleOnPlane(yawedForwardParent, desiredDirParent, yawedRightParent);
 		float targetPitch = Mathf.Clamp(rawPitchError, -m_WeaponModelPitchDownLimitDegrees, m_WeaponModelPitchUpLimitDegrees);
 
-		float smoothTime = Mathf.Max(0.0001f, m_WeaponModelCorrectionSmoothTime);
+		float baselineSmooth = m_WeaponModelCorrectionSmoothTime;
+		if (m_SofterWeaponModelCorrectionWhileFiring && _useFiringStability)
+			baselineSmooth = Mathf.Max(baselineSmooth, m_WeaponModelCorrectionSmoothTimeWhileFiring);
+		float smoothTime = Mathf.Max(0.0001f, baselineSmooth);
 		if (m_WeaponModelCorrectionSmoothTime <= 0.0001f)
 		{
 			m_SmoothedWeaponYawDegrees = targetYaw;

@@ -84,7 +84,9 @@ public enum WeaponShotAttemptResult
 	FireRateLimited = 4,
 	NotReady = 5,
 	NoVisibleTarget = 6,
-	Busy = 7
+	Busy = 7,
+	/// <summary>Магазин с патронами есть, но патронник пуст — нужно передёргивание затвора.</summary>
+	NeedsBoltCycle = 8
 }
 
 /// <summary>

@@ -75,7 +75,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			return (int)LocomotionWeaponMode.Unarmed;
 
 		bool isMagazineLoading = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
-		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadingWeapon;
+		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;
 		if (!isMagazineLoading && !isWeaponReloading &&
 			m_ReadyHands != null && m_ReadyHands.ShouldUseUnarmedLocomotionBranch())
 			return (int)LocomotionWeaponMode.Unarmed;

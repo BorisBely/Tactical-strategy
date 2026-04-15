@@ -259,7 +259,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return;
 
 		bool isMagazineLoading = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
-		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadingWeapon;
+		bool isWeaponReloading = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;
 
 		bool shouldShow = isMagazineLoading || isWeaponReloading || ShouldShowUpperBodyNoAimOverlay();
 		float targetWeight = shouldShow ? 1f : 0f;

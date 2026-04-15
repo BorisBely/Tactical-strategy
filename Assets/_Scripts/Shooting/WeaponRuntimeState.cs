@@ -104,6 +104,9 @@ public sealed class WeaponRuntimeState
 	[SerializeField] private MagazineRuntimeState m_CurrentMagazineRuntimeState;
 	[SerializeField, Range(0f, 1f)] private float m_Wear01;
 	[SerializeField, Range(0f, 1f)] private float m_Fouling01;
+	[Tooltip("Патрон в патроннике (после снаряжения затвора). Выстрел идёт из патронника; затем подача из магазина.")]
+	[SerializeField] private bool m_HasRoundInChamber;
+	[SerializeField] private AmmoDefinition m_ChamberedAmmoDefinition;
 
 	[System.NonSerialized]
 	private ItemInstanceState m_CachedMagazineSlotOwner;
@@ -118,6 +121,8 @@ public sealed class WeaponRuntimeState
 	public int CurrentAmmoCount => CurrentMagazine != null ? CurrentMagazine.CurrentAmmoCount : 0;
 	public bool HasMagazine => m_CurrentMagazineDefinition != null && CurrentMagazine != null && CurrentMagazine.HasMagazine;
 	public bool HasAmmoInMagazine => CurrentMagazine != null && CurrentMagazine.HasAmmo;
+	public bool HasRoundInChamber => m_HasRoundInChamber && m_ChamberedAmmoDefinition != null;
+	public AmmoDefinition ChamberedAmmoDefinition => m_ChamberedAmmoDefinition;
 	public float Wear01 => m_Wear01;
 	public float Fouling01 => m_Fouling01;
 	public bool HasWeapon => m_WeaponDefinition != null;
@@ -131,6 +136,7 @@ public sealed class WeaponRuntimeState
 		ClearInsertedMagazineFields();
 		m_Wear01 = 0f;
 		m_Fouling01 = 0f;
+		ClearChamber();
 	}
 
 	public void SetWeaponDefinition(WeaponDefinition _weaponDefinition)
@@ -138,6 +144,7 @@ public sealed class WeaponRuntimeState
 		m_WeaponDefinition = _weaponDefinition;
 		m_SelectedFireMode = _weaponDefinition != null ? _weaponDefinition.DefaultFireMode : WeaponFireMode.SemiAuto;
 		ClearInsertedMagazineFields();
+		ClearChamber();
 	}
 
 	public void SetSelectedFireMode(WeaponFireMode _fireMode)
@@ -224,8 +231,52 @@ public sealed class WeaponRuntimeState
 	public bool TryConsumeRound(out AmmoDefinition _ammoDefinition)
 	{
 		_ammoDefinition = null;
+		if (!m_HasRoundInChamber || m_ChamberedAmmoDefinition == null)
+			return false;
+
+		_ammoDefinition = m_ChamberedAmmoDefinition;
 		MagazineRuntimeState magazineState = CurrentMagazine;
-		return magazineState != null && magazineState.TryConsumeRound(out _ammoDefinition);
+
+		if (magazineState != null && magazineState.HasAmmo)
+		{
+			if (magazineState.TryConsumeRound(out AmmoDefinition nextRound))
+			{
+				m_ChamberedAmmoDefinition = nextRound;
+				m_HasRoundInChamber = true;
+			}
+			else
+			{
+				ClearChamber();
+			}
+		}
+		else
+			ClearChamber();
+
+		return true;
+	}
+
+	/// <summary>Подача одного патрона из магазина в патронник (после передёргивания затвора). Патронник должен быть пуст.</summary>
+	public bool TryChamberRoundFromMagazine()
+	{
+		if (HasRoundInChamber)
+			return false;
+
+		MagazineRuntimeState magazineState = CurrentMagazine;
+		if (magazineState == null || !magazineState.HasAmmo)
+			return false;
+
+		if (!magazineState.TryConsumeRound(out AmmoDefinition round))
+			return false;
+
+		m_ChamberedAmmoDefinition = round;
+		m_HasRoundInChamber = true;
+		return true;
+	}
+
+	public void ClearChamber()
+	{
+		m_HasRoundInChamber = false;
+		m_ChamberedAmmoDefinition = null;
 	}
 
 	public void SetWear(float _value)

@@ -63,8 +63,12 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private AudioClip m_ReloadMagOutSound;
 	[Tooltip("Звук вставки магазина — AnimationEvent_InsertPendingMagazineIntoWeapon.")]
 	[SerializeField] private AudioClip m_ReloadMagInSound;
-	[Tooltip("Звук окончания перезарядки (затвор и т.п.) — AnimationEvent_FinishWeaponReload.")]
-	[SerializeField] private AudioClip m_ReloadFinishSound;
+	[Tooltip("Звук передёргивания затвора — только ивент AnimationEvent_FinishWeaponReload (клип затвора или legacy один клип с досылом в конце).")]
+	[SerializeField] private AudioClip m_BoltCycleSound;
+	[Tooltip("Если включено: после вставки магазина патрон в патронник досылается ивентом ReloadBoltHoldOpenDelay в конце клипа перезарядки (звук + досыл). Иначе после вставки Animator получает IsCyclingBolt и досыл по FinishWeaponReload в клипе затвора.")]
+	[SerializeField] private bool m_HasBoltHoldOpenDelay;
+	[Tooltip("Звук затворной задержки / отпускания затвора — только при включённой затворной задержке, ивент ReloadBoltHoldOpenDelay на контроллере перезарядки.")]
+	[SerializeField] private AudioClip m_ReloadBoltHoldOpenDelaySound;
 	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 1f;
 
 	[Header("Reliability")]
@@ -104,7 +108,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float FirePitchVariance => m_FirePitchVariance;
 	public AudioClip ReloadMagOutSound => m_ReloadMagOutSound;
 	public AudioClip ReloadMagInSound => m_ReloadMagInSound;
-	public AudioClip ReloadFinishSound => m_ReloadFinishSound;
+	public AudioClip BoltCycleSound => m_BoltCycleSound;
+	public bool HasBoltHoldOpenDelay => m_HasBoltHoldOpenDelay;
+	public AudioClip ReloadBoltHoldOpenDelaySound => m_ReloadBoltHoldOpenDelaySound;
 	public float ReloadSoundsVolume => m_ReloadSoundsVolume;
 	public float Reliability => m_Reliability;
 	public float WearJamStartThreshold => m_WearJamStartThreshold;
