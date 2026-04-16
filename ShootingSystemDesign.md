@@ -69,25 +69,36 @@ Magazine defines:
 
 Magazine does not define damage or weapon behavior outside feeding.
 
-### Attachments
-Attachments are separate modifiers applied to weapon behavior.
+### Attachments (modules on the weapon)
+Attachments are modifiers and behaviors on the **weapon platform**. They are **not** magazines: **magazines stay a separate system** (`MagazineDefinition`, insert/eject, capacity, magazine jam modifier). Do not model the magazine as an `EquippedAttachments` slot.
 
-Expected attachment categories:
+#### Slot rules (agreed)
+- **Default:** at most **one** equipped item per logical slot group on a given weapon instance.
+- **Exception:** **flashlight / LCU (laser)** share a rail family: a weapon may define **up to 4** such slots (still at most one module **per** rail slot; e.g. slot A = flashlight OR laser, not both).
+- Equip validation: module must match slot type; weapon must expose that slot in data.
 
-- optic
-- muzzle device
-- laser
-- foregrip
-- stock
+#### Slot groups and example modules
+| Slot group | Examples | Notes |
+|------------|----------|--------|
+| **Muzzle** (barrel end) | Suppressor, compensator, flash hider | One muzzle device. Compensator / flash hider: **recoil** handling. Suppressor: **recoil** + **fire sound override** (see audio below). |
+| **Under-barrel** | Foregrip, bipod, under-barrel grenade launcher | One under-barrel module. Foregrip: **recoil**. **Bipod:** recoil bonus **only when deployed**; full “deploy” mechanic **later** — **until then, treat as deployed when the unit is prone**. UGL: fire grenade — **later**. |
+| **Rail** (above barrel / sides; up to 4) | Flashlight, LCU | **All modules** affect **aim time** (positive or negative per item). Flashlight: **light** (visual: child prefab on named anchor). LCU: **laser beam** (visual). |
+| **Optic** | Sight / optic | **Aim time** + **separate multiplier** for **spread / range penalty** at distance (designer-tuned; not the same as `EffectiveRangeMeters` only). |
+| *(excluded)* | Magazine | Handled only by the **magazine** pipeline, not attachment slots. |
 
-Attachment data includes:
+#### Aim time
+- **Every** attachment item contributes a delta to aim ergonomics (some help, some hurt).
+- **Combining handling contributions from attachments (aim time, attachment-driven recoil deltas, attachment-driven dispersion deltas):** use **`1 + Σ(bonus)`** where each module supplies a designer `bonus` (can be negative).  
+- **Note:** wear/fouling **per-shot multipliers** and jam-risk **products** on attachments may stay **multiplicative (Π)** until explicitly redesigned — they are condition math, not ergonomic stacking.
 
-- `AimTimeModifier`, `EffectiveRangeModifier`, `RecoilModifier`, `ReloadTimeModifier` (ergonomics / handling).
-- `WearPerShotMultiplier`: multiplies wear gained from the fired round.
-- `FoulingPerShotMultiplier`: multiplies fouling gained from the fired round.
-- `JamRiskModifier`: multiplies jam probability (both channels) for the current shot.
+#### Audio (suppressor + subsonic)
+- **Suppressor module:** for now a **single** fire sound override on the module (replaces default weapon fire sound when firing suppressed).
+- **`Subsonic` (or equivalent) flag on ammo:** also changes fire sound (typically **quieter**). **If both suppressor and subsonic apply,** use the agreed quietest / combined rule in implementation (stack for extra suppression).
 
-Runtime: `WeaponRuntimeState` holds an optional `EquippedAttachments` array (`WeaponAttachmentDefinition[]`). Until the equip pipeline fills it, products default to **1**. Slots on `WeaponDefinition` remain the architecture hook.
+#### Runtime / data hook
+- `WeaponDefinition` lists slots via `WeaponAttachmentSlotDefinition`: `SlotType` (`Muzzle`, `UnderBarrel`, `Rail`, `Optic`), `IsRequired`, `AnchorChildName` (child on weapon prefab for module prefab parenting). Repeat `Rail` up to four times for four rails.
+- `WeaponRuntimeState` holds `WeaponAttachmentDefinition[]` (or a slot-keyed structure once implemented). Until equip UI/pipeline exists, defaults keep behavior unchanged.
+- **Visuals:** module `ItemDefinition` can reference a prefab spawned as a child under a **named anchor** on the weapon prefab (same idea as `LeftHandIkTarget` naming).
 
 ## Unit Contribution
 The unit supplies the human factor of shooting.

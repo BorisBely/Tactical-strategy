@@ -19,6 +19,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
+	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[SerializeField] private Collider m_SelectionCollider;
@@ -64,6 +65,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponent<UnitEquipment>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_CharacterInventory == null)
@@ -232,7 +235,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
-			m_FireController?.StopFiring();
+			m_FireController?.ResetBurstStateForFireModeChange();
 
 			if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			{
@@ -249,7 +252,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			WeaponFireMode after = m_WeaponRuntime.RuntimeState.SelectedFireMode;
 			Debug.Log($"{name}: режим огня {before} → {after}.", this);
+			PlayFireModeSwitchSound();
 		});
+	}
+
+	private void PlayFireModeSwitchSound()
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
+		AudioClip clip = weaponDefinition != null ? weaponDefinition.FireModeSwitchSound : null;
+		if (clip == null)
+			return;
+
+		Vector3 position = transform.position + Vector3.up * 1.35f;
+		if (m_UnitEquipment != null && m_UnitEquipment.MainWeaponRoot != null)
+			position = m_UnitEquipment.MainWeaponRoot.position;
+
+		float volume = weaponDefinition.FireModeSwitchSoundVolume;
+		AudioSource.PlayClipAtPoint(clip, position, volume);
 	}
 
 	public bool TryGetCurrentStance(out LocomotionStance _stance)

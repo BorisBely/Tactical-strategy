@@ -49,27 +49,37 @@ public enum MagazineType
 }
 
 /// <summary>
-/// Слот аксессуара на оружии.
+/// Слот под модуль на корпусе оружия. Магазин отдельно, не является слотом здесь.
+/// До четырёх планок: четыре записи <see cref="WeaponAttachmentSlotType.Rail"/> в массиве слотов <c>WeaponDefinition</c>.
 /// </summary>
 public enum WeaponAttachmentSlotType
 {
-	Optic = 0,
-	Muzzle = 1,
-	Laser = 2,
-	Foregrip = 3,
-	Stock = 4
+	/// <summary>Дуло: глушитель / компенсатор / пламегаситель. На оружии один такой слот.</summary>
+	Muzzle = 0,
+	/// <summary>Под стволом: рукоятка / сошки / подствольный гранатомёт. Один слот.</summary>
+	UnderBarrel = 1,
+	/// <summary>Планка (над стволом / сбоку): фонарик или ЛЦУ. Повторяйте значение до 4 раз для четырёх физических слотов.</summary>
+	Rail = 2,
+	/// <summary>Прицел. Один слот.</summary>
+	Optic = 3
 }
 
 /// <summary>
-/// Категория модуля оружия.
+/// Вид модуля. Слот: дульные → <see cref="WeaponAttachmentSlotType.Muzzle"/>; рукоятка/сошки/ПГ → <see cref="WeaponAttachmentSlotType.UnderBarrel"/>;
+/// фонарик/ЛЦУ → <see cref="WeaponAttachmentSlotType.Rail"/>; прицел → <see cref="WeaponAttachmentSlotType.Optic"/>.
 /// </summary>
 public enum WeaponAttachmentType
 {
 	Optic = 0,
-	MuzzleDevice = 1,
-	Laser = 2,
-	Foregrip = 3,
-	Stock = 4
+	Suppressor = 1,
+	Compensator = 2,
+	FlashHider = 3,
+	Foregrip = 4,
+	Bipod = 5,
+	UnderBarrelGrenadeLauncher = 6,
+	Flashlight = 7,
+	/// <summary>ЛЦУ / лазерный целеуказатель (луч).</summary>
+	LaserDesignator = 8
 }
 
 /// <summary>
@@ -132,11 +142,13 @@ public enum WeaponMalfunctionTier
 }
 
 /// <summary>
-/// Описание доступного слота модуля на оружии.
+/// Описание доступного слота модуля на оружии (платформа <c>WeaponDefinition</c>).
 /// </summary>
 [Serializable]
 public struct WeaponAttachmentSlotDefinition
 {
 	public WeaponAttachmentSlotType SlotType;
 	public bool IsRequired;
+	[Tooltip("Имя дочернего объекта на префабе оружия — якорь для инстанса префаба модуля (как LeftHandIkTarget). Пусто, пока не настроен контент.")]
+	public string AnchorChildName;
 }

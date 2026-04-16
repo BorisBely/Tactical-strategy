@@ -23,6 +23,7 @@
     { "key": "pause.help.f", "value": "F - Мгновенная остановка" },
     { "key": "pause.help.r", "value": "R - Перезарядить оружие магазином из инвентаря" },
     { "key": "pause.help.t", "value": "T - Снарядить магазин патронами из коробок в инвентаре" },
+    { "key": "pause.help.v", "value": "V - Режим огня у выделенных юнитов" },
     { "key": "pause.help.i", "value": "I - Открыть инвентарь" },
     { "key": "pause.help.h", "value": "H - Открыть окно здоровья" },
     { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + клик - Быстрый перенос в инвентаре" },

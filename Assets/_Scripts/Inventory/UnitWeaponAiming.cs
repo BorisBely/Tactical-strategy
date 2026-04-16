@@ -180,11 +180,12 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (!TrySyncWeaponDefinition(weaponRoot, def) || m_BarrelTransform == null)
 			return;
 
-		weaponRoot.localRotation = m_BaseWeaponLocalRotation;
+		Quaternion baseForAim = m_BaseWeaponLocalRotation;
+		weaponRoot.localRotation = baseForAim;
 		if (ShouldApplyWeaponLocalOnlyForAim())
 		{
 			Vector3 aimPoint = GetTargetAimPointWorld(m_Vision != null ? m_Vision.VisibleTarget : null);
-			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint, IsFiringForSteadyAim());
+			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint, IsFiringForSteadyAim(), baseForAim);
 		}
 		else
 		{
@@ -355,7 +356,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		return m_FireController != null && m_FireController.IsFiringCommandActive;
 	}
 
-	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld, bool _useFiringStability)
+	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld, bool _useFiringStability, Quaternion _baseLocalRotation)
 	{
 		if (!m_EnableWeaponModelAimCorrection || _weaponRoot == null || _weaponRoot.parent == null)
 		{
@@ -418,7 +419,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		Vector3 appliedPitchAxis = (appliedYawRotation * currentRightParent).normalized;
 		Quaternion appliedPitchRotation = Quaternion.AngleAxis(m_SmoothedWeaponPitchDegrees, appliedPitchAxis);
 		Quaternion localCorrection = appliedPitchRotation * appliedYawRotation;
-		_weaponRoot.localRotation = localCorrection * m_BaseWeaponLocalRotation;
+		_weaponRoot.localRotation = localCorrection * _baseLocalRotation;
 
 		m_DebugWeaponYawErrorDegrees = rawYawError;
 		m_DebugWeaponPitchErrorDegrees = rawPitchError;

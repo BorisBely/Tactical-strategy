@@ -22,6 +22,7 @@ public sealed class PauseMenuController : MonoBehaviour
 		new CommandHint("pause.help.f"),
 		new CommandHint("pause.help.r"),
 		new CommandHint("pause.help.t"),
+		new CommandHint("pause.help.v"),
 		new CommandHint("pause.help.i"),
 		new CommandHint("pause.help.h"),
 		new CommandHint("pause.help.ctrl_click_inventory"),

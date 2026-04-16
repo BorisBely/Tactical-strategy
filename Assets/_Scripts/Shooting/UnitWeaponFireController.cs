@@ -115,6 +115,19 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_NextBurstWaveTime = 0f;
 	}
 
+	/// <summary>
+	/// Сброс очереди burst при смене режима огня. Не трогает <see cref="IsFiringCommandActive"/> —
+	/// иначе в том же кадре <see cref="UnitWeaponAutoFireWhenAimed"/> снова вызовет <see cref="StartFiring"/>,
+	/// и для полуавтомата повторится <see cref="TryFireSingleShot"/> (лишний выстрел/отдача).
+	/// </summary>
+	public void ResetBurstStateForFireModeChange()
+	{
+		m_BurstShotsRemainingInWave = 0;
+		m_NextBurstWaveTime = 0f;
+		m_DebugBurstShotsRemaining = 0;
+		m_DebugNextBurstWaveTime = 0f;
+	}
+
 	public WeaponShotAttemptResult TryFireSingleShot()
 	{
 		AmmoDefinition firedAmmoDefinition;

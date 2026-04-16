@@ -57,6 +57,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private AudioClip m_FireSound;
 	[SerializeField, Range(0f, 1f)] private float m_FireSoundVolume = 1f;
 	[SerializeField, Range(0f, 0.3f)] private float m_FirePitchVariance = 0.04f;
+	[Tooltip("Короткий щелчок селектора при смене режима огня (Semi / Burst / Auto).")]
+	[SerializeField] private AudioClip m_FireModeSwitchSound;
+	[SerializeField, Range(0f, 1f)] private float m_FireModeSwitchSoundVolume = 0.85f;
 
 	[Header("Reload Audio")]
 	[Tooltip("Звук снятия магазина — AnimationEvent_EjectCurrentWeaponMagazineToInventory.")]
@@ -110,6 +113,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	public AudioClip FireSound => m_FireSound;
 	public float FireSoundVolume => m_FireSoundVolume;
 	public float FirePitchVariance => m_FirePitchVariance;
+	public AudioClip FireModeSwitchSound => m_FireModeSwitchSound;
+	public float FireModeSwitchSoundVolume => m_FireModeSwitchSoundVolume;
 	public AudioClip ReloadMagOutSound => m_ReloadMagOutSound;
 	public AudioClip ReloadMagInSound => m_ReloadMagInSound;
 	public AudioClip BoltCycleSound => m_BoltCycleSound;

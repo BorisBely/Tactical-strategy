@@ -23,6 +23,7 @@
     { "key": "pause.help.f", "value": "F - Hard stop" },
     { "key": "pause.help.r", "value": "R - Reload weapon with a magazine from inventory" },
     { "key": "pause.help.t", "value": "T - Load one magazine from ammo boxes in inventory" },
+    { "key": "pause.help.v", "value": "V - Cycle weapon fire mode for selected units" },
     { "key": "pause.help.i", "value": "I - Open inventory" },
     { "key": "pause.help.h", "value": "H - Open health window" },
     { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + Click - Quick transfer in inventory" },

@@ -31,6 +31,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[Tooltip("Для повторного CrossFade базового idle в приседе при смене готов/не готов (там WeaponMode не переключается).")]
+	[SerializeField] private UnitAnimatorWeaponMode m_AnimatorWeaponMode;
 	[Tooltip("IK левой руки на объекте Animator; при переходе в «готов» проверяется, что зарядка магазина не блокирует IK.")]
 	[SerializeField] private AnimatorHandIk m_LeftHandIk;
 
@@ -134,7 +136,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		ApplyReadyWanted(_ready, _forceWalkIfNeeded, true);
 	}
 
-	/// <summary>Временная блокировка ввода E (готов/не готов), например для «костыльного» перехода стойки.</summary>
+	/// <summary>Временная блокировка клавиши готов, например при переходе стойки.</summary>
 	public void SetToggleInputBlocked(bool _blocked)
 	{
 		m_BlockToggleInput = _blocked;
@@ -163,6 +165,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_AnimatorWeaponMode == null)
+			m_AnimatorWeaponMode = GetComponent<UnitAnimatorWeaponMode>();
 
 		if (m_Animator != null)
 		{
@@ -190,24 +194,25 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		{
 			m_LastEquipped = current;
 			m_UserWantsReady = false;
-			m_SnapLayerWeightNextFrame = true;
+			SnapUpperBodyLayerAndInvalidatePose();
 		}
 
-		if (CanUseDirectKeyboardInput() && WasToggleReadyPressedThisFrame() && IsWeaponEquipped())
-		{
-			if (m_BlockToggleInput)
-				return;
+		if (!CanUseDirectKeyboardInput() || !IsWeaponEquipped())
+			return;
 
-			bool isSprinting = IsSprintingNow();
-			bool nextReady = !m_UserWantsReady;
+		if (m_BlockToggleInput)
+			return;
 
-			// Запрет: в лёже нельзя переключать "готов" → "не готов".
-			// Это исключает ситуацию, когда граф локомоции уходит в безоружную ветку, пока юнит лежит.
-			if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
-				return;
+		if (!WasKeyPressedThisFrame(m_ToggleReadyKey))
+			return;
 
-			ApplyReadyWanted(nextReady, isSprinting, true);
-		}
+		bool isSprinting = IsSprintingNow();
+		bool nextReady = !m_UserWantsReady;
+
+		if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return;
+
+		ApplyReadyWanted(nextReady, isSprinting, true);
 	}
 
 	private void LateUpdate()
@@ -233,7 +238,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		return m_Team.Team == UnitTeamId.Player;
 	}
 
-	private static bool WasToggleReadyPressedThisFrame(Key _key)
+	private static bool WasKeyPressedThisFrame(Key _key)
 	{
 		for (int i = 0; i < InputSystem.devices.Count; i++)
 		{
@@ -246,11 +251,6 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		}
 
 		return false;
-	}
-
-	private bool WasToggleReadyPressedThisFrame()
-	{
-		return WasToggleReadyPressedThisFrame(m_ToggleReadyKey);
 	}
 
 	private void ApplyUpperBodyNoAimLayer()
@@ -361,7 +361,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		{
 			m_UserWantsReady = false;
 			if (_refreshImmediately)
-				MarkVisualReadyStateDirty();
+				SnapUpperBodyLayerAndInvalidatePose();
 			return;
 		}
 
@@ -380,10 +380,35 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_LeftHandIk?.OnWeaponReadyStateApplied();
 
 		if (didChange && _refreshImmediately)
-			MarkVisualReadyStateDirty();
+			ApplyVisualRefreshAfterReadyToggle();
 	}
 
-	private void MarkVisualReadyStateDirty()
+	/// <summary>Сброс без мгновенного веса: верхний слой плавно тянется через <see cref="m_UpperLayerWeightSmoothSeconds"/>.</summary>
+	private void ApplyVisualRefreshAfterReadyToggle()
+	{
+		m_WasNoAimLayerActive = false;
+		m_LastNoAimPoseSignature = -1;
+
+		if (ShouldReplayCrouchLocomotionCrossfadeAfterReadyChange())
+			m_AnimatorWeaponMode.ReplayLocomotionIdleCrossfade();
+	}
+
+	private bool ShouldReplayCrouchLocomotionCrossfadeAfterReadyChange()
+	{
+		if (m_Animator == null || m_AnimatorWeaponMode == null)
+			return false;
+		if (m_Animator.GetInteger(s_Stance) != (int)LocomotionStance.Crouch)
+			return false;
+		if (m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine)
+			return false;
+		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
+			return false;
+
+		return true;
+	}
+
+	/// <summary>Сразу выставить вес слоя и сбросить позу (смена оружия, снятие оружия).</summary>
+	private void SnapUpperBodyLayerAndInvalidatePose()
 	{
 		m_SnapLayerWeightNextFrame = true;
 		m_WasNoAimLayerActive = false;

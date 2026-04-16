@@ -7,6 +7,7 @@ using UnityEngine.InputSystem;
 /// RTS-выбор юнитов: одиночный ЛКМ, ctrl-toggle, box selection и групповые команды.
 /// Инвентарь всегда привязан к последнему юниту в текущем выделении.
 /// Клавиши (без UI): F стоп, E готов, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
+/// На RTS-юнитах прямой клавиатурный ввод слоя готовности отключён — см. <see cref="RtsUnitMember.ApplyDirectInputState"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RtsUnitSelectionManager : MonoBehaviour

@@ -8,9 +8,9 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 {
 	#region Private Fields
 	[Header("Identity")]
-	[Tooltip("Категория модуля: прицел, надульник, ЛЦУ, рукоятка или приклад.")]
+	[Tooltip("Тип модуля (соответствует одному из семейств слотов: Muzzle / UnderBarrel / Rail / Optic).")]
 	[SerializeField] private WeaponAttachmentType m_AttachmentType = WeaponAttachmentType.Optic;
-	[Tooltip("Слот оружия, в который этот модуль может быть установлен.")]
+	[Tooltip("Слот на оружии: Muzzle, UnderBarrel, Rail или Optic (магазин отдельно).")]
 	[SerializeField] private WeaponAttachmentSlotType m_RequiredSlot = WeaponAttachmentSlotType.Optic;
 
 	[Header("Modifiers")]

@@ -50,6 +50,16 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 		PushWeaponModeIfChanged();
 	}
 
+	/// <summary>
+	/// Повторить CrossFade в корректный idle на базовом слое при текущем <c>WeaponMode</c>.
+	/// Нужен при смене «готов/не готов» в приседе: <c>WeaponMode</c> не меняется (всегда винтовка/пистолет),
+	/// иначе не вызывается <see cref="PushWeaponModeIfChanged"/> — базовый граф не получает ту же плавность, что стоя (Unarmed↔Rifle).
+	/// </summary>
+	public void ReplayLocomotionIdleCrossfade()
+	{
+		ForceIdleStateForCurrentMode();
+	}
+
 	private void PushWeaponModeIfChanged()
 	{
 		if (m_Animator == null)
