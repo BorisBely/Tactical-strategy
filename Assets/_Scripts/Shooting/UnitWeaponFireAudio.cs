@@ -3,22 +3,34 @@ using UnityEngine;
 /// <summary>
 /// Звук выстрела по событию <see cref="UnitWeaponFireController.ShotFired"/>:
 /// клип из <see cref="WeaponDefinition"/> или переопределение с <see cref="AmmoDefinition"/>.
-/// Позиция воспроизведения — <see cref="EquippedWeapon.BarrelTransform"/>.
+/// Позиция — <see cref="EquippedWeapon.BarrelTransform"/>. Несколько <see cref="AudioSource"/> в пуле (round-robin),
+/// чтобы очередь не забивала один источник.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(56)]
 public sealed class UnitWeaponFireAudio : MonoBehaviour
 {
+	#region Constants
+	private const float c_SubsonicSuppressedVolumeMultiplier = 0.5f;
+	#endregion
+
 	#region Serialized Fields
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_Equipment;
-	[Tooltip("Опционально свой AudioSource (не на корне юнита — иначе позиция под ствол сдвинет всего персонажа). Если пусто — создаётся дочерний FireAudioSource_Auto.")]
+	[Tooltip("Опционально один AudioSource (дочерний, не корень). Если пусто — создаётся пул голосов. Если задан — используется только он (как раньше).")]
 	[SerializeField] private AudioSource m_AudioSource;
+	[Tooltip("Число источников для очереди: round-robin снимает перегрузку одного AudioSource при автоматической стрельбе. Не используется, если задан свой AudioSource выше.")]
+	[SerializeField, Range(1, 8)] private int m_FireVoiceCount = 4;
 	[Tooltip("Минимальная дистанция 3D (если источник в режиме 3D).")]
 	[SerializeField, Min(0.01f)] private float m_SpatialMinDistance = 1f;
 	[Tooltip("Максимальная дистанция слышимости.")]
 	[SerializeField, Min(0.5f)] private float m_SpatialMaxDistance = 45f;
+	#endregion
+
+	#region Private Fields
+	private AudioSource[] m_FireVoicePool;
+	private int m_NextFireVoiceIndex;
 	#endregion
 
 	#region Unity Lifecycle
@@ -31,7 +43,7 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
 
-		EnsureAudioSource();
+		EnsureFireAudioPool();
 	}
 
 	private void OnEnable()
@@ -48,29 +60,49 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 	#endregion
 
 	#region Private Methods
-	private void EnsureAudioSource()
+	private void EnsureFireAudioPool()
 	{
+		if (m_FireVoicePool != null)
+			return;
+
 		// Нельзя вешать источник на корень и двигать transform.position под ствол — переносится весь юнит.
 		if (m_AudioSource != null && m_AudioSource.transform != transform)
 		{
+			m_AudioSource.playOnAwake = false;
 			ConfigureSpatial(m_AudioSource);
+			m_FireVoicePool = new[] { m_AudioSource };
 			return;
 		}
 
-		const string c_FireAudioChildName = "FireAudioSource_Auto";
-		Transform child = transform.Find(c_FireAudioChildName);
-		if (child == null)
+		const string c_PoolRootName = "FireAudioSource_Pool";
+		Transform poolRoot = transform.Find(c_PoolRootName);
+		if (poolRoot == null)
 		{
-			GameObject go = new GameObject(c_FireAudioChildName);
-			go.transform.SetParent(transform, false);
-			child = go.transform;
+			GameObject rootGo = new GameObject(c_PoolRootName);
+			rootGo.transform.SetParent(transform, false);
+			poolRoot = rootGo.transform;
 		}
 
-		if (!child.TryGetComponent(out m_AudioSource))
-			m_AudioSource = child.gameObject.AddComponent<AudioSource>();
+		int count = Mathf.Clamp(m_FireVoiceCount, 1, 8);
+		m_FireVoicePool = new AudioSource[count];
+		for (int i = 0; i < count; i++)
+		{
+			string voiceName = $"Voice_{i}";
+			Transform voiceTr = poolRoot.Find(voiceName);
+			if (voiceTr == null)
+			{
+				GameObject voiceGo = new GameObject(voiceName);
+				voiceGo.transform.SetParent(poolRoot, false);
+				voiceTr = voiceGo.transform;
+			}
 
-		m_AudioSource.playOnAwake = false;
-		ConfigureSpatial(m_AudioSource);
+			if (!voiceTr.TryGetComponent(out AudioSource src))
+				src = voiceTr.gameObject.AddComponent<AudioSource>();
+
+			src.playOnAwake = false;
+			ConfigureSpatial(src);
+			m_FireVoicePool[i] = src;
+		}
 	}
 
 	private void ConfigureSpatial(AudioSource _source)
@@ -90,19 +122,39 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (m_WeaponRuntime == null)
 			return;
 
-		if (m_AudioSource == null || m_AudioSource.transform == transform)
-			EnsureAudioSource();
-		if (m_AudioSource == null)
+		EnsureFireAudioPool();
+		if (m_FireVoicePool == null || m_FireVoicePool.Length == 0)
 			return;
 
+		AudioSource voiceSource = m_FireVoicePool[m_NextFireVoiceIndex];
+		m_NextFireVoiceIndex = (m_NextFireVoiceIndex + 1) % m_FireVoicePool.Length;
+
 		WeaponDefinition weapon = m_WeaponRuntime.CurrentWeaponDefinition;
-		AudioClip clip = _ammo != null && _ammo.FireSoundOverride != null
-			? _ammo.FireSoundOverride
-			: weapon != null ? weapon.FireSound : null;
+		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
+		AudioClip clip = null;
+		float volumeMultiplier = 1f;
+
+		if (_ammo != null && _ammo.FireSoundOverride != null)
+		{
+			clip = _ammo.FireSoundOverride;
+		}
+		else
+		{
+			WeaponAttachmentDefinition suppressor = TryGetEquippedSuppressor(runtimeState);
+			if (suppressor != null)
+			{
+				clip = suppressor.SuppressedFireSound != null ? suppressor.SuppressedFireSound : weapon != null ? weapon.FireSound : null;
+				if (_ammo != null && _ammo.IsSubsonic)
+					volumeMultiplier = c_SubsonicSuppressedVolumeMultiplier;
+			}
+			else
+				clip = weapon != null ? weapon.FireSound : null;
+		}
+
 		if (clip == null)
 			return;
 
-		float volume = weapon != null ? weapon.FireSoundVolume : 1f;
+		float volume = (weapon != null ? weapon.FireSoundVolume : 1f) * volumeMultiplier;
 		float variance = weapon != null ? weapon.FirePitchVariance : 0f;
 		float pitch = 1f;
 		if (variance > 0f)
@@ -113,11 +165,28 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (equipped != null && equipped.BarrelTransform != null)
 			pos = equipped.BarrelTransform.position;
 
-		m_AudioSource.transform.position = pos;
-		float saved = m_AudioSource.pitch;
-		m_AudioSource.pitch = pitch;
-		m_AudioSource.PlayOneShot(clip, volume);
-		m_AudioSource.pitch = saved;
+		voiceSource.transform.position = pos;
+		voiceSource.pitch = pitch;
+		voiceSource.PlayOneShot(clip, volume);
+	}
+
+	private static WeaponAttachmentDefinition TryGetEquippedSuppressor(WeaponRuntimeState _state)
+	{
+		if (_state == null)
+			return null;
+
+		WeaponAttachmentDefinition[] attachments = _state.EquippedAttachments;
+		if (attachments == null || attachments.Length == 0)
+			return null;
+
+		for (int i = 0; i < attachments.Length; i++)
+		{
+			WeaponAttachmentDefinition a = attachments[i];
+			if (a != null && a.AttachmentType == WeaponAttachmentType.Suppressor)
+				return a;
+		}
+
+		return null;
 	}
 	#endregion
 }

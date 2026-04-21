@@ -77,6 +77,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (ReferenceEquals(m_BoundWeaponState, weaponState))
 		{
 			SyncInsertedMagazineVisual();
+			SyncAttachmentVisuals();
 			return;
 		}
 
@@ -84,6 +85,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		m_BoundWeaponState = weaponState;
 		m_TransientState.Clear();
 		SyncInsertedMagazineVisual();
+		SyncAttachmentVisuals();
 	}
 
 	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem)
@@ -259,7 +261,13 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 	private void UnbindCurrentWeapon()
 	{
-		ClearInsertedMagazineVisual();
+		EquippedWeapon equippedWeapon = m_UnitEquipment != null ? m_UnitEquipment.EquippedWeapon : null;
+		if (equippedWeapon != null)
+		{
+			equippedWeapon.ClearInsertedMagazineVisual();
+			equippedWeapon.ClearAttachmentVisuals();
+		}
+
 		m_BoundItemState = null;
 		m_BoundWeaponState = null;
 		m_TransientState.Clear();
@@ -282,6 +290,22 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		}
 
 		equippedWeapon.SetInsertedMagazineVisual(magazineDefinition);
+	}
+
+	private void SyncAttachmentVisuals()
+	{
+		EquippedWeapon equippedWeapon = m_UnitEquipment != null ? m_UnitEquipment.EquippedWeapon : null;
+		if (equippedWeapon == null)
+			return;
+
+		if (m_BoundWeaponState == null || m_BoundWeaponState.WeaponDefinition == null)
+		{
+			equippedWeapon.ClearAttachmentVisuals();
+			return;
+		}
+
+		equippedWeapon.TryCopyEquippedAttachmentsPresetToWeaponStateIfEmpty(m_BoundWeaponState);
+		equippedWeapon.RefreshAttachmentVisualsFromState(m_BoundWeaponState.WeaponDefinition, m_BoundWeaponState);
 	}
 
 	private void ClearInsertedMagazineVisual()

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 /// <summary>
 /// Тип калибра для совместимости оружия, патрона и магазина.
@@ -61,12 +62,14 @@ public enum WeaponAttachmentSlotType
 	/// <summary>Планка (над стволом / сбоку): фонарик или ЛЦУ. Повторяйте значение до 4 раз для четырёх физических слотов.</summary>
 	Rail = 2,
 	/// <summary>Прицел. Один слот.</summary>
-	Optic = 3
+	Optic = 3,
+	/// <summary>Приклад. Один слот на оружиях, где приклад рассматривается как сменный модуль.</summary>
+	Stock = 4
 }
 
 /// <summary>
 /// Вид модуля. Слот: дульные → <see cref="WeaponAttachmentSlotType.Muzzle"/>; рукоятка/сошки/ПГ → <see cref="WeaponAttachmentSlotType.UnderBarrel"/>;
-/// фонарик/ЛЦУ → <see cref="WeaponAttachmentSlotType.Rail"/>; прицел → <see cref="WeaponAttachmentSlotType.Optic"/>.
+/// фонарик/ЛЦУ → <see cref="WeaponAttachmentSlotType.Rail"/>; прицел → <see cref="WeaponAttachmentSlotType.Optic"/>; приклад → <see cref="WeaponAttachmentSlotType.Stock"/>.
 /// </summary>
 public enum WeaponAttachmentType
 {
@@ -79,7 +82,9 @@ public enum WeaponAttachmentType
 	UnderBarrelGrenadeLauncher = 6,
 	Flashlight = 7,
 	/// <summary>ЛЦУ / лазерный целеуказатель (луч).</summary>
-	LaserDesignator = 8
+	LaserDesignator = 8,
+	/// <summary>Сменный приклад, влияющий на управляемость оружия.</summary>
+	Stock = 9
 }
 
 /// <summary>
@@ -149,6 +154,6 @@ public struct WeaponAttachmentSlotDefinition
 {
 	public WeaponAttachmentSlotType SlotType;
 	public bool IsRequired;
-	[Tooltip("Имя дочернего объекта на префабе оружия — якорь для инстанса префаба модуля (как LeftHandIkTarget). Пусто, пока не настроен контент.")]
+	[Tooltip("Зарезервировано. Визуал модулей вешается на сокеты в EquippedWeapon (Muzzle / Optic / Rail / …), не на Barrel и не на Sight Pivot.")]
 	public string AnchorChildName;
 }

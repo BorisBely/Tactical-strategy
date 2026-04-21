@@ -875,7 +875,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return null;
 
 		_inventory.GetDropWorldPose(out Vector3 position, out Quaternion rotation);
+		position += Vector3.up * 0.08f;
 		GameObject go = Instantiate(definition.DropWorldPrefab, position, rotation);
+		PrepareDroppedWorldPickupPhysics(go);
 		WorldPickupItem pickup = go.GetComponent<WorldPickupItem>();
 		if (pickup == null)
 		{
@@ -885,6 +887,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		pickup.ConfigureForDroppedFromInventory(_data);
 		return pickup;
+	}
+
+	private static void PrepareDroppedWorldPickupPhysics(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);
+		for (int i = 0; i < bodies.Length; i++)
+		{
+			Rigidbody rb = bodies[i];
+			if (rb == null)
+				continue;
+
+			rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+			rb.linearVelocity = Vector3.zero;
+			rb.angularVelocity = Vector3.zero;
+		}
 	}
 
 	private bool TryCompleteCharacterToGroundTransfer(CharacterInventory _inventory, InventorySlotRuntimeData _data,

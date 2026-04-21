@@ -17,6 +17,10 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Иконка предмета в UI.")]
 	[SerializeField] private Sprite m_Icon;
 
+	[Header("Economy")]
+	[Tooltip("Базовая цена предмета без учёта скидок, состояния и рыночных модификаторов.")]
+	[SerializeField, Min(0)] private int m_BasePrice = 100;
+
 	[Header("Тип")]
 	[Tooltip("Категория предмета: обычный предмет или экипируемое снаряжение.")]
 	[SerializeField] private ItemCategory m_Category = ItemCategory.General;
@@ -61,6 +65,7 @@ public class ItemDefinition : ScriptableObject
 	public string LocalizationKey => m_LocalizationKey;
 	public string Description => m_Description;
 	public Sprite Icon => m_Icon;
+	public int BasePrice => m_BasePrice;
 	public ItemCategory Category => m_Category;
 	/// <summary>Equipment сейчас всегда основная рука; другие слоты появятся позже.</summary>
 	public EquipmentSlotType EquipmentSlot =>

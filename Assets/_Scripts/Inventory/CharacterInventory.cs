@@ -13,7 +13,8 @@ public class CharacterInventory : MonoBehaviour
 	[Header("Выброс предмета на землю")]
 	[Tooltip("Позиция и направление «вперёд» берутся с transform этого объекта (компонент на юните).")]
 	[SerializeField, Min(0.05f)] private float m_DropDistance = 0.5f;
-	[SerializeField] private float m_DropHeightOffset = 0.02f;
+	[Tooltip("Доп. подъём точки спавна выброшенного лута — уменьшает провал сквозь коллайдер при старте физики.")]
+	[SerializeField] private float m_DropHeightOffset = 0.12f;
 	[Tooltip("Поворот спавна: forward по горизонтали от transform этого объекта.")]
 	[SerializeField] private bool m_DropUseHorizontalForward = true;
 	#endregion

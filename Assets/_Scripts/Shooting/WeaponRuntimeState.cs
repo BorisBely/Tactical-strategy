@@ -159,7 +159,10 @@ public sealed class WeaponRuntimeState
 
 	public void SetEquippedAttachments(WeaponAttachmentDefinition[] _attachments)
 	{
-		m_EquippedAttachments = _attachments;
+		if (_attachments == null || _attachments.Length == 0)
+			m_EquippedAttachments = null;
+		else
+			m_EquippedAttachments = (WeaponAttachmentDefinition[])_attachments.Clone();
 	}
 
 	/// <summary>После успешного выстрела: износ и загрязнение от патрона и модулей.</summary>
