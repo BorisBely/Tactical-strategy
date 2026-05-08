@@ -1,0 +1,31 @@
+{
+  "language": "en",
+  "entries": [
+    { "key": "item.generic", "value": "Item" },
+    { "key": "item.loot.ammo_box.556", "value": "5.56×45 NATO ammo box" },
+    { "key": "item.loot.wep.preset_a_rifle_01", "value": "Assault rifle (Preset A)" },
+    { "key": "inventory.window.title", "value": "Inventory" },
+    { "key": "inventory.ground.title", "value": "Ground" },
+    { "key": "health.window.title", "value": "Health" },
+    { "key": "health.status.ok", "value": "OK" },
+    { "key": "pause.title", "value": "Paused" },
+    { "key": "pause.subtitle", "value": "Press Esc to resume" },
+    { "key": "pause.help.lmb", "value": "LMB — select unit / command" },
+    { "key": "pause.help.ctrl_lmb", "value": "Ctrl+LMB — add/remove from selection" },
+    { "key": "pause.help.rmb", "value": "RMB — move / interact" },
+    { "key": "pause.help.shift_rmb", "value": "Shift+RMB — alternate command" },
+    { "key": "pause.help.double_rmb", "value": "Double RMB — repeat last move" },
+    { "key": "pause.help.e", "value": "E — ready stance" },
+    { "key": "pause.help.z", "value": "Z — stand" },
+    { "key": "pause.help.c", "value": "C — crouch" },
+    { "key": "pause.help.f", "value": "F — hold position" },
+    { "key": "pause.help.r", "value": "R — reload" },
+    { "key": "pause.help.t", "value": "T — tactical reload / mag" },
+    { "key": "pause.help.v", "value": "V — fire mode" },
+    { "key": "pause.help.i", "value": "I — inventory" },
+    { "key": "pause.help.h", "value": "H — health panel" },
+    { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl+click item — quick transfer" },
+    { "key": "pause.help.l", "value": "L — toggle language (EN/RU)" },
+    { "key": "pause.help.esc", "value": "Esc — pause / resume" }
+  ]
+}

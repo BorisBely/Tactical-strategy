@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bf6fe5bbae3e5b45a7a7c86f80b5050, type: 3}
+  m_Name: Ammo_556x45mmNATO
+  m_EditorClassIdentifier: Assembly-CSharp::AmmoDefinition
+  m_Caliber: 3
+  m_BaseDamage: 32
+  m_Penetration: 18
+  m_ArmorDamage: 8
+  m_ProjectileCount: 1
+  m_Velocity: 940
+  m_EffectiveRangeMeters: 450
+  m_FireSoundOverride: {fileID: 0}
+  m_IsSubsonic: 0
+  m_ShellPrefab: {fileID: 0}
+  m_ShellEjectSpeed: 5.5
+  m_ShellEjectSpeedVariance: 0.75
+  m_ShellEjectUpSpeed: 1.2
+  m_ShellAngularVelocity: 18
+  m_ShellImpactLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ShellImpactMinSpeed: 0.35
+  m_ShellImpactSounds: []
+  m_ShellImpactVolume: 0.55
+  m_ShellLifetimeAfterImpactSeconds: 3
+  m_ShellMaxAirborneSeconds: 12
+  m_SpreadModifier: 1
+  m_RecoilModifier: 1
+  m_WearPerShot: 1
+  m_FoulingPerShot: 1
+  m_JamRiskModifier: 1
