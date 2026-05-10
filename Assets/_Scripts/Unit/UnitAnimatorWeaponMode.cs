@@ -101,9 +101,10 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			stance = (int)LocomotionStance.Standing;
 
 		float navSpeed = m_Animator.GetFloat(s_NavSpeed);
+		bool weaponReady = m_Animator.GetBool(s_WeaponReady);
 		string qualifiedState = navSpeed >= c_MoveNavSpeedAnimatorThreshold
 			? ResolveBaseLayerLocomotionQualified(m_LastWeaponModeValue, stance)
-			: ResolveBaseLayerIdleQualified(m_LastWeaponModeValue, stance);
+			: ResolveBaseLayerIdleQualified(m_LastWeaponModeValue, stance, weaponReady);
 
 		m_Animator.CrossFadeInFixedTime(qualifiedState, m_WeaponModeCrossFadeSeconds, 0);
 	}
@@ -111,7 +112,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 	private static string QualifyBaseLayerPath(string _subMachine, string _leaf) =>
 		$"{BaseLayerAnimatorName}.{_subMachine}.{_leaf}";
 
-	private static string ResolveBaseLayerIdleQualified(int _weaponMode, int _stance)
+	private static string ResolveBaseLayerIdleQualified(int _weaponMode, int _stance, bool _weaponReady)
 	{
 		string targetLeaf;
 
@@ -121,8 +122,8 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			targetLeaf = _stance switch
 			{
 				(int)LocomotionStance.Crouch => "RifleCrouch_Idle",
-				(int)LocomotionStance.Prone => "RifleStand_Idle",
-				_ => "RifleStand_Idle"
+				(int)LocomotionStance.Prone => _weaponReady ? "Stand_Aim_Idle" : "Stand_Relaxed_Idle",
+				_ => _weaponReady ? "Stand_Aim_Idle" : "Stand_Relaxed_Idle"
 			};
 		}
 		else
@@ -130,8 +131,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			targetLeaf = _stance switch
 			{
 				(int)LocomotionStance.Crouch => "Crouch_Idle",
-				(int)LocomotionStance.Prone => "Stand_Idle",
-				_ => "Stand_Idle"
+				_ => "Stand_Relaxed_Rifle_Idle"
 			};
 		}
 
@@ -148,11 +148,19 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 				return QualifyBaseLayerPath(SubStateMachineRifleCrouch, "RifleCrouch_Move");
 
 			int tier = m_Animator.GetInteger(s_LocomotionTier);
-			if (tier == (int)UnitClickToMove.MoveTier.Sprint)
-				return QualifyBaseLayerPath(SubStateMachineRifleStanding, "RifleStand_SprintFwd");
-
 			bool ready = m_Animator.GetBool(s_WeaponReady);
-			string leaf = ready ? "RifleStand_WalkRun_Ready" : "RifleStand_WalkRun";
+			string leaf;
+			if (ready)
+				leaf = tier == (int)UnitClickToMove.MoveTier.Run ? "Jog_Aim_F_Loop" : "Walk_Aim_F_Loop";
+			else
+			{
+				leaf = tier switch
+				{
+					(int)UnitClickToMove.MoveTier.Run => "Run_F_Loop",
+					(int)UnitClickToMove.MoveTier.Sprint => "Sprint_F_Loop",
+					_ => "Walk_F_Loop"
+				};
+			}
 			return QualifyBaseLayerPath(SubStateMachineRifleStanding, leaf);
 		}
 
@@ -161,7 +169,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			case LocomotionStance.Crouch:
 				return QualifyBaseLayerPath(SubStateMachineUnarmed, "Crouch_Locomotion");
 			case LocomotionStance.Prone:
-				return QualifyBaseLayerPath(SubStateMachineUnarmed, "Prone_Unarmed_Move");
+				return QualifyBaseLayerPath(SubStateMachineUnarmed, "Stand_Locomotion");
 			default:
 				return QualifyBaseLayerPath(SubStateMachineUnarmed, "Stand_Locomotion");
 		}

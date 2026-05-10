@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Вертикальное наведение: параметр <c>AimPitch</c> и слои <c>Stand_Aim_Point_U90-D90</c> / <c>Crouch_Aim_Point_U90-D90</c>.
+/// Вертикальное наведение: параметр <c>AimPitch</c> и слой <c>Aim_Point_U90-D90</c>.
 /// Горизонталь — корень юнита (<see cref="UnitClickToMove"/>). При «готов» и видимой цели корень оружия только локальный из <see cref="ItemDefinition"/>, вертикаль даёт анимация.
 /// </summary>
 [DisallowMultipleComponent]
@@ -10,8 +10,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 {
 	#region Constants
 	private const string c_ParamAimPitch = "AimPitch";
-	private const string c_AimStandLayerName = "Stand_Aim_Point_U90-D90";
-	private const string c_AimCrouchLayerName = "Crouch_Aim_Point_U90-D90";
+	private const string c_AimLayerName = "Aim_Point_U90-D90";
+	private const string c_ObsoleteAimCrouchLayerName = "Crouch_Aim_Point_U90-D90";
 	private const float c_PitchDegreesMax = 90f;
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	#endregion
@@ -96,8 +96,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	private Quaternion m_BaseWeaponLocalRotation = Quaternion.identity;
 	private Transform m_BarrelTransform;
 
-	private int m_AimStandLayerIndex = -1;
-	private int m_AimCrouchLayerIndex = -1;
+	private int m_AimLayerIndex = -1;
+	private int m_ObsoleteAimCrouchLayerIndex = -1;
 	private float m_SmoothedPitch01;
 	private float m_PitchVelocity;
 	private float m_SmoothedLayerWeight;
@@ -145,7 +145,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_Animator != null)
 		{
 			m_Animator.SetFloat(s_AimPitch, 0f);
-			SetBothAimLayerWeights(0f, 0f);
+			SetAimLayerWeights(0f);
 		}
 	}
 
@@ -231,7 +231,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_Animator != null)
 		{
 			m_Animator.SetFloat(s_AimPitch, 0f);
-			SetBothAimLayerWeights(0f, 0f);
+			SetAimLayerWeights(0f);
 		}
 		m_DebugCombatAimActive = false;
 		m_DebugCurrentStance = 0;
@@ -246,24 +246,24 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	{
 		if (m_Animator == null)
 		{
-			m_AimStandLayerIndex = -1;
-			m_AimCrouchLayerIndex = -1;
+			m_AimLayerIndex = -1;
+			m_ObsoleteAimCrouchLayerIndex = -1;
 			return;
 		}
 
-		m_AimStandLayerIndex = m_Animator.GetLayerIndex(c_AimStandLayerName);
-		m_AimCrouchLayerIndex = m_Animator.GetLayerIndex(c_AimCrouchLayerName);
+		m_AimLayerIndex = m_Animator.GetLayerIndex(c_AimLayerName);
+		m_ObsoleteAimCrouchLayerIndex = m_Animator.GetLayerIndex(c_ObsoleteAimCrouchLayerName);
 	}
 
-	private void SetBothAimLayerWeights(float _standWeight, float _crouchWeight)
+	private void SetAimLayerWeights(float _weight)
 	{
 		if (m_Animator == null)
 			return;
 
-		if (m_AimStandLayerIndex >= 0)
-			m_Animator.SetLayerWeight(m_AimStandLayerIndex, _standWeight);
-		if (m_AimCrouchLayerIndex >= 0)
-			m_Animator.SetLayerWeight(m_AimCrouchLayerIndex, _crouchWeight);
+		if (m_AimLayerIndex >= 0)
+			m_Animator.SetLayerWeight(m_AimLayerIndex, _weight);
+		if (m_ObsoleteAimCrouchLayerIndex >= 0)
+			m_Animator.SetLayerWeight(m_ObsoleteAimCrouchLayerIndex, 0f);
 	}
 
 	private void ResolveBarrelTransform(Transform _weaponRoot)
@@ -293,7 +293,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private void ApplyAnimatorAimParameters()
 	{
-		if (m_Animator != null && (m_AimStandLayerIndex < 0 || m_AimCrouchLayerIndex < 0))
+		if (m_Animator != null && m_AimLayerIndex < 0)
 			ResolveAimLayerIndices();
 
 		bool ready = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
@@ -310,18 +310,12 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks;
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
-		float targetLayer = combatAim ? 1f : 0f;
+		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
+		float targetLayer = combatAim && canUseAimLayerForStance ? 1f : 0f;
 		float wSmooth = Mathf.Max(0.0001f, m_LayerWeightSmoothSeconds);
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetLayer, Time.deltaTime / wSmooth);
 
-		float standWeight = 0f;
-		float crouchWeight = 0f;
-		if (currentStance == (int)LocomotionStance.Standing)
-			standWeight = m_SmoothedLayerWeight;
-		else if (currentStance == (int)LocomotionStance.Crouch)
-			crouchWeight = m_SmoothedLayerWeight;
-
-		SetBothAimLayerWeights(standWeight, crouchWeight);
+		SetAimLayerWeights(m_SmoothedLayerWeight);
 
 		float targetPitch01 = 0f;
 		if (combatAim && m_BarrelTransform != null)
@@ -365,7 +359,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		m_DebugCombatAimActive = combatAim;
 		m_DebugCurrentStance = currentStance;
 		m_DebugSmoothedPitch01 = m_SmoothedPitch01;
-		m_DebugAimLayerWeight = Mathf.Max(standWeight, crouchWeight);
+		m_DebugAimLayerWeight = m_SmoothedLayerWeight;
 	}
 
 	private Vector3 GetTargetAimPointWorld(Transform _targetRoot)

@@ -9904,6 +9904,8 @@ MonoBehaviour:
   m_SprintSpeed: 7.25
   m_CrouchWalkSpeed: 1.15
   m_ProneCrawlSpeed: 0.5
+  m_AgentSpeedSmoothSeconds: 0.15
+  m_AgentSpeedSmoothSecondsDecel: 0.2
   m_AfterStandUpWalkAnimHoldSeconds: 0.32
   m_StandUpNavSpeedAnimatorCeiling: 0.042
   m_RotateSpeed: 6
@@ -9983,6 +9985,8 @@ MonoBehaviour:
   m_SprintSpeed: 7.25
   m_CrouchWalkSpeed: 1.15
   m_ProneCrawlSpeed: 0.5
+  m_AgentSpeedSmoothSeconds: 0.15
+  m_AgentSpeedSmoothSecondsDecel: 0.2
   m_AfterStandUpWalkAnimHoldSeconds: 0.32
   m_StandUpNavSpeedAnimatorCeiling: 0.042
   m_RotateSpeed: 6
@@ -10144,8 +10148,6 @@ MonoBehaviour:
   m_LeftHandIk: {fileID: 0}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
-  m_LayerBlendSeconds: 0.12
-  m_UpperLayerWeightSmoothSeconds: 0.2
 --- !u!114 &9031050580240167482
 MonoBehaviour:
   m_ObjectHideFlags: 0

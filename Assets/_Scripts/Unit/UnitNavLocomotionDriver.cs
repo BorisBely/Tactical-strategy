@@ -23,6 +23,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private static readonly int s_NavStrafe = Animator.StringToHash(UnitClickToMove.ParamNavStrafe);
 	private static readonly int s_NavForward = Animator.StringToHash(UnitClickToMove.ParamNavForward);
 	private static readonly int s_LocomotionTier = Animator.StringToHash(UnitClickToMove.ParamLocomotionTier);
+	private static readonly int s_LocomotionTierBlend = Animator.StringToHash(UnitClickToMove.ParamLocomotionTierBlend);
 	private static readonly int s_WeaponMode = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponMode);
 
 	private static readonly string[] s_UnarmedStanceBlockingStateNames =
@@ -64,6 +65,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_CrouchWalkSpeed = 1.15f;
 	[SerializeField, Min(0.05f)] private float m_ProneCrawlSpeed = 0.5f;
 
+	[Header("Speed smoothing (NavMeshAgent)")]
+	[Tooltip("Плавность смены реальной скорости NavMeshAgent при переключении Walk/Run/Sprint. 0 = мгновенно.")]
+	[SerializeField, Min(0f)] private float m_AgentSpeedSmoothSeconds = 0.15f;
+	[Tooltip("Отдельная плавность при снижении скорости (обычно чуть больше). 0 = мгновенно.")]
+	[SerializeField, Min(0f)] private float m_AgentSpeedSmoothSecondsDecel = 0.2f;
+
 	[Header("Stand Up")]
 	[SerializeField, Min(0f)] private float m_AfterStandUpWalkAnimHoldSeconds = 0.32f;
 	[SerializeField, Range(0.01f, 0.054f)] private float m_StandUpNavSpeedAnimatorCeiling = 0.042f;
@@ -103,14 +110,29 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private Vector3 m_PendingNavDestination;
 	private bool m_PendingNavOverridesMode;
 	private MoveTier m_PendingNavMode;
+	private float m_TargetAgentSpeed;
 	private bool m_StanceMovementWasBlocked;
 	#endregion
 
 	#region Public Properties
-	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
+	public bool IsSprintMoveMode => IsSprintActive();
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 	public bool HasMoveIntent => HasActiveMoveIntent();
 	#endregion
+
+	private bool IsSprintActive()
+	{
+		if (m_Mode != MoveTier.Sprint)
+			return false;
+		if (HasActiveMoveIntent() || NavAgentHasIncompletePath())
+			return true;
+		if (m_Agent == null)
+			return false;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
+	}
 
 	#region Public Methods
 	public void ForceWalkMoveMode()
@@ -121,16 +143,22 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Mode = MoveTier.Walk;
 		if (m_Agent != null)
 			ApplyTierSpeed();
+		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	public void SetMoveTier(MoveTier _moveTier)
 	{
+		if (_moveTier == MoveTier.Sprint)
+			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+
 		if (m_Mode == _moveTier)
 			return;
 
 		m_Mode = _moveTier;
 		if (m_Agent != null)
 			ApplyTierSpeed();
+		if (_moveTier != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
@@ -177,6 +205,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_HasPendingNavOrder = false;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 	#endregion
 
@@ -200,6 +229,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_Animator != null)
 			m_Animator.applyRootMotion = false;
 
+		m_TargetAgentSpeed = m_Agent != null ? m_Agent.speed : 0f;
 		ApplyTierSpeed();
 		if (m_StanceSource != null)
 			m_LastStance = m_StanceSource.CurrentStance;
@@ -235,20 +265,27 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		m_StanceMovementWasBlocked = stanceMovementBlocked;
 		UpdateMoveTierForStanceChanges();
+		UpdateAgentSpeedToTarget();
 		UpdateFacing();
 		PushAnimator();
+		TryRestoreReadyAfterSprintWhenStopped();
 	}
 	#endregion
 
 	#region Private Methods
 	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _moveTier)
 	{
+		if (_moveTier == MoveTier.Sprint)
+			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+
 		if (IsStanceTransitionMovementBlocked())
 		{
 			m_PendingNavDestination = _destination;
 			m_PendingNavOverridesMode = true;
 			m_PendingNavMode = _moveTier;
 			m_HasPendingNavOrder = true;
+			if (_moveTier != MoveTier.Sprint)
+				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 			return;
 		}
 
@@ -259,6 +296,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(_destination);
 		PrimeAnimatorForMoveStart();
+		if (_moveTier != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	private void UpdateMoveTierForStanceChanges()
@@ -282,7 +321,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Prone) ||
 		    (stance == LocomotionStance.Prone && m_LastStance == LocomotionStance.Crouch) ||
 		    (stance == LocomotionStance.Crouch && m_LastStance == LocomotionStance.Prone))
+		{
 			m_Mode = MoveTier.Walk;
+			if (!HasPendingSprintOrder())
+				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		}
 
 		m_LastStance = stance;
 		ApplyTierSpeed();
@@ -310,8 +353,48 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		else
 			maxSpeed = GetStandingTierSpeed();
 
-		m_Agent.speed = maxSpeed;
-		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, maxSpeed * 4.5f);
+		m_TargetAgentSpeed = maxSpeed;
+		UpdateAgentSpeedToTarget();
+	}
+
+	private void UpdateAgentSpeedToTarget()
+	{
+		if (m_Agent == null)
+			return;
+
+		// Idle (same semantics as PushAnimator:moving): clear NavMeshAgent.speed smoothing leftovers.
+		Vector3 planarVelocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		bool moving = planarVelocity.magnitude > m_StopVelocityEpsilon || HasActiveMoveIntent();
+		if (!moving)
+		{
+			m_Agent.speed = 0f;
+			float targetWhileStopped = Mathf.Max(0.01f, m_TargetAgentSpeed);
+			float accelBasisWhileStopped = Mathf.Max(m_Agent.speed, targetWhileStopped);
+			m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, accelBasisWhileStopped * 4.5f);
+			return;
+		}
+
+		float target = Mathf.Max(0.01f, m_TargetAgentSpeed);
+
+		if (m_AgentSpeedSmoothSeconds <= 0.0001f)
+		{
+			m_Agent.speed = target;
+		}
+		else
+		{
+			float current = m_Agent.speed;
+			float smoothSeconds = target >= current ? m_AgentSpeedSmoothSeconds : m_AgentSpeedSmoothSecondsDecel;
+			if (smoothSeconds <= 0.0001f)
+				m_Agent.speed = target;
+			else
+			{
+				float maxDelta = Time.deltaTime * (target / smoothSeconds);
+				m_Agent.speed = Mathf.MoveTowards(current, target, maxDelta);
+			}
+		}
+
+		float accelBasis = Mathf.Max(m_Agent.speed, target);
+		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, accelBasis * 4.5f);
 	}
 
 	private float GetStandingTierSpeed()
@@ -426,7 +509,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (m_Mode == MoveTier.Sprint)
+		if (IsSprintActive())
 			return false;
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
@@ -457,6 +540,30 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(m_PendingNavDestination);
 		PrimeAnimatorForMoveStart();
+		if (m_Mode != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+	}
+
+	private void TryRestoreReadyAfterSprintWhenStopped()
+	{
+		if (m_Mode != MoveTier.Sprint || m_ReadyHands == null || m_Agent == null)
+			return;
+		if (HasPendingSprintOrder())
+			return;
+		if (NavAgentHasIncompletePath())
+			return;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
+			return;
+
+		m_ReadyHands.TryRestoreReadyAfterSprint(false);
+	}
+
+	private bool HasPendingSprintOrder()
+	{
+		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Sprint;
 	}
 
 	private void EnsureStandingForFastMoveIfNeeded()
@@ -585,7 +692,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 				locomotionTier = 0;
 			ApplyAnimatorLocomotionTierCap(ref locomotionTier);
-			m_Animator.SetInteger(s_LocomotionTier, locomotionTier);
+			SetAnimatorLocomotionTier(locomotionTier);
 			return;
 		}
 
@@ -690,7 +797,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
-		m_Animator.SetInteger(s_LocomotionTier, locomotionTierOut);
+		SetAnimatorLocomotionTier(locomotionTierOut);
 	}
 
 	private bool ShouldSnapEngageSteadyLocomotion(float _planarSpeed)
@@ -730,7 +837,13 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 			locomotionTierOut = 0;
 		ApplyAnimatorLocomotionTierCap(ref locomotionTierOut);
-		m_Animator.SetInteger(s_LocomotionTier, locomotionTierOut);
+		SetAnimatorLocomotionTier(locomotionTierOut);
+	}
+
+	private void SetAnimatorLocomotionTier(int _tier)
+	{
+		m_Animator.SetInteger(s_LocomotionTier, _tier);
+		m_Animator.SetFloat(s_LocomotionTierBlend, _tier);
 	}
 	#endregion
 }

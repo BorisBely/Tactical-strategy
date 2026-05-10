@@ -28,11 +28,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	/// <summary>Ярус скорости заказа: 0 walk, 1 run, 2 sprint — выбор loop/stop в стоячей локомоции (и start/loop в приседе и т.д.).</summary>
 	public const string ParamLocomotionTier = "LocomotionTier";
+	public const string ParamLocomotionTierBlend = "LocomotionTierBlend";
 
 	private static readonly int s_NavSpeed = Animator.StringToHash(ParamNavSpeed);
 	private static readonly int s_NavStrafe = Animator.StringToHash(ParamNavStrafe);
 	private static readonly int s_NavForward = Animator.StringToHash(ParamNavForward);
 	private static readonly int s_LocomotionTier = Animator.StringToHash(ParamLocomotionTier);
+	private static readonly int s_LocomotionTierBlend = Animator.StringToHash(ParamLocomotionTierBlend);
 	private static readonly int s_WeaponMode = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponMode);
 
 	/// <summary>Слой 0, безоружная ветка: вставание из лёжа и укладка в лёжа (стоя или из приседа).</summary>
@@ -78,8 +80,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Tooltip("Скорость ползка лёжа (м/с).")]
 	[SerializeField, Min(0.05f)] private float m_ProneCrawlSpeed = 0.5f;
 
+	[Header("Speed smoothing (NavMeshAgent)")]
+	[Tooltip("Плавность смены реальной скорости NavMeshAgent при переключении Walk/Run/Sprint. 0 = мгновенно.")]
+	[SerializeField, Min(0f)] private float m_AgentSpeedSmoothSeconds = 0.15f;
+	[Tooltip("Отдельная плавность при снижении скорости (обычно чуть больше). 0 = мгновенно.")]
+	[SerializeField, Min(0f)] private float m_AgentSpeedSmoothSecondsDecel = 0.2f;
+
 	[Header("Стояние: анимация вставания при движении")]
-	[Tooltip("После перехода лёжа → стоя при активном пути: время, когда NavSpeed для аниматора ограничен (ниже порога движения), чтобы тянуть граф через Stand_Idle. Из приседа при движении не используется — см. Entry в NavMeshLocomotion (StandUnarmed).")]
+	[Tooltip("После перехода лёжа → стоя при активном пути: время, когда NavSpeed для аниматора ограничен, чтобы граф успел пройти через Stand_Relaxed_Rifle_Idle.")]
 	[SerializeField, Min(0f)] private float m_AfterStandUpWalkAnimHoldSeconds = 0.32f;
 	[Tooltip("Потолок NavSpeed на время удержания после вставания из лёжа (ниже порога движения в контроллере, обычно 0.055).")]
 	[SerializeField, Range(0.01f, 0.054f)] private float m_StandUpNavSpeedAnimatorCeiling = 0.042f;
@@ -142,6 +150,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private Vector3 m_PendingNavDestination;
 	private bool m_PendingNavOverridesMode;
 	private MoveTier m_PendingNavMode;
+	private float m_TargetAgentSpeed;
 
 	// Single vs double right-click debounce:
 	// we delay processing single click until the double-click window elapses,
@@ -153,13 +162,27 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
 	private bool m_StanceMovementWasBlocked;
 
-	public bool IsSprintMoveMode => m_Mode == MoveTier.Sprint;
+	public bool IsSprintMoveMode => IsSprintActive();
 
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 
 	public bool DirectInputEnabled => m_EnableDirectInput;
 
 	public bool HasMoveIntent => HasActiveMoveIntent();
+
+	private bool IsSprintActive()
+	{
+		if (m_Mode != MoveTier.Sprint)
+			return false;
+		if (HasActiveMoveIntent() || NavAgentHasIncompletePath())
+			return true;
+		if (m_Agent == null)
+			return false;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
+	}
 
 	/// <summary>
 	/// Принудительно сбросить заказ скорости на шаг (например, для механик, которым нельзя оставаться в спринте).
@@ -172,6 +195,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Mode = MoveTier.Walk;
 		if (m_Agent != null)
 			ApplyTierSpeed();
+		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
@@ -236,6 +260,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Animator != null)
 			m_Animator.applyRootMotion = false;
 
+		m_TargetAgentSpeed = m_Agent != null ? m_Agent.speed : 0f;
 		ApplyTierSpeed();
 		if (m_StanceSource != null)
 			m_LastStance = m_StanceSource.CurrentStance;
@@ -297,8 +322,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			LocomotionStance stance = m_StanceSource.CurrentStance;
 			if (stance != m_LastStance)
 			{
-				// Только из лёжа: искусственно низкий NavSpeed, чтобы граф шёл через Stand_Idle.
-				// Из приседа при движении NavSpeed не режем — иначе Entry (Walk/Run/Sprint) в StandUnarmed не сработает.
+				// Только из лёжа: искусственно низкий NavSpeed, чтобы граф успел пройти через Stand_Relaxed_Rifle_Idle.
+				// Из приседа при движении NavSpeed не режем — иначе Entry в Locomotion_Unarmed не сработает.
 				if (m_AfterStandUpWalkAnimHoldSeconds > 0.001f &&
 				    HasActiveMoveIntent() &&
 				    stance == LocomotionStance.Standing &&
@@ -313,7 +338,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 				    (stance == LocomotionStance.Standing && m_LastStance == LocomotionStance.Prone) ||
 				    (stance == LocomotionStance.Prone && m_LastStance == LocomotionStance.Crouch) ||
 				    (stance == LocomotionStance.Crouch && m_LastStance == LocomotionStance.Prone))
+				{
 					m_Mode = MoveTier.Walk;
+					if (!HasPendingSprintOrder())
+						m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+				}
 
 				m_LastStance = stance;
 				ApplyTierSpeed();
@@ -332,8 +361,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (CanUseDirectInput() && m_RayCamera != null)
 			TryRightClick();
 
+		UpdateAgentSpeedToTarget();
 		UpdateFacing();
 		PushAnimator();
+		TryRestoreReadyAfterSprintWhenStopped();
 	}
 
 	private bool IsMovingOnNavMesh()
@@ -363,6 +394,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_PendingRightClickTime = -1f;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	private void TickPendingSingleRightClick()
@@ -376,9 +408,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		}
 
-		// Hybrid: commit single click after short delay (but never later than double-click window).
+		// Hybrid: commit single click after short delay.
+		// IMPORTANT: when the unit is already in a faster tier (Run/Sprint), committing "Walk" too early causes a visible jerk
+		// if the player actually intended a double click. In that case we wait the full double-click window.
 		float dt = Time.time - m_PendingRightClickTime;
-		float commitDelay = Mathf.Max(0.01f, Mathf.Min(m_SingleClickCommitDelaySeconds, m_DoubleClickSeconds));
+		float commitDelay = m_Mode != MoveTier.Walk
+			? m_DoubleClickSeconds
+			: Mathf.Min(m_SingleClickCommitDelaySeconds, m_DoubleClickSeconds);
+		commitDelay = Mathf.Max(0.01f, commitDelay);
 		if (dt < commitDelay)
 			return;
 
@@ -392,12 +429,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Agent == null)
 			return;
 
+		if (_mode == MoveTier.Sprint)
+			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+
 		if (IsStanceTransitionMovementBlocked())
 		{
 			m_PendingNavDestination = _destination;
 			m_PendingNavOverridesMode = true;
 			m_PendingNavMode = _mode;
 			m_HasPendingNavOrder = true;
+			if (_mode != MoveTier.Sprint)
+				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 			return;
 		}
 
@@ -408,6 +450,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(_destination);
 		PrimeAnimatorForMoveStart();
+		if (_mode != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
 	private void TryRightClick()
@@ -451,7 +495,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		}
 
-		// Single click: delay until the double-click window elapses.
+		// Single click: delay; actual commit happens in TickPendingSingleRightClick.
 		m_HasPendingRightClick = true;
 		m_PendingRightClickTime = Time.time;
 		m_PendingRightClickDestination = navHit.position;
@@ -479,8 +523,50 @@ public sealed class UnitClickToMove : MonoBehaviour
 		else
 			maxSpeed = GetStandingTierSpeed();
 
-		m_Agent.speed = maxSpeed;
-		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, maxSpeed * 4.5f);
+		m_TargetAgentSpeed = maxSpeed;
+		UpdateAgentSpeedToTarget();
+	}
+
+	private void UpdateAgentSpeedToTarget()
+	{
+		if (m_Agent == null)
+			return;
+
+		// Как PushAnimator:moving — в покое (нет заказа пути до цели, скорость почти ноль) срезаем NavMeshAgent.speed,
+		// чтобы не висел хвост сглаживания между тирами Walk/Run/Sprint.
+		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		bool moving = planarVel.magnitude > m_StopVelocityEpsilon || HasActiveMoveIntent();
+		if (!moving)
+		{
+			m_Agent.speed = 0f;
+			float targetStopped = Mathf.Max(0.01f, m_TargetAgentSpeed);
+			float accelStopped = Mathf.Max(m_Agent.speed, targetStopped);
+			m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, accelStopped * 4.5f);
+			return;
+		}
+
+		float target = Mathf.Max(0.01f, m_TargetAgentSpeed);
+
+		if (m_AgentSpeedSmoothSeconds <= 0.0001f)
+		{
+			m_Agent.speed = target;
+		}
+		else
+		{
+			float current = m_Agent.speed;
+			float smoothSeconds = target >= current ? m_AgentSpeedSmoothSeconds : m_AgentSpeedSmoothSecondsDecel;
+			if (smoothSeconds <= 0.0001f)
+				m_Agent.speed = target;
+			else
+			{
+				// Time-to-target style: reach 'target' from 0 in approximately smoothSeconds.
+				float maxDelta = Time.deltaTime * (target / smoothSeconds);
+				m_Agent.speed = Mathf.MoveTowards(current, target, maxDelta);
+			}
+		}
+
+		float accelBasis = Mathf.Max(m_Agent.speed, target);
+		m_Agent.acceleration = Mathf.Max(m_AgentAcceleration, accelBasis * 4.5f);
 	}
 
 	private float GetStandingTierSpeed()
@@ -615,7 +701,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (m_Mode == MoveTier.Sprint)
+		if (IsSprintActive())
 			return false;
 		if (m_BlockEngageFacingDuringReload)
 		{
@@ -654,6 +740,30 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(m_PendingNavDestination);
 		PrimeAnimatorForMoveStart();
+		if (m_Mode != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+	}
+
+	private void TryRestoreReadyAfterSprintWhenStopped()
+	{
+		if (m_Mode != MoveTier.Sprint || m_ReadyHands == null || m_Agent == null)
+			return;
+		if (HasPendingSprintOrder())
+			return;
+		if (NavAgentHasIncompletePath())
+			return;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
+			return;
+
+		m_ReadyHands.TryRestoreReadyAfterSprint(false);
+	}
+
+	private bool HasPendingSprintOrder()
+	{
+		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Sprint;
 	}
 
 	private void EnsureStandingForFastMoveIfNeeded()
@@ -785,7 +895,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 				locomotionTier = 0;
 			ApplyAnimatorLocomotionTierCap(ref locomotionTier);
-			m_Animator.SetInteger(s_LocomotionTier, locomotionTier);
+			SetAnimatorLocomotionTier(locomotionTier);
 			return;
 		}
 
@@ -891,7 +1001,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetFloat(s_NavStrafe, m_SmoothDir.x);
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
-		m_Animator.SetInteger(s_LocomotionTier, tier);
+		SetAnimatorLocomotionTier(tier);
 	}
 
 	public enum MoveTier
@@ -938,6 +1048,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_StanceSource != null && m_StanceSource.CurrentStance == LocomotionStance.Prone)
 			locomotionTier = 0;
 		ApplyAnimatorLocomotionTierCap(ref locomotionTier);
-		m_Animator.SetInteger(s_LocomotionTier, locomotionTier);
+		SetAnimatorLocomotionTier(locomotionTier);
+	}
+
+	private void SetAnimatorLocomotionTier(int _tier)
+	{
+		m_Animator.SetInteger(s_LocomotionTier, _tier);
+		m_Animator.SetFloat(s_LocomotionTierBlend, _tier);
 	}
 }

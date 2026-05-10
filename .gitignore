@@ -72,3 +72,6 @@ InitTestScene*.unity*
 /[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
 
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+__pycache__/
+*.pyc

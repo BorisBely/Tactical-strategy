@@ -13,8 +13,10 @@ using UnityEngine.InputSystem;
 public sealed class UnitAnimatorStance : MonoBehaviour
 {
 	public const string ParamStance = "Stance";
+	public const string ParamStanceBlend = "StanceBlend";
 
 	private static readonly int s_Stance = Animator.StringToHash(ParamStance);
+	private static readonly int s_StanceBlend = Animator.StringToHash(ParamStanceBlend);
 
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private NavMeshAgent m_Agent;
@@ -565,7 +567,10 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	private void PushStance()
 	{
 		if (m_Animator != null)
+		{
 			m_Animator.SetInteger(s_Stance, (int)m_Stance);
+			m_Animator.SetFloat(s_StanceBlend, (float)m_Stance);
+		}
 	}
 
 	private void UpdateBusyFlag()

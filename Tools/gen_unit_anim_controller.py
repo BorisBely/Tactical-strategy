@@ -142,7 +142,7 @@ BlendTree:
   m_Name: {name}
   m_Childs:
 {childs}
-  m_BlendParameter: LocomotionTier
+  m_BlendParameter: LocomotionTierBlend
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 1
@@ -175,7 +175,7 @@ BlendTree:
   m_Name: {name}
   m_Childs:
 {childs}
-  m_BlendParameter: LocomotionTier
+  m_BlendParameter: LocomotionTierBlend
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 1
@@ -212,7 +212,7 @@ BlendTree:
   m_BlendParameterY: NavSpeed
   m_MinThreshold: 0
   m_MaxThreshold: 1
-  m_UseAutomaticThresholds: 1
+  m_UseAutomaticThresholds: 0
   m_NormalizedBlendValues: 0
   m_BlendType: 0
 """
@@ -244,7 +244,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: 
     m_Mirror: 0
-  m_BlendParameter: Stance
+  m_BlendParameter: StanceBlend
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 2
@@ -264,7 +264,7 @@ BlendTree:
   m_Name: RifleStand_Idle_Relaxed_ByStance
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {clip("e89fba973b70de14d9fd79dceadbb1bb")}
+    m_Motion: {clip("7713ad82c3c7a924a8dc8002e97869d5")}
     m_Threshold: 0
     m_Position: {{x: 0, y: 0, z: 0}}
     m_TimeScale: 1
@@ -279,7 +279,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: 
     m_Mirror: 0
-  m_BlendParameter: Stance
+  m_BlendParameter: StanceBlend
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 2
@@ -314,7 +314,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: 
     m_Mirror: 0
-  m_BlendParameter: Stance
+  m_BlendParameter: StanceBlend
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 2
@@ -375,7 +375,6 @@ def main() -> None:
     SM_UNARMED = 110700200
     SM_RIFLE_STANDING = 110700201
     SM_RIFLE_CROUCH = 110700202
-    UPPER_SM = 110700100
     AIM_STAND_SM = 110700110
     AIM_CROUCH_SM = 110700111
 
@@ -394,8 +393,6 @@ def main() -> None:
     RF_CROUCH_IDLE_RDY = 772020004
     RF_CROUCH_MOVE = 772020008
 
-    UPPER_STAND = 110200200
-    UPPER_CROUCH = 110200201
     AIM_STAND_ST = 110200210
     AIM_CROUCH_ST = 110200211
 
@@ -468,6 +465,13 @@ def main() -> None:
     chunks: list[str] = []
     chunks.append("%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n")
 
+    # NavSpeed is normalized by sprint speed in UnitClickToMove / UnitNavLocomotionDriver.
+    # Keep these thresholds aligned with the default movement speeds.
+    UNARMED_WALK_NAV = round(1.5 / 7.25, 3)
+    UNARMED_RUN_NAV = round(3.5 / 7.25, 3)
+    UNARMED_SPRINT_NAV = 1.0
+    CROUCH_WALK_NAV = round(1.15 / 7.25, 3)
+
     # AnimatorController
     chunks.append(f"""--- !u!91 &{AC}
 AnimatorController:
@@ -502,8 +506,20 @@ AnimatorController:
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {{fileID: {AC}}}
+  - m_Name: LocomotionTierBlend
+    m_Type: 1
+    m_DefaultFloat: 0
+    m_DefaultInt: 0
+    m_DefaultBool: 0
+    m_Controller: {{fileID: {AC}}}
   - m_Name: Stance
     m_Type: 3
+    m_DefaultFloat: 0
+    m_DefaultInt: 0
+    m_DefaultBool: 0
+    m_Controller: {{fileID: {AC}}}
+  - m_Name: StanceBlend
+    m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
@@ -558,32 +574,8 @@ AnimatorController:
     m_SyncedLayerAffectsTiming: 0
     m_Controller: {{fileID: {AC}}}
   - serializedVersion: 5
-    m_Name: UpperBody_NoAim
-    m_StateMachine: {{fileID: {UPPER_SM}}}
-    m_Mask: {{fileID: 31900000, guid: 08273237c773b45499d8fe79b5a4ee86, type: 2}}
-    m_Motions: []
-    m_Behaviours: []
-    m_BlendingMode: 0
-    m_SyncedLayerIndex: -1
-    m_DefaultWeight: 0
-    m_IKPass: 1
-    m_SyncedLayerAffectsTiming: 0
-    m_Controller: {{fileID: {AC}}}
-  - serializedVersion: 5
-    m_Name: Stand_Aim_Point_U90-D90
+    m_Name: Aim_Point_U90-D90
     m_StateMachine: {{fileID: {AIM_STAND_SM}}}
-    m_Mask: {{fileID: 0}}
-    m_Motions: []
-    m_Behaviours: []
-    m_BlendingMode: 0
-    m_SyncedLayerIndex: -1
-    m_DefaultWeight: 0
-    m_IKPass: 1
-    m_SyncedLayerAffectsTiming: 0
-    m_Controller: {{fileID: {AC}}}
-  - serializedVersion: 5
-    m_Name: Crouch_Aim_Point_U90-D90
-    m_StateMachine: {{fileID: {AIM_CROUCH_SM}}}
     m_Mask: {{fileID: 0}}
     m_Motions: []
     m_Behaviours: []
@@ -596,15 +588,14 @@ AnimatorController:
 """)
 
     # Blend trees
-    chunks.append(blend_tree_stance_idle(BT_STAND_IDLE_STANCE))
     chunks.append(
         blend_tree_1d_navspeed(
             BT_UNARM_ST_LOCO,
             "UnarmedStandLocomotionFwd",
             [
-                (0.0, "f0f402e7359a7df4aa0b5188149a303f"),
-                (0.5, "721d5c53712fe7b4fbc838214cf349ee"),
-                (1.0, "54e0e223225dfd64d8e6e78092e3f473"),
+                (UNARMED_WALK_NAV, "f0f402e7359a7df4aa0b5188149a303f"),
+                (UNARMED_RUN_NAV, "721d5c53712fe7b4fbc838214cf349ee"),
+                (UNARMED_SPRINT_NAV, "54e0e223225dfd64d8e6e78092e3f473"),
             ],
         )
     )
@@ -651,13 +642,13 @@ AnimatorController:
     def any_to(dst: int, conds: list[tuple[int, str, float]]):
         any_ids.append(reg_trans(dst, conds, can_self=0))
 
-    # Unarmed (WeaponMode == 0)
+    # Unarmed (WeaponMode == 0): idle and locomotion are separate states.
     any_to(ST_STAND_IDLE, [(6, "WeaponMode", 0.0), (6, "Stance", 0.0), (4, "NavSpeed", 0.05)])
     any_to(ST_STAND_LOCO, [(6, "WeaponMode", 0.0), (6, "Stance", 0.0), (3, "NavSpeed", 0.055)])
     any_to(ST_CROUCH_IDLE, [(6, "WeaponMode", 0.0), (6, "Stance", 1.0), (4, "NavSpeed", 0.05)])
     any_to(ST_CROUCH_LOCO, [(6, "WeaponMode", 0.0), (6, "Stance", 1.0), (3, "NavSpeed", 0.055)])
     any_to(ST_STAND_IDLE, [(6, "WeaponMode", 0.0), (6, "Stance", 2.0), (4, "NavSpeed", 0.05)])
-    any_to(ST_PRONE_UN_MOVE, [(6, "WeaponMode", 0.0), (6, "Stance", 2.0), (3, "NavSpeed", 0.055)])
+    any_to(ST_STAND_LOCO, [(6, "WeaponMode", 0.0), (6, "Stance", 2.0), (3, "NavSpeed", 0.055)])
 
     def rifle_any(dst: int, extra: list[tuple[int, str, float]]):
         any_to(dst, wm_rifle_or_pistol(1) + extra)
@@ -713,16 +704,19 @@ AnimatorController:
     intern(ST_CROUCH_IDLE, ST_CROUCH_LOCO, [(3, "NavSpeed", 0.055)])
     intern(ST_CROUCH_LOCO, ST_CROUCH_IDLE, [(4, "NavSpeed", 0.05)])
 
-    intern(ST_STAND_IDLE, ST_CROUCH_IDLE, [(6, "Stance", 1.0)])
-    intern(ST_CROUCH_IDLE, ST_STAND_IDLE, [(6, "Stance", 0.0)])
-    intern(ST_STAND_LOCO, ST_CROUCH_LOCO, [(6, "Stance", 1.0)])
-    intern(ST_CROUCH_LOCO, ST_STAND_LOCO, [(6, "Stance", 0.0)])
+    intern(ST_STAND_IDLE, ST_CROUCH_IDLE, [(6, "Stance", 1.0), (4, "NavSpeed", 0.05)])
+    intern(ST_STAND_IDLE, ST_CROUCH_LOCO, [(6, "Stance", 1.0), (3, "NavSpeed", 0.055)])
+    intern(ST_STAND_LOCO, ST_CROUCH_IDLE, [(6, "Stance", 1.0), (4, "NavSpeed", 0.05)])
+    intern(ST_STAND_LOCO, ST_CROUCH_LOCO, [(6, "Stance", 1.0), (3, "NavSpeed", 0.055)])
 
-    intern(ST_STAND_IDLE, ST_PRONE_UN_MOVE, [(6, "Stance", 2.0), (3, "NavSpeed", 0.055)])
-    intern(ST_STAND_LOCO, ST_PRONE_UN_MOVE, [(6, "Stance", 2.0)])
-    intern(ST_PRONE_UN_MOVE, ST_STAND_IDLE, [(6, "Stance", 2.0), (4, "NavSpeed", 0.05)])
-    intern(ST_CROUCH_IDLE, ST_STAND_IDLE, [(6, "Stance", 0.0)])
-    intern(ST_CROUCH_LOCO, ST_STAND_LOCO, [(6, "Stance", 0.0)])
+    intern(ST_CROUCH_IDLE, ST_STAND_IDLE, [(6, "Stance", 0.0), (4, "NavSpeed", 0.05)])
+    intern(ST_CROUCH_IDLE, ST_STAND_LOCO, [(6, "Stance", 0.0), (3, "NavSpeed", 0.055)])
+    intern(ST_CROUCH_LOCO, ST_STAND_IDLE, [(6, "Stance", 0.0), (4, "NavSpeed", 0.05)])
+    intern(ST_CROUCH_LOCO, ST_STAND_LOCO, [(6, "Stance", 0.0), (3, "NavSpeed", 0.055)])
+    intern(ST_CROUCH_IDLE, ST_STAND_IDLE, [(6, "Stance", 2.0), (4, "NavSpeed", 0.05)])
+    intern(ST_CROUCH_IDLE, ST_STAND_LOCO, [(6, "Stance", 2.0), (3, "NavSpeed", 0.055)])
+    intern(ST_CROUCH_LOCO, ST_STAND_IDLE, [(6, "Stance", 2.0), (4, "NavSpeed", 0.05)])
+    intern(ST_CROUCH_LOCO, ST_STAND_LOCO, [(6, "Stance", 2.0), (3, "NavSpeed", 0.055)])
 
     state_trans: dict[int, list[int]] = {}
 
@@ -737,18 +731,11 @@ AnimatorController:
     for s, d, c, dur in internal:
         emit_internal(s, d, c, dur)
 
-    intern_upper_stand_crouch = tid
-    tid += 1
-    chunks.append(
-        transition(intern_upper_stand_crouch, UPPER_CROUCH, [cond(6, "Stance", 1.0)], duration=0.16, can_self=0)
-    )
-    intern_upper_crouch_stand = tid
-    tid += 1
-    chunks.append(
-        transition(intern_upper_crouch_stand, UPPER_STAND, [cond(6, "Stance", 0.0)], duration=0.16, can_self=0)
-    )
-    state_trans[UPPER_STAND] = [intern_upper_stand_crouch]
-    state_trans[UPPER_CROUCH] = [intern_upper_crouch_stand]
+    # Aim_Point_U90-D90 intentionally owns both stand and crouch pitch states.
+    # Keep Crouch_Aim_Point_U90-D90 empty until the legacy layer is removed in Unity.
+    emit_internal(AIM_STAND_ST, AIM_CROUCH_ST, [(6, "Stance", 1.0)], 0.12)
+    emit_internal(AIM_CROUCH_ST, AIM_STAND_ST, [(6, "Stance", 0.0)], 0.12)
+    emit_internal(AIM_CROUCH_ST, AIM_STAND_ST, [(6, "Stance", 2.0)], 0.12)
 
     # Prone gesture states (Unarmed_Idle2Prone, Rifle_Prone2Idle, …) are listed in C# for
     # movement blocking but are not created here until LocomotionProneFeature + clips exist.
@@ -791,9 +778,9 @@ AnimatorState:
 """
         )
 
-    emit_state(ST_STAND_IDLE, "Stand_Idle", bt_ref(BT_STAND_IDLE_STANCE), state_trans.get(ST_STAND_IDLE, []), (260, 120))
-    emit_state(ST_STAND_LOCO, "Stand_Locomotion", bt_ref(BT_UNARM_ST_LOCO), state_trans.get(ST_STAND_LOCO, []), (520, 120))
-    emit_state(ST_CROUCH_IDLE, "Crouch_Idle", clip("b10e54e150039dd42a6ab6b95880b2c0"), state_trans.get(ST_CROUCH_IDLE, []), (260, 280))
+    emit_state(ST_STAND_IDLE, "Stand_Relaxed_Rifle_Idle", clip("c90d944601868854fb7423df35d91504"), state_trans.get(ST_STAND_IDLE, []), (280, 60))
+    emit_state(ST_STAND_LOCO, "Stand_Locomotion", bt_ref(BT_UNARM_ST_LOCO), state_trans.get(ST_STAND_LOCO, []), (560, 60))
+    emit_state(ST_CROUCH_IDLE, "Crouch_Idle", clip("b10e54e150039dd42a6ab6b95880b2c0"), state_trans.get(ST_CROUCH_IDLE, []), (280, 240))
     emit_state(
         ST_CROUCH_LOCO,
         "Crouch_Locomotion",
@@ -802,9 +789,8 @@ AnimatorState:
             8435885046551052033
         ),
         state_trans.get(ST_CROUCH_LOCO, []),
-        (520, 280),
+        (560, 240),
     )
-    emit_state(ST_PRONE_UN_MOVE, "Prone_Unarmed_Move", clip("7000e1c512c22484f82c3bcd219ab167"), state_trans.get(ST_PRONE_UN_MOVE, []), (780, 120))
 
     emit_state(RF_STAND_IDLE, "RifleStand_Idle", bt_ref(BT_RF_ST_IDLE_REL), state_trans.get(RF_STAND_IDLE, []), (260, -120))
     emit_state(RF_STAND_IDLE_RDY, "RifleStand_Idle_Ready", bt_ref(BT_RF_ST_IDLE_RDY), state_trans.get(RF_STAND_IDLE_RDY, []), (520, -120))
@@ -815,17 +801,15 @@ AnimatorState:
     emit_state(RF_CROUCH_IDLE_RDY, "RifleCrouch_Idle_Ready", clip("02310368c2eb6a64ca8d1e59650f1a6d"), state_trans.get(RF_CROUCH_IDLE_RDY, []), (520, -280))
     emit_state(RF_CROUCH_MOVE, "RifleCrouch_Move", bt_ref(BT_RF_CROUCH_MOV), state_trans.get(RF_CROUCH_MOVE, []), (780, -280))
 
-    emit_state(UPPER_STAND, "Upper_Rifle_NoAim", clip("e89fba973b70de14d9fd79dceadbb1bb"), state_trans.get(UPPER_STAND, []), (340, 120))
-    emit_state(UPPER_CROUCH, "Upper_Rifle_Crouch_NoAim", clip("5fee6100822823242950a95f55b6d8db"), state_trans.get(UPPER_CROUCH, []), (620, 120))
-    emit_state(AIM_STAND_ST, "Stand_Aim_Pitch_Blend", bt_ref(BT_AIM_STAND), [], (340, 120))
-    emit_state(AIM_CROUCH_ST, "Crouch_Aim_Pitch_Blend", bt_ref(BT_AIM_CROUCH), [], (340, 120))
+    emit_state(AIM_STAND_ST, "Stand_Aim_Pitch_Blend", bt_ref(BT_AIM_STAND), state_trans.get(AIM_STAND_ST, []), (300, 120))
+    emit_state(AIM_CROUCH_ST, "Crouch_Aim_Pitch_Blend", bt_ref(BT_AIM_CROUCH), state_trans.get(AIM_CROUCH_ST, []), (580, 120))
 
     # Extra blend tree for crouch locomotion (legacy id referenced above)
     chunks.append(
         blend_tree_1d_navspeed(
             8435885046551052033,
             "CrouchLocomotionBlend",
-            [(0.0, "b10e54e150039dd42a6ab6b95880b2c0"), (1.0, "7000e1c512c22484f82c3bcd219ab167")],
+            [(CROUCH_WALK_NAV, "7000e1c512c22484f82c3bcd219ab167")],
         )
     )
 
@@ -862,7 +846,6 @@ AnimatorStateMachine:
         (ST_STAND_LOCO, 560, 60),
         (ST_CROUCH_IDLE, 280, 240),
         (ST_CROUCH_LOCO, 560, 240),
-        (ST_PRONE_UN_MOVE, 840, 140),
     ])}{sm_shell}
   m_DefaultState: {{fileID: {ST_STAND_IDLE}}}
 """)
@@ -936,49 +919,21 @@ AnimatorStateMachine:
   m_DefaultState: {{fileID: {ST_STAND_IDLE}}}
 """)
 
-    chunks.append(f"""--- !u!1107 &{UPPER_SM}
+    chunks.append(f"""--- !u!1107 &{AIM_STAND_SM}
 AnimatorStateMachine:
   serializedVersion: 6
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {{fileID: 0}}
   m_PrefabInstance: {{fileID: 0}}
   m_PrefabAsset: {{fileID: 0}}
-  m_Name: UpperBody_NoAim
+  m_Name: Aim_Point_U90-D90
   m_ChildStates:
   - serializedVersion: 1
-    m_State: {{fileID: {UPPER_STAND}}}
-    m_Position: {{x: 340, y: 120, z: 0}}
-  - serializedVersion: 1
-    m_State: {{fileID: {UPPER_CROUCH}}}
-    m_Position: {{x: 630, y: 120, z: 0}}
-  m_ChildStateMachines: []
-  m_AnyStateTransitions: []
-  m_EntryTransitions: []
-  m_StateMachineTransitions: {{}}
-  m_StateMachineBehaviours: []
-  m_AnyStatePosition: {{x: 40, y: 400, z: 0}}
-  m_EntryPosition: {{x: 40, y: 120, z: 0}}
-  m_ExitPosition: {{x: 760, y: 20, z: 0}}
-  m_ParentStateMachinePosition: {{x: 760, y: 20, z: 0}}
-  m_DefaultState: {{fileID: {UPPER_STAND}}}
-""")
-
-    for sm_id, st, sm_name in (
-        (AIM_STAND_SM, AIM_STAND_ST, "Stand_Aim_Point_U90-D90"),
-        (AIM_CROUCH_SM, AIM_CROUCH_ST, "Crouch_Aim_Point_U90-D90"),
-    ):
-        chunks.append(f"""--- !u!1107 &{sm_id}
-AnimatorStateMachine:
-  serializedVersion: 6
-  m_ObjectHideFlags: 1
-  m_CorrespondingSourceObject: {{fileID: 0}}
-  m_PrefabInstance: {{fileID: 0}}
-  m_PrefabAsset: {{fileID: 0}}
-  m_Name: {sm_name}
-  m_ChildStates:
-  - serializedVersion: 1
-    m_State: {{fileID: {st}}}
+    m_State: {{fileID: {AIM_STAND_ST}}}
     m_Position: {{x: 300, y: 120, z: 0}}
+  - serializedVersion: 1
+    m_State: {{fileID: {AIM_CROUCH_ST}}}
+    m_Position: {{x: 580, y: 120, z: 0}}
   m_ChildStateMachines: []
   m_AnyStateTransitions: []
   m_EntryTransitions: []
@@ -988,7 +943,7 @@ AnimatorStateMachine:
   m_EntryPosition: {{x: 40, y: 120, z: 0}}
   m_ExitPosition: {{x: 760, y: 20, z: 0}}
   m_ParentStateMachinePosition: {{x: 760, y: 20, z: 0}}
-  m_DefaultState: {{fileID: {st}}}
+  m_DefaultState: {{fileID: {AIM_STAND_ST}}}
 """)
 
     out = pathlib.Path(__file__).resolve().parents[1] / "Assets" / "Animations" / "UnitAnimController.controller"
