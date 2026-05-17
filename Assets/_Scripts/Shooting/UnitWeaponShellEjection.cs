@@ -19,7 +19,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	#endregion
 
 	#region Private Fields
-	private readonly Dictionary<int, ObjectPool<GameObject>> m_Pools = new Dictionary<int, ObjectPool<GameObject>>(8);
+	private readonly Dictionary<long, ObjectPool<GameObject>> m_Pools = new Dictionary<long, ObjectPool<GameObject>>(8);
 	#endregion
 
 	#region Unity Lifecycle
@@ -107,7 +107,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 
 	private ObjectPool<GameObject> GetOrCreatePool(GameObject _prefab)
 	{
-		int id = _prefab.GetInstanceID();
+		long id = _prefab.GetEntityId();
 		if (m_Pools.TryGetValue(id, out ObjectPool<GameObject> existing))
 			return existing;
 

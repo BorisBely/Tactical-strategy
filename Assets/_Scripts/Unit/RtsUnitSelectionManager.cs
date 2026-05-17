@@ -488,7 +488,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		RtsUnitMember unit = hit.collider.GetComponentInParent<RtsUnitMember>();
-		if (unit == null || !unit.IsPlayerSelectable)
+		if (unit == null || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
 		{
 			if (!_ctrlPressed)
 				ClearSelection();
@@ -509,7 +509,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < units.Count; i++)
 		{
 			RtsUnitMember unit = units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable)
+			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
 				continue;
 			if (!unit.TryGetSelectionBounds(out Bounds bounds))
 				continue;
@@ -792,7 +792,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void ToggleUnitSelection(RtsUnitMember _unit, bool refreshAfterToggle = true)
 	{
-		if (_unit == null)
+		if (_unit == null || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
 			return;
 
 		if (m_SelectedUnits.Contains(_unit))
@@ -812,7 +812,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < _units.Count; i++)
 		{
 			RtsUnitMember unit = _units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable)
+			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
 				continue;
 			if (m_SelectedUnits.Contains(unit))
 				continue;
@@ -834,7 +834,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			unit.SetSelected(true);
 		}
 
-		m_SelectedUnits.RemoveAll(_unit => _unit == null || !_unit.isActiveAndEnabled);
+		m_SelectedUnits.RemoveAll(_unit =>
+			_unit == null || !_unit.isActiveAndEnabled || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit));
 		SyncActiveInventoryToSelection();
 	}
 
@@ -1035,7 +1036,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < units.Count; i++)
 		{
 			RtsUnitMember unit = units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable)
+			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
 				continue;
 
 			SetSelection(new List<RtsUnitMember> { unit });

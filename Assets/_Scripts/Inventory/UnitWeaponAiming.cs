@@ -43,7 +43,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	[Tooltip("Не наводить по вертикали во время смены стойки (UnitBusyState + StanceTransition).")]
 	[SerializeField] private bool m_BlockAimDuringStanceTransition = true;
-	[Tooltip("Не вести оружие на цель (слои прицела, pitch, локальная коррекция) во время перезарядки и передёргивания затвора.")]
+	[Tooltip("Не вести оружие на цель (AimPitch, локальная коррекция модели) во время перезарядки и передёргивания затвора. Вес слоя Aim_Point_U90-D90 при этом не обнуляется — нужно для клипов перезарядки/затвора на этом слое.")]
 	[SerializeField] private bool m_BlockCombatAimDuringReload = true;
 
 	[Header("Коррекция модели оружия")]
@@ -311,7 +311,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
-		float targetLayer = combatAim && canUseAimLayerForStance ? 1f : 0f;
+		bool aimLayerHoldForReloadClips = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
+		float targetLayer = aimLayerHoldForReloadClips && canUseAimLayerForStance ? 1f : 0f;
 		float wSmooth = Mathf.Max(0.0001f, m_LayerWeightSmoothSeconds);
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetLayer, Time.deltaTime / wSmooth);
 

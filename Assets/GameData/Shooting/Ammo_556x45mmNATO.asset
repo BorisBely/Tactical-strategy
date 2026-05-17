@@ -21,7 +21,7 @@ MonoBehaviour:
   m_EffectiveRangeMeters: 450
   m_FireSoundOverride: {fileID: 0}
   m_IsSubsonic: 0
-  m_ShellPrefab: {fileID: 0}
+  m_ShellPrefab: {fileID: 8877665500000001, guid: f8e7d6c5b4a392817161514131211009, type: 3}
   m_ShellEjectSpeed: 5.5
   m_ShellEjectSpeedVariance: 0.75
   m_ShellEjectUpSpeed: 1.2

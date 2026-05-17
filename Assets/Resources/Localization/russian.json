@@ -40,6 +40,10 @@
     { "key": "pause.help.h", "value": "H - Открыть окно здоровья" },
     { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + клик - Быстрый перенос в инвентаре" },
     { "key": "pause.help.l", "value": "L - Сменить язык" },
-    { "key": "pause.help.esc", "value": "Esc - Открыть или закрыть паузу" }
+    { "key": "pause.help.esc", "value": "Esc - Открыть или закрыть паузу" },
+    { "key": "mission_prep.unit_list.title", "value": "Список юнитов" },
+    { "key": "mission_prep.equipment.title", "value": "Снаряжение" },
+    { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Пресет снаряжения" },
+    { "key": "mission_prep.equipment.create_new_preset", "value": "Создать новый пресет" }
   ]
 }

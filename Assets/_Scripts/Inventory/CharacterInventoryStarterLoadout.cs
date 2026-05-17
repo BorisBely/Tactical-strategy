@@ -50,6 +50,10 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 		if (m_Inventory == null)
 			m_Inventory = GetComponent<CharacterInventory>();
 		if (m_Inventory == null)
+			m_Inventory = GetComponentInParent<CharacterInventory>();
+		if (m_Inventory == null)
+			m_Inventory = GetComponentInChildren<CharacterInventory>(true);
+		if (m_Inventory == null)
 		{
 			Debug.LogWarning($"{nameof(CharacterInventoryStarterLoadout)}: нет {nameof(CharacterInventory)}.", this);
 			return;
@@ -95,6 +99,8 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 				Debug.LogWarning($"{nameof(CharacterInventoryStarterLoadout)}: магазин не вошёл в оружие (совместимость?). Кладём в сумку.", this);
 				m_Inventory.TryAdd(magSlot);
 			}
+			else
+				weaponState.TryChamberRoundFromMagazine();
 		}
 
 		if (canBuildMags)

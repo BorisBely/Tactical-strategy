@@ -40,6 +40,10 @@
     { "key": "pause.help.h", "value": "H - Open health window" },
     { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + Click - Quick transfer in inventory" },
     { "key": "pause.help.l", "value": "L - Switch language" },
-    { "key": "pause.help.esc", "value": "Esc - Open or close pause menu" }
+    { "key": "pause.help.esc", "value": "Esc - Open or close pause menu" },
+    { "key": "mission_prep.unit_list.title", "value": "Unit roster" },
+    { "key": "mission_prep.equipment.title", "value": "Equipment" },
+    { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Loadout preset" },
+    { "key": "mission_prep.equipment.create_new_preset", "value": "Create new preset" }
   ]
 }
