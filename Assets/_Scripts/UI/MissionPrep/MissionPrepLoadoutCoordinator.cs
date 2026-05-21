@@ -168,6 +168,18 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 		}
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+		if (lead < 1 && m_BoundInventory.HasMainHandEquipment)
+		{
+			Debug.LogWarning(
+				$"{nameof(MissionPrepLoadoutCoordinator)}: на панели инвентаря пресета «{m_PresetInventoryPanel.name}» " +
+				$"{nameof(InventoryPanelView)}.{nameof(InventoryPanelView.LeadingEquipmentSlotCount)} = 0 — " +
+				"слот основного оружия не рисуется, хотя в рантайме он занят. Выставьте ≥ 1 на панели экрана предмиссии.",
+				m_PresetInventoryPanel);
+		}
+#endif
+
 		m_BoundInventory.RepaintInventoryPanel(m_PresetInventoryPanel);
 	}
 

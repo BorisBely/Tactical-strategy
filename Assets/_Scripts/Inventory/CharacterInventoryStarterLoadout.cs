@@ -53,9 +53,14 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 			m_Inventory = GetComponentInParent<CharacterInventory>();
 		if (m_Inventory == null)
 			m_Inventory = GetComponentInChildren<CharacterInventory>(true);
+		if (m_Inventory == null && transform.parent != null)
+			m_Inventory = transform.parent.GetComponentInChildren<CharacterInventory>(true);
 		if (m_Inventory == null)
 		{
-			Debug.LogWarning($"{nameof(CharacterInventoryStarterLoadout)}: нет {nameof(CharacterInventory)}.", this);
+			if (m_WeaponItem != null && m_ApplyOnAwake)
+				Debug.LogWarning(
+					$"{nameof(CharacterInventoryStarterLoadout)}: нет {nameof(CharacterInventory)} на этом объекте, в родителе или среди братьев родителя. Повесь скрипт на корень юнита с инвентарём или укажите ссылку вручную.",
+					this);
 			return;
 		}
 

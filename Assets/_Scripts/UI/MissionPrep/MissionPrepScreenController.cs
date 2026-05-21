@@ -240,7 +240,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void TryResolvePresetInventoryPanelReference()
 	{
-		if (m_PresetInventoryPanel != null && IsMissionPrepInventoryPanel(m_PresetInventoryPanel))
+		// Явное поле в инспекторе не перезаписываем: эвристика «Units (2)» только для автоподбора без ссылки.
+		if (m_PresetInventoryPanel != null && m_PresetInventoryPanel.IsConfiguredForDynamicRepaint)
 			return;
 
 		InventoryPanelView[] panels = GetComponentsInChildren<InventoryPanelView>(true);

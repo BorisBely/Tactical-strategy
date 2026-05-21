@@ -93,7 +93,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 
 	private void SnapBaseLayerToWeaponBranch()
 	{
-		if (m_Animator == null)
+		if (m_Animator == null || !m_Animator.isActiveAndEnabled)
 			return;
 
 		int stance = m_Animator.GetInteger(s_Stance);
@@ -106,7 +106,23 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			? ResolveBaseLayerLocomotionQualified(m_LastWeaponModeValue, stance)
 			: ResolveBaseLayerIdleQualified(m_LastWeaponModeValue, stance, weaponReady);
 
-		m_Animator.CrossFadeInFixedTime(qualifiedState, m_WeaponModeCrossFadeSeconds, 0);
+		TryCrossFadeLayer0(qualifiedState);
+	}
+
+	private void TryCrossFadeLayer0(string _qualifiedStateFullPath)
+	{
+		int hash = Animator.StringToHash(_qualifiedStateFullPath);
+		if (!m_Animator.HasState(0, hash))
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			Debug.LogWarning(
+				$"{nameof(UnitAnimatorWeaponMode)}: нет стейта «{_qualifiedStateFullPath}» в контроллере «{(m_Animator.runtimeAnimatorController != null ? m_Animator.runtimeAnimatorController.name : "NULL")}» на «{gameObject.name}». Проверьте имена в Animator и параметр Weapon/Stance.",
+				this);
+#endif
+			return;
+		}
+
+		m_Animator.CrossFadeInFixedTime(_qualifiedStateFullPath, m_WeaponModeCrossFadeSeconds, 0);
 	}
 
 	private static string QualifyBaseLayerPath(string _subMachine, string _leaf) =>
@@ -131,7 +147,8 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			targetLeaf = _stance switch
 			{
 				(int)LocomotionStance.Crouch => "Crouch_Idle",
-				_ => "Stand_Relaxed_Rifle_Idle"
+				// Имя стейта в UnitAnimController: Locomotion_Unarmed.Stand_Relaxed_Idle
+				_ => "Stand_Relaxed_Idle"
 			};
 		}
 

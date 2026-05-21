@@ -92,9 +92,6 @@ public class InventoryPickupZone : MonoBehaviour
 	private void OnTriggerEnter(Collider _other)
 	{
 		bool hasPickup = TryGetPickup(_other, out WorldPickupItem detectedPickup);
-		Debug.Log(
-			$"{nameof(InventoryPickupZone)}: OnTriggerEnter with '{_other.name}', layer={LayerMask.LayerToName(_other.gameObject.layer)} ({_other.gameObject.layer}), hasPickup={hasPickup}.",
-			this);
 
 		if (m_UseLayerMask && m_ItemLayerMask != 0)
 		{
