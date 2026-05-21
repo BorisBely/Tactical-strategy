@@ -38,6 +38,9 @@ public class InventoryPanelView : MonoBehaviour
 	public int LeadingEquipmentSlotCount => m_LeadingEquipmentSlotCount;
 	public InventoryCharacterBagDropZone CharacterBagDropZone => m_CharacterBagDropZone;
 	public InventoryGroundDropZone GroundDropZone => m_GroundDropZone;
+
+	/// <summary>Префаб и контент заданы — ячейки создаются в runtime, в сцене их может не быть.</summary>
+	public bool IsConfiguredForDynamicRepaint => m_SlotPrefab != null && m_SlotsContainer != null;
 	#endregion
 
 	#region Unity Lifecycle

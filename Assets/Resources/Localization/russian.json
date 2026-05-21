@@ -44,6 +44,11 @@
     { "key": "mission_prep.unit_list.title", "value": "Список юнитов" },
     { "key": "mission_prep.equipment.title", "value": "Снаряжение" },
     { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Пресет снаряжения" },
-    { "key": "mission_prep.equipment.create_new_preset", "value": "Создать новый пресет" }
+    { "key": "mission_prep.equipment.create_new_preset", "value": "Создать новый пресет" },
+    { "key": "mission_prep.equipment.preset.standard", "value": "Стандартный" },
+    { "key": "mission_prep.equipment.preset.heavy", "value": "Тяжёлый" },
+    { "key": "mission_prep.equipment.armor.light", "value": "Лёгкая броня" },
+    { "key": "mission_prep.equipment.armor.heavy", "value": "Тяжёлая броня" },
+    { "key": "mission_prep.equipment.inventory_title", "value": "Инвентарь" }
   ]
 }

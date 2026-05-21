@@ -28,6 +28,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 	[SerializeField] private Vector3 m_AutoSpawnPositionStep = new Vector3(2f, 0f, 0f);
 	[SerializeField] private Transform[] m_SpawnPoints = System.Array.Empty<Transform>();
 	[SerializeField] private MissionPrepUnitListView m_UnitList;
+	[SerializeField] private MissionPrepEquipmentPresetCatalog m_PresetCatalog;
 	[Header("UI cells (optional)")]
 	[Tooltip("Префаб строки со скриптом MissionPrepUnitCellView. Родитель — RectTransform контента списка (Scroll View → Viewport → Content).")]
 	[SerializeField] private MissionPrepUnitCellView m_UnitCellPrefab;
@@ -125,9 +126,23 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			m_SpawnedInstances.Add(instance);
 			s_PresentationUnitRoots.Add(instance);
 			ApplyPresentationLockdown(instance);
+			MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(instance, 0);
+			int presetCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 2;
+			presetState.EnsurePresetSnapshots(presetCount);
+			presetState.EnsureDefaultsFromCatalog(m_PresetCatalog);
+
+			CharacterInventory inventory = instance.GetComponentInChildren<CharacterInventory>(true);
+			if (inventory != null)
+				presetState.ApplyActivePresetToRuntime(inventory);
+
+			MissionPrepUnitArmorVisualController.GetOrCreate(instance, presetState.ArmorVisualIndex);
 
 			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
-			cell?.BindToUnit(instance, GenerateRandomCallsign());
+			if (cell != null)
+			{
+				cell.BindToUnit(instance, GenerateRandomCallsign());
+				cell.SetPresetDisplayName(GetDefaultPresetLabelForSpawnedUnit());
+			}
 		}
 	}
 	#endregion
@@ -235,6 +250,14 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		UnitVision vision = _root.GetComponentInChildren<UnitVision>(true);
 		if (vision != null)
 			vision.enabled = false;
+	}
+
+	private string GetDefaultPresetLabelForSpawnedUnit()
+	{
+		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+			return m_PresetCatalog.GetPresetLabel(0);
+
+		return LocalizationManager.Get("mission_prep.equipment.preset.standard", "Standard");
 	}
 
 	private static string GenerateRandomCallsign()

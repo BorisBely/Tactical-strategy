@@ -13,6 +13,7 @@ public sealed class MissionPrepUnitListView : MonoBehaviour
 
 	#region Private Fields
 	[SerializeField] private MissionPrepUnitCellView[] m_UnitCells = Array.Empty<MissionPrepUnitCellView>();
+	private MissionPrepUnitCellView m_SelectedCell;
 	#endregion
 
 	#region Public Properties
@@ -30,6 +31,8 @@ public sealed class MissionPrepUnitListView : MonoBehaviour
 
 	public void ClearAllUnitBindings()
 	{
+		SetSelectedCell(null);
+
 		if (m_UnitCells == null)
 			return;
 
@@ -39,6 +42,22 @@ public sealed class MissionPrepUnitListView : MonoBehaviour
 				m_UnitCells[i].ClearBinding();
 		}
 	}
+
+	public void SetSelectedCell(MissionPrepUnitCellView _cell)
+	{
+		if (m_SelectedCell == _cell)
+			return;
+
+		if (m_SelectedCell != null)
+			m_SelectedCell.SetSelected(false);
+
+		m_SelectedCell = _cell;
+
+		if (m_SelectedCell != null)
+			m_SelectedCell.SetSelected(true);
+	}
+
+	public MissionPrepUnitCellView SelectedCell => m_SelectedCell;
 
 	/// <summary>Заменяет набор ячеек (например, после инстанса из префаба). Переподписывает клики.</summary>
 	public void SetUnitCells(MissionPrepUnitCellView[] _cells)

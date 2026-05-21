@@ -44,6 +44,11 @@
     { "key": "mission_prep.unit_list.title", "value": "Unit roster" },
     { "key": "mission_prep.equipment.title", "value": "Equipment" },
     { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Loadout preset" },
-    { "key": "mission_prep.equipment.create_new_preset", "value": "Create new preset" }
+    { "key": "mission_prep.equipment.create_new_preset", "value": "Create new preset" },
+    { "key": "mission_prep.equipment.preset.standard", "value": "Standard" },
+    { "key": "mission_prep.equipment.preset.heavy", "value": "Heavy" },
+    { "key": "mission_prep.equipment.armor.light", "value": "Light armor" },
+    { "key": "mission_prep.equipment.armor.heavy", "value": "Heavy armor" },
+    { "key": "mission_prep.equipment.inventory_title", "value": "Inventory" }
   ]
 }

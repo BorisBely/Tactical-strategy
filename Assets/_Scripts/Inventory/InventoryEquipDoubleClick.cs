@@ -44,12 +44,24 @@ public class InventoryEquipDoubleClick : MonoBehaviour, IPointerClickHandler
 		if (!unityReportsDouble && !timedDouble)
 			return;
 
+		if (IsMissionPrepPresetInventorySlot())
+			return;
+
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
 		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
 		if (bindings == null || selectionManager == null || m_Slot == null)
 			return;
 
 		selectionManager.TryEquipFromCharacterBagDoubleClick(m_Slot);
+	}
+
+	private bool IsMissionPrepPresetInventorySlot()
+	{
+		MissionPrepLoadoutCoordinator coordinator = MissionPrepLoadoutCoordinator.Instance;
+		if (coordinator == null || coordinator.PresetInventoryPanel == null || m_Slot == null)
+			return false;
+
+		return m_Slot.GetComponentInParent<InventoryPanelView>() == coordinator.PresetInventoryPanel;
 	}
 	#endregion
 }

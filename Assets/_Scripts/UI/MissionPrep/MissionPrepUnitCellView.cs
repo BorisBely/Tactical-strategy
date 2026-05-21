@@ -18,6 +18,11 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	[SerializeField] private Image m_RankIcon;
 	[SerializeField] private TextMeshProUGUI m_UnitNameText;
 	[SerializeField] private TextMeshProUGUI m_UnitPresetText;
+
+	[Header("Выделение строки")]
+	[SerializeField] private Graphic m_SelectionBackground;
+	[SerializeField] private Color m_NormalBackgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.85f);
+	[SerializeField] private Color m_SelectedBackgroundColor = new Color(0.28f, 0.45f, 0.65f, 1f);
 	#endregion
 
 	#region Public Properties
@@ -25,6 +30,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	public TextMeshProUGUI UnitNameText => m_UnitNameText;
 	public TextMeshProUGUI UnitPresetText => m_UnitPresetText;
 	public GameObject BoundUnitRoot { get; private set; }
+	public bool IsSelected { get; private set; }
 	#endregion
 
 	#region Public Methods
@@ -36,15 +42,37 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			m_UnitNameText.text = _displayName ?? string.Empty;
 	}
 
+	public void SetPresetDisplayName(string _presetName)
+	{
+		if (m_UnitPresetText != null)
+			m_UnitPresetText.text = _presetName ?? string.Empty;
+	}
+
+	public void SetSelected(bool _selected)
+	{
+		IsSelected = _selected;
+		ApplySelectionVisual();
+	}
+
 	public void ClearBinding()
 	{
+		SetSelected(false);
 		BoundUnitRoot = null;
 		if (m_UnitNameText != null)
 			m_UnitNameText.text = string.Empty;
+		SetPresetDisplayName(string.Empty);
 	}
 	#endregion
 
 	#region Unity Lifecycle
+	private void Awake()
+	{
+		if (m_SelectionBackground == null && m_ClickArea != null)
+			m_SelectionBackground = m_ClickArea.GetComponent<Graphic>();
+
+		ApplySelectionVisual();
+	}
+
 	private void OnEnable()
 	{
 		if (m_ClickArea != null)
@@ -62,6 +90,14 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	private void HandleClicked()
 	{
 		Clicked?.Invoke(this);
+	}
+
+	private void ApplySelectionVisual()
+	{
+		if (m_SelectionBackground == null)
+			return;
+
+		m_SelectionBackground.color = IsSelected ? m_SelectedBackgroundColor : m_NormalBackgroundColor;
 	}
 	#endregion
 }
