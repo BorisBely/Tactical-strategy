@@ -52,6 +52,13 @@
     { "key": "mission_prep.equipment.preset.heavy", "value": "Тяжёлый" },
     { "key": "mission_prep.equipment.armor.light", "value": "Лёгкая броня" },
     { "key": "mission_prep.equipment.armor.heavy", "value": "Тяжёлая броня" },
-    { "key": "mission_prep.equipment.available_title", "value": "Доступное снаряжение" }
+    { "key": "mission_prep.equipment.available_title", "value": "Доступное снаряжение" },
+    { "key": "weapon.mod_slot.magazine", "value": "Магазин" },
+    { "key": "weapon.mod_slot.muzzle", "value": "Дуло" },
+    { "key": "weapon.mod_slot.underbarrel", "value": "Подствольник" },
+    { "key": "weapon.mod_slot.optic", "value": "Прицел" },
+    { "key": "weapon.mod_slot.stock", "value": "Приклад" },
+    { "key": "weapon.mod_slot.attachment", "value": "Модуль" },
+    { "key": "weapon.mod_slot.empty", "value": "Пусто" }
   ]
 }

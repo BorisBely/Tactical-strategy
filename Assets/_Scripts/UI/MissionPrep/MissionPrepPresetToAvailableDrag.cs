@@ -78,6 +78,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 			return;
 
 		m_HasResolvedSlot = true;
+		MissionPrepModificationDragContext.BeginPreset(m_Slot.Data, m_IsMainHandSlot, m_BagIndex);
 		m_PresetPanel.DetachSlotForDrag(m_Slot);
 
 		m_RootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
@@ -119,13 +120,15 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null && m_HasResolvedSlot &&
+		    !MissionPrepModificationDragContext.WasDropConsumed &&
 		    m_Coordinator.IsScreenPointOverAvailableEquipmentPanel(eventData.position, GetDragCamera(eventData)))
 			m_DropAccepted = m_Coordinator.TryRemovePresetInventorySlot(m_IsMainHandSlot, m_BagIndex);
 
-		if (!m_DropAccepted && m_Coordinator != null)
+		if (!m_DropAccepted && m_Coordinator != null && !MissionPrepModificationDragContext.WasDropConsumed)
 			m_Coordinator.RepaintInventoryPanel();
 
 		DestroyDraggedSlotVisual();
+		MissionPrepModificationDragContext.ResetAfterDrag();
 		m_HasResolvedSlot = false;
 		m_DropAccepted = false;
 		m_PresetPanel = null;

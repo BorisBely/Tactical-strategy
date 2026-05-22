@@ -35,6 +35,13 @@ public sealed class MissionPrepPresetInventoryDropZone : MonoBehaviour, IDropHan
 		if (m_Coordinator == null || eventData.pointerDrag == null)
 			return;
 
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepModificationSlotDrag modificationDrag))
+		{
+			if (m_Coordinator.TryEjectModificationSlotToPreset(modificationDrag))
+				modificationDrag.NotifyDropAccepted();
+			return;
+		}
+
 		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag drag))
 			return;
 

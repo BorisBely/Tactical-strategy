@@ -106,6 +106,8 @@ public sealed class WeaponRuntimeState
 	[SerializeField, Range(0f, 1f)] private float m_Fouling01;
 	[Tooltip("Установленные на этом экземпляре модули (пока вручную или из будущей системы слотов); пусто = множители 1.")]
 	[SerializeField] private WeaponAttachmentDefinition[] m_EquippedAttachments;
+	[Tooltip("ItemDefinition-обёртки установленных модулей для UI/пресетов. Параллельно EquippedAttachments; стрельба использует только definitions.")]
+	[SerializeField] private ItemDefinition[] m_EquippedAttachmentItems;
 	[Tooltip("Окончательная неисправность: нельзя экипировать, снятие с ремонтом (мастерская) — отдельная фича.")]
 	[SerializeField] private bool m_IsTerminallyBroken;
 	[Tooltip("Патрон в патроннике (после снаряжения затвора). Выстрел идёт из патронника; затем подача из магазина.")]
@@ -130,6 +132,7 @@ public sealed class WeaponRuntimeState
 	public float Wear01 => m_Wear01;
 	public float Fouling01 => m_Fouling01;
 	public WeaponAttachmentDefinition[] EquippedAttachments => m_EquippedAttachments;
+	public ItemDefinition[] EquippedAttachmentItems => m_EquippedAttachmentItems;
 	public bool IsTerminallyBroken => m_IsTerminallyBroken;
 	public bool HasWeapon => m_WeaponDefinition != null;
 	#endregion
@@ -143,6 +146,7 @@ public sealed class WeaponRuntimeState
 		m_Wear01 = 0f;
 		m_Fouling01 = 0f;
 		m_EquippedAttachments = null;
+		m_EquippedAttachmentItems = null;
 		m_IsTerminallyBroken = false;
 		ClearChamber();
 	}
@@ -153,6 +157,7 @@ public sealed class WeaponRuntimeState
 		m_SelectedFireMode = _weaponDefinition != null ? _weaponDefinition.DefaultFireMode : WeaponFireMode.SemiAuto;
 		m_IsTerminallyBroken = false;
 		m_EquippedAttachments = null;
+		m_EquippedAttachmentItems = null;
 		ClearInsertedMagazineFields();
 		ClearChamber();
 	}
@@ -160,9 +165,33 @@ public sealed class WeaponRuntimeState
 	public void SetEquippedAttachments(WeaponAttachmentDefinition[] _attachments)
 	{
 		if (_attachments == null || _attachments.Length == 0)
+		{
 			m_EquippedAttachments = null;
+			m_EquippedAttachmentItems = null;
+		}
 		else
+		{
 			m_EquippedAttachments = (WeaponAttachmentDefinition[])_attachments.Clone();
+			if (m_EquippedAttachmentItems != null && m_EquippedAttachmentItems.Length != m_EquippedAttachments.Length)
+				m_EquippedAttachmentItems = null;
+		}
+	}
+
+	public void SetEquippedAttachmentItems(ItemDefinition[] _attachmentItems)
+	{
+		if (_attachmentItems == null || _attachmentItems.Length == 0)
+		{
+			m_EquippedAttachmentItems = null;
+			return;
+		}
+
+		m_EquippedAttachmentItems = (ItemDefinition[])_attachmentItems.Clone();
+	}
+
+	public void SetEquippedAttachmentSlotItems(WeaponAttachmentDefinition[] _attachments, ItemDefinition[] _attachmentItems)
+	{
+		SetEquippedAttachments(_attachments);
+		SetEquippedAttachmentItems(_attachmentItems);
 	}
 
 	/// <summary>После успешного выстрела: износ и загрязнение от патрона и модулей.</summary>

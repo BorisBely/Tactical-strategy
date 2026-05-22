@@ -52,6 +52,13 @@
     { "key": "mission_prep.equipment.preset.heavy", "value": "Heavy" },
     { "key": "mission_prep.equipment.armor.light", "value": "Light armor" },
     { "key": "mission_prep.equipment.armor.heavy", "value": "Heavy armor" },
-    { "key": "mission_prep.equipment.available_title", "value": "Available equipment" }
+    { "key": "mission_prep.equipment.available_title", "value": "Available equipment" },
+    { "key": "weapon.mod_slot.magazine", "value": "Magazine" },
+    { "key": "weapon.mod_slot.muzzle", "value": "Muzzle" },
+    { "key": "weapon.mod_slot.underbarrel", "value": "Underbarrel" },
+    { "key": "weapon.mod_slot.optic", "value": "Optic" },
+    { "key": "weapon.mod_slot.stock", "value": "Stock" },
+    { "key": "weapon.mod_slot.attachment", "value": "Attachment" },
+    { "key": "weapon.mod_slot.empty", "value": "Empty" }
   ]
 }

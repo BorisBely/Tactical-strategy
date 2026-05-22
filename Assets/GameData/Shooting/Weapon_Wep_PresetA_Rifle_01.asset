@@ -19,7 +19,13 @@ MonoBehaviour:
   - 0
   - 1
   m_DefaultFireMode: 0
-  m_AttachmentSlots: []
+  m_AttachmentSlots:
+  - SlotType: 3
+    IsRequired: 0
+    AnchorChildName:
+  - SlotType: 0
+    IsRequired: 0
+    AnchorChildName:
   m_FireRateRpm: 700
   m_SemiAutoFireRateRpm: 0
   m_AimTimeSeconds: 0.28

@@ -93,6 +93,7 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			return;
 
 		m_SourceData = m_Slot.Data;
+		MissionPrepModificationDragContext.BeginAvailable(m_SourceData);
 		m_AvailableContentParent = transform.parent;
 		m_AvailableSiblingIndex = transform.GetSiblingIndex();
 		m_AvailablePanel.DetachSlotForDrag(m_Slot);
@@ -132,6 +133,7 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null &&
+		    !MissionPrepModificationDragContext.WasDropConsumed &&
 		    m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, GetDragCamera(eventData)))
 			m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
 
@@ -151,6 +153,7 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			m_AvailablePanel.RebuildContentLayout();
 		}
 
+		MissionPrepModificationDragContext.ResetAfterDrag();
 		m_AvailableContentParent = null;
 		m_DropAccepted = false;
 	}

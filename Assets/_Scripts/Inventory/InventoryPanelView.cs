@@ -119,6 +119,19 @@ public class InventoryPanelView : MonoBehaviour
 		m_SlotPrefab = _slotPrefab;
 	}
 
+	/// <summary>Ячейка из префаба только для drag-visual (не учитывается в списке панели).</summary>
+	public InventorySlotView CreateDetachedDragVisual(InventorySlotRuntimeData _data, Transform _canvasRoot)
+	{
+		if (m_SlotPrefab == null || _canvasRoot == null || _data.IsEmpty)
+			return null;
+
+		InventorySlotView created = Instantiate(m_SlotPrefab, _canvasRoot);
+		created.gameObject.name = $"{m_SlotPrefab.name}_DragVisual";
+		created.MarkRuntimeSpawned();
+		created.SetItem(_data);
+		return created;
+	}
+
 	/// <summary>После переноса предмета с «земли»: убрать пустую строку из префаба или оставить пустую ручную ячейку.</summary>
 	public void NotifyGroundSlotItemTakenAway(InventorySlotView _slot)
 	{
@@ -277,6 +290,22 @@ public class InventoryPanelView : MonoBehaviour
 
 		RefreshSlotsFromHierarchy();
 		RebuildContentLayout();
+	}
+
+	/// <summary>Индекс ячейки среди <see cref="InventorySlotView"/> на панели (без inline-строк модификации).</summary>
+	public int GetInventorySlotListIndex(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return -1;
+
+		RefreshSlotsFromHierarchy();
+		for (int i = 0; i < m_Slots.Count; i++)
+		{
+			if (m_Slots[i] == _slot)
+				return i;
+		}
+
+		return -1;
 	}
 
 	/// <summary>Индекс ячейки среди прямых детей контента (0 = первая строка).</summary>

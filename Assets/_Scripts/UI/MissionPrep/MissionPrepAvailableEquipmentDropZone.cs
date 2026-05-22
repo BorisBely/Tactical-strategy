@@ -35,6 +35,13 @@ public sealed class MissionPrepAvailableEquipmentDropZone : MonoBehaviour, IDrop
 		if (m_Coordinator == null || eventData.pointerDrag == null)
 			return;
 
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepModificationSlotDrag modificationDrag))
+		{
+			if (m_Coordinator.TryEjectModificationSlotToAvailable(modificationDrag))
+				modificationDrag.NotifyDropAccepted();
+			return;
+		}
+
 		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepPresetToAvailableDrag drag))
 			return;
 

@@ -28,8 +28,35 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private MissionPrepUnitPresetState m_BoundPresetState;
 	private CharacterInventory m_BoundInventory;
 	private int m_EditingPresetCatalogIndex;
+	private MissionPrepModificationUiState m_ModificationUiState;
 	private readonly List<InventorySlotRuntimeData> m_AvailableSlotBuffer = new List<InventorySlotRuntimeData>();
+	private readonly List<ItemModificationSlotDescriptor> m_ModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
+	private readonly List<ItemModificationSlotDescriptor> m_VisibleModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
+	private readonly List<WeaponSlotBinding> m_WeaponSlotBindingBuffer = new List<WeaponSlotBinding>(8);
 	#endregion
+
+	private readonly struct WeaponSlotBinding
+	{
+		public readonly InventorySlotView SlotView;
+		public readonly InventorySlotRuntimeData WeaponData;
+		public readonly bool IsMainHand;
+		public readonly int BagIndex;
+		public readonly int ListIndex;
+
+		public WeaponSlotBinding(
+			InventorySlotView _slotView,
+			InventorySlotRuntimeData _weaponData,
+			bool _isMainHand,
+			int _bagIndex,
+			int _listIndex)
+		{
+			SlotView = _slotView;
+			WeaponData = _weaponData;
+			IsMainHand = _isMainHand;
+			BagIndex = _bagIndex;
+			ListIndex = _listIndex;
+		}
+	}
 
 	#region Unity Lifecycle
 	private void Awake()
@@ -37,6 +64,17 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		s_Instance = this;
 		EnsureSharedPresetStore();
 		m_EditingPresetCatalogIndex = Mathf.Max(0, m_DefaultEditingPresetIndex);
+		MissionPrepModificationOutsideClick.EnsureOn(this);
+	}
+
+	private void OnEnable()
+	{
+		MissionPrepModificationDragContext.Changed += HandleModificationDragContextChanged;
+	}
+
+	private void OnDisable()
+	{
+		MissionPrepModificationDragContext.Changed -= HandleModificationDragContextChanged;
 	}
 
 	private void OnDestroy()
@@ -104,6 +142,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		m_EditingPresetCatalogIndex = clamped;
 		m_SharedPresetStore?.EnsureSnapshotDefaultsFromCatalog(clamped, m_PresetCatalog);
+		ClearModificationUiSelection();
 		RepaintInventoryPanel();
 	}
 
@@ -151,6 +190,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		m_EditingPresetCatalogIndex = clamped;
 		m_SharedPresetStore?.EnsureSnapshotDefaultsFromCatalog(clamped, m_PresetCatalog);
+		ClearModificationUiSelection();
 
 		if (m_BoundPresetState != null)
 		{
@@ -316,19 +356,19 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (_slot == null || m_PresetInventoryPanel == null || m_SharedPresetStore == null)
 			return false;
 
-		int containerIndex = m_PresetInventoryPanel.GetInventorySlotContainerIndex(_slot);
-		if (containerIndex < 0)
+		int slotIndex = m_PresetInventoryPanel.GetInventorySlotListIndex(_slot);
+		if (slotIndex < 0)
 			return false;
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
-		if (containerIndex < lead)
+		if (slotIndex < lead)
 		{
-			_isMainHandEquipmentSlot = containerIndex == 0;
+			_isMainHandEquipmentSlot = slotIndex == 0;
 			return _isMainHandEquipmentSlot && !snapshot.MainHandEquipment.IsEmpty;
 		}
 
-		_bagIndex = containerIndex - lead;
+		_bagIndex = slotIndex - lead;
 		return _bagIndex >= 0 && _bagIndex < snapshot.BagCount;
 	}
 
@@ -337,6 +377,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out int bagIndex) || m_SharedPresetStore == null)
 			return false;
 
+		ClearModificationUiSelection();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		bool changed;
 
@@ -352,6 +393,155 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return true;
 	}
 
+	public bool TryToggleModificationPanel(InventorySlotView _slot)
+	{
+		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out int bagIndex) || m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
+			return false;
+
+		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
+			return false;
+
+		if (m_ModificationUiState.Matches(isMainHand, bagIndex))
+			m_ModificationUiState.ExpandEmptySlots = !m_ModificationUiState.ExpandEmptySlots;
+		else
+			m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(isMainHand, bagIndex, _expandEmptySlots: true);
+
+		RebuildInlineModificationRows();
+		return true;
+	}
+
+	public bool HasExpandedEmptyModificationSlots()
+	{
+		return m_ModificationUiState.HasSelection && m_ModificationUiState.ExpandEmptySlots;
+	}
+
+	public void CollapseEmptyModificationSlots()
+	{
+		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.ExpandEmptySlots)
+			return;
+
+		m_ModificationUiState.ExpandEmptySlots = false;
+		RebuildInlineModificationRows();
+	}
+
+	public void ClearModificationUiSelection()
+	{
+		m_ModificationUiState = default;
+		MissionPrepInlineModificationBuilder.ClearAllRows(m_PresetInventoryPanel);
+	}
+
+	public void CloseModificationPanel()
+	{
+		ClearModificationUiSelection();
+	}
+
+	public bool TryInstallModificationFromDrag(ItemModificationSlotDescriptor _slotDescriptor, bool _weaponIsMainHand, int _weaponBagIndex)
+	{
+		MissionPrepModificationDragPayload payload = MissionPrepModificationDragContext.Current;
+		if (!payload.HasItem || m_SharedPresetStore == null)
+			return false;
+
+		if (payload.SourceKind == MissionPrepModificationDragSourceKind.ModificationSlot)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+			return false;
+
+		if (payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
+		{
+			if (payload.PresetBagIndex < 0)
+				return false;
+
+			if (!_weaponIsMainHand && payload.PresetBagIndex == _weaponBagIndex)
+				return false;
+
+			if (!snapshot.TryGetInventorySlot(_isMainHandEquipmentSlot: false, payload.PresetBagIndex, out _))
+				return false;
+		}
+
+		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, payload.Item))
+			return false;
+
+		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
+		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
+			return false;
+
+		int targetBagIndex = _weaponBagIndex;
+		if (payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
+		{
+			if (!snapshot.TryRemoveInventorySlot(_isMainHandEquipmentSlot: false, payload.PresetBagIndex, out _))
+				return false;
+
+			if (!_weaponIsMainHand && payload.PresetBagIndex < targetBagIndex)
+				targetBagIndex--;
+		}
+
+		if (!snapshot.TrySetInventorySlot(_weaponIsMainHand, targetBagIndex, weaponSlot))
+			return false;
+
+		if (!replacedItem.IsEmpty)
+			snapshot.TryAddToBag(replacedItem);
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	public bool TryClearModificationSlot(
+		ItemModificationSlotDescriptor _slotDescriptor,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex,
+		bool _addToBag = true)
+	{
+		if (m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+			return false;
+
+		if (!ItemModificationUtility.TryClearSlot(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
+			return false;
+
+		if (!removedItem.IsEmpty && _addToBag)
+			snapshot.TryAddToBag(removedItem);
+
+		snapshot.TrySetInventorySlot(_weaponIsMainHand, _weaponBagIndex, weaponSlot);
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	public bool TryEjectModificationSlotToPreset(MissionPrepModificationSlotDrag _drag)
+	{
+		if (_drag == null)
+			return false;
+
+		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
+		return TryClearModificationSlot(
+			_drag.SlotDescriptor,
+			_drag.WeaponIsMainHand,
+			_drag.WeaponBagIndex,
+			_addToBag: true);
+	}
+
+	public bool TryEjectModificationSlotToAvailable(MissionPrepModificationSlotDrag _drag)
+	{
+		if (_drag == null)
+			return false;
+
+		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
+		return TryClearModificationSlot(
+			_drag.SlotDescriptor,
+			_drag.WeaponIsMainHand,
+			_drag.WeaponBagIndex,
+			_addToBag: false);
+	}
+
 	public void RepaintInventoryPanel()
 	{
 		if (m_PresetInventoryPanel == null)
@@ -360,12 +550,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		EnsureSharedPresetStore();
 		if (m_SharedPresetStore == null)
 		{
+			ClearModificationUiSelection();
 			m_PresetInventoryPanel.ClearAllSlots();
 			return;
 		}
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		m_PresetInventoryPanel.RepaintFromPresetSnapshot(snapshot);
+		EnsureModificationClickHandlers();
+		RebuildInlineModificationRows();
 	}
 
 	public bool TryGetActivePresetLabel(out string _label)
@@ -501,6 +694,141 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return false;
 
 		return _slot.GetComponentInParent<InventoryPanelView>() == _panel;
+	}
+
+	private void EnsureModificationClickHandlers()
+	{
+		if (m_PresetInventoryPanel == null)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null)
+				continue;
+
+			MissionPrepInventoryModificationClick click = slot.GetComponent<MissionPrepInventoryModificationClick>();
+			if (click == null)
+				click = slot.gameObject.AddComponent<MissionPrepInventoryModificationClick>();
+
+			click.Bind(this);
+		}
+	}
+
+	private void RebuildInlineModificationRows()
+	{
+		if (m_PresetInventoryPanel == null || m_SharedPresetStore == null)
+			return;
+
+		MissionPrepInlineModificationBuilder.ClearAllRows(m_PresetInventoryPanel);
+		CollectModifiableWeaponBindings(m_WeaponSlotBindingBuffer);
+		ValidateModificationUiSelection(m_WeaponSlotBindingBuffer);
+		if (m_WeaponSlotBindingBuffer.Count == 0)
+		{
+			m_PresetInventoryPanel.RebuildContentLayout();
+			return;
+		}
+
+		for (int i = m_WeaponSlotBindingBuffer.Count - 1; i >= 0; i--)
+		{
+			WeaponSlotBinding binding = m_WeaponSlotBindingBuffer[i];
+			if (binding.SlotView == null || binding.WeaponData.IsEmpty)
+				continue;
+
+			BuildVisibleModificationDescriptors(binding, m_VisibleModificationDescriptorBuffer);
+			if (m_VisibleModificationDescriptorBuffer.Count == 0)
+				continue;
+
+			bool expandEmpty = m_ModificationUiState.Matches(binding.IsMainHand, binding.BagIndex) &&
+			                   m_ModificationUiState.ExpandEmptySlots;
+			MissionPrepInlineModificationBuilder.RebuildWeaponRows(
+				m_PresetInventoryPanel,
+				this,
+				binding.SlotView,
+				binding.WeaponData,
+				binding.IsMainHand,
+				binding.BagIndex,
+				expandEmpty,
+				m_VisibleModificationDescriptorBuffer);
+		}
+
+		m_PresetInventoryPanel.RebuildContentLayout();
+		MissionPrepInlineModificationBuilder.RefreshHighlights(m_PresetInventoryPanel);
+	}
+
+	private void CollectModifiableWeaponBindings(List<WeaponSlotBinding> _outBindings)
+	{
+		_outBindings.Clear();
+		if (m_PresetInventoryPanel == null || m_SharedPresetStore == null)
+			return;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null || !slot.HasItem)
+				continue;
+
+			bool isMainHand = i < lead && i == 0;
+			int bagIndex = isMainHand ? -1 : i - lead;
+			if (!isMainHand && (bagIndex < 0 || bagIndex >= snapshot.BagCount))
+				continue;
+
+			if (!snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponData))
+				continue;
+
+			if (!ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
+				continue;
+
+			_outBindings.Add(new WeaponSlotBinding(slot, weaponData, isMainHand, bagIndex, i));
+		}
+	}
+
+	private void BuildVisibleModificationDescriptors(
+		WeaponSlotBinding _binding,
+		List<ItemModificationSlotDescriptor> _outVisibleDescriptors)
+	{
+		_outVisibleDescriptors.Clear();
+		ItemModificationUtility.BuildSlotDescriptors(_binding.WeaponData.Definition, m_ModificationDescriptorBuffer);
+
+		bool expandEmpty = m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex) &&
+		                   m_ModificationUiState.ExpandEmptySlots;
+
+		for (int i = 0; i < m_ModificationDescriptorBuffer.Count; i++)
+		{
+			ItemModificationSlotDescriptor descriptor = m_ModificationDescriptorBuffer[i];
+			bool hasInstalledItem = ItemModificationUtility.TryGetInstalledItem(
+				descriptor,
+				_binding.WeaponData,
+				out _);
+
+			if (hasInstalledItem || expandEmpty)
+				_outVisibleDescriptors.Add(descriptor);
+		}
+	}
+
+	private void ValidateModificationUiSelection(IReadOnlyList<WeaponSlotBinding> _bindings)
+	{
+		if (!m_ModificationUiState.HasSelection)
+			return;
+
+		for (int i = 0; i < _bindings.Count; i++)
+		{
+			WeaponSlotBinding binding = _bindings[i];
+			if (m_ModificationUiState.Matches(binding.IsMainHand, binding.BagIndex))
+				return;
+		}
+
+		m_ModificationUiState = default;
+	}
+
+	private void HandleModificationDragContextChanged()
+	{
+		MissionPrepInlineModificationBuilder.RefreshHighlights(m_PresetInventoryPanel);
 	}
 	#endregion
 }
