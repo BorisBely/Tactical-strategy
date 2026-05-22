@@ -18,6 +18,7 @@ public sealed class MissionPrepPresetSnapshot
 	public int ArmorVisualIndex => m_ArmorVisualIndex;
 	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
 	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
+	public int BagCount => m_BagItems.Count;
 	#endregion
 
 	#region Public Methods
@@ -90,6 +91,68 @@ public sealed class MissionPrepPresetSnapshot
 			if (!_bagItems[i].IsEmpty)
 				m_BagItems.Add(MissionPrepInventoryCopyUtility.CloneSlot(_bagItems[i]));
 		}
+	}
+
+	public bool TryAddToBag(InventorySlotRuntimeData _data)
+	{
+		if (_data.IsEmpty)
+			return false;
+
+		InventorySlotRuntimeData copy = MissionPrepInventoryCopyUtility.CloneSlot(_data);
+		m_BagItems.Add(copy);
+		return true;
+	}
+
+	public bool TryUnequipMainHandToBag()
+	{
+		if (m_MainHandEquipment.IsEmpty)
+			return false;
+
+		m_BagItems.Add(MissionPrepInventoryCopyUtility.CloneSlot(m_MainHandEquipment));
+		m_MainHandEquipment = default;
+		return true;
+	}
+
+	public bool TryClearMainHand()
+	{
+		if (m_MainHandEquipment.IsEmpty)
+			return false;
+
+		m_MainHandEquipment = default;
+		return true;
+	}
+
+	public bool TryRemoveBagItemAt(int _bagIndex)
+	{
+		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		m_BagItems.RemoveAt(_bagIndex);
+		return true;
+	}
+
+	public bool TryMoveBagItemToMainHand(int _bagIndex)
+	{
+		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
+		if (picked.Definition == null || !picked.Definition.IsEquipment)
+			return false;
+
+		if (picked.InstanceState != null &&
+		    picked.InstanceState.WeaponState != null &&
+		    picked.InstanceState.WeaponState.IsTerminallyBroken)
+			return false;
+
+		InventorySlotRuntimeData previousMain = m_MainHandEquipment;
+		m_BagItems.RemoveAt(_bagIndex);
+		m_MainHandEquipment = MissionPrepInventoryCopyUtility.CloneSlot(picked);
+
+		if (!previousMain.IsEmpty)
+			m_BagItems.Insert(_bagIndex, MissionPrepInventoryCopyUtility.CloneSlot(previousMain));
+
+		return true;
 	}
 	#endregion
 }

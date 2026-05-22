@@ -41,6 +41,9 @@ public class InventoryPanelView : MonoBehaviour
 
 	/// <summary>Префаб и контент заданы — ячейки создаются в runtime, в сцене их может не быть.</summary>
 	public bool IsConfiguredForDynamicRepaint => m_SlotPrefab != null && m_SlotsContainer != null;
+
+	/// <summary>Родитель для динамических ячеек (Content в ScrollRect).</summary>
+	public Transform SlotsContainerTransform => m_SlotsContainer;
 	#endregion
 
 	#region Unity Lifecycle
@@ -219,6 +222,57 @@ public class InventoryPanelView : MonoBehaviour
 		{
 			InventorySlotView cell = SpawnNewSlotFromPrefab();
 			cell.SetItem(bag[b]);
+		}
+
+		RefreshSlotsFromHierarchy();
+		RebuildContentLayout();
+	}
+
+	/// <summary>Перерисовать панель из снимка пресета (слот оружия + сумка).</summary>
+	public void RepaintFromPresetSnapshot(MissionPrepPresetSnapshot _snapshot)
+	{
+		if (_snapshot == null || m_SlotPrefab == null || m_SlotsContainer == null)
+			return;
+
+		ClearAllSlots();
+
+		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
+		InventorySlotRuntimeData main = _snapshot.MainHandEquipment;
+		IReadOnlyList<InventorySlotRuntimeData> bag = _snapshot.BagItems;
+
+		for (int i = 0; i < lead; i++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			if (i == 0 && !main.IsEmpty)
+				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(main));
+		}
+
+		for (int b = 0; b < bag.Count; b++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(bag[b]));
+		}
+
+		RefreshSlotsFromHierarchy();
+		RebuildContentLayout();
+	}
+
+	/// <summary>Статический список ячеек (панель «доступное снаряжение»). Пустые записи пропускаются.</summary>
+	public void RepaintFromSlotList(IReadOnlyList<InventorySlotRuntimeData> _slots)
+	{
+		if (_slots == null || m_SlotPrefab == null || m_SlotsContainer == null)
+			return;
+
+		ClearAllSlots();
+
+		for (int i = 0; i < _slots.Count; i++)
+		{
+			InventorySlotRuntimeData data = _slots[i];
+			if (data.IsEmpty)
+				continue;
+
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			cell.SetItem(data);
 		}
 
 		RefreshSlotsFromHierarchy();

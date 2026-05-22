@@ -224,12 +224,12 @@ GameObject:
   - component: {fileID: 4942027868305828763}
   - component: {fileID: 6683715244191809683}
   - component: {fileID: 8259141271440356325}
-  - component: {fileID: 9138105801054034092}
-  - component: {fileID: 8928393229794094468}
-  - component: {fileID: 4875125556984218683}
-  - component: {fileID: 3512814124691265466}
+  - component: {fileID: 5511000010012345001}
+  - component: {fileID: 5511000010012345002}
+  - component: {fileID: 5511000010012345003}
+  - component: {fileID: 5511000010012345004}
   m_Layer: 5
-  m_Name: InventoryCell
+  m_Name: InventoryCellMissionPrep
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -310,7 +310,7 @@ MonoBehaviour:
   m_IconImage: {fileID: 0}
   m_OccupiedRoot: {fileID: 0}
   m_EmptyRoot: {fileID: 0}
---- !u!114 &9138105801054034092
+--- !u!114 &5511000010012345001
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -319,11 +319,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 4989829199897505061}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35a70eb0d31d8ba4187ecb59647fe660, type: 3}
+  m_Script: {fileID: 11500000, guid: b8d9e0f1a234567890abcd1234ef0123, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryGroundToCharacterDrag
+  m_EditorClassIdentifier: Assembly-CSharp::MissionPrepAvailableToPresetDrag
   m_Slot: {fileID: 0}
---- !u!114 &8928393229794094468
+  m_Coordinator: {fileID: 0}
+--- !u!114 &5511000010012345002
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -332,25 +333,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 4989829199897505061}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8a2b9c1d3e5467890123456789abcde, type: 3}
+  m_Script: {fileID: 11500000, guid: d0f1a234567890abcd1234ef01234567, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryCharacterToGroundDrag
+  m_EditorClassIdentifier: Assembly-CSharp::MissionPrepAvailableTransferClick
   m_Slot: {fileID: 0}
---- !u!114 &4875125556984218683
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4989829199897505061}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryQuickTransferClick
-  m_Slot: {fileID: 0}
+  m_Coordinator: {fileID: 0}
   m_ClickCooldown: 0.2
---- !u!114 &3512814124691265466
+--- !u!114 &5511000010012345003
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -359,7 +348,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 4989829199897505061}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4d5e6f78b9012345678901234abcd01, type: 3}
+  m_Script: {fileID: 11500000, guid: a7c8e9f0b1d2436580912716a5b4c3d2, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryEquipDoubleClick
+  m_EditorClassIdentifier: Assembly-CSharp::MissionPrepPresetToAvailableDrag
+  m_Slot: {fileID: 0}
+  m_Coordinator: {fileID: 0}
+--- !u!114 &5511000010012345004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4989829199897505061}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a2b3c4d5e6f708192a3b4c5d6e7f809, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MissionPrepInventoryEquipDoubleClick
   m_Slot: {fileID: 0}

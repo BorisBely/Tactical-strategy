@@ -1,24 +1,22 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 /// <summary>
-/// Двойной клик по ячейке инвентаря пресета на экране предмиссии (без RTS SelectionManager).
+/// Ctrl + ЛКМ по ячейке доступного снаряжения — копия предмета в инвентарь пресета.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(InventorySlotView))]
-public sealed class MissionPrepInventoryEquipDoubleClick : MonoBehaviour, IPointerClickHandler
+public sealed class MissionPrepAvailableTransferClick : MonoBehaviour, IPointerClickHandler
 {
-	#region Constants
-	private const float c_DoubleClickMaxDelaySeconds = 0.35f;
-	#endregion
-
 	#region Serialized Fields
 	[SerializeField] private InventorySlotView m_Slot;
 	[SerializeField] private MissionPrepLoadoutCoordinator m_Coordinator;
+	[SerializeField, Min(0.05f)] private float m_ClickCooldown = 0.2f;
 	#endregion
 
 	#region Private Fields
-	private float m_LastLeftClickUnscaledTime = -1f;
+	private float m_NextAllowedUnscaledTime;
 	#endregion
 
 	#region Unity Lifecycle
@@ -41,22 +39,26 @@ public sealed class MissionPrepInventoryEquipDoubleClick : MonoBehaviour, IPoint
 	#region IPointerClickHandler
 	public void OnPointerClick(PointerEventData eventData)
 	{
+		if (eventData.button != PointerEventData.InputButton.Left)
+			return;
+
+		Keyboard kb = Keyboard.current;
+		if (kb == null || !(kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed))
+			return;
+
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
-		if (eventData.button != PointerEventData.InputButton.Left || m_Slot == null || m_Coordinator == null)
+		if (m_Slot == null || !m_Slot.HasItem || m_Coordinator == null)
 			return;
 
-		float now = Time.unscaledTime;
-		bool unityReportsDouble = eventData.clickCount >= 2;
-		bool timedDouble = m_LastLeftClickUnscaledTime >= 0f &&
-		                   (now - m_LastLeftClickUnscaledTime) <= c_DoubleClickMaxDelaySeconds;
-		m_LastLeftClickUnscaledTime = now;
-
-		if (!unityReportsDouble && !timedDouble)
+		if (Time.unscaledTime < m_NextAllowedUnscaledTime)
 			return;
 
-		m_Coordinator.TryEditingPresetInventoryDoubleClick(m_Slot);
+		if (!m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot))
+			return;
+
+		m_NextAllowedUnscaledTime = Time.unscaledTime + m_ClickCooldown;
 	}
 	#endregion
 }

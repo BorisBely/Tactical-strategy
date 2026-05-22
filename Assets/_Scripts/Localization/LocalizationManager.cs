@@ -14,6 +14,7 @@ public sealed class LocalizationManager : MonoBehaviour
 
 	#region Private Fields
 	private static LocalizationManager s_Instance;
+	private static bool s_ApplicationIsQuitting;
 
 	private readonly Dictionary<GameLanguage, Dictionary<string, string>> m_Tables =
 		new Dictionary<GameLanguage, Dictionary<string, string>>();
@@ -26,16 +27,61 @@ public sealed class LocalizationManager : MonoBehaviour
 	#endregion
 
 	#region Public Properties
-	public static LocalizationManager Instance => EnsureInstance();
-	public static GameLanguage CurrentLanguage => Instance.m_CurrentLanguage;
+	public static bool HasInstance => s_Instance != null;
+
+	public static LocalizationManager Instance
+	{
+		get
+		{
+			if (s_ApplicationIsQuitting)
+				return s_Instance;
+
+			return EnsureInstance();
+		}
+	}
+
+	public static GameLanguage CurrentLanguage =>
+		HasInstance ? s_Instance.m_CurrentLanguage : GameLanguage.English;
 	#endregion
 
 	#region Bootstrap
+	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+	private static void ResetStatics()
+	{
+		s_Instance = null;
+		s_ApplicationIsQuitting = false;
+	}
+
 	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 	private static void Bootstrap()
 	{
 		EnsureInstance();
 	}
+
+#if UNITY_EDITOR
+	[UnityEditor.InitializeOnLoadMethod]
+	private static void RegisterEditorPlayModeCleanup()
+	{
+		UnityEditor.EditorApplication.playModeStateChanged -= HandleEditorPlayModeStateChanged;
+		UnityEditor.EditorApplication.playModeStateChanged += HandleEditorPlayModeStateChanged;
+	}
+
+	private static void HandleEditorPlayModeStateChanged(UnityEditor.PlayModeStateChange _state)
+	{
+		switch (_state)
+		{
+			case UnityEditor.PlayModeStateChange.ExitingPlayMode:
+				s_ApplicationIsQuitting = true;
+				DestroyRuntimeInstance();
+				break;
+
+			case UnityEditor.PlayModeStateChange.EnteredEditMode:
+				s_ApplicationIsQuitting = false;
+				DestroyAllLocalizationManagerObjects();
+				break;
+		}
+	}
+#endif
 	#endregion
 
 	#region Unity Lifecycle
@@ -48,10 +94,24 @@ public sealed class LocalizationManager : MonoBehaviour
 		}
 
 		s_Instance = this;
+
+#if !UNITY_EDITOR
 		DontDestroyOnLoad(gameObject);
+#endif
 
 		LoadLocalizationTables();
 		RestoreLanguage();
+	}
+
+	private void OnApplicationQuit()
+	{
+		s_ApplicationIsQuitting = true;
+	}
+
+	private void OnDestroy()
+	{
+		if (s_Instance == this)
+			s_Instance = null;
 	}
 
 	private void Update()
@@ -67,11 +127,17 @@ public sealed class LocalizationManager : MonoBehaviour
 	#region Public Methods
 	public static string Get(string _key)
 	{
+		if (s_ApplicationIsQuitting || !HasInstance)
+			return _key ?? string.Empty;
+
 		return Instance.GetInternal(_key);
 	}
 
 	public static string Get(string _key, string _fallback)
 	{
+		if (s_ApplicationIsQuitting || !HasInstance)
+			return _fallback ?? _key ?? string.Empty;
+
 		string value = Instance.GetInternal(_key);
 		return value == _key ? _fallback : value;
 	}
@@ -96,12 +162,60 @@ public sealed class LocalizationManager : MonoBehaviour
 	#region Private Methods
 	private static LocalizationManager EnsureInstance()
 	{
+		if (s_ApplicationIsQuitting)
+			return s_Instance;
+
 		if (s_Instance != null)
 			return s_Instance;
 
 		GameObject root = new GameObject(nameof(LocalizationManager));
 		s_Instance = root.AddComponent<LocalizationManager>();
 		return s_Instance;
+	}
+
+	private static void DestroyRuntimeInstance()
+	{
+		if (s_Instance == null)
+			return;
+
+		GameObject root = s_Instance.gameObject;
+		s_Instance = null;
+
+		if (root == null)
+			return;
+
+		DestroyObjectImmediate(root);
+	}
+
+#if UNITY_EDITOR
+	private static void DestroyAllLocalizationManagerObjects()
+	{
+		LocalizationManager[] managers = UnityEngine.Object.FindObjectsByType<LocalizationManager>(
+			FindObjectsInactive.Include,
+			FindObjectsSortMode.None);
+
+		for (int i = 0; i < managers.Length; i++)
+		{
+			if (managers[i] == null)
+				continue;
+
+			DestroyObjectImmediate(managers[i].gameObject);
+		}
+
+		s_Instance = null;
+	}
+#endif
+
+	private static void DestroyObjectImmediate(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+#if UNITY_EDITOR
+		UnityEngine.Object.DestroyImmediate(_root);
+#else
+		UnityEngine.Object.Destroy(_root);
+#endif
 	}
 
 	private string GetInternal(string _key)

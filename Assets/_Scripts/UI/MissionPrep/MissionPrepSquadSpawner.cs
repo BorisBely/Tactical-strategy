@@ -100,6 +100,14 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		if (m_ClearCellBindingsBeforeSpawn)
 			m_UnitList.ClearAllUnitBindings();
 
+		MissionPrepSharedPresetStore sharedStore = MissionPrepSharedPresetStore.GetOrCreate(this);
+		if (sharedStore != null)
+		{
+			int presetCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 2;
+			sharedStore.EnsurePresetSnapshots(presetCount);
+			sharedStore.EnsureDefaultsFromCatalog(m_PresetCatalog);
+		}
+
 		int cellCount = m_UnitList.UnitCellCount;
 		if (cellCount <= 0)
 		{
@@ -127,9 +135,6 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			s_PresentationUnitRoots.Add(instance);
 			ApplyPresentationLockdown(instance);
 			MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(instance, 0);
-			int presetCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 2;
-			presetState.EnsurePresetSnapshots(presetCount);
-			presetState.EnsureDefaultsFromCatalog(m_PresetCatalog);
 
 			CharacterInventory inventory = instance.GetComponentInChildren<CharacterInventory>(true);
 			if (inventory != null)

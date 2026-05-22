@@ -52,6 +52,6 @@
     { "key": "mission_prep.equipment.preset.heavy", "value": "Heavy" },
     { "key": "mission_prep.equipment.armor.light", "value": "Light armor" },
     { "key": "mission_prep.equipment.armor.heavy", "value": "Heavy armor" },
-    { "key": "mission_prep.equipment.inventory_title", "value": "Inventory" }
+    { "key": "mission_prep.equipment.available_title", "value": "Available equipment" }
   ]
 }

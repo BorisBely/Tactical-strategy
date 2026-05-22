@@ -52,6 +52,6 @@
     { "key": "mission_prep.equipment.preset.heavy", "value": "Тяжёлый" },
     { "key": "mission_prep.equipment.armor.light", "value": "Лёгкая броня" },
     { "key": "mission_prep.equipment.armor.heavy", "value": "Тяжёлая броня" },
-    { "key": "mission_prep.equipment.inventory_title", "value": "Инвентарь" }
+    { "key": "mission_prep.equipment.available_title", "value": "Доступное снаряжение" }
   ]
 }

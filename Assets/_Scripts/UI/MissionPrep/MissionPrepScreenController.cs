@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 
 /// <summary>
@@ -19,12 +18,15 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	[Tooltip("Объект с Inventory Panel View. Slots Container и Slot Prefab задаются на нём.")]
 	[SerializeField] private InventoryPanelView m_PresetInventoryPanel;
 
-	[SerializeField] private bool m_HideInventoryUntilUnitSelected = true;
-	[SerializeField] private bool m_InventoryStartHidden = true;
+	[Header("Доступное снаряжение")]
+	[SerializeField] private InventoryPanelView m_AvailableEquipmentPanel;
+	[SerializeField] private MissionPrepAvailableEquipmentCatalog m_AvailableEquipmentCatalog;
 
-	[Header("Заголовок инвентаря (опционально)")]
-	[SerializeField] private TMP_Text m_InventoryTitleText;
-	[SerializeField] private string m_InventoryTitleLocalizationKey = "mission_prep.equipment.inventory_title";
+	[Header("Префаб ячейки (предмиссия)")]
+	[SerializeField] private InventorySlotView m_MissionPrepSlotPrefab;
+
+	[SerializeField] private bool m_HideInventoryUntilUnitSelected = false;
+	[SerializeField] private bool m_InventoryStartHidden = false;
 	#endregion
 
 	#region Private Fields
@@ -33,6 +35,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	#region Public Properties
 	public InventoryPanelView PresetInventoryPanel => m_PresetInventoryPanel;
+	public InventoryPanelView AvailableEquipmentPanel => m_AvailableEquipmentPanel;
 	#endregion
 
 	#region Unity Lifecycle
@@ -44,7 +47,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void OnEnable()
 	{
-		LocalizationManager.LanguageChanged += HandleLanguageChanged;
+		if (m_LoadoutCoordinator != null)
+			m_LoadoutCoordinator.BeginEditingPresets();
 
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected += HandleUnitSelected;
@@ -58,19 +62,20 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 		if (m_HideEquipmentUntilSelection && m_EquipmentPanel != null)
 			m_EquipmentPanel.SetVisible(false);
-
-		ApplyStaticInventoryTitle();
+		else if (m_EquipmentPanel != null)
+			m_EquipmentPanel.SetVisible(true);
 
 		if (m_InventoryStartHidden)
 			SetInventoryVisible(false);
-		else if (m_HideInventoryUntilUnitSelected)
-			OnInventoryUnitBindingChanged(false);
+		else
+		{
+			SetInventoryVisible(true);
+			RefreshInventoryPanel();
+		}
 	}
 
 	private void OnDisable()
 	{
-		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
-
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected -= HandleUnitSelected;
 
@@ -132,9 +137,18 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	public void RefreshInventoryPanel()
 	{
 		if (m_LoadoutCoordinator != null)
+		{
 			m_LoadoutCoordinator.RepaintInventoryPanel();
-		else if (m_PresetInventoryPanel != null)
-			m_PresetInventoryPanel.ClearAllSlots();
+			m_LoadoutCoordinator.RepaintAvailableEquipmentPanel();
+		}
+		else
+		{
+			if (m_PresetInventoryPanel != null)
+				m_PresetInventoryPanel.ClearAllSlots();
+
+			if (m_AvailableEquipmentPanel != null)
+				m_AvailableEquipmentPanel.ClearAllSlots();
+		}
 	}
 	#endregion
 
@@ -146,6 +160,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 		if (m_LoadoutCoordinator == null)
 			m_LoadoutCoordinator = gameObject.AddComponent<MissionPrepLoadoutCoordinator>();
+
+		MissionPrepSharedPresetStore.GetOrCreate(this);
 	}
 
 	private void WireLoadoutCoordinator()
@@ -154,11 +170,31 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			return;
 
 		TryResolvePresetInventoryPanelReference();
+		TryResolveAvailableEquipmentPanelReference();
+		TryResolveAvailableEquipmentCatalogReference();
 
-		m_LoadoutCoordinator.Configure(m_PresetCatalog, m_PresetInventoryPanel);
+		m_LoadoutCoordinator.Configure(
+			m_PresetCatalog,
+			m_PresetInventoryPanel,
+			m_AvailableEquipmentPanel,
+			m_AvailableEquipmentCatalog);
+
+		ApplyMissionPrepSlotPrefab();
 
 		if (m_EquipmentPanel != null)
 			m_EquipmentPanel.SetLoadoutCoordinator(m_LoadoutCoordinator);
+	}
+
+	private void ApplyMissionPrepSlotPrefab()
+	{
+		if (m_MissionPrepSlotPrefab == null)
+			return;
+
+		if (m_PresetInventoryPanel != null)
+			m_PresetInventoryPanel.SetRuntimeSlotPrefab(m_MissionPrepSlotPrefab);
+
+		if (m_AvailableEquipmentPanel != null)
+			m_AvailableEquipmentPanel.SetRuntimeSlotPrefab(m_MissionPrepSlotPrefab);
 	}
 
 	private void HandleUnitSelected(MissionPrepUnitCellView _cell)
@@ -180,7 +216,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void HandlePresetSelected(MissionPrepUnitPresetState _state, int _presetIndex)
 	{
-		RefreshUnitCellPresetLabel(m_CurrentUnitCell);
+		RefreshAllUnitCellPresetLabels();
 		RefreshInventoryPanel();
 	}
 
@@ -193,32 +229,10 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	{
 		if (m_HideInventoryUntilUnitSelected)
 			SetInventoryVisible(_hasBoundUnit);
-		else if (_hasBoundUnit)
+		else
 			SetInventoryVisible(true);
 
-		if (_hasBoundUnit)
-			RefreshInventoryPanel();
-		else
-			ClearInventoryPanel();
-	}
-
-	private void ClearInventoryPanel()
-	{
-		if (m_PresetInventoryPanel != null)
-			m_PresetInventoryPanel.ClearAllSlots();
-	}
-
-	private void HandleLanguageChanged()
-	{
-		ApplyStaticInventoryTitle();
-	}
-
-	private void ApplyStaticInventoryTitle()
-	{
-		if (m_InventoryTitleText == null)
-			return;
-
-		m_InventoryTitleText.text = LocalizationManager.Get(m_InventoryTitleLocalizationKey, "Inventory");
+		RefreshInventoryPanel();
 	}
 
 	private void RefreshUnitCellPresetLabel(MissionPrepUnitCellView _cell)
@@ -226,11 +240,16 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		if (_cell == null)
 			return;
 
-		string label = m_EquipmentPanel != null
-			? m_EquipmentPanel.GetBoundPresetLabel()
-			: GetPresetLabelForUnit(_cell.BoundUnitRoot);
+		_cell.SetPresetDisplayName(GetPresetLabelForUnit(_cell.BoundUnitRoot));
+	}
 
-		_cell.SetPresetDisplayName(label);
+	private void RefreshAllUnitCellPresetLabels()
+	{
+		if (m_UnitList == null)
+			return;
+
+		for (int i = 0; i < m_UnitList.UnitCellCount; i++)
+			RefreshUnitCellPresetLabel(m_UnitList.GetUnitCell(i));
 	}
 
 	private void HandleCreateNewPresetRequested()
@@ -258,7 +277,43 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			m_PresetInventoryPanel = panels[0];
 	}
 
+	private void TryResolveAvailableEquipmentPanelReference()
+	{
+		if (m_AvailableEquipmentPanel != null && m_AvailableEquipmentPanel.IsConfiguredForDynamicRepaint)
+			return;
+
+		InventoryPanelView[] panels = GetComponentsInChildren<InventoryPanelView>(true);
+		for (int i = 0; i < panels.Length; i++)
+		{
+			if (panels[i] != null && IsMissionPrepAvailableEquipmentPanel(panels[i]))
+			{
+				m_AvailableEquipmentPanel = panels[i];
+				return;
+			}
+		}
+	}
+
+	private void TryResolveAvailableEquipmentCatalogReference()
+	{
+		if (m_AvailableEquipmentCatalog != null)
+			return;
+
+		m_AvailableEquipmentCatalog = GetComponentInChildren<MissionPrepAvailableEquipmentCatalog>(true);
+		if (m_AvailableEquipmentCatalog == null && m_PresetCatalog != null)
+			m_AvailableEquipmentCatalog = m_PresetCatalog.gameObject.AddComponent<MissionPrepAvailableEquipmentCatalog>();
+	}
+
 	private static bool IsMissionPrepInventoryPanel(InventoryPanelView _panel)
+	{
+		return IsMissionPrepPanelNamed(_panel, "PresetEquipmentPanel", "Units (1)");
+	}
+
+	private static bool IsMissionPrepAvailableEquipmentPanel(InventoryPanelView _panel)
+	{
+		return IsMissionPrepPanelNamed(_panel, "AvailableEquipmentPanel", "Units (3)");
+	}
+
+	private static bool IsMissionPrepPanelNamed(InventoryPanelView _panel, string _primaryName, string _fallbackParentName)
 	{
 		if (_panel == null || !_panel.IsConfiguredForDynamicRepaint)
 			return false;
@@ -266,10 +321,10 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		Transform t = _panel.transform;
 		while (t != null)
 		{
-			if (t.name == "UnitInventory" || t.name == "InventoryRoot")
+			if (t.name == "UnitInventory" || t.name == "InventoryRoot" || t.name == "Ground")
 				return false;
 
-			if (t.name == "Units (2)")
+			if (t.name == _primaryName || t.name == _fallbackParentName)
 				return true;
 
 			t = t.parent;

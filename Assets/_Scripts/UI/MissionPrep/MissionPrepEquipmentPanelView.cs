@@ -71,13 +71,11 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_ArmorDropdown != null)
 			m_ArmorDropdown.onValueChanged.AddListener(HandleArmorDropdownValueChanged);
 
-		if (m_BoundPresetState != null)
-			RefreshForBoundUnit();
-		else
-		{
-			RebuildPresetDropdownOptions();
-			RebuildArmorDropdownOptions();
-		}
+		ResolveLoadoutCoordinatorReference();
+		if (m_LoadoutCoordinator != null)
+			m_LoadoutCoordinator.BeginEditingPresets();
+
+		RefreshPresetEditingUi();
 	}
 
 	private void OnDisable()
@@ -116,7 +114,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		else
 			ApplyActivePresetForBoundUnitWithoutCoordinator();
 
-		RefreshForBoundUnit();
+		RefreshPresetEditingUi();
 	}
 
 	public void ClearUnitBinding()
@@ -131,27 +129,34 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 	public string GetBoundPresetLabel()
 	{
-		if (m_BoundPresetState == null || m_PresetCatalog == null)
+		if (m_LoadoutCoordinator != null && m_BoundPresetState != null &&
+		    m_LoadoutCoordinator.TryGetPresetLabelForUnit(m_BoundPresetState, out string label))
+			return label;
+
+		if (m_PresetCatalog == null || m_BoundPresetState == null)
 			return string.Empty;
 
-		int index = m_PresetCatalog.ClampPresetIndex(m_BoundPresetState.PresetCatalogIndex);
-		return m_PresetCatalog.GetPresetLabel(index);
+		return m_PresetCatalog.GetPresetLabel(m_PresetCatalog.ClampPresetIndex(m_BoundPresetState.PresetCatalogIndex));
 	}
 
-	public void RefreshForBoundUnit()
+	public void RefreshPresetEditingUi()
 	{
 		RebuildPresetDropdownOptions();
 		RebuildArmorDropdownOptions();
 
-		if (m_BoundPresetState == null)
-			return;
+		int presetIndex = m_LoadoutCoordinator != null
+			? m_LoadoutCoordinator.EditingPresetCatalogIndex
+			: m_BoundPresetState != null
+				? m_BoundPresetState.PresetCatalogIndex
+				: 0;
+
+		if (m_PresetCatalog != null)
+			presetIndex = m_PresetCatalog.ClampPresetIndex(presetIndex);
+		else
+			presetIndex = Mathf.Clamp(presetIndex, 0, Mathf.Max(0, m_PresetSlotCount - 1));
 
 		if (m_PresetDropdown != null)
 		{
-			int presetIndex = m_PresetCatalog != null
-				? m_PresetCatalog.ClampPresetIndex(m_BoundPresetState.PresetCatalogIndex)
-				: Mathf.Clamp(m_BoundPresetState.PresetCatalogIndex, 0, Mathf.Max(0, m_PresetSlotCount - 1));
-
 			m_SuppressPresetDropdownEvent = true;
 			m_PresetDropdown.SetValueWithoutNotify(presetIndex);
 			m_PresetDropdown.RefreshShownValue();
@@ -160,12 +165,16 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		if (m_ArmorDropdown != null)
 		{
-			int armorIndex = m_PresetCatalog != null
-				? m_PresetCatalog.ClampArmorIndex(m_BoundPresetState.GetArmorForPreset(m_BoundPresetState.PresetCatalogIndex))
-				: Mathf.Clamp(
-					m_BoundPresetState.GetArmorForPreset(m_BoundPresetState.PresetCatalogIndex),
-					0,
-					Mathf.Max(0, m_ArmorOptionCount - 1));
+			int armorIndex = m_LoadoutCoordinator != null
+				? m_LoadoutCoordinator.GetActivePresetArmorIndex()
+				: m_BoundPresetState != null
+					? m_BoundPresetState.GetArmorForPreset(presetIndex)
+					: 0;
+
+			if (m_PresetCatalog != null)
+				armorIndex = m_PresetCatalog.ClampArmorIndex(armorIndex);
+			else
+				armorIndex = Mathf.Clamp(armorIndex, 0, Mathf.Max(0, m_ArmorOptionCount - 1));
 
 			m_SuppressArmorDropdownEvent = true;
 			m_ArmorDropdown.SetValueWithoutNotify(armorIndex);
@@ -176,6 +185,8 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_LoadoutCoordinator == null)
 			ApplyArmorVisualForBoundUnit();
 	}
+
+	public void RefreshForBoundUnit() => RefreshPresetEditingUi();
 	#endregion
 
 	#region Private Methods
@@ -273,7 +284,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 	private void HandleLanguageChanged()
 	{
-		RefreshForBoundUnit();
+		RefreshPresetEditingUi();
 	}
 
 	private void HandlePresetDropdownValueChanged(int _index)
@@ -297,7 +308,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		else
 			ApplyPresetForBoundUnitWithoutCoordinator(_index);
 
-		RefreshForBoundUnit();
+		RefreshPresetEditingUi();
 		PresetSelected?.Invoke(m_BoundPresetState, _index);
 	}
 
@@ -316,10 +327,12 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		else if (m_BoundPresetState != null)
 		{
 			m_BoundPresetState.SetArmorForActivePreset(_index);
+			MissionPrepLoadoutCoordinator.Instance?.PropagatePresetToAllUnitsWithCatalogIndex(
+				m_BoundPresetState.PresetCatalogIndex);
 			ApplyArmorVisualForBoundUnit();
 		}
 
-		RefreshForBoundUnit();
+		RefreshPresetEditingUi();
 		ArmorVisualSelected?.Invoke(m_BoundPresetState, _index);
 	}
 
