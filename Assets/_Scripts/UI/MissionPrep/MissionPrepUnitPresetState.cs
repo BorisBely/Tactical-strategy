@@ -47,6 +47,17 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 		m_PresetCatalogIndex = Mathf.Max(0, _index);
 	}
 
+	public void AdjustPresetCatalogIndexAfterDeletion(int _deletedIndex)
+	{
+		if (_deletedIndex < 0)
+			return;
+
+		if (m_PresetCatalogIndex == _deletedIndex)
+			m_PresetCatalogIndex = 0;
+		else if (m_PresetCatalogIndex > _deletedIndex)
+			m_PresetCatalogIndex--;
+	}
+
 	public int GetArmorForPreset(int _presetIndex)
 	{
 		MissionPrepSharedPresetStore store = ResolveStore();

@@ -9,12 +9,14 @@ using UnityEngine.UI;
 /// Смена брони сразу переключает визуал на <see cref="MissionPrepUnitArmorVisualController"/>.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(-100)]
 public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 {
 	#region Events
 	public event Action<MissionPrepUnitPresetState, int> PresetSelected;
 	public event Action<MissionPrepUnitPresetState, int> ArmorVisualSelected;
 	public event Action CreateNewPresetRequested;
+	public event Action PresetListChanged;
 	#endregion
 
 	#region Serialized Fields
@@ -43,9 +45,12 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		EnsurePresetDropdownType();
 		TryResolveArmorDropdownReference();
 		ApplyDropdownTextOnlyMode(m_PresetDropdown);
 		ApplyDropdownTextOnlyMode(m_ArmorDropdown);
+		EnsurePresetCaptionUi();
+		SyncPresetDropdownReferences();
 	}
 
 #if UNITY_EDITOR
@@ -88,7 +93,23 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Properties
+	public MissionPrepUnitPresetState BoundPresetState => m_BoundPresetState;
+	public int CreateNewPresetRowIndex => m_LastCreateNewPresetIndex;
+	#endregion
+
 	#region Public Methods
+	public bool TryGetLoadoutCoordinator(out MissionPrepLoadoutCoordinator _coordinator)
+	{
+		ResolveLoadoutCoordinatorReference();
+		_coordinator = m_LoadoutCoordinator;
+		return _coordinator != null;
+	}
+
+	public void SetPresetDropdown(TMP_Dropdown _dropdown)
+	{
+		m_PresetDropdown = _dropdown;
+	}
 	public void SetVisible(bool _visible)
 	{
 		gameObject.SetActive(_visible);
@@ -125,8 +146,6 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		m_BoundPresetState = null;
 	}
 
-	public MissionPrepUnitPresetState BoundPresetState => m_BoundPresetState;
-
 	public string GetBoundPresetLabel()
 	{
 		if (m_LoadoutCoordinator != null && m_BoundPresetState != null &&
@@ -150,7 +169,10 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 				? m_BoundPresetState.PresetCatalogIndex
 				: 0;
 
-		if (m_PresetCatalog != null)
+		ResolveLoadoutCoordinatorReference();
+		if (m_LoadoutCoordinator != null)
+			presetIndex = m_LoadoutCoordinator.ClampPresetCatalogIndex(presetIndex);
+		else if (m_PresetCatalog != null)
 			presetIndex = m_PresetCatalog.ClampPresetIndex(presetIndex);
 		else
 			presetIndex = Mathf.Clamp(presetIndex, 0, Mathf.Max(0, m_PresetSlotCount - 1));
@@ -184,9 +206,19 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		if (m_LoadoutCoordinator == null)
 			ApplyArmorVisualForBoundUnit();
+
+		PresetListChanged?.Invoke();
 	}
 
 	public void RefreshForBoundUnit() => RefreshPresetEditingUi();
+
+	public void NotifyPresetCreated()
+	{
+		RefreshPresetEditingUi();
+
+		MissionPrepPresetCaptionUi captionUi = GetComponent<MissionPrepPresetCaptionUi>();
+		captionUi?.BeginRenameCaption();
+	}
 	#endregion
 
 	#region Private Methods
@@ -218,23 +250,21 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_PresetDropdown == null)
 			return;
 
+		ResolveLoadoutCoordinatorReference();
+
 		m_SuppressPresetDropdownEvent = true;
 		m_PresetDropdown.ClearOptions();
 
 		List<TMP_Dropdown.OptionData> options = new List<TMP_Dropdown.OptionData>();
+		int presetCount = ResolvePresetSlotCount();
 
-		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+		for (int i = 0; i < presetCount; i++)
 		{
-			m_PresetSlotCount = m_PresetCatalog.PresetCount;
-			for (int i = 0; i < m_PresetCatalog.PresetCount; i++)
-				options.Add(new TMP_Dropdown.OptionData(m_PresetCatalog.GetPresetLabel(i)));
+			string label = ResolvePresetLabel(i);
+			options.Add(new TMP_Dropdown.OptionData(label));
 		}
-		else
-		{
-			m_PresetSlotCount = m_FallbackStubPresetRows;
-			for (int i = 0; i < m_FallbackStubPresetRows; i++)
-				options.Add(new TMP_Dropdown.OptionData($"Preset stub {i + 1}"));
-		}
+
+		m_PresetSlotCount = presetCount;
 
 		if (m_AppendCreateNewPresetEntry)
 		{
@@ -249,6 +279,28 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			m_PresetDropdown.AddOptions(options);
 
 		m_SuppressPresetDropdownEvent = false;
+	}
+
+	private int ResolvePresetSlotCount()
+	{
+		if (m_LoadoutCoordinator != null)
+			return m_LoadoutCoordinator.GetPresetSlotCount();
+
+		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+			return m_PresetCatalog.PresetCount;
+
+		return m_FallbackStubPresetRows;
+	}
+
+	private string ResolvePresetLabel(int _presetIndex)
+	{
+		if (m_LoadoutCoordinator != null && m_LoadoutCoordinator.TryGetPresetLabel(_presetIndex, out string label))
+			return label;
+
+		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+			return m_PresetCatalog.GetPresetLabel(_presetIndex);
+
+		return $"Preset stub {_presetIndex + 1}";
 	}
 
 	private void RebuildArmorDropdownOptions()
@@ -294,6 +346,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		if (m_LastCreateNewPresetIndex >= 0 && _index == m_LastCreateNewPresetIndex)
 		{
+			RestorePresetDropdownSelection();
 			CreateNewPresetRequested?.Invoke();
 			return;
 		}
@@ -417,6 +470,51 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		_image.sprite = null;
 		_image.enabled = false;
+	}
+
+	private void RestorePresetDropdownSelection()
+	{
+		if (m_PresetDropdown == null)
+			return;
+
+		int presetIndex = m_LoadoutCoordinator != null
+			? m_LoadoutCoordinator.EditingPresetCatalogIndex
+			: m_BoundPresetState != null
+				? m_BoundPresetState.PresetCatalogIndex
+				: 0;
+
+		if (m_LoadoutCoordinator != null)
+			presetIndex = m_LoadoutCoordinator.ClampPresetCatalogIndex(presetIndex);
+		else if (m_PresetCatalog != null)
+			presetIndex = m_PresetCatalog.ClampPresetIndex(presetIndex);
+		else
+			presetIndex = Mathf.Clamp(presetIndex, 0, Mathf.Max(0, m_PresetSlotCount - 1));
+
+		m_SuppressPresetDropdownEvent = true;
+		m_PresetDropdown.SetValueWithoutNotify(presetIndex);
+		m_PresetDropdown.RefreshShownValue();
+		m_SuppressPresetDropdownEvent = false;
+	}
+
+	private void EnsurePresetCaptionUi()
+	{
+		if (m_PresetDropdown == null)
+			return;
+
+		if (GetComponent<MissionPrepPresetCaptionUi>() == null)
+			gameObject.AddComponent<MissionPrepPresetCaptionUi>();
+	}
+
+	private void EnsurePresetDropdownType()
+	{
+		MissionPrepPresetDropdownUtility.EnsureOn(gameObject, ref m_PresetDropdown);
+	}
+
+	private void SyncPresetDropdownReferences()
+	{
+		MissionPrepPresetCaptionUi captionUi = GetComponent<MissionPrepPresetCaptionUi>();
+		if (captionUi != null && m_PresetDropdown != null)
+			captionUi.SetPresetDropdown(m_PresetDropdown);
 	}
 	#endregion
 }

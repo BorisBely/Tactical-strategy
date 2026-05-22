@@ -58,6 +58,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			m_EquipmentPanel.PresetSelected += HandlePresetSelected;
 			m_EquipmentPanel.ArmorVisualSelected += HandleArmorVisualSelected;
 			m_EquipmentPanel.CreateNewPresetRequested += HandleCreateNewPresetRequested;
+			m_EquipmentPanel.PresetListChanged += HandlePresetListChanged;
 		}
 
 		if (m_HideEquipmentUntilSelection && m_EquipmentPanel != null)
@@ -84,6 +85,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			m_EquipmentPanel.PresetSelected -= HandlePresetSelected;
 			m_EquipmentPanel.ArmorVisualSelected -= HandleArmorVisualSelected;
 			m_EquipmentPanel.CreateNewPresetRequested -= HandleCreateNewPresetRequested;
+			m_EquipmentPanel.PresetListChanged -= HandlePresetListChanged;
 		}
 
 		if (m_LoadoutCoordinator != null)
@@ -122,10 +124,17 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		if (!_unitRoot.TryGetComponent(out MissionPrepUnitPresetState state))
 			return m_PresetCatalog != null ? m_PresetCatalog.GetPresetLabel(0) : string.Empty;
 
+		if (m_LoadoutCoordinator != null &&
+		    m_LoadoutCoordinator.TryGetPresetLabelForUnit(state, out string label))
+			return label;
+
 		if (m_PresetCatalog == null)
 			return string.Empty;
 
-		return m_PresetCatalog.GetPresetLabel(m_PresetCatalog.ClampPresetIndex(state.PresetCatalogIndex));
+		return m_PresetCatalog.GetPresetLabel(
+			m_LoadoutCoordinator != null
+				? m_LoadoutCoordinator.ClampPresetCatalogIndex(state.PresetCatalogIndex)
+				: m_PresetCatalog.ClampPresetIndex(state.PresetCatalogIndex));
 	}
 
 	public void SetInventoryVisible(bool _visible)
@@ -162,6 +171,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			m_LoadoutCoordinator = gameObject.AddComponent<MissionPrepLoadoutCoordinator>();
 
 		MissionPrepSharedPresetStore.GetOrCreate(this);
+		MissionPrepRuntimePresetRegistry.GetOrCreate(this);
 	}
 
 	private void WireLoadoutCoordinator()
@@ -252,9 +262,19 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			RefreshUnitCellPresetLabel(m_UnitList.GetUnitCell(i));
 	}
 
+	private void HandlePresetListChanged()
+	{
+		RefreshAllUnitCellPresetLabels();
+		RefreshInventoryPanel();
+	}
+
 	private void HandleCreateNewPresetRequested()
 	{
-		// Открыть поток создания пресета.
+		if (m_EquipmentPanel == null || m_LoadoutCoordinator == null)
+			return;
+
+		if (m_LoadoutCoordinator.TryCreateUserPreset(string.Empty, out _))
+			m_EquipmentPanel.NotifyPresetCreated();
 	}
 
 	private void TryResolvePresetInventoryPanelReference()

@@ -28,6 +28,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private MissionPrepUnitPresetState m_BoundPresetState;
 	private CharacterInventory m_BoundInventory;
 	private int m_EditingPresetCatalogIndex;
+	private MissionPrepRuntimePresetRegistry m_RuntimePresetRegistry;
 	private MissionPrepModificationUiState m_ModificationUiState;
 	private readonly List<InventorySlotRuntimeData> m_AvailableSlotBuffer = new List<InventorySlotRuntimeData>();
 	private readonly List<ItemModificationSlotDescriptor> m_ModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
@@ -63,6 +64,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	{
 		s_Instance = this;
 		EnsureSharedPresetStore();
+		EnsureRuntimePresetRegistry();
 		m_EditingPresetCatalogIndex = Mathf.Max(0, m_DefaultEditingPresetIndex);
 		MissionPrepModificationOutsideClick.EnsureOn(this);
 	}
@@ -125,9 +127,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		EnsureSharedPresetStoreInitialized();
 
 		int index = _initialPresetIndex >= 0 ? _initialPresetIndex : m_EditingPresetCatalogIndex;
-		m_EditingPresetCatalogIndex = m_PresetCatalog != null
-			? m_PresetCatalog.ClampPresetIndex(index)
-			: Mathf.Max(0, index);
+		m_EditingPresetCatalogIndex = ClampPresetCatalogIndex(index);
 
 		m_SharedPresetStore.EnsureSnapshotDefaultsFromCatalog(m_EditingPresetCatalogIndex, m_PresetCatalog);
 		RepaintInventoryPanel();
@@ -136,9 +136,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public void SetEditingPresetCatalogIndex(int _presetIndex)
 	{
-		int clamped = m_PresetCatalog != null
-			? m_PresetCatalog.ClampPresetIndex(_presetIndex)
-			: Mathf.Max(0, _presetIndex);
+		int clamped = ClampPresetCatalogIndex(_presetIndex);
 
 		m_EditingPresetCatalogIndex = clamped;
 		m_SharedPresetStore?.EnsureSnapshotDefaultsFromCatalog(clamped, m_PresetCatalog);
@@ -161,9 +159,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		if (m_BoundPresetState != null)
 		{
-			m_EditingPresetCatalogIndex = m_PresetCatalog != null
-				? m_PresetCatalog.ClampPresetIndex(m_BoundPresetState.PresetCatalogIndex)
-				: m_BoundPresetState.PresetCatalogIndex;
+			m_EditingPresetCatalogIndex = ClampPresetCatalogIndex(m_BoundPresetState.PresetCatalogIndex);
 
 			m_BoundPresetState.EnsureSnapshotDefaultsFromCatalog(m_EditingPresetCatalogIndex, m_PresetCatalog);
 			ApplyUnitAssignedPresetToRuntime();
@@ -184,9 +180,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	/// <summary>Смена пресета в дропдауне: общий снимок + назначение выбранному юниту (если есть).</summary>
 	public void SwitchToPreset(int _newPresetIndex)
 	{
-		int clamped = m_PresetCatalog != null
-			? m_PresetCatalog.ClampPresetIndex(_newPresetIndex)
-			: Mathf.Max(0, _newPresetIndex);
+		int clamped = ClampPresetCatalogIndex(_newPresetIndex);
 
 		m_EditingPresetCatalogIndex = clamped;
 		m_SharedPresetStore?.EnsureSnapshotDefaultsFromCatalog(clamped, m_PresetCatalog);
@@ -578,6 +572,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	public bool TryGetPresetLabel(int _presetIndex, out string _label)
 	{
 		_label = string.Empty;
+		EnsureRuntimePresetRegistry();
+
+		if (m_RuntimePresetRegistry != null)
+		{
+			_label = m_RuntimePresetRegistry.GetPresetDisplayName(_presetIndex, m_PresetCatalog);
+			return !string.IsNullOrEmpty(_label);
+		}
 
 		if (m_PresetCatalog == null)
 			return false;
@@ -592,6 +593,93 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			? m_SharedPresetStore.GetArmorForPreset(m_EditingPresetCatalogIndex)
 			: 0;
 	}
+
+	public MissionPrepRuntimePresetRegistry RuntimePresetRegistry => m_RuntimePresetRegistry;
+
+	public int GetPresetSlotCount()
+	{
+		if (m_RuntimePresetRegistry != null && m_RuntimePresetRegistry.TotalPresetCount > 0)
+			return m_RuntimePresetRegistry.TotalPresetCount;
+
+		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+			return m_PresetCatalog.PresetCount;
+
+		return 2;
+	}
+
+	public int ClampPresetCatalogIndex(int _index)
+	{
+		return Mathf.Clamp(_index, 0, Mathf.Max(0, GetPresetSlotCount() - 1));
+	}
+
+	public bool TryCreateUserPreset(string _proposedName, out int _newPresetIndex)
+	{
+		_newPresetIndex = -1;
+		EnsureRuntimePresetRegistry();
+		EnsureSharedPresetStore();
+		if (m_RuntimePresetRegistry == null || m_SharedPresetStore == null)
+			return false;
+
+		if (!m_RuntimePresetRegistry.TryCreateUserPreset(_proposedName, m_PresetCatalog, out _newPresetIndex, out _))
+			return false;
+
+		m_SharedPresetStore.AddEmptySnapshot();
+		SwitchToPreset(_newPresetIndex);
+		return true;
+	}
+
+	public bool TryRenameUserPreset(int _presetIndex, string _proposedName)
+	{
+		EnsureRuntimePresetRegistry();
+		if (m_RuntimePresetRegistry == null)
+			return false;
+
+		return m_RuntimePresetRegistry.TryRenameUserPreset(_presetIndex, _proposedName, m_PresetCatalog, out _);
+	}
+
+	public bool TryDeleteUserPreset(int _presetIndex)
+	{
+		EnsureRuntimePresetRegistry();
+		EnsureSharedPresetStore();
+		if (m_RuntimePresetRegistry == null || m_SharedPresetStore == null)
+			return false;
+
+		if (!m_RuntimePresetRegistry.CanDeletePreset(_presetIndex))
+			return false;
+
+		int clamped = Mathf.Clamp(_presetIndex, 0, GetPresetSlotCount() - 1);
+		if (m_EditingPresetCatalogIndex == clamped)
+		{
+			int fallbackIndex = clamped > 0 ? clamped - 1 : 0;
+			if (fallbackIndex >= clamped)
+				fallbackIndex = Mathf.Min(clamped + 1, GetPresetSlotCount() - 1);
+
+			m_EditingPresetCatalogIndex = fallbackIndex;
+		}
+		else if (m_EditingPresetCatalogIndex > clamped)
+			m_EditingPresetCatalogIndex--;
+
+		if (!m_RuntimePresetRegistry.TryDeleteUserPreset(clamped))
+			return false;
+
+		m_SharedPresetStore.RemoveSnapshotAt(clamped);
+		AdjustAllUnitsAfterPresetDeletion(clamped);
+		ClearModificationUiSelection();
+
+		if (m_BoundPresetState != null)
+		{
+			int presetCount = GetPresetSlotCount();
+			m_BoundPresetState.AdjustPresetCatalogIndexAfterDeletion(clamped);
+			m_BoundPresetState.SetActivePresetIndex(m_BoundPresetState.PresetCatalogIndex, presetCount);
+			ApplyUnitAssignedPresetToRuntime();
+		}
+
+		m_EditingPresetCatalogIndex = ClampPresetCatalogIndex(m_EditingPresetCatalogIndex);
+
+		RepaintInventoryPanel();
+		RepaintAvailableEquipmentPanel();
+		return true;
+	}
 	#endregion
 
 	#region Private Methods
@@ -601,14 +689,44 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			m_SharedPresetStore = MissionPrepSharedPresetStore.GetOrCreate(this);
 	}
 
+	private void EnsureRuntimePresetRegistry()
+	{
+		if (m_RuntimePresetRegistry == null)
+			m_RuntimePresetRegistry = MissionPrepRuntimePresetRegistry.GetOrCreate(this);
+
+		if (m_RuntimePresetRegistry != null)
+		{
+			int builtInCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0
+				? m_PresetCatalog.PresetCount
+				: 2;
+			m_RuntimePresetRegistry.ConfigureBuiltInPresetCount(builtInCount);
+		}
+	}
+
 	private void EnsureSharedPresetStoreInitialized()
 	{
 		EnsureSharedPresetStore();
+		EnsureRuntimePresetRegistry();
 		if (m_SharedPresetStore == null)
 			return;
 
 		m_SharedPresetStore.EnsurePresetSnapshots(GetPresetSlotCount());
 		m_SharedPresetStore.EnsureDefaultsFromCatalog(m_PresetCatalog);
+	}
+
+	private void AdjustAllUnitsAfterPresetDeletion(int _deletedIndex)
+	{
+		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
+		for (int i = 0; i < units.Length; i++)
+		{
+			MissionPrepUnitPresetState unit = units[i];
+			if (unit == null)
+				continue;
+
+			unit.AdjustPresetCatalogIndexAfterDeletion(_deletedIndex);
+		}
 	}
 
 	private void PropagatePresetToAllUnits(int _presetIndex, bool _refreshBoundUnitRuntime)
@@ -644,14 +762,6 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 				MissionPrepUnitArmorVisualController.GetOrCreate(unit.gameObject, armorIndex);
 			visual.ApplyArmorVisual(armorIndex);
 		}
-	}
-
-	private int GetPresetSlotCount()
-	{
-		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
-			return m_PresetCatalog.PresetCount;
-
-		return 2;
 	}
 
 	private void ApplyUnitAssignedPresetToRuntime()

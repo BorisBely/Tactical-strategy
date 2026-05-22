@@ -103,6 +103,19 @@ public sealed class MissionPrepSharedPresetStore : MonoBehaviour
 			m_PresetSnapshots.RemoveAt(i);
 	}
 
+	public void AddEmptySnapshot()
+	{
+		m_PresetSnapshots.Add(new MissionPrepPresetSnapshot());
+	}
+
+	public void RemoveSnapshotAt(int _presetIndex)
+	{
+		if (_presetIndex < 0 || _presetIndex >= m_PresetSnapshots.Count)
+			return;
+
+		m_PresetSnapshots.RemoveAt(_presetIndex);
+	}
+
 	public void SavePresetFromRuntime(int _presetIndex, CharacterInventory _inventory, int _armorVisualIndex)
 	{
 		EnsureSnapshotExists(_presetIndex);
@@ -123,10 +136,10 @@ public sealed class MissionPrepSharedPresetStore : MonoBehaviour
 		if (_catalog == null)
 			return;
 
-		int presetCount = _catalog.PresetCount > 0 ? _catalog.PresetCount : 2;
-		EnsurePresetSnapshots(presetCount);
+		int builtInCount = _catalog.PresetCount > 0 ? _catalog.PresetCount : 2;
+		EnsureSnapshotExists(builtInCount - 1);
 
-		for (int i = 0; i < m_PresetSnapshots.Count; i++)
+		for (int i = 0; i < builtInCount && i < m_PresetSnapshots.Count; i++)
 			EnsureSnapshotDefaultsFromCatalog(i, _catalog);
 	}
 
