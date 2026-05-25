@@ -33,6 +33,9 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 
 	/// <summary>Панель, с которой начали drag (ячейка во время переноса на canvas).</summary>
 	public InventoryPanelView SourceAvailablePanel => m_AvailablePanel;
+
+	/// <summary>Активный drag с панели доступного снаряжения (не хвост прошлого переноса).</summary>
+	public bool IsDraggingFromAvailable => m_Dragging;
 	#endregion
 
 	#region Unity Lifecycle
@@ -52,6 +55,31 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 	}
+
+	private void OnDisable()
+	{
+		if (!m_Dragging)
+			return;
+
+		m_Dragging = false;
+		if (m_CanvasGroup != null)
+			m_CanvasGroup.blocksRaycasts = true;
+
+		if (m_AvailableContentParent != null)
+		{
+			transform.SetParent(m_AvailableContentParent, false);
+			int max = m_AvailableContentParent.childCount - 1;
+			transform.SetSiblingIndex(Mathf.Clamp(m_AvailableSiblingIndex, 0, Mathf.Max(0, max)));
+		}
+
+		if (!m_SourceData.IsEmpty && m_Slot != null)
+			m_Slot.SetItem(m_SourceData);
+
+		MissionPrepModificationDragContext.ResetAfterDrag();
+		m_AvailablePanel = null;
+		m_AvailableContentParent = null;
+		m_DropAccepted = false;
+	}
 	#endregion
 
 	#region Public Methods
@@ -64,6 +92,10 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 	#region Drag Handlers
 	public void OnBeginDrag(PointerEventData eventData)
 	{
+		m_AvailablePanel = null;
+		m_AvailableContentParent = null;
+		m_Dragging = false;
+
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
@@ -129,13 +161,19 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 		if (!m_Dragging)
 			return;
 
+		bool wasDragging = m_Dragging;
 		m_Dragging = false;
 		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null &&
-		    !MissionPrepModificationDragContext.WasDropConsumed &&
-		    m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, GetDragCamera(eventData)))
-			m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
+		    !MissionPrepModificationDragContext.WasDropConsumed && wasDragging)
+		{
+			Camera cam = GetDragCamera(eventData);
+			if (m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToMainHand(m_Slot);
+			else if (m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
+		}
 
 		if (m_AvailableContentParent != null)
 		{
@@ -154,6 +192,7 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 		}
 
 		MissionPrepModificationDragContext.ResetAfterDrag();
+		m_AvailablePanel = null;
 		m_AvailableContentParent = null;
 		m_DropAccepted = false;
 	}

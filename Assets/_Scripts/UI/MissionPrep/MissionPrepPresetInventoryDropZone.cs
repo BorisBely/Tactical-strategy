@@ -42,10 +42,22 @@ public sealed class MissionPrepPresetInventoryDropZone : MonoBehaviour, IDropHan
 			return;
 		}
 
-		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag drag))
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) &&
+		    presetDrag.HasResolvedSlot)
+		{
+			if (m_Coordinator.TryAcceptPresetInventoryInternalDrag(presetDrag))
+				presetDrag.NotifyDropAccepted();
+			return;
+		}
+
+		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag availableDrag))
 			return;
 
-		m_Coordinator.TryAcceptAvailableDrag(drag);
+		if (!availableDrag.IsDraggingFromAvailable ||
+		    MissionPrepModificationDragContext.WasDropConsumed)
+			return;
+
+		m_Coordinator.TryAcceptAvailableDrag(availableDrag);
 	}
 	#endregion
 

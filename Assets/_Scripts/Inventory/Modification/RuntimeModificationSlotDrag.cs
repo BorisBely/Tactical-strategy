@@ -2,19 +2,15 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>
-/// Перетаскивание установленной модификации из inline-слота оружия.
-/// Сброс в инвентарь пресета возвращает предмет в сумку; сброс на доступное снаряжение только снимает мод.
-/// </summary>
 [DisallowMultipleComponent]
-[RequireComponent(typeof(MissionPrepModificationSlotView))]
-public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+[RequireComponent(typeof(RuntimeModificationSlotView))]
+public sealed class RuntimeModificationSlotDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
 	#region Private Fields
-	private static MissionPrepModificationSlotDrag s_ActiveDrag;
+	private static RuntimeModificationSlotDrag s_ActiveDrag;
 
-	private MissionPrepModificationSlotView m_SlotView;
-	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private RuntimeModificationSlotView m_SlotView;
+	private RuntimeInventoryModificationCoordinator m_Coordinator;
 	private InventorySlotView m_DragSlot;
 	private RectTransform m_DragRect;
 	private RectTransform m_SourceRect;
@@ -29,19 +25,21 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 	public ItemModificationSlotDescriptor SlotDescriptor => m_SlotView != null ? m_SlotView.Descriptor : default;
 	public bool WeaponIsMainHand => m_SlotView != null && m_SlotView.WeaponIsMainHand;
 	public int WeaponBagIndex => m_SlotView != null ? m_SlotView.WeaponBagIndex : -1;
+	public bool WeaponIsOnGroundPanel => m_SlotView != null && m_SlotView.WeaponIsOnGroundPanel;
+	public int WeaponGroundSlotIndex => m_SlotView != null ? m_SlotView.WeaponGroundSlotIndex : -1;
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
-		m_SlotView = GetComponent<MissionPrepModificationSlotView>();
+		m_SlotView = GetComponent<RuntimeModificationSlotView>();
 		m_SourceRect = transform as RectTransform;
 	}
 
 	private void OnEnable()
 	{
 		if (m_Coordinator == null)
-			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+			m_Coordinator = RuntimeInventoryModificationCoordinator.Instance;
 	}
 
 	private void OnDisable()
@@ -70,7 +68,7 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 	public void OnBeginDrag(PointerEventData eventData)
 	{
 		if (m_Coordinator == null)
-			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+			m_Coordinator = RuntimeInventoryModificationCoordinator.Instance;
 
 		if (m_Coordinator == null || m_SlotView == null || m_SourceRect == null || !m_SlotView.HasInstalledItem)
 			return;
@@ -78,15 +76,15 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 		if (!m_SlotView.TryGetInstalledItem(out InventorySlotRuntimeData installedItem))
 			return;
 
-		InventoryPanelView presetPanel = m_Coordinator.PresetInventoryPanel;
-		if (presetPanel == null)
+		InventoryPanelView characterPanel = m_Coordinator.CharacterPanel;
+		if (characterPanel == null)
 			return;
 
 		m_RootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
 		if (m_RootCanvas == null)
 			return;
 
-		m_DragSlot = presetPanel.CreateDetachedDragVisual(
+		m_DragSlot = characterPanel.CreateDetachedDragVisual(
 			MissionPrepInventoryCopyUtility.CloneSlot(installedItem),
 			m_RootCanvas.transform);
 		if (m_DragSlot == null)
@@ -99,7 +97,7 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 			return;
 		}
 
-		MissionPrepModificationDragContext.BeginModificationSlot(
+		RuntimeInventoryModificationDragContext.BeginModificationSlot(
 			m_SlotView.Descriptor,
 			MissionPrepInventoryCopyUtility.CloneSlot(installedItem),
 			m_SlotView.WeaponIsMainHand,
@@ -141,13 +139,13 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 		if (!m_Dragging)
 			return;
 
-		if (!m_DropAccepted && m_Coordinator != null && !MissionPrepModificationDragContext.WasDropConsumed)
+		if (!m_DropAccepted && m_Coordinator != null && !RuntimeInventoryModificationDragContext.WasDropConsumed)
 		{
 			Camera cam = GetDragCamera(eventData);
-			if (m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam))
-				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToPreset(this);
-			else if (m_Coordinator.IsScreenPointOverAvailableEquipmentPanel(eventData.position, cam))
-				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToAvailable(this);
+			if (m_Coordinator.IsScreenPointOverCharacterPanel(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToCharacterBag(this);
+			else if (m_Coordinator.IsScreenPointOverGroundPanel(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToGround(this);
 		}
 
 		FinishDragVisualCleanup();
@@ -189,7 +187,7 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 			s_ActiveDrag = null;
 
 		DestroyDragSlot();
-		MissionPrepModificationDragContext.ResetAfterDrag();
+		RuntimeInventoryModificationDragContext.ResetAfterDrag();
 	}
 
 	private void DestroyDragSlot()
@@ -197,8 +195,8 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 		if (!Application.isPlaying || m_DragSlot == null)
 			return;
 
-		Transform panelRoot = m_Coordinator != null && m_Coordinator.PresetInventoryPanel != null
-			? m_Coordinator.PresetInventoryPanel.transform
+		Transform panelRoot = m_Coordinator != null && m_Coordinator.CharacterPanel != null
+			? m_Coordinator.CharacterPanel.transform
 			: transform;
 
 		EditorSelectionGuard.DestroyRuntimeSpawnedSlot(m_DragSlot.gameObject, panelRoot);

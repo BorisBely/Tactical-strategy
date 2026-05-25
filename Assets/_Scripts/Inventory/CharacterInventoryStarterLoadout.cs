@@ -25,6 +25,8 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 	[SerializeField] private AmmoDefinition m_AmmoForMagazines;
 	[Tooltip("Положить столько заряженных магазинов в сумку (не считая магазин, вставляемый в оружие).")]
 	[SerializeField, Min(0)] private int m_SpareLoadedMagazinesInBag = 2;
+	[Tooltip("Положить столько пустых магазинов в сумку для ручной зарядки.")]
+	[SerializeField, Min(0)] private int m_SpareEmptyMagazinesInBag;
 	[Tooltip("Вставить один заряженный магазин в оружие при старте.")]
 	[SerializeField] private bool m_LoadFirstMagazineIntoWeapon = true;
 	[Tooltip("-1 = заполнить по вместимости MagazineDefinition.")]
@@ -112,6 +114,12 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 		{
 			for (int i = 0; i < m_SpareLoadedMagazinesInBag; i++)
 				m_Inventory.TryAdd(BuildLoadedMagazineSlot(rounds));
+		}
+
+		if (m_MagazineItem != null && m_MagazineItem.MagazineDefinition != null)
+		{
+			for (int i = 0; i < m_SpareEmptyMagazinesInBag; i++)
+				m_Inventory.TryAdd(InventorySlotRuntimeData.FromDefinition(m_MagazineItem));
 		}
 
 		m_Inventory.RestoreAfterFailedDrop(true, weaponSlot);

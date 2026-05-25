@@ -96,8 +96,27 @@ public class WorldPickupItem : MonoBehaviour
 	public void ConfigureForDroppedFromInventory(InventorySlotRuntimeData _data)
 	{
 		m_Definition = _data.Definition;
-		m_InstanceState = _data.InstanceState ?? ItemInstanceState.CreateForDefinition(_data.Definition);
+		m_InstanceState = _data.InstanceState != null
+			? MissionPrepInventoryCopyUtility.CloneInstanceState(_data.InstanceState)
+			: ItemInstanceState.CreateForDefinition(_data.Definition);
 		m_ListedInGroundUi = false;
+		RefreshVisualState();
+	}
+
+	/// <summary>Записать изменения из UI «земля» (модули, магазин и т.д.) в состояние лута в мире.</summary>
+	public void ApplyInventorySlotData(InventorySlotRuntimeData _data)
+	{
+		if (_data.IsEmpty)
+			return;
+
+		if (_data.Definition != null)
+			m_Definition = _data.Definition;
+
+		if (_data.InstanceState != null)
+			m_InstanceState = MissionPrepInventoryCopyUtility.CloneInstanceState(_data.InstanceState);
+		else if (m_Definition != null)
+			m_InstanceState = ItemInstanceState.CreateForDefinition(m_Definition);
+
 		RefreshVisualState();
 	}
 

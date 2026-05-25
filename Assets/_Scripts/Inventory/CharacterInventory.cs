@@ -147,7 +147,72 @@ public class CharacterInventory : MonoBehaviour
 		if (_panel == null)
 			return;
 
+		if (Application.isPlaying)
+		{
+			RuntimeInventoryModificationCoordinator runtimeCoordinator = RuntimeInventoryModificationCoordinator.Instance;
+			InventoryPanelView characterPanel = InventoryScreenBindings.Instance != null
+				? InventoryScreenBindings.Instance.CharacterInventoryPanel
+				: null;
+			if (runtimeCoordinator != null && characterPanel == _panel &&
+			    runtimeCoordinator.TryRepaintCharacterAndGroundPanels(this))
+				return;
+		}
+
 		_panel.RepaintFromCharacterInventory(this);
+	}
+
+	public bool TryGetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _slot)
+	{
+		if (_isMainHandEquipmentSlot)
+		{
+			_slot = m_MainHandEquipment;
+			return !_slot.IsEmpty;
+		}
+
+		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+		{
+			_slot = default;
+			return false;
+		}
+
+		_slot = m_BagItems[_bagIndex];
+		return !_slot.IsEmpty;
+	}
+
+	public bool TrySetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, InventorySlotRuntimeData _slot)
+	{
+		if (_slot.IsEmpty)
+			return false;
+
+		EnsureSlotHasInstanceState(ref _slot);
+
+		if (_isMainHandEquipmentSlot)
+		{
+			m_MainHandEquipment = _slot;
+			return true;
+		}
+
+		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		m_BagItems[_bagIndex] = _slot;
+		return true;
+	}
+
+	public bool TryRemoveInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _removedSlot)
+	{
+		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _bagIndex, out _removedSlot))
+			return false;
+
+		if (_isMainHandEquipmentSlot)
+		{
+			m_MainHandEquipment = default;
+			ClearUnitEquipmentVisual();
+			return true;
+		}
+
+		m_BagItems.RemoveAt(_bagIndex);
+		return true;
 	}
 
 	public void GetDropWorldPose(out Vector3 _position, out Quaternion _rotation)

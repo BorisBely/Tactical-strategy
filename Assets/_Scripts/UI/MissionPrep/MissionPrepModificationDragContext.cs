@@ -5,7 +5,10 @@ public enum MissionPrepModificationDragSourceKind
 	None = 0,
 	AvailableCatalog = 1,
 	PresetBag = 2,
-	ModificationSlot = 3
+	ModificationSlot = 3,
+	PresetMainHandWeapon = 4,
+	PresetBagWeapon = 5,
+	AvailableWeapon = 6
 }
 
 public readonly struct MissionPrepModificationDragPayload
@@ -60,7 +63,7 @@ public static class MissionPrepModificationDragContext
 	public static void BeginAvailable(InventorySlotRuntimeData _item)
 	{
 		Begin(new MissionPrepModificationDragPayload(
-			MissionPrepModificationDragSourceKind.AvailableCatalog,
+			ResolveAvailableSourceKind(_item),
 			_item,
 			_isPresetMainHand: false,
 			_presetBagIndex: -1));
@@ -68,11 +71,11 @@ public static class MissionPrepModificationDragContext
 
 	public static void BeginPreset(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex)
 	{
-		MissionPrepModificationDragSourceKind sourceKind = !_isMainHand && ItemModificationUtility.IsModificationItem(_item)
-			? MissionPrepModificationDragSourceKind.PresetBag
-			: MissionPrepModificationDragSourceKind.None;
-
-		Begin(new MissionPrepModificationDragPayload(sourceKind, _item, _isMainHand, _bagIndex));
+		Begin(new MissionPrepModificationDragPayload(
+			ResolvePresetSourceKind(_item, _isMainHand),
+			_item,
+			_isMainHand,
+			_bagIndex));
 	}
 
 	public static void BeginModificationSlot(
@@ -107,8 +110,12 @@ public static class MissionPrepModificationDragContext
 
 	public static void ResetAfterDrag()
 	{
+		bool hadPayload = s_Current.HasItem;
 		s_Current = default;
 		s_DropConsumed = false;
+
+		if (hadPayload)
+			Changed?.Invoke();
 	}
 	#endregion
 
@@ -116,11 +123,83 @@ public static class MissionPrepModificationDragContext
 	private static void Begin(MissionPrepModificationDragPayload _payload)
 	{
 		s_DropConsumed = false;
-		bool valid = _payload.SourceKind == MissionPrepModificationDragSourceKind.ModificationSlot
-			? _payload.HasItem
-			: ItemModificationUtility.IsModificationItem(_payload.Item);
-		s_Current = valid ? _payload : default;
+		s_Current = IsPayloadValid(_payload) ? _payload : default;
 		Changed?.Invoke();
+	}
+
+	private static MissionPrepModificationDragSourceKind ResolveAvailableSourceKind(InventorySlotRuntimeData _item)
+	{
+		if (ItemModificationUtility.IsModificationItem(_item))
+			return MissionPrepModificationDragSourceKind.AvailableCatalog;
+
+		if (MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item))
+			return MissionPrepModificationDragSourceKind.AvailableWeapon;
+
+		return MissionPrepModificationDragSourceKind.None;
+	}
+
+	private static MissionPrepModificationDragSourceKind ResolvePresetSourceKind(InventorySlotRuntimeData _item, bool _isMainHand)
+	{
+		if (_isMainHand)
+			return MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item)
+				? MissionPrepModificationDragSourceKind.PresetMainHandWeapon
+				: MissionPrepModificationDragSourceKind.None;
+
+		if (ItemModificationUtility.IsModificationItem(_item))
+			return MissionPrepModificationDragSourceKind.PresetBag;
+
+		if (MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item))
+			return MissionPrepModificationDragSourceKind.PresetBagWeapon;
+
+		return MissionPrepModificationDragSourceKind.None;
+	}
+
+	private static bool IsPayloadValid(MissionPrepModificationDragPayload _payload)
+	{
+		if (!_payload.HasItem)
+			return false;
+
+		switch (_payload.SourceKind)
+		{
+			case MissionPrepModificationDragSourceKind.ModificationSlot:
+			case MissionPrepModificationDragSourceKind.PresetMainHandWeapon:
+				return true;
+			case MissionPrepModificationDragSourceKind.PresetBag:
+			case MissionPrepModificationDragSourceKind.AvailableCatalog:
+				return ItemModificationUtility.IsModificationItem(_payload.Item);
+			case MissionPrepModificationDragSourceKind.PresetBagWeapon:
+			case MissionPrepModificationDragSourceKind.AvailableWeapon:
+				return MissionPrepWeaponEquipUtility.CanEquipToMainHand(_payload.Item);
+			default:
+				return false;
+		}
+	}
+	#endregion
+}
+
+/// <summary>
+/// Проверки для переноса оружия в слот основной руки пресета.
+/// </summary>
+public static class MissionPrepWeaponEquipUtility
+{
+	#region Public Methods
+	public static bool CanEquipToMainHand(InventorySlotRuntimeData _item)
+	{
+		if (_item.IsEmpty || _item.Definition == null || !_item.Definition.IsEquipment)
+			return false;
+
+		if (_item.InstanceState != null &&
+		    _item.InstanceState.WeaponState != null &&
+		    _item.InstanceState.WeaponState.IsTerminallyBroken)
+			return false;
+
+		return true;
+	}
+
+	public static bool IsWeaponEquipDragSource(MissionPrepModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == MissionPrepModificationDragSourceKind.PresetBagWeapon ||
+		       _sourceKind == MissionPrepModificationDragSourceKind.AvailableWeapon;
 	}
 	#endregion
 }

@@ -23,6 +23,8 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		[SerializeField] private AmmoDefinition m_AmmoForMagazine;
 		[Tooltip("Сколько заряженных магазинов положить в сумку (не считая магазин в оружии).")]
 		[SerializeField, Min(0)] private int m_SpareLoadedMagazinesInBag;
+		[Tooltip("Сколько пустых магазинов положить в сумку для ручной зарядки.")]
+		[SerializeField, Min(0)] private int m_SpareEmptyMagazinesInBag;
 		[Tooltip("-1 = заполнить магазин по вместимости.")]
 		[SerializeField] private int m_RoundsPerMagazine = -1;
 		[SerializeField] private bool m_PutLoadedMagazineInWeapon;
@@ -35,6 +37,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		public ItemDefinition MagazineItem => m_MagazineItem;
 		public AmmoDefinition AmmoForMagazine => m_AmmoForMagazine;
 		public int SpareLoadedMagazinesInBag => m_SpareLoadedMagazinesInBag;
+		public int SpareEmptyMagazinesInBag => m_SpareEmptyMagazinesInBag;
 		public int RoundsPerMagazine => m_RoundsPerMagazine;
 		public bool PutLoadedMagazineInWeapon => m_PutLoadedMagazineInWeapon;
 		public ItemDefinition[] AmmoBoxItems => m_AmmoBoxItems;

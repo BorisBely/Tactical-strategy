@@ -67,6 +67,10 @@ public class InventoryPickupZone : MonoBehaviour
 		}
 
 		groundPanel.RebuildContentLayout();
+
+		RuntimeInventoryModificationCoordinator modificationCoordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (modificationCoordinator != null)
+			modificationCoordinator.OnGroundPanelRepopulated();
 	}
 	#endregion
 
@@ -154,6 +158,8 @@ public class InventoryPickupZone : MonoBehaviour
 		}
 
 		pickup.RegisterListedInGroundUi();
+		groundPanel.RebuildContentLayout();
+		RuntimeInventoryModificationCoordinator.Instance?.OnGroundPanelRepopulated();
 	}
 
 	private void OnTriggerExit(Collider _other)

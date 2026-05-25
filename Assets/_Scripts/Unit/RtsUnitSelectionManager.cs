@@ -246,20 +246,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		int containerIndex = m_CharacterInventoryPanel.GetInventorySlotContainerIndex(_slot);
-		if (containerIndex < 0)
+		int slotIndex = m_CharacterInventoryPanel.GetInventorySlotListIndex(_slot);
+		if (slotIndex < 0)
 		{
 			Debug.Log(
-				$"{nameof(TryResolveCharacterInventorySlot)}: GetInventorySlotContainerIndex < 0 (слот не прямой ребёнок Content / Slots Container?).");
+				$"{nameof(TryResolveCharacterInventorySlot)}: GetInventorySlotListIndex < 0 (слот не найден среди InventorySlotView).");
 			return false;
 		}
 
 		int lead = m_CharacterInventoryPanel.LeadingEquipmentSlotCount;
-		if (containerIndex < lead)
+		if (slotIndex < lead)
 		{
-			if (containerIndex != 0)
+			if (slotIndex != 0)
 			{
-				Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: containerIndex={containerIndex} < lead={lead}, но не 0 — не поддерживается.");
+				Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но не 0 — не поддерживается.");
 				return false;
 			}
 
@@ -273,11 +273,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return true;
 		}
 
-		_bagIndex = containerIndex - lead;
+		_bagIndex = slotIndex - lead;
 		if (_bagIndex < 0 || _bagIndex >= _inventory.BagCount)
 		{
 			Debug.Log(
-				$"{nameof(TryResolveCharacterInventorySlot)}: несовпадение UI и данных: containerIndex={containerIndex}, lead={lead}, bagIndex={_bagIndex}, BagCount={_inventory.BagCount}. Проверь Repaint и LeadingEquipmentSlotCount.");
+				$"{nameof(TryResolveCharacterInventorySlot)}: несовпадение UI и данных: slotIndex={slotIndex}, lead={lead}, bagIndex={_bagIndex}, BagCount={_inventory.BagCount}. Проверь Repaint и LeadingEquipmentSlotCount.");
 			return false;
 		}
 
@@ -312,6 +312,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
 	}
 
@@ -858,18 +859,30 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_InventoryBindings == null)
 			return;
 
-		CharacterInventory inventory = null;
+		CharacterInventory inventory = TryGetActiveCharacterInventoryForUi();
+		m_InventoryBindings.SetActiveCharacterInventory(inventory);
+	}
+
+	/// <summary>Синхронизировать <see cref="InventoryScreenBindings.ActiveCharacterInventory"/> с текущим выделением RTS.</summary>
+	public void SyncActiveInventoryForUi()
+	{
+		SyncActiveInventoryToSelection();
+	}
+
+	public CharacterInventory TryGetActiveCharacterInventoryForUi()
+	{
 		for (int i = m_SelectedUnits.Count - 1; i >= 0; i--)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
 			if (unit == null)
 				continue;
-			inventory = unit.CharacterInventory;
+
+			CharacterInventory inventory = unit.CharacterInventory;
 			if (inventory != null)
-				break;
+				return inventory;
 		}
 
-		m_InventoryBindings.SetActiveCharacterInventory(inventory);
+		return null;
 	}
 
 	private static bool IsSlotOnPanel(InventorySlotView _slot, InventoryPanelView _panel)
@@ -1027,6 +1040,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			spawned.RegisterListedInGroundUi();
 
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
 	}
 

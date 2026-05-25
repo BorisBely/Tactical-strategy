@@ -77,3 +77,5 @@ __pycache__/
 *.pyc
 
 /_transcript_recovery/
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

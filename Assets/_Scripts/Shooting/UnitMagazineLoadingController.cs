@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -378,7 +379,18 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
-		LoadingStopped?.Invoke(stoppedBagIndex, _completedNaturally && hasAmmoAfterStop);
+
+		bool completedNaturally = _completedNaturally && hasAmmoAfterStop;
+		if (isActiveAndEnabled && gameObject.activeInHierarchy)
+			StartCoroutine(InvokeLoadingStoppedNextFrame(stoppedBagIndex, completedNaturally));
+		else
+			LoadingStopped?.Invoke(stoppedBagIndex, completedNaturally);
+	}
+
+	private IEnumerator InvokeLoadingStoppedNextFrame(int _bagIndex, bool _completedNaturally)
+	{
+		yield return null;
+		LoadingStopped?.Invoke(_bagIndex, _completedNaturally);
 	}
 
 	private void SyncAnimatorState()

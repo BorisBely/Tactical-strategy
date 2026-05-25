@@ -33,6 +33,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 	public bool HasResolvedSlot => m_HasResolvedSlot;
 	public bool IsMainHandSlot => m_IsMainHandSlot;
 	public int BagIndex => m_BagIndex;
+	public bool IsDraggingFromPreset => m_Dragging;
 	#endregion
 
 	#region Unity Lifecycle
@@ -52,6 +53,21 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 	}
+
+	private void OnDisable()
+	{
+		if (!m_Dragging)
+			return;
+
+		m_Dragging = false;
+		if (m_CanvasGroup != null)
+			m_CanvasGroup.blocksRaycasts = true;
+
+		MissionPrepModificationDragContext.ResetAfterDrag();
+		m_HasResolvedSlot = false;
+		m_DropAccepted = false;
+		m_PresetPanel = null;
+	}
 	#endregion
 
 	#region Public Methods
@@ -64,6 +80,12 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 	#region Drag Handlers
 	public void OnBeginDrag(PointerEventData eventData)
 	{
+		m_HasResolvedSlot = false;
+		m_DropAccepted = false;
+		m_IsMainHandSlot = false;
+		m_BagIndex = -1;
+		m_PresetPanel = null;
+
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
@@ -120,9 +142,19 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null && m_HasResolvedSlot &&
-		    !MissionPrepModificationDragContext.WasDropConsumed &&
-		    m_Coordinator.IsScreenPointOverAvailableEquipmentPanel(eventData.position, GetDragCamera(eventData)))
-			m_DropAccepted = m_Coordinator.TryRemovePresetInventorySlot(m_IsMainHandSlot, m_BagIndex);
+		    !MissionPrepModificationDragContext.WasDropConsumed)
+		{
+			Camera cam = GetDragCamera(eventData);
+			if (m_Coordinator.IsScreenPointOverAvailableEquipmentPanel(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryRemovePresetInventorySlot(m_IsMainHandSlot, m_BagIndex);
+			else if (!m_IsMainHandSlot &&
+			         m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryMovePresetBagItemToMainHand(m_BagIndex);
+			else if (m_IsMainHandSlot &&
+			         m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam) &&
+			         !m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryUnequipPresetMainHandToBag();
+		}
 
 		if (!m_DropAccepted && m_Coordinator != null && !MissionPrepModificationDragContext.WasDropConsumed)
 			m_Coordinator.RepaintInventoryPanel();
@@ -158,6 +190,9 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 
 	private void DestroyDraggedSlotVisual()
 	{
+		if (!Application.isPlaying)
+			return;
+
 		if (m_PresetPanel != null && m_Slot != null && m_Slot.IsRuntimeSpawned)
 			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(gameObject, m_PresetPanel.transform);
 		else

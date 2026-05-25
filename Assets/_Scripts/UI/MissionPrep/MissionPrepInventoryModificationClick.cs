@@ -72,6 +72,9 @@ public sealed class MissionPrepInventoryModificationClick : MonoBehaviour, IPoin
 		yield return new WaitForSecondsRealtime(c_SingleClickDelaySeconds);
 		m_PendingSingleClick = null;
 
+		if (!Application.isPlaying)
+			yield break;
+
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 

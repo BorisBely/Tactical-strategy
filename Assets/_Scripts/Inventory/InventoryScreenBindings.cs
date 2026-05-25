@@ -34,12 +34,19 @@ public class InventoryScreenBindings : MonoBehaviour
 	public static InventoryScreenBindings Instance => s_Instance;
 	#endregion
 
+	#region Private Fields
+	private bool m_PendingActiveCharacterPanelRefresh;
+	#endregion
+
 	#region Public Properties
 	public RtsUnitSelectionManager SelectionManager => m_SelectionManager != null ? m_SelectionManager : RtsUnitSelectionManager.Instance;
 	public InventoryPanelView GroundPanel => SelectionManager != null ? SelectionManager.GroundPanel : null;
 	public InventoryPanelView CharacterInventoryPanel =>
 		SelectionManager != null ? SelectionManager.CharacterInventoryPanel : null;
 	public CharacterInventory ActiveCharacterInventory => m_ActiveCharacterInventory;
+
+	/// <summary>Кэшированный или выбранный инвентарь для UI (drag, repaint).</summary>
+	public CharacterInventory GetActiveCharacterInventoryForUi() => ResolveActiveCharacterInventoryForUi();
 	public bool IsInventoryOpen =>
 		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
 	public bool IsHealthWindowOpen =>
@@ -49,7 +56,9 @@ public class InventoryScreenBindings : MonoBehaviour
 	#region Unity Lifecycle
 	private void Awake()
 	{
-		s_Instance = this;
+		if (!TryClaimSingletonInstance())
+			return;
+
 		if (m_SelectionManager == null)
 			m_SelectionManager = RtsUnitSelectionManager.Instance;
 		RefreshLocalizedTexts();
@@ -60,13 +69,24 @@ public class InventoryScreenBindings : MonoBehaviour
 		if (m_HealthStatusSlotPrefab != null && m_HealthStatusPanel != null)
 			m_HealthStatusPanel.SetRuntimeSlotPrefab(m_HealthStatusSlotPrefab);
 		ConfigureHealthWindowReadOnly();
+		EnsureRuntimeModificationCoordinator();
 		SetInventoryTitleVisible(IsInventoryOpen);
 		SetHealthTitleVisible(IsHealthWindowOpen);
 	}
 
 	private void Start()
 	{
+		ReconcileSingletonInstance();
 		RefreshActiveCharacterPanel();
+	}
+
+	private void LateUpdate()
+	{
+		if (!m_PendingActiveCharacterPanelRefresh)
+			return;
+
+		m_PendingActiveCharacterPanelRefresh = false;
+		RefreshActiveCharacterPanelImmediate();
 	}
 
 	private void Update()
@@ -105,7 +125,10 @@ public class InventoryScreenBindings : MonoBehaviour
 	public void SetSelectionManager(RtsUnitSelectionManager _selectionManager)
 	{
 		m_SelectionManager = _selectionManager;
+		RuntimeInventoryModificationCoordinator.Instance?.EnsureModificationUiHooks();
 		RefreshActiveCharacterPanel();
+		if (IsInventoryOpen)
+			RefreshGroundPanelForActiveCharacter();
 	}
 
 	/// <summary>При смене выбранного юнита: подставить его инвентарь и перерисовать UI.</summary>
@@ -113,31 +136,54 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		m_ActiveCharacterInventory = _inventory;
 		RefreshActiveCharacterPanel();
+		if (IsInventoryOpen)
+			RefreshGroundPanelForActiveCharacter();
 		if (IsHealthWindowOpen)
 			RefreshHealthPanel();
 	}
 
 	public void RefreshActiveCharacterPanel()
 	{
-		if (CharacterInventoryPanel == null)
+		m_PendingActiveCharacterPanelRefresh = true;
+	}
+
+	public void RefreshActiveCharacterPanelImmediate()
+	{
+		InventoryPanelView panel = CharacterInventoryPanel;
+		if (panel == null)
 			return;
 
-		if (m_ActiveCharacterInventory != null)
-			m_ActiveCharacterInventory.RepaintInventoryPanel(CharacterInventoryPanel);
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory != null)
+			inventory.RepaintInventoryPanel(panel);
 		else
-			CharacterInventoryPanel.ClearAllSlots();
+		{
+			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
+			panel.ClearAllSlots();
+		}
 	}
 
 	/// <summary>Полное обновление UI при открытии: рюкзак из <see cref="CharacterInventory"/>, «земля» из текущих пересечений <see cref="InventoryPickupZone"/>.</summary>
 	public void RefreshPanelsOnOpen()
 	{
-		RefreshActiveCharacterPanel();
+		SelectionManager?.SyncActiveInventoryForUi();
+		RefreshActiveCharacterPanelImmediate();
+		RuntimeInventoryModificationCoordinator.Instance?.EnsureModificationUiHooks();
+		RefreshGroundPanelForActiveCharacter();
+	}
 
+	/// <summary>Перестроить панель «земля» по <see cref="InventoryPickupZone"/> активного юнита.</summary>
+	public void RefreshGroundPanelForActiveCharacter()
+	{
 		InventoryPickupZone zone = FindPickupZoneOnActiveCharacter();
 		if (zone != null)
 			zone.RepopulateGroundPanelFromCurrentOverlaps();
 		else if (GroundPanel != null)
+		{
+			RuntimeInlineModificationBuilder.ClearAllRows(GroundPanel);
 			GroundPanel.ClearAllSlots();
+			RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
+		}
 	}
 
 	public void ToggleInventoryWindow()
@@ -153,13 +199,21 @@ public class InventoryScreenBindings : MonoBehaviour
 	public void SetInventoryWindowOpen(bool _open)
 	{
 		if (m_InventoryCanvasRoot == null)
+		{
+			Debug.LogWarning(
+				$"{nameof(InventoryScreenBindings)} on '{gameObject.name}' has no {nameof(m_InventoryCanvasRoot)} assigned; inventory window cannot open.",
+				this);
 			return;
+		}
 
 		if (_open && m_HealthStatusPanel != null && m_HealthStatusPanel.gameObject.activeSelf)
 		{
 			m_HealthStatusPanel.gameObject.SetActive(false);
 			SetHealthTitleVisible(false);
 		}
+
+		if (!_open)
+			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
 
 		m_InventoryCanvasRoot.SetActive(_open);
 		SetInventoryTitleVisible(_open);
@@ -246,9 +300,84 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	private InventoryPickupZone FindPickupZoneOnActiveCharacter()
 	{
-		if (m_ActiveCharacterInventory == null)
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory == null)
 			return null;
-		return m_ActiveCharacterInventory.GetComponentInChildren<InventoryPickupZone>(true);
+		return inventory.GetComponentInChildren<InventoryPickupZone>(true);
+	}
+
+	private CharacterInventory ResolveActiveCharacterInventoryForUi()
+	{
+		RtsUnitSelectionManager selectionManager = SelectionManager;
+		if (selectionManager != null)
+			return selectionManager.TryGetActiveCharacterInventoryForUi();
+
+		return m_ActiveCharacterInventory;
+	}
+
+	private bool TryClaimSingletonInstance()
+	{
+		if (!IsConfiguredForRuntimeUi())
+		{
+			enabled = false;
+			return false;
+		}
+
+		if (s_Instance == null)
+		{
+			s_Instance = this;
+			return true;
+		}
+
+		if (s_Instance == this)
+			return true;
+
+		if (!s_Instance.IsConfiguredForRuntimeUi())
+		{
+			s_Instance.enabled = false;
+			s_Instance = this;
+			return true;
+		}
+
+		Debug.LogWarning(
+			$"Duplicate configured {nameof(InventoryScreenBindings)} on '{gameObject.name}'. Keeping the first configured instance.",
+			s_Instance);
+		enabled = false;
+		return false;
+	}
+
+	private void ReconcileSingletonInstance()
+	{
+		if (!IsConfiguredForRuntimeUi())
+			return;
+
+		if (s_Instance == this)
+			return;
+
+		if (s_Instance == null || !s_Instance.IsConfiguredForRuntimeUi())
+		{
+			if (s_Instance != null)
+				s_Instance.enabled = false;
+			s_Instance = this;
+			enabled = true;
+		}
+	}
+
+	private bool IsConfiguredForRuntimeUi()
+	{
+		return m_InventoryCanvasRoot != null;
+	}
+
+	private void EnsureRuntimeModificationCoordinator()
+	{
+		if (RuntimeInventoryModificationCoordinator.Instance != null)
+			return;
+
+		if (!TryGetComponent(out RuntimeInventoryModificationCoordinator coordinator))
+			coordinator = gameObject.AddComponent<RuntimeInventoryModificationCoordinator>();
+
+		if (m_SelectionManager == null)
+			m_SelectionManager = RtsUnitSelectionManager.Instance;
 	}
 	#endregion
 }

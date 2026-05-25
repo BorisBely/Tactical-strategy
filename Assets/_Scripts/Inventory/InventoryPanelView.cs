@@ -138,8 +138,12 @@ public class InventoryPanelView : MonoBehaviour
 		if (_slot == null)
 			return;
 
+		RuntimeInlineModificationBuilder.ClearAllRowsImmediate(this);
+
 		if (_slot.IsRuntimeSpawned)
 		{
+			if (_slot.HasItem)
+				_slot.Clear();
 			m_Slots.Remove(_slot);
 			m_SpawnedSlots.Remove(_slot);
 			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(_slot.gameObject, transform);
@@ -147,6 +151,7 @@ public class InventoryPanelView : MonoBehaviour
 
 		RefreshSlotsFromHierarchy();
 		RebuildContentLayout();
+		RuntimeInventoryModificationCoordinator.Instance?.NotifyGroundListingRemoved();
 	}
 
 	/// <summary>Убрать строку «земли» для лута (выход из радиуса подбора и т.п.).</summary>
@@ -154,6 +159,9 @@ public class InventoryPanelView : MonoBehaviour
 	{
 		if (_pickup == null)
 			return false;
+
+		_pickup.ClearGroundUiListing();
+		RuntimeInlineModificationBuilder.ClearAllRowsImmediate(this);
 
 		RefreshSlotsFromHierarchy();
 		for (int i = 0; i < m_Slots.Count; i++)
@@ -164,10 +172,9 @@ public class InventoryPanelView : MonoBehaviour
 			if (slot.Data.WorldSource != _pickup)
 				continue;
 
-			_pickup.ClearGroundUiListing();
-
 			if (slot.IsRuntimeSpawned)
 			{
+				slot.Clear();
 				m_Slots.Remove(slot);
 				m_SpawnedSlots.Remove(slot);
 				EditorSelectionGuard.DestroyRuntimeSpawnedSlot(slot.gameObject, transform);
@@ -177,12 +184,12 @@ public class InventoryPanelView : MonoBehaviour
 
 			RefreshSlotsFromHierarchy();
 			RebuildContentLayout();
+			RuntimeInventoryModificationCoordinator.Instance?.NotifyGroundListingRemoved();
 			return true;
 		}
 
-		if (_pickup.IsListedInGroundUi)
-			_pickup.ClearGroundUiListing();
-
+		RebuildContentLayout();
+		RuntimeInventoryModificationCoordinator.Instance?.NotifyGroundListingRemoved();
 		return false;
 	}
 

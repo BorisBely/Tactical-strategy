@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>
 /// В редакторе при удалении UI-слотов <see cref="Object.Destroy"/> откладывается до конца кадра — инспектор успевает
 /// вызвать <c>Behaviour.enabled</c> на уже уничтоженном <see cref="UnityEngine.UI.Image"/> / <see cref="UnityEngine.UI.ScrollRect"/>.
-/// В Play Mode используем <see cref="Object.DestroyImmediate"/> и фильтрацию <see cref="UnityEditor.Selection.objects"/>.
+/// В Play Mode в редакторе используем отложенный <see cref="Object.Destroy"/> (не <see cref="Object.DestroyImmediate"/> —
+/// он запрещён в animation event, physics и других callback). Очистка Selection — через <c>delayCall</c>.
 /// </summary>
 public static class EditorSelectionGuard
 {
@@ -43,8 +44,9 @@ public static class EditorSelectionGuard
 		ClearHierarchySelectionIfUnderTransform(_inventoryPanelRoot);
 		if (Application.isPlaying)
 		{
-			Object.DestroyImmediate(_slotRoot);
-			SanitizeSelectionRemovingDestroyedObjects();
+			// DestroyImmediate запрещён в animation event / physics callbacks — только отложенный Destroy.
+			Object.Destroy(_slotRoot);
+			ScheduleSanitizeSelectionAfterDestroy();
 			return;
 		}
 

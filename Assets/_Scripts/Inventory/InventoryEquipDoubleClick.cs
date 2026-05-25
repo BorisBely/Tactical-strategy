@@ -47,6 +47,9 @@ public class InventoryEquipDoubleClick : MonoBehaviour, IPointerClickHandler
 		if (IsMissionPrepPresetInventorySlot())
 			return;
 
+		if (IsRuntimeGroundPanelSlot())
+			return;
+
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
 		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
 		if (bindings == null || selectionManager == null || m_Slot == null)
@@ -62,6 +65,15 @@ public class InventoryEquipDoubleClick : MonoBehaviour, IPointerClickHandler
 			return false;
 
 		return m_Slot.GetComponentInParent<InventoryPanelView>() == coordinator.PresetInventoryPanel;
+	}
+
+	private bool IsRuntimeGroundPanelSlot()
+	{
+		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
+		if (bindings == null || bindings.GroundPanel == null || m_Slot == null)
+			return false;
+
+		return m_Slot.GetComponentInParent<InventoryPanelView>() == bindings.GroundPanel;
 	}
 	#endregion
 }

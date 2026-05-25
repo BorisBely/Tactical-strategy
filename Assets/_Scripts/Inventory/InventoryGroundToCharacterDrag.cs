@@ -24,6 +24,7 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 	private bool m_Dragging;
 	private bool m_DropAccepted;
 	private Vector2 m_DragOffsetLocal;
+	private RuntimeInlineModificationDragHelper.DragAttachment m_ModDragAttachment;
 	#endregion
 
 	#region Public Properties
@@ -83,6 +84,9 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		if (m_RootCanvas == null)
 			return;
 
+		if (ItemModificationUtility.IsModificationItem(m_Slot.Data))
+			RuntimeInventoryModificationCoordinator.Instance?.TryBeginModificationDragFromGroundSlot(m_Slot);
+
 		m_GroundContentParent = transform.parent;
 		m_GroundSiblingIndex = transform.GetSiblingIndex();
 		m_GroundPanel.DetachSlotForDrag(m_Slot);
@@ -91,16 +95,10 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		m_DropAccepted = false;
 		m_CanvasGroup.blocksRaycasts = false;
 
-		transform.SetParent(m_RootCanvas.transform, true);
-		transform.SetAsLastSibling();
-
-		Camera cam = GetDragCamera(eventData);
-		RectTransform canvasRt = m_RootCanvas.transform as RectTransform;
-		if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-			    canvasRt, eventData.pressPosition, cam, out Vector2 pressLocal))
-			m_DragOffsetLocal = (Vector2)m_Rect.localPosition - pressLocal;
-		else
-			m_DragOffsetLocal = Vector2.zero;
+		m_ModDragAttachment = RuntimeInlineModificationDragHelper.Attach(
+			m_Slot, m_Rect, m_RootCanvas, m_GroundPanel);
+		m_DragOffsetLocal = RuntimeInlineModificationDragHelper.ComputeDragOffsetLocal(
+			m_ModDragAttachment, eventData, m_RootCanvas);
 
 		UpdateDragPosition(eventData);
 	}
@@ -121,37 +119,53 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		m_Dragging = false;
 		m_CanvasGroup.blocksRaycasts = true;
 
-		if (!m_DropAccepted && m_GroundContentParent != null)
-		{
-			transform.SetParent(m_GroundContentParent, false);
-			int max = m_GroundContentParent.childCount - 1;
-			transform.SetSiblingIndex(Mathf.Clamp(m_GroundSiblingIndex, 0, Mathf.Max(0, max)));
-			if (m_GroundPanel != null)
-				m_GroundPanel.RefreshSlotsFromHierarchy();
-		}
-		else if (m_DropAccepted && m_GroundPanel != null)
-			m_GroundPanel.RebuildContentLayout();
+		bool wasModificationDropConsumed = RuntimeInventoryModificationDragContext.WasDropConsumed;
 
+		if (wasModificationDropConsumed)
+		{
+			DestroyDraggedSlotVisual();
+		}
+		else if (!m_DropAccepted && m_GroundContentParent != null)
+		{
+			RuntimeInlineModificationDragHelper.RestoreToContent(m_ModDragAttachment, m_GroundPanel);
+		}
+		else if (m_DropAccepted)
+		{
+			RuntimeInlineModificationDragHelper.CleanupAfterDrop(m_ModDragAttachment);
+			if (m_GroundPanel != null)
+				m_GroundPanel.RebuildContentLayout();
+		}
+		else
+		{
+			RuntimeInlineModificationDragHelper.CleanupAfterDrop(m_ModDragAttachment);
+		}
+
+		m_ModDragAttachment = null;
 		m_DropAccepted = false;
 		m_GroundContentParent = null;
+		RuntimeInventoryModificationDragContext.ResetAfterDrag();
 	}
 	#endregion
 
 	#region Private Methods
 	private void UpdateDragPosition(PointerEventData eventData)
 	{
-		Camera cam = GetDragCamera(eventData);
-		RectTransform canvasRt = m_RootCanvas.transform as RectTransform;
-		if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-			    canvasRt, eventData.position, cam, out Vector2 pointerLocal))
-			m_Rect.localPosition = new Vector3(pointerLocal.x + m_DragOffsetLocal.x, pointerLocal.y + m_DragOffsetLocal.y, m_Rect.localPosition.z);
+		RuntimeInlineModificationDragHelper.UpdateDragPosition(
+			m_ModDragAttachment, eventData, m_RootCanvas, m_DragOffsetLocal);
 	}
 
-	private Camera GetDragCamera(PointerEventData eventData)
+	private void DestroyDraggedSlotVisual()
 	{
-		if (m_RootCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
-			return null;
-		return eventData.pressEventCamera != null ? eventData.pressEventCamera : m_RootCanvas.worldCamera;
+		if (!Application.isPlaying || m_Slot == null)
+			return;
+
+		RuntimeInlineModificationDragHelper.CleanupAfterDrop(m_ModDragAttachment);
+		m_ModDragAttachment = null;
+
+		if (m_GroundPanel != null && m_Slot.IsRuntimeSpawned)
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(gameObject, m_GroundPanel.transform);
+		else
+			Destroy(gameObject);
 	}
 	#endregion
 }

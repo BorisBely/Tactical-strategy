@@ -38,6 +38,12 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 				bagItems.Add(spareMagazine);
 		}
 
+		if (_entry.MagazineItem != null && _entry.MagazineItem.MagazineDefinition != null)
+		{
+			for (int i = 0; i < _entry.SpareEmptyMagazinesInBag; i++)
+				bagItems.Add(InventorySlotRuntimeData.FromDefinition(_entry.MagazineItem));
+		}
+
 		if (_entry.AmmoBoxItems != null)
 		{
 			for (int i = 0; i < _entry.AmmoBoxItems.Length; i++)

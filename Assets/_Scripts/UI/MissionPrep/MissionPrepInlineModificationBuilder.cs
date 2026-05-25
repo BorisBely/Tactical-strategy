@@ -7,7 +7,7 @@ public static class MissionPrepInlineModificationBuilder
 	#region Public Methods
 	public static void ClearAllRows(InventoryPanelView _panel)
 	{
-		if (_panel == null || _panel.SlotsContainerTransform == null)
+		if (!Application.isPlaying || _panel == null || _panel.SlotsContainerTransform == null)
 			return;
 
 		Transform container = _panel.SlotsContainerTransform;
@@ -17,6 +17,7 @@ public static class MissionPrepInlineModificationBuilder
 			if (child == null || child.GetComponent<MissionPrepModificationSlotView>() == null)
 				continue;
 
+			child.gameObject.SetActive(false);
 			Object.Destroy(child.gameObject);
 		}
 	}
@@ -66,6 +67,19 @@ public static class MissionPrepInlineModificationBuilder
 			if (rows[i] != null)
 				rows[i].RefreshHighlight();
 		}
+	}
+
+	public static void RefreshMainHandSlotHighlights(InventoryPanelView _panel)
+	{
+		if (_panel == null || _panel.LeadingEquipmentSlotCount <= 0)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = _panel.Slots;
+		if (slots.Count == 0 || slots[0] == null)
+			return;
+
+		MissionPrepMainHandEquipmentSlotView mainHandSlot = slots[0].GetComponent<MissionPrepMainHandEquipmentSlotView>();
+		mainHandSlot?.RefreshHighlight();
 	}
 	#endregion
 }

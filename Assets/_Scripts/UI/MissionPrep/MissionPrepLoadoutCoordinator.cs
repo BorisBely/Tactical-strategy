@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// Редактирование общих пресетов каталога и опциональный превью на выбранном юните.
@@ -77,6 +78,12 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void OnDisable()
 	{
 		MissionPrepModificationDragContext.Changed -= HandleModificationDragContextChanged;
+		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
+		MissionPrepModificationDragContext.ResetAfterDrag();
+		m_ModificationUiState = default;
+
+		if (!Application.isPlaying)
+			UiEventSystemTeardownUtility.ReleaseAllPointers();
 	}
 
 	private void OnDestroy()
@@ -238,11 +245,42 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		m_AvailableEquipmentCatalog.BuildSlotList(m_AvailableSlotBuffer);
 		m_AvailableEquipmentPanel.RepaintFromSlotList(m_AvailableSlotBuffer);
+		EnsureAvailableEquipmentDragComponents();
+		RefreshModificationCompatibilityHighlights();
+	}
+
+	private void EnsureAvailableEquipmentDragComponents()
+	{
+		if (m_AvailableEquipmentPanel == null)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_AvailableEquipmentPanel.Slots;
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null)
+				continue;
+
+			if (slot.GetComponent<MissionPrepAvailableToPresetDrag>() == null)
+				slot.gameObject.AddComponent<MissionPrepAvailableToPresetDrag>();
+
+			MissionPrepAvailableEquipmentSlotHighlightView highlight =
+				slot.GetComponent<MissionPrepAvailableEquipmentSlotHighlightView>();
+			if (highlight == null)
+				highlight = slot.gameObject.AddComponent<MissionPrepAvailableEquipmentSlotHighlightView>();
+
+			highlight.Bind(this);
+		}
 	}
 
 	public bool TryTransferAvailableSlotToPreset(InventorySlotView _slot)
 	{
-		if (_slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+		if (MissionPrepModificationDragContext.WasDropConsumed ||
+		    _slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+			return false;
+
+		if (_slot.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) &&
+		    presetDrag.IsDraggingFromPreset)
 			return false;
 
 		if (!IsAvailableEquipmentSlot(_slot))
@@ -253,13 +291,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (clone.IsEmpty || !snapshot.TryAddToBag(clone))
 			return false;
 
+		MissionPrepModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated();
 		return true;
 	}
 
 	public bool TryAcceptAvailableDrag(MissionPrepAvailableToPresetDrag _drag)
 	{
-		if (_drag == null)
+		if (_drag == null || !_drag.IsDraggingFromAvailable)
 			return false;
 
 		InventorySlotView slot = _drag.SlotView;
@@ -271,6 +310,74 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		_drag.NotifyDropAccepted();
 		return true;
+	}
+
+	/// <summary>Снять оружие из слота экипировки пресета в сумку (drag в область инвентаря).</summary>
+	public bool TryUnequipPresetMainHandToBag()
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryUnequipMainHandToBag())
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	/// <summary>Переместить оружие из сумки пресета в слот экипировки.</summary>
+	public bool TryMovePresetBagItemToMainHand(int _bagIndex)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryMoveBagItemToMainHand(_bagIndex))
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	/// <summary>Экипировать копию оружия с панели доступного снаряжения в основную руку пресета.</summary>
+	public bool TryEquipAvailableSlotToMainHand(InventorySlotView _slot)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed ||
+		    _slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+			return false;
+
+		if (!IsAvailableEquipmentSlot(_slot))
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		InventorySlotRuntimeData clone = MissionPrepInventoryCopyUtility.CloneSlot(_slot.Data);
+		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(clone))
+			return false;
+
+		if (!snapshot.MainHandEquipment.IsEmpty)
+			snapshot.TryUnequipMainHandToBag();
+
+		if (!snapshot.TrySetInventorySlot(_isMainHandEquipmentSlot: true, _bagIndex: -1, clone))
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	/// <summary>Drag внутри инвентаря пресета: снятие оружия из слота экипировки в сумку.</summary>
+	public bool TryAcceptPresetInventoryInternalDrag(MissionPrepPresetToAvailableDrag _drag)
+	{
+		if (_drag == null || !_drag.HasResolvedSlot || !_drag.IsMainHandSlot)
+			return false;
+
+		return TryUnequipPresetMainHandToBag();
 	}
 
 	/// <summary>Удалить предмет из снимка пресета (слот оружия или сумки).</summary>
@@ -315,6 +422,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return false;
 	}
 
+	/// <summary>Курсор над ячейкой экипированного оружия пресета.</summary>
+	public bool IsScreenPointOverPresetMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		if (m_PresetInventoryPanel == null || m_PresetInventoryPanel.LeadingEquipmentSlotCount <= 0)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		if (slots.Count == 0 || slots[0] == null)
+			return false;
+
+		RectTransform slotRect = slots[0].transform as RectTransform;
+		if (slotRect == null)
+			return false;
+
+		return RectTransformUtility.RectangleContainsScreenPoint(slotRect, _screenPosition, _eventCamera);
+	}
+
 	/// <summary>Курсор над панелью доступного снаряжения (для fallback при EndDrag).</summary>
 	public bool IsScreenPointOverAvailableEquipmentPanel(Vector2 _screenPosition, Camera _eventCamera)
 	{
@@ -350,20 +474,41 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (_slot == null || m_PresetInventoryPanel == null || m_SharedPresetStore == null)
 			return false;
 
+		if (!TryResolveInventoryDropTarget(_slot, out _isMainHandEquipmentSlot, out _bagIndex))
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (_isMainHandEquipmentSlot)
+			return !snapshot.MainHandEquipment.IsEmpty;
+
+		return _bagIndex >= 0 && _bagIndex < snapshot.BagCount;
+	}
+
+	/// <summary>Ячейка UI пресета как цель drop (допускает пустой слот экипировки).</summary>
+	public bool TryResolveInventoryDropTarget(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out int _bagIndex)
+	{
+		_isMainHandEquipmentSlot = false;
+		_bagIndex = -1;
+
+		if (_slot == null || m_PresetInventoryPanel == null)
+			return false;
+
 		int slotIndex = m_PresetInventoryPanel.GetInventorySlotListIndex(_slot);
 		if (slotIndex < 0)
 			return false;
 
-		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
 		if (slotIndex < lead)
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
-			return _isMainHandEquipmentSlot && !snapshot.MainHandEquipment.IsEmpty;
+			return _isMainHandEquipmentSlot;
 		}
 
 		_bagIndex = slotIndex - lead;
-		return _bagIndex >= 0 && _bagIndex < snapshot.BagCount;
+		return _bagIndex >= 0;
 	}
 
 	public bool TryEditingPresetInventoryDoubleClick(InventorySlotView _slot)
@@ -413,6 +558,75 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return m_ModificationUiState.HasSelection && m_ModificationUiState.ExpandEmptySlots;
 	}
 
+	public bool TryGetModificationWeaponSlot(out InventorySlotRuntimeData _weaponSlot)
+	{
+		_weaponSlot = default;
+		if (!m_ModificationUiState.HasSelection || m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(m_ModificationUiState.IsMainHand, m_ModificationUiState.BagIndex, out _weaponSlot))
+			return false;
+
+		return !_weaponSlot.IsEmpty && ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
+	}
+
+	public bool ShouldHighlightCompatibleWithModificationWeapon(InventorySlotRuntimeData _candidate)
+	{
+		if (_candidate.IsEmpty)
+			return false;
+
+		return HasExpandedEmptyModificationSlots() &&
+		       TryGetModificationWeaponSlot(out InventorySlotRuntimeData weaponSlot) &&
+		       ItemModificationUtility.IsCompatibleWithWeapon(weaponSlot, _candidate);
+	}
+
+	public void RefreshModificationCompatibilityHighlights()
+	{
+		RefreshAvailableEquipmentHighlights();
+		RefreshPresetInventoryCompatibilityHighlights();
+	}
+
+	public void RefreshAvailableEquipmentHighlights()
+	{
+		if (m_AvailableEquipmentPanel == null)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_AvailableEquipmentPanel.Slots;
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null)
+				continue;
+
+			MissionPrepAvailableEquipmentSlotHighlightView highlight =
+				slot.GetComponent<MissionPrepAvailableEquipmentSlotHighlightView>();
+			highlight?.RefreshHighlight();
+		}
+	}
+
+	public void RefreshPresetInventoryCompatibilityHighlights()
+	{
+		if (m_PresetInventoryPanel == null)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+		for (int i = 0; i < slots.Count; i++)
+		{
+			if (lead > 0 && i == 0)
+				continue;
+
+			InventorySlotView slot = slots[i];
+			if (slot == null)
+				continue;
+
+			MissionPrepPresetInventorySlotHighlightView highlight =
+				slot.GetComponent<MissionPrepPresetInventorySlotHighlightView>();
+			highlight?.RefreshHighlight();
+		}
+	}
+
 	public void CollapseEmptyModificationSlots()
 	{
 		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.ExpandEmptySlots)
@@ -426,6 +640,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	{
 		m_ModificationUiState = default;
 		MissionPrepInlineModificationBuilder.ClearAllRows(m_PresetInventoryPanel);
+		RebuildInlineModificationRows();
 	}
 
 	public void CloseModificationPanel()
@@ -480,6 +695,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		if (!replacedItem.IsEmpty)
 			snapshot.TryAddToBag(replacedItem);
+
+		if (m_ModificationUiState.Matches(_weaponIsMainHand, _weaponBagIndex) && !_weaponIsMainHand)
+			m_ModificationUiState.BagIndex = targetBagIndex;
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated();
@@ -551,7 +769,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		m_PresetInventoryPanel.RepaintFromPresetSnapshot(snapshot);
+		EnsurePresetInventoryDragComponents();
 		EnsureModificationClickHandlers();
+		EnsureMainHandEquipmentSlot();
 		RebuildInlineModificationRows();
 	}
 
@@ -788,14 +1008,17 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (_slot == null || m_AvailableEquipmentPanel == null)
 			return false;
 
+		if (_slot.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) &&
+		    presetDrag.IsDraggingFromPreset)
+			return false;
+
 		if (IsSlotOnPanel(_slot, m_AvailableEquipmentPanel))
 			return true;
 
-		// Во время drag ячейка на root canvas, не под панелью.
 		if (!_slot.TryGetComponent(out MissionPrepAvailableToPresetDrag drag))
 			return false;
 
-		return drag.SourceAvailablePanel == m_AvailableEquipmentPanel;
+		return drag.IsDraggingFromAvailable && drag.SourceAvailablePanel == m_AvailableEquipmentPanel;
 	}
 
 	private static bool IsSlotOnPanel(InventorySlotView _slot, InventoryPanelView _panel)
@@ -804,6 +1027,53 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return false;
 
 		return _slot.GetComponentInParent<InventoryPanelView>() == _panel;
+	}
+
+	private void EnsurePresetInventoryDragComponents()
+	{
+		if (m_PresetInventoryPanel == null)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null)
+				continue;
+
+			if (slot.GetComponent<MissionPrepPresetToAvailableDrag>() == null)
+				slot.gameObject.AddComponent<MissionPrepPresetToAvailableDrag>();
+
+			if (slot.GetComponent<MissionPrepAvailableToPresetDrag>() == null)
+				slot.gameObject.AddComponent<MissionPrepAvailableToPresetDrag>();
+
+			if (slot.GetComponent<MissionPrepInventoryEquipDoubleClick>() == null)
+				slot.gameObject.AddComponent<MissionPrepInventoryEquipDoubleClick>();
+
+			bool isMainHandSlot = lead > 0 && i == 0;
+			MissionPrepPresetInventorySlotDropView existingDropView =
+				slot.GetComponent<MissionPrepPresetInventorySlotDropView>();
+			if (isMainHandSlot)
+			{
+				if (existingDropView != null && Application.isPlaying)
+					Destroy(existingDropView);
+				continue;
+			}
+
+			MissionPrepPresetInventorySlotDropView dropView = existingDropView;
+			if (dropView == null)
+				dropView = slot.gameObject.AddComponent<MissionPrepPresetInventorySlotDropView>();
+
+			dropView.Bind(this);
+
+			MissionPrepPresetInventorySlotHighlightView highlight =
+				slot.GetComponent<MissionPrepPresetInventorySlotHighlightView>();
+			if (highlight == null)
+				highlight = slot.gameObject.AddComponent<MissionPrepPresetInventorySlotHighlightView>();
+
+			highlight.Bind(this);
+		}
 	}
 
 	private void EnsureModificationClickHandlers()
@@ -824,6 +1094,22 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 			click.Bind(this);
 		}
+	}
+
+	private void EnsureMainHandEquipmentSlot()
+	{
+		if (m_PresetInventoryPanel == null || m_PresetInventoryPanel.LeadingEquipmentSlotCount <= 0)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		if (slots.Count == 0 || slots[0] == null)
+			return;
+
+		MissionPrepMainHandEquipmentSlotView mainHandSlot = slots[0].GetComponent<MissionPrepMainHandEquipmentSlotView>();
+		if (mainHandSlot == null)
+			mainHandSlot = slots[0].gameObject.AddComponent<MissionPrepMainHandEquipmentSlotView>();
+
+		mainHandSlot.Bind(this);
 	}
 
 	private void RebuildInlineModificationRows()
@@ -865,6 +1151,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		m_PresetInventoryPanel.RebuildContentLayout();
 		MissionPrepInlineModificationBuilder.RefreshHighlights(m_PresetInventoryPanel);
+		MissionPrepInlineModificationBuilder.RefreshMainHandSlotHighlights(m_PresetInventoryPanel);
+		RefreshModificationCompatibilityHighlights();
 	}
 
 	private void CollectModifiableWeaponBindings(List<WeaponSlotBinding> _outBindings)
@@ -902,23 +1190,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		WeaponSlotBinding _binding,
 		List<ItemModificationSlotDescriptor> _outVisibleDescriptors)
 	{
-		_outVisibleDescriptors.Clear();
-		ItemModificationUtility.BuildSlotDescriptors(_binding.WeaponData.Definition, m_ModificationDescriptorBuffer);
-
 		bool expandEmpty = m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex) &&
 		                   m_ModificationUiState.ExpandEmptySlots;
 
-		for (int i = 0; i < m_ModificationDescriptorBuffer.Count; i++)
-		{
-			ItemModificationSlotDescriptor descriptor = m_ModificationDescriptorBuffer[i];
-			bool hasInstalledItem = ItemModificationUtility.TryGetInstalledItem(
-				descriptor,
-				_binding.WeaponData,
-				out _);
-
-			if (hasInstalledItem || expandEmpty)
-				_outVisibleDescriptors.Add(descriptor);
-		}
+		ItemModificationUtility.BuildVisibleModificationDescriptors(
+			_binding.WeaponData,
+			expandEmpty,
+			m_ModificationDescriptorBuffer,
+			_outVisibleDescriptors);
 	}
 
 	private void ValidateModificationUiSelection(IReadOnlyList<WeaponSlotBinding> _bindings)
@@ -939,6 +1218,279 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void HandleModificationDragContextChanged()
 	{
 		MissionPrepInlineModificationBuilder.RefreshHighlights(m_PresetInventoryPanel);
+		MissionPrepInlineModificationBuilder.RefreshMainHandSlotHighlights(m_PresetInventoryPanel);
+		RefreshModificationCompatibilityHighlights();
+	}
+	#endregion
+}
+
+/// <summary>
+/// Слот экипированного оружия пресета: подсветка при drag и приём сброса оружия.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropHandler
+{
+	#region Private Fields
+	private readonly Color m_NormalColor = MissionPrepInventoryUiColors.CellBackground;
+	private readonly Color m_CompatibleColor = MissionPrepInventoryUiColors.CompatibleHighlight;
+
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	private Image m_BackgroundImage;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		EnsureBackgroundImage();
+		RefreshHighlight();
+	}
+
+	public void RefreshHighlight()
+	{
+		EnsureBackgroundImage();
+		if (m_BackgroundImage == null)
+			return;
+
+		MissionPrepModificationDragPayload payload = MissionPrepModificationDragContext.Current;
+		bool compatible = MissionPrepWeaponEquipUtility.IsWeaponEquipDragSource(payload.SourceKind) &&
+		                  MissionPrepWeaponEquipUtility.CanEquipToMainHand(payload.Item);
+		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
+	}
+	#endregion
+
+	#region Event Handlers
+	public void OnDrop(PointerEventData eventData)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		if (m_Coordinator == null || eventData?.pointerDrag == null)
+			return;
+
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag availableDrag) &&
+		    availableDrag.IsDraggingFromAvailable)
+		{
+			if (!m_Coordinator.TryEquipAvailableSlotToMainHand(availableDrag.SlotView))
+				return;
+
+			availableDrag.NotifyDropAccepted();
+			return;
+		}
+
+		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) ||
+		    !presetDrag.IsDraggingFromPreset)
+			return;
+
+		if (!presetDrag.HasResolvedSlot || presetDrag.IsMainHandSlot)
+			return;
+
+		if (!m_Coordinator.TryMovePresetBagItemToMainHand(presetDrag.BagIndex))
+			return;
+
+		presetDrag.NotifyDropAccepted();
+	}
+	#endregion
+
+	#region Private Methods
+	private void EnsureBackgroundImage()
+	{
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		if (m_BackgroundImage != null)
+			return;
+
+		m_BackgroundImage = GetComponent<Image>();
+	}
+	#endregion
+}
+
+/// <summary>
+/// Drop-цель для ячейки инвентаря пресета: снятие/экипировка оружия и приём из каталога.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepPresetInventorySlotDropView : MonoBehaviour, IDropHandler
+{
+	#region Private Fields
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+	}
+	#endregion
+
+	#region Event Handlers
+	public void OnDrop(PointerEventData eventData)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		if (m_Coordinator == null || m_Slot == null || eventData?.pointerDrag == null)
+			return;
+
+		if (!m_Coordinator.TryResolveInventoryDropTarget(m_Slot, out bool targetIsMainHand, out _))
+			return;
+
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag availableDrag) &&
+		    availableDrag.IsDraggingFromAvailable)
+		{
+			if (targetIsMainHand)
+			{
+				if (m_Coordinator.TryEquipAvailableSlotToMainHand(availableDrag.SlotView))
+					availableDrag.NotifyDropAccepted();
+			}
+			else if (m_Coordinator.TryAcceptAvailableDrag(availableDrag))
+			{
+				availableDrag.NotifyDropAccepted();
+			}
+
+			return;
+		}
+
+		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) ||
+		    !presetDrag.IsDraggingFromPreset)
+			return;
+
+		if (presetDrag.IsMainHandSlot && !targetIsMainHand)
+		{
+			if (m_Coordinator.TryUnequipPresetMainHandToBag())
+				presetDrag.NotifyDropAccepted();
+			return;
+		}
+
+		if (!presetDrag.IsMainHandSlot && targetIsMainHand)
+		{
+			if (m_Coordinator.TryMovePresetBagItemToMainHand(presetDrag.BagIndex))
+				presetDrag.NotifyDropAccepted();
+		}
+	}
+	#endregion
+}
+
+/// <summary>
+/// Подсветка совместимых предметов на панели «доступное снаряжение», пока раскрыт полный список слотов модулей.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepAvailableEquipmentSlotHighlightView : MonoBehaviour
+{
+	#region Private Fields
+	private readonly Color m_NormalColor = MissionPrepInventoryUiColors.CellBackground;
+	private readonly Color m_CompatibleColor = MissionPrepInventoryUiColors.CompatibleHighlight;
+
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	private Image m_BackgroundImage;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		EnsureBackgroundImage();
+		RefreshHighlight();
+	}
+
+	public void RefreshHighlight()
+	{
+		EnsureBackgroundImage();
+		if (m_BackgroundImage == null || m_Slot == null || !m_Slot.HasItem)
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		bool compatible = m_Coordinator != null &&
+		                  m_Coordinator.ShouldHighlightCompatibleWithModificationWeapon(m_Slot.Data);
+
+		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
+	}
+	#endregion
+
+	#region Private Methods
+	private void EnsureBackgroundImage()
+	{
+		if (m_BackgroundImage != null)
+			return;
+
+		m_BackgroundImage = GetComponent<Image>();
+		if (m_BackgroundImage != null)
+			m_BackgroundImage.color = m_NormalColor;
+	}
+	#endregion
+}
+
+/// <summary>
+/// Подсветка совместимых предметов в сумке пресета, пока раскрыт полный список слотов модулей.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepPresetInventorySlotHighlightView : MonoBehaviour
+{
+	#region Private Fields
+	private readonly Color m_NormalColor = MissionPrepInventoryUiColors.CellBackground;
+	private readonly Color m_CompatibleColor = MissionPrepInventoryUiColors.CompatibleHighlight;
+
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	private Image m_BackgroundImage;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		EnsureBackgroundImage();
+		RefreshHighlight();
+	}
+
+	public void RefreshHighlight()
+	{
+		EnsureBackgroundImage();
+		if (m_BackgroundImage == null || m_Slot == null || !m_Slot.HasItem)
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		bool compatible = m_Coordinator != null &&
+		                  m_Coordinator.ShouldHighlightCompatibleWithModificationWeapon(m_Slot.Data);
+
+		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
+	}
+	#endregion
+
+	#region Private Methods
+	private void EnsureBackgroundImage()
+	{
+		if (m_BackgroundImage != null)
+			return;
+
+		m_BackgroundImage = GetComponent<Image>();
+		if (m_BackgroundImage != null)
+			m_BackgroundImage.color = m_NormalColor;
 	}
 	#endregion
 }

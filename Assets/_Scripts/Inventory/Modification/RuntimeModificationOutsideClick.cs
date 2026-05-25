@@ -5,26 +5,26 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
-public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
+public sealed class RuntimeModificationOutsideClick : MonoBehaviour
 {
 	#region Private Fields
-	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private RuntimeInventoryModificationCoordinator m_Coordinator;
 	private Coroutine m_DeferredCollapse;
 	#endregion
 
 	#region Public Methods
-	public static void EnsureOn(MissionPrepLoadoutCoordinator _coordinator)
+	public static void EnsureOn(RuntimeInventoryModificationCoordinator _coordinator)
 	{
 		if (_coordinator == null)
 			return;
 
-		if (!_coordinator.TryGetComponent(out MissionPrepModificationOutsideClick handler))
-			handler = _coordinator.gameObject.AddComponent<MissionPrepModificationOutsideClick>();
+		if (!_coordinator.TryGetComponent(out RuntimeModificationOutsideClick handler))
+			handler = _coordinator.gameObject.AddComponent<RuntimeModificationOutsideClick>();
 
 		handler.Bind(_coordinator);
 	}
 
-	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	public void Bind(RuntimeInventoryModificationCoordinator _coordinator)
 	{
 		m_Coordinator = _coordinator;
 	}
@@ -48,7 +48,7 @@ public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
 			return;
 
-		if (MissionPrepModificationDragContext.HasActiveModificationItem)
+		if (RuntimeInventoryModificationDragContext.HasActiveModificationItem)
 			return;
 
 		if (ShouldIgnoreOutsideClick(mouse.position.ReadValue()))
@@ -87,11 +87,12 @@ public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
 			yield break;
 
-		if (MissionPrepModificationDragContext.HasActiveModificationItem)
+		if (RuntimeInventoryModificationDragContext.HasActiveModificationItem)
 			yield break;
 
 		m_Coordinator.CollapseEmptyModificationSlots();
 	}
+
 	private bool ShouldIgnoreOutsideClick(Vector2 _screenPosition)
 	{
 		if (EventSystem.current == null)
@@ -110,7 +111,7 @@ public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
 			if (hit == null)
 				continue;
 
-			if (hit.GetComponentInParent<MissionPrepModificationSlotView>() != null)
+			if (hit.GetComponentInParent<RuntimeModificationSlotView>() != null)
 				return true;
 
 			InventorySlotView slot = hit.GetComponentInParent<InventorySlotView>();

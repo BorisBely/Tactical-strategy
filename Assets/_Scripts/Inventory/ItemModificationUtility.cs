@@ -135,6 +135,54 @@ public static class ItemModificationUtility
 		       _slot.WeaponSlotIndex >= 0;
 	}
 
+	/// <summary>
+	/// Совместимость предмета каталога/инвентаря с выбранным оружием: модуль, магазин или патроны под калибр.
+	/// </summary>
+	public static bool IsCompatibleWithWeapon(InventorySlotRuntimeData _weaponSlot, InventorySlotRuntimeData _candidate)
+	{
+		if (_weaponSlot.IsEmpty || _candidate.IsEmpty || _candidate.Definition == null)
+			return false;
+
+		ItemDefinition weaponDefinition = _weaponSlot.Definition;
+		WeaponDefinition weapon = weaponDefinition != null ? weaponDefinition.WeaponDefinition : null;
+		if (weapon == null)
+			return false;
+
+		if (IsAttachmentItem(_candidate))
+		{
+			s_DescriptorBuffer.Clear();
+			BuildSlotDescriptors(weaponDefinition, s_DescriptorBuffer);
+			for (int i = 0; i < s_DescriptorBuffer.Count; i++)
+			{
+				ItemModificationSlotDescriptor descriptor = s_DescriptorBuffer[i];
+				if (descriptor.Kind != ItemModificationSlotKind.Attachment)
+					continue;
+
+				if (CanAcceptItem(descriptor, _weaponSlot, _candidate))
+					return true;
+			}
+
+			return false;
+		}
+
+		if (IsMagazineItem(_candidate))
+		{
+			WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
+			return weaponState != null && weaponState.CanAcceptMagazineItem(_candidate);
+		}
+
+		AmmoDefinition ammoDefinition = _candidate.Definition.AmmoDefinition;
+		if (ammoDefinition != null)
+		{
+			if (weapon.SupportedCaliber == CaliberType.None)
+				return false;
+
+			return ammoDefinition.Caliber == weapon.SupportedCaliber;
+		}
+
+		return false;
+	}
+
 	public static bool TryGetInstalledItem(ItemModificationSlotDescriptor _slot, InventorySlotRuntimeData _weaponSlot, out InventorySlotRuntimeData _installedItem)
 	{
 		_installedItem = default;
@@ -212,9 +260,53 @@ public static class ItemModificationUtility
 		weaponState.SetEquippedAttachmentSlotItems(TrimEmptyAttachments(attachments), TrimEmptyAttachmentItems(items));
 		return true;
 	}
+
+	/// <summary>Установленные модули всегда; пустые слоты — только при <paramref name="_expandEmptySlots"/>.</summary>
+	public static void BuildVisibleModificationDescriptors(
+		InventorySlotRuntimeData _weaponData,
+		bool _expandEmptySlots,
+		List<ItemModificationSlotDescriptor> _descriptorBuffer,
+		List<ItemModificationSlotDescriptor> _outVisibleDescriptors)
+	{
+		if (_outVisibleDescriptors == null)
+			return;
+
+		_outVisibleDescriptors.Clear();
+		if (_weaponData.IsEmpty || !IsModifiableWeapon(_weaponData.Definition))
+			return;
+
+		BuildSlotDescriptors(_weaponData.Definition, _descriptorBuffer);
+		if (_descriptorBuffer == null)
+			return;
+
+		for (int i = 0; i < _descriptorBuffer.Count; i++)
+		{
+			ItemModificationSlotDescriptor descriptor = _descriptorBuffer[i];
+			bool hasInstalledItem = TryGetInstalledItem(descriptor, _weaponData, out _);
+			if (hasInstalledItem || _expandEmptySlots)
+				_outVisibleDescriptors.Add(descriptor);
+		}
+	}
+
+	public static bool HasAnyInstalledModification(InventorySlotRuntimeData _weaponData)
+	{
+		if (_weaponData.IsEmpty || !IsModifiableWeapon(_weaponData.Definition))
+			return false;
+
+		BuildSlotDescriptors(_weaponData.Definition, s_DescriptorBuffer);
+		for (int i = 0; i < s_DescriptorBuffer.Count; i++)
+		{
+			if (TryGetInstalledItem(s_DescriptorBuffer[i], _weaponData, out _))
+				return true;
+		}
+
+		return false;
+	}
 	#endregion
 
 	#region Private Methods
+	private static readonly List<ItemModificationSlotDescriptor> s_DescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
+
 	private static WeaponRuntimeState GetWeaponState(InventorySlotRuntimeData _weaponSlot)
 	{
 		return _weaponSlot.InstanceState != null ? _weaponSlot.InstanceState.WeaponState : null;

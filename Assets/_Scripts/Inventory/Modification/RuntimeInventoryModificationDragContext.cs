@@ -1,0 +1,168 @@
+using System;
+
+public enum RuntimeInventoryModificationDragSourceKind
+{
+	None = 0,
+	CharacterBag = 1,
+	CharacterMainHand = 2,
+	GroundPanel = 3,
+	ModificationSlot = 4
+}
+
+public readonly struct RuntimeInventoryModificationDragPayload
+{
+	public readonly RuntimeInventoryModificationDragSourceKind SourceKind;
+	public readonly InventorySlotRuntimeData Item;
+	public readonly bool IsMainHand;
+	public readonly int SlotIndex;
+	public readonly ItemModificationSlotDescriptor SourceSlotDescriptor;
+	public readonly bool SourceWeaponIsMainHand;
+	public readonly int SourceWeaponBagIndex;
+
+	public bool HasItem => SourceKind != RuntimeInventoryModificationDragSourceKind.None && !Item.IsEmpty;
+
+	public RuntimeInventoryModificationDragPayload(
+		RuntimeInventoryModificationDragSourceKind _sourceKind,
+		InventorySlotRuntimeData _item,
+		bool _isMainHand,
+		int _slotIndex,
+		ItemModificationSlotDescriptor _sourceSlotDescriptor = default,
+		bool _sourceWeaponIsMainHand = false,
+		int _sourceWeaponBagIndex = -1)
+	{
+		SourceKind = _sourceKind;
+		Item = _item;
+		IsMainHand = _isMainHand;
+		SlotIndex = _slotIndex;
+		SourceSlotDescriptor = _sourceSlotDescriptor;
+		SourceWeaponIsMainHand = _sourceWeaponIsMainHand;
+		SourceWeaponBagIndex = _sourceWeaponBagIndex;
+	}
+}
+
+public static class RuntimeInventoryModificationDragContext
+{
+	#region Private Fields
+	private static RuntimeInventoryModificationDragPayload s_Current;
+	private static bool s_DropConsumed;
+	private static InventorySlotView s_SourceSlotView;
+	#endregion
+
+	#region Events
+	public static event Action Changed;
+	#endregion
+
+	#region Public Properties
+	public static RuntimeInventoryModificationDragPayload Current => s_Current;
+	public static InventorySlotView SourceSlotView => s_SourceSlotView;
+	public static bool HasActiveModificationItem => s_Current.HasItem && ItemModificationUtility.IsModificationItem(s_Current.Item);
+	public static bool WasDropConsumed => s_DropConsumed;
+	#endregion
+
+	#region Public Methods
+	public static void BeginCharacter(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex, InventorySlotView _sourceSlot = null)
+	{
+		SetSourceSlot(_sourceSlot);
+		Begin(new RuntimeInventoryModificationDragPayload(
+			ResolveCharacterSourceKind(_item, _isMainHand),
+			_item,
+			_isMainHand,
+			_bagIndex));
+	}
+
+	public static void BeginGround(InventorySlotRuntimeData _item, int _groundSlotIndex, InventorySlotView _sourceSlot = null)
+	{
+		SetSourceSlot(_sourceSlot);
+		Begin(new RuntimeInventoryModificationDragPayload(
+			RuntimeInventoryModificationDragSourceKind.GroundPanel,
+			_item,
+			_isMainHand: false,
+			_groundSlotIndex));
+	}
+
+	public static void BeginModificationSlot(
+		ItemModificationSlotDescriptor _slotDescriptor,
+		InventorySlotRuntimeData _item,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex)
+	{
+		Begin(new RuntimeInventoryModificationDragPayload(
+			RuntimeInventoryModificationDragSourceKind.ModificationSlot,
+			_item,
+			_isMainHand: false,
+			_slotIndex: -1,
+			_sourceSlotDescriptor: _slotDescriptor,
+			_sourceWeaponIsMainHand: _weaponIsMainHand,
+			_sourceWeaponBagIndex: _weaponBagIndex));
+	}
+
+	public static void NotifyDropConsumed()
+	{
+		s_DropConsumed = true;
+	}
+
+	public static void Clear()
+	{
+		bool hadPayload = s_Current.HasItem;
+		s_Current = default;
+
+		if (hadPayload)
+			Changed?.Invoke();
+	}
+
+	public static void ResetAfterDrag()
+	{
+		bool hadPayload = s_Current.HasItem;
+		s_Current = default;
+		s_DropConsumed = false;
+		s_SourceSlotView = null;
+
+		if (hadPayload)
+			Changed?.Invoke();
+	}
+	#endregion
+
+	#region Private Methods
+	private static void SetSourceSlot(InventorySlotView _sourceSlot)
+	{
+		s_SourceSlotView = _sourceSlot;
+	}
+
+	private static void Begin(RuntimeInventoryModificationDragPayload _payload)
+	{
+		s_DropConsumed = false;
+		s_Current = IsPayloadValid(_payload) ? _payload : default;
+		Changed?.Invoke();
+	}
+
+	private static RuntimeInventoryModificationDragSourceKind ResolveCharacterSourceKind(
+		InventorySlotRuntimeData _item,
+		bool _isMainHand)
+	{
+		if (_isMainHand)
+			return RuntimeInventoryModificationDragSourceKind.None;
+
+		if (ItemModificationUtility.IsModificationItem(_item))
+			return RuntimeInventoryModificationDragSourceKind.CharacterBag;
+
+		return RuntimeInventoryModificationDragSourceKind.None;
+	}
+
+	private static bool IsPayloadValid(RuntimeInventoryModificationDragPayload _payload)
+	{
+		if (!_payload.HasItem)
+			return false;
+
+		switch (_payload.SourceKind)
+		{
+			case RuntimeInventoryModificationDragSourceKind.ModificationSlot:
+				return true;
+			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
+			case RuntimeInventoryModificationDragSourceKind.GroundPanel:
+				return ItemModificationUtility.IsModificationItem(_payload.Item);
+			default:
+				return false;
+		}
+	}
+	#endregion
+}
