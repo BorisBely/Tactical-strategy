@@ -288,6 +288,15 @@ public static class ItemModificationUtility
 		}
 	}
 
+	/// <summary>Только установленные модули (для пресета: всегда показывать то, что реально стоит на оружии).</summary>
+	public static void BuildInstalledModificationDescriptors(
+		InventorySlotRuntimeData _weaponData,
+		List<ItemModificationSlotDescriptor> _descriptorBuffer,
+		List<ItemModificationSlotDescriptor> _outInstalledDescriptors)
+	{
+		BuildVisibleModificationDescriptors(_weaponData, _expandEmptySlots: false, _descriptorBuffer, _outInstalledDescriptors);
+	}
+
 	public static bool HasAnyInstalledModification(InventorySlotRuntimeData _weaponData)
 	{
 		if (_weaponData.IsEmpty || !IsModifiableWeapon(_weaponData.Definition))

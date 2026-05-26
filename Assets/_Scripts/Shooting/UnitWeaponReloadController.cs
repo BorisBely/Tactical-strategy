@@ -10,12 +10,13 @@ using UnityEngine;
 /// Если магазин уже в оружии с патронами, но патронник пуст — <see cref="TryStartReload"/> запускает только затвор (<see cref="TryStartBoltCycleOnly"/>).
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(58)]
+[DefaultExecutionOrder(56)]
 public sealed class UnitWeaponReloadController : MonoBehaviour
 {
 	#region Constants
 	public const string ParamIsReloadingWeapon = "IsReloadingWeapon";
 	public const string ParamIsCyclingBolt = "IsCyclingBolt";
+	public const string AimReloadLayerName = "Aim_Point_U90-D90";
 	private static readonly int s_IsReloadingWeapon = Animator.StringToHash(ParamIsReloadingWeapon);
 	private static readonly int s_IsCyclingBolt = Animator.StringToHash(ParamIsCyclingBolt);
 	#endregion
@@ -60,6 +61,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// <summary>После <see cref="AnimationEvent_FinishWeaponReload"/> логика и патронник уже готовы, но анимация затвора может ещё идти — стрельбу держим до <see cref="AnimationEvent_BoltMotionPresentationFinished"/>.</summary>
 	private bool m_BoltPresentationSuppressesFire;
 	private bool m_MalfunctionStripReinsertReloadActive;
+	private bool m_UiMagazineModificationActive;
+	private bool m_UiMagazineEjectOnly;
+	/// <summary>Только анимация на зеркальных юнитах пресета — без мутации сумки и без <see cref="UiMagazineModificationCompleted"/>.</summary>
+	private bool m_UiMagazineMirrorAnimationOnly;
+	private InventorySlotRuntimeData m_UiLastEjectedMagazine;
+	private int m_AimReloadLayerIndex = -1;
+	private int m_MagazineLoadingLayerIndex = -1;
 	#endregion
 
 	#region Public Properties
@@ -71,6 +79,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_BoltPresentationSuppressesFire;
 	public bool IsMalfunctionStripReinsertReloadActive => m_MalfunctionStripReinsertReloadActive;
 	public bool MagazineInsertCompletedThisReload => m_MagazineInsertCompletedThisReload;
+	public bool IsUiMagazineModificationActive => m_UiMagazineModificationActive;
+	#endregion
+
+	#region Events
+	/// <summary>UI-модификация магазина завершена (install или eject). Для eject-only в <paramref name="_ejectedMagazine"/> лежит снятый магазин.</summary>
+	public event Action<InventorySlotRuntimeData> UiMagazineModificationCompleted;
 	#endregion
 
 	#region Unity Lifecycle
@@ -98,6 +112,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_MalfunctionController = GetComponent<UnitWeaponMalfunctionController>();
 
 		EnsureReloadAudioSource();
+		ResolveAnimatorLayerIndices();
+	}
+
+	private void Update()
+	{
+		ApplyReloadAnimatorLayerWeightsIfBusy();
 	}
 
 	private void OnDisable()
@@ -283,9 +303,111 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		RefreshInventoryUiIfActive();
 		return true;
 	}
+
+	/// <summary>Установка магазина из UI модификации: магазин уже снят с источника (сумка/земля), данные вставляются на animation events.</summary>
+	public bool TryStartUiMagazineInstall(InventorySlotRuntimeData _magazineFromSource, bool _mirrorAnimationOnly = false)
+	{
+		m_DebugLastFailureReason = null;
+
+		if (_magazineFromSource.IsEmpty)
+		{
+			m_DebugLastFailureReason = "Empty magazine item";
+			return false;
+		}
+
+		if (!TryValidateUiMagazineModificationStart())
+			return false;
+
+		if (m_WeaponRuntime.RuntimeState != null &&
+		    !m_WeaponRuntime.RuntimeState.CanAcceptMagazineItem(_magazineFromSource))
+		{
+			m_DebugLastFailureReason = "Magazine incompatible with equipped weapon";
+			return false;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_UiMagazineModificationActive = true;
+		m_UiMagazineEjectOnly = false;
+		m_UiMagazineMirrorAnimationOnly = _mirrorAnimationOnly;
+		m_UiLastEjectedMagazine = default;
+		m_IsReloadingWeapon = true;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		m_HasEjectedCurrentMagazine = false;
+		m_MagazineInsertCompletedThisReload = false;
+		m_PendingReplacementMagazine = _magazineFromSource;
+		m_ShouldStartManualMagazineLoadingAfterReload = false;
+		m_DebugSourceBagIndex = -1;
+		m_DebugFallbackMagazineBagIndex = -1;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		AttachPendingMagazineVisualToLeftHand();
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
+		return true;
+	}
+
+	/// <summary>Извлечение магазина из UI модификации: снятие на animation event, без вставки замены.</summary>
+	public bool TryStartUiMagazineEject(bool _mirrorAnimationOnly = false)
+	{
+		m_DebugLastFailureReason = null;
+
+		if (!TryValidateUiMagazineModificationStart())
+			return false;
+
+		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
+		if (runtimeState == null || !runtimeState.HasMagazine)
+		{
+			m_DebugLastFailureReason = "No magazine to eject";
+			return false;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_UiMagazineModificationActive = true;
+		m_UiMagazineEjectOnly = true;
+		m_UiMagazineMirrorAnimationOnly = _mirrorAnimationOnly;
+		m_UiLastEjectedMagazine = default;
+		m_IsReloadingWeapon = true;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		m_HasEjectedCurrentMagazine = false;
+		m_MagazineInsertCompletedThisReload = false;
+		m_PendingReplacementMagazine = default;
+		m_ShouldStartManualMagazineLoadingAfterReload = false;
+		m_DebugSourceBagIndex = -1;
+		m_DebugFallbackMagazineBagIndex = -1;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
+		return true;
+	}
 	#endregion
 
 	#region Private Methods
+	private bool TryValidateUiMagazineModificationStart()
+	{
+		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		{
+			m_DebugLastFailureReason = "Already reloading or bolting";
+			return false;
+		}
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+		{
+			m_DebugLastFailureReason = "Missing runtime references";
+			return false;
+		}
+
+		if (m_BusyState != null && m_BusyState.IsBusy)
+		{
+			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
+			return false;
+		}
+
+		return true;
+	}
+
 	private bool TryStartReloadInternal(int _preferredBagIndex)
 	{
 		m_DebugLastFailureReason = null;
@@ -371,7 +493,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazineNormal))
 		{
-			if (m_CharacterInventory != null)
+			if (m_UiMagazineModificationActive)
+				m_UiLastEjectedMagazine = ejectedMagazineNormal;
+
+			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly)
+				AttachMagazineVisualToLeftHand(ejectedMagazineNormal);
+
+			if (m_CharacterInventory != null &&
+			    !m_UiMagazineMirrorAnimationOnly &&
+			    (!m_UiMagazineModificationActive || !m_UiMagazineEjectOnly || WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag))
 			{
 				int bagIndexBeforeAdd = m_CharacterInventory.BagCount;
 				if (m_CharacterInventory.TryAdd(ejectedMagazineNormal) && m_ShouldStartManualMagazineLoadingAfterReload)
@@ -394,6 +524,22 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_PendingReplacementMagazine.IsEmpty)
 		{
+			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly && m_HasEjectedCurrentMagazine)
+			{
+				WeaponDefinition ejectOnlyWeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
+				if (ejectOnlyWeaponDefinition != null && !ejectOnlyWeaponDefinition.HasBoltHoldOpenDelay)
+				{
+					m_BoltPresentationSuppressesFire = true;
+					m_IsReloadingWeapon = false;
+					m_IsCyclingBolt = true;
+					SyncAnimatorState();
+				}
+				else
+					FinalizeReloadSequenceAndMaybeChainManualLoad();
+
+				return;
+			}
+
 			if (m_ShouldStartManualMagazineLoadingAfterReload)
 				FinalizeReloadSequenceAndMaybeChainManualLoad();
 			return;
@@ -468,7 +614,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		bool holdFireDuringBoltTail = m_BoltPresentationSuppressesFire;
 		TryPlayBoltCycleSound();
-		m_WeaponRuntime?.TryChamberRoundFromMagazine();
+		if (!m_UiMagazineModificationActive || !m_UiMagazineEjectOnly)
+			m_WeaponRuntime?.TryChamberRoundFromMagazine();
 		FinalizeReloadSequenceAndMaybeChainManualLoad();
 
 		if (holdFireDuringBoltTail && m_BoltPresentationFireTailSeconds > 0f)
@@ -497,7 +644,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		bool shouldStartManualMagazineLoading = m_ShouldStartManualMagazineLoadingAfterReload;
 		int fallbackMagazineBagIndex = m_DebugFallbackMagazineBagIndex;
+		bool wasUiMagazineModification = m_UiMagazineModificationActive;
+		bool wasMirrorAnimationOnly = m_UiMagazineMirrorAnimationOnly;
+		InventorySlotRuntimeData uiEjectedMagazine = m_UiLastEjectedMagazine;
 		StopReloadInternal(false);
+
+		if (wasUiMagazineModification && !wasMirrorAnimationOnly)
+			UiMagazineModificationCompleted?.Invoke(uiEjectedMagazine);
 
 		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null &&
 			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex))
@@ -727,6 +880,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (_restorePendingMagazineToBag && !m_PendingReplacementMagazine.IsEmpty && m_CharacterInventory != null)
 			m_CharacterInventory.TryAdd(m_PendingReplacementMagazine);
 
+		m_UiMagazineModificationActive = false;
+		m_UiMagazineEjectOnly = false;
+		m_UiMagazineMirrorAnimationOnly = false;
+		m_UiLastEjectedMagazine = default;
 		m_PendingReplacementMagazine = default;
 		m_IsReloadingWeapon = false;
 		m_IsCyclingBolt = false;
@@ -765,6 +922,39 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_Animator.SetBool(s_IsReloadingWeapon, m_IsReloadingWeapon);
 			m_Animator.SetBool(s_IsCyclingBolt, m_IsCyclingBolt);
 		}
+
+		ApplyReloadAnimatorLayerWeightsIfBusy();
+	}
+
+	private void ResolveAnimatorLayerIndices()
+	{
+		if (m_Animator == null)
+		{
+			m_AimReloadLayerIndex = -1;
+			m_MagazineLoadingLayerIndex = -1;
+			return;
+		}
+
+		m_AimReloadLayerIndex = m_Animator.GetLayerIndex(AimReloadLayerName);
+		m_MagazineLoadingLayerIndex = m_Animator.GetLayerIndex(UnitMagazineLoadingController.MagazineLoadingHandsLayerName);
+	}
+
+	/// <summary>
+	/// После <see cref="UnitWeaponAiming"/> (55): принудительно держим вес aim-слоя для animation events и гасим mag-loading слой.
+	/// </summary>
+	private void ApplyReloadAnimatorLayerWeightsIfBusy()
+	{
+		if (m_Animator == null || !IsReloadBusy)
+			return;
+
+		if (m_AimReloadLayerIndex < 0 || m_MagazineLoadingLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+
+		if (m_AimReloadLayerIndex >= 0)
+			m_Animator.SetLayerWeight(m_AimReloadLayerIndex, 1f);
+
+		if (m_MagazineLoadingLayerIndex >= 0)
+			m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, 0f);
 	}
 
 	private void TryPlayBoltCycleSound()
@@ -774,12 +964,17 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void AttachPendingMagazineVisualToLeftHand()
 	{
+		AttachMagazineVisualToLeftHand(m_PendingReplacementMagazine);
+	}
+
+	private void AttachMagazineVisualToLeftHand(InventorySlotRuntimeData _magazineItem)
+	{
 		ClearLeftHandMagazineVisual();
 
-		if (m_LeftHandAnchor == null || m_PendingReplacementMagazine.IsEmpty)
+		if (_magazineItem.IsEmpty || m_LeftHandAnchor == null)
 			return;
 
-		ItemDefinition magazineDefinition = m_PendingReplacementMagazine.Definition;
+		ItemDefinition magazineDefinition = _magazineItem.Definition;
 		if (magazineDefinition == null || magazineDefinition.EquippedVisualPrefab == null)
 			return;
 

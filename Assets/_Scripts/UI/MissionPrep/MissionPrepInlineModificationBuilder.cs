@@ -7,19 +7,33 @@ public static class MissionPrepInlineModificationBuilder
 	#region Public Methods
 	public static void ClearAllRows(InventoryPanelView _panel)
 	{
-		if (!Application.isPlaying || _panel == null || _panel.SlotsContainerTransform == null)
+		ClearAllRowsInternal(_panel, _immediateDestroy: false);
+	}
+
+	public static void ClearAllRowsImmediate(InventoryPanelView _panel)
+	{
+		ClearAllRowsInternal(_panel, _immediateDestroy: true);
+	}
+
+	public static void ClearRowsFollowingInventorySlot(InventoryPanelView _panel, InventorySlotView _weaponSlot)
+	{
+		if (!Application.isPlaying || _panel == null || _weaponSlot == null || _panel.SlotsContainerTransform == null)
 			return;
 
 		Transform container = _panel.SlotsContainerTransform;
-		for (int i = container.childCount - 1; i >= 0; i--)
+		int weaponSiblingIndex = _weaponSlot.transform.GetSiblingIndex();
+		var rowsToRemove = new List<GameObject>(4);
+
+		for (int i = weaponSiblingIndex + 1; i < container.childCount; i++)
 		{
 			Transform child = container.GetChild(i);
 			if (child == null || child.GetComponent<MissionPrepModificationSlotView>() == null)
-				continue;
+				break;
 
-			child.gameObject.SetActive(false);
-			Object.Destroy(child.gameObject);
+			rowsToRemove.Add(child.gameObject);
 		}
+
+		DestroyRows(rowsToRemove, _immediateDestroy: true);
 	}
 
 	public static void RebuildWeaponRows(
@@ -67,19 +81,58 @@ public static class MissionPrepInlineModificationBuilder
 			if (rows[i] != null)
 				rows[i].RefreshHighlight();
 		}
+
+		RefreshMainHandSlotHighlights(_panel);
 	}
 
 	public static void RefreshMainHandSlotHighlights(InventoryPanelView _panel)
 	{
-		if (_panel == null || _panel.LeadingEquipmentSlotCount <= 0)
+		InventorySlotUiUtility.RefreshMainHandEquipHighlight(_panel);
+	}
+	#endregion
+
+	#region Private Methods
+	private static void ClearAllRowsInternal(InventoryPanelView _panel, bool _immediateDestroy)
+	{
+		if (!Application.isPlaying || _panel == null)
 			return;
 
-		IReadOnlyList<InventorySlotView> slots = _panel.Slots;
-		if (slots.Count == 0 || slots[0] == null)
+		Transform searchRoot = _panel.SlotsContainerTransform != null
+			? _panel.SlotsContainerTransform
+			: _panel.transform;
+
+		MissionPrepModificationSlotView[] rows =
+			searchRoot.GetComponentsInChildren<MissionPrepModificationSlotView>(true);
+		if (rows == null || rows.Length == 0)
 			return;
 
-		MissionPrepMainHandEquipmentSlotView mainHandSlot = slots[0].GetComponent<MissionPrepMainHandEquipmentSlotView>();
-		mainHandSlot?.RefreshHighlight();
+		var rowsToRemove = new List<GameObject>(rows.Length);
+		for (int i = 0; i < rows.Length; i++)
+		{
+			if (rows[i] != null)
+				rowsToRemove.Add(rows[i].gameObject);
+		}
+
+		DestroyRows(rowsToRemove, _immediateDestroy);
+	}
+
+	private static void DestroyRows(List<GameObject> _rows, bool _immediateDestroy)
+	{
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			GameObject row = _rows[i];
+			if (row == null)
+				continue;
+
+			if (_immediateDestroy)
+			{
+				Object.Destroy(row);
+				continue;
+			}
+
+			row.SetActive(false);
+			Object.Destroy(row);
+		}
 	}
 	#endregion
 }

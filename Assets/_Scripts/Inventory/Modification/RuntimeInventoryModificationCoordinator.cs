@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// UI модификации оружия в runtime-инвентаре юнита и на панели «земля».
-/// Данные меняются через <see cref="ItemModificationUtility"/>; 3D-модель оружия пока не синхронизируется.
+/// Данные меняются через <see cref="ItemModificationUtility"/>; экипированный main hand — через reload-анимацию.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-90)]
@@ -27,6 +27,11 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	private readonly List<ItemModificationSlotDescriptor> m_VisibleModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
 	private readonly List<WeaponSlotBinding> m_WeaponSlotBindingBuffer = new List<WeaponSlotBinding>(8);
 	private Coroutine m_DeferredInlineRefreshCoroutine;
+	private Coroutine m_DeferredMagazineRepaintCoroutine;
+	private bool m_PendingInlineRefresh;
+	private int m_SuppressOutsideClickUntilFrame = -1;
+	private System.Action<InventorySlotRuntimeData> m_PendingUiMagazineEjectHandler;
+	private UnitWeaponReloadController m_SubscribedReloadController;
 	#endregion
 
 	private readonly struct WeaponSlotBinding
@@ -105,14 +110,23 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	{
 		EnsureRuntimeReferences();
 		RuntimeInventoryModificationDragContext.Changed += HandleModificationDragContextChanged;
+		TrySubscribeReloadCompletionHandler();
 	}
 
 	private void OnDisable()
 	{
 		RuntimeInventoryModificationDragContext.Changed -= HandleModificationDragContextChanged;
+		TryUnsubscribeReloadCompletionHandler();
 		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
 		RuntimeInventoryModificationDragContext.ResetAfterDrag();
+		if (m_DeferredMagazineRepaintCoroutine != null)
+		{
+			StopCoroutine(m_DeferredMagazineRepaintCoroutine);
+			m_DeferredMagazineRepaintCoroutine = null;
+		}
+
 		m_ModificationUiState = default;
+		m_PendingUiMagazineEjectHandler = null;
 	}
 
 	private void OnDestroy()
@@ -130,10 +144,14 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			if (_slot == null || !_slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
 				return false;
 
-			if (m_ModificationUiState.MatchesGround(groundSlotIndex) && m_ModificationUiState.ExpandEmptySlots)
+			if (IsSameWeaponAsSelection(_slot.Data.InstanceState, true, groundSlotIndex, false, -1) &&
+			    m_ModificationUiState.IsExpanded)
 				return true;
 
-			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(groundSlotIndex, _expandEmptySlots: true);
+			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+				groundSlotIndex,
+				_slot.Data.InstanceState,
+				RuntimeModifiableWeaponDisplayState.Expanded);
 			RebuildInlineModificationRows();
 			return true;
 		}
@@ -148,73 +166,113 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
 			return false;
 
-		if (m_ModificationUiState.MatchesCharacter(isMainHand, bagIndex) && m_ModificationUiState.ExpandEmptySlots)
+		if (IsSameWeaponAsSelection(weaponSlot.InstanceState, false, -1, isMainHand, bagIndex) &&
+		    m_ModificationUiState.IsExpanded)
 			return true;
 
-		m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(isMainHand, bagIndex, _expandEmptySlots: true);
+		m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+			isMainHand,
+			bagIndex,
+			weaponSlot.InstanceState,
+			RuntimeModifiableWeaponDisplayState.Expanded);
 		RebuildInlineModificationRows();
-		return true;
-	}
-
-	public bool TryCollapseEmptyModificationSlotsForSlot(InventorySlotView _slot)
-	{
-		if (TryResolveGroundSlot(_slot, out int groundSlotIndex))
-		{
-			if (!m_ModificationUiState.MatchesGround(groundSlotIndex) || !m_ModificationUiState.ExpandEmptySlots)
-				return false;
-
-			CollapseEmptyModificationSlots();
-			return true;
-		}
-
-		if (!TryResolveCharacterSlot(_slot, out bool isMainHand, out int bagIndex))
-			return false;
-
-		if (!m_ModificationUiState.MatchesCharacter(isMainHand, bagIndex) || !m_ModificationUiState.ExpandEmptySlots)
-			return false;
-
-		CollapseEmptyModificationSlots();
 		return true;
 	}
 
 	public bool TryToggleModificationPanel(InventorySlotView _slot)
 	{
-		if (TryResolveGroundSlot(_slot, out int groundSlotIndex))
-		{
-			if (_slot == null || !_slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
-				return false;
+		if (!TryResolveModificationToggleTarget(
+			    _slot,
+			    out bool isGroundSlot,
+			    out int groundSlotIndex,
+			    out bool isMainHand,
+			    out int bagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+			return false;
 
-			if (m_ModificationUiState.MatchesGround(groundSlotIndex))
-				m_ModificationUiState.ExpandEmptySlots = !m_ModificationUiState.ExpandEmptySlots;
+		if (isGroundSlot)
+		{
+			if (IsSameWeaponAsSelection(weaponSlot.InstanceState, true, groundSlotIndex, false, -1))
+				SetDisplayState(m_ModificationUiState.IsExpanded
+					? RuntimeModifiableWeaponDisplayState.Collapsed
+					: RuntimeModifiableWeaponDisplayState.Expanded);
 			else
-				m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(groundSlotIndex, _expandEmptySlots: true);
+				m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+					groundSlotIndex,
+					weaponSlot.InstanceState,
+					RuntimeModifiableWeaponDisplayState.Expanded);
 
 			RebuildInlineModificationRows();
 			return true;
 		}
 
-		if (!TryResolveCharacterSlot(_slot, out bool isMainHand, out int bagIndex))
-			return false;
-
-		CharacterInventory inventory = ActiveInventory;
-		if (inventory == null || !inventory.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
-			return false;
-
-		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
-			return false;
-
-		if (m_ModificationUiState.MatchesCharacter(isMainHand, bagIndex))
-			m_ModificationUiState.ExpandEmptySlots = !m_ModificationUiState.ExpandEmptySlots;
+		if (IsSameWeaponAsSelection(weaponSlot.InstanceState, false, -1, isMainHand, bagIndex))
+			SetDisplayState(m_ModificationUiState.IsExpanded
+				? RuntimeModifiableWeaponDisplayState.Collapsed
+				: RuntimeModifiableWeaponDisplayState.Expanded);
 		else
-			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(isMainHand, bagIndex, _expandEmptySlots: true);
+			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+				isMainHand,
+				bagIndex,
+				weaponSlot.InstanceState,
+				RuntimeModifiableWeaponDisplayState.Expanded);
 
 		RebuildInlineModificationRows();
 		return true;
 	}
 
+	public void TryCollapseModificationPanelForDoubleClick(InventorySlotView _slot)
+	{
+		if (!TryResolveModificationToggleTarget(
+			    _slot,
+			    out bool isGroundSlot,
+			    out int groundSlotIndex,
+			    out bool isMainHand,
+			    out int bagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+			return;
+
+		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.IsExpanded)
+			return;
+
+		if (!IsSameWeaponAsSelection(weaponSlot.InstanceState, isGroundSlot, groundSlotIndex, isMainHand, bagIndex))
+			return;
+
+		SetDisplayState(RuntimeModifiableWeaponDisplayState.Collapsed);
+	}
+
+	public RuntimeModifiableWeaponDisplayState GetDisplayStateForSlot(InventorySlotView _slot)
+	{
+		if (_slot == null || !_slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
+			return RuntimeModifiableWeaponDisplayState.Collapsed;
+
+		if (TryResolveGroundSlot(_slot, out int groundSlotIndex))
+		{
+			return IsSameWeaponAsSelection(_slot.Data.InstanceState, true, groundSlotIndex, false, -1)
+				? m_ModificationUiState.DisplayState
+				: RuntimeModifiableWeaponDisplayState.Collapsed;
+		}
+
+		if (!TryResolveCharacterSlot(_slot, out bool isMainHand, out int bagIndex))
+			return RuntimeModifiableWeaponDisplayState.Collapsed;
+
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory == null || !inventory.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
+			return RuntimeModifiableWeaponDisplayState.Collapsed;
+
+		return IsSameWeaponAsSelection(weaponSlot.InstanceState, false, -1, isMainHand, bagIndex)
+			? m_ModificationUiState.DisplayState
+			: RuntimeModifiableWeaponDisplayState.Collapsed;
+	}
+
 	public bool HasExpandedEmptyModificationSlots()
 	{
-		return m_ModificationUiState.HasSelection && m_ModificationUiState.ExpandEmptySlots;
+		return m_ModificationUiState.HasSelection && m_ModificationUiState.IsExpanded;
+	}
+
+	public bool ShouldSuppressOutsideClickCollapse()
+	{
+		return Time.frameCount <= m_SuppressOutsideClickUntilFrame;
 	}
 
 	public bool TryGetModificationWeaponSlot(out InventorySlotRuntimeData _weaponSlot)
@@ -259,11 +317,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	public void CollapseEmptyModificationSlots()
 	{
-		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.ExpandEmptySlots)
-			return;
-
-		m_ModificationUiState.ExpandEmptySlots = false;
-		RebuildInlineModificationRows();
+		SetDisplayState(RuntimeModifiableWeaponDisplayState.Collapsed);
 	}
 
 	public void ClearModificationUiSelection()
@@ -301,6 +355,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return;
 		}
 
+		m_PendingInlineRefresh = true;
 		if (m_DeferredInlineRefreshCoroutine != null)
 			return;
 
@@ -368,6 +423,16 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, payload.Item))
 			return false;
 
+		CharacterInventory inventory = ActiveInventory;
+		bool useEquippedMagazineReload = !_weaponIsOnGroundPanel &&
+		                                 WeaponMagazineModificationApplier.IsMagazineSlot(_slotDescriptor) &&
+		                                 inventory != null &&
+		                                 WeaponMagazineModificationApplier.IsEquippedMainHandWeapon(
+			                                 inventory, _weaponIsMainHand, weaponSlot);
+
+		if (useEquippedMagazineReload)
+			return TryInstallEquippedMagazineFromDrag(payload, _weaponIsMainHand, _weaponBagIndex);
+
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
@@ -392,8 +457,12 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				GroundPanel?.TryAdd(replacedItem);
 		}
 
-		if (!_weaponIsOnGroundPanel && m_ModificationUiState.MatchesCharacter(_weaponIsMainHand, _weaponBagIndex) && !_weaponIsMainHand)
-			m_ModificationUiState.BagIndex = targetBagIndex;
+		KeepExpandedSelectionAfterModificationInstall(
+			_weaponIsOnGroundPanel,
+			_weaponGroundSlotIndex,
+			_weaponIsMainHand,
+			targetBagIndex,
+			weaponSlot.InstanceState);
 
 		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated();
@@ -421,6 +490,53 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				return false;
 		}
 
+		if (!ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
+			return false;
+
+		CharacterInventory inventoryForReload = ActiveInventory;
+		bool useEquippedMagazineReload = !_weaponIsOnGroundPanel &&
+		                                 WeaponMagazineModificationApplier.IsMagazineSlot(_slotDescriptor) &&
+		                                 inventoryForReload != null &&
+		                                 WeaponMagazineModificationApplier.IsEquippedMainHandWeapon(
+			                                 inventoryForReload, _weaponIsMainHand, weaponSlot);
+
+		if (useEquippedMagazineReload)
+		{
+			if (!WeaponMagazineModificationApplier.CanStartUiMagazineModification(inventoryForReload))
+				return false;
+
+			WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = _addToCharacterBag;
+			if (!WeaponMagazineModificationApplier.TryStartEquippedMagazineEject(inventoryForReload))
+			{
+				WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = true;
+				return false;
+			}
+
+			if (!_addToCharacterBag)
+			{
+				m_PendingUiMagazineEjectHandler = _ejectedMagazine =>
+				{
+					if (_ejectedMagazine.IsEmpty)
+					{
+						NotifyInventoryMutated();
+						return;
+					}
+
+					InventorySlotRuntimeData forGround = _ejectedMagazine;
+					forGround.WorldSource = null;
+					if (GroundPanel != null && GroundPanel.TryAdd(forGround))
+						NotifyInventoryMutated();
+					else if (inventoryForReload != null)
+					{
+						inventoryForReload.TryAdd(_ejectedMagazine);
+						NotifyInventoryMutated();
+					}
+				};
+			}
+
+			return true;
+		}
+
 		if (!ItemModificationUtility.TryClearSlot(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
 			return false;
 
@@ -438,6 +554,24 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				ActiveInventory.TryAdd(removedItem);
 			else
 				GroundPanel?.TryAdd(removedItem);
+		}
+		else if (!removedItem.IsEmpty && GroundPanel != null)
+		{
+			InventorySlotRuntimeData forGround = removedItem;
+			forGround.WorldSource = null;
+			if (!GroundPanel.TryAdd(forGround))
+			{
+				if (_weaponIsOnGroundPanel)
+				{
+					ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, removedItem, out _);
+					TryCommitGroundWeaponSlot(_weaponGroundSlotIndex, weaponSlot);
+				}
+				else
+					ActiveInventory?.TryAdd(removedItem);
+
+				NotifyInventoryMutated();
+				return false;
+			}
 		}
 
 		NotifyInventoryMutated();
@@ -464,56 +598,14 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (_drag == null || GroundPanel == null)
 			return false;
 
-		InventorySlotRuntimeData weaponSlot;
-		if (_drag.WeaponIsOnGroundPanel)
-		{
-			if (!TryGetGroundWeaponSlot(_drag.WeaponGroundSlotIndex, out _, out weaponSlot))
-				return false;
-		}
-		else
-		{
-			CharacterInventory inventory = ActiveInventory;
-			if (inventory == null ||
-			    !inventory.TryGetInventorySlot(_drag.WeaponIsMainHand, _drag.WeaponBagIndex, out weaponSlot))
-				return false;
-		}
-
-		if (!ItemModificationUtility.TryClearSlot(_drag.SlotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
-			return false;
-
-		if (_drag.WeaponIsOnGroundPanel)
-		{
-			if (!TryCommitGroundWeaponSlot(_drag.WeaponGroundSlotIndex, weaponSlot))
-				return false;
-		}
-		else if (!ActiveInventory.TrySetInventorySlot(_drag.WeaponIsMainHand, _drag.WeaponBagIndex, weaponSlot))
-			return false;
-
-		if (removedItem.IsEmpty)
-		{
-			NotifyInventoryMutated();
-			return true;
-		}
-
-		InventorySlotRuntimeData forGround = removedItem;
-		forGround.WorldSource = null;
-		if (!GroundPanel.TryAdd(forGround))
-		{
-			if (_drag.WeaponIsOnGroundPanel)
-			{
-				ItemModificationUtility.TryInstallAtSlot(_drag.SlotDescriptor, weaponSlot, removedItem, out _);
-				TryCommitGroundWeaponSlot(_drag.WeaponGroundSlotIndex, weaponSlot);
-			}
-			else
-				ActiveInventory?.TryAdd(removedItem);
-
-			NotifyInventoryMutated();
-			return false;
-		}
-
 		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
-		NotifyInventoryMutated();
-		return true;
+		return TryClearModificationSlot(
+			_drag.SlotDescriptor,
+			_drag.WeaponIsMainHand,
+			_drag.WeaponBagIndex,
+			_addToCharacterBag: false,
+			_weaponIsOnGroundPanel: _drag.WeaponIsOnGroundPanel,
+			_weaponGroundSlotIndex: _drag.WeaponGroundSlotIndex);
 	}
 
 	public bool IsScreenPointOverCharacterPanel(Vector2 _screenPosition, Camera _eventCamera)
@@ -581,9 +673,12 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	private void RepaintCharacterAndGroundPanelsInternal(CharacterInventory _inventory, InventoryPanelView _characterPanel)
 	{
+		RuntimeInventoryModificationUiState preservedModificationUi = m_ModificationUiState;
+		TrySubscribeReloadCompletionHandler();
 		RuntimeInlineModificationBuilder.ClearAllRows(_characterPanel);
 		_characterPanel.RepaintFromCharacterInventory(_inventory);
 		EnsureCharacterPanelComponents();
+		m_ModificationUiState = preservedModificationUi;
 		RebuildInlineModificationRows();
 		EnsureGroundPanelComponents();
 		GroundPanel?.RebuildContentLayout();
@@ -614,6 +709,79 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		_bagIndex = slotIndex - lead;
 		return _bagIndex >= 0 && _bagIndex < ActiveInventory.BagCount;
+	}
+
+	/// <summary>Ячейка UI как цель drop (допускает пустой слот экипировки).</summary>
+	public bool TryResolveCharacterDropTarget(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out int _bagIndex)
+	{
+		_isMainHandEquipmentSlot = false;
+		_bagIndex = -1;
+
+		if (_slot == null || CharacterPanel == null)
+			return false;
+
+		if (!RuntimeModificationPanelUtility.IsSlotOnPanel(_slot, CharacterPanel))
+			return false;
+
+		int slotIndex = CharacterPanel.GetInventorySlotListIndex(_slot);
+		if (slotIndex < 0)
+			return false;
+
+		int lead = Mathf.Max(0, CharacterPanel.LeadingEquipmentSlotCount);
+		if (slotIndex < lead)
+		{
+			_isMainHandEquipmentSlot = slotIndex == 0;
+			return _isMainHandEquipmentSlot;
+		}
+
+		_bagIndex = slotIndex - lead;
+		return _bagIndex >= 0;
+	}
+
+	public bool IsScreenPointOverCharacterMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(CharacterPanel);
+		return InventorySlotUiUtility.IsScreenPointOverSlot(mainHandSlot, _screenPosition, _eventCamera);
+	}
+
+	public bool TryEquipWeaponDragToMainHand()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsWeaponEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon =>
+				selectionManager.TryEquipCharacterBagWeaponToMainHand(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundWeapon =>
+				selectionManager.TryEquipGroundWeaponToMainHand(
+					RuntimeInventoryModificationDragContext.SourceSlotView,
+					payload.SlotIndex),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
 	}
 
 	public bool TryResolveGroundSlot(InventorySlotView _slot, out int _groundSlotIndex)
@@ -653,6 +821,9 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	public void NotifyInventoryMutated()
 	{
+		if (m_ModificationUiState.IsExpanded)
+			TryRestoreExpandedSelectionFromAuthoritativeData();
+
 		CharacterInventory inventory = ActiveInventory;
 		if (inventory != null)
 			TryRepaintCharacterAndGroundPanels(inventory);
@@ -672,6 +843,125 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		if (m_SelectionManager == null)
 			m_SelectionManager = RtsUnitSelectionManager.Instance;
+	}
+
+	private CharacterInventory ResolveActiveInventory()
+	{
+		if (m_InventoryBindings != null && m_InventoryBindings.ActiveCharacterInventory != null)
+			return m_InventoryBindings.ActiveCharacterInventory;
+
+		return m_SelectionManager != null
+			? m_SelectionManager.TryGetActiveCharacterInventoryForUi()
+			: null;
+	}
+
+	private void TrySubscribeReloadCompletionHandler()
+	{
+		CharacterInventory inventory = ResolveActiveInventory();
+		if (inventory == null)
+		{
+			TryUnsubscribeReloadCompletionHandler();
+			return;
+		}
+
+		if (!WeaponMagazineModificationApplier.TryGetReloadController(inventory, out UnitWeaponReloadController reloadController))
+		{
+			TryUnsubscribeReloadCompletionHandler();
+			return;
+		}
+
+		if (m_SubscribedReloadController == reloadController)
+			return;
+
+		TryUnsubscribeReloadCompletionHandler();
+		m_SubscribedReloadController = reloadController;
+		reloadController.UiMagazineModificationCompleted += HandleUiMagazineModificationCompleted;
+	}
+
+	private void TryUnsubscribeReloadCompletionHandler()
+	{
+		if (m_SubscribedReloadController == null)
+			return;
+
+		m_SubscribedReloadController.UiMagazineModificationCompleted -= HandleUiMagazineModificationCompleted;
+		m_SubscribedReloadController = null;
+	}
+
+	private void HandleUiMagazineModificationCompleted(InventorySlotRuntimeData _ejectedMagazine)
+	{
+		WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = true;
+
+		System.Action<InventorySlotRuntimeData> pendingHandler = m_PendingUiMagazineEjectHandler;
+		m_PendingUiMagazineEjectHandler = null;
+		if (pendingHandler != null)
+		{
+			pendingHandler.Invoke(_ejectedMagazine);
+			return;
+		}
+
+		RuntimeInventoryModificationUiState preservedModificationUi = m_ModificationUiState;
+		if (isActiveAndEnabled)
+			ScheduleRepaintAfterMagazineModificationCompleted(preservedModificationUi);
+		else
+		{
+			m_ModificationUiState = preservedModificationUi;
+			NotifyInventoryMutated();
+		}
+	}
+
+	private bool TryInstallEquippedMagazineFromDrag(
+		RuntimeInventoryModificationDragPayload _payload,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex)
+	{
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory == null || !WeaponMagazineModificationApplier.CanStartUiMagazineModification(inventory))
+			return false;
+
+		int targetBagIndex = _weaponBagIndex;
+		if (!TryConsumeModificationDragSource(_payload, ref targetBagIndex))
+			return false;
+
+		if (!WeaponMagazineModificationApplier.TryStartEquippedMagazineInstall(inventory, _payload.Item))
+		{
+			TryRestoreModificationDragSource(_payload, _payload.Item);
+			return false;
+		}
+
+		CharacterInventory inventoryAfterInstall = ActiveInventory;
+		if (inventoryAfterInstall != null &&
+		    inventoryAfterInstall.TryGetInventorySlot(_weaponIsMainHand, targetBagIndex, out InventorySlotRuntimeData installedWeaponSlot))
+		{
+			KeepExpandedSelectionAfterModificationInstall(
+				false,
+				-1,
+				_weaponIsMainHand,
+				targetBagIndex,
+				installedWeaponSlot.InstanceState);
+		}
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		return true;
+	}
+
+	private bool TryRestoreModificationDragSource(
+		RuntimeInventoryModificationDragPayload _payload,
+		InventorySlotRuntimeData _item)
+	{
+		if (_item.IsEmpty)
+			return false;
+
+		switch (_payload.SourceKind)
+		{
+			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
+				return ActiveInventory != null && ActiveInventory.TryAdd(_item);
+
+			case RuntimeInventoryModificationDragSourceKind.GroundPanel:
+				return GroundPanel != null && GroundPanel.TryAdd(_item);
+
+			default:
+				return true;
+		}
 	}
 
 	private bool TryConsumeModificationDragSource(RuntimeInventoryModificationDragPayload _payload, ref int _targetBagIndex)
@@ -753,7 +1043,25 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			highlight.Bind(this);
 		}
 
+		EnsureMainHandEquipmentSlot();
 		EnsureGroundPanelComponents();
+	}
+
+	private void EnsureMainHandEquipmentSlot()
+	{
+		if (CharacterPanel == null || CharacterPanel.LeadingEquipmentSlotCount <= 0)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = CharacterPanel.Slots;
+		if (slots.Count == 0 || slots[0] == null)
+			return;
+
+		RuntimeCharacterMainHandEquipmentSlotView mainHandSlot =
+			slots[0].GetComponent<RuntimeCharacterMainHandEquipmentSlotView>();
+		if (mainHandSlot == null)
+			mainHandSlot = slots[0].gameObject.AddComponent<RuntimeCharacterMainHandEquipmentSlotView>();
+
+		mainHandSlot.Bind(this);
 	}
 
 	private void EnsureGroundPanelComponents()
@@ -777,18 +1085,25 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			if (click == null)
 				click = slot.gameObject.AddComponent<RuntimeInventoryModificationClick>();
 			click.Bind(this);
+
+			if (slot.GetComponent<InventoryGroundEquipDoubleClick>() == null)
+				slot.gameObject.AddComponent<InventoryGroundEquipDoubleClick>();
 		}
 	}
 
 	private void RebuildInlineModificationRows()
 	{
+		m_PendingInlineRefresh = false;
 		CharacterInventory inventory = ActiveInventory;
-		bool canBuildCharacterRows = CharacterPanel != null && inventory != null;
+		bool canBuildCharacterRows = CharacterPanel != null;
 
 		if (CharacterPanel != null)
 			RuntimeInlineModificationBuilder.ClearAllRows(CharacterPanel);
 		if (GroundPanel != null)
 			RuntimeInlineModificationBuilder.ClearAllRows(GroundPanel);
+
+		CharacterPanel?.RefreshSlotsFromHierarchy();
+		GroundPanel?.RefreshSlotsFromHierarchy();
 
 		m_WeaponSlotBindingBuffer.Clear();
 		if (canBuildCharacterRows)
@@ -796,6 +1111,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		CollectModifiableGroundWeaponBindings(m_WeaponSlotBindingBuffer);
 		ValidateModificationUiSelection(m_WeaponSlotBindingBuffer);
+		ReconcileExpandedSelectionAfterRebuild();
 
 		if (m_WeaponSlotBindingBuffer.Count == 0)
 		{
@@ -808,22 +1124,32 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		for (int i = m_WeaponSlotBindingBuffer.Count - 1; i >= 0; i--)
 		{
 			WeaponSlotBinding binding = m_WeaponSlotBindingBuffer[i];
-			if (binding.Panel == null || binding.SlotView == null || binding.WeaponData.IsEmpty)
+			if (binding.Panel == null || binding.SlotView == null || !binding.SlotView.HasItem)
 				continue;
 
-			BuildVisibleModificationDescriptors(binding, m_VisibleModificationDescriptorBuffer);
+			InventorySlotRuntimeData weaponData = ResolveWeaponDataForModificationUi(binding);
+			if (weaponData.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
+				continue;
+
+			bool expandEmpty = ShouldExpandEmptySlotsForBinding(binding);
+			BuildVisibleModificationDescriptors(weaponData, expandEmpty, m_VisibleModificationDescriptorBuffer);
+			if (m_VisibleModificationDescriptorBuffer.Count == 0 &&
+			    ItemModificationUtility.HasAnyInstalledModification(weaponData))
+			{
+				ItemModificationUtility.BuildInstalledModificationDescriptors(
+					weaponData,
+					m_ModificationDescriptorBuffer,
+					m_VisibleModificationDescriptorBuffer);
+			}
+
 			if (m_VisibleModificationDescriptorBuffer.Count == 0)
 				continue;
 
-			bool expandEmpty = m_ModificationUiState.ExpandEmptySlots &&
-			                   (binding.IsGroundSlot
-				                   ? m_ModificationUiState.MatchesGround(binding.GroundSlotIndex)
-				                   : m_ModificationUiState.MatchesCharacter(binding.IsMainHand, binding.BagIndex));
 			RuntimeInlineModificationBuilder.RebuildWeaponRows(
 				binding.Panel,
 				this,
 				binding.SlotView,
-				binding.WeaponData,
+				weaponData,
 				binding.IsMainHand,
 				binding.BagIndex,
 				binding.IsGroundSlot,
@@ -835,17 +1161,23 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		CharacterPanel?.RebuildContentLayout();
 		GroundPanel?.RebuildContentLayout();
 		if (CharacterPanel != null)
+		{
 			RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
+			RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(CharacterPanel);
+		}
+
 		if (GroundPanel != null)
 			RuntimeInlineModificationBuilder.RefreshHighlights(GroundPanel);
+
 		RefreshModificationCompatibilityHighlights();
 	}
 
 	private void CollectModifiableCharacterWeaponBindings(List<WeaponSlotBinding> _outBindings)
 	{
-		CharacterInventory inventory = ActiveInventory;
-		if (CharacterPanel == null || inventory == null)
+		if (CharacterPanel == null)
 			return;
+
+		CharacterInventory inventory = ActiveInventory;
 
 		IReadOnlyList<InventorySlotView> slots = CharacterPanel.Slots;
 		int lead = Mathf.Max(0, CharacterPanel.LeadingEquipmentSlotCount);
@@ -858,11 +1190,36 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 			bool isMainHand = i < lead && i == 0;
 			int bagIndex = isMainHand ? -1 : i - lead;
-			if (!isMainHand && (bagIndex < 0 || bagIndex >= inventory.BagCount))
-				continue;
 
-			if (!inventory.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponData))
+			InventorySlotRuntimeData weaponData = default;
+			if (isMainHand)
+			{
+				if (inventory == null ||
+				    !inventory.TryGetInventorySlot(true, bagIndex, out weaponData) ||
+				    weaponData.IsEmpty)
+				{
+					if (!ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+						continue;
+
+					weaponData = slot.Data;
+				}
+			}
+			else if (inventory != null &&
+			         bagIndex >= 0 &&
+			         bagIndex < inventory.BagCount &&
+			         inventory.TryGetInventorySlot(false, bagIndex, out InventorySlotRuntimeData inventoryWeapon) &&
+			         !inventoryWeapon.IsEmpty)
+			{
+				weaponData = inventoryWeapon;
+			}
+			else if (ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+			{
+				weaponData = slot.Data;
+			}
+			else
+			{
 				continue;
+			}
 
 			if (!ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
 				continue;
@@ -895,19 +1252,50 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	}
 
 	private void BuildVisibleModificationDescriptors(
-		WeaponSlotBinding _binding,
+		InventorySlotRuntimeData _weaponData,
+		bool _expandEmpty,
 		List<ItemModificationSlotDescriptor> _outVisibleDescriptors)
 	{
-		bool expandEmpty = m_ModificationUiState.ExpandEmptySlots &&
-		                   (_binding.IsGroundSlot
-			                   ? m_ModificationUiState.MatchesGround(_binding.GroundSlotIndex)
-			                   : m_ModificationUiState.MatchesCharacter(_binding.IsMainHand, _binding.BagIndex));
-
 		ItemModificationUtility.BuildVisibleModificationDescriptors(
-			_binding.WeaponData,
-			expandEmpty,
+			_weaponData,
+			_expandEmpty,
 			m_ModificationDescriptorBuffer,
 			_outVisibleDescriptors);
+	}
+
+	private InventorySlotRuntimeData ResolveWeaponDataForModificationUi(in WeaponSlotBinding _binding)
+	{
+		if (_binding.IsGroundSlot)
+		{
+			if (_binding.SlotView != null && _binding.SlotView.HasItem)
+				return MissionPrepInventoryCopyUtility.CloneSlot(_binding.SlotView.Data);
+
+			return MissionPrepInventoryCopyUtility.CloneSlot(_binding.WeaponData);
+		}
+
+		CharacterInventory inventory = ActiveInventory;
+		InventorySlotRuntimeData slotData = _binding.SlotView != null && _binding.SlotView.HasItem
+			? MissionPrepInventoryCopyUtility.CloneSlot(_binding.SlotView.Data)
+			: default;
+
+		if (inventory != null &&
+		    inventory.TryGetInventorySlot(_binding.IsMainHand, _binding.BagIndex, out InventorySlotRuntimeData inventoryData) &&
+		    !inventoryData.IsEmpty)
+		{
+			InventorySlotRuntimeData clonedInventoryData = MissionPrepInventoryCopyUtility.CloneSlot(inventoryData);
+			if (ItemModificationUtility.HasAnyInstalledModification(clonedInventoryData))
+				return clonedInventoryData;
+
+			if (ItemModificationUtility.HasAnyInstalledModification(slotData))
+				return slotData;
+
+			return clonedInventoryData;
+		}
+
+		if (!slotData.IsEmpty)
+			return slotData;
+
+		return MissionPrepInventoryCopyUtility.CloneSlot(_binding.WeaponData);
 	}
 
 	private bool TryGetGroundWeaponSlot(int _groundSlotIndex, out InventorySlotView _slotView, out InventorySlotRuntimeData _weaponSlot)
@@ -951,14 +1339,52 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!m_ModificationUiState.HasSelection)
 			return;
 
+		ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+		if (selectedInstance != null)
+		{
+			for (int i = 0; i < _bindings.Count; i++)
+			{
+				WeaponSlotBinding binding = _bindings[i];
+				if (BindingMatchesModificationSelection(binding, selectedInstance))
+				{
+					ApplyBindingToModificationUiState(binding);
+					return;
+				}
+			}
+
+			if (TryRemapSelectionFromPanelSlots())
+				return;
+
+			if (TryRestoreExpandedSelectionFromAuthoritativeData())
+				return;
+
+			if (m_ModificationUiState.IsExpanded)
+				return;
+
+			m_ModificationUiState = default;
+			return;
+		}
+
 		if (m_ModificationUiState.IsGroundSlot)
 		{
 			for (int i = 0; i < _bindings.Count; i++)
 			{
 				WeaponSlotBinding binding = _bindings[i];
 				if (binding.IsGroundSlot && m_ModificationUiState.MatchesGround(binding.GroundSlotIndex))
+				{
+					ApplyBindingToModificationUiState(binding);
 					return;
+				}
 			}
+
+			if (TryRemapSelectionFromPanelSlots())
+				return;
+
+			if (TryRestoreExpandedSelectionFromAuthoritativeData())
+				return;
+
+			if (m_ModificationUiState.IsExpanded)
+				return;
 
 			m_ModificationUiState = default;
 			return;
@@ -971,10 +1397,354 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				continue;
 
 			if (m_ModificationUiState.MatchesCharacter(binding.IsMainHand, binding.BagIndex))
+			{
+				ApplyBindingToModificationUiState(binding);
 				return;
+			}
 		}
 
+		if (TryRemapSelectionFromPanelSlots())
+			return;
+
+		if (TryRestoreExpandedSelectionFromAuthoritativeData())
+			return;
+
+		if (m_ModificationUiState.IsExpanded)
+			return;
+
 		m_ModificationUiState = default;
+	}
+
+	private void ReconcileExpandedSelectionAfterRebuild()
+	{
+		if (!m_ModificationUiState.IsExpanded)
+			return;
+
+		TryRestoreExpandedSelectionFromAuthoritativeData();
+	}
+
+	private bool TryRestoreExpandedSelectionFromAuthoritativeData()
+	{
+		if (!m_ModificationUiState.HasSelection)
+			return false;
+
+		RuntimeModifiableWeaponDisplayState displayState = m_ModificationUiState.DisplayState;
+
+		if (m_ModificationUiState.IsGroundSlot)
+		{
+			int groundIndex = m_ModificationUiState.GroundSlotIndex;
+			if (GroundPanel != null &&
+			    groundIndex >= 0 &&
+			    groundIndex < GroundPanel.Slots.Count)
+			{
+				InventorySlotView slotView = GroundPanel.Slots[groundIndex];
+				if (slotView != null &&
+				    slotView.HasItem &&
+				    ItemModificationUtility.IsModifiableWeapon(slotView.Data.Definition))
+				{
+					m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+						groundIndex,
+						slotView.Data.InstanceState,
+						displayState);
+					return true;
+				}
+			}
+
+			return TryRemapSelectionFromPanelSlots();
+		}
+
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory != null &&
+		    inventory.TryGetInventorySlot(m_ModificationUiState.IsMainHand, m_ModificationUiState.BagIndex, out InventorySlotRuntimeData weaponSlot) &&
+		    !weaponSlot.IsEmpty &&
+		    ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
+		{
+			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+				m_ModificationUiState.IsMainHand,
+				m_ModificationUiState.BagIndex,
+				weaponSlot.InstanceState,
+				displayState);
+			return true;
+		}
+
+		return TryRemapSelectionFromPanelSlots();
+	}
+
+	private bool TryResolveModificationToggleTarget(
+		InventorySlotView _slot,
+		out bool _isGroundSlot,
+		out int _groundSlotIndex,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isGroundSlot = false;
+		_groundSlotIndex = -1;
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponSlot = default;
+
+		if (_slot == null || !_slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
+			return false;
+
+		if (TryResolveGroundSlot(_slot, out _groundSlotIndex))
+		{
+			_isGroundSlot = true;
+			_weaponSlot = _slot.Data;
+			return true;
+		}
+
+		if (CharacterPanel == null || !RuntimeModificationPanelUtility.IsSlotOnPanel(_slot, CharacterPanel))
+			return false;
+
+		int slotIndex = CharacterPanel.GetInventorySlotListIndex(_slot);
+		if (slotIndex < 0)
+			return false;
+
+		int lead = Mathf.Max(0, CharacterPanel.LeadingEquipmentSlotCount);
+		_isMainHand = slotIndex < lead && slotIndex == 0;
+		_bagIndex = _isMainHand ? -1 : slotIndex - lead;
+		_weaponSlot = _slot.Data;
+
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory != null &&
+		    inventory.TryGetInventorySlot(_isMainHand, _bagIndex, out InventorySlotRuntimeData inventorySlot) &&
+		    !inventorySlot.IsEmpty)
+			_weaponSlot = inventorySlot;
+
+		return ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
+	}
+
+	private bool TryRemapSelectionFromPanelSlots()
+	{
+		ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+
+		if (CharacterPanel != null)
+		{
+			IReadOnlyList<InventorySlotView> slots = CharacterPanel.Slots;
+			int lead = Mathf.Max(0, CharacterPanel.LeadingEquipmentSlotCount);
+			for (int i = 0; i < slots.Count; i++)
+			{
+				InventorySlotView slot = slots[i];
+				if (slot == null || !slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+					continue;
+
+				bool isMainHand = i < lead && i == 0;
+				int bagIndex = isMainHand ? -1 : i - lead;
+				bool matchesInstance = selectedInstance != null && slot.Data.InstanceState == selectedInstance;
+				bool matchesIndex = m_ModificationUiState.MatchesCharacter(isMainHand, bagIndex);
+				if (!matchesInstance && !matchesIndex)
+					continue;
+
+				InventorySlotRuntimeData weaponData = slot.Data;
+				CharacterInventory inventory = ActiveInventory;
+				if (inventory != null &&
+				    inventory.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData inventorySlot) &&
+				    !inventorySlot.IsEmpty)
+					weaponData = inventorySlot;
+
+				m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+					isMainHand,
+					bagIndex,
+					weaponData.InstanceState,
+					m_ModificationUiState.DisplayState);
+				return true;
+			}
+		}
+
+		if (GroundPanel != null)
+		{
+			IReadOnlyList<InventorySlotView> groundSlots = GroundPanel.Slots;
+			for (int i = 0; i < groundSlots.Count; i++)
+			{
+				InventorySlotView slot = groundSlots[i];
+				if (slot == null || !slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+					continue;
+
+				bool matchesInstance = selectedInstance != null && slot.Data.InstanceState == selectedInstance;
+				bool matchesIndex = m_ModificationUiState.MatchesGround(i);
+				if (!matchesInstance && !matchesIndex)
+					continue;
+
+				m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+					i,
+					slot.Data.InstanceState,
+					m_ModificationUiState.DisplayState);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private void SetDisplayState(RuntimeModifiableWeaponDisplayState _displayState)
+	{
+		if (!m_ModificationUiState.HasSelection || m_ModificationUiState.DisplayState == _displayState)
+			return;
+
+		m_ModificationUiState.DisplayState = _displayState;
+		RebuildInlineModificationRows();
+	}
+
+	private void ApplyBindingToModificationUiState(WeaponSlotBinding _binding)
+	{
+		RuntimeModifiableWeaponDisplayState displayState = m_ModificationUiState.DisplayState;
+		ItemInstanceState weaponInstance = _binding.IsGroundSlot && _binding.SlotView != null
+			? _binding.SlotView.Data.InstanceState
+			: _binding.WeaponData.InstanceState;
+
+		if (_binding.IsGroundSlot)
+		{
+			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+				_binding.GroundSlotIndex,
+				weaponInstance,
+				displayState);
+			return;
+		}
+
+		m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+			_binding.IsMainHand,
+			_binding.BagIndex,
+			weaponInstance,
+			displayState);
+	}
+
+	private bool IsSameWeaponAsSelection(
+		ItemInstanceState _weaponInstanceState,
+		bool _isGroundSlot,
+		int _groundSlotIndex,
+		bool _isMainHand,
+		int _bagIndex)
+	{
+		if (!m_ModificationUiState.HasSelection)
+			return false;
+
+		if (_isGroundSlot)
+		{
+			if (m_ModificationUiState.IsGroundSlot && m_ModificationUiState.MatchesGround(_groundSlotIndex))
+				return true;
+		}
+		else if (!m_ModificationUiState.IsGroundSlot &&
+		         m_ModificationUiState.MatchesCharacter(_isMainHand, _bagIndex))
+		{
+			return true;
+		}
+
+		if (_weaponInstanceState != null && m_ModificationUiState.SelectedWeaponInstanceState != null)
+			return _weaponInstanceState == m_ModificationUiState.SelectedWeaponInstanceState;
+
+		return false;
+	}
+
+	private void KeepExpandedSelectionAfterModificationInstall(
+		bool _weaponIsOnGroundPanel,
+		int _groundSlotIndex,
+		bool _weaponIsMainHand,
+		int _bagIndex,
+		ItemInstanceState _weaponInstanceState)
+	{
+		m_SuppressOutsideClickUntilFrame = Time.frameCount + 1;
+
+		if (_weaponIsOnGroundPanel)
+		{
+			m_ModificationUiState = RuntimeInventoryModificationUiState.CreateGroundSelection(
+				_groundSlotIndex,
+				_weaponInstanceState,
+				RuntimeModifiableWeaponDisplayState.Expanded);
+			return;
+		}
+
+		m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+			_weaponIsMainHand,
+			_bagIndex,
+			_weaponInstanceState,
+			RuntimeModifiableWeaponDisplayState.Expanded);
+	}
+
+	private bool ShouldExpandEmptySlotsForBinding(WeaponSlotBinding _binding)
+	{
+		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.IsExpanded)
+			return false;
+
+		if (_binding.IsGroundSlot)
+		{
+			if (m_ModificationUiState.IsGroundSlot && m_ModificationUiState.MatchesGround(_binding.GroundSlotIndex))
+				return true;
+
+			ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+			return selectedInstance != null &&
+			       _binding.SlotView != null &&
+			       _binding.SlotView.Data.InstanceState == selectedInstance;
+		}
+
+		if (!m_ModificationUiState.IsGroundSlot &&
+		    m_ModificationUiState.MatchesCharacter(_binding.IsMainHand, _binding.BagIndex))
+			return true;
+
+		ItemInstanceState selectedWeaponInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+		if (selectedWeaponInstance == null)
+			return false;
+
+		if (_binding.WeaponData.InstanceState == selectedWeaponInstance)
+			return true;
+
+		return _binding.SlotView != null && _binding.SlotView.Data.InstanceState == selectedWeaponInstance;
+	}
+
+	private bool BindingMatchesModificationSelection(WeaponSlotBinding _binding, ItemInstanceState _selectedInstance)
+	{
+		if (_binding.IsGroundSlot)
+		{
+			if (m_ModificationUiState.IsGroundSlot && m_ModificationUiState.MatchesGround(_binding.GroundSlotIndex))
+				return true;
+
+			return _binding.SlotView != null && _binding.SlotView.Data.InstanceState == _selectedInstance;
+		}
+
+		if (!m_ModificationUiState.IsGroundSlot &&
+		    m_ModificationUiState.MatchesCharacter(_binding.IsMainHand, _binding.BagIndex))
+			return true;
+
+		if (_binding.WeaponData.InstanceState == _selectedInstance)
+			return true;
+
+		return _binding.SlotView != null && _binding.SlotView.Data.InstanceState == _selectedInstance;
+	}
+
+	public void RemapModificationSelectionForWeapon(ItemInstanceState _weaponInstanceState)
+	{
+		if (!m_ModificationUiState.HasSelection || _weaponInstanceState == null)
+			return;
+
+		if (m_ModificationUiState.SelectedWeaponInstanceState != null &&
+		    m_ModificationUiState.SelectedWeaponInstanceState != _weaponInstanceState)
+			return;
+
+		m_ModificationUiState.SelectedWeaponInstanceState = _weaponInstanceState;
+		m_WeaponSlotBindingBuffer.Clear();
+
+		CharacterInventory inventory = ActiveInventory;
+		if (CharacterPanel != null && inventory != null)
+			CollectModifiableCharacterWeaponBindings(m_WeaponSlotBindingBuffer);
+
+		CollectModifiableGroundWeaponBindings(m_WeaponSlotBindingBuffer);
+		ValidateModificationUiSelection(m_WeaponSlotBindingBuffer);
+	}
+
+	private void ScheduleRepaintAfterMagazineModificationCompleted(RuntimeInventoryModificationUiState _preservedModificationUi)
+	{
+		if (m_DeferredMagazineRepaintCoroutine != null)
+			StopCoroutine(m_DeferredMagazineRepaintCoroutine);
+
+		m_DeferredMagazineRepaintCoroutine = StartCoroutine(CoRepaintAfterMagazineModificationCompleted(_preservedModificationUi));
+	}
+
+	private IEnumerator CoRepaintAfterMagazineModificationCompleted(RuntimeInventoryModificationUiState _preservedModificationUi)
+	{
+		yield return null;
+		m_DeferredMagazineRepaintCoroutine = null;
+		m_ModificationUiState = _preservedModificationUi;
+		NotifyInventoryMutated();
 	}
 
 	private void RefreshPanelHighlights(InventoryPanelView _panel)
@@ -994,6 +1764,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	private void HandleModificationDragContextChanged()
 	{
 		RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
+		RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(CharacterPanel);
 		RefreshModificationCompatibilityHighlights();
 	}
 
@@ -1001,6 +1772,9 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	{
 		yield return null;
 		m_DeferredInlineRefreshCoroutine = null;
+		if (!m_PendingInlineRefresh)
+			yield break;
+
 		RebuildInlineModificationRows();
 	}
 	#endregion

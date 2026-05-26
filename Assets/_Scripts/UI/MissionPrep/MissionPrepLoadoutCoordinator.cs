@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -35,6 +37,17 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private readonly List<ItemModificationSlotDescriptor> m_ModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
 	private readonly List<ItemModificationSlotDescriptor> m_VisibleModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
 	private readonly List<WeaponSlotBinding> m_WeaponSlotBindingBuffer = new List<WeaponSlotBinding>(8);
+	private UnitWeaponReloadController m_SubscribedBoundReloadController;
+	private bool m_PendingInlineRefresh;
+	private Coroutine m_DeferredInlineRefreshCoroutine;
+	private Coroutine m_DeferredForcedExpandedRepaintCoroutine;
+	private int m_SuppressOutsideClickUntilFrame = -1;
+	private int m_ExpandedWeaponListIndex = -1;
+	private bool m_KeepExpandedAfterModificationMutation;
+	private bool m_KeepExpandedIsMainHand;
+	private int m_KeepExpandedBagIndex = -1;
+	private ItemDefinition m_KeepExpandedWeaponDefinition;
+	private bool m_KeepExpandedRequiresInstalledModification;
 	#endregion
 
 	private readonly struct WeaponSlotBinding
@@ -73,13 +86,27 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void OnEnable()
 	{
 		MissionPrepModificationDragContext.Changed += HandleModificationDragContextChanged;
+		TrySubscribeBoundUnitReloadCompletionHandler();
 	}
 
 	private void OnDisable()
 	{
 		MissionPrepModificationDragContext.Changed -= HandleModificationDragContextChanged;
+		TryUnsubscribeBoundUnitReloadCompletionHandler();
 		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
 		MissionPrepModificationDragContext.ResetAfterDrag();
+		if (m_DeferredInlineRefreshCoroutine != null)
+		{
+			StopCoroutine(m_DeferredInlineRefreshCoroutine);
+			m_DeferredInlineRefreshCoroutine = null;
+		}
+		if (m_DeferredForcedExpandedRepaintCoroutine != null)
+		{
+			StopCoroutine(m_DeferredForcedExpandedRepaintCoroutine);
+			m_DeferredForcedExpandedRepaintCoroutine = null;
+		}
+
+		ClearForcedExpandedModificationSelection();
 		m_ModificationUiState = default;
 
 		if (!Application.isPlaying)
@@ -162,6 +189,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			? _unitRoot.GetComponentInChildren<CharacterInventory>(true)
 			: null;
 
+		TryUnsubscribeBoundUnitReloadCompletionHandler();
+		TrySubscribeBoundUnitReloadCompletionHandler();
+
 		EnsureSharedPresetStoreInitialized();
 
 		if (m_BoundPresetState != null)
@@ -170,6 +200,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 			m_BoundPresetState.EnsureSnapshotDefaultsFromCatalog(m_EditingPresetCatalogIndex, m_PresetCatalog);
 			ApplyUnitAssignedPresetToRuntime();
+			SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 			RepaintInventoryPanel();
 		}
 
@@ -178,6 +209,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public void ClearUnitBinding()
 	{
+		TryUnsubscribeBoundUnitReloadCompletionHandler();
 		m_BoundPresetState = null;
 		m_BoundInventory = null;
 		RepaintInventoryPanel();
@@ -221,9 +253,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true);
 	}
 
-	public void NotifyInventoryMutated()
+	public void NotifyInventoryMutated(bool _saveSnapshotFromRuntime = true)
 	{
-		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true);
+		PropagatePresetToAllUnits(
+			m_EditingPresetCatalogIndex,
+			_refreshBoundUnitRuntime: true,
+			_saveSnapshotFromRuntime);
+
 		RepaintInventoryPanel();
 	}
 
@@ -264,6 +300,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			if (slot.GetComponent<MissionPrepAvailableToPresetDrag>() == null)
 				slot.gameObject.AddComponent<MissionPrepAvailableToPresetDrag>();
 
+			if (slot.GetComponent<MissionPrepAvailableEquipDoubleClick>() == null)
+				slot.gameObject.AddComponent<MissionPrepAvailableEquipDoubleClick>();
+
 			MissionPrepAvailableEquipmentSlotHighlightView highlight =
 				slot.GetComponent<MissionPrepAvailableEquipmentSlotHighlightView>();
 			if (highlight == null)
@@ -292,7 +331,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return false;
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
-		NotifyInventoryMutated();
+		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
 		return true;
 	}
 
@@ -318,12 +357,25 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
 			return false;
 
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		ItemDefinition weaponDefinition = null;
+		ItemInstanceState weaponInstance = null;
+		if (!snapshot.MainHandEquipment.IsEmpty)
+		{
+			weaponDefinition = snapshot.MainHandEquipment.Definition;
+			weaponInstance = snapshot.MainHandEquipment.InstanceState;
+		}
+
 		if (!snapshot.TryUnequipMainHandToBag())
 			return false;
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
-		ClearModificationUiSelection();
+		RemapModificationSelectionAfterWeaponSlotChange(
+			weaponDefinition,
+			weaponInstance,
+			_fromMainHand: true,
+			_fromBagIndex: -1);
 		NotifyInventoryMutated();
 		return true;
 	}
@@ -334,12 +386,26 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
 			return false;
 
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		ItemDefinition weaponDefinition = null;
+		ItemInstanceState weaponInstance = null;
+		if (_bagIndex >= 0 && _bagIndex < snapshot.BagCount &&
+		    snapshot.TryGetInventorySlot(false, _bagIndex, out InventorySlotRuntimeData bagWeapon))
+		{
+			weaponDefinition = bagWeapon.Definition;
+			weaponInstance = bagWeapon.InstanceState;
+		}
+
 		if (!snapshot.TryMoveBagItemToMainHand(_bagIndex))
 			return false;
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
-		ClearModificationUiSelection();
+		RemapModificationSelectionAfterWeaponSlotChange(
+			weaponDefinition,
+			weaponInstance,
+			_fromMainHand: false,
+			_fromBagIndex: _bagIndex);
 		NotifyInventoryMutated();
 		return true;
 	}
@@ -359,6 +425,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(clone))
 			return false;
 
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		if (!snapshot.MainHandEquipment.IsEmpty)
 			snapshot.TryUnequipMainHandToBag();
 
@@ -425,18 +492,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	/// <summary>Курсор над ячейкой экипированного оружия пресета.</summary>
 	public bool IsScreenPointOverPresetMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
 	{
-		if (m_PresetInventoryPanel == null || m_PresetInventoryPanel.LeadingEquipmentSlotCount <= 0)
-			return false;
-
-		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
-		if (slots.Count == 0 || slots[0] == null)
-			return false;
-
-		RectTransform slotRect = slots[0].transform as RectTransform;
-		if (slotRect == null)
-			return false;
-
-		return RectTransformUtility.RectangleContainsScreenPoint(slotRect, _screenPosition, _eventCamera);
+		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(m_PresetInventoryPanel);
+		return InventorySlotUiUtility.IsScreenPointOverSlot(mainHandSlot, _screenPosition, _eventCamera);
 	}
 
 	/// <summary>Курсор над панелью доступного снаряжения (для fallback при EndDrag).</summary>
@@ -516,8 +573,16 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out int bagIndex) || m_SharedPresetStore == null)
 			return false;
 
-		ClearModificationUiSelection();
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		ItemDefinition weaponDefinition = null;
+		ItemInstanceState weaponInstance = null;
+		if (snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData clickedWeapon))
+		{
+			weaponDefinition = clickedWeapon.Definition;
+			weaponInstance = clickedWeapon.InstanceState;
+		}
+
 		bool changed;
 
 		if (isMainHand)
@@ -528,34 +593,108 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!changed)
 			return false;
 
+		RemapModificationSelectionAfterWeaponSlotChange(
+			weaponDefinition,
+			weaponInstance,
+			_fromMainHand: isMainHand,
+			_fromBagIndex: bagIndex);
+
+		m_ExpandedWeaponListIndex = -1;
+		RefreshModificationCompatibilityHighlights();
 		NotifyInventoryMutated();
 		return true;
 	}
 
 	public bool TryToggleModificationPanel(InventorySlotView _slot)
 	{
-		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out int bagIndex) || m_SharedPresetStore == null)
+		if (_slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+			return false;
+
+		if (!ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
+			return false;
+
+		if (!TryResolveInventoryDropTarget(_slot, out bool isMainHand, out int bagIndex))
 			return false;
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
-		if (!snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
-			return false;
+		InventorySlotRuntimeData weaponSlot = _slot.Data;
+		if (snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData snapshotSlot) &&
+		    !snapshotSlot.IsEmpty)
+			weaponSlot = snapshotSlot;
 
 		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
 			return false;
 
-		if (m_ModificationUiState.Matches(isMainHand, bagIndex))
-			m_ModificationUiState.ExpandEmptySlots = !m_ModificationUiState.ExpandEmptySlots;
+		if (IsSameWeaponAsSelection(weaponSlot.InstanceState, isMainHand, bagIndex))
+		{
+			if (m_ModificationUiState.IsExpanded)
+			{
+				m_ExpandedWeaponListIndex = -1;
+				SetDisplayState(RuntimeModifiableWeaponDisplayState.Collapsed);
+			}
+			else
+			{
+				PreserveExpandedModificationSelection(isMainHand, bagIndex, weaponSlot.InstanceState, _slot);
+			}
+		}
 		else
-			m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(isMainHand, bagIndex, _expandEmptySlots: true);
+			PreserveExpandedModificationSelection(isMainHand, bagIndex, weaponSlot.InstanceState, _slot);
 
 		RebuildInlineModificationRows();
 		return true;
 	}
 
+	public void TryCollapseModificationPanelForDoubleClick(InventorySlotView _slot)
+	{
+		if (_slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+			return;
+
+		if (!ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
+			return;
+
+		if (!TryResolveInventoryDropTarget(_slot, out bool isMainHand, out int bagIndex))
+			return;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		InventorySlotRuntimeData weaponSlot = _slot.Data;
+		if (snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData snapshotSlot) &&
+		    !snapshotSlot.IsEmpty)
+			weaponSlot = snapshotSlot;
+
+		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.IsExpanded)
+			return;
+
+		if (!IsSameWeaponAsSelection(weaponSlot.InstanceState, isMainHand, bagIndex))
+			return;
+
+		SetDisplayState(RuntimeModifiableWeaponDisplayState.Collapsed);
+	}
+
+	public RuntimeModifiableWeaponDisplayState GetDisplayStateForSlot(InventorySlotView _slot)
+	{
+		if (_slot == null || !_slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(_slot.Data.Definition))
+			return RuntimeModifiableWeaponDisplayState.Collapsed;
+
+		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out int bagIndex) || m_SharedPresetStore == null)
+			return RuntimeModifiableWeaponDisplayState.Collapsed;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
+			weaponSlot = _slot.Data;
+
+		return IsSameWeaponAsSelection(weaponSlot.InstanceState, isMainHand, bagIndex)
+			? m_ModificationUiState.DisplayState
+			: RuntimeModifiableWeaponDisplayState.Collapsed;
+	}
+
 	public bool HasExpandedEmptyModificationSlots()
 	{
-		return m_ModificationUiState.HasSelection && m_ModificationUiState.ExpandEmptySlots;
+		return m_ModificationUiState.HasSelection && m_ModificationUiState.IsExpanded;
+	}
+
+	public bool ShouldSuppressOutsideClickCollapse()
+	{
+		return Time.frameCount <= m_SuppressOutsideClickUntilFrame;
 	}
 
 	public bool TryGetModificationWeaponSlot(out InventorySlotRuntimeData _weaponSlot)
@@ -629,17 +768,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public void CollapseEmptyModificationSlots()
 	{
-		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.ExpandEmptySlots)
-			return;
-
-		m_ModificationUiState.ExpandEmptySlots = false;
-		RebuildInlineModificationRows();
+		SetDisplayState(RuntimeModifiableWeaponDisplayState.Collapsed);
 	}
 
 	public void ClearModificationUiSelection()
 	{
+		ClearForcedExpandedModificationSelection();
+		m_ExpandedWeaponListIndex = -1;
 		m_ModificationUiState = default;
-		MissionPrepInlineModificationBuilder.ClearAllRows(m_PresetInventoryPanel);
+		MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
 		RebuildInlineModificationRows();
 	}
 
@@ -676,6 +813,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, payload.Item))
 			return false;
 
+		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
+			return TryInstallEquippedMagazineFromDragMissionPrep(payload, _slotDescriptor, _weaponIsMainHand, _weaponBagIndex);
+
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
@@ -696,11 +836,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!replacedItem.IsEmpty)
 			snapshot.TryAddToBag(replacedItem);
 
-		if (m_ModificationUiState.Matches(_weaponIsMainHand, _weaponBagIndex) && !_weaponIsMainHand)
-			m_ModificationUiState.BagIndex = targetBagIndex;
+		m_KeepExpandedRequiresInstalledModification = true;
+		ResolveExpandedWeaponSlotAfterMutation(
+			weaponSlot.Definition,
+			_weaponIsMainHand,
+			targetBagIndex,
+			weaponSlot,
+			_requireInstalledModification: true,
+			out bool resolvedIsMainHand,
+			out int resolvedBagIndex);
+		TryPreserveExpandedModificationSelectionForWeaponSlot(
+			resolvedIsMainHand,
+			resolvedBagIndex,
+			weaponSlot.InstanceState);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
-		NotifyInventoryMutated();
+		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
+		ScheduleForcedExpandedModificationRepaint(resolvedIsMainHand, resolvedBagIndex);
 		return true;
 	}
 
@@ -717,6 +869,21 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
 			return false;
 
+		if (!ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
+			return false;
+
+		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
+		{
+			WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = _addToBag;
+			if (!TryStartEquippedMagazineEjectOnAllPresetUnits(_addToBag))
+			{
+				WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = true;
+				return false;
+			}
+
+			return true;
+		}
+
 		if (!ItemModificationUtility.TryClearSlot(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
 			return false;
 
@@ -724,7 +891,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			snapshot.TryAddToBag(removedItem);
 
 		snapshot.TrySetInventorySlot(_weaponIsMainHand, _weaponBagIndex, weaponSlot);
-		NotifyInventoryMutated();
+
+		m_KeepExpandedRequiresInstalledModification = false;
+		ResolveExpandedWeaponSlotAfterMutation(
+			weaponSlot.Definition,
+			_weaponIsMainHand,
+			_weaponBagIndex,
+			weaponSlot,
+			_requireInstalledModification: false,
+			out bool resolvedIsMainHand,
+			out int resolvedBagIndex);
+		TryPreserveExpandedModificationSelectionForWeaponSlot(
+			resolvedIsMainHand,
+			resolvedBagIndex,
+			weaponSlot.InstanceState);
+
+		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
+		ScheduleForcedExpandedModificationRepaint(resolvedIsMainHand, resolvedBagIndex);
 		return true;
 	}
 
@@ -767,12 +950,33 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 		}
 
+		int preservedExpandedListIndex = m_ExpandedWeaponListIndex;
+		MissionPrepModificationUiState preservedModificationUi = m_ModificationUiState;
+		MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		m_PresetInventoryPanel.RepaintFromPresetSnapshot(snapshot);
 		EnsurePresetInventoryDragComponents();
 		EnsureModificationClickHandlers();
 		EnsureMainHandEquipmentSlot();
+		m_ModificationUiState = preservedModificationUi;
+		m_ExpandedWeaponListIndex = preservedExpandedListIndex;
+		TryRestoreExpandedModificationSelectionAfterRepaint();
 		RebuildInlineModificationRows();
+	}
+
+	public void ScheduleRefreshInlineModificationRowsAfterDrag()
+	{
+		if (!isActiveAndEnabled)
+		{
+			RebuildInlineModificationRows();
+			return;
+		}
+
+		m_PendingInlineRefresh = true;
+		if (m_DeferredInlineRefreshCoroutine != null)
+			return;
+
+		m_DeferredInlineRefreshCoroutine = StartCoroutine(CoRefreshInlineModificationRowsNextFrame());
 	}
 
 	public bool TryGetActivePresetLabel(out string _label)
@@ -949,7 +1153,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		}
 	}
 
-	private void PropagatePresetToAllUnits(int _presetIndex, bool _refreshBoundUnitRuntime)
+	private void PropagatePresetToAllUnits(int _presetIndex, bool _refreshBoundUnitRuntime, bool _saveSnapshotFromRuntime = true)
 	{
 		EnsureSharedPresetStore();
 		if (m_SharedPresetStore == null)
@@ -975,6 +1179,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 				UnitWeaponRuntime weaponRuntime = inventory.GetComponentInChildren<UnitWeaponRuntime>(true);
 				if (weaponRuntime != null)
 					weaponRuntime.RefreshFromEquipment();
+
+				if (isBoundUnit && _refreshBoundUnitRuntime && _presetIndex == m_EditingPresetCatalogIndex && _saveSnapshotFromRuntime)
+				{
+					m_SharedPresetStore.SavePresetFromRuntime(
+						_presetIndex,
+						inventory,
+						m_SharedPresetStore.GetArmorForPreset(_presetIndex));
+				}
 			}
 
 			int armorIndex = m_SharedPresetStore.GetArmorForPreset(_presetIndex);
@@ -982,6 +1194,200 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 				MissionPrepUnitArmorVisualController.GetOrCreate(unit.gameObject, armorIndex);
 			visual.ApplyArmorVisual(armorIndex);
 		}
+	}
+
+	private bool ShouldUseBoundUnitEquippedMagazineReload(ItemModificationSlotDescriptor _slotDescriptor, bool _weaponIsMainHand)
+	{
+		return _weaponIsMainHand &&
+		       m_BoundInventory != null &&
+		       WeaponMagazineModificationApplier.IsMagazineSlot(_slotDescriptor) &&
+		       WeaponMagazineModificationApplier.CanStartUiMagazineModification(m_BoundInventory);
+	}
+
+	private bool TryInstallEquippedMagazineFromDragMissionPrep(
+		MissionPrepModificationDragPayload _payload,
+		ItemModificationSlotDescriptor _slotDescriptor,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex)
+	{
+		if (m_SharedPresetStore == null || m_BoundInventory == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+			return false;
+
+		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, _payload.Item))
+			return false;
+
+		InventorySlotRuntimeData magazineToInstall = MissionPrepInventoryCopyUtility.CloneSlot(_payload.Item);
+		int targetBagIndex = _weaponBagIndex;
+		InventorySlotRuntimeData restoredBagItem = default;
+
+		if (_payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
+		{
+			if (_payload.PresetBagIndex < 0)
+				return false;
+
+			if (!snapshot.TryRemoveInventorySlot(_isMainHandEquipmentSlot: false, _payload.PresetBagIndex, out restoredBagItem))
+				return false;
+
+			if (!_weaponIsMainHand && _payload.PresetBagIndex < targetBagIndex)
+				targetBagIndex--;
+
+			magazineToInstall = MissionPrepInventoryCopyUtility.CloneSlot(restoredBagItem);
+		}
+
+		if (!TryStartEquippedMagazineInstallOnAllPresetUnits(magazineToInstall))
+		{
+			if (!restoredBagItem.IsEmpty)
+				snapshot.TryAddToBag(restoredBagItem);
+
+			return false;
+		}
+
+		if (snapshot.TryGetInventorySlot(_weaponIsMainHand, targetBagIndex, out InventorySlotRuntimeData installedWeapon))
+		{
+			TryPreserveExpandedModificationSelectionForWeaponSlot(
+				_weaponIsMainHand,
+				targetBagIndex,
+				installedWeapon.InstanceState);
+			ScheduleForcedExpandedModificationRepaint(_weaponIsMainHand, targetBagIndex);
+		}
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		return true;
+	}
+
+	private void TrySubscribeBoundUnitReloadCompletionHandler()
+	{
+		if (m_BoundInventory == null)
+			return;
+
+		if (!WeaponMagazineModificationApplier.TryGetReloadController(m_BoundInventory, out UnitWeaponReloadController reloadController))
+			return;
+
+		if (m_SubscribedBoundReloadController == reloadController)
+			return;
+
+		TryUnsubscribeBoundUnitReloadCompletionHandler();
+		m_SubscribedBoundReloadController = reloadController;
+		reloadController.UiMagazineModificationCompleted += HandleBoundUnitUiMagazineModificationCompleted;
+	}
+
+	private void TryUnsubscribeBoundUnitReloadCompletionHandler()
+	{
+		if (m_SubscribedBoundReloadController == null)
+			return;
+
+		m_SubscribedBoundReloadController.UiMagazineModificationCompleted -= HandleBoundUnitUiMagazineModificationCompleted;
+		m_SubscribedBoundReloadController = null;
+	}
+
+	private void HandleBoundUnitUiMagazineModificationCompleted(InventorySlotRuntimeData _ejectedMagazine)
+	{
+		MissionPrepModificationUiState preservedModificationUi = m_ModificationUiState;
+		int preservedExpandedListIndex = m_ExpandedWeaponListIndex;
+		WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = true;
+		SyncBoundUnitInventoryToSnapshot();
+		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true, _saveSnapshotFromRuntime: false);
+		StartCoroutine(RepaintInventoryPanelAfterMagazineModificationCompleted(
+			preservedModificationUi,
+			preservedExpandedListIndex));
+	}
+
+	private IEnumerator RepaintInventoryPanelAfterMagazineModificationCompleted(
+		MissionPrepModificationUiState _preservedModificationUi,
+		int _preservedExpandedListIndex)
+	{
+		yield return null;
+		m_ModificationUiState = _preservedModificationUi;
+		m_ExpandedWeaponListIndex = _preservedExpandedListIndex;
+		RepaintInventoryPanel();
+	}
+
+	private bool TryStartEquippedMagazineInstallOnAllPresetUnits(InventorySlotRuntimeData _magazineFromSource)
+	{
+		if (_magazineFromSource.IsEmpty)
+			return false;
+
+		return TryStartEquippedMagazineModificationOnAllPresetUnits(
+			(_inventory, _mirrorAnimationOnly, _magazine) =>
+				WeaponMagazineModificationApplier.TryStartEquippedMagazineInstall(_inventory, _magazine, _mirrorAnimationOnly),
+			_magazineFromSource);
+	}
+
+	private bool TryStartEquippedMagazineEjectOnAllPresetUnits(bool _addEjectedMagazineToBag)
+	{
+		WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = _addEjectedMagazineToBag;
+		return TryStartEquippedMagazineModificationOnAllPresetUnits(
+			(_inventory, _mirrorAnimationOnly, _) =>
+				WeaponMagazineModificationApplier.TryStartEquippedMagazineEject(_inventory, _mirrorAnimationOnly),
+			default);
+	}
+
+	private bool TryStartEquippedMagazineModificationOnAllPresetUnits(
+		Func<CharacterInventory, bool, InventorySlotRuntimeData, bool> _tryStart,
+		InventorySlotRuntimeData _magazineFromSource)
+	{
+		EnsureSharedPresetStore();
+		if (m_SharedPresetStore == null || m_BoundInventory == null)
+			return false;
+
+		bool startedAuthoritative = false;
+		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
+
+		for (int i = 0; i < units.Length; i++)
+		{
+			MissionPrepUnitPresetState unit = units[i];
+			if (unit == null || unit.PresetCatalogIndex != m_EditingPresetCatalogIndex)
+				continue;
+
+			CharacterInventory inventory = unit.GetComponentInChildren<CharacterInventory>(true);
+			if (inventory == null)
+				continue;
+
+			m_SharedPresetStore.ApplyPresetToInventory(m_EditingPresetCatalogIndex, inventory);
+
+			bool isAuthoritative = inventory == m_BoundInventory;
+			bool mirrorAnimationOnly = !isAuthoritative;
+			InventorySlotRuntimeData magazine = _magazineFromSource.IsEmpty
+				? default
+				: MissionPrepInventoryCopyUtility.CloneSlot(_magazineFromSource);
+
+			if (!_tryStart(inventory, mirrorAnimationOnly, magazine))
+				continue;
+
+			UnitWeaponRuntime weaponRuntime = inventory.GetComponentInChildren<UnitWeaponRuntime>(true);
+			if (weaponRuntime != null)
+				weaponRuntime.RefreshFromEquipment();
+
+			if (isAuthoritative)
+				startedAuthoritative = true;
+		}
+
+		return startedAuthoritative;
+	}
+
+	private void SyncBoundUnitInventoryToSnapshot()
+	{
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
+	}
+
+	private void SyncBoundUnitInventoryToSnapshotIfEditingSamePreset()
+	{
+		if (m_BoundInventory == null || m_SharedPresetStore == null || m_BoundPresetState == null)
+			return;
+
+		if (m_BoundPresetState.PresetCatalogIndex != m_EditingPresetCatalogIndex)
+			return;
+
+		m_SharedPresetStore.SavePresetFromRuntime(
+			m_EditingPresetCatalogIndex,
+			m_BoundInventory,
+			GetActivePresetArmorIndex());
 	}
 
 	private void ApplyUnitAssignedPresetToRuntime()
@@ -1114,11 +1520,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	private void RebuildInlineModificationRows()
 	{
+		m_PendingInlineRefresh = false;
 		if (m_PresetInventoryPanel == null || m_SharedPresetStore == null)
 			return;
 
-		MissionPrepInlineModificationBuilder.ClearAllRows(m_PresetInventoryPanel);
+		MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
+		m_PresetInventoryPanel.RefreshSlotsFromHierarchy();
 		CollectModifiableWeaponBindings(m_WeaponSlotBindingBuffer);
+		TryRemapExpandedSelectionFromBindings(m_WeaponSlotBindingBuffer);
+		TryRestoreExpandedModificationSelectionAfterRepaint();
 		ValidateModificationUiSelection(m_WeaponSlotBindingBuffer);
 		if (m_WeaponSlotBindingBuffer.Count == 0)
 		{
@@ -1129,20 +1539,32 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		for (int i = m_WeaponSlotBindingBuffer.Count - 1; i >= 0; i--)
 		{
 			WeaponSlotBinding binding = m_WeaponSlotBindingBuffer[i];
-			if (binding.SlotView == null || binding.WeaponData.IsEmpty)
+			if (binding.SlotView == null || !binding.SlotView.HasItem)
 				continue;
 
-			BuildVisibleModificationDescriptors(binding, m_VisibleModificationDescriptorBuffer);
+			InventorySlotRuntimeData weaponData = ResolveWeaponDataForModificationUi(binding);
+			if (weaponData.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
+				continue;
+
+			bool expandEmpty = ShouldExpandEmptySlotsForBinding(binding);
+			BuildVisibleModificationDescriptors(weaponData, expandEmpty, m_VisibleModificationDescriptorBuffer);
+			if (m_VisibleModificationDescriptorBuffer.Count == 0 &&
+			    ItemModificationUtility.HasAnyInstalledModification(weaponData))
+			{
+				ItemModificationUtility.BuildInstalledModificationDescriptors(
+					weaponData,
+					m_ModificationDescriptorBuffer,
+					m_VisibleModificationDescriptorBuffer);
+			}
+
 			if (m_VisibleModificationDescriptorBuffer.Count == 0)
 				continue;
 
-			bool expandEmpty = m_ModificationUiState.Matches(binding.IsMainHand, binding.BagIndex) &&
-			                   m_ModificationUiState.ExpandEmptySlots;
 			MissionPrepInlineModificationBuilder.RebuildWeaponRows(
 				m_PresetInventoryPanel,
 				this,
 				binding.SlotView,
-				binding.WeaponData,
+				weaponData,
 				binding.IsMainHand,
 				binding.BagIndex,
 				expandEmpty,
@@ -1173,11 +1595,32 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 			bool isMainHand = i < lead && i == 0;
 			int bagIndex = isMainHand ? -1 : i - lead;
-			if (!isMainHand && (bagIndex < 0 || bagIndex >= snapshot.BagCount))
-				continue;
 
-			if (!snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponData))
+			InventorySlotRuntimeData weaponData = default;
+			if (isMainHand)
+			{
+				if (!snapshot.TryGetInventorySlot(true, bagIndex, out weaponData) || weaponData.IsEmpty)
+				{
+					if (!ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+						continue;
+
+					weaponData = slot.Data;
+				}
+			}
+			else if (bagIndex >= 0 && bagIndex < snapshot.BagCount &&
+			         snapshot.TryGetInventorySlot(false, bagIndex, out InventorySlotRuntimeData snapshotWeapon) &&
+			         !snapshotWeapon.IsEmpty)
+			{
+				weaponData = snapshotWeapon;
+			}
+			else if (ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+			{
+				weaponData = slot.Data;
+			}
+			else
+			{
 				continue;
+			}
 
 			if (!ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
 				continue;
@@ -1187,17 +1630,44 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	}
 
 	private void BuildVisibleModificationDescriptors(
-		WeaponSlotBinding _binding,
+		InventorySlotRuntimeData _weaponData,
+		bool _expandEmpty,
 		List<ItemModificationSlotDescriptor> _outVisibleDescriptors)
 	{
-		bool expandEmpty = m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex) &&
-		                   m_ModificationUiState.ExpandEmptySlots;
-
 		ItemModificationUtility.BuildVisibleModificationDescriptors(
-			_binding.WeaponData,
-			expandEmpty,
+			_weaponData,
+			_expandEmpty,
 			m_ModificationDescriptorBuffer,
 			_outVisibleDescriptors);
+	}
+
+	private InventorySlotRuntimeData ResolveWeaponDataForModificationUi(in WeaponSlotBinding _binding)
+	{
+		InventorySlotRuntimeData slotData = _binding.SlotView != null && _binding.SlotView.HasItem
+			? MissionPrepInventoryCopyUtility.CloneSlot(_binding.SlotView.Data)
+			: default;
+
+		if (m_SharedPresetStore != null)
+		{
+			MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+			if (snapshot.TryGetInventorySlot(_binding.IsMainHand, _binding.BagIndex, out InventorySlotRuntimeData snapshotData) &&
+			    !snapshotData.IsEmpty)
+			{
+				InventorySlotRuntimeData clonedSnapshotData = MissionPrepInventoryCopyUtility.CloneSlot(snapshotData);
+				if (ItemModificationUtility.HasAnyInstalledModification(clonedSnapshotData))
+					return clonedSnapshotData;
+
+				if (ItemModificationUtility.HasAnyInstalledModification(slotData))
+					return slotData;
+
+				return clonedSnapshotData;
+			}
+		}
+
+		if (!slotData.IsEmpty)
+			return slotData;
+
+		return MissionPrepInventoryCopyUtility.CloneSlot(_binding.WeaponData);
 	}
 
 	private void ValidateModificationUiSelection(IReadOnlyList<WeaponSlotBinding> _bindings)
@@ -1205,14 +1675,859 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!m_ModificationUiState.HasSelection)
 			return;
 
+		ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+		if (selectedInstance != null)
+		{
+			for (int i = 0; i < _bindings.Count; i++)
+			{
+				WeaponSlotBinding binding = _bindings[i];
+				if (BindingMatchesModificationSelection(binding, selectedInstance))
+				{
+					ApplyBindingToModificationUiState(binding, binding.WeaponData.InstanceState);
+					return;
+				}
+			}
+
+			if (TryRemapSelectionFromPanelSlots())
+				return;
+
+			if (TryRestoreExpandedSelectionFromAuthoritativeData())
+				return;
+
+			if (m_ModificationUiState.IsExpanded)
+				return;
+
+			m_ModificationUiState = default;
+			return;
+		}
+
 		for (int i = 0; i < _bindings.Count; i++)
 		{
 			WeaponSlotBinding binding = _bindings[i];
 			if (m_ModificationUiState.Matches(binding.IsMainHand, binding.BagIndex))
+			{
+				ApplyBindingToModificationUiState(binding, binding.WeaponData.InstanceState);
 				return;
+			}
 		}
 
+		if (TryRemapSelectionFromPanelSlots())
+			return;
+
+		if (TryRestoreExpandedSelectionFromAuthoritativeData())
+			return;
+
+		if (m_ModificationUiState.IsExpanded)
+			return;
+
 		m_ModificationUiState = default;
+	}
+
+	private void TryRestoreExpandedModificationSelectionAfterRepaint()
+	{
+		if (TryApplyForcedExpandedModificationSelection())
+		{
+			return;
+		}
+
+		if (!m_ModificationUiState.IsExpanded)
+		{
+			return;
+		}
+
+		if (!TryRestoreExpandedSelectionFromListIndex())
+			TryRestoreExpandedSelectionFromAuthoritativeData();
+	}
+
+	private void TryPreserveExpandedModificationSelectionForWeaponSlot(
+		bool _isMainHand,
+		int _bagIndex,
+		ItemInstanceState _weaponInstanceState)
+	{
+		ItemDefinition weaponDefinition = null;
+		if (m_SharedPresetStore != null &&
+		    m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex)
+			    .TryGetInventorySlot(_isMainHand, _bagIndex, out InventorySlotRuntimeData snapshotWeapon) &&
+		    !snapshotWeapon.IsEmpty)
+			weaponDefinition = snapshotWeapon.Definition;
+
+		ForceExpandedModificationSelection(
+			_isMainHand,
+			_bagIndex,
+			weaponDefinition,
+			m_KeepExpandedRequiresInstalledModification);
+
+		if (m_PresetInventoryPanel != null &&
+		    TryResolvePresetWeaponListIndex(_isMainHand, _bagIndex, out int listIndex))
+		{
+			IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+			if (listIndex >= 0 && listIndex < slots.Count)
+			{
+				PreserveExpandedModificationSelection(_isMainHand, _bagIndex, _weaponInstanceState, slots[listIndex]);
+				return;
+			}
+		}
+
+		PreserveExpandedModificationSelection(_isMainHand, _bagIndex, _weaponInstanceState);
+	}
+
+	private void ForceExpandedModificationSelection(
+		bool _isMainHand,
+		int _bagIndex,
+		ItemDefinition _weaponDefinition = null,
+		bool _requireInstalledModification = false)
+	{
+		m_KeepExpandedAfterModificationMutation = true;
+		m_KeepExpandedIsMainHand = _isMainHand;
+		m_KeepExpandedBagIndex = _bagIndex;
+		m_KeepExpandedWeaponDefinition = _weaponDefinition;
+		m_KeepExpandedRequiresInstalledModification = _requireInstalledModification;
+	}
+
+	private void ClearForcedExpandedModificationSelection()
+	{
+		m_KeepExpandedAfterModificationMutation = false;
+		m_KeepExpandedIsMainHand = false;
+		m_KeepExpandedBagIndex = -1;
+		m_KeepExpandedWeaponDefinition = null;
+		m_KeepExpandedRequiresInstalledModification = false;
+	}
+
+	private bool TryApplyForcedExpandedModificationSelection()
+	{
+		if (!m_KeepExpandedAfterModificationMutation || m_SharedPresetStore == null)
+		{
+			return false;
+		}
+
+		if (!TryFindSnapshotSlotForExpandedWeapon(
+			    m_KeepExpandedWeaponDefinition,
+			    m_KeepExpandedIsMainHand,
+			    m_KeepExpandedBagIndex,
+			    m_KeepExpandedRequiresInstalledModification,
+			    out bool isMainHand,
+			    out int bagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+		{
+			return false;
+		}
+
+		TryPreserveExpandedModificationSelectionForWeaponSlot(
+			isMainHand,
+			bagIndex,
+			weaponSlot.InstanceState);
+		return true;
+	}
+
+	private void ScheduleForcedExpandedModificationRepaint(bool _isMainHand, int _bagIndex)
+	{
+		RefreshForcedExpandedModificationSelection(_isMainHand, _bagIndex);
+
+		if (!isActiveAndEnabled)
+		{
+			return;
+		}
+
+		if (m_DeferredForcedExpandedRepaintCoroutine != null)
+			StopCoroutine(m_DeferredForcedExpandedRepaintCoroutine);
+
+		m_DeferredForcedExpandedRepaintCoroutine = StartCoroutine(
+			CoRepaintForcedExpandedModificationNextFrame(_isMainHand, _bagIndex));
+	}
+
+	private void RefreshForcedExpandedModificationSelection(bool _isMainHand, int _bagIndex)
+	{
+		ItemDefinition weaponDefinition = m_KeepExpandedWeaponDefinition;
+		if (m_SharedPresetStore != null &&
+		    m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex)
+			    .TryGetInventorySlot(_isMainHand, _bagIndex, out InventorySlotRuntimeData snapshotWeapon) &&
+		    !snapshotWeapon.IsEmpty)
+			weaponDefinition = snapshotWeapon.Definition;
+
+		ForceExpandedModificationSelection(
+			_isMainHand,
+			_bagIndex,
+			weaponDefinition,
+			m_KeepExpandedRequiresInstalledModification);
+	}
+
+	private IEnumerator CoRepaintForcedExpandedModificationNextFrame(bool _isMainHand, int _bagIndex)
+	{
+		yield return null;
+		m_DeferredForcedExpandedRepaintCoroutine = null;
+
+		if (!isActiveAndEnabled || m_SharedPresetStore == null)
+		{
+			yield break;
+		}
+
+		if (!TryFindSnapshotSlotForExpandedWeapon(
+			    m_KeepExpandedWeaponDefinition,
+			    _isMainHand,
+			    _bagIndex,
+			    m_KeepExpandedRequiresInstalledModification,
+			    out bool resolvedIsMainHand,
+			    out int resolvedBagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+		{
+			ClearForcedExpandedModificationSelection();
+			yield break;
+		}
+
+		RefreshForcedExpandedModificationSelection(resolvedIsMainHand, resolvedBagIndex);
+		TryPreserveExpandedModificationSelectionForWeaponSlot(
+			resolvedIsMainHand,
+			resolvedBagIndex,
+			weaponSlot.InstanceState);
+		RepaintInventoryPanel();
+	}
+
+	private bool TryRestoreExpandedSelectionFromListIndex()
+	{
+		if (m_PresetInventoryPanel == null || m_ExpandedWeaponListIndex < 0)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		if (m_ExpandedWeaponListIndex >= slots.Count)
+			return false;
+
+		InventorySlotView slot = slots[m_ExpandedWeaponListIndex];
+		if (slot == null || !slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+			return false;
+
+		if (!TryResolveInventoryDropTarget(slot, out bool isMainHand, out int bagIndex))
+			return false;
+
+		ItemInstanceState weaponInstance = slot.Data.InstanceState;
+		if (m_SharedPresetStore != null)
+		{
+			MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+			if (snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData snapshotSlot) &&
+			    !snapshotSlot.IsEmpty)
+				weaponInstance = snapshotSlot.InstanceState;
+		}
+
+		PreserveExpandedModificationSelection(isMainHand, bagIndex, weaponInstance, slot);
+		return true;
+	}
+
+	private bool TryRestoreExpandedSelectionFromAuthoritativeData()
+	{
+		if (m_SharedPresetStore == null)
+			return false;
+
+		if (!m_ModificationUiState.HasSelection && m_ExpandedWeaponListIndex < 0)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(m_ModificationUiState.IsMainHand, m_ModificationUiState.BagIndex, out InventorySlotRuntimeData weaponSlot) ||
+		    weaponSlot.IsEmpty ||
+		    !ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
+		{
+			return TryRemapSelectionFromPanelSlots();
+		}
+
+		PreserveModificationSelection(
+			m_ModificationUiState.IsMainHand,
+			m_ModificationUiState.BagIndex,
+			weaponSlot.InstanceState,
+			m_ModificationUiState.DisplayState);
+		return true;
+	}
+
+	private bool TryResolvePresetWeaponListIndex(bool _isMainHand, int _bagIndex, out int _listIndex)
+	{
+		_listIndex = -1;
+		if (m_PresetInventoryPanel == null)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+		for (int i = 0; i < slots.Count; i++)
+		{
+			bool isMainHand = i < lead && i == 0;
+			int bagIndex = isMainHand ? -1 : i - lead;
+			if (isMainHand == _isMainHand && bagIndex == _bagIndex)
+			{
+				_listIndex = i;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private void PreserveExpandedModificationSelection(
+		bool _isMainHand,
+		int _bagIndex,
+		ItemInstanceState _weaponInstanceState,
+		InventorySlotView _slotView = null)
+	{
+		PreserveModificationSelection(
+			_isMainHand,
+			_bagIndex,
+			_weaponInstanceState,
+			RuntimeModifiableWeaponDisplayState.Expanded,
+			_slotView);
+	}
+
+	private bool TryRemapSelectionFromPanelSlots()
+	{
+		if (m_PresetInventoryPanel == null)
+			return false;
+
+		ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+		IReadOnlyList<InventorySlotView> slots = m_PresetInventoryPanel.Slots;
+		int lead = Mathf.Max(0, m_PresetInventoryPanel.LeadingEquipmentSlotCount);
+		for (int i = 0; i < slots.Count; i++)
+		{
+			InventorySlotView slot = slots[i];
+			if (slot == null || !slot.HasItem || !ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
+				continue;
+
+			bool isMainHand = i < lead && i == 0;
+			int bagIndex = isMainHand ? -1 : i - lead;
+
+			InventorySlotRuntimeData weaponData = slot.Data;
+			if (m_SharedPresetStore != null)
+			{
+				MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+				if (snapshot.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData snapshotSlot) &&
+				    !snapshotSlot.IsEmpty)
+					weaponData = snapshotSlot;
+			}
+
+			bool matchesInstance = selectedInstance != null && weaponData.InstanceState == selectedInstance;
+			bool matchesIndex = m_ModificationUiState.Matches(isMainHand, bagIndex);
+			if (!matchesInstance && !matchesIndex)
+				continue;
+
+			PreserveModificationSelection(
+				isMainHand,
+				bagIndex,
+				weaponData.InstanceState,
+				m_ModificationUiState.DisplayState,
+				slot);
+			return true;
+		}
+
+		return false;
+	}
+
+	private void PreserveModificationSelection(
+		bool _isMainHand,
+		int _bagIndex,
+		ItemInstanceState _weaponInstanceState,
+		RuntimeModifiableWeaponDisplayState _displayState,
+		InventorySlotView _slotView = null)
+	{
+		m_SuppressOutsideClickUntilFrame = Time.frameCount + 2;
+
+		if (_slotView != null && m_PresetInventoryPanel != null)
+			m_ExpandedWeaponListIndex = _displayState == RuntimeModifiableWeaponDisplayState.Expanded
+				? m_PresetInventoryPanel.GetInventorySlotListIndex(_slotView)
+				: -1;
+		else if (_displayState == RuntimeModifiableWeaponDisplayState.Expanded &&
+		         TryResolvePresetWeaponListIndex(_isMainHand, _bagIndex, out int listIndex))
+			m_ExpandedWeaponListIndex = listIndex;
+		else
+			m_ExpandedWeaponListIndex = -1;
+
+		m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(
+			_isMainHand,
+			_bagIndex,
+			_weaponInstanceState,
+			_displayState);
+	}
+
+	private void SetDisplayState(RuntimeModifiableWeaponDisplayState _displayState)
+	{
+		if (_displayState == RuntimeModifiableWeaponDisplayState.Collapsed)
+			ClearForcedExpandedModificationSelection();
+
+		if (!m_ModificationUiState.HasSelection || m_ModificationUiState.DisplayState == _displayState)
+		{
+			return;
+		}
+
+		if (_displayState == RuntimeModifiableWeaponDisplayState.Collapsed)
+		{
+			m_ExpandedWeaponListIndex = -1;
+		}
+
+		m_ModificationUiState.DisplayState = _displayState;
+		RebuildInlineModificationRows();
+	}
+
+	private void ApplyBindingToModificationUiState(WeaponSlotBinding _binding, ItemInstanceState _weaponInstanceState)
+	{
+		RuntimeModifiableWeaponDisplayState displayState = m_ModificationUiState.DisplayState;
+		ItemInstanceState weaponInstance = _weaponInstanceState;
+		if (weaponInstance == null && _binding.SlotView != null && _binding.SlotView.HasItem)
+		{
+			if (m_SharedPresetStore != null &&
+			    m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex)
+				    .TryGetInventorySlot(_binding.IsMainHand, _binding.BagIndex, out InventorySlotRuntimeData snapshotSlot) &&
+			    !snapshotSlot.IsEmpty)
+				weaponInstance = snapshotSlot.InstanceState;
+			else
+				weaponInstance = _binding.WeaponData.InstanceState;
+		}
+
+		m_ExpandedWeaponListIndex = displayState == RuntimeModifiableWeaponDisplayState.Expanded
+			? _binding.ListIndex
+			: -1;
+		m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(
+			_binding.IsMainHand,
+			_binding.BagIndex,
+			weaponInstance,
+			displayState);
+	}
+
+	private bool IsSameWeaponAsSelection(ItemInstanceState _weaponInstanceState, bool _isMainHand, int _bagIndex)
+	{
+		if (!m_ModificationUiState.HasSelection)
+			return false;
+
+		if (m_ModificationUiState.Matches(_isMainHand, _bagIndex))
+			return true;
+
+		if (_weaponInstanceState != null && m_ModificationUiState.SelectedWeaponInstanceState != null)
+			return _weaponInstanceState == m_ModificationUiState.SelectedWeaponInstanceState;
+
+		return false;
+	}
+
+	private void ResolveExpandedWeaponSlotAfterMutation(
+		ItemDefinition _weaponDefinition,
+		bool _preferredIsMainHand,
+		int _preferredBagIndex,
+		InventorySlotRuntimeData _mutatedWeaponSlot,
+		bool _requireInstalledModification,
+		out bool _resolvedIsMainHand,
+		out int _resolvedBagIndex)
+	{
+		if (TryFindSnapshotSlotForExpandedWeapon(
+			    _weaponDefinition,
+			    _preferredIsMainHand,
+			    _preferredBagIndex,
+			    _requireInstalledModification,
+			    out _resolvedIsMainHand,
+			    out _resolvedBagIndex,
+			    out InventorySlotRuntimeData resolvedWeapon) &&
+		    (resolvedWeapon.InstanceState == _mutatedWeaponSlot.InstanceState ||
+		     resolvedWeapon.Definition == _mutatedWeaponSlot.Definition))
+			return;
+
+		_resolvedIsMainHand = _preferredIsMainHand;
+		_resolvedBagIndex = _preferredBagIndex;
+	}
+
+	private bool TryFindSnapshotSlotForExpandedWeapon(
+		ItemDefinition _weaponDefinition,
+		bool _preferredIsMainHand,
+		int _preferredBagIndex,
+		bool _requireInstalledModification,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponSlot = default;
+
+		if (m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (TryFindSnapshotSlotForExpandedWeaponInSnapshot(
+			    snapshot,
+			    _weaponDefinition,
+			    _preferredIsMainHand,
+			    _preferredBagIndex,
+			    _requireInstalledModification,
+			    out _isMainHand,
+			    out _bagIndex,
+			    out _weaponSlot))
+			return true;
+
+		return false;
+	}
+
+	private static bool TryFindSnapshotSlotForExpandedWeaponInSnapshot(
+		MissionPrepPresetSnapshot _snapshot,
+		ItemDefinition _weaponDefinition,
+		bool _preferredIsMainHand,
+		int _preferredBagIndex,
+		bool _requireInstalledModification,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponSlot = default;
+
+		if (_snapshot == null)
+			return false;
+
+		if (SlotMatchesExpandedWeaponSearch(
+			    _snapshot,
+			    _preferredIsMainHand,
+			    _preferredBagIndex,
+			    _weaponDefinition,
+			    _requireInstalledModification,
+			    out _weaponSlot))
+		{
+			_isMainHand = _preferredIsMainHand;
+			_bagIndex = _preferredBagIndex;
+			return true;
+		}
+
+		if (SlotMatchesExpandedWeaponSearch(
+			    _snapshot,
+			    _isMainHandEquipmentSlot: true,
+			    _bagIndex: -1,
+			    _weaponDefinition,
+			    _requireInstalledModification,
+			    out _weaponSlot))
+		{
+			_isMainHand = true;
+			_bagIndex = -1;
+			return true;
+		}
+
+		for (int bagIndex = 0; bagIndex < _snapshot.BagCount; bagIndex++)
+		{
+			if (bagIndex == _preferredBagIndex && !_preferredIsMainHand)
+				continue;
+
+			if (SlotMatchesExpandedWeaponSearch(
+				    _snapshot,
+				    _isMainHandEquipmentSlot: false,
+				    bagIndex,
+				    _weaponDefinition,
+				    _requireInstalledModification,
+				    out _weaponSlot))
+			{
+				_isMainHand = false;
+				_bagIndex = bagIndex;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static bool SlotMatchesExpandedWeaponSearch(
+		MissionPrepPresetSnapshot _snapshot,
+		bool _isMainHandEquipmentSlot,
+		int _bagIndex,
+		ItemDefinition _weaponDefinition,
+		bool _requireInstalledModification,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_weaponSlot = default;
+		if (!_snapshot.TryGetInventorySlot(_isMainHandEquipmentSlot, _bagIndex, out InventorySlotRuntimeData candidate) ||
+		    candidate.IsEmpty ||
+		    !ItemModificationUtility.IsModifiableWeapon(candidate.Definition))
+			return false;
+
+		if (_weaponDefinition != null && candidate.Definition != _weaponDefinition)
+			return false;
+
+		if (_requireInstalledModification &&
+		    !ItemModificationUtility.HasAnyInstalledModification(candidate))
+			return false;
+
+		_weaponSlot = candidate;
+		return true;
+	}
+
+	private void TryRemapExpandedSelectionFromBindings(IReadOnlyList<WeaponSlotBinding> _bindings)
+	{
+		if (_bindings == null || _bindings.Count == 0)
+			return;
+
+		if (!m_ModificationUiState.IsExpanded && !m_KeepExpandedAfterModificationMutation)
+			return;
+
+		if (TryRemapExpandedSelectionToBinding(FindExpandedWeaponBinding(_bindings)))
+			return;
+
+		if (m_ExpandedWeaponListIndex >= 0)
+		{
+			for (int i = 0; i < _bindings.Count; i++)
+			{
+				WeaponSlotBinding binding = _bindings[i];
+				if (binding.ListIndex != m_ExpandedWeaponListIndex)
+					continue;
+
+				TryRemapExpandedSelectionToBinding(binding);
+				return;
+			}
+		}
+
+		if (m_ModificationUiState.HasSelection)
+		{
+			for (int i = 0; i < _bindings.Count; i++)
+			{
+				WeaponSlotBinding binding = _bindings[i];
+				if (!m_ModificationUiState.Matches(binding.IsMainHand, binding.BagIndex))
+					continue;
+
+				TryRemapExpandedSelectionToBinding(binding);
+				return;
+			}
+		}
+	}
+
+	private WeaponSlotBinding? FindExpandedWeaponBinding(IReadOnlyList<WeaponSlotBinding> _bindings)
+	{
+		WeaponSlotBinding? preferredMatch = null;
+		WeaponSlotBinding? definitionMatch = null;
+		WeaponSlotBinding? installedModMatch = null;
+
+		for (int i = 0; i < _bindings.Count; i++)
+		{
+			WeaponSlotBinding binding = _bindings[i];
+			if (!BindingMatchesKeepExpandedWeapon(binding))
+				continue;
+
+			if (binding.IsMainHand == m_KeepExpandedIsMainHand && binding.BagIndex == m_KeepExpandedBagIndex)
+				preferredMatch = binding;
+
+			if (m_KeepExpandedWeaponDefinition != null &&
+			    binding.WeaponData.Definition == m_KeepExpandedWeaponDefinition)
+				definitionMatch = binding;
+
+			InventorySlotRuntimeData resolvedWeapon = ResolveWeaponDataForModificationUi(binding);
+			if (ItemModificationUtility.HasAnyInstalledModification(resolvedWeapon))
+				installedModMatch = binding;
+		}
+
+		if (preferredMatch.HasValue)
+			return preferredMatch;
+
+		if (definitionMatch.HasValue)
+			return definitionMatch;
+
+		if (installedModMatch.HasValue && _bindings.Count == 1)
+			return installedModMatch;
+
+		if (m_KeepExpandedAfterModificationMutation && _bindings.Count == 1)
+			return _bindings[0];
+
+		return null;
+	}
+
+	private bool TryRemapExpandedSelectionToBinding(WeaponSlotBinding? _binding)
+	{
+		if (!_binding.HasValue)
+			return false;
+
+		WeaponSlotBinding binding = _binding.Value;
+		InventorySlotRuntimeData weaponData = ResolveWeaponDataForModificationUi(binding);
+		ItemInstanceState weaponInstance = weaponData.IsEmpty
+			? binding.WeaponData.InstanceState
+			: weaponData.InstanceState;
+
+		m_KeepExpandedIsMainHand = binding.IsMainHand;
+		m_KeepExpandedBagIndex = binding.BagIndex;
+		if (weaponData.Definition != null)
+			m_KeepExpandedWeaponDefinition = weaponData.Definition;
+
+		RuntimeModifiableWeaponDisplayState displayState = m_ModificationUiState.DisplayState;
+		if (m_KeepExpandedAfterModificationMutation || displayState == RuntimeModifiableWeaponDisplayState.Expanded)
+			displayState = RuntimeModifiableWeaponDisplayState.Expanded;
+
+		m_ExpandedWeaponListIndex = binding.ListIndex;
+		m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(
+			binding.IsMainHand,
+			binding.BagIndex,
+			weaponInstance,
+			displayState);
+		return true;
+	}
+
+	private bool BindingMatchesKeepExpandedWeapon(WeaponSlotBinding _binding)
+	{
+		if (!m_KeepExpandedAfterModificationMutation)
+			return false;
+
+		if (_binding.IsMainHand == m_KeepExpandedIsMainHand && _binding.BagIndex == m_KeepExpandedBagIndex)
+			return true;
+
+		if (m_ExpandedWeaponListIndex >= 0 && _binding.ListIndex == m_ExpandedWeaponListIndex)
+			return true;
+
+		if (m_ModificationUiState.IsExpanded &&
+		    m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex))
+			return true;
+
+		if (m_KeepExpandedWeaponDefinition == null ||
+		    _binding.WeaponData.Definition != m_KeepExpandedWeaponDefinition)
+			return false;
+
+		if (!m_KeepExpandedRequiresInstalledModification)
+			return true;
+
+		InventorySlotRuntimeData resolvedWeapon = ResolveWeaponDataForModificationUi(_binding);
+		return ItemModificationUtility.HasAnyInstalledModification(resolvedWeapon);
+	}
+
+	private bool ShouldExpandEmptySlotsForBinding(WeaponSlotBinding _binding)
+	{
+		if (BindingMatchesKeepExpandedWeapon(_binding))
+			return true;
+
+		if (!m_ModificationUiState.HasSelection || !m_ModificationUiState.IsExpanded)
+			return false;
+
+		if (m_ExpandedWeaponListIndex >= 0 && _binding.ListIndex == m_ExpandedWeaponListIndex)
+			return true;
+
+		if (m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex))
+			return true;
+
+		ItemInstanceState selectedInstance = m_ModificationUiState.SelectedWeaponInstanceState;
+		if (selectedInstance == null)
+			return false;
+
+		return _binding.WeaponData.InstanceState == selectedInstance;
+	}
+
+	private bool BindingMatchesModificationSelection(WeaponSlotBinding _binding, ItemInstanceState _selectedInstance)
+	{
+		if (m_ModificationUiState.IsExpanded &&
+		    m_ExpandedWeaponListIndex >= 0 &&
+		    _binding.ListIndex == m_ExpandedWeaponListIndex)
+			return true;
+
+		if (m_ModificationUiState.Matches(_binding.IsMainHand, _binding.BagIndex))
+			return true;
+
+		if (_selectedInstance == null)
+			return false;
+
+		if (_binding.WeaponData.InstanceState == _selectedInstance)
+			return true;
+
+		return _binding.SlotView != null && _binding.SlotView.Data.InstanceState == _selectedInstance;
+	}
+
+	public void RemapModificationSelectionForWeapon(ItemInstanceState _weaponInstanceState)
+	{
+		if (_weaponInstanceState == null || !m_ModificationUiState.HasSelection)
+			return;
+
+		if (m_ModificationUiState.SelectedWeaponInstanceState != null &&
+		    m_ModificationUiState.SelectedWeaponInstanceState != _weaponInstanceState)
+			return;
+
+		m_ModificationUiState.SelectedWeaponInstanceState = _weaponInstanceState;
+		m_WeaponSlotBindingBuffer.Clear();
+		CollectModifiableWeaponBindings(m_WeaponSlotBindingBuffer);
+		ValidateModificationUiSelection(m_WeaponSlotBindingBuffer);
+	}
+
+	private void RemapModificationSelectionAfterWeaponSlotChange(
+		ItemDefinition _weaponDefinition,
+		ItemInstanceState _previousInstance,
+		bool _fromMainHand,
+		int _fromBagIndex)
+	{
+		ClearForcedExpandedModificationSelection();
+		m_ExpandedWeaponListIndex = -1;
+
+		if (_weaponDefinition == null || !ItemModificationUtility.IsModifiableWeapon(_weaponDefinition))
+		{
+			if (m_ModificationUiState.HasSelection &&
+			    (_previousInstance == null ||
+			     m_ModificationUiState.SelectedWeaponInstanceState == null ||
+			     m_ModificationUiState.SelectedWeaponInstanceState == _previousInstance))
+				ClearModificationUiSelection();
+			return;
+		}
+
+		if (!m_ModificationUiState.HasSelection)
+			return;
+
+		if (_previousInstance != null &&
+		    m_ModificationUiState.SelectedWeaponInstanceState != null &&
+		    m_ModificationUiState.SelectedWeaponInstanceState != _previousInstance)
+			return;
+
+		if (m_SharedPresetStore == null ||
+		    !TryFindWeaponSelectionLocationAfterSlotChange(
+			    m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex),
+			    _fromMainHand,
+			    _fromBagIndex,
+			    out bool isMainHand,
+			    out int bagIndex,
+			    out ItemInstanceState weaponInstance))
+		{
+			ClearModificationUiSelection();
+			return;
+		}
+
+		m_ModificationUiState = MissionPrepModificationUiState.CreateSelection(
+			isMainHand,
+			bagIndex,
+			weaponInstance,
+			RuntimeModifiableWeaponDisplayState.Collapsed);
+	}
+
+	private static bool TryFindWeaponSelectionLocationAfterSlotChange(
+		MissionPrepPresetSnapshot _snapshot,
+		bool _fromMainHand,
+		int _fromBagIndex,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out ItemInstanceState _weaponInstance)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponInstance = null;
+
+		if (_snapshot == null)
+			return false;
+
+		if (!_fromMainHand)
+		{
+			if (_snapshot.MainHandEquipment.IsEmpty ||
+			    !ItemModificationUtility.IsModifiableWeapon(_snapshot.MainHandEquipment.Definition))
+				return false;
+
+			_isMainHand = true;
+			_bagIndex = -1;
+			_weaponInstance = _snapshot.MainHandEquipment.InstanceState;
+			return true;
+		}
+
+		if (_snapshot.BagCount <= 0)
+			return false;
+
+		int targetBagIndex = _snapshot.BagCount - 1;
+		if (!_snapshot.TryGetInventorySlot(false, targetBagIndex, out InventorySlotRuntimeData bagWeapon) ||
+		    bagWeapon.IsEmpty ||
+		    !ItemModificationUtility.IsModifiableWeapon(bagWeapon.Definition))
+			return false;
+
+		_isMainHand = false;
+		_bagIndex = targetBagIndex;
+		_weaponInstance = bagWeapon.InstanceState;
+		return true;
+	}
+
+	private IEnumerator CoRefreshInlineModificationRowsNextFrame()
+	{
+		yield return null;
+		m_DeferredInlineRefreshCoroutine = null;
+		if (!m_PendingInlineRefresh)
+			yield break;
+
+		RebuildInlineModificationRows();
 	}
 
 	private void HandleModificationDragContextChanged()
@@ -1232,32 +2547,30 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropHandler
 {
 	#region Private Fields
-	private readonly Color m_NormalColor = MissionPrepInventoryUiColors.CellBackground;
-	private readonly Color m_CompatibleColor = MissionPrepInventoryUiColors.CompatibleHighlight;
-
 	private MissionPrepLoadoutCoordinator m_Coordinator;
 	private InventorySlotView m_Slot;
-	private Image m_BackgroundImage;
 	#endregion
 
 	#region Public Methods
 	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
 	{
 		m_Coordinator = _coordinator;
-		EnsureBackgroundImage();
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
+		if (panel != null)
+			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+
 		RefreshHighlight();
 	}
 
 	public void RefreshHighlight()
 	{
-		EnsureBackgroundImage();
-		if (m_BackgroundImage == null)
-			return;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
 
-		MissionPrepModificationDragPayload payload = MissionPrepModificationDragContext.Current;
-		bool compatible = MissionPrepWeaponEquipUtility.IsWeaponEquipDragSource(payload.SourceKind) &&
-		                  MissionPrepWeaponEquipUtility.CanEquipToMainHand(payload.Item);
-		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
+		InventorySlotUiUtility.ApplyMainHandEquipmentSlotHighlight(m_Slot, InventorySlotUiUtility.IsWeaponEquipDragActive());
 	}
 	#endregion
 
@@ -1294,19 +2607,6 @@ public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropH
 			return;
 
 		presetDrag.NotifyDropAccepted();
-	}
-	#endregion
-
-	#region Private Methods
-	private void EnsureBackgroundImage()
-	{
-		if (m_Slot == null)
-			m_Slot = GetComponent<InventorySlotView>();
-
-		if (m_BackgroundImage != null)
-			return;
-
-		m_BackgroundImage = GetComponent<Image>();
 	}
 	#endregion
 }

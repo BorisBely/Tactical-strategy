@@ -45,6 +45,7 @@ public static class EditorSelectionGuard
 		if (Application.isPlaying)
 		{
 			// DestroyImmediate запрещён в animation event / physics callbacks — только отложенный Destroy.
+			_slotRoot.SetActive(false);
 			Object.Destroy(_slotRoot);
 			ScheduleSanitizeSelectionAfterDestroy();
 			return;
@@ -70,11 +71,14 @@ public static class EditorSelectionGuard
 			for (int i = 0; i < _slotRoots.Count; i++)
 			{
 				GameObject go = _slotRoots[i];
-				if (go != null)
-					Object.DestroyImmediate(go);
+				if (go == null)
+					continue;
+
+				go.SetActive(false);
+				Object.Destroy(go);
 			}
 
-			SanitizeSelectionRemovingDestroyedObjects();
+			ScheduleSanitizeSelectionAfterDestroy();
 			return;
 		}
 

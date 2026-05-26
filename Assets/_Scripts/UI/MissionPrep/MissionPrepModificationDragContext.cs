@@ -183,18 +183,8 @@ public static class MissionPrepModificationDragContext
 public static class MissionPrepWeaponEquipUtility
 {
 	#region Public Methods
-	public static bool CanEquipToMainHand(InventorySlotRuntimeData _item)
-	{
-		if (_item.IsEmpty || _item.Definition == null || !_item.Definition.IsEquipment)
-			return false;
-
-		if (_item.InstanceState != null &&
-		    _item.InstanceState.WeaponState != null &&
-		    _item.InstanceState.WeaponState.IsTerminallyBroken)
-			return false;
-
-		return true;
-	}
+	public static bool CanEquipToMainHand(InventorySlotRuntimeData _item) =>
+		WeaponEquipUtility.CanEquipToMainHand(_item);
 
 	public static bool IsWeaponEquipDragSource(MissionPrepModificationDragSourceKind _sourceKind)
 	{

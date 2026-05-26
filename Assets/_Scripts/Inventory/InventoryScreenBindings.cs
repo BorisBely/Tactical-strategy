@@ -183,6 +183,7 @@ public class InventoryScreenBindings : MonoBehaviour
 			RuntimeInlineModificationBuilder.ClearAllRows(GroundPanel);
 			GroundPanel.ClearAllSlots();
 			RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
+			RuntimeInventoryModificationCoordinator.Instance?.RefreshInlineModificationRows();
 		}
 	}
 

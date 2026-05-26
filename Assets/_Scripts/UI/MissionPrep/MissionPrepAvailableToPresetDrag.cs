@@ -126,6 +126,8 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 
 		m_SourceData = m_Slot.Data;
 		MissionPrepModificationDragContext.BeginAvailable(m_SourceData);
+		if (m_Coordinator.PresetInventoryPanel != null)
+			InventorySlotUiUtility.RefreshMainHandEquipHighlight(m_Coordinator.PresetInventoryPanel);
 		m_AvailableContentParent = transform.parent;
 		m_AvailableSiblingIndex = transform.GetSiblingIndex();
 		m_AvailablePanel.DetachSlotForDrag(m_Slot);
@@ -154,6 +156,12 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			return;
 
 		UpdateDragPosition(eventData);
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		if (m_Coordinator?.PresetInventoryPanel != null)
+			MissionPrepInlineModificationBuilder.RefreshMainHandSlotHighlights(m_Coordinator.PresetInventoryPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)

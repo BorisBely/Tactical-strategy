@@ -5,9 +5,17 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(InventorySlotView))]
 public sealed class RuntimeInventoryModificationClick : MonoBehaviour, IPointerClickHandler
 {
+	#region Constants
+	private const float c_DoubleClickMaxDelaySeconds = 0.35f;
+	#endregion
+
 	#region Serialized Fields
 	[SerializeField] private InventorySlotView m_Slot;
 	[SerializeField] private RuntimeInventoryModificationCoordinator m_Coordinator;
+	#endregion
+
+	#region Private Fields
+	private float m_LastLeftClickUnscaledTime = -1f;
 	#endregion
 
 	#region Unity Lifecycle
@@ -41,19 +49,26 @@ public sealed class RuntimeInventoryModificationClick : MonoBehaviour, IPointerC
 		if (eventData.button != PointerEventData.InputButton.Left)
 			return;
 
+		if (m_Slot == null || !m_Slot.HasItem ||
+		    !ItemModificationUtility.IsModifiableWeapon(m_Slot.Data.Definition))
+			return;
+
+		float now = Time.unscaledTime;
+		bool unityReportsDouble = eventData.clickCount >= 2;
+		bool timedDouble = m_LastLeftClickUnscaledTime >= 0f &&
+		                   (now - m_LastLeftClickUnscaledTime) <= c_DoubleClickMaxDelaySeconds;
+		m_LastLeftClickUnscaledTime = now;
+
 		if (m_Coordinator == null)
 			m_Coordinator = RuntimeInventoryModificationCoordinator.Instance;
 
-		if (m_Coordinator == null)
-			return;
-
-		if (eventData.clickCount >= 2)
+		if (unityReportsDouble || timedDouble)
 		{
-			m_Coordinator.TryCollapseEmptyModificationSlotsForSlot(m_Slot);
+			m_Coordinator?.TryCollapseModificationPanelForDoubleClick(m_Slot);
 			return;
 		}
 
-		m_Coordinator.TryToggleModificationPanel(m_Slot);
+		m_Coordinator?.TryToggleModificationPanel(m_Slot);
 	}
 	#endregion
 }

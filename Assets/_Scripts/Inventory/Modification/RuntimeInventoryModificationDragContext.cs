@@ -6,7 +6,9 @@ public enum RuntimeInventoryModificationDragSourceKind
 	CharacterBag = 1,
 	CharacterMainHand = 2,
 	GroundPanel = 3,
-	ModificationSlot = 4
+	ModificationSlot = 4,
+	CharacterBagWeapon = 5,
+	GroundWeapon = 6
 }
 
 public readonly struct RuntimeInventoryModificationDragPayload
@@ -56,10 +58,17 @@ public static class RuntimeInventoryModificationDragContext
 	public static RuntimeInventoryModificationDragPayload Current => s_Current;
 	public static InventorySlotView SourceSlotView => s_SourceSlotView;
 	public static bool HasActiveModificationItem => s_Current.HasItem && ItemModificationUtility.IsModificationItem(s_Current.Item);
+	public static bool HasActiveWeaponEquipDrag => s_Current.HasItem && IsWeaponEquipDragSource(s_Current.SourceKind);
 	public static bool WasDropConsumed => s_DropConsumed;
 	#endregion
 
 	#region Public Methods
+	public static bool IsWeaponEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundWeapon;
+	}
+
 	public static void BeginCharacter(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex, InventorySlotView _sourceSlot = null)
 	{
 		SetSourceSlot(_sourceSlot);
@@ -74,7 +83,7 @@ public static class RuntimeInventoryModificationDragContext
 	{
 		SetSourceSlot(_sourceSlot);
 		Begin(new RuntimeInventoryModificationDragPayload(
-			RuntimeInventoryModificationDragSourceKind.GroundPanel,
+			ResolveGroundSourceKind(_item),
 			_item,
 			_isMainHand: false,
 			_groundSlotIndex));
@@ -145,6 +154,20 @@ public static class RuntimeInventoryModificationDragContext
 		if (ItemModificationUtility.IsModificationItem(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBag;
 
+		if (WeaponEquipUtility.CanEquipToMainHand(_item))
+			return RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon;
+
+		return RuntimeInventoryModificationDragSourceKind.None;
+	}
+
+	private static RuntimeInventoryModificationDragSourceKind ResolveGroundSourceKind(InventorySlotRuntimeData _item)
+	{
+		if (ItemModificationUtility.IsModificationItem(_item))
+			return RuntimeInventoryModificationDragSourceKind.GroundPanel;
+
+		if (WeaponEquipUtility.CanEquipToMainHand(_item))
+			return RuntimeInventoryModificationDragSourceKind.GroundWeapon;
+
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
 
@@ -156,10 +179,14 @@ public static class RuntimeInventoryModificationDragContext
 		switch (_payload.SourceKind)
 		{
 			case RuntimeInventoryModificationDragSourceKind.ModificationSlot:
+			case RuntimeInventoryModificationDragSourceKind.CharacterMainHand:
 				return true;
 			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
 			case RuntimeInventoryModificationDragSourceKind.GroundPanel:
 				return ItemModificationUtility.IsModificationItem(_payload.Item);
+			case RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon:
+			case RuntimeInventoryModificationDragSourceKind.GroundWeapon:
+				return WeaponEquipUtility.CanEquipToMainHand(_payload.Item);
 			default:
 				return false;
 		}

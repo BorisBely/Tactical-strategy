@@ -86,6 +86,15 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 
 		if (ItemModificationUtility.IsModificationItem(m_Slot.Data))
 			RuntimeInventoryModificationCoordinator.Instance?.TryBeginModificationDragFromGroundSlot(m_Slot);
+		else if (WeaponEquipUtility.CanEquipToMainHand(m_Slot.Data))
+		{
+			RuntimeInventoryModificationDragContext.BeginGround(
+				m_Slot.Data,
+				m_GroundPanel.GetInventorySlotListIndex(m_Slot),
+				m_Slot);
+			if (selectionManager.CharacterInventoryPanel != null)
+				InventorySlotUiUtility.RefreshMainHandEquipHighlight(selectionManager.CharacterInventoryPanel);
+		}
 
 		m_GroundContentParent = transform.parent;
 		m_GroundSiblingIndex = transform.GetSiblingIndex();
@@ -109,6 +118,10 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 			return;
 
 		UpdateDragPosition(eventData);
+
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (coordinator?.CharacterPanel != null)
+			RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(coordinator.CharacterPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -121,7 +134,20 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 
 		bool wasModificationDropConsumed = RuntimeInventoryModificationDragContext.WasDropConsumed;
 
-		if (wasModificationDropConsumed)
+		if (!wasModificationDropConsumed && !m_DropAccepted)
+		{
+			RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+
+			if (coordinator != null &&
+			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, GetDragCamera(eventData)))
+			{
+				m_DropAccepted = coordinator.TryEquipWeaponDragToMainHand();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+		}
+
+		if (wasModificationDropConsumed || RuntimeInventoryModificationDragContext.WasDropConsumed)
 		{
 			DestroyDraggedSlotVisual();
 		}
@@ -152,6 +178,17 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 	{
 		RuntimeInlineModificationDragHelper.UpdateDragPosition(
 			m_ModDragAttachment, eventData, m_RootCanvas, m_DragOffsetLocal);
+	}
+
+	private Camera GetDragCamera(PointerEventData eventData)
+	{
+		if (m_RootCanvas == null)
+			return null;
+
+		if (m_RootCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+			return null;
+
+		return eventData.pressEventCamera != null ? eventData.pressEventCamera : m_RootCanvas.worldCamera;
 	}
 
 	private void DestroyDraggedSlotVisual()

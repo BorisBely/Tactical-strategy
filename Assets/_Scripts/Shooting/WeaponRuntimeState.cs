@@ -135,6 +135,7 @@ public sealed class WeaponRuntimeState
 	public ItemDefinition[] EquippedAttachmentItems => m_EquippedAttachmentItems;
 	public bool IsTerminallyBroken => m_IsTerminallyBroken;
 	public bool HasWeapon => m_WeaponDefinition != null;
+	public ItemDefinition InsertedMagazineDefinition => m_CurrentMagazineDefinition;
 	#endregion
 
 	#region Public Methods

@@ -1,7 +1,4 @@
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 /// <summary>
 /// Предмет в мире (лут). Попадание в <see cref="InventoryPickupZone"/> добавляет строку в панель «земля».
@@ -48,16 +45,6 @@ public class WorldPickupItem : MonoBehaviour
 			return;
 
 		TryCopyEquippedAttachmentsToWeaponStateIfEmpty();
-		// Instantiate нельзя вызывать из OnValidate (SendMessage / иерархия) — отложить на следующий тик редактора.
-		EditorApplication.delayCall += EditorDelayedRefreshVisualState;
-	}
-
-	private void EditorDelayedRefreshVisualState()
-	{
-		if (this == null)
-			return;
-
-		RefreshVisualState();
 	}
 #endif
 	#endregion
@@ -175,6 +162,9 @@ public class WorldPickupItem : MonoBehaviour
 
 	private void RefreshVisualState()
 	{
+		if (!Application.isPlaying)
+			return;
+
 		EquippedWeapon equippedWeapon = GetComponentInChildren<EquippedWeapon>(true);
 		if (equippedWeapon == null)
 			return;
@@ -193,11 +183,16 @@ public class WorldPickupItem : MonoBehaviour
 
 	private ItemDefinition GetInsertedMagazineDefinition()
 	{
-		if (m_InstanceState == null || m_InstanceState.WeaponState == null)
+		WeaponRuntimeState weaponState = m_InstanceState?.WeaponState;
+		if (weaponState == null)
 			return null;
 
-		InventorySlotRuntimeData currentMagazineItem = m_InstanceState.WeaponState.CurrentMagazineItem;
-		if (currentMagazineItem.IsEmpty || currentMagazineItem.InstanceState == null || currentMagazineItem.InstanceState.MagazineState == null)
+		ItemDefinition definition = weaponState.InsertedMagazineDefinition;
+		if (definition != null)
+			return definition;
+
+		InventorySlotRuntimeData currentMagazineItem = weaponState.CurrentMagazineItem;
+		if (currentMagazineItem.IsEmpty)
 			return null;
 
 		return currentMagazineItem.Definition;

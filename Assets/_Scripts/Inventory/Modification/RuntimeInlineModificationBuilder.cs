@@ -138,6 +138,13 @@ public static class RuntimeInlineModificationBuilder
 			if (rows[i] != null)
 				rows[i].RefreshHighlight();
 		}
+
+		RefreshMainHandSlotHighlights(_panel);
+	}
+
+	public static void RefreshMainHandSlotHighlights(InventoryPanelView _panel)
+	{
+		InventorySlotUiUtility.RefreshMainHandEquipHighlight(_panel);
 	}
 	#endregion
 }

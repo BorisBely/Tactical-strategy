@@ -379,6 +379,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			}
 
 			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
 			return true;
 		}
 
@@ -395,6 +396,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!inventory.TryUnequipMainHandToBag())
 				return false;
 			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
 			return true;
 		}
 
@@ -413,11 +415,105 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+		return true;
+	}
+
+	/// <summary>Экипировать оружие из сумки в основную руку (drag на слот экипировки).</summary>
+	public bool TryEquipCharacterBagWeaponToMainHand(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null || _bagIndex < 0 || _bagIndex >= inventory.BagCount)
+			return false;
+
+		UnitEquipment equipment = inventory.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+			return false;
+
+		if (!inventory.TryMoveBagItemToMainHand(_bagIndex, equipment))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	/// <summary>Экипировать оружие с панели земли в основную руку (drag или двойной клик).</summary>
+	public bool TryEquipGroundWeaponToMainHand(InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		if (m_GroundPanel == null)
+			return false;
+
+		InventorySlotView slot = _slotView;
+		if ((slot == null || !slot.HasItem) && _groundSlotIndex >= 0 && _groundSlotIndex < m_GroundPanel.Slots.Count)
+			slot = m_GroundPanel.Slots[_groundSlotIndex];
+
+		if (slot == null || !slot.HasItem || !WeaponEquipUtility.CanEquipToMainHand(slot.Data))
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		UnitEquipment equipment = inventory.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+			return false;
+
+		if (!slot.TryTakeItem(out InventorySlotRuntimeData taken))
+			return false;
+
+		InventorySlotRuntimeData forEquip = taken;
+		forEquip.WorldSource = null;
+
+		if (!inventory.TryEquipExternalItemToMainHand(forEquip, equipment))
+		{
+			slot.SetItem(taken);
+			if (taken.WorldSource != null)
+				taken.WorldSource.ApplyInventorySlotData(taken);
+			return false;
+		}
+
+		if (taken.WorldSource != null)
+			taken.WorldSource.OnTransferredToCharacterInventory();
+
+		m_GroundPanel.NotifyGroundSlotItemTakenAway(slot);
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	/// <summary>Двойной клик по оружию на панели земли — экипировка в основную руку.</summary>
+	public bool TryEquipFromGroundDoubleClick(InventorySlotView _slot)
+	{
+		if (_slot == null || !_slot.HasItem || m_GroundPanel == null)
+			return false;
+
+		if (_slot.GetComponentInParent<InventoryPanelView>() != m_GroundPanel)
+			return false;
+
+		if (!TryEquipGroundWeaponToMainHand(_slot))
+			return false;
+
+		RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
 		return true;
 	}
 	#endregion
 
 	#region Private Methods
+	private static void DestroyDetachedDragSlotIfNeeded(InventorySlotView _slotView, InventoryPanelView _panel)
+	{
+		if (_slotView == null || !Application.isPlaying)
+			return;
+
+		if (_slotView.GetComponentInParent<InventoryPanelView>() == _panel)
+			return;
+
+		if (_slotView.IsRuntimeSpawned && _panel != null)
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(_slotView.gameObject, _panel.transform);
+		else
+			Destroy(_slotView.gameObject);
+	}
+
 	private CharacterInventory GetActiveInventory()
 	{
 		return m_InventoryBindings != null ? m_InventoryBindings.ActiveCharacterInventory : null;

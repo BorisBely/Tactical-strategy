@@ -7,7 +7,7 @@ using UnityEngine;
 /// Ручная зарядка магазина в сумке патронами из коробок того же калибра.
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(59)]
+[DefaultExecutionOrder(61)]
 public sealed class UnitMagazineLoadingController : MonoBehaviour
 {
 	#region Events
@@ -16,6 +16,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	#region Constants
 	public const string ParamIsLoadingMagazine = "IsLoadingMagazine";
+	public const string MagazineLoadingHandsLayerName = "Magazine_Loading_Hands";
 	private static readonly int s_IsLoadingMagazine = Animator.StringToHash(ParamIsLoadingMagazine);
 	#endregion
 
@@ -25,6 +26,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[Tooltip("Занятость юнита на время ручной зарядки.")]
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
+	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[Tooltip("Для обновления UI, если инвентарь этого юнита сейчас открыт.")]
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
 	[Tooltip("Animator юнита. На нём можно завести bool-параметр IsLoadingMagazine для loop-анимации зарядки.")]
@@ -35,6 +37,10 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[SerializeField] private AudioSource m_RoundLoadAudioSource;
 	[SerializeField, Min(0.01f)] private float m_RoundLoadSoundSpatialMinDistance = 1f;
 	[SerializeField, Min(0.5f)] private float m_RoundLoadSoundSpatialMaxDistance = 45f;
+
+	[Header("Animator")]
+	[Tooltip("Плавное включение/выключение слоя Magazine_Loading_Hands (сек).")]
+	[SerializeField, Min(0.02f)] private float m_LayerWeightFadeSeconds = 0.28f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsLoadingMagazine;
@@ -47,6 +53,9 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	private GameObject m_LeftHandMagazineVisualInstance;
 	private int[] m_RoundLoadSoundShufflePermutation;
 	private int m_RoundLoadSoundShuffleCursor;
+	private int m_MagazineLoadingLayerIndex = -1;
+	private float m_SmoothedLayerWeight;
+	private Coroutine m_FinishPresentationAfterFadeCoroutine;
 	#endregion
 
 	#region Public Properties
@@ -62,6 +71,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			m_BusyState = GetComponent<UnitBusyState>();
 		if (m_UnitEquipment == null)
 			m_UnitEquipment = GetComponent<UnitEquipment>();
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_InventoryBindings == null)
 			m_InventoryBindings = InventoryScreenBindings.Instance;
 		if (m_Animator == null)
@@ -69,12 +80,25 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		if (m_LeftHandAnchor == null && m_Animator != null && m_Animator.isHuman)
 			m_LeftHandAnchor = m_Animator.GetBoneTransform(HumanBodyBones.LeftHand);
 
+		ResolveMagazineLoadingLayerIndex();
 		EnsureRoundLoadAudioSource();
+	}
+
+	private void OnEnable()
+	{
+		m_SmoothedLayerWeight = m_IsLoadingMagazine ? 1f : 0f;
+		SyncAnimatorState();
+		ApplyMagazineLoadingLayerWeightImmediate(m_SmoothedLayerWeight);
+	}
+
+	private void LateUpdate()
+	{
+		SyncMagazineLoadingLayerWeightIfAllowed();
 	}
 
 	private void OnDisable()
 	{
-		StopLoadingInternal(false);
+		StopLoadingInternal(false, true);
 	}
 	#endregion
 
@@ -121,6 +145,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_IsLoadingMagazine = true;
 		m_DebugTargetMagazineBagIndex = targetMagazineIndex;
 		m_DebugLoadedRoundsThisSession = 0;
+		CancelFinishPresentationAfterFadeCoroutine();
 		PrepareRoundLoadSoundShuffle(targetMagazineState.Definition);
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
 		m_UnitEquipment?.SetMainWeaponVisualActive(false);
@@ -132,7 +157,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	public void StopLoading()
 	{
-		StopLoadingInternal(false);
+		StopLoadingInternal(false, false);
 	}
 
 	/// <summary>
@@ -357,13 +382,13 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_InventoryBindings.RefreshActiveCharacterPanel();
 	}
 
-	private void StopLoadingInternal(bool _completedNaturally)
+	private void StopLoadingInternal(bool _completedNaturally, bool _immediatePresentation = false)
 	{
 		int stoppedBagIndex = m_DebugTargetMagazineBagIndex;
 		bool hasAmmoAfterStop = false;
 		if (m_CharacterInventory != null &&
-			stoppedBagIndex >= 0 &&
-			stoppedBagIndex < m_CharacterInventory.BagCount)
+		    stoppedBagIndex >= 0 &&
+		    stoppedBagIndex < m_CharacterInventory.BagCount)
 		{
 			InventorySlotRuntimeData bagItem = m_CharacterInventory.BagItems[stoppedBagIndex];
 			MagazineRuntimeState magazineState = bagItem.InstanceState != null ? bagItem.InstanceState.MagazineState : null;
@@ -375,10 +400,14 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		m_RoundLoadSoundShufflePermutation = null;
 		m_RoundLoadSoundShuffleCursor = 0;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
-		m_UnitEquipment?.SetMainWeaponVisualActive(true);
-		ClearLeftHandMagazineVisual();
+		CancelFinishPresentationAfterFadeCoroutine();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
+
+		if (_immediatePresentation)
+			FinishLoadingPresentationImmediately();
+		else
+			m_FinishPresentationAfterFadeCoroutine = StartCoroutine(FinishLoadingPresentationAfterLayerFade());
 
 		bool completedNaturally = _completedNaturally && hasAmmoAfterStop;
 		if (isActiveAndEnabled && gameObject.activeInHierarchy)
@@ -395,8 +424,83 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	private void SyncAnimatorState()
 	{
-		if (m_Animator != null)
-			m_Animator.SetBool(s_IsLoadingMagazine, m_IsLoadingMagazine);
+		if (m_Animator == null)
+			return;
+
+		m_Animator.SetBool(s_IsLoadingMagazine, m_IsLoadingMagazine);
+		SyncMagazineLoadingLayerWeightIfAllowed();
+	}
+
+	private void SyncMagazineLoadingLayerWeightIfAllowed()
+	{
+		if (m_Animator == null)
+			return;
+
+		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
+			return;
+
+		if (m_MagazineLoadingLayerIndex < 0)
+			ResolveMagazineLoadingLayerIndex();
+		if (m_MagazineLoadingLayerIndex < 0)
+			return;
+
+		float targetWeight = m_IsLoadingMagazine ? 1f : 0f;
+		float fadeSeconds = Mathf.Max(0.02f, m_LayerWeightFadeSeconds);
+		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, Time.deltaTime / fadeSeconds);
+		m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, m_SmoothedLayerWeight);
+	}
+
+	private void ApplyMagazineLoadingLayerWeightImmediate(float _weight)
+	{
+		if (m_Animator == null)
+			return;
+
+		if (m_MagazineLoadingLayerIndex < 0)
+			ResolveMagazineLoadingLayerIndex();
+		if (m_MagazineLoadingLayerIndex < 0)
+			return;
+
+		m_SmoothedLayerWeight = _weight;
+		m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, m_SmoothedLayerWeight);
+	}
+
+	private IEnumerator FinishLoadingPresentationAfterLayerFade()
+	{
+		const float c_WeightEpsilon = 0.02f;
+		while (m_SmoothedLayerWeight > c_WeightEpsilon)
+			yield return null;
+
+		m_UnitEquipment?.SetMainWeaponVisualActive(true);
+		ClearLeftHandMagazineVisual();
+		m_FinishPresentationAfterFadeCoroutine = null;
+	}
+
+	private void CancelFinishPresentationAfterFadeCoroutine()
+	{
+		if (m_FinishPresentationAfterFadeCoroutine == null)
+			return;
+
+		StopCoroutine(m_FinishPresentationAfterFadeCoroutine);
+		m_FinishPresentationAfterFadeCoroutine = null;
+	}
+
+	private void FinishLoadingPresentationImmediately()
+	{
+		CancelFinishPresentationAfterFadeCoroutine();
+		m_UnitEquipment?.SetMainWeaponVisualActive(true);
+		ClearLeftHandMagazineVisual();
+		ApplyMagazineLoadingLayerWeightImmediate(0f);
+	}
+
+	private void ResolveMagazineLoadingLayerIndex()
+	{
+		if (m_Animator == null)
+		{
+			m_MagazineLoadingLayerIndex = -1;
+			return;
+		}
+
+		m_MagazineLoadingLayerIndex = m_Animator.GetLayerIndex(MagazineLoadingHandsLayerName);
 	}
 
 	private void AttachCurrentLoadingMagazineVisualToLeftHand()

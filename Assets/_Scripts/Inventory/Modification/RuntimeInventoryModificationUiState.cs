@@ -1,11 +1,14 @@
 public struct RuntimeInventoryModificationUiState
 {
 	public bool HasSelection;
-	public bool ExpandEmptySlots;
+	public RuntimeModifiableWeaponDisplayState DisplayState;
+	public ItemInstanceState SelectedWeaponInstanceState;
 	public bool IsMainHand;
 	public int BagIndex;
 	public bool IsGroundSlot;
 	public int GroundSlotIndex;
+
+	public bool IsExpanded => DisplayState == RuntimeModifiableWeaponDisplayState.Expanded;
 
 	public bool MatchesCharacter(bool _isMainHand, int _bagIndex)
 	{
@@ -20,12 +23,14 @@ public struct RuntimeInventoryModificationUiState
 	public static RuntimeInventoryModificationUiState CreateCharacterSelection(
 		bool _isMainHand,
 		int _bagIndex,
-		bool _expandEmptySlots)
+		ItemInstanceState _weaponInstanceState,
+		RuntimeModifiableWeaponDisplayState _displayState)
 	{
 		return new RuntimeInventoryModificationUiState
 		{
 			HasSelection = true,
-			ExpandEmptySlots = _expandEmptySlots,
+			DisplayState = _displayState,
+			SelectedWeaponInstanceState = _weaponInstanceState,
 			IsMainHand = _isMainHand,
 			BagIndex = _bagIndex,
 			IsGroundSlot = false,
@@ -33,12 +38,16 @@ public struct RuntimeInventoryModificationUiState
 		};
 	}
 
-	public static RuntimeInventoryModificationUiState CreateGroundSelection(int _groundSlotIndex, bool _expandEmptySlots)
+	public static RuntimeInventoryModificationUiState CreateGroundSelection(
+		int _groundSlotIndex,
+		ItemInstanceState _weaponInstanceState,
+		RuntimeModifiableWeaponDisplayState _displayState)
 	{
 		return new RuntimeInventoryModificationUiState
 		{
 			HasSelection = true,
-			ExpandEmptySlots = _expandEmptySlots,
+			DisplayState = _displayState,
+			SelectedWeaponInstanceState = _weaponInstanceState,
 			IsMainHand = false,
 			BagIndex = -1,
 			IsGroundSlot = true,

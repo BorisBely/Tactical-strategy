@@ -21,6 +21,10 @@ public class InventoryPanelView : MonoBehaviour
 	[Tooltip("Сколько первых ячеек под снаряжение (0 = только сумка). Обычно 1 = основное оружие, далее броня и т.д.")]
 	[SerializeField] private int m_LeadingEquipmentSlotCount;
 
+	[Header("Слот экипированного оружия (первая leading-ячейка)")]
+	[Tooltip("Применяется при создании ячейки в RepaintFromCharacterInventory / RepaintFromPresetSnapshot.")]
+	[SerializeField] private InventoryEquipmentSlotAppearance m_EquipmentSlotAppearance = new InventoryEquipmentSlotAppearance();
+
 	[Header("Связи Canvas (опционально)")]
 	[Tooltip("Для панели инвентаря персонажа: зона drag-and-drop с «земли». Заполняется на общем Canvas.")]
 	[SerializeField] private InventoryCharacterBagDropZone m_CharacterBagDropZone;
@@ -36,6 +40,7 @@ public class InventoryPanelView : MonoBehaviour
 	#region Public Properties
 	public IReadOnlyList<InventorySlotView> Slots => m_Slots;
 	public int LeadingEquipmentSlotCount => m_LeadingEquipmentSlotCount;
+	public InventoryEquipmentSlotAppearance EquipmentSlotAppearance => m_EquipmentSlotAppearance;
 	public InventoryCharacterBagDropZone CharacterBagDropZone => m_CharacterBagDropZone;
 	public InventoryGroundDropZone GroundDropZone => m_GroundDropZone;
 
@@ -63,7 +68,13 @@ public class InventoryPanelView : MonoBehaviour
 	{
 		m_Slots.Clear();
 		Transform root = m_SlotsContainer != null ? m_SlotsContainer : transform;
-		m_Slots.AddRange(root.GetComponentsInChildren<InventorySlotView>(true));
+		InventorySlotView[] found = root.GetComponentsInChildren<InventorySlotView>(true);
+		for (int i = 0; i < found.Length; i++)
+		{
+			InventorySlotView slot = found[i];
+			if (slot != null)
+				m_Slots.Add(slot);
+		}
 		m_SpawnedSlots.RemoveAll(_s => _s == null);
 		for (int i = m_SpawnedSlots.Count - 1; i >= 0; i--)
 		{
@@ -233,8 +244,9 @@ public class InventoryPanelView : MonoBehaviour
 
 		for (int i = 0; i < lead; i++)
 		{
-			InventorySlotView cell = SpawnNewSlotFromPrefab();
-			if (i == 0 && !main.IsEmpty)
+			bool isMainHandSlot = i == 0;
+			InventorySlotView cell = SpawnNewSlotFromPrefab(isMainHandSlot);
+			if (isMainHandSlot && !main.IsEmpty)
 				cell.SetItem(main);
 		}
 
@@ -262,8 +274,9 @@ public class InventoryPanelView : MonoBehaviour
 
 		for (int i = 0; i < lead; i++)
 		{
-			InventorySlotView cell = SpawnNewSlotFromPrefab();
-			if (i == 0 && !main.IsEmpty)
+			bool isMainHandSlot = i == 0;
+			InventorySlotView cell = SpawnNewSlotFromPrefab(isMainHandSlot);
+			if (isMainHandSlot && !main.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(main));
 		}
 
@@ -372,7 +385,7 @@ public class InventoryPanelView : MonoBehaviour
 			RefreshSlotsFromHierarchy();
 	}
 
-	private InventorySlotView SpawnNewSlotFromPrefab()
+	private InventorySlotView SpawnNewSlotFromPrefab(bool _isMainHandEquipmentSlot = false)
 	{
 		InventorySlotView created = Instantiate(m_SlotPrefab, m_SlotsContainer);
 		created.gameObject.name = $"{m_SlotPrefab.name}_{m_SpawnedSlots.Count}";
@@ -380,6 +393,10 @@ public class InventoryPanelView : MonoBehaviour
 		created.MarkRuntimeSpawned();
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
+
+		if (_isMainHandEquipmentSlot)
+			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(created, m_EquipmentSlotAppearance);
+
 		return created;
 	}
 	#endregion

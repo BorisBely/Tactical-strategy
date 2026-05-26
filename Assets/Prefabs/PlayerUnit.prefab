@@ -7511,6 +7511,7 @@ GameObject:
   - component: {fileID: 8412401315927888462}
   - component: {fileID: 8082661923994252123}
   - component: {fileID: 3544168995589682661}
+  - component: {fileID: 9123456789012345678}
   m_Layer: 7
   m_Name: PlayerUnit
   m_TagString: Untagged
@@ -7973,7 +7974,7 @@ MonoBehaviour:
   m_Animator: {fileID: 5771954729034314130}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_BusyState: {fileID: 0}
-  m_ReloadController: {fileID: 0}
+  m_ReloadController: {fileID: 4859917004016156609}
   m_FireController: {fileID: 0}
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
@@ -8292,6 +8293,44 @@ MonoBehaviour:
   m_MalfunctionBoltRearmDelaySeconds: 0.08
   m_MalfunctionClickSound: {fileID: 0}
   m_DebugLastJamRoll: 
+--- !u!114 &9123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5aec503fd23ffb94da9cd79b228d5497, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitFootsteps
+  m_AudioSource: {fileID: 0}
+  m_EmitFrom: {fileID: 6544963493894048048}
+  m_GroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_GroundRayUpOffset: 0.35
+  m_GroundRayLength: 2
+  m_SurfaceRules: []
+  m_SurfaceRayMinIntervalSeconds: 0.15
+  m_SurfaceRayReusePlanarMeters: 0.3
+  m_SurfaceRayReuseVerticalMeters: 0.35
+  m_FootstepClips: []
+  m_RtsEconomyMode: 0
+  m_RtsMaxPlanarDistanceFromListener: 0
+  m_ApplySpatialPreset: 1
+  m_SpatialMinDistance: 0.6
+  m_SpatialMaxDistance: 22
+  m_VolumeRolloff: 1
+  m_DopplerLevel: 0
+  m_SyncAudioSourceWorldPositionToEmitPoint: 1
+  m_VolumeJitter: 0.06
+  m_PitchJitter: 0.04
+  m_RequireNavAgentMoving: 1
+  m_StopVelocityEpsilon: 0.08
+  m_LimitOneFootstepPerFrame: 1
+  m_FootstepMinIntervalSeconds: 0.14
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

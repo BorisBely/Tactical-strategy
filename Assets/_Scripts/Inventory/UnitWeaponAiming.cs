@@ -124,6 +124,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_BusyState = GetComponent<UnitBusyState>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponentInParent<UnitWeaponReloadController>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
 
@@ -132,6 +134,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private void OnEnable()
 	{
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponentInParent<UnitWeaponReloadController>();
+
 		ResolveAimLayerIndices();
 		m_SmoothedPitch01 = 0f;
 		m_PitchVelocity = 0f;
@@ -311,12 +318,22 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
-		bool aimLayerHoldForReloadClips = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
-		float targetLayer = aimLayerHoldForReloadClips && canUseAimLayerForStance ? 1f : 0f;
-		float wSmooth = Mathf.Max(0.0001f, m_LayerWeightSmoothSeconds);
-		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetLayer, Time.deltaTime / wSmooth);
+		bool reloadNeedsAimLayerClips = m_ReloadController != null && m_ReloadController.IsReloadBusy;
+		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
+		float targetLayer = canUseAimLayerForStance && (reloadNeedsAimLayerClips || aimLayerHoldForCombat) ? 1f : 0f;
 
-		SetAimLayerWeights(m_SmoothedLayerWeight);
+		if (reloadNeedsAimLayerClips)
+		{
+			// Клипы перезарядки/затвора на Aim_Point_U90-D90; при весе 0 animation events не приходят.
+			m_SmoothedLayerWeight = 1f;
+			SetAimLayerWeights(1f);
+		}
+		else
+		{
+			float wSmooth = Mathf.Max(0.0001f, m_LayerWeightSmoothSeconds);
+			m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetLayer, Time.deltaTime / wSmooth);
+			SetAimLayerWeights(m_SmoothedLayerWeight);
+		}
 
 		float targetPitch01 = 0f;
 		if (combatAim && m_BarrelTransform != null)

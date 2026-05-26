@@ -88,6 +88,20 @@ public class InventorySlotView : MonoBehaviour
 		Clear();
 		return true;
 	}
+
+	/// <summary>Отключить raycast у дочерних Image (кроме фона), чтобы drop/popup попадали по всей ячейке.</summary>
+	public void SetChildImagesRaycastTarget(bool _enabled, Image _exceptImage = null)
+	{
+		Image[] images = GetComponentsInChildren<Image>(true);
+		for (int i = 0; i < images.Length; i++)
+		{
+			Image image = images[i];
+			if (image == null || image == _exceptImage)
+				continue;
+
+			image.raycastTarget = _enabled;
+		}
+	}
 	#endregion
 
 	#region Private Methods

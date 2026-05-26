@@ -27,7 +27,26 @@ public static class MissionPrepInventoryCopyUtility
 		if (_source == null)
 			return null;
 
-		return JsonUtility.FromJson<ItemInstanceState>(JsonUtility.ToJson(_source));
+		ItemInstanceState clone = JsonUtility.FromJson<ItemInstanceState>(JsonUtility.ToJson(_source));
+		if (clone == null)
+			return null;
+
+		PreserveWeaponRuntimeFieldsAfterJsonClone(_source.WeaponState, clone.WeaponState);
+		return clone;
+	}
+	#endregion
+
+	#region Private Methods
+	private static void PreserveWeaponRuntimeFieldsAfterJsonClone(WeaponRuntimeState _source, WeaponRuntimeState _clone)
+	{
+		if (_source == null || _clone == null)
+			return;
+
+		if (_source.EquippedAttachments != null)
+			_clone.SetEquippedAttachments(_source.EquippedAttachments);
+
+		if (_source.EquippedAttachmentItems != null)
+			_clone.SetEquippedAttachmentItems(_source.EquippedAttachmentItems);
 	}
 	#endregion
 }

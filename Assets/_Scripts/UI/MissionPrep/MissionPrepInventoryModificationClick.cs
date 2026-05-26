@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -7,7 +6,7 @@ using UnityEngine.EventSystems;
 public sealed class MissionPrepInventoryModificationClick : MonoBehaviour, IPointerClickHandler
 {
 	#region Constants
-	private const float c_SingleClickDelaySeconds = 0.38f;
+	private const float c_DoubleClickMaxDelaySeconds = 0.35f;
 	#endregion
 
 	#region Serialized Fields
@@ -16,7 +15,7 @@ public sealed class MissionPrepInventoryModificationClick : MonoBehaviour, IPoin
 	#endregion
 
 	#region Private Fields
-	private Coroutine m_PendingSingleClick;
+	private float m_LastLeftClickUnscaledTime = -1f;
 	#endregion
 
 	#region Unity Lifecycle
@@ -32,11 +31,6 @@ public sealed class MissionPrepInventoryModificationClick : MonoBehaviour, IPoin
 	{
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
-	}
-
-	private void OnDisable()
-	{
-		CancelPendingClick();
 	}
 	#endregion
 
@@ -55,39 +49,26 @@ public sealed class MissionPrepInventoryModificationClick : MonoBehaviour, IPoin
 		if (eventData.button != PointerEventData.InputButton.Left)
 			return;
 
-		if (eventData.clickCount >= 2)
-		{
-			CancelPendingClick();
+		if (m_Slot == null || !m_Slot.HasItem ||
+		    !ItemModificationUtility.IsModifiableWeapon(m_Slot.Data.Definition))
 			return;
-		}
 
-		CancelPendingClick();
-		m_PendingSingleClick = StartCoroutine(HandleSingleClickAfterDelay());
-	}
-	#endregion
-
-	#region Private Methods
-	private IEnumerator HandleSingleClickAfterDelay()
-	{
-		yield return new WaitForSecondsRealtime(c_SingleClickDelaySeconds);
-		m_PendingSingleClick = null;
-
-		if (!Application.isPlaying)
-			yield break;
+		float now = Time.unscaledTime;
+		bool unityReportsDouble = eventData.clickCount >= 2;
+		bool timedDouble = m_LastLeftClickUnscaledTime >= 0f &&
+		                   (now - m_LastLeftClickUnscaledTime) <= c_DoubleClickMaxDelaySeconds;
+		m_LastLeftClickUnscaledTime = now;
 
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
-		m_Coordinator?.TryToggleModificationPanel(m_Slot);
-	}
-
-	private void CancelPendingClick()
-	{
-		if (m_PendingSingleClick == null)
+		if (unityReportsDouble || timedDouble)
+		{
+			m_Coordinator?.TryCollapseModificationPanelForDoubleClick(m_Slot);
 			return;
+		}
 
-		StopCoroutine(m_PendingSingleClick);
-		m_PendingSingleClick = null;
+		m_Coordinator?.TryToggleModificationPanel(m_Slot);
 	}
 	#endregion
 }

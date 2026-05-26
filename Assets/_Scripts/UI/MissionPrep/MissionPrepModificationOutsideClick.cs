@@ -48,6 +48,9 @@ public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
 			return;
 
+		if (m_Coordinator.ShouldSuppressOutsideClickCollapse())
+			return;
+
 		if (MissionPrepModificationDragContext.HasActiveModificationItem)
 			return;
 
@@ -85,6 +88,9 @@ public sealed class MissionPrepModificationOutsideClick : MonoBehaviour
 			yield break;
 
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
+			yield break;
+
+		if (m_Coordinator.ShouldSuppressOutsideClickCollapse())
 			yield break;
 
 		if (MissionPrepModificationDragContext.HasActiveModificationItem)

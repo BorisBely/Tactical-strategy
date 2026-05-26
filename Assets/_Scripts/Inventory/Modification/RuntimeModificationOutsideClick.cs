@@ -48,6 +48,9 @@ public sealed class RuntimeModificationOutsideClick : MonoBehaviour
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
 			return;
 
+		if (m_Coordinator.ShouldSuppressOutsideClickCollapse())
+			return;
+
 		if (RuntimeInventoryModificationDragContext.HasActiveModificationItem)
 			return;
 
@@ -85,6 +88,9 @@ public sealed class RuntimeModificationOutsideClick : MonoBehaviour
 			yield break;
 
 		if (!m_Coordinator.HasExpandedEmptyModificationSlots())
+			yield break;
+
+		if (m_Coordinator.ShouldSuppressOutsideClickCollapse())
 			yield break;
 
 		if (RuntimeInventoryModificationDragContext.HasActiveModificationItem)

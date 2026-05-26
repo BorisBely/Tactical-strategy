@@ -121,6 +121,20 @@ public class CharacterInventory : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Экипировать предмет извне (земля, доступный каталог) в основную руку; прежнее оружие уходит в сумку.</summary>
+	public bool TryEquipExternalItemToMainHand(InventorySlotRuntimeData _item, UnitEquipment _equipment)
+	{
+		if (_equipment == null || !WeaponEquipUtility.CanEquipToMainHand(_item))
+			return false;
+
+		if (!m_MainHandEquipment.IsEmpty && !TryUnequipMainHandToBag())
+			return false;
+
+		m_MainHandEquipment = _item;
+		_equipment.TryEquip(m_MainHandEquipment.Definition);
+		return true;
+	}
+
 	/// <summary>Двойной клик по слоту оружия: убрать в сумку и снять модель с рук.</summary>
 	public bool TryUnequipMainHandToBag()
 	{
