@@ -10,6 +10,9 @@ public static class InventorySlotUiUtility
 {
 	#region Constants
 	public const string EquipHighlightOverlayObjectName = "EquipHighlightOverlay";
+	public const string EquipmentDropReceiverObjectName = "EquipmentDropReceiver";
+	/// <summary>Допуск в пикселях для сброса оружия на слот экипировки (EndDrag fallback).</summary>
+	public const float MainHandEquipDropPaddingPixels = 20f;
 	#endregion
 
 	#region Private Fields
@@ -23,6 +26,17 @@ public static class InventorySlotUiUtility
 	{
 		if (_panel == null || _panel.LeadingEquipmentSlotCount <= 0)
 			return null;
+
+		Transform container = _panel.SlotsContainerTransform;
+		if (container != null)
+		{
+			for (int i = 0; i < container.childCount; i++)
+			{
+				InventorySlotView slot = container.GetChild(i).GetComponent<InventorySlotView>();
+				if (slot != null)
+					return slot;
+			}
+		}
 
 		_panel.RefreshSlotsFromHierarchy();
 		IReadOnlyList<InventorySlotView> slots = _panel.Slots;
@@ -70,8 +84,24 @@ public static class InventorySlotUiUtility
 			if (candidate == null || candidate.gameObject == _slot.gameObject)
 				continue;
 
-			if (candidate.gameObject.name == EquipHighlightOverlayObjectName)
+			if (candidate.gameObject.name == EquipHighlightOverlayObjectName ||
+			    candidate.gameObject.name == EquipmentDropReceiverObjectName)
 				continue;
+
+			RectTransform candidateRect = candidate.rectTransform;
+			RectTransform slotRect = _slot.transform as RectTransform;
+			if (candidateRect != null && slotRect != null)
+			{
+				float candidateArea = candidateRect.rect.width * candidateRect.rect.height;
+				float slotArea = slotRect.rect.width * slotRect.rect.height;
+				if (candidateArea >= slotArea * 0.5f)
+				{
+					_backgroundImage = candidate;
+					return true;
+				}
+
+				continue;
+			}
 
 			_backgroundImage = candidate;
 			return true;
@@ -88,9 +118,7 @@ public static class InventorySlotUiUtility
 		if (_slot == null)
 			return;
 
-		if (!TryGetSlotBackgroundImage(_slot, out Image background))
-			return;
-
+		Image dropReceiver = EnsureEquipmentSlotDropReceiverImage(_slot);
 		Image[] images = _slot.GetComponentsInChildren<Image>(true);
 		for (int i = 0; i < images.Length; i++)
 		{
@@ -98,10 +126,35 @@ public static class InventorySlotUiUtility
 			if (image == null)
 				continue;
 
-			image.raycastTarget = image == background;
+			image.raycastTarget = image == dropReceiver;
 		}
 
 		Canvas.ForceUpdateCanvases();
+	}
+
+	/// <summary>Полноразмерный приёмник сброса поверх ячейки (для <see cref="InventoryEquipmentSlotDropReceiver"/>).</summary>
+	public static void EnsureEquipmentSlotDropReceiver(IInventoryEquipmentSlotDropHandler _dropHandler)
+	{
+		if (_dropHandler == null)
+			return;
+
+		MonoBehaviour behaviour = _dropHandler as MonoBehaviour;
+		if (behaviour == null)
+			return;
+
+		InventorySlotView slot = behaviour.GetComponent<InventorySlotView>();
+		if (slot == null)
+			return;
+
+		EnsureEquipmentSlotDropTarget(slot);
+
+		Image receiverImage = EnsureEquipmentSlotDropReceiverImage(slot);
+		InventoryEquipmentSlotDropReceiver receiver =
+			receiverImage.GetComponent<InventoryEquipmentSlotDropReceiver>();
+		if (receiver == null)
+			receiver = receiverImage.gameObject.AddComponent<InventoryEquipmentSlotDropReceiver>();
+
+		receiver.Bind(_dropHandler);
 	}
 
 	public static void ApplySlotBackgroundColor(InventorySlotView _slot, Color _color)
@@ -184,14 +237,31 @@ public static class InventorySlotUiUtility
 		Vector2 _screenPosition,
 		Camera _eventCamera)
 	{
+		return IsScreenPointOverSlot(_slot, _screenPosition, _eventCamera, 0f);
+	}
+
+	public static bool IsScreenPointOverMainHandEquipmentSlot(
+		InventorySlotView _slot,
+		Vector2 _screenPosition,
+		Camera _eventCamera)
+	{
+		return IsScreenPointOverSlot(_slot, _screenPosition, _eventCamera, MainHandEquipDropPaddingPixels);
+	}
+
+	public static bool IsScreenPointOverSlot(
+		InventorySlotView _slot,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		float _paddingPixels)
+	{
 		if (_slot == null)
 			return false;
 
 		RectTransform rect = _slot.transform as RectTransform;
-		if (rect != null && IsScreenPointInsideRectTransform(rect, _screenPosition, _eventCamera))
+		if (rect != null && IsScreenPointInsideRectTransform(rect, _screenPosition, _eventCamera, _paddingPixels))
 			return true;
 
-		return IsScreenPointOverSlotRaycast(_slot, _screenPosition);
+		return _paddingPixels <= 0f && IsScreenPointOverSlotRaycast(_slot, _screenPosition);
 	}
 
 	public static bool IsScreenPointOverSlotRaycast(InventorySlotView _slot, Vector2 _screenPosition)
@@ -222,10 +292,23 @@ public static class InventorySlotUiUtility
 		Vector2 _screenPosition,
 		Camera _eventCamera)
 	{
+		return IsScreenPointInsideRectTransform(_rect, _screenPosition, _eventCamera, 0f);
+	}
+
+	public static bool IsScreenPointInsideRectTransform(
+		RectTransform _rect,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		float _paddingPixels)
+	{
 		if (_rect == null)
 			return false;
 
 		Canvas.ForceUpdateCanvases();
+
+		if (_paddingPixels <= 0f)
+			return RectTransformUtility.RectangleContainsScreenPoint(_rect, _screenPosition, _eventCamera);
+
 		_rect.GetWorldCorners(s_WorldCorners);
 		Vector2 screenMin = RectTransformUtility.WorldToScreenPoint(_eventCamera, s_WorldCorners[0]);
 		Vector2 screenMax = screenMin;
@@ -237,12 +320,42 @@ public static class InventorySlotUiUtility
 			screenMax = Vector2.Max(screenMax, corner);
 		}
 
+		screenMin -= new Vector2(_paddingPixels, _paddingPixels);
+		screenMax += new Vector2(_paddingPixels, _paddingPixels);
+
 		return _screenPosition.x >= screenMin.x && _screenPosition.x <= screenMax.x &&
 		       _screenPosition.y >= screenMin.y && _screenPosition.y <= screenMax.y;
 	}
 	#endregion
 
 	#region Private Methods
+	private static Image EnsureEquipmentSlotDropReceiverImage(InventorySlotView _slot)
+	{
+		Transform existing = _slot.transform.Find(EquipmentDropReceiverObjectName);
+		Image receiverImage;
+		if (existing != null)
+		{
+			receiverImage = existing.GetComponent<Image>();
+			if (receiverImage == null)
+				receiverImage = existing.gameObject.AddComponent<Image>();
+		}
+		else
+		{
+			var receiverObject = new GameObject(EquipmentDropReceiverObjectName, typeof(RectTransform), typeof(Image));
+			receiverObject.transform.SetParent(_slot.transform, false);
+			receiverObject.transform.SetAsLastSibling();
+			receiverImage = receiverObject.GetComponent<Image>();
+		}
+
+		EnsureImageCanRenderSolidColor(receiverImage);
+		Color color = receiverImage.color;
+		color.a = 0.004f;
+		receiverImage.color = color;
+		receiverImage.raycastTarget = true;
+
+		StretchToParent(receiverImage.rectTransform);
+		return receiverImage;
+	}
 	private static void DisableTextRaycastTargets(InventorySlotView _slot)
 	{
 		if (_slot == null)

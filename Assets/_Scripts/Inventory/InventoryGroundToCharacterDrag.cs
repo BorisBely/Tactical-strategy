@@ -129,23 +129,36 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		if (!m_Dragging)
 			return;
 
+		bool wasDragging = m_Dragging;
 		m_Dragging = false;
-		m_CanvasGroup.blocksRaycasts = true;
 
 		bool wasModificationDropConsumed = RuntimeInventoryModificationDragContext.WasDropConsumed;
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+		Camera eventCamera = GetDragCamera(eventData);
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 
-		if (!wasModificationDropConsumed && !m_DropAccepted)
+		if (!wasModificationDropConsumed && !m_DropAccepted && wasDragging)
 		{
-			RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
-
 			if (coordinator != null &&
-			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, GetDragCamera(eventData)))
+			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, eventCamera))
 			{
 				m_DropAccepted = coordinator.TryEquipWeaponDragToMainHand();
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}
+			else if (!m_DropAccepted && selectionManager != null && coordinator != null &&
+			         coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
+			{
+				m_DropAccepted = selectionManager.TryRouteGroundDragOnCharacterPanel(
+					this, eventData.position, eventCamera, _requireActiveDrag: false);
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
 		}
+
+		m_CanvasGroup.blocksRaycasts = true;
 
 		if (wasModificationDropConsumed || RuntimeInventoryModificationDragContext.WasDropConsumed)
 		{

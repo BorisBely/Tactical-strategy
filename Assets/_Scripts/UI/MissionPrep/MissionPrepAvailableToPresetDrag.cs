@@ -171,7 +171,6 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 
 		bool wasDragging = m_Dragging;
 		m_Dragging = false;
-		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null &&
 		    !MissionPrepModificationDragContext.WasDropConsumed && wasDragging)
@@ -182,6 +181,8 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			else if (m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
 		}
+
+		m_CanvasGroup.blocksRaycasts = true;
 
 		if (m_AvailableContentParent != null)
 		{

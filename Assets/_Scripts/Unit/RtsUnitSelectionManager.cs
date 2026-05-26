@@ -284,9 +284,79 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
-	public bool TryAcceptDraggedGroundSlot(InventoryGroundToCharacterDrag _drag)
+	/// <summary>С земли на панель персонажа: сначала экипировка (слот оружия), иначе — в сумку.</summary>
+	public bool TryRouteGroundDragOnCharacterPanel(
+		InventoryGroundToCharacterDrag _drag,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		bool _requireActiveDrag = true)
 	{
-		if (_drag == null || !_drag.WasDraggingThisFrame)
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		InventorySlotView slot = _drag.SlotView;
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (slot != null && WeaponEquipUtility.CanEquipToMainHand(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipWeaponDragToMainHand())
+			return true;
+
+		return TryAcceptDraggedGroundSlot(_drag, _requireActiveDrag);
+	}
+
+	/// <summary>С панели персонажа: снять оружие в сумку или экипировать из сумки в слот оружия.</summary>
+	public bool TryRouteCharacterDragOnCharacterPanel(
+		InventoryCharacterToGroundDrag _drag,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		bool _requireActiveDrag = true)
+	{
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (coordinator == null)
+			return false;
+
+		if (_drag.CapturedFromMainHandEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+
+			if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptMainHandDragToBag(_drag);
+		}
+
+		if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipWeaponDragToMainHand();
+
+		return false;
+	}
+
+	/// <summary>Снять экипированное оружие в сумку (drag на панель инвентаря, не на землю).</summary>
+	public bool TryAcceptMainHandDragToBag(InventoryCharacterToGroundDrag _drag)
+	{
+		if (_drag == null || !_drag.CapturedFromMainHandEquipmentSlot)
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		if (!inventory.TryUnequipMainHandToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	public bool TryAcceptDraggedGroundSlot(InventoryGroundToCharacterDrag _drag, bool _requireActiveDrag = true)
+	{
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
 			return false;
 
 		CharacterInventory inventory = GetActiveInventory();

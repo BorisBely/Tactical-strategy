@@ -744,7 +744,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	public bool IsScreenPointOverCharacterMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
 	{
 		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(CharacterPanel);
-		return InventorySlotUiUtility.IsScreenPointOverSlot(mainHandSlot, _screenPosition, _eventCamera);
+		return InventorySlotUiUtility.IsScreenPointOverMainHandEquipmentSlot(
+			mainHandSlot, _screenPosition, _eventCamera);
 	}
 
 	public bool TryEquipWeaponDragToMainHand()

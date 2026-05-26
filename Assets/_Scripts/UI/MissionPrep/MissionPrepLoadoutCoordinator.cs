@@ -493,7 +493,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	public bool IsScreenPointOverPresetMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
 	{
 		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(m_PresetInventoryPanel);
-		return InventorySlotUiUtility.IsScreenPointOverSlot(mainHandSlot, _screenPosition, _eventCamera);
+		return InventorySlotUiUtility.IsScreenPointOverMainHandEquipmentSlot(
+			mainHandSlot, _screenPosition, _eventCamera);
 	}
 
 	/// <summary>Курсор над панелью доступного снаряжения (для fallback при EndDrag).</summary>
@@ -2544,7 +2545,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(InventorySlotView))]
-public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropHandler
+public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropHandler, IInventoryEquipmentSlotDropHandler
 {
 	#region Private Fields
 	private MissionPrepLoadoutCoordinator m_Coordinator;
@@ -2562,6 +2563,7 @@ public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropH
 		if (panel != null)
 			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
 
+		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();
 	}
 
@@ -2576,6 +2578,11 @@ public sealed class MissionPrepMainHandEquipmentSlotView : MonoBehaviour, IDropH
 
 	#region Event Handlers
 	public void OnDrop(PointerEventData eventData)
+	{
+		HandleEquipmentSlotDrop(eventData);
+	}
+
+	public void HandleEquipmentSlotDrop(PointerEventData eventData)
 	{
 		if (MissionPrepModificationDragContext.WasDropConsumed)
 			return;

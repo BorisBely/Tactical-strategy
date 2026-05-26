@@ -149,7 +149,6 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 			return;
 
 		m_Dragging = false;
-		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null && m_HasResolvedSlot &&
 		    !MissionPrepModificationDragContext.WasDropConsumed)
@@ -165,6 +164,8 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 			         !m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryUnequipPresetMainHandToBag();
 		}
+
+		m_CanvasGroup.blocksRaycasts = true;
 
 		if (!m_DropAccepted && m_Coordinator != null && !MissionPrepModificationDragContext.WasDropConsumed)
 			m_Coordinator.RepaintInventoryPanel();

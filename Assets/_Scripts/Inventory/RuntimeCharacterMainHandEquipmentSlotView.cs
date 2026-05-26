@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(InventorySlotView))]
-public sealed class RuntimeCharacterMainHandEquipmentSlotView : MonoBehaviour, IDropHandler
+public sealed class RuntimeCharacterMainHandEquipmentSlotView : MonoBehaviour, IDropHandler, IInventoryEquipmentSlotDropHandler
 {
 	#region Private Fields
 	private RuntimeInventoryModificationCoordinator m_Coordinator;
@@ -24,6 +24,7 @@ public sealed class RuntimeCharacterMainHandEquipmentSlotView : MonoBehaviour, I
 		if (panel != null)
 			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
 
+		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();
 	}
 
@@ -38,6 +39,11 @@ public sealed class RuntimeCharacterMainHandEquipmentSlotView : MonoBehaviour, I
 
 	#region Event Handlers
 	public void OnDrop(PointerEventData eventData)
+	{
+		HandleEquipmentSlotDrop(eventData);
+	}
+
+	public void HandleEquipmentSlotDrop(PointerEventData eventData)
 	{
 		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
 			return;
