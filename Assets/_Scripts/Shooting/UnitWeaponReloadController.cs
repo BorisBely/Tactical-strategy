@@ -10,7 +10,7 @@ using UnityEngine;
 /// Если магазин уже в оружии с патронами, но патронник пуст — <see cref="TryStartReload"/> запускает только затвор (<see cref="TryStartBoltCycleOnly"/>).
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(56)]
+[DefaultExecutionOrder(54)]
 public sealed class UnitWeaponReloadController : MonoBehaviour
 {
 	#region Constants
@@ -19,6 +19,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	public const string AimReloadLayerName = "Aim_Point_U90-D90";
 	private static readonly int s_IsReloadingWeapon = Animator.StringToHash(ParamIsReloadingWeapon);
 	private static readonly int s_IsCyclingBolt = Animator.StringToHash(ParamIsCyclingBolt);
+	private static readonly int s_WeaponReady = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponReady);
+	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
+	private static readonly int s_AimRelaxedIdleStateHash = Animator.StringToHash("Stand_Relaxed_Idle");
 	#endregion
 
 	#region Serialized Fields
@@ -68,6 +71,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private InventorySlotRuntimeData m_UiLastEjectedMagazine;
 	private int m_AimReloadLayerIndex = -1;
 	private int m_MagazineLoadingLayerIndex = -1;
+	private bool m_WasAimReloadBusy;
 	#endregion
 
 	#region Public Properties
@@ -880,6 +884,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (_restorePendingMagazineToBag && !m_PendingReplacementMagazine.IsEmpty && m_CharacterInventory != null)
 			m_CharacterInventory.TryAdd(m_PendingReplacementMagazine);
 
+		m_WasAimReloadBusy = false;
 		m_UiMagazineModificationActive = false;
 		m_UiMagazineEjectOnly = false;
 		m_UiMagazineMirrorAnimationOnly = false;
@@ -917,6 +922,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void SyncAnimatorState()
 	{
+		bool reloadBusy = IsReloadBusy;
+		bool enteringReload = reloadBusy && !m_WasAimReloadBusy;
+
+		// До SetBool и поднятия веса aim-слоя: иначе 1 кадр виден Stand_Aim_Pitch_Blend (дефолт слоя).
+		if (enteringReload)
+			SnapAimLayerToRelaxedIdleIfNotReady();
+
 		if (m_Animator != null)
 		{
 			m_Animator.SetBool(s_IsReloadingWeapon, m_IsReloadingWeapon);
@@ -924,6 +936,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		ApplyReloadAnimatorLayerWeightsIfBusy();
+		m_WasAimReloadBusy = reloadBusy;
 	}
 
 	private void ResolveAnimatorLayerIndices()
@@ -940,7 +953,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	}
 
 	/// <summary>
-	/// После <see cref="UnitWeaponAiming"/> (55): принудительно держим вес aim-слоя для animation events и гасим mag-loading слой.
+	/// До <see cref="UnitWeaponAiming"/> (55): snap relaxed idle и вес aim-слоя, чтобы не мелькал pitch-blend.
 	/// </summary>
 	private void ApplyReloadAnimatorLayerWeightsIfBusy()
 	{
@@ -955,6 +968,31 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_MagazineLoadingLayerIndex >= 0)
 			m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, 0f);
+	}
+
+	/// <summary>
+	/// Перед relaxed-перезарядкой aim-слой должен быть в <c>Stand_Relaxed_Idle</c>, иначе при весе 1 виден рывок из pitch-blend.
+	/// </summary>
+	private void SnapAimLayerToRelaxedIdleIfNotReady()
+	{
+		if (m_Animator == null || m_Animator.GetBool(s_WeaponReady))
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) != (int)LocomotionStance.Standing)
+			return;
+
+		AnimatorStateInfo stateInfo = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
+		if (stateInfo.shortNameHash == s_AimRelaxedIdleStateHash ||
+		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed_Reload") ||
+		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed__CyclingBolt"))
+			return;
+
+		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
 	}
 
 	private void TryPlayBoltCycleSound()

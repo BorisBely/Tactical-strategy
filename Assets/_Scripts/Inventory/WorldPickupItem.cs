@@ -21,6 +21,7 @@ public class WorldPickupItem : MonoBehaviour
 
 	#region Private Fields
 	private bool m_ListedInGroundUi;
+	private GameObject m_SpawnedWorldVisualRoot;
 	#endregion
 
 	#region Public Properties
@@ -165,6 +166,8 @@ public class WorldPickupItem : MonoBehaviour
 		if (!Application.isPlaying)
 			return;
 
+		EnsureWorldPickupVisual();
+
 		EquippedWeapon equippedWeapon = GetComponentInChildren<EquippedWeapon>(true);
 		if (equippedWeapon == null)
 			return;
@@ -196,6 +199,85 @@ public class WorldPickupItem : MonoBehaviour
 			return null;
 
 		return currentMagazineItem.Definition;
+	}
+
+	/// <summary>
+	/// DropWorldPrefab — коллайдер/физика; меш оружия берётся из <see cref="ItemDefinition.EquippedVisualPrefab"/>.
+	/// </summary>
+	private void EnsureWorldPickupVisual()
+	{
+		EquippedWeapon equippedWeapon = GetComponentInChildren<EquippedWeapon>(true);
+		if (equippedWeapon == null)
+		{
+			if (m_Definition == null || m_Definition.EquippedVisualPrefab == null)
+			{
+				EnableWeaponRenderers(gameObject);
+				return;
+			}
+
+			if (m_SpawnedWorldVisualRoot == null)
+			{
+				m_SpawnedWorldVisualRoot = Instantiate(m_Definition.EquippedVisualPrefab, transform);
+				m_SpawnedWorldVisualRoot.name = "WorldPickupVisual";
+				m_SpawnedWorldVisualRoot.transform.localPosition = Vector3.zero;
+				m_SpawnedWorldVisualRoot.transform.localRotation = Quaternion.identity;
+				m_SpawnedWorldVisualRoot.transform.localScale = Vector3.one;
+				DisablePhysicsAndNestedPickupOnWorldVisual(m_SpawnedWorldVisualRoot);
+			}
+
+			equippedWeapon = m_SpawnedWorldVisualRoot.GetComponentInChildren<EquippedWeapon>(true);
+		}
+
+		if (equippedWeapon != null)
+		{
+			EnableWeaponRenderers(equippedWeapon.gameObject);
+			HidePlaceholderMeshOnPickupRoot();
+		}
+	}
+
+	private void HidePlaceholderMeshOnPickupRoot()
+	{
+		MeshRenderer rootRenderer = GetComponent<MeshRenderer>();
+		if (rootRenderer != null)
+			rootRenderer.enabled = false;
+	}
+
+	private static void EnableWeaponRenderers(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		MeshRenderer[] meshRenderers = _root.GetComponentsInChildren<MeshRenderer>(true);
+		for (int i = 0; i < meshRenderers.Length; i++)
+		{
+			if (meshRenderers[i] != null)
+				meshRenderers[i].enabled = true;
+		}
+
+		SkinnedMeshRenderer[] skinnedRenderers = _root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+		for (int i = 0; i < skinnedRenderers.Length; i++)
+		{
+			if (skinnedRenderers[i] != null)
+				skinnedRenderers[i].enabled = true;
+		}
+	}
+
+	private static void DisablePhysicsAndNestedPickupOnWorldVisual(GameObject _root)
+	{
+		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);
+		for (int i = 0; i < bodies.Length; i++)
+		{
+			bodies[i].isKinematic = true;
+			bodies[i].detectCollisions = false;
+		}
+
+		Collider[] colliders = _root.GetComponentsInChildren<Collider>(true);
+		for (int i = 0; i < colliders.Length; i++)
+			colliders[i].enabled = false;
+
+		WorldPickupItem[] pickups = _root.GetComponentsInChildren<WorldPickupItem>(true);
+		for (int i = 0; i < pickups.Length; i++)
+			pickups[i].enabled = false;
 	}
 	#endregion
 }

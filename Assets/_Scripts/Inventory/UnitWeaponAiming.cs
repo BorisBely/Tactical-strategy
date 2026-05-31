@@ -327,6 +327,14 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			// Клипы перезарядки/затвора на Aim_Point_U90-D90; при весе 0 animation events не приходят.
 			m_SmoothedLayerWeight = 1f;
 			SetAimLayerWeights(1f);
+
+			// Not-ready reload: pitch-blend не должен влиять даже на доли кадра до Play(relaxed idle).
+			if (!ready)
+			{
+				m_SmoothedPitch01 = 0f;
+				m_PitchVelocity = 0f;
+				m_Animator.SetFloat(s_AimPitch, 0f);
+			}
 		}
 		else
 		{
