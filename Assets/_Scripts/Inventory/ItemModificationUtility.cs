@@ -46,13 +46,7 @@ public static class ItemModificationUtility
 		if (slots == null)
 			return false;
 
-		for (int i = 0; i < slots.Length; i++)
-		{
-			if (slots[i].SlotType != WeaponAttachmentSlotType.Rail)
-				return true;
-		}
-
-		return false;
+		return slots.Length > 0;
 	}
 
 	public static void BuildSlotDescriptors(ItemDefinition _definition, List<ItemModificationSlotDescriptor> _outSlots)
@@ -76,15 +70,30 @@ public static class ItemModificationUtility
 		for (int i = 0; i < slots.Length; i++)
 		{
 			WeaponAttachmentSlotType slotType = slots[i].SlotType;
-			if (slotType == WeaponAttachmentSlotType.Rail)
-				continue;
-
 			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Attachment, slotType, i, displayIndex++));
 		}
 	}
 
-	public static string GetSlotLabel(ItemModificationSlotDescriptor _slot)
+	public static string GetSlotLabel(ItemModificationSlotDescriptor _slot, WeaponDefinition _weapon = null)
 	{
+		if (_slot.Kind == ItemModificationSlotKind.Attachment &&
+		    _slot.AttachmentSlotType == WeaponAttachmentSlotType.Rail &&
+		    _weapon != null)
+		{
+			int railIndex = ResolveRailSocketIndex(_weapon, _slot);
+			if (railIndex >= 0)
+			{
+				string railKey = railIndex switch
+				{
+					0 => "weapon.mod_slot.rail_1",
+					1 => "weapon.mod_slot.rail_2",
+					_ => "weapon.mod_slot.rail_3"
+				};
+				string railFallback = $"Rail {railIndex + 1}";
+				return LocalizationManager.Get(railKey, railFallback);
+			}
+		}
+
 		string key = GetSlotLabelKey(_slot);
 		string fallback = GetSlotFallbackLabel(_slot);
 		return LocalizationManager.Get(key, fallback);
@@ -99,6 +108,7 @@ public static class ItemModificationUtility
 		{
 			WeaponAttachmentSlotType.Muzzle => "weapon.mod_slot.muzzle",
 			WeaponAttachmentSlotType.UnderBarrel => "weapon.mod_slot.underbarrel",
+			WeaponAttachmentSlotType.Rail => "weapon.mod_slot.rail",
 			WeaponAttachmentSlotType.Optic => "weapon.mod_slot.optic",
 			WeaponAttachmentSlotType.Stock => "weapon.mod_slot.stock",
 			_ => "weapon.mod_slot.attachment"
@@ -122,17 +132,25 @@ public static class ItemModificationUtility
 
 	public static bool CanAcceptItem(ItemModificationSlotDescriptor _slot, InventorySlotRuntimeData _weaponSlot, InventorySlotRuntimeData _candidate)
 	{
-		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
-		if (weaponState == null || _candidate.IsEmpty)
-			return false;
+		return string.Equals(
+			ExplainCanAcceptItem(_slot, _weaponSlot, _candidate),
+			ItemModificationDiagnostics.AcceptedReason,
+			System.StringComparison.Ordinal);
+	}
 
-		if (_slot.Kind == ItemModificationSlotKind.Magazine)
-			return weaponState.CanAcceptMagazineItem(_candidate);
+	/// <summary>Индекс физической планки 0..2 для слота оружия; -1 если не Rail.</summary>
+	public static int ResolveRailSocketIndexForSlot(WeaponDefinition _weapon, ItemModificationSlotDescriptor _slot)
+	{
+		return ResolveRailSocketIndex(_weapon, _slot);
+	}
 
-		WeaponAttachmentDefinition attachment = _candidate.Definition != null ? _candidate.Definition.WeaponAttachmentDefinition : null;
-		return attachment != null &&
-		       attachment.RequiredSlot == _slot.AttachmentSlotType &&
-		       _slot.WeaponSlotIndex >= 0;
+	/// <summary>Подробная причина отказа или строка <c>accepted</c>.</summary>
+	public static string ExplainCanAcceptItem(
+		ItemModificationSlotDescriptor _slot,
+		InventorySlotRuntimeData _weaponSlot,
+		InventorySlotRuntimeData _candidate)
+	{
+		return ItemModificationDiagnostics.ExplainCanAcceptItem(_slot, _weaponSlot, _candidate);
 	}
 
 	/// <summary>
@@ -213,7 +231,14 @@ public static class ItemModificationUtility
 		    attachments[_slot.WeaponSlotIndex] == null)
 			return false;
 
-		_installedItem = InventorySlotRuntimeData.FromDisplayName(attachments[_slot.WeaponSlotIndex].name);
+		WeaponAttachmentDefinition attachment = attachments[_slot.WeaponSlotIndex];
+		if (TryResolveAttachmentItemDefinition(weaponState, _slot.WeaponSlotIndex, attachment, out ItemDefinition itemDefinition))
+		{
+			_installedItem = InventorySlotRuntimeData.FromDefinition(itemDefinition);
+			return true;
+		}
+
+		_installedItem = InventorySlotRuntimeData.FromDisplayName(attachment.name);
 		return true;
 	}
 
@@ -225,8 +250,18 @@ public static class ItemModificationUtility
 	{
 		_replacedItem = default;
 		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
-		if (weaponState == null || !CanAcceptItem(_slot, _weaponSlot, _candidate))
+		if (weaponState == null)
+		{
+			ItemModificationDiagnostics.LogInstallRejected("TryInstallAtSlot", _slot, _weaponSlot, _candidate, "WeaponRuntimeState is null");
 			return false;
+		}
+
+		string acceptReason = ExplainCanAcceptItem(_slot, _weaponSlot, _candidate);
+		if (!string.Equals(acceptReason, ItemModificationDiagnostics.AcceptedReason, System.StringComparison.Ordinal))
+		{
+			ItemModificationDiagnostics.LogInstallRejected("TryInstallAtSlot", _slot, _weaponSlot, _candidate, acceptReason);
+			return false;
+		}
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 			return TryInstallMagazine(weaponState, _candidate, out _replacedItem);
@@ -242,22 +277,36 @@ public static class ItemModificationUtility
 		_removedItem = default;
 		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
 		if (weaponState == null)
+		{
+			ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "WeaponRuntimeState is null");
 			return false;
+		}
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 			return weaponState.TryEjectMagazine(out _removedItem);
 
 		if (!TryGetInstalledItem(_slot, _weaponSlot, out _removedItem))
+		{
+			ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "slot is empty (no attachment at index)");
 			return false;
+		}
 
 		WeaponAttachmentDefinition[] attachments = BuildAttachmentArray(weaponState);
 		ItemDefinition[] items = BuildAttachmentItemArray(weaponState, attachments.Length);
 		if (_slot.WeaponSlotIndex < 0 || _slot.WeaponSlotIndex >= attachments.Length)
+		{
+			ItemModificationDiagnostics.LogClearRejected(
+				"TryClearSlot",
+				_slot,
+				_weaponSlot,
+				$"slot index {_slot.WeaponSlotIndex} out of attachment array range [0..{attachments.Length - 1}]");
 			return false;
+		}
 
 		attachments[_slot.WeaponSlotIndex] = null;
 		items[_slot.WeaponSlotIndex] = null;
 		weaponState.SetEquippedAttachmentSlotItems(TrimEmptyAttachments(attachments), TrimEmptyAttachmentItems(items));
+		ItemModificationDiagnostics.LogClearAccepted("TryClearSlot", _slot, _weaponSlot, _removedItem);
 		return true;
 	}
 
@@ -348,10 +397,21 @@ public static class ItemModificationUtility
 		WeaponAttachmentDefinition[] attachments = BuildAttachmentArray(_weaponState);
 		ItemDefinition[] items = BuildAttachmentItemArray(_weaponState, attachments.Length);
 		if (_slot.WeaponSlotIndex < 0 || _slot.WeaponSlotIndex >= attachments.Length)
+		{
+			ItemModificationDiagnostics.LogInstallRejected(
+				"TryInstallAttachment",
+				_slot,
+				InventorySlotRuntimeData.FromDefinition(_candidate.Definition),
+				_candidate,
+				$"slot index {_slot.WeaponSlotIndex} out of attachment array range [0..{attachments.Length - 1}]");
 			return false;
+		}
 
 		if (items[_slot.WeaponSlotIndex] != null)
 			_replacedItem = InventorySlotRuntimeData.FromDefinition(items[_slot.WeaponSlotIndex]);
+		else if (attachments[_slot.WeaponSlotIndex] != null &&
+		         TryResolveAttachmentItemDefinition(_weaponState, _slot.WeaponSlotIndex, attachments[_slot.WeaponSlotIndex], out ItemDefinition replacedDefinition))
+			_replacedItem = InventorySlotRuntimeData.FromDefinition(replacedDefinition);
 		else if (attachments[_slot.WeaponSlotIndex] != null)
 			_replacedItem = InventorySlotRuntimeData.FromDisplayName(attachments[_slot.WeaponSlotIndex].name);
 
@@ -400,6 +460,66 @@ public static class ItemModificationUtility
 		return Mathf.Max(fromWeapon, fromAttachments, fromItems);
 	}
 
+	private static bool TryResolveAttachmentItemDefinition(
+		WeaponRuntimeState _weaponState,
+		int _weaponSlotIndex,
+		WeaponAttachmentDefinition _attachment,
+		out ItemDefinition _itemDefinition)
+	{
+		_itemDefinition = null;
+		if (_weaponState == null || _attachment == null)
+			return false;
+
+		ItemDefinition[] items = _weaponState.EquippedAttachmentItems;
+		if (items == null || items.Length == 0)
+			return false;
+
+		if (_weaponSlotIndex >= 0 &&
+		    _weaponSlotIndex < items.Length &&
+		    items[_weaponSlotIndex] != null &&
+		    items[_weaponSlotIndex].WeaponAttachmentDefinition == _attachment)
+		{
+			_itemDefinition = items[_weaponSlotIndex];
+			return true;
+		}
+
+		for (int i = 0; i < items.Length; i++)
+		{
+			if (items[i] != null && items[i].WeaponAttachmentDefinition == _attachment)
+			{
+				_itemDefinition = items[i];
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static int ResolveRailSocketIndex(WeaponDefinition _weapon, ItemModificationSlotDescriptor _slot)
+	{
+		if (_slot.Kind != ItemModificationSlotKind.Attachment ||
+		    _slot.AttachmentSlotType != WeaponAttachmentSlotType.Rail ||
+		    _weapon == null ||
+		    _slot.WeaponSlotIndex < 0)
+			return -1;
+
+		WeaponAttachmentSlotDefinition[] slots = _weapon.AttachmentSlots;
+		if (slots == null)
+			return -1;
+
+		int railIndex = 0;
+		for (int i = 0; i < slots.Length && i <= _slot.WeaponSlotIndex; i++)
+		{
+			if (slots[i].SlotType != WeaponAttachmentSlotType.Rail)
+				continue;
+			if (i == _slot.WeaponSlotIndex)
+				return railIndex;
+			railIndex++;
+		}
+
+		return -1;
+	}
+
 	private static WeaponAttachmentDefinition[] TrimEmptyAttachments(WeaponAttachmentDefinition[] _attachments)
 	{
 		if (_attachments == null)
@@ -437,6 +557,7 @@ public static class ItemModificationUtility
 		{
 			WeaponAttachmentSlotType.Muzzle => "Muzzle",
 			WeaponAttachmentSlotType.UnderBarrel => "Underbarrel",
+			WeaponAttachmentSlotType.Rail => "Rail",
 			WeaponAttachmentSlotType.Optic => "Optic",
 			WeaponAttachmentSlotType.Stock => "Stock",
 			_ => "Attachment"

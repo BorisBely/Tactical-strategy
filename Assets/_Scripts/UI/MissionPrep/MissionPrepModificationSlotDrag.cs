@@ -29,6 +29,7 @@ public sealed class MissionPrepModificationSlotDrag : MonoBehaviour, IBeginDragH
 	public ItemModificationSlotDescriptor SlotDescriptor => m_SlotView != null ? m_SlotView.Descriptor : default;
 	public bool WeaponIsMainHand => m_SlotView != null && m_SlotView.WeaponIsMainHand;
 	public int WeaponBagIndex => m_SlotView != null ? m_SlotView.WeaponBagIndex : -1;
+	public ItemDefinition WeaponDefinitionHint => m_SlotView != null ? m_SlotView.WeaponDefinitionHint : null;
 	#endregion
 
 	#region Unity Lifecycle

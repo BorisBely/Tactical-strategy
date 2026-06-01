@@ -51,7 +51,7 @@ public enum MagazineType
 
 /// <summary>
 /// Слот под модуль на корпусе оружия. Магазин отдельно, не является слотом здесь.
-/// До четырёх планок: четыре записи <see cref="WeaponAttachmentSlotType.Rail"/> в массиве слотов <c>WeaponDefinition</c>.
+/// До трёх планок: три записи <see cref="WeaponAttachmentSlotType.Rail"/> в массиве слотов <c>WeaponDefinition</c>.
 /// </summary>
 public enum WeaponAttachmentSlotType
 {
@@ -59,7 +59,7 @@ public enum WeaponAttachmentSlotType
 	Muzzle = 0,
 	/// <summary>Под стволом: рукоятка / сошки / подствольный гранатомёт. Один слот.</summary>
 	UnderBarrel = 1,
-	/// <summary>Планка (над стволом / сбоку): фонарик или ЛЦУ. Повторяйте значение до 4 раз для четырёх физических слотов.</summary>
+	/// <summary>Планка (над стволом / сбоку): фонарик, ЛЦУ или накладки. Повторяйте значение до 3 раз для трёх физических слотов.</summary>
 	Rail = 2,
 	/// <summary>Прицел. Один слот.</summary>
 	Optic = 3,
@@ -84,7 +84,9 @@ public enum WeaponAttachmentType
 	/// <summary>ЛЦУ / лазерный целеуказатель (луч).</summary>
 	LaserDesignator = 8,
 	/// <summary>Сменный приклад, влияющий на управляемость оружия.</summary>
-	Stock = 9
+	Stock = 9,
+	/// <summary>Накладки на планки, занимают rail-слот и немного улучшают удержание оружия.</summary>
+	RailCover = 10
 }
 
 /// <summary>
@@ -156,4 +158,49 @@ public struct WeaponAttachmentSlotDefinition
 	public bool IsRequired;
 	[Tooltip("Зарезервировано. Визуал модулей вешается на сокеты в EquippedWeapon (Muzzle / Optic / Rail / …), не на Barrel и не на Sight Pivot.")]
 	public string AnchorChildName;
+}
+
+/// <summary>
+/// Дистанционный профиль качества прицеливания на диапазоне 0..100 м.
+/// Кривые поддерживают любое количество ключей, например 8-10 точек баланса по дистанции.
+/// Множитель разброса: меньше 1 = точнее. Множитель времени прицеливания: меньше 1 = быстрее.
+/// </summary>
+[Serializable]
+public sealed class WeaponDistanceAimProfile
+{
+	#region Constants
+	private const float c_MinDistanceMeters = 0f;
+	private const float c_MaxDistanceMeters = 100f;
+	private const float c_MinMultiplier = 0.01f;
+	#endregion
+
+	#region Private Fields
+	[Tooltip("Множитель разброса по дистанции 0..100 м. Можно добавить 8-10 ключей. Меньше 1 = точнее, больше 1 = хуже.")]
+	[SerializeField] private AnimationCurve m_DispersionMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
+	[Tooltip("Множитель времени прицеливания по дистанции 0..100 м. Можно добавить 8-10 ключей. Меньше 1 = быстрее, больше 1 = медленнее.")]
+	[SerializeField] private AnimationCurve m_AimTimeMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
+	#endregion
+
+	#region Public Methods
+	public float GetDispersionMultiplier(float _distanceMeters)
+	{
+		return EvaluateMultiplier(m_DispersionMultiplierByDistance, _distanceMeters);
+	}
+
+	public float GetAimTimeMultiplier(float _distanceMeters)
+	{
+		return EvaluateMultiplier(m_AimTimeMultiplierByDistance, _distanceMeters);
+	}
+	#endregion
+
+	#region Private Methods
+	private static float EvaluateMultiplier(AnimationCurve _curve, float _distanceMeters)
+	{
+		if (_curve == null || _curve.length == 0)
+			return 1f;
+
+		float clampedDistance = Mathf.Clamp(_distanceMeters, c_MinDistanceMeters, c_MaxDistanceMeters);
+		return Mathf.Max(c_MinMultiplier, _curve.Evaluate(clampedDistance));
+	}
+	#endregion
 }

@@ -27,6 +27,9 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private Entry[] m_Entries = System.Array.Empty<Entry>();
 
+	[Tooltip("Готовый набор ItemDefinition (оружие, магазины, модули). Дубликаты с пресетами и m_Entries пропускаются.")]
+	[SerializeField] private MissionPrepAvailableEquipmentItemSet m_ItemSet;
+
 	[Header("Автозаполнение")]
 	[Tooltip("Добавить уникальные предметы из стартовых наборов MissionPrepEquipmentPresetCatalog.")]
 	[SerializeField] private bool m_IncludeItemsFromPresetCatalog = true;
@@ -85,6 +88,9 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 
 		for (int i = 0; i < m_Entries.Length; i++)
 			AppendEntry(_outSlots, seen, m_Entries[i]);
+
+		if (m_ItemSet != null)
+			m_ItemSet.AppendUnique(_outSlots, seen);
 	}
 	#endregion
 
@@ -146,7 +152,7 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 		AppendDefinition(_outSlots, _seen, _entry.Item, _entry.AmmoForMagazine, _entry.RoundsPerMagazine);
 	}
 
-	private static void AppendDefinition(
+	internal static void AppendDefinition(
 		List<InventorySlotRuntimeData> _outSlots,
 		HashSet<ItemDefinition> _seen,
 		ItemDefinition _definition,

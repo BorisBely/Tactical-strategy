@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_M4_ModA_2
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.m4_moda_2
+  m_Description: M4 configuration with railed handguard, replaceable optic and stock.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 2850
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 5418623541962261350, guid: 91474cca9c712ee408186cd9d73c6c7e, type: 3}
+  m_EquippedVisualPrefab: {fileID: 1821160730608294444, guid: 6fe54d172f46b9646a2876572f0cb7b2, type: 3}
+  m_RightHandLocalPosition: {x: 0.1038, y: 0.0378, z: -0.0378}
+  m_RightHandLocalEulerAngles: {x: 8.581, y: 84.403, z: -86.197}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}

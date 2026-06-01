@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Attachment_M4_ForeGrip5
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.attachment.m4_foregrip5
+  m_Description: Heavy vertical foregrip for automatic fire.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 250
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 5023774391631465338, guid: 5de443bc84992744e88da1252f6025f7, type: 3}
+  m_EquippedVisualPrefab: {fileID: 8489061993567981433, guid: c994959db11a81e4fb6a99e0e0a608f9, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 11400000, guid: ba9b8484409f90f4fad127577896ec53, type: 2}

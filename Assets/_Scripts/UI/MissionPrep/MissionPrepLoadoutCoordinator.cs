@@ -788,51 +788,97 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public bool TryInstallModificationFromDrag(ItemModificationSlotDescriptor _slotDescriptor, bool _weaponIsMainHand, int _weaponBagIndex)
 	{
+		const string context = "MissionPrep.TryInstallModificationFromDrag";
 		MissionPrepModificationDragPayload payload = MissionPrepModificationDragContext.Current;
 		if (!payload.HasItem || m_SharedPresetStore == null)
+		{
+			ItemModificationDiagnostics.LogFlowRejected(context, "validate_payload", "no drag item or preset store missing");
 			return false;
+		}
 
 		if (payload.SourceKind == MissionPrepModificationDragSourceKind.ModificationSlot)
+		{
+			ItemModificationDiagnostics.LogFlowRejected(context, "validate_source", "cannot install from modification slot via drop");
 			return false;
+		}
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
-		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+		if (!TryResolvePresetWeaponSlotForModification(
+			    snapshot,
+			    _weaponIsMainHand,
+			    _weaponBagIndex,
+			    _weaponDefinitionHint: null,
+			    _slotDescriptor,
+			    _requireInstalledModification: false,
+			    out bool resolvedIsMainHand,
+			    out int resolvedBagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+		{
+			ItemModificationDiagnostics.LogFlowRejected(
+				context,
+				"resolve_weapon",
+				$"preset weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex})");
 			return false;
+		}
 
 		if (payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
 		{
 			if (payload.PresetBagIndex < 0)
+			{
+				ItemModificationDiagnostics.LogFlowRejected(context, "validate_bag_source", "invalid preset bag index");
 				return false;
+			}
 
-			if (!_weaponIsMainHand && payload.PresetBagIndex == _weaponBagIndex)
+			if (!resolvedIsMainHand && payload.PresetBagIndex == resolvedBagIndex)
+			{
+				ItemModificationDiagnostics.LogFlowRejected(context, "validate_bag_source", "cannot drag from same bag slot as weapon");
 				return false;
+			}
 
 			if (!snapshot.TryGetInventorySlot(_isMainHandEquipmentSlot: false, payload.PresetBagIndex, out _))
+			{
+				ItemModificationDiagnostics.LogFlowRejected(context, "validate_bag_source", $"preset bag slot {payload.PresetBagIndex} not found");
 				return false;
+			}
 		}
 
-		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, payload.Item))
+		string acceptReason = ItemModificationUtility.ExplainCanAcceptItem(_slotDescriptor, weaponSlot, payload.Item);
+		if (!string.Equals(acceptReason, ItemModificationDiagnostics.AcceptedReason, System.StringComparison.Ordinal))
+		{
+			ItemModificationDiagnostics.LogInstallRejected(
+				$"{context} src={payload.SourceKind}",
+				_slotDescriptor,
+				weaponSlot,
+				payload.Item,
+				acceptReason);
 			return false;
+		}
 
 		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
-			return TryInstallEquippedMagazineFromDragMissionPrep(payload, _slotDescriptor, _weaponIsMainHand, _weaponBagIndex);
+			return TryInstallEquippedMagazineFromDragMissionPrep(payload, _slotDescriptor, resolvedIsMainHand, resolvedBagIndex);
 
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
 
-		int targetBagIndex = _weaponBagIndex;
+		int targetBagIndex = resolvedBagIndex;
 		if (payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
 		{
 			if (!snapshot.TryRemoveInventorySlot(_isMainHandEquipmentSlot: false, payload.PresetBagIndex, out _))
+			{
+				ItemModificationDiagnostics.LogFlowRejected(context, "consume_source", "failed to remove item from preset bag");
 				return false;
+			}
 
-			if (!_weaponIsMainHand && payload.PresetBagIndex < targetBagIndex)
+			if (!resolvedIsMainHand && payload.PresetBagIndex < targetBagIndex)
 				targetBagIndex--;
 		}
 
-		if (!snapshot.TrySetInventorySlot(_weaponIsMainHand, targetBagIndex, weaponSlot))
+		if (!snapshot.TrySetInventorySlot(resolvedIsMainHand, targetBagIndex, weaponSlot))
+		{
+			ItemModificationDiagnostics.LogFlowRejected(context, "commit_weapon", "snapshot.TrySetInventorySlot failed");
 			return false;
+		}
 
 		if (!replacedItem.IsEmpty)
 			snapshot.TryAddToBag(replacedItem);
@@ -840,20 +886,21 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		m_KeepExpandedRequiresInstalledModification = true;
 		ResolveExpandedWeaponSlotAfterMutation(
 			weaponSlot.Definition,
-			_weaponIsMainHand,
+			resolvedIsMainHand,
 			targetBagIndex,
 			weaponSlot,
 			_requireInstalledModification: true,
-			out bool resolvedIsMainHand,
-			out int resolvedBagIndex);
+			out bool expandedIsMainHand,
+			out int expandedBagIndex);
 		TryPreserveExpandedModificationSelectionForWeaponSlot(
-			resolvedIsMainHand,
-			resolvedBagIndex,
+			expandedIsMainHand,
+			expandedBagIndex,
 			weaponSlot.InstanceState);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
-		ScheduleForcedExpandedModificationRepaint(resolvedIsMainHand, resolvedBagIndex);
+		ScheduleForcedExpandedModificationRepaint(expandedIsMainHand, expandedBagIndex);
+		ItemModificationDiagnostics.LogInstallAccepted(context, _slotDescriptor, weaponSlot, payload.Item);
 		return true;
 	}
 
@@ -861,24 +908,48 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		ItemModificationSlotDescriptor _slotDescriptor,
 		bool _weaponIsMainHand,
 		int _weaponBagIndex,
-		bool _addToBag = true)
+		bool _addToBag = true,
+		ItemDefinition _weaponDefinitionHint = null)
 	{
+		const string context = "MissionPrep.TryClearModificationSlot";
 		if (m_SharedPresetStore == null)
+		{
+			ItemModificationDiagnostics.LogFlowRejected(context, "validate_store", "SharedPresetStore is null");
 			return false;
+		}
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
-		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+		if (!TryResolvePresetWeaponSlotForModification(
+			    snapshot,
+			    _weaponIsMainHand,
+			    _weaponBagIndex,
+			    _weaponDefinitionHint,
+			    _slotDescriptor,
+			    _requireInstalledModification: true,
+			    out bool resolvedIsMainHand,
+			    out int resolvedBagIndex,
+			    out InventorySlotRuntimeData weaponSlot))
+		{
+			ItemModificationDiagnostics.LogFlowRejected(
+				context,
+				"resolve_weapon",
+				$"preset weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex}, hint={_weaponDefinitionHint?.name ?? "null"})");
 			return false;
+		}
 
 		if (!ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
+		{
+			ItemModificationDiagnostics.LogClearRejected(context, _slotDescriptor, weaponSlot, "slot is empty");
 			return false;
+		}
 
-		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
+		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, resolvedIsMainHand))
 		{
 			WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = _addToBag;
 			if (!TryStartEquippedMagazineEjectOnAllPresetUnits(_addToBag))
 			{
 				WeaponMagazineModificationApplier.ShouldAddUiEjectedMagazineToBag = true;
+				ItemModificationDiagnostics.LogClearRejected(context, _slotDescriptor, weaponSlot, "TryStartEquippedMagazineEjectOnAllPresetUnits failed");
 				return false;
 			}
 
@@ -891,24 +962,25 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!removedItem.IsEmpty && _addToBag)
 			snapshot.TryAddToBag(removedItem);
 
-		snapshot.TrySetInventorySlot(_weaponIsMainHand, _weaponBagIndex, weaponSlot);
+		snapshot.TrySetInventorySlot(resolvedIsMainHand, resolvedBagIndex, weaponSlot);
 
 		m_KeepExpandedRequiresInstalledModification = false;
 		ResolveExpandedWeaponSlotAfterMutation(
 			weaponSlot.Definition,
-			_weaponIsMainHand,
-			_weaponBagIndex,
-			weaponSlot,
-			_requireInstalledModification: false,
-			out bool resolvedIsMainHand,
-			out int resolvedBagIndex);
-		TryPreserveExpandedModificationSelectionForWeaponSlot(
 			resolvedIsMainHand,
 			resolvedBagIndex,
+			weaponSlot,
+			_requireInstalledModification: false,
+			out bool expandedIsMainHand,
+			out int expandedBagIndex);
+		TryPreserveExpandedModificationSelectionForWeaponSlot(
+			expandedIsMainHand,
+			expandedBagIndex,
 			weaponSlot.InstanceState);
 
 		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
-		ScheduleForcedExpandedModificationRepaint(resolvedIsMainHand, resolvedBagIndex);
+		ScheduleForcedExpandedModificationRepaint(expandedIsMainHand, expandedBagIndex);
+		ItemModificationDiagnostics.LogClearAccepted(context, _slotDescriptor, weaponSlot, removedItem);
 		return true;
 	}
 
@@ -922,7 +994,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			_drag.SlotDescriptor,
 			_drag.WeaponIsMainHand,
 			_drag.WeaponBagIndex,
-			_addToBag: true);
+			_addToBag: true,
+			_drag.WeaponDefinitionHint);
 	}
 
 	public bool TryEjectModificationSlotToAvailable(MissionPrepModificationSlotDrag _drag)
@@ -935,7 +1008,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			_drag.SlotDescriptor,
 			_drag.WeaponIsMainHand,
 			_drag.WeaponBagIndex,
-			_addToBag: false);
+			_addToBag: false,
+			_drag.WeaponDefinitionHint);
 	}
 
 	public void RepaintInventoryPanel()
@@ -1598,36 +1672,222 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			int bagIndex = isMainHand ? -1 : i - lead;
 
 			InventorySlotRuntimeData weaponData = default;
-			if (isMainHand)
-			{
-				if (!snapshot.TryGetInventorySlot(true, bagIndex, out weaponData) || weaponData.IsEmpty)
-				{
-					if (!ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
-						continue;
-
-					weaponData = slot.Data;
-				}
-			}
-			else if (bagIndex >= 0 && bagIndex < snapshot.BagCount &&
-			         snapshot.TryGetInventorySlot(false, bagIndex, out InventorySlotRuntimeData snapshotWeapon) &&
-			         !snapshotWeapon.IsEmpty)
-			{
-				weaponData = snapshotWeapon;
-			}
-			else if (ItemModificationUtility.IsModifiableWeapon(slot.Data.Definition))
-			{
-				weaponData = slot.Data;
-			}
-			else
-			{
+			if (!TryResolveBindingWeaponData(snapshot, slot.Data, isMainHand, bagIndex, out bool resolvedIsMainHand, out int resolvedBagIndex, out weaponData))
 				continue;
-			}
+
+			isMainHand = resolvedIsMainHand;
+			bagIndex = resolvedBagIndex;
 
 			if (!ItemModificationUtility.IsModifiableWeapon(weaponData.Definition))
 				continue;
 
 			_outBindings.Add(new WeaponSlotBinding(slot, weaponData, isMainHand, bagIndex, i));
 		}
+	}
+
+	private static bool TryResolveBindingWeaponData(
+		MissionPrepPresetSnapshot _snapshot,
+		InventorySlotRuntimeData _uiWeaponData,
+		bool _preferredIsMainHand,
+		int _preferredBagIndex,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponData)
+	{
+		_isMainHand = _preferredIsMainHand;
+		_bagIndex = _preferredBagIndex;
+		_weaponData = default;
+
+		if (_uiWeaponData.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(_uiWeaponData.Definition))
+			return false;
+
+		ItemDefinition weaponDefinition = _uiWeaponData.Definition;
+		if (_snapshot.TryGetInventorySlot(_preferredIsMainHand, _preferredBagIndex, out InventorySlotRuntimeData atPreferred) &&
+		    !atPreferred.IsEmpty &&
+		    atPreferred.Definition == weaponDefinition)
+		{
+			_weaponData = atPreferred;
+			return true;
+		}
+
+		if (TryFindSnapshotSlotByWeaponDefinition(_snapshot, weaponDefinition, out _isMainHand, out _bagIndex, out _weaponData))
+			return true;
+
+		_weaponData = _uiWeaponData;
+		return true;
+	}
+
+	private bool TryResolvePresetWeaponSlotForModification(
+		MissionPrepPresetSnapshot _snapshot,
+		bool _preferredIsMainHand,
+		int _preferredBagIndex,
+		ItemDefinition _weaponDefinitionHint,
+		ItemModificationSlotDescriptor _slotDescriptor,
+		bool _requireInstalledModification,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isMainHand = _preferredIsMainHand;
+		_bagIndex = _preferredBagIndex;
+		_weaponSlot = default;
+
+		if (_snapshot == null)
+			return false;
+
+		if (_snapshot.TryGetInventorySlot(_preferredIsMainHand, _preferredBagIndex, out InventorySlotRuntimeData preferredSlot) &&
+		    SlotMatchesModificationResolve(preferredSlot, _weaponDefinitionHint, _slotDescriptor, _requireInstalledModification))
+		{
+			_weaponSlot = preferredSlot;
+			return true;
+		}
+
+		if (m_ModificationUiState.HasSelection &&
+		    (_snapshot.TryGetInventorySlot(m_ModificationUiState.IsMainHand, m_ModificationUiState.BagIndex, out InventorySlotRuntimeData uiSlot) &&
+		     SlotMatchesModificationResolve(uiSlot, _weaponDefinitionHint, _slotDescriptor, _requireInstalledModification)))
+		{
+			_isMainHand = m_ModificationUiState.IsMainHand;
+			_bagIndex = m_ModificationUiState.BagIndex;
+			_weaponSlot = uiSlot;
+			return true;
+		}
+
+		CollectModifiableWeaponBindings(m_WeaponSlotBindingBuffer);
+		if (m_ExpandedWeaponListIndex >= 0)
+		{
+			for (int i = 0; i < m_WeaponSlotBindingBuffer.Count; i++)
+			{
+				WeaponSlotBinding binding = m_WeaponSlotBindingBuffer[i];
+				if (binding.ListIndex != m_ExpandedWeaponListIndex)
+					continue;
+
+				if (_snapshot.TryGetInventorySlot(binding.IsMainHand, binding.BagIndex, out InventorySlotRuntimeData boundSlot) &&
+				    SlotMatchesModificationResolve(boundSlot, _weaponDefinitionHint, _slotDescriptor, _requireInstalledModification))
+				{
+					_isMainHand = binding.IsMainHand;
+					_bagIndex = binding.BagIndex;
+					_weaponSlot = boundSlot;
+					return true;
+				}
+
+				break;
+			}
+		}
+
+		if (_weaponDefinitionHint != null &&
+		    TryFindSnapshotSlotForExpandedWeaponInSnapshot(
+			    _snapshot,
+			    _weaponDefinitionHint,
+			    _preferredIsMainHand,
+			    _preferredBagIndex,
+			    _requireInstalledModification,
+			    out _isMainHand,
+			    out _bagIndex,
+			    out _weaponSlot))
+			return true;
+
+		if (_requireInstalledModification &&
+		    TryFindSnapshotWeaponWithInstalledModification(_snapshot, _slotDescriptor, _weaponDefinitionHint, out _isMainHand, out _bagIndex, out _weaponSlot))
+			return true;
+
+		return false;
+	}
+
+	private static bool TryFindSnapshotSlotByWeaponDefinition(
+		MissionPrepPresetSnapshot _snapshot,
+		ItemDefinition _weaponDefinition,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponSlot = default;
+
+		if (_snapshot == null || _weaponDefinition == null)
+			return false;
+
+		if (_snapshot.TryGetInventorySlot(true, -1, out InventorySlotRuntimeData mainHand) &&
+		    !mainHand.IsEmpty &&
+		    mainHand.Definition == _weaponDefinition)
+		{
+			_isMainHand = true;
+			_bagIndex = -1;
+			_weaponSlot = mainHand;
+			return true;
+		}
+
+		for (int bagIndex = 0; bagIndex < _snapshot.BagCount; bagIndex++)
+		{
+			if (!_snapshot.TryGetInventorySlot(false, bagIndex, out InventorySlotRuntimeData bagSlot) ||
+			    bagSlot.IsEmpty ||
+			    bagSlot.Definition != _weaponDefinition)
+				continue;
+
+			_isMainHand = false;
+			_bagIndex = bagIndex;
+			_weaponSlot = bagSlot;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static bool TryFindSnapshotWeaponWithInstalledModification(
+		MissionPrepPresetSnapshot _snapshot,
+		ItemModificationSlotDescriptor _slotDescriptor,
+		ItemDefinition _weaponDefinitionHint,
+		out bool _isMainHand,
+		out int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_isMainHand = false;
+		_bagIndex = -1;
+		_weaponSlot = default;
+
+		if (_snapshot == null)
+			return false;
+
+		if (_snapshot.TryGetInventorySlot(true, -1, out InventorySlotRuntimeData mainHand) &&
+		    SlotMatchesModificationResolve(mainHand, _weaponDefinitionHint, _slotDescriptor, _requireInstalledModification: true))
+		{
+			_isMainHand = true;
+			_bagIndex = -1;
+			_weaponSlot = mainHand;
+			return true;
+		}
+
+		for (int bagIndex = 0; bagIndex < _snapshot.BagCount; bagIndex++)
+		{
+			if (!_snapshot.TryGetInventorySlot(false, bagIndex, out InventorySlotRuntimeData bagSlot) ||
+			    !SlotMatchesModificationResolve(bagSlot, _weaponDefinitionHint, _slotDescriptor, _requireInstalledModification: true))
+				continue;
+
+			_isMainHand = false;
+			_bagIndex = bagIndex;
+			_weaponSlot = bagSlot;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static bool SlotMatchesModificationResolve(
+		InventorySlotRuntimeData _candidate,
+		ItemDefinition _weaponDefinitionHint,
+		ItemModificationSlotDescriptor _slotDescriptor,
+		bool _requireInstalledModification)
+	{
+		if (_candidate.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(_candidate.Definition))
+			return false;
+
+		if (_weaponDefinitionHint != null && _candidate.Definition != _weaponDefinitionHint)
+			return false;
+
+		if (!_requireInstalledModification)
+			return true;
+
+		return ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, _candidate, out _);
 	}
 
 	private void BuildVisibleModificationDescriptors(

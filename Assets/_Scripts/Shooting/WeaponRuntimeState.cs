@@ -191,8 +191,17 @@ public sealed class WeaponRuntimeState
 
 	public void SetEquippedAttachmentSlotItems(WeaponAttachmentDefinition[] _attachments, ItemDefinition[] _attachmentItems)
 	{
-		SetEquippedAttachments(_attachments);
-		SetEquippedAttachmentItems(_attachmentItems);
+		if (_attachments == null || _attachments.Length == 0)
+		{
+			m_EquippedAttachments = null;
+			m_EquippedAttachmentItems = null;
+			return;
+		}
+
+		m_EquippedAttachments = (WeaponAttachmentDefinition[])_attachments.Clone();
+		m_EquippedAttachmentItems = _attachmentItems != null && _attachmentItems.Length > 0
+			? (ItemDefinition[])_attachmentItems.Clone()
+			: null;
 	}
 
 	/// <summary>После успешного выстрела: износ и загрязнение от патрона и модулей.</summary>
@@ -226,6 +235,51 @@ public sealed class WeaponRuntimeState
 
 		m *= GetAttachmentJamRiskProduct();
 		return Mathf.Clamp(m, 0f, 10f);
+	}
+
+	public float GetAttachmentAimTimeProduct()
+	{
+		return ProductAttachmentFloat(static a => a.AimTimeModifier);
+	}
+
+	public float GetAttachmentDistanceAimTimeProduct(float _distanceMeters)
+	{
+		return ProductAttachmentFloat(a => a.GetDistanceAimTimeMultiplier(_distanceMeters));
+	}
+
+	public float GetAttachmentEffectiveRangeProduct()
+	{
+		return ProductAttachmentFloat(static a => a.EffectiveRangeModifier);
+	}
+
+	public float GetAttachmentDistanceDispersionProduct(float _distanceMeters)
+	{
+		return ProductAttachmentFloat(a => a.GetDistanceDispersionMultiplier(_distanceMeters));
+	}
+
+	public float GetAttachmentRecoilProduct()
+	{
+		return ProductAttachmentFloat(static a => a.RecoilModifier);
+	}
+
+	public float GetAttachmentReloadTimeProduct()
+	{
+		return ProductAttachmentFloat(static a => a.ReloadTimeModifier);
+	}
+
+	public WeaponAttachmentDefinition GetFirstEquippedAttachmentForSlot(WeaponAttachmentSlotType _slotType)
+	{
+		if (m_EquippedAttachments == null || m_EquippedAttachments.Length == 0)
+			return null;
+
+		for (int i = 0; i < m_EquippedAttachments.Length; i++)
+		{
+			WeaponAttachmentDefinition attachment = m_EquippedAttachments[i];
+			if (attachment != null && attachment.SupportsSlot(_slotType))
+				return attachment;
+		}
+
+		return null;
 	}
 
 	public void SetSelectedFireMode(WeaponFireMode _fireMode)

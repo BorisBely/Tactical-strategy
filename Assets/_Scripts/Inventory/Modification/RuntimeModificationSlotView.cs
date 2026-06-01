@@ -69,7 +69,10 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 		EnsureUi();
 
 		if (m_LabelText != null)
-			m_LabelText.text = ItemModificationUtility.GetSlotLabel(m_Descriptor);
+		{
+			WeaponDefinition weapon = m_WeaponSlot.Definition != null ? m_WeaponSlot.Definition.WeaponDefinition : null;
+			m_LabelText.text = ItemModificationUtility.GetSlotLabel(m_Descriptor, weapon);
+		}
 
 		if (ItemModificationUtility.TryGetInstalledItem(m_Descriptor, m_WeaponSlot, out InventorySlotRuntimeData installedItem))
 			ApplyInstalledItem(installedItem);
@@ -127,13 +130,23 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 		if (m_Coordinator == null)
 			m_Coordinator = RuntimeInventoryModificationCoordinator.Instance;
 
-		m_Coordinator?.TryClearModificationSlot(
+		if (m_Coordinator == null)
+			return;
+
+		bool cleared = m_Coordinator.TryClearModificationSlot(
 			m_Descriptor,
 			m_WeaponIsMainHand,
 			m_WeaponBagIndex,
 			_addToCharacterBag: true,
 			m_WeaponIsOnGroundPanel,
 			m_WeaponGroundSlotIndex);
+
+		if (!cleared)
+			ItemModificationDiagnostics.LogClearRejected(
+				"RuntimeModificationSlotView.OnPointerClick",
+				m_Descriptor,
+				m_WeaponSlot,
+				"double-click clear failed (see prior [WeaponMod] logs)");
 	}
 	#endregion
 

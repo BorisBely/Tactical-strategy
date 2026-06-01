@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Attachment_M4_Scope9
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.attachment.m4_scope9
+  m_Description: High-magnification optical sight.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 1100
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 8240590178978148134, guid: 5f47b245812f4ee4bb7dbb7d8d40bf52, type: 3}
+  m_EquippedVisualPrefab: {fileID: 6333786410895549730, guid: 5908d36c3ecba4a4d965ecffafe3b4f8, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 2691da02b3ead7c4b8a4b15f29aae8e2, type: 2}

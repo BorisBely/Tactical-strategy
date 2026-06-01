@@ -11,6 +11,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
+	[SerializeField] private UnitVision m_Vision;
 
 	[Header("Hitscan")]
 	[Tooltip("Слои, по которым проверяем попадание. Создай слой Target и назначь мишеням.")]
@@ -23,7 +24,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private QueryTriggerInteraction m_TriggerInteraction = QueryTriggerInteraction.Ignore;
 
 	[Header("Spread (множители к WeaponDefinition.BaseShotDispersion)")]
-	[Tooltip("Градусы половины конуса: BaseShotDispersion, патрон, прицел, отдача, умножить на этот коэффициент.")]
+	[Tooltip("Градусы половины конуса: BaseShotDispersion, патрон, модуль прицела, отдача, умножить на этот коэффициент.")]
 	[SerializeField, Min(0.001f)] private float m_BaseSpreadToDegrees = 0.35f;
 	[Tooltip("Насколько полный AimProgress сужает разброс: 0 = не влияет, 1 = при полном прицеле множитель (1 - tighten).")]
 	[SerializeField, Range(0f, 1f)] private float m_AimProgressTighten = 0.55f;
@@ -58,6 +59,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
 
 		m_ShooterRoot = transform.root;
 	}
@@ -98,10 +101,16 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		float baseDispersion = wd != null ? wd.BaseShotDispersion : 1f;
 		float aim = m_WeaponRuntime.TransientState.AimProgress01;
 		float recoil = m_WeaponRuntime.TransientState.RecoilPenalty;
+		float targetDistanceMeters = EstimateTargetDistanceMeters();
+		float weaponDistanceFactor = wd != null ? wd.GetDistanceDispersionMultiplier(targetDistanceMeters) : 1f;
+		WeaponRuntimeState weaponState = m_WeaponRuntime.RuntimeState;
+		float attachmentDistanceFactor = weaponState != null
+			? weaponState.GetAttachmentDistanceDispersionProduct(targetDistanceMeters)
+			: 1f;
 
 		float aimFactor = 1f - aim * m_AimProgressTighten;
 		float recoilFactor = 1f + recoil * m_RecoilSpreadScale;
-		float raw = baseDispersion * _ammo.SpreadModifier * aimFactor * recoilFactor * m_BaseSpreadToDegrees;
+		float raw = baseDispersion * _ammo.SpreadModifier * weaponDistanceFactor * attachmentDistanceFactor * aimFactor * recoilFactor * m_BaseSpreadToDegrees;
 		return Mathf.Clamp(raw, m_MinHalfAngleDegrees, m_MaxHalfAngleDegrees);
 	}
 
@@ -153,6 +162,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	{
 		WeaponDefinition wd = m_WeaponRuntime.CurrentWeaponDefinition;
 		float effective = wd != null ? wd.EffectiveRangeMeters : 100f;
+		WeaponRuntimeState weaponState = m_WeaponRuntime.RuntimeState;
+		if (weaponState != null)
+			effective *= weaponState.GetAttachmentEffectiveRangeProduct();
 		float ammoEff = _ammo.EffectiveRangeMeters;
 		if (ammoEff > 0.1f)
 			effective = Mathf.Min(effective, ammoEff);
@@ -168,6 +180,20 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			return 0f;
 
 		return 1f - (_distance - effective) / (zeroAt - effective);
+	}
+
+	private float EstimateTargetDistanceMeters()
+	{
+		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		if (target == null)
+			return 0f;
+
+		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Transform barrel = weapon != null ? weapon.BarrelTransform : transform;
+		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (targetPoint == Vector3.zero)
+			targetPoint = target.position;
+		return Vector3.Distance(barrel.position, targetPoint);
 	}
 
 	private static Vector3 ApplyConeSpread(Vector3 _forward, float _halfAngleDegrees)

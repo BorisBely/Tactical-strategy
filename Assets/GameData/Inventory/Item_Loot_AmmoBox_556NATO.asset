@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Loot_AmmoBox_556NATO
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.loot.ammo_box.556
-  m_Description: "\u041A\u043E\u0440\u043E\u0431\u043A\u0430 \u043F\u0430\u0442\u0440\u043E\u043D\u043E\u0432 5.56\xD745 \u043D\u041C\u041E. \u041E\u0431\u044B\u0447\u043D\u044B\u0439 \u043B\u0443\u0442 \u2014 \u043D\u0435 \u044D\u043A\u0438\u043F\u0438\u0440\u0443\u0435\u0442\u0441\u044F, \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F General."
+  m_Description: 5.56x45 ammo box. General loot item; not equippable.
   m_Icon: {fileID: 0}
   m_BasePrice: 120
   m_Category: 0

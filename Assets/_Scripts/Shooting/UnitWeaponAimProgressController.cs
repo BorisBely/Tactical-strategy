@@ -147,9 +147,31 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
 		float aimTimeSeconds = weaponDefinition != null ? weaponDefinition.AimTimeSeconds : 0.25f;
+		float targetDistanceMeters = EstimateTargetDistanceMeters();
+		if (weaponDefinition != null)
+			aimTimeSeconds *= weaponDefinition.GetDistanceAimTimeMultiplier(targetDistanceMeters);
+		WeaponRuntimeState weaponState = m_WeaponRuntime != null ? m_WeaponRuntime.RuntimeState : null;
+		if (weaponState != null)
+		{
+			aimTimeSeconds *= weaponState.GetAttachmentAimTimeProduct();
+			aimTimeSeconds *= weaponState.GetAttachmentDistanceAimTimeProduct(targetDistanceMeters);
+		}
 		aimTimeSeconds *= GetStanceAimTimeMultiplier();
 		aimTimeSeconds *= GetMovementAimTimeMultiplier();
 		return Mathf.Max(0.01f, aimTimeSeconds);
+	}
+
+	private float EstimateTargetDistanceMeters()
+	{
+		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		if (target == null)
+			return 0f;
+
+		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (targetPoint == Vector3.zero)
+			targetPoint = target.position;
+
+		return Vector3.Distance(transform.position, targetPoint);
 	}
 
 	private float GetStanceAimTimeMultiplier()

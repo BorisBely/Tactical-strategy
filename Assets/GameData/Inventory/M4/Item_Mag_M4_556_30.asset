@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Mag_M4_556_30
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.mag.m4_556_30
+  m_Description: 30-round 5.56 magazine.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 120
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 810012590036524049, guid: 2b3ee862b621f3c4f88a13ccb13973ac, type: 3}
+  m_EquippedVisualPrefab: {fileID: 6823166879055971895, guid: 9757646ade6aa124e80a80941479e2b2, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 11400000, guid: ae72b2d4c3fe2f84f9f564f4a4bd7272, type: 2}
+  m_WeaponAttachmentDefinition: {fileID: 0}

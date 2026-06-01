@@ -39,6 +39,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0.1f)] private float m_EffectiveRangeMeters = 100f;
 	[Tooltip("Базовый разброс оружейной платформы до модификаторов патрона, стойки, движения и отдачи.")]
 	[SerializeField, Min(0f)] private float m_BaseShotDispersion = 1f;
+	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..100 м.")]
+	[SerializeField] private WeaponDistanceAimProfile m_DistanceAimProfile = new WeaponDistanceAimProfile();
 	[Tooltip("Базовое накопление штрафа отдачи после одного выстрела.")]
 	[SerializeField, Min(0f)] private float m_RecoilPerShot = 1f;
 	[Tooltip("Множитель накопления отдачи при одиночной стрельбе.")]
@@ -104,6 +106,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float ReloadTimeSeconds => m_ReloadTimeSeconds;
 	public float EffectiveRangeMeters => m_EffectiveRangeMeters;
 	public float BaseShotDispersion => m_BaseShotDispersion;
+	public WeaponDistanceAimProfile DistanceAimProfile => m_DistanceAimProfile;
 	public float RecoilPerShot => m_RecoilPerShot;
 	public float SemiAutoRecoilMultiplier => m_SemiAutoRecoilMultiplier;
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
@@ -128,6 +131,18 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float FoulingJamStartThreshold => m_FoulingJamStartThreshold;
 	public float WearJamInfluence => m_WearJamInfluence;
 	public float FoulingJamInfluence => m_FoulingJamInfluence;
+	#endregion
+
+	#region Public Methods
+	public float GetDistanceDispersionMultiplier(float _distanceMeters)
+	{
+		return m_DistanceAimProfile != null ? m_DistanceAimProfile.GetDispersionMultiplier(_distanceMeters) : 1f;
+	}
+
+	public float GetDistanceAimTimeMultiplier(float _distanceMeters)
+	{
+		return m_DistanceAimProfile != null ? m_DistanceAimProfile.GetAimTimeMultiplier(_distanceMeters) : 1f;
+	}
 	#endregion
 
 	#region Static Helpers

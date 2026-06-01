@@ -30,6 +30,7 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 	public ItemModificationSlotDescriptor Descriptor => m_Descriptor;
 	public bool WeaponIsMainHand => m_WeaponIsMainHand;
 	public int WeaponBagIndex => m_WeaponBagIndex;
+	public ItemDefinition WeaponDefinitionHint => m_WeaponSlot.Definition;
 	public bool HasInstalledItem => TryGetInstalledItem(out _);
 	#endregion
 
@@ -61,7 +62,10 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 		EnsureUi();
 
 		if (m_LabelText != null)
-			m_LabelText.text = ItemModificationUtility.GetSlotLabel(m_Descriptor);
+		{
+			WeaponDefinition weapon = m_WeaponSlot.Definition != null ? m_WeaponSlot.Definition.WeaponDefinition : null;
+			m_LabelText.text = ItemModificationUtility.GetSlotLabel(m_Descriptor, weapon);
+		}
 
 		if (ItemModificationUtility.TryGetInstalledItem(m_Descriptor, m_WeaponSlot, out InventorySlotRuntimeData installedItem))
 			ApplyInstalledItem(installedItem);
@@ -114,7 +118,21 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
-		m_Coordinator?.TryClearModificationSlot(m_Descriptor, m_WeaponIsMainHand, m_WeaponBagIndex);
+		if (m_Coordinator == null)
+			return;
+
+		bool cleared = m_Coordinator.TryClearModificationSlot(
+			m_Descriptor,
+			m_WeaponIsMainHand,
+			m_WeaponBagIndex,
+			_addToBag: true,
+			WeaponDefinitionHint);
+		if (!cleared)
+			ItemModificationDiagnostics.LogClearRejected(
+				"MissionPrepModificationSlotView.OnPointerClick",
+				m_Descriptor,
+				m_WeaponSlot,
+				"double-click clear failed (see prior [WeaponMod] logs)");
 	}
 	#endregion
 

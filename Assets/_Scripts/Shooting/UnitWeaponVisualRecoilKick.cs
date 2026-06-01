@@ -131,12 +131,15 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		WeaponFireMode fireMode = m_WeaponRuntime.RuntimeState != null
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
+		float attachmentRecoilModifier = m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
+			: 1f;
 
 		float penaltyAdded = WeaponDefinition.ComputeAddedRecoilPenalty(
 			m_WeaponRuntime.CurrentWeaponDefinition,
 			fireMode,
 			ammoDefinition: _ammoDefinition,
-			attachmentRecoilModifier: 1f);
+			attachmentRecoilModifier: attachmentRecoilModifier);
 
 		if (penaltyAdded <= 0f)
 			return;

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Mag_M4_556_40
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.mag.m4_556_40
+  m_Description: 40-round extended 5.56 magazine.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 170
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 8744087524317086123, guid: 20062572664aae4439e0180ccb31bd44, type: 3}
+  m_EquippedVisualPrefab: {fileID: 2735780946215737236, guid: d0819c49ab2d9ec498f4e3949ca01015, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 11400000, guid: 6bef74b1beda0154e9882e7f9bf8899a, type: 2}
+  m_WeaponAttachmentDefinition: {fileID: 0}

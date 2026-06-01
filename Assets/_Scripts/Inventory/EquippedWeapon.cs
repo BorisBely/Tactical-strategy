@@ -11,12 +11,12 @@ using UnityEngine;
 public sealed class EquippedWeapon : MonoBehaviour
 {
 	#region Constants
-	private const int c_RailSocketCount = 4;
+	private const int c_RailSocketCount = 3;
 	#endregion
 
 	#region Serialized Fields — уже используются геймплеем
 	[Header("Геймплей: ствол и линия выстрела")]
-	[Tooltip("Пустышка на конце дула: позиция и forward — линия выстрела. Если пусто — для геймплея берётся transform этого компонента (часто рукоять, не дуло).")]
+	[Tooltip("Пустышка на конце дула: позиция и forward — линия выстрела. На M4 обычно тот же Transform, что MuzzleModuleVisualSocket. Если пусто — используется MuzzleModuleVisualSocket.")]
 	[SerializeField] private Transform m_Barrel;
 
 	[Header("Геймплей: гильза")]
@@ -24,7 +24,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private Transform m_ShellEject;
 
 	[Header("Геймплей: прицел для зрения (не визуал модуля)")]
-	[Tooltip("Пустышка прицела: <c>UnitVision</c> берёт отсюда конус FOV и LOS при оружии на готове (ось = forward).")]
+	[Tooltip("Пустышка прицела: UnitVision берёт отсюда конус FOV и LOS. На M4 обычно тот же Transform, что OpticModuleVisualSocket. Если пусто — используется OpticModuleVisualSocket.")]
 	[SerializeField] private Transform m_SightPivot;
 	#endregion
 
@@ -44,10 +44,18 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private Transform m_StockSocket;
 	[Tooltip("Рукоятка / упор под стволом (слот UnderBarrel).")]
 	[SerializeField] private Transform m_UnderBarrelSocket;
-	[Tooltip("До четырёх слотов планки Rail: ЛЦУ, фонарь и т.д. Индексы 0..3. Пустые элементы — не используются.")]
+	[Tooltip("До трёх слотов планки Rail: ЛЦУ, фонарь, накладки и т.д. Индексы 0..2. Пустые элементы — не используются.")]
 	[SerializeField] private Transform[] m_RailSockets = new Transform[c_RailSocketCount];
 	[Tooltip("Параллельно WeaponDefinition.AttachmentSlots. На префабе лута должен совпадать с WorldPickupItem.EquippedAttachments. Копируется в WeaponRuntimeState, пока там пусто (если на WorldPickupItem список пуст); иначе подставляется для визуала.")]
 	[SerializeField] private WeaponAttachmentDefinition[] m_EquippedAttachments;
+	#endregion
+
+	#region Serialized Fields — дефолтные детали
+	[Header("Дефолтные детали")]
+	[Tooltip("Дефолтный прицел/целик/мушка, которые нужно выключать при установленном Optic-модуле и возвращать при снятии.")]
+	[SerializeField] private GameObject[] m_DefaultOpticVisuals;
+	[Tooltip("Дефолтный приклад, который нужно выключать при установленном Stock-модуле и возвращать при снятии.")]
+	[SerializeField] private GameObject[] m_DefaultStockVisuals;
 	#endregion
 
 	#region Serialized Fields — прочее
@@ -56,7 +64,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private Transform m_VisualRecoilKickPivot;
 
 	[Header("Отладка")]
-	[Tooltip("Луч из пустышки Barrel (только если она назначена). В Game view включи Gizmos на вкладке Game.")]
+	[Tooltip("Луч из BarrelTransform (Barrel или MuzzleModuleVisualSocket). В Game view включи Gizmos на вкладке Game.")]
 	[SerializeField] private bool m_DrawBarrelDebugRay;
 	[SerializeField, Min(0.01f)] private float m_BarrelDebugRayLength = 4f;
 	[SerializeField] private Color m_BarrelDebugRayColor = new Color(0f, 0.92f, 1f, 1f);
@@ -64,13 +72,13 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	#region Public Properties
 	/// <summary>Точка выстрела: позиция и <c>forward</c> — направление ствола.</summary>
-	public Transform BarrelTransform => m_Barrel != null ? m_Barrel : transform;
+	public Transform BarrelTransform => m_Barrel != null ? m_Barrel : (m_MuzzleModuleVisualSocket != null ? m_MuzzleModuleVisualSocket : transform);
 
 	/// <summary>Точка выброса гильзы; null — эвристика от ствола.</summary>
 	public Transform ShellEjectTransform => m_ShellEject;
 
 	/// <summary>Прицел для конуса зрения; null если не задан.</summary>
-	public Transform SightPivotTransform => m_SightPivot;
+	public Transform SightPivotTransform => m_SightPivot != null ? m_SightPivot : m_OpticModuleVisualSocket;
 
 	/// <summary>Сокет визуала магазина; null если не настроен.</summary>
 	public Transform MagazineSocketTransform => m_MagazineSocket;
@@ -87,7 +95,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// <summary>Сокет рукоятки (under barrel); null если не настроен.</summary>
 	public Transform UnderBarrelSocketTransform => m_UnderBarrelSocket;
 
-	/// <summary>Количество слотов планки (фиксировано 4).</summary>
+	/// <summary>Количество слотов планки (фиксировано 3).</summary>
 	public static int RailSocketCount => c_RailSocketCount;
 
 	/// <summary>Узел для процедурной отдачи визуала; null — использовать корень инстанса.</summary>
@@ -95,7 +103,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	#endregion
 
 	#region Public Methods — сокеты планки
-	/// <summary>Сокет планки по индексу 0..3; null если не задан или инекс вне диапазона.</summary>
+	/// <summary>Сокет планки по индексу 0..2; null если не задан или индекс вне диапазона.</summary>
 	public Transform GetRailSocketTransform(int _index)
 	{
 		if (_index < 0 || _index >= c_RailSocketCount || m_RailSockets == null || _index >= m_RailSockets.Length)
@@ -151,24 +159,39 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// Синхронизирует меши модулей с <see cref="WeaponDefinition.AttachmentSlots"/> и параллельным массивом <paramref name="_equipped"/>.
 	/// Индекс слота = индекс в <paramref name="_equipped"/>; визуал вешается только на сокеты визуала (не Barrel / Sight Pivot).
 	/// </summary>
-	public void SyncAttachmentVisuals(WeaponDefinition _weapon, WeaponAttachmentDefinition[] _equipped)
+	public void SyncAttachmentVisuals(
+		WeaponDefinition _weapon,
+		WeaponAttachmentDefinition[] _equipped,
+		ItemDefinition[] _equippedItems = null)
 	{
 		ClearAttachmentVisualsInternal();
 
 		if (_weapon == null)
+		{
+			RefreshDefaultPartVisibility(false, false);
 			return;
+		}
 
 		WeaponAttachmentSlotDefinition[] slots = _weapon.AttachmentSlots;
 		if (slots == null || slots.Length == 0)
+		{
+			RefreshDefaultPartVisibility(false, false);
 			return;
+		}
 
-		bool[] usedEquipped = _equipped != null && _equipped.Length > 0 ? new bool[_equipped.Length] : null;
-
+		bool hasOpticModule = false;
+		bool hasStockModule = false;
 		int railVisualIndex = 0;
 		for (int i = 0; i < slots.Length; i++)
 		{
 			WeaponAttachmentSlotType slotType = slots[i].SlotType;
-			WeaponAttachmentDefinition def = ResolveEquippedForWeaponSlot(_equipped, usedEquipped, i, slotType);
+			int railSocketIndex = slotType == WeaponAttachmentSlotType.Rail ? railVisualIndex : -1;
+			WeaponAttachmentDefinition def = ResolveEquippedForWeaponSlot(
+				_equipped,
+				i,
+				slotType,
+				railSocketIndex,
+				out int equippedSourceIndex);
 			if (def == null)
 			{
 				if (slotType == WeaponAttachmentSlotType.Rail)
@@ -176,13 +199,14 @@ public sealed class EquippedWeapon : MonoBehaviour
 				continue;
 			}
 
-			Transform parent = ResolveAttachmentVisualSocket(slotType, ref railVisualIndex);
-			GameObject prefab = def.EquippedVisualPrefab;
-			if (parent == null || prefab == null)
-				continue;
+			if (slotType == WeaponAttachmentSlotType.Optic || def.AttachmentType == WeaponAttachmentType.Optic)
+				hasOpticModule = true;
+			else if (slotType == WeaponAttachmentSlotType.Stock)
+				hasStockModule = true;
 
-			// На префабе уже может быть зашитый меш под сокетом — не дублировать и не вызывать Instantiate в OnValidate.
-			if (parent.childCount > 0)
+			Transform parent = ResolveAttachmentVisualSocket(slotType, ref railVisualIndex);
+			GameObject prefab = ResolveAttachmentVisualPrefab(def, _equippedItems, equippedSourceIndex);
+			if (parent == null || prefab == null)
 				continue;
 
 			GameObject inst = Instantiate(prefab, parent);
@@ -191,12 +215,15 @@ public sealed class EquippedWeapon : MonoBehaviour
 			DisablePhysicsOnEquippedVisual(inst);
 			m_AttachmentVisualInstances.Add(inst);
 		}
+
+		RefreshDefaultPartVisibility(hasOpticModule, hasStockModule);
 	}
 
 	/// <summary>Удаляет все инстансы визуала модулей (магазин не трогает).</summary>
 	public void ClearAttachmentVisuals()
 	{
 		ClearAttachmentVisualsInternal();
+		RefreshDefaultPartVisibility(false, false);
 	}
 
 	/// <summary>Копирует пресет с префаба в состояние экземпляра, если в <paramref name="_weaponState"/> ещё нет ни одного модуля (лут на сцене).</summary>
@@ -221,9 +248,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 		}
 
 		WeaponAttachmentDefinition[] fromState = _weaponState != null ? _weaponState.EquippedAttachments : null;
+		ItemDefinition[] itemFromState = _weaponState != null ? _weaponState.EquippedAttachmentItems : null;
 		WeaponAttachmentDefinition[] use = HasAnyNonNullAttachment(fromState) ? fromState : m_EquippedAttachments;
 		if (HasAnyNonNullAttachment(use))
-			SyncAttachmentVisuals(_weapon, use);
+			SyncAttachmentVisuals(_weapon, use, itemFromState);
 		else
 			ClearAttachmentVisuals();
 	}
@@ -244,23 +272,39 @@ public sealed class EquippedWeapon : MonoBehaviour
 	#endregion
 
 	#region Unity Lifecycle
+#if UNITY_EDITOR
+	private void OnValidate()
+	{
+		SyncGameplayAnchorsFromModuleSockets();
+		if (!Application.isPlaying)
+			RefreshDefaultPartVisibility(false, false);
+	}
+#endif
+
 	private void LateUpdate()
 	{
-		if (!m_DrawBarrelDebugRay || m_Barrel == null || !Application.isPlaying)
+		if (!m_DrawBarrelDebugRay || !Application.isPlaying)
 			return;
 
-		Transform b = m_Barrel;
-		Debug.DrawRay(b.position, b.forward * m_BarrelDebugRayLength, m_BarrelDebugRayColor);
+		Transform barrel = BarrelTransform;
+		if (barrel == null)
+			return;
+
+		Debug.DrawRay(barrel.position, barrel.forward * m_BarrelDebugRayLength, m_BarrelDebugRayColor);
 	}
 
 	private void OnDrawGizmos()
 	{
-		if (!m_DrawBarrelDebugRay || m_Barrel == null)
+		if (!m_DrawBarrelDebugRay)
+			return;
+
+		Transform barrel = BarrelTransform;
+		if (barrel == null)
 			return;
 
 		Gizmos.color = m_BarrelDebugRayColor;
-		Vector3 start = m_Barrel.position;
-		Vector3 end = start + m_Barrel.forward * m_BarrelDebugRayLength;
+		Vector3 start = barrel.position;
+		Vector3 end = start + barrel.forward * m_BarrelDebugRayLength;
 		Gizmos.DrawLine(start, end);
 	}
 
@@ -272,40 +316,51 @@ public sealed class EquippedWeapon : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+#if UNITY_EDITOR
+	private void SyncGameplayAnchorsFromModuleSockets()
+	{
+		if (m_Barrel == null && m_MuzzleModuleVisualSocket != null)
+			m_Barrel = m_MuzzleModuleVisualSocket;
+
+		if (m_SightPivot == null && m_OpticModuleVisualSocket != null)
+			m_SightPivot = m_OpticModuleVisualSocket;
+	}
+#endif
+
 	/// <summary>
-	/// Сначала параллельный индекс, если тип слота совпадает с <see cref="WeaponAttachmentDefinition.RequiredSlot"/>;
-	/// иначе любой неиспользованный модуль с подходящим RequiredSlot (порядок в массиве — для нескольких Rail).
+	/// Строго параллельный индекс слота оружия и массива установленных модулей.
 	/// </summary>
 	private static WeaponAttachmentDefinition ResolveEquippedForWeaponSlot(
 		WeaponAttachmentDefinition[] _equipped,
-		bool[] _used,
 		int _slotIndex,
-		WeaponAttachmentSlotType _slotType)
+		WeaponAttachmentSlotType _slotType,
+		int _railSocketIndex,
+		out int _equippedSourceIndex)
 	{
-		if (_equipped == null || _equipped.Length == 0)
+		_equippedSourceIndex = -1;
+		if (_equipped == null || _equipped.Length == 0 || _slotIndex < 0 || _slotIndex >= _equipped.Length)
 			return null;
 
-		if (_slotIndex < _equipped.Length &&
-		    !_used[_slotIndex] &&
-		    _equipped[_slotIndex] != null &&
-		    _equipped[_slotIndex].RequiredSlot == _slotType)
-		{
-			_used[_slotIndex] = true;
-			return _equipped[_slotIndex];
-		}
+		WeaponAttachmentDefinition attachment = _equipped[_slotIndex];
+		if (attachment == null || !attachment.SupportsWeaponSlot(_slotType, _railSocketIndex))
+			return null;
 
-		for (int j = 0; j < _equipped.Length; j++)
-		{
-			if (_used[j] || _equipped[j] == null)
-				continue;
-			if (_equipped[j].RequiredSlot != _slotType)
-				continue;
+		_equippedSourceIndex = _slotIndex;
+		return attachment;
+	}
 
-			_used[j] = true;
-			return _equipped[j];
-		}
+	private static GameObject ResolveAttachmentVisualPrefab(
+		WeaponAttachmentDefinition _definition,
+		ItemDefinition[] _equippedItems,
+		int _equippedSourceIndex)
+	{
+		if (_definition != null && _definition.EquippedVisualPrefab != null)
+			return _definition.EquippedVisualPrefab;
 
-		return null;
+		if (_equippedItems == null || _equippedSourceIndex < 0 || _equippedSourceIndex >= _equippedItems.Length)
+			return null;
+
+		return _equippedItems[_equippedSourceIndex]?.EquippedVisualPrefab;
 	}
 
 	private Transform ResolveAttachmentVisualSocket(WeaponAttachmentSlotType _slotType, ref int _railVisualIndex)
@@ -340,6 +395,24 @@ public sealed class EquippedWeapon : MonoBehaviour
 		}
 
 		m_AttachmentVisualInstances.Clear();
+	}
+
+	private void RefreshDefaultPartVisibility(bool _hasOpticModule, bool _hasStockModule)
+	{
+		SetVisualGroupActive(m_DefaultOpticVisuals, !_hasOpticModule);
+		SetVisualGroupActive(m_DefaultStockVisuals, !_hasStockModule);
+	}
+
+	private static void SetVisualGroupActive(GameObject[] _visuals, bool _isActive)
+	{
+		if (_visuals == null)
+			return;
+
+		for (int i = 0; i < _visuals.Length; i++)
+		{
+			if (_visuals[i] != null && _visuals[i].activeSelf != _isActive)
+				_visuals[i].SetActive(_isActive);
+		}
 	}
 
 	private static void DisablePhysicsOnEquippedVisual(GameObject _root)

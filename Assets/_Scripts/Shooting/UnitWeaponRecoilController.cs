@@ -87,7 +87,9 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
 
-		const float attachmentModifier = 1f;
+		float attachmentModifier = m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
+			: 1f;
 		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier);
 	}
 
