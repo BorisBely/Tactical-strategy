@@ -1156,24 +1156,38 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Добавить предмет на панель «земля»: UI-ячейка и при наличии <see cref="ItemDefinition.DropWorldPrefab"/> — лут в мире.
+	/// Используется при выбросе из сумки и при снятии модулей с оружия.
+	/// </summary>
+	public bool TryPlaceItemOnGroundPanel(CharacterInventory _inventory, InventorySlotRuntimeData _data)
+	{
+		if (m_GroundPanel == null || _data.IsEmpty)
+			return false;
+
+		if (!TryBuildGroundSlotData(_inventory, _data, out InventorySlotRuntimeData groundData, out WorldPickupItem spawned))
+			return false;
+
+		if (!m_GroundPanel.TryAdd(groundData))
+		{
+			if (spawned != null)
+				Destroy(spawned.gameObject);
+			return false;
+		}
+
+		FinalizeGroundPanelPlacement(spawned);
+		return true;
+	}
+
 	private bool TryCompleteCharacterToGroundTransfer(CharacterInventory _inventory, InventorySlotRuntimeData _data,
 		InventorySlotView _adoptExistingSlotOrNull, bool _removedFromMainHandSlot)
 	{
-		WorldPickupItem spawned = null;
-		ItemDefinition definition = _data.Definition;
-		if (definition != null && definition.DropWorldPrefab != null)
+		if (!TryBuildGroundSlotData(_inventory, _data, out InventorySlotRuntimeData groundData, out WorldPickupItem spawned))
 		{
-			spawned = SpawnDropWorldPickup(_inventory, _data);
-			if (spawned == null)
-			{
-				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
-				_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
-				return false;
-			}
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
+			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return false;
 		}
-
-		InventorySlotRuntimeData groundData = _data;
-		groundData.WorldSource = spawned;
 
 		bool placed;
 		if (_adoptExistingSlotOrNull != null)
@@ -1202,13 +1216,46 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		if (spawned != null)
-			spawned.RegisterListedInGroundUi();
-
+		FinalizeGroundPanelPlacement(spawned);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
-		RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
+	}
+
+	private static bool TryBuildGroundSlotData(
+		CharacterInventory _inventory,
+		InventorySlotRuntimeData _data,
+		out InventorySlotRuntimeData _groundData,
+		out WorldPickupItem _spawned)
+	{
+		_spawned = null;
+		_groundData = _data;
+		ItemDefinition definition = _data.Definition;
+		if (definition == null || definition.DropWorldPrefab == null)
+		{
+			_groundData.WorldSource = null;
+			return true;
+		}
+
+		if (_inventory == null)
+			return false;
+
+		_spawned = SpawnDropWorldPickup(_inventory, _data);
+		if (_spawned == null)
+			return false;
+
+		_groundData.WorldSource = _spawned;
+		return true;
+	}
+
+	private void FinalizeGroundPanelPlacement(WorldPickupItem _spawned)
+	{
+		if (_spawned != null)
+			_spawned.RegisterListedInGroundUi();
+
+		m_GroundPanel.RebuildContentLayout();
+		RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
+		RuntimeInventoryModificationCoordinator.Instance?.OnGroundPanelRepopulated();
 	}
 
 	private void TrySelectFirstPlayerUnit()

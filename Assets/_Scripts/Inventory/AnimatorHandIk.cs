@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// IK левой кисти к цели на экипированном оружии (<see cref="UnitEquipment.LeftHandIkTargetTransform"/>).
 /// Компонент нужно повесить на тот же GameObject, где висит <see cref="Animator"/> (Humanoid).
-/// В Animator Controller у слоя с движением должен быть включён <b>IK Pass</b>.
+/// В Animator Controller у слоя с движением должен быть включён <b>IK Pass</b> (сейчас: Aim_Point_U90-D90).
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
@@ -23,6 +23,8 @@ public class AnimatorHandIk : MonoBehaviour
 	[Tooltip("Пустой объект перед локтем слева (в пространстве персонажа), чтобы сгиб был естественнее.")]
 	[SerializeField] private Transform m_LeftElbowHint;
 	[SerializeField, Range(0f, 1f)] private float m_LeftElbowHintWeight = 1f;
+	[Header("Отладка")]
+	[SerializeField] private bool m_DrawIkTargetGizmo;
 	#endregion
 
 	#region Private Fields
@@ -42,6 +44,20 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_WeaponReload == null)
 			m_WeaponReload = GetComponentInParent<UnitWeaponReloadController>();
 	}
+
+	private void OnDrawGizmosSelected()
+	{
+		if (!m_DrawIkTargetGizmo || !Application.isPlaying)
+			return;
+
+		Transform ikTarget = ResolveLiveLeftHandIkTarget();
+		if (ikTarget == null)
+			return;
+
+		Gizmos.color = new Color(0.2f, 0.95f, 1f, 0.95f);
+		Gizmos.DrawSphere(ikTarget.position, 0.015f);
+		Gizmos.DrawLine(ikTarget.position, ikTarget.position + ikTarget.forward * 0.06f);
+	}
 	#endregion
 
 	#region Public Methods
@@ -52,7 +68,7 @@ public class AnimatorHandIk : MonoBehaviour
 	/// </summary>
 	public void OnWeaponReadyStateApplied()
 	{
-		if (IsLeftHandIkTemporarilyDisabled())
+		if (IsLeftHandIkBlocked())
 			m_ClearLeftHandIkOnNextAnimatorIkPass = true;
 	}
 	#endregion
@@ -69,13 +85,18 @@ public class AnimatorHandIk : MonoBehaviour
 			ClearLeftHandIk();
 		}
 
-		if (IsLeftHandIkTemporarilyDisabled())
+		if (IsLeftHandIkBlocked())
 		{
 			ClearLeftHandIk();
 			return;
 		}
 
 		ApplyLeftHandIkInternal();
+	}
+
+	private bool IsLeftHandIkBlocked()
+	{
+		return IsLeftHandIkTemporarilyDisabled();
 	}
 
 	private bool IsLeftHandIkTemporarilyDisabled()
@@ -96,7 +117,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 	private void ApplyLeftHandIkInternal()
 	{
-		Transform ikTarget = m_UnitEquipment != null ? m_UnitEquipment.LeftHandIkTargetTransform : null;
+		Transform ikTarget = ResolveLiveLeftHandIkTarget();
 		if (ikTarget == null)
 		{
 			ClearLeftHandIk();
@@ -115,6 +136,23 @@ public class AnimatorHandIk : MonoBehaviour
 		}
 		else
 			m_Animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0f);
+	}
+
+	private Transform ResolveLiveLeftHandIkTarget()
+	{
+		if (m_UnitEquipment == null)
+			return null;
+
+		ItemDefinition equipped = m_UnitEquipment.EquippedDefinition;
+		string ikName = equipped != null ? equipped.LeftHandIkTargetChildName : null;
+		if (string.IsNullOrWhiteSpace(ikName))
+			return null;
+
+		EquippedWeapon equippedWeapon = m_UnitEquipment.EquippedWeapon;
+		if (equippedWeapon != null)
+			return equippedWeapon.ResolveLeftHandIkTargetTransform(ikName);
+
+		return m_UnitEquipment.LeftHandIkTargetTransform;
 	}
 	#endregion
 }

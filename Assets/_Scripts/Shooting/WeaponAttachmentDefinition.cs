@@ -41,20 +41,6 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[Tooltip("Множитель вероятности клина с каждого выстрела (оба канала).")]
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
 
-	[Header("Legacy Optic Accuracy")]
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticCloseRangeMeters = 25f;
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticMidRangeMeters = 100f;
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticLongRangeMeters = 250f;
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticCloseRangeDispersionModifier = 1f;
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticMidRangeDispersionModifier = 1f;
-	[Tooltip("Устаревшая трёхточечная настройка. Новый расчёт точности использует Distance Aim Profile.")]
-	[SerializeField, Min(0f)] private float m_OpticLongRangeDispersionModifier = 1f;
-
 	[Header("Audio")]
 	[Tooltip("Звук выстрела с установленным глушителем (AttachmentType = Suppressor). Пусто — при экипированном глушителе используется звук оружия.")]
 	[SerializeField] private AudioClip m_SuppressedFireSound;
@@ -79,12 +65,6 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float WearPerShotMultiplier => m_WearPerShotMultiplier;
 	public float FoulingPerShotMultiplier => m_FoulingPerShotMultiplier;
 	public float JamRiskModifier => m_JamRiskModifier;
-	public float OpticCloseRangeMeters => m_OpticCloseRangeMeters;
-	public float OpticMidRangeMeters => m_OpticMidRangeMeters;
-	public float OpticLongRangeMeters => m_OpticLongRangeMeters;
-	public float OpticCloseRangeDispersionModifier => m_OpticCloseRangeDispersionModifier;
-	public float OpticMidRangeDispersionModifier => m_OpticMidRangeDispersionModifier;
-	public float OpticLongRangeDispersionModifier => m_OpticLongRangeDispersionModifier;
 	public AudioClip SuppressedFireSound => m_SuppressedFireSound;
 	public GameObject EquippedVisualPrefab => m_EquippedVisualPrefab;
 	#endregion
@@ -138,24 +118,6 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 		}
 
 		return false;
-	}
-
-	public float GetOpticDispersionModifier(float _distanceMeters)
-	{
-		if (m_AttachmentType != WeaponAttachmentType.Optic)
-			return 1f;
-
-		float close = Mathf.Max(0f, m_OpticCloseRangeMeters);
-		float mid = Mathf.Max(close, m_OpticMidRangeMeters);
-		float far = Mathf.Max(mid, m_OpticLongRangeMeters);
-		if (_distanceMeters <= close || Mathf.Approximately(close, mid))
-			return m_OpticCloseRangeDispersionModifier;
-		if (_distanceMeters <= mid)
-			return Mathf.Lerp(m_OpticCloseRangeDispersionModifier, m_OpticMidRangeDispersionModifier, Mathf.InverseLerp(close, mid, _distanceMeters));
-		if (_distanceMeters <= far)
-			return Mathf.Lerp(m_OpticMidRangeDispersionModifier, m_OpticLongRangeDispersionModifier, Mathf.InverseLerp(mid, far, _distanceMeters));
-
-		return m_OpticLongRangeDispersionModifier;
 	}
 
 	public float GetDistanceDispersionMultiplier(float _distanceMeters)

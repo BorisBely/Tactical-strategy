@@ -100,6 +100,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	/// <summary>Узел для процедурной отдачи визуала; null — использовать корень инстанса.</summary>
 	public Transform VisualRecoilKickPivot => m_VisualRecoilKickPivot;
+
+	/// <summary>Инстанс визуала рукоятки (UnderBarrel + Foregrip), если установлен.</summary>
+	public Transform UnderBarrelForegripVisualRoot =>
+		m_UnderBarrelForegripVisualInstance != null ? m_UnderBarrelForegripVisualInstance.transform : null;
 	#endregion
 
 	#region Public Methods — сокеты планки
@@ -117,6 +121,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	private GameObject m_InsertedMagazineVisualInstance;
 	private ItemDefinition m_CurrentMagazineVisualDefinition;
 	private readonly List<GameObject> m_AttachmentVisualInstances = new List<GameObject>(8);
+	private GameObject m_UnderBarrelForegripVisualInstance;
 	#endregion
 
 	#region Public Methods
@@ -214,9 +219,31 @@ public sealed class EquippedWeapon : MonoBehaviour
 			inst.transform.localRotation = Quaternion.identity;
 			DisablePhysicsOnEquippedVisual(inst);
 			m_AttachmentVisualInstances.Add(inst);
+
+			if (slotType == WeaponAttachmentSlotType.UnderBarrel &&
+			    (def.AttachmentType == WeaponAttachmentType.Foregrip || def.AttachmentType == WeaponAttachmentType.Bipod))
+				m_UnderBarrelForegripVisualInstance = inst;
 		}
 
 		RefreshDefaultPartVisibility(hasOpticModule, hasStockModule);
+	}
+
+	/// <summary>
+	/// Цель IK левой кисти: сначала на установленной рукоятке, иначе на корне оружия.
+	/// </summary>
+	public Transform ResolveLeftHandIkTargetTransform(string _childName)
+	{
+		if (string.IsNullOrWhiteSpace(_childName))
+			return null;
+
+		if (m_UnderBarrelForegripVisualInstance != null)
+		{
+			Transform onForegrip = FindChildRecursive(m_UnderBarrelForegripVisualInstance.transform, _childName);
+			if (onForegrip != null)
+				return onForegrip;
+		}
+
+		return FindChildRecursive(transform, _childName);
 	}
 
 	/// <summary>Удаляет все инстансы визуала модулей (магазин не трогает).</summary>
@@ -395,6 +422,18 @@ public sealed class EquippedWeapon : MonoBehaviour
 		}
 
 		m_AttachmentVisualInstances.Clear();
+		m_UnderBarrelForegripVisualInstance = null;
+	}
+
+	private static Transform FindChildRecursive(Transform _root, string _name)
+	{
+		foreach (Transform t in _root.GetComponentsInChildren<Transform>(true))
+		{
+			if (t != _root && t.name == _name)
+				return t;
+		}
+
+		return null;
 	}
 
 	private void RefreshDefaultPartVisibility(bool _hasOpticModule, bool _hasStockModule)

@@ -7511,6 +7511,7 @@ GameObject:
   - component: {fileID: 8412401315927888462}
   - component: {fileID: 8082661923994252123}
   - component: {fileID: 3544168995589682661}
+  - component: {fileID: 9876543210987654321}
   - component: {fileID: 9123456789012345678}
   m_Layer: 7
   m_Name: PlayerUnit
@@ -7897,7 +7898,7 @@ MonoBehaviour:
   m_MagazineLoadingController: {fileID: 0}
   m_WeaponReloadController: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
-  m_LeftHandIk: {fileID: 0}
+  m_LeftHandIk: {fileID: 9876543210987654321}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
 --- !u!114 &3806570450536705422
@@ -8293,6 +8294,27 @@ MonoBehaviour:
   m_MalfunctionBoltRearmDelaySeconds: 0.08
   m_MalfunctionClickSound: {fileID: 0}
   m_DebugLastJamRoll: 
+--- !u!114 &9876543210987654321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5e6f7a89b012345678901234abcde02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AnimatorHandIk
+  m_UnitEquipment: {fileID: 5322687323565292150}
+  m_MagazineLoading: {fileID: 0}
+  m_WeaponReload: {fileID: 0}
+  m_LeftHandPositionWeight: 1
+  m_LeftHandRotationWeight: 1
+  m_UseLeftElbowHint: 0
+  m_LeftElbowHint: {fileID: 0}
+  m_LeftElbowHintWeight: 1
+  m_DrawIkTargetGizmo: 1
 --- !u!114 &9123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0

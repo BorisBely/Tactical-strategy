@@ -35,6 +35,10 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 	[Header("Коробки патронов в сумку")]
 	[Tooltip("Каждый элемент — отдельный слот (ItemDefinition с AmmoDefinition, как пачка/коробка).")]
 	[SerializeField] private ItemDefinition[] m_AmmoBoxItems;
+
+	[Header("Модули в сумку")]
+	[Tooltip("Предметы-модули (прицел, рукоятка, глушитель и т.д.) — отдельные слоты для теста установки на оружие.")]
+	[SerializeField] private ItemDefinition[] m_AttachmentItemsInBag;
 	#endregion
 
 	#region Unity Lifecycle
@@ -133,6 +137,18 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 					continue;
 
 				m_Inventory.TryAdd(InventorySlotRuntimeData.FromDefinition(box));
+			}
+		}
+
+		if (m_AttachmentItemsInBag != null)
+		{
+			for (int i = 0; i < m_AttachmentItemsInBag.Length; i++)
+			{
+				ItemDefinition attachmentItem = m_AttachmentItemsInBag[i];
+				if (attachmentItem == null || attachmentItem.WeaponAttachmentDefinition == null)
+					continue;
+
+				m_Inventory.TryAdd(InventorySlotRuntimeData.FromDefinition(attachmentItem));
 			}
 		}
 

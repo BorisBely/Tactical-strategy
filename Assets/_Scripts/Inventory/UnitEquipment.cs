@@ -78,9 +78,7 @@ public class UnitEquipment : MonoBehaviour
 
 		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 
-		string ikName = _item.LeftHandIkTargetChildName;
-		if (!string.IsNullOrWhiteSpace(ikName))
-			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, ikName);
+		RefreshLeftHandIkTarget();
 
 		NotifyEquipmentChanged();
 		return true;
@@ -97,6 +95,24 @@ public class UnitEquipment : MonoBehaviour
 			return;
 
 		m_MainWeaponInstance.SetActive(_active);
+	}
+
+	/// <summary>
+	/// Пересчитать цель IK левой руки (например после установки/снятия рукоятки).
+	/// </summary>
+	public void RefreshLeftHandIkTarget()
+	{
+		string ikName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetChildName : null;
+		if (string.IsNullOrWhiteSpace(ikName) || m_MainWeaponInstance == null)
+		{
+			m_LeftHandIkTarget = null;
+			return;
+		}
+
+		if (m_EquippedWeapon != null)
+			m_LeftHandIkTarget = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(ikName);
+		else
+			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, ikName);
 	}
 	#endregion
 

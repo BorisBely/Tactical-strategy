@@ -27,6 +27,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[Header("Data Preview")]
 	[SerializeField] private WeaponDefinition m_WeaponDefinition;
 	[SerializeField] private WeaponAttachmentDefinition[] m_Attachments;
+	[SerializeField] private WeaponDefinition m_PreviewWeaponDefinition;
 	[SerializeField] private WeaponAttachmentDefinition[] m_PreviewAttachments;
 	[SerializeField] private MissionPrepLoadoutCoordinator m_Coordinator;
 	[SerializeField] private bool m_AutoBindMissionPrepSelection = true;
@@ -85,6 +86,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	{
 		m_WeaponDefinition = _weaponState != null ? _weaponState.WeaponDefinition : null;
 		m_Attachments = CopyAttachments(_weaponState != null ? _weaponState.EquippedAttachments : null);
+		m_PreviewWeaponDefinition = null;
 		m_PreviewAttachments = null;
 		SetVerticesDirty();
 	}
@@ -118,14 +120,23 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		SetVerticesDirty();
 	}
 
+	public void SetPreviewLoadout(
+		WeaponDefinition _previewWeaponDefinition,
+		IReadOnlyList<WeaponAttachmentDefinition> _previewAttachments)
+	{
+		m_PreviewWeaponDefinition = _previewWeaponDefinition;
+		m_PreviewAttachments = CopyAttachments(_previewAttachments);
+		SetVerticesDirty();
+	}
+
 	public void SetPreviewAttachments(IReadOnlyList<WeaponAttachmentDefinition> _attachments)
 	{
-		m_PreviewAttachments = CopyAttachments(_attachments);
-		SetVerticesDirty();
+		SetPreviewLoadout(null, _attachments);
 	}
 
 	public void ClearPreview()
 	{
+		m_PreviewWeaponDefinition = null;
 		m_PreviewAttachments = null;
 		SetVerticesDirty();
 	}
@@ -193,14 +204,14 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		if (m_ShowAccuracy && showAccuracy)
 		{
 			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_AccuracyColor);
-			if (m_PreviewAttachments != null)
+			if (HasPreviewCurve)
 				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewColor);
 		}
 
 		if (m_ShowAimSpeed && showAimTime)
 		{
 			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_AimSpeedColor);
-			if (m_PreviewAttachments != null)
+			if (HasPreviewCurve)
 				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewColor);
 		}
 	}
@@ -251,10 +262,15 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		if (m_Coordinator == null)
 			return;
 
-		if (!m_Coordinator.TryGetModificationGraphLoadout(out WeaponDefinition weaponDefinition, out WeaponAttachmentDefinition[] currentAttachments, out WeaponAttachmentDefinition[] previewAttachments))
+		if (!m_Coordinator.TryGetModificationGraphLoadout(
+			    out WeaponDefinition weaponDefinition,
+			    out WeaponAttachmentDefinition[] currentAttachments,
+			    out WeaponDefinition previewWeaponDefinition,
+			    out WeaponAttachmentDefinition[] previewAttachments))
 		{
 			m_WeaponDefinition = null;
 			m_Attachments = null;
+			m_PreviewWeaponDefinition = null;
 			m_PreviewAttachments = null;
 			SetVerticesDirty();
 			return;
@@ -262,9 +278,13 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 
 		m_WeaponDefinition = weaponDefinition;
 		m_Attachments = currentAttachments;
+		m_PreviewWeaponDefinition = previewWeaponDefinition;
 		m_PreviewAttachments = previewAttachments;
 		SetVerticesDirty();
 	}
+
+	private bool HasPreviewCurve =>
+		m_PreviewAttachments != null || m_PreviewWeaponDefinition != null;
 
 	private Rect GetGraphRect()
 	{
@@ -321,41 +341,49 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		}
 	}
 
-	private float EvaluateCurrentAccuracyQuality(float _distanceMeters)
-	{
-		return EvaluateAccuracyQuality(_distanceMeters, m_Attachments);
-	}
-
 	private float EvaluatePreviewAccuracyQuality(float _distanceMeters)
 	{
-		return EvaluateAccuracyQuality(_distanceMeters, m_PreviewAttachments);
+		WeaponDefinition weaponDefinition = m_PreviewWeaponDefinition != null ? m_PreviewWeaponDefinition : m_WeaponDefinition;
+		return EvaluateAccuracyQuality(weaponDefinition, _distanceMeters, m_PreviewAttachments);
 	}
 
 	private float EvaluateCurrentAimSpeedQuality(float _distanceMeters)
 	{
-		return EvaluateAimSpeedQuality(_distanceMeters, m_Attachments);
+		return EvaluateAimSpeedQuality(m_WeaponDefinition, _distanceMeters, m_Attachments);
 	}
 
 	private float EvaluatePreviewAimSpeedQuality(float _distanceMeters)
 	{
-		return EvaluateAimSpeedQuality(_distanceMeters, m_PreviewAttachments);
+		WeaponDefinition weaponDefinition = m_PreviewWeaponDefinition != null ? m_PreviewWeaponDefinition : m_WeaponDefinition;
+		return EvaluateAimSpeedQuality(weaponDefinition, _distanceMeters, m_PreviewAttachments);
 	}
 
-	private float EvaluateAccuracyQuality(float _distanceMeters, WeaponAttachmentDefinition[] _attachments)
+	private float EvaluateCurrentAccuracyQuality(float _distanceMeters)
+	{
+		return EvaluateAccuracyQuality(m_WeaponDefinition, _distanceMeters, m_Attachments);
+	}
+
+	private float EvaluateAccuracyQuality(
+		WeaponDefinition _weaponDefinition,
+		float _distanceMeters,
+		WeaponAttachmentDefinition[] _attachments)
 	{
 		float dispersionMultiplier = 1f;
-		if (m_WeaponDefinition != null)
-			dispersionMultiplier *= Mathf.Max(0.01f, m_WeaponDefinition.GetDistanceDispersionMultiplier(_distanceMeters));
+		if (_weaponDefinition != null)
+			dispersionMultiplier *= Mathf.Max(0.01f, _weaponDefinition.GetDistanceDispersionMultiplier(_distanceMeters));
 
 		ApplyAttachmentMultipliers(_attachments, _distanceMeters, ref dispersionMultiplier, _aimTime: false);
 		return 1f / Mathf.Max(0.01f, dispersionMultiplier);
 	}
 
-	private float EvaluateAimSpeedQuality(float _distanceMeters, WeaponAttachmentDefinition[] _attachments)
+	private float EvaluateAimSpeedQuality(
+		WeaponDefinition _weaponDefinition,
+		float _distanceMeters,
+		WeaponAttachmentDefinition[] _attachments)
 	{
 		float aimTimeMultiplier = 1f;
-		if (m_WeaponDefinition != null)
-			aimTimeMultiplier *= Mathf.Max(0.01f, m_WeaponDefinition.GetDistanceAimTimeMultiplier(_distanceMeters));
+		if (_weaponDefinition != null)
+			aimTimeMultiplier *= Mathf.Max(0.01f, _weaponDefinition.GetDistanceAimTimeMultiplier(_distanceMeters));
 
 		ApplyAttachmentMultipliers(_attachments, _distanceMeters, ref aimTimeMultiplier, _aimTime: true);
 		return 1f / Mathf.Max(0.01f, aimTimeMultiplier);

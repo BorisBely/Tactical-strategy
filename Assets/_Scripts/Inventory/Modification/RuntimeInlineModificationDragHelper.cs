@@ -18,6 +18,7 @@ public static class RuntimeInlineModificationDragHelper
 		public RectTransform WeaponRect;
 		public Transform OriginalContentParent;
 		public int WeaponOriginalSiblingIndex;
+		public InventoryPanelView SourcePanel;
 		public readonly List<GameObject> HiddenModRows = new List<GameObject>(4);
 	}
 
@@ -32,7 +33,8 @@ public static class RuntimeInlineModificationDragHelper
 			WeaponRect = _weaponRect,
 			MoveTarget = _weaponRect,
 			OriginalContentParent = _weaponRect != null ? _weaponRect.parent : null,
-			WeaponOriginalSiblingIndex = _weaponRect != null ? _weaponRect.GetSiblingIndex() : -1
+			WeaponOriginalSiblingIndex = _weaponRect != null ? _weaponRect.GetSiblingIndex() : -1,
+			SourcePanel = _sourcePanel
 		};
 
 		if (_weaponSlot == null || _weaponRect == null || _rootCanvas == null || attachment.OriginalContentParent == null)
@@ -141,8 +143,9 @@ public static class RuntimeInlineModificationDragHelper
 		if (_attachment?.HiddenModRows == null || _attachment.HiddenModRows.Count == 0)
 			return;
 
+		Transform panelRoot = _attachment.SourcePanel != null ? _attachment.SourcePanel.transform : null;
 		for (int i = 0; i < _attachment.HiddenModRows.Count; i++)
-			RuntimeUiDestroyQueue.Enqueue(_attachment.HiddenModRows[i]);
+			RuntimeUiDestroyQueue.Enqueue(_attachment.HiddenModRows[i], panelRoot);
 
 		_attachment.HiddenModRows.Clear();
 	}

@@ -33,7 +33,7 @@ public static class MissionPrepInlineModificationBuilder
 			rowsToRemove.Add(child.gameObject);
 		}
 
-		DestroyRows(rowsToRemove, _immediateDestroy: true);
+		DestroyRows(rowsToRemove, _panel, _immediateDestroy: true);
 	}
 
 	public static void RebuildWeaponRows(
@@ -113,24 +113,40 @@ public static class MissionPrepInlineModificationBuilder
 				rowsToRemove.Add(rows[i].gameObject);
 		}
 
-		DestroyRows(rowsToRemove, _immediateDestroy);
+		DestroyRows(rowsToRemove, _panel, _immediateDestroy);
 	}
 
-	private static void DestroyRows(List<GameObject> _rows, bool _immediateDestroy)
+	private static void DestroyRows(List<GameObject> _rows, InventoryPanelView _panel, bool _immediateDestroy)
 	{
+		if (_rows == null || _rows.Count == 0)
+			return;
+
+		Transform panelRoot = _panel != null ? _panel.transform : null;
+		if (panelRoot != null)
+		{
+			if (!_immediateDestroy)
+			{
+				for (int i = 0; i < _rows.Count; i++)
+				{
+					GameObject row = _rows[i];
+					if (row != null)
+						row.SetActive(false);
+				}
+			}
+
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(_rows, panelRoot);
+			return;
+		}
+
 		for (int i = 0; i < _rows.Count; i++)
 		{
 			GameObject row = _rows[i];
 			if (row == null)
 				continue;
 
-			if (_immediateDestroy)
-			{
-				Object.Destroy(row);
-				continue;
-			}
+			if (!_immediateDestroy)
+				row.SetActive(false);
 
-			row.SetActive(false);
 			Object.Destroy(row);
 		}
 	}

@@ -53,6 +53,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private ItemDefinition m_KeepExpandedWeaponDefinition;
 	private bool m_KeepExpandedRequiresInstalledModification;
 	private InventorySlotRuntimeData m_HoveredModificationPreviewCandidate;
+	private InventorySlotRuntimeData m_HoveredWeaponGraphCandidate;
 	#endregion
 
 	private readonly struct WeaponSlotBinding
@@ -261,6 +262,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	public void NotifyInventoryMutated(bool _saveSnapshotFromRuntime = true)
 	{
 		m_HoveredModificationPreviewCandidate = default;
+		m_HoveredWeaponGraphCandidate = default;
 		PropagatePresetToAllUnits(
 			m_EditingPresetCatalogIndex,
 			_refreshBoundUnitRuntime: true,
@@ -310,10 +312,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			if (slot.GetComponent<MissionPrepAvailableEquipDoubleClick>() == null)
 				slot.gameObject.AddComponent<MissionPrepAvailableEquipDoubleClick>();
 
-			MissionPrepModificationPreviewHover previewHover = slot.GetComponent<MissionPrepModificationPreviewHover>();
-			if (previewHover == null)
-				previewHover = slot.gameObject.AddComponent<MissionPrepModificationPreviewHover>();
-			previewHover.Bind(this);
+			EnsureModificationPreviewHover(slot);
+			EnsureWeaponProfileGraphHover(slot);
 
 			MissionPrepAvailableEquipmentSlotHighlightView highlight =
 				slot.GetComponent<MissionPrepAvailableEquipmentSlotHighlightView>();
@@ -728,24 +728,51 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		out WeaponAttachmentDefinition[] _currentAttachments,
 		out WeaponAttachmentDefinition[] _previewAttachments)
 	{
+		return TryGetModificationGraphLoadout(
+			out _weaponDefinition,
+			out _currentAttachments,
+			out _,
+			out _previewAttachments);
+	}
+
+	public bool TryGetModificationGraphLoadout(
+		out WeaponDefinition _weaponDefinition,
+		out WeaponAttachmentDefinition[] _currentAttachments,
+		out WeaponDefinition _previewWeaponDefinition,
+		out WeaponAttachmentDefinition[] _previewAttachments)
+	{
 		_weaponDefinition = null;
 		_currentAttachments = null;
+		_previewWeaponDefinition = null;
 		_previewAttachments = null;
 
-		if (!TryGetModificationWeaponSlot(out InventorySlotRuntimeData weaponSlot))
+		if (!TryResolveGraphBaselineWeaponSlot(out InventorySlotRuntimeData baselineSlot) ||
+		    !TryExtractWeaponLoadout(baselineSlot, out _weaponDefinition, out _currentAttachments))
 			return false;
 
-		WeaponRuntimeState weaponState = weaponSlot.InstanceState != null ? weaponSlot.InstanceState.WeaponState : null;
-		_weaponDefinition = weaponState != null ? weaponState.WeaponDefinition : weaponSlot.Definition != null ? weaponSlot.Definition.WeaponDefinition : null;
-		if (_weaponDefinition == null)
-			return false;
-
-		_currentAttachments = CopyAttachmentArray(weaponState != null ? weaponState.EquippedAttachments : null);
+		bool hasModulePreview = false;
+		TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot);
 		InventorySlotRuntimeData previewCandidate = ResolveGraphPreviewCandidate();
 		if (!previewCandidate.IsEmpty &&
 		    ItemModificationUtility.IsAttachmentItem(previewCandidate) &&
-		    TryBuildPreviewAttachments(weaponSlot, previewCandidate, out WeaponAttachmentDefinition[] previewAttachments))
-			_previewAttachments = previewAttachments;
+		    ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, previewCandidate) &&
+		    TryBuildPreviewAttachments(modulePreviewWeaponSlot, previewCandidate, out WeaponAttachmentDefinition[] modulePreviewAttachments))
+		{
+			_previewAttachments = modulePreviewAttachments;
+			hasModulePreview = true;
+			if (TryExtractWeaponLoadout(modulePreviewWeaponSlot, out WeaponDefinition moduleWeaponDefinition, out _) &&
+			    !RepresentsSameWeaponInstance(baselineSlot, modulePreviewWeaponSlot))
+				_previewWeaponDefinition = moduleWeaponDefinition;
+		}
+
+		if (!hasModulePreview &&
+		    !m_HoveredWeaponGraphCandidate.IsEmpty &&
+		    TryExtractWeaponLoadout(m_HoveredWeaponGraphCandidate, out WeaponDefinition hoveredWeaponDefinition, out WeaponAttachmentDefinition[] hoveredAttachments) &&
+		    !RepresentsSameWeaponInstance(baselineSlot, m_HoveredWeaponGraphCandidate))
+		{
+			_previewWeaponDefinition = hoveredWeaponDefinition;
+			_previewAttachments = hoveredAttachments;
+		}
 
 		return true;
 	}
@@ -755,10 +782,31 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (_candidate.IsEmpty || !ItemModificationUtility.IsModificationItem(_candidate))
 			return;
 
-		if (!ShouldHighlightCompatibleWithModificationWeapon(_candidate))
+		if (!TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot) ||
+		    !ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, _candidate))
 			return;
 
 		m_HoveredModificationPreviewCandidate = _candidate;
+		ModificationGraphDataChanged?.Invoke();
+	}
+
+	public void SetHoveredWeaponGraphCandidate(InventorySlotRuntimeData _candidate)
+	{
+		if (_candidate.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(_candidate.Definition))
+			return;
+
+		m_HoveredWeaponGraphCandidate = _candidate;
+		ModificationGraphDataChanged?.Invoke();
+	}
+
+	public void ClearHoveredWeaponGraphCandidate(InventorySlotRuntimeData _candidate)
+	{
+		if (!m_HoveredWeaponGraphCandidate.IsEmpty &&
+		    !_candidate.IsEmpty &&
+		    m_HoveredWeaponGraphCandidate.Definition != _candidate.Definition)
+			return;
+
+		m_HoveredWeaponGraphCandidate = default;
 		ModificationGraphDataChanged?.Invoke();
 	}
 
@@ -840,6 +888,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		m_ExpandedWeaponListIndex = -1;
 		m_ModificationUiState = default;
 		m_HoveredModificationPreviewCandidate = default;
+		m_HoveredWeaponGraphCandidate = default;
 		MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
 		RebuildInlineModificationRows();
 		ModificationGraphDataChanged?.Invoke();
@@ -1596,10 +1645,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			if (slot.GetComponent<MissionPrepInventoryEquipDoubleClick>() == null)
 				slot.gameObject.AddComponent<MissionPrepInventoryEquipDoubleClick>();
 
-			MissionPrepModificationPreviewHover previewHover = slot.GetComponent<MissionPrepModificationPreviewHover>();
-			if (previewHover == null)
-				previewHover = slot.gameObject.AddComponent<MissionPrepModificationPreviewHover>();
-			previewHover.Bind(this);
+			EnsureModificationPreviewHover(slot);
+			EnsureWeaponProfileGraphHover(slot);
 
 			bool isMainHandSlot = lead > 0 && i == 0;
 			MissionPrepPresetInventorySlotDropView existingDropView =
@@ -1660,6 +1707,101 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			mainHandSlot = slots[0].gameObject.AddComponent<MissionPrepMainHandEquipmentSlotView>();
 
 		mainHandSlot.Bind(this);
+		EnsureModificationPreviewHover(slots[0]);
+		EnsureWeaponProfileGraphHover(slots[0]);
+	}
+
+	private void EnsureModificationPreviewHover(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+
+		MissionPrepModificationPreviewHover previewHover = _slot.GetComponent<MissionPrepModificationPreviewHover>();
+		if (previewHover == null)
+			previewHover = _slot.gameObject.AddComponent<MissionPrepModificationPreviewHover>();
+		previewHover.Bind(this);
+	}
+
+	private void EnsureWeaponProfileGraphHover(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+
+		MissionPrepWeaponProfileGraphHover weaponHover = _slot.GetComponent<MissionPrepWeaponProfileGraphHover>();
+		if (weaponHover == null)
+			weaponHover = _slot.gameObject.AddComponent<MissionPrepWeaponProfileGraphHover>();
+		weaponHover.Bind(this);
+	}
+
+	private bool TryResolveGraphBaselineWeaponSlot(out InventorySlotRuntimeData _weaponSlot)
+	{
+		_weaponSlot = default;
+		if (m_SharedPresetStore == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (snapshot.TryGetInventorySlot(true, -1, out InventorySlotRuntimeData mainHand) &&
+		    !mainHand.IsEmpty &&
+		    ItemModificationUtility.IsModifiableWeapon(mainHand.Definition))
+		{
+			_weaponSlot = mainHand;
+			return true;
+		}
+
+		if (TryGetModificationWeaponSlot(out _weaponSlot))
+			return true;
+
+		if (!m_HoveredWeaponGraphCandidate.IsEmpty &&
+		    ItemModificationUtility.IsModifiableWeapon(m_HoveredWeaponGraphCandidate.Definition))
+		{
+			_weaponSlot = m_HoveredWeaponGraphCandidate;
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData _weaponSlot)
+	{
+		if (TryGetModificationWeaponSlot(out _weaponSlot))
+			return true;
+
+		return TryResolveGraphBaselineWeaponSlot(out _weaponSlot);
+	}
+
+	private static bool TryExtractWeaponLoadout(
+		InventorySlotRuntimeData _weaponSlot,
+		out WeaponDefinition _weaponDefinition,
+		out WeaponAttachmentDefinition[] _attachments)
+	{
+		_weaponDefinition = null;
+		_attachments = null;
+
+		if (_weaponSlot.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition))
+			return false;
+
+		WeaponRuntimeState weaponState = _weaponSlot.InstanceState != null ? _weaponSlot.InstanceState.WeaponState : null;
+		_weaponDefinition = weaponState != null
+			? weaponState.WeaponDefinition
+			: _weaponSlot.Definition != null
+				? _weaponSlot.Definition.WeaponDefinition
+				: null;
+		if (_weaponDefinition == null)
+			return false;
+
+		_attachments = CopyAttachmentArray(weaponState != null ? weaponState.EquippedAttachments : null);
+		return true;
+	}
+
+	private static bool RepresentsSameWeaponInstance(InventorySlotRuntimeData _a, InventorySlotRuntimeData _b)
+	{
+		if (_a.IsEmpty || _b.IsEmpty)
+			return false;
+
+		if (_a.InstanceState != null && _b.InstanceState != null)
+			return ReferenceEquals(_a.InstanceState, _b.InstanceState);
+
+		return _a.Definition == _b.Definition;
 	}
 
 	private void RebuildInlineModificationRows()
@@ -3209,6 +3351,58 @@ public sealed class MissionPrepPresetInventorySlotHighlightView : MonoBehaviour
 		m_BackgroundImage = GetComponent<Image>();
 		if (m_BackgroundImage != null)
 			m_BackgroundImage.color = m_NormalColor;
+	}
+	#endregion
+}
+
+/// <summary>
+/// Передаёт графикам сравнение с другим оружием при наведении на ячейку с оружием.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepWeaponProfileGraphHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+	#region Private Fields
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	private bool m_IsHovering;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+	}
+	#endregion
+
+	#region Event Handlers
+	public void OnPointerEnter(PointerEventData eventData)
+	{
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+		if (m_Coordinator == null || m_Slot == null || !m_Slot.HasItem)
+			return;
+
+		if (!ItemModificationUtility.IsModifiableWeapon(m_Slot.Data.Definition))
+			return;
+
+		m_IsHovering = true;
+		m_Coordinator.SetHoveredWeaponGraphCandidate(m_Slot.Data);
+	}
+
+	public void OnPointerExit(PointerEventData eventData)
+	{
+		if (!m_IsHovering)
+			return;
+
+		m_IsHovering = false;
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+		m_Coordinator?.ClearHoveredWeaponGraphCandidate(m_Slot != null ? m_Slot.Data : default);
 	}
 	#endregion
 }

@@ -193,6 +193,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 
 		m_Mode = MoveTier.Walk;
+		SnapAnimatorNavSpeedToCurrentVelocity();
 		if (m_Agent != null)
 			ApplyTierSpeed();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
@@ -1055,5 +1056,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		m_Animator.SetInteger(s_LocomotionTier, _tier);
 		m_Animator.SetFloat(s_LocomotionTierBlend, _tier);
+	}
+
+	private void SnapAnimatorNavSpeedToCurrentVelocity()
+	{
+		if (m_Agent == null || m_SprintSpeed < 0.01f)
+		{
+			m_SmoothSpeed01 = 0f;
+			m_SmoothSpeedVel = 0f;
+			return;
+		}
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		m_SmoothSpeed01 = Mathf.Clamp01(velocity.magnitude / m_SprintSpeed);
+		m_SmoothSpeedVel = 0f;
 	}
 }

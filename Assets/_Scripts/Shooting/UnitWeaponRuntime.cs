@@ -306,6 +306,9 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 		equippedWeapon.TryCopyEquippedAttachmentsPresetToWeaponStateIfEmpty(m_BoundWeaponState);
 		equippedWeapon.RefreshAttachmentVisualsFromState(m_BoundWeaponState.WeaponDefinition, m_BoundWeaponState);
+
+		if (m_UnitEquipment != null)
+			m_UnitEquipment.RefreshLeftHandIkTarget();
 	}
 
 	private void ClearInsertedMagazineVisual()

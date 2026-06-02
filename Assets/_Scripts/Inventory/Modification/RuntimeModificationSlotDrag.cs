@@ -142,10 +142,10 @@ public sealed class RuntimeModificationSlotDrag : MonoBehaviour, IBeginDragHandl
 		if (!m_DropAccepted && m_Coordinator != null && !RuntimeInventoryModificationDragContext.WasDropConsumed)
 		{
 			Camera cam = GetDragCamera(eventData);
-			if (m_Coordinator.IsScreenPointOverCharacterPanel(eventData.position, cam))
-				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToCharacterBag(this);
-			else if (m_Coordinator.IsScreenPointOverGroundPanel(eventData.position, cam))
+			if (m_Coordinator.IsScreenPointOverGroundPanel(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToGround(this);
+			else if (m_Coordinator.IsScreenPointOverCharacterPanel(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEjectModificationSlotToCharacterBag(this);
 		}
 
 		FinishDragVisualCleanup();

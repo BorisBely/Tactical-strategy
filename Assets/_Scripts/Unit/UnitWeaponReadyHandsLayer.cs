@@ -173,6 +173,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		if (m_Animator != null && m_LeftHandIk == null)
 			m_LeftHandIk = m_Animator.GetComponent<AnimatorHandIk>();
+		if (m_Animator != null && m_LeftHandIk == null)
+			m_LeftHandIk = m_Animator.gameObject.AddComponent<AnimatorHandIk>();
 	}
 
 	private void OnEnable()
@@ -255,11 +257,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private bool IsSprintingNow()
 	{
-		if (m_LocomotionDriver != null)
-			return m_LocomotionDriver.IsSprintMoveMode;
-
-		if (m_ClickToMove != null)
-			return m_ClickToMove.IsSprintMoveMode;
+		// ПКМ/Shift идёт через ClickToMove; NavLocomotionDriver на том же юните может оставаться в Walk.
+		if (m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode)
+			return true;
+		if (m_LocomotionDriver != null && m_LocomotionDriver.IsSprintMoveMode)
+			return true;
 
 		// Фоллбек: по параметру аниматора (0 walk, 1 run, 2 sprint).
 		if (m_Animator != null)
@@ -283,12 +285,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		PushWeaponReadyParameter();
 
 		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
-		{
-			if (m_LocomotionDriver != null)
-				m_LocomotionDriver.ForceWalkMoveMode();
-			else if (m_ClickToMove != null)
-				m_ClickToMove.ForceWalkMoveMode();
-		}
+			ForceWalkMoveModeOnAllLocomotionDrivers();
 
 		if (_ready && didChange)
 			m_LeftHandIk?.OnWeaponReadyStateApplied();
@@ -314,6 +311,14 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return false;
 
 		return true;
+	}
+
+	private void ForceWalkMoveModeOnAllLocomotionDrivers()
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.ForceWalkMoveMode();
+		if (m_LocomotionDriver != null)
+			m_LocomotionDriver.ForceWalkMoveMode();
 	}
 
 	private void PushWeaponReadyParameter()

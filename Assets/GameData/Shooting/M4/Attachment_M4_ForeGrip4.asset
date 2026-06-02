@@ -23,14 +23,57 @@ MonoBehaviour:
   m_EffectiveRangeModifier: 1
   m_RecoilModifier: 0.95
   m_ReloadTimeModifier: 1
+  m_DistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1
-  m_OpticCloseRangeMeters: 25
-  m_OpticMidRangeMeters: 100
-  m_OpticLongRangeMeters: 250
-  m_OpticCloseRangeDispersionModifier: 1
-  m_OpticMidRangeDispersionModifier: 1
-  m_OpticLongRangeDispersionModifier: 1
   m_SuppressedFireSound: {fileID: 0}
   m_EquippedVisualPrefab: {fileID: 1007356145121795600, guid: 9ecdf0099ccb7574ca87d41f0568e7a9, type: 3}

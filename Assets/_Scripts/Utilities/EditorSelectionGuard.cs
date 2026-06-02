@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// В редакторе при удалении UI-слотов <see cref="Object.Destroy"/> откладывается до конца кадра — инспектор успевает
-/// вызвать <c>Behaviour.enabled</c> на уже уничтоженном <see cref="UnityEngine.UI.Image"/> / <see cref="UnityEngine.UI.ScrollRect"/>.
+/// вызвать <c>Behaviour.enabled</c> на уже уничтоженном <see cref="UnityEngine.UI.Image"/>,
+/// <see cref="UnityEngine.UI.ScrollRect"/> или <see cref="TMPro.TextMeshProUGUI"/>.
 /// В Play Mode в редакторе используем отложенный <see cref="Object.Destroy"/> (не <see cref="Object.DestroyImmediate"/> —
 /// он запрещён в animation event, physics и других callback). Очистка Selection — через <c>delayCall</c>.
 /// </summary>

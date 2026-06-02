@@ -35,7 +35,7 @@ public static class RuntimeInlineModificationBuilder
 			rowsToRemove.Add(child.gameObject);
 		}
 
-		DestroyRows(rowsToRemove, _immediateDestroy: true);
+		DestroyRows(rowsToRemove, _panel, _immediateDestroy: true);
 	}
 
 	private static void ClearAllRowsInternal(InventoryPanelView _panel, bool _immediateDestroy)
@@ -59,25 +59,29 @@ public static class RuntimeInlineModificationBuilder
 				rowsToRemove.Add(rows[i].gameObject);
 		}
 
-		DestroyRows(rowsToRemove, _immediateDestroy);
+		DestroyRows(rowsToRemove, _panel, _immediateDestroy);
 	}
 
-	private static void DestroyRows(List<GameObject> _rows, bool _immediateDestroy)
+	private static void DestroyRows(List<GameObject> _rows, InventoryPanelView _panel, bool _immediateDestroy)
 	{
+		if (_rows == null || _rows.Count == 0)
+			return;
+
+		Transform panelRoot = _panel != null ? _panel.transform : null;
+		if (_immediateDestroy && panelRoot != null)
+		{
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(_rows, panelRoot);
+			return;
+		}
+
 		for (int i = 0; i < _rows.Count; i++)
 		{
 			GameObject row = _rows[i];
 			if (row == null)
 				continue;
 
-			if (_immediateDestroy)
-			{
-				Object.Destroy(row);
-				continue;
-			}
-
 			row.SetActive(false);
-			RuntimeUiDestroyQueue.Enqueue(row);
+			RuntimeUiDestroyQueue.Enqueue(row, panelRoot);
 		}
 	}
 

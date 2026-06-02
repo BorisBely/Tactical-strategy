@@ -25,30 +25,38 @@ public sealed class RuntimeUiDestroyQueue : MonoBehaviour
 		s_Instance = queue;
 	}
 
-	public static void Enqueue(Object _object)
+	public static void Enqueue(Object _object, Transform _panelSubtreeRoot = null)
 	{
 		if (_object == null)
 			return;
 
 		if (s_Instance == null || !Application.isPlaying)
 		{
-			Object.Destroy(_object);
+			DestroyNow(_object, _panelSubtreeRoot);
 			return;
 		}
 
-		s_Instance.EnqueueInternal(_object);
+		s_Instance.EnqueueInternal(_object, _panelSubtreeRoot);
+	}
+	#endregion
+
+	#region Private Types
+	private struct PendingDestroy
+	{
+		public Object Target;
+		public Transform PanelSubtreeRoot;
 	}
 	#endregion
 
 	#region Private Fields
-	private readonly List<Object> m_Pending = new List<Object>(16);
+	private readonly List<PendingDestroy> m_Pending = new List<PendingDestroy>(16);
 	private Coroutine m_FlushCoroutine;
 	#endregion
 
 	#region Private Methods
-	private void EnqueueInternal(Object _object)
+	private void EnqueueInternal(Object _object, Transform _panelSubtreeRoot)
 	{
-		m_Pending.Add(_object);
+		m_Pending.Add(new PendingDestroy { Target = _object, PanelSubtreeRoot = _panelSubtreeRoot });
 		if (m_FlushCoroutine == null)
 			m_FlushCoroutine = StartCoroutine(FlushNextFrame());
 	}
@@ -60,12 +68,40 @@ public sealed class RuntimeUiDestroyQueue : MonoBehaviour
 
 		for (int i = 0; i < m_Pending.Count; i++)
 		{
-			Object pending = m_Pending[i];
-			if (pending != null)
-				Destroy(pending);
+			PendingDestroy entry = m_Pending[i];
+			Object pending = entry.Target;
+			if (pending == null)
+				continue;
+
+			GameObject go = pending as GameObject;
+			if (go == null && pending is Component component)
+				go = component.gameObject;
+
+			DestroyNow(pending, entry.PanelSubtreeRoot);
 		}
 
 		m_Pending.Clear();
+	}
+
+	private static void DestroyNow(Object _object, Transform _panelSubtreeRoot)
+	{
+		if (_object == null)
+			return;
+
+		GameObject go = _object as GameObject;
+		if (go == null && _object is Component component)
+			go = component.gameObject;
+
+		if (go != null)
+		{
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(go, _panelSubtreeRoot);
+			return;
+		}
+
+		Object.Destroy(_object);
+#if UNITY_EDITOR
+		EditorSelectionGuard.ScheduleSanitizeSelectionAfterDestroy();
+#endif
 	}
 	#endregion
 

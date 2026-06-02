@@ -596,9 +596,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 						return;
 					}
 
-					InventorySlotRuntimeData forGround = _ejectedMagazine;
-					forGround.WorldSource = null;
-					if (GroundPanel != null && GroundPanel.TryAdd(forGround))
+					if (TryPlaceEjectedModificationOnGround(inventoryForReload, _ejectedMagazine))
 						NotifyInventoryMutated();
 					else if (inventoryForReload != null)
 					{
@@ -635,11 +633,9 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			else
 				GroundPanel?.TryAdd(removedItem);
 		}
-		else if (!removedItem.IsEmpty && GroundPanel != null)
+		else if (!removedItem.IsEmpty)
 		{
-			InventorySlotRuntimeData forGround = removedItem;
-			forGround.WorldSource = null;
-			if (!GroundPanel.TryAdd(forGround))
+			if (!TryPlaceEjectedModificationOnGround(ActiveInventory, removedItem))
 			{
 				if (_weaponIsOnGroundPanel)
 				{
@@ -917,6 +913,16 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private bool TryPlaceEjectedModificationOnGround(CharacterInventory _inventory, InventorySlotRuntimeData _item)
+	{
+		EnsureRuntimeReferences();
+		RtsUnitSelectionManager selectionManager = m_SelectionManager;
+		if (selectionManager == null)
+			return false;
+
+		return selectionManager.TryPlaceItemOnGroundPanel(_inventory, _item);
+	}
+
 	private void RefreshEquippedMainHandVisualsIfNeeded(bool _weaponIsMainHand)
 	{
 		if (!_weaponIsMainHand)
@@ -1164,6 +1170,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	{
 		if (GroundPanel == null)
 			return;
+
+		InventoryGroundDropZone.EnsureOnGroundPanel(GroundPanel);
 
 		IReadOnlyList<InventorySlotView> groundSlots = GroundPanel.Slots;
 		for (int i = 0; i < groundSlots.Count; i++)
