@@ -339,7 +339,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_Animator == null)
 			return;
 
-		m_Animator.speed = IsExecutingMoveOrder() ? m_RuntimeMoveAnimatorSpeed : 1f;
+		float playbackSync = 1f;
+		if (m_LocomotionDriver != null)
+			playbackSync = m_LocomotionDriver.AnimatorPlaybackSpeedMultiplier;
+		else if (m_ClickToMove != null)
+			playbackSync = m_ClickToMove.AnimatorPlaybackSpeedMultiplier;
+
+		m_Animator.speed = IsExecutingMoveOrder()
+			? m_RuntimeMoveAnimatorSpeed * playbackSync
+			: 1f;
 	}
 
 	private bool IsExecutingMoveOrder()

@@ -376,7 +376,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		bool _weaponIsMainHand,
 		int _weaponBagIndex,
 		bool _weaponIsOnGroundPanel = false,
-		int _weaponGroundSlotIndex = -1)
+		int _weaponGroundSlotIndex = -1,
+		InventorySlotView _weaponInventorySlotView = null)
 	{
 		const string context = "Runtime.TryInstallModificationFromDrag";
 		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
@@ -392,31 +393,23 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return false;
 		}
 
-		InventorySlotRuntimeData weaponSlot;
-		if (_weaponIsOnGroundPanel)
+		if (!TryResolveWeaponForModification(
+			    _weaponIsOnGroundPanel,
+			    _weaponGroundSlotIndex,
+			    _weaponIsMainHand,
+			    _weaponBagIndex,
+			    _weaponInventorySlotView,
+			    out InventorySlotRuntimeData weaponSlot,
+			    out bool resolvedIsMainHand,
+			    out int resolvedBagIndex,
+			    out bool resolvedIsOnGroundPanel,
+			    out int resolvedGroundSlotIndex))
 		{
-			if (!TryGetGroundWeaponSlot(_weaponGroundSlotIndex, out _, out weaponSlot))
-			{
-				ItemModificationDiagnostics.LogFlowRejected(context, "resolve_weapon", $"ground weapon slot {_weaponGroundSlotIndex} not found");
-				return false;
-			}
-		}
-		else
-		{
-			if (ActiveInventory == null)
-			{
-				ItemModificationDiagnostics.LogFlowRejected(context, "resolve_weapon", "ActiveInventory is null");
-				return false;
-			}
-
-			if (!ActiveInventory.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out weaponSlot))
-			{
-				ItemModificationDiagnostics.LogFlowRejected(
-					context,
-					"resolve_weapon",
-					$"character weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex})");
-				return false;
-			}
+			ItemModificationDiagnostics.LogFlowRejected(
+				context,
+				"resolve_weapon",
+				$"character weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex})");
+			return false;
 		}
 
 		if (payload.SourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBag)
@@ -426,7 +419,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				ItemModificationDiagnostics.LogFlowRejected(context, "validate_bag_source", "invalid character bag drag source");
 				return false;
 			}
-			if (!_weaponIsOnGroundPanel && !_weaponIsMainHand && payload.SlotIndex == _weaponBagIndex)
+			if (!resolvedIsOnGroundPanel && !resolvedIsMainHand && payload.SlotIndex == resolvedBagIndex)
 			{
 				ItemModificationDiagnostics.LogFlowRejected(context, "validate_bag_source", "cannot drag from same bag slot as weapon");
 				return false;
@@ -445,12 +438,14 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				ItemModificationDiagnostics.LogFlowRejected(context, "validate_ground_source", "invalid ground panel drag source");
 				return false;
 			}
-			if (payload.SlotIndex >= GroundPanel.Slots.Count)
+
+			if (!TryValidateGroundModificationDragSource(payload))
 			{
 				ItemModificationDiagnostics.LogFlowRejected(context, "validate_ground_source", $"ground slot {payload.SlotIndex} out of range");
 				return false;
 			}
-			if (_weaponIsOnGroundPanel && payload.SlotIndex == _weaponGroundSlotIndex)
+
+			if (resolvedIsOnGroundPanel && payload.SlotIndex == resolvedGroundSlotIndex)
 			{
 				ItemModificationDiagnostics.LogFlowRejected(context, "validate_ground_source", "cannot drag from same ground slot as weapon");
 				return false;
@@ -470,35 +465,35 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		CharacterInventory inventory = ActiveInventory;
-		bool useEquippedMagazineReload = !_weaponIsOnGroundPanel &&
+		bool useEquippedMagazineReload = !resolvedIsOnGroundPanel &&
 		                                 WeaponMagazineModificationApplier.IsMagazineSlot(_slotDescriptor) &&
 		                                 inventory != null &&
 		                                 WeaponMagazineModificationApplier.IsEquippedMainHandWeapon(
-			                                 inventory, _weaponIsMainHand, weaponSlot);
+			                                 inventory, resolvedIsMainHand, weaponSlot);
 
 		if (useEquippedMagazineReload)
-			return TryInstallEquippedMagazineFromDrag(payload, _weaponIsMainHand, _weaponBagIndex);
+			return TryInstallEquippedMagazineFromDrag(payload, resolvedIsMainHand, resolvedBagIndex);
 
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
 
-		int targetBagIndex = _weaponBagIndex;
+		int targetBagIndex = resolvedBagIndex;
 		if (!TryConsumeModificationDragSource(payload, ref targetBagIndex))
 		{
 			ItemModificationDiagnostics.LogFlowRejected(context, "consume_source", $"failed to consume drag source {payload.SourceKind}");
 			return false;
 		}
 
-		if (_weaponIsOnGroundPanel)
+		if (resolvedIsOnGroundPanel)
 		{
-			if (!TryCommitGroundWeaponSlot(_weaponGroundSlotIndex, weaponSlot))
+			if (!TryCommitGroundWeaponSlot(resolvedGroundSlotIndex, weaponSlot))
 			{
 				ItemModificationDiagnostics.LogFlowRejected(context, "commit_weapon", "failed to commit ground weapon slot");
 				return false;
 			}
 		}
-		else if (!ActiveInventory.TrySetInventorySlot(_weaponIsMainHand, targetBagIndex, weaponSlot))
+		else if (!TryCommitCharacterWeaponAfterModification(resolvedIsMainHand, targetBagIndex, weaponSlot, _weaponInventorySlotView))
 		{
 			ItemModificationDiagnostics.LogFlowRejected(context, "commit_weapon", "TrySetInventorySlot failed");
 			return false;
@@ -513,13 +508,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		KeepExpandedSelectionAfterModificationInstall(
-			_weaponIsOnGroundPanel,
-			_weaponGroundSlotIndex,
-			_weaponIsMainHand,
+			resolvedIsOnGroundPanel,
+			resolvedGroundSlotIndex,
+			resolvedIsMainHand,
 			targetBagIndex,
 			weaponSlot.InstanceState);
 
-		RefreshEquippedMainHandVisualsIfNeeded(_weaponIsMainHand);
+		RefreshEquippedMainHandVisualsIfNeeded(resolvedIsMainHand);
 		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated();
 		ItemModificationDiagnostics.LogInstallAccepted(context, _slotDescriptor, weaponSlot, payload.Item);
@@ -532,29 +527,27 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		int _weaponBagIndex,
 		bool _addToCharacterBag = true,
 		bool _weaponIsOnGroundPanel = false,
-		int _weaponGroundSlotIndex = -1)
+		int _weaponGroundSlotIndex = -1,
+		InventorySlotView _weaponInventorySlotView = null)
 	{
 		const string context = "Runtime.TryClearModificationSlot";
-		InventorySlotRuntimeData weaponSlot;
-		if (_weaponIsOnGroundPanel)
+		if (!TryResolveWeaponForModification(
+			    _weaponIsOnGroundPanel,
+			    _weaponGroundSlotIndex,
+			    _weaponIsMainHand,
+			    _weaponBagIndex,
+			    _weaponInventorySlotView,
+			    out InventorySlotRuntimeData weaponSlot,
+			    out bool resolvedIsMainHand,
+			    out int resolvedBagIndex,
+			    out bool resolvedIsOnGroundPanel,
+			    out int resolvedGroundSlotIndex))
 		{
-			if (!TryGetGroundWeaponSlot(_weaponGroundSlotIndex, out _, out weaponSlot))
-			{
-				ItemModificationDiagnostics.LogFlowRejected(context, "resolve_weapon", $"ground weapon slot {_weaponGroundSlotIndex} not found");
-				return false;
-			}
-		}
-		else
-		{
-			CharacterInventory inventory = ActiveInventory;
-			if (inventory == null || !inventory.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out weaponSlot))
-			{
-				ItemModificationDiagnostics.LogFlowRejected(
-					context,
-					"resolve_weapon",
-					$"character weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex})");
-				return false;
-			}
+			ItemModificationDiagnostics.LogFlowRejected(
+				context,
+				"resolve_weapon",
+				$"character weapon not found (mainHand={_weaponIsMainHand}, bagIndex={_weaponBagIndex})");
+			return false;
 		}
 
 		if (!ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
@@ -564,11 +557,11 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		CharacterInventory inventoryForReload = ActiveInventory;
-		bool useEquippedMagazineReload = !_weaponIsOnGroundPanel &&
+		bool useEquippedMagazineReload = !resolvedIsOnGroundPanel &&
 		                                 WeaponMagazineModificationApplier.IsMagazineSlot(_slotDescriptor) &&
 		                                 inventoryForReload != null &&
 		                                 WeaponMagazineModificationApplier.IsEquippedMainHandWeapon(
-			                                 inventoryForReload, _weaponIsMainHand, weaponSlot);
+			                                 inventoryForReload, resolvedIsMainHand, weaponSlot);
 
 		if (useEquippedMagazineReload)
 		{
@@ -612,15 +605,15 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!ItemModificationUtility.TryClearSlot(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
 			return false;
 
-		if (_weaponIsOnGroundPanel)
+		if (resolvedIsOnGroundPanel)
 		{
-			if (!TryCommitGroundWeaponSlot(_weaponGroundSlotIndex, weaponSlot))
+			if (!TryCommitGroundWeaponSlot(resolvedGroundSlotIndex, weaponSlot))
 			{
 				ItemModificationDiagnostics.LogFlowRejected(context, "commit_weapon", "failed to commit ground weapon slot after clear");
 				return false;
 			}
 		}
-		else if (!ActiveInventory.TrySetInventorySlot(_weaponIsMainHand, _weaponBagIndex, weaponSlot))
+		else if (!TryCommitCharacterWeaponAfterModification(resolvedIsMainHand, resolvedBagIndex, weaponSlot, _weaponInventorySlotView))
 		{
 			ItemModificationDiagnostics.LogFlowRejected(context, "commit_weapon", "TrySetInventorySlot failed after clear");
 			return false;
@@ -637,10 +630,10 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		{
 			if (!TryPlaceEjectedModificationOnGround(ActiveInventory, removedItem))
 			{
-				if (_weaponIsOnGroundPanel)
+				if (resolvedIsOnGroundPanel)
 				{
 					ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, removedItem, out _);
-					TryCommitGroundWeaponSlot(_weaponGroundSlotIndex, weaponSlot);
+					TryCommitGroundWeaponSlot(resolvedGroundSlotIndex, weaponSlot);
 				}
 				else
 					ActiveInventory?.TryAdd(removedItem);
@@ -651,7 +644,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			}
 		}
 
-		RefreshEquippedMainHandVisualsIfNeeded(_weaponIsMainHand);
+		RefreshEquippedMainHandVisualsIfNeeded(resolvedIsMainHand);
 		NotifyInventoryMutated();
 		ItemModificationDiagnostics.LogClearAccepted(context, _slotDescriptor, weaponSlot, removedItem);
 		return true;
@@ -669,7 +662,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			_drag.WeaponBagIndex,
 			_addToCharacterBag: true,
 			_weaponIsOnGroundPanel: _drag.WeaponIsOnGroundPanel,
-			_weaponGroundSlotIndex: _drag.WeaponGroundSlotIndex);
+			_weaponGroundSlotIndex: _drag.WeaponGroundSlotIndex,
+			_weaponInventorySlotView: _drag.WeaponInventorySlotView);
 	}
 
 	public bool TryEjectModificationSlotToGround(RuntimeModificationSlotDrag _drag)
@@ -684,7 +678,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			_drag.WeaponBagIndex,
 			_addToCharacterBag: false,
 			_weaponIsOnGroundPanel: _drag.WeaponIsOnGroundPanel,
-			_weaponGroundSlotIndex: _drag.WeaponGroundSlotIndex);
+			_weaponGroundSlotIndex: _drag.WeaponGroundSlotIndex,
+			_weaponInventorySlotView: _drag.WeaponInventorySlotView);
 	}
 
 	public bool IsScreenPointOverCharacterPanel(Vector2 _screenPosition, Camera _eventCamera)
@@ -1416,6 +1411,113 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		_weaponSlot = MissionPrepInventoryCopyUtility.CloneSlot(_slotView.Data);
 		return ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
+	}
+
+	private bool TryValidateGroundModificationDragSource(RuntimeInventoryModificationDragPayload _payload)
+	{
+		if (_payload.SourceKind != RuntimeInventoryModificationDragSourceKind.GroundPanel || GroundPanel == null)
+			return false;
+
+		InventorySlotView sourceSlot = RuntimeInventoryModificationDragContext.SourceSlotView;
+		if (sourceSlot != null &&
+		    sourceSlot.HasItem &&
+		    ItemModificationUtility.IsModificationItem(sourceSlot.Data))
+			return true;
+
+		return _payload.SlotIndex >= 0 && _payload.SlotIndex < GroundPanel.Slots.Count;
+	}
+
+	private bool TryResolveWeaponForModification(
+		bool _weaponIsOnGroundPanel,
+		int _weaponGroundSlotIndex,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex,
+		InventorySlotView _weaponInventorySlotView,
+		out InventorySlotRuntimeData _weaponSlot,
+		out bool _resolvedIsMainHand,
+		out int _resolvedBagIndex,
+		out bool _resolvedIsOnGroundPanel,
+		out int _resolvedGroundSlotIndex)
+	{
+		_weaponSlot = default;
+		_resolvedIsMainHand = _weaponIsMainHand;
+		_resolvedBagIndex = _weaponBagIndex;
+		_resolvedIsOnGroundPanel = _weaponIsOnGroundPanel;
+		_resolvedGroundSlotIndex = _weaponGroundSlotIndex;
+
+		if (_weaponIsOnGroundPanel)
+		{
+			if (TryGetGroundWeaponSlot(_weaponGroundSlotIndex, out _, out _weaponSlot))
+				return true;
+
+			if (_weaponInventorySlotView != null &&
+			    _weaponInventorySlotView.HasItem &&
+			    ItemModificationUtility.IsModifiableWeapon(_weaponInventorySlotView.Data.Definition))
+			{
+				_weaponSlot = MissionPrepInventoryCopyUtility.CloneSlot(_weaponInventorySlotView.Data);
+				return true;
+			}
+
+			return false;
+		}
+
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory != null &&
+		    inventory.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData inventoryWeapon) &&
+		    !inventoryWeapon.IsEmpty)
+		{
+			_weaponSlot = inventoryWeapon;
+			return true;
+		}
+
+		if (_weaponInventorySlotView != null &&
+		    TryResolveModificationToggleTarget(
+			    _weaponInventorySlotView,
+			    out bool isGroundSlot,
+			    out int groundSlotIndex,
+			    out bool isMainHand,
+			    out int bagIndex,
+			    out InventorySlotRuntimeData resolvedWeaponSlot))
+		{
+			if (isGroundSlot)
+			{
+				_resolvedIsOnGroundPanel = true;
+				_resolvedGroundSlotIndex = groundSlotIndex;
+				_resolvedIsMainHand = false;
+				_resolvedBagIndex = -1;
+			}
+			else
+			{
+				_resolvedIsMainHand = isMainHand;
+				_resolvedBagIndex = bagIndex;
+			}
+
+			_weaponSlot = resolvedWeaponSlot;
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryCommitCharacterWeaponAfterModification(
+		bool _isMainHand,
+		int _bagIndex,
+		InventorySlotRuntimeData _weaponSlot,
+		InventorySlotView _weaponInventorySlotView)
+	{
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory != null && inventory.TrySetInventorySlot(_isMainHand, _bagIndex, _weaponSlot))
+			return true;
+
+		if (_weaponInventorySlotView == null)
+			return false;
+
+		_weaponInventorySlotView.SetItem(_weaponSlot);
+		if (inventory != null &&
+		    TryResolveCharacterSlot(_weaponInventorySlotView, out bool resolvedMainHand, out int resolvedBagIndex))
+			return inventory.TrySetInventorySlot(resolvedMainHand, resolvedBagIndex, _weaponSlot);
+
+		return _weaponInventorySlotView.HasItem;
 	}
 
 	private bool TryCommitGroundWeaponSlot(int _groundSlotIndex, InventorySlotRuntimeData _weaponSlot)

@@ -7511,7 +7511,7 @@ GameObject:
   - component: {fileID: 8412401315927888462}
   - component: {fileID: 8082661923994252123}
   - component: {fileID: 3544168995589682661}
-  - component: {fileID: 9876543210987654321}
+  - component: {fileID: 2876543210987654320}
   - component: {fileID: 9123456789012345678}
   m_Layer: 7
   m_Name: PlayerUnit
@@ -7898,7 +7898,7 @@ MonoBehaviour:
   m_MagazineLoadingController: {fileID: 0}
   m_WeaponReloadController: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
-  m_LeftHandIk: {fileID: 9876543210987654321}
+  m_LeftHandIk: {fileID: 2876543210987654320}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
 --- !u!114 &3806570450536705422
@@ -8294,7 +8294,7 @@ MonoBehaviour:
   m_MalfunctionBoltRearmDelaySeconds: 0.08
   m_MalfunctionClickSound: {fileID: 0}
   m_DebugLastJamRoll: 
---- !u!114 &9876543210987654321
+--- !u!114 &2876543210987654320
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

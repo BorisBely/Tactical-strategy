@@ -10,7 +10,8 @@ public enum CaliberType
 	NineByNineteen = 1,
 	Five45By39 = 2,
 	Five56By45 = 3,
-	TwelveGauge = 4
+	TwelveGauge = 4,
+	Seven62By39 = 5
 }
 
 /// <summary>
@@ -64,12 +65,14 @@ public enum WeaponAttachmentSlotType
 	/// <summary>Прицел. Один слот.</summary>
 	Optic = 3,
 	/// <summary>Приклад. Один слот на оружиях, где приклад рассматривается как сменный модуль.</summary>
-	Stock = 4
+	Stock = 4,
+	/// <summary>Боковая планка (для АК-платформы): прицелы с креплением Side rail. Взаимоисключаем с <see cref="Optic"/>, если оба слота есть на оружии.</summary>
+	SideRail = 5
 }
 
 /// <summary>
 /// Вид модуля. Слот: дульные → <see cref="WeaponAttachmentSlotType.Muzzle"/>; рукоятка/сошки/ПГ → <see cref="WeaponAttachmentSlotType.UnderBarrel"/>;
-/// фонарик/ЛЦУ → <see cref="WeaponAttachmentSlotType.Rail"/>; прицел → <see cref="WeaponAttachmentSlotType.Optic"/>; приклад → <see cref="WeaponAttachmentSlotType.Stock"/>.
+/// фонарик/ЛЦУ → <see cref="WeaponAttachmentSlotType.Rail"/>; прицел → <see cref="WeaponAttachmentSlotType.Optic"/>; боковая планка АК → <see cref="WeaponAttachmentSlotType.SideRail"/>; приклад → <see cref="WeaponAttachmentSlotType.Stock"/>.
 /// </summary>
 public enum WeaponAttachmentType
 {

@@ -19,6 +19,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 
 	[Header("Aim Conditions")]
 	[Tooltip("Если true, AimProgress растёт только когда оружие в ready.")]
@@ -77,6 +78,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_BusyState = GetComponent<UnitBusyState>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 	}
 
 	private void OnEnable()
@@ -138,6 +141,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_BlockDuringReloadOrBoltCycle &&
 			m_ReloadController != null &&
 			m_ReloadController.IsReloadBusy)
+			return false;
+
+		if (m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine)
 			return false;
 
 		return true;

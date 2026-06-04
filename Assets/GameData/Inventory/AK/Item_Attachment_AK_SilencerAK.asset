@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Attachment_AK_SilencerAK
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.attachment.ak_silencer
+  m_Description: AK-series suppressor.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 760
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 6675311817834990060, guid: c93ccd5c16534954ba56544c78dd0ca3, type: 3}
+  m_EquippedVisualPrefab: {fileID: 7117365542808373847, guid: 00670691ef82c2f498a3516c7db80987, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 11400000, guid: e79b10f9d6f66564e87b9872d9ad9004, type: 2}

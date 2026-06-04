@@ -40,6 +40,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private Transform m_MuzzleModuleVisualSocket;
 	[Tooltip("Коллиматор / оптика. Не совмещать с Sight Pivot (конус зрения / LOS).")]
 	[SerializeField] private Transform m_OpticModuleVisualSocket;
+	[Tooltip("Боковая планка (АК): прицелы Side rail. Пусто — слот не используется на этом оружии.")]
+	[SerializeField] private Transform m_SideRailModuleVisualSocket;
 	[Tooltip("Приклад (слот Stock).")]
 	[SerializeField] private Transform m_StockSocket;
 	[Tooltip("Рукоятка / упор под стволом (слот UnderBarrel).")]
@@ -56,6 +58,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private GameObject[] m_DefaultOpticVisuals;
 	[Tooltip("Дефолтный приклад, который нужно выключать при установленном Stock-модуле и возвращать при снятии.")]
 	[SerializeField] private GameObject[] m_DefaultStockVisuals;
+	[Tooltip("Визуал пикатинни-планки под прицел. Скрывается при установленном модуле в SideRail.")]
+	[SerializeField] private GameObject[] m_OpticRailMountVisuals;
+	[Tooltip("Визуал боковой планки. Скрывается при установленном модуле в Optic.")]
+	[SerializeField] private GameObject[] m_SideRailMountVisuals;
 	#endregion
 
 	#region Serialized Fields — прочее
@@ -88,6 +94,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	/// <summary>Сокет визуала прицела; null если не настроен.</summary>
 	public Transform OpticModuleVisualSocket => m_OpticModuleVisualSocket;
+
+	/// <summary>Сокет боковой планки; null если не настроен.</summary>
+	public Transform SideRailModuleVisualSocket => m_SideRailModuleVisualSocket;
 
 	/// <summary>Сокет приклада; null если не настроен.</summary>
 	public Transform StockSocketTransform => m_StockSocket;
@@ -150,6 +159,49 @@ public sealed class EquippedWeapon : MonoBehaviour
 		DisablePhysicsOnEquippedVisual(m_InsertedMagazineVisualInstance);
 	}
 
+	/// <summary>Снимает визуал магазина с сокета без уничтожения (для переноса в руку при перезарядке).</summary>
+	public GameObject TryDetachInsertedMagazineVisual()
+	{
+		GameObject instance = m_InsertedMagazineVisualInstance;
+		m_InsertedMagazineVisualInstance = null;
+		m_CurrentMagazineVisualDefinition = null;
+		if (instance == null)
+			return null;
+
+		instance.transform.SetParent(null, true);
+		return instance;
+	}
+
+	/// <summary>Регистрирует уже существующий инстанс как визуал магазина в сокете (после переноса из руки).</summary>
+	public void AcceptTransferredMagazineVisual(GameObject _instance, ItemDefinition _magazineDefinition)
+	{
+		if (_instance == null || m_MagazineSocket == null)
+		{
+			ClearInsertedMagazineVisual();
+			return;
+		}
+
+		if (m_InsertedMagazineVisualInstance != null && m_InsertedMagazineVisualInstance != _instance)
+			Destroy(m_InsertedMagazineVisualInstance);
+
+		m_InsertedMagazineVisualInstance = _instance;
+		m_CurrentMagazineVisualDefinition = _magazineDefinition;
+	}
+
+	/// <summary>Выравнивает визуал магазина в сокете (после прерванного переноса из руки).</summary>
+	public void SnapInsertedMagazineVisualToSocketOrigin()
+	{
+		if (m_InsertedMagazineVisualInstance == null || m_MagazineSocket == null)
+			return;
+
+		Transform visualTransform = m_InsertedMagazineVisualInstance.transform;
+		if (visualTransform.parent != m_MagazineSocket)
+			visualTransform.SetParent(m_MagazineSocket, false);
+
+		visualTransform.localPosition = Vector3.zero;
+		visualTransform.localRotation = Quaternion.identity;
+	}
+
 	public void ClearInsertedMagazineVisual()
 	{
 		m_CurrentMagazineVisualDefinition = null;
@@ -174,6 +226,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (_weapon == null)
 		{
 			RefreshDefaultPartVisibility(false, false);
+			RefreshOpticMountVisibility(false, false);
 			return;
 		}
 
@@ -181,10 +234,12 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (slots == null || slots.Length == 0)
 		{
 			RefreshDefaultPartVisibility(false, false);
+			RefreshOpticMountVisibility(false, false);
 			return;
 		}
 
 		bool hasOpticModule = false;
+		bool hasSideRailModule = false;
 		bool hasStockModule = false;
 		int railVisualIndex = 0;
 		for (int i = 0; i < slots.Length; i++)
@@ -204,7 +259,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 				continue;
 			}
 
-			if (slotType == WeaponAttachmentSlotType.Optic || def.AttachmentType == WeaponAttachmentType.Optic)
+			if (slotType == WeaponAttachmentSlotType.SideRail)
+				hasSideRailModule = true;
+			else if (slotType == WeaponAttachmentSlotType.Optic || def.AttachmentType == WeaponAttachmentType.Optic)
 				hasOpticModule = true;
 			else if (slotType == WeaponAttachmentSlotType.Stock)
 				hasStockModule = true;
@@ -225,7 +282,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 				m_UnderBarrelForegripVisualInstance = inst;
 		}
 
-		RefreshDefaultPartVisibility(hasOpticModule, hasStockModule);
+		RefreshDefaultPartVisibility(hasOpticModule || hasSideRailModule, hasStockModule);
+		RefreshOpticMountVisibility(hasOpticModule, hasSideRailModule);
 	}
 
 	/// <summary>
@@ -251,6 +309,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	{
 		ClearAttachmentVisualsInternal();
 		RefreshDefaultPartVisibility(false, false);
+		RefreshOpticMountVisibility(false, false);
 	}
 
 	/// <summary>Копирует пресет с префаба в состояние экземпляра, если в <paramref name="_weaponState"/> ещё нет ни одного модуля (лут на сцене).</summary>
@@ -304,7 +363,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 	{
 		SyncGameplayAnchorsFromModuleSockets();
 		if (!Application.isPlaying)
+		{
 			RefreshDefaultPartVisibility(false, false);
+			RefreshOpticMountVisibility(false, false);
+		}
 	}
 #endif
 
@@ -398,6 +460,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 				return m_MuzzleModuleVisualSocket;
 			case WeaponAttachmentSlotType.Optic:
 				return m_OpticModuleVisualSocket;
+			case WeaponAttachmentSlotType.SideRail:
+				return m_SideRailModuleVisualSocket != null ? m_SideRailModuleVisualSocket : m_OpticModuleVisualSocket;
 			case WeaponAttachmentSlotType.UnderBarrel:
 				return m_UnderBarrelSocket;
 			case WeaponAttachmentSlotType.Stock:
@@ -440,6 +504,12 @@ public sealed class EquippedWeapon : MonoBehaviour
 	{
 		SetVisualGroupActive(m_DefaultOpticVisuals, !_hasOpticModule);
 		SetVisualGroupActive(m_DefaultStockVisuals, !_hasStockModule);
+	}
+
+	private void RefreshOpticMountVisibility(bool _hasPicatinnyOpticModule, bool _hasSideRailOpticModule)
+	{
+		SetVisualGroupActive(m_OpticRailMountVisuals, !_hasSideRailOpticModule);
+		SetVisualGroupActive(m_SideRailMountVisuals, !_hasPicatinnyOpticModule);
 	}
 
 	private static void SetVisualGroupActive(GameObject[] _visuals, bool _isActive)

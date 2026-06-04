@@ -1,0 +1,123 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc046679fd84d7e48a9da9021c9ece51, type: 3}
+  m_Name: Weapon_AK47
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  m_WeaponClass: 2
+  m_SupportedCaliber: 5
+  m_SupportedMagazineType: 2
+  m_AvailableFireModes: 0000000001000000
+  m_DefaultFireMode: 0
+  m_AttachmentSlots:
+  - SlotType: 0
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 3
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 5
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 4
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 1
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 2
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 2
+    IsRequired: 0
+    AnchorChildName: 
+  - SlotType: 2
+    IsRequired: 0
+    AnchorChildName: 
+  m_FireRateRpm: 600
+  m_SemiAutoFireRateRpm: 0
+  m_AimTimeSeconds: 0.32
+  m_ReloadTimeSeconds: 2.4
+  m_EffectiveRangeMeters: 350
+  m_BaseShotDispersion: 1
+  m_DistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  m_RecoilPerShot: 1
+  m_SemiAutoRecoilMultiplier: 0.85
+  m_AutoRecoilMultiplier: 1.25
+  m_RecoilRecoveryPerSecond: 3.5
+  m_BurstRounds: 3
+  m_BurstPauseSeconds: 0.12
+  m_FireSound: {fileID: 0}
+  m_FireSoundVolume: 1
+  m_FirePitchVariance: 0.04
+  m_FireModeSwitchSound: {fileID: 0}
+  m_FireModeSwitchSoundVolume: 0.85
+  m_ReloadMagOutSound: {fileID: 0}
+  m_ReloadMagInSound: {fileID: 0}
+  m_BoltCycleSound: {fileID: 0}
+  m_HasBoltHoldOpenDelay: 0
+  m_ReloadBoltHoldOpenDelaySound: {fileID: 0}
+  m_ReloadSoundsVolume: 1
+  m_Reliability: 0.8
+  m_BaseDurability: 2000
+  m_BaseFoulingBudget: 1500
+  m_WearJamStartThreshold: 0
+  m_FoulingJamStartThreshold: 0
+  m_WearJamInfluence: 1
+  m_FoulingJamInfluence: 1

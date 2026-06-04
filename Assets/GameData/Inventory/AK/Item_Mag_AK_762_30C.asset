@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Mag_AK_762_30C
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.mag.ak_762_30c
+  m_Description: 30-round 7.62x39 AK coupled magazine.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 120
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 8947876732185378855, guid: 2ddd11ee62000bd429faaa1bca90dcb8, type: 3}
+  m_EquippedVisualPrefab: {fileID: 1324347631129189776, guid: b5eafe703a1d13a429a0c1335c6ab021, type: 3}
+  m_RightHandLocalPosition: {x: -0.114, y: -0.062, z: -0.02}
+  m_RightHandLocalEulerAngles: {x: -56.973, y: 214.588, z: 317.758}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 11400000, guid: 31750b7cf89e1f440ba9938285657041, type: 2}
+  m_WeaponAttachmentDefinition: {fileID: 0}

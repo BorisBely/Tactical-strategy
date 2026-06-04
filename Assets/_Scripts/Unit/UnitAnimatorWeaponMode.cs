@@ -147,7 +147,6 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 			targetLeaf = _stance switch
 			{
 				(int)LocomotionStance.Crouch => "Crouch_Idle",
-				// Имя стейта в UnitAnimController: Locomotion_Unarmed.Stand_Relaxed_Idle
 				_ => "Stand_Relaxed_Idle"
 			};
 		}

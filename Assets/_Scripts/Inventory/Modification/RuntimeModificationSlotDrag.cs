@@ -27,6 +27,7 @@ public sealed class RuntimeModificationSlotDrag : MonoBehaviour, IBeginDragHandl
 	public int WeaponBagIndex => m_SlotView != null ? m_SlotView.WeaponBagIndex : -1;
 	public bool WeaponIsOnGroundPanel => m_SlotView != null && m_SlotView.WeaponIsOnGroundPanel;
 	public int WeaponGroundSlotIndex => m_SlotView != null ? m_SlotView.WeaponGroundSlotIndex : -1;
+	public InventorySlotView WeaponInventorySlotView => m_SlotView != null ? m_SlotView.WeaponInventorySlotView : null;
 	#endregion
 
 	#region Unity Lifecycle

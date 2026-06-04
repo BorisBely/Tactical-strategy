@@ -88,19 +88,19 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		SyncAttachmentVisuals();
 	}
 
-	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem)
+	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem, bool _syncVisual = true)
 	{
 		if (m_BoundWeaponState == null)
 			return false;
 
 		bool inserted = m_BoundWeaponState.TryInsertMagazine(_magazineItem);
-		if (inserted)
+		if (inserted && _syncVisual)
 			SyncInsertedMagazineVisual();
 
 		return inserted;
 	}
 
-	public bool TryEjectMagazine(out InventorySlotRuntimeData _magazineItem)
+	public bool TryEjectMagazine(out InventorySlotRuntimeData _magazineItem, bool _syncVisual = true)
 	{
 		if (m_BoundWeaponState == null)
 		{
@@ -109,10 +109,15 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		}
 
 		bool ejected = m_BoundWeaponState.TryEjectMagazine(out _magazineItem);
-		if (ejected)
+		if (ejected && _syncVisual)
 			SyncInsertedMagazineVisual();
 
 		return ejected;
+	}
+
+	public void SyncInsertedMagazineVisualFromState()
+	{
+		SyncInsertedMagazineVisual();
 	}
 
 	public bool TryLoadRoundIntoInsertedMagazine(AmmoDefinition _ammoDefinition)

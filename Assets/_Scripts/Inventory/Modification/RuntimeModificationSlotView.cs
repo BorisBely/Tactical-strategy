@@ -17,6 +17,7 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 	private RuntimeInventoryModificationCoordinator m_Coordinator;
 	private ItemModificationSlotDescriptor m_Descriptor;
 	private InventorySlotRuntimeData m_WeaponSlot;
+	private InventorySlotView m_WeaponInventorySlotView;
 	private bool m_WeaponIsMainHand;
 	private int m_WeaponBagIndex;
 	private bool m_WeaponIsOnGroundPanel;
@@ -30,6 +31,7 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 
 	#region Public Properties
 	public ItemModificationSlotDescriptor Descriptor => m_Descriptor;
+	public InventorySlotView WeaponInventorySlotView => m_WeaponInventorySlotView;
 	public bool WeaponIsMainHand => m_WeaponIsMainHand;
 	public int WeaponBagIndex => m_WeaponBagIndex;
 	public bool WeaponIsOnGroundPanel => m_WeaponIsOnGroundPanel;
@@ -50,11 +52,13 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 		bool _weaponIsMainHand,
 		int _weaponBagIndex,
 		bool _weaponIsOnGroundPanel = false,
-		int _weaponGroundSlotIndex = -1)
+		int _weaponGroundSlotIndex = -1,
+		InventorySlotView _weaponInventorySlotView = null)
 	{
 		m_Coordinator = _coordinator;
 		m_Descriptor = _descriptor;
 		m_WeaponSlot = _weaponSlot;
+		m_WeaponInventorySlotView = _weaponInventorySlotView;
 		m_WeaponIsMainHand = _weaponIsMainHand;
 		m_WeaponBagIndex = _weaponBagIndex;
 		m_WeaponIsOnGroundPanel = _weaponIsOnGroundPanel;
@@ -102,12 +106,16 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 		if (m_Coordinator == null)
 			return;
 
+		if (!RuntimeInventoryModificationDragContext.Current.HasItem)
+			return;
+
 		if (!m_Coordinator.TryInstallModificationFromDrag(
 			    m_Descriptor,
 			    m_WeaponIsMainHand,
 			    m_WeaponBagIndex,
 			    m_WeaponIsOnGroundPanel,
-			    m_WeaponGroundSlotIndex))
+			    m_WeaponGroundSlotIndex,
+			    m_WeaponInventorySlotView))
 			return;
 
 		NotifyDragDropAccepted(eventData);
@@ -139,7 +147,8 @@ public sealed class RuntimeModificationSlotView : MonoBehaviour, IDropHandler, I
 			m_WeaponBagIndex,
 			_addToCharacterBag: true,
 			m_WeaponIsOnGroundPanel,
-			m_WeaponGroundSlotIndex);
+			m_WeaponGroundSlotIndex,
+			m_WeaponInventorySlotView);
 
 		if (!cleared)
 			ItemModificationDiagnostics.LogClearRejected(

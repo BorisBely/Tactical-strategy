@@ -26,6 +26,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 
 	[Header("Условия прицела")]
@@ -126,6 +127,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponentInParent<UnitWeaponReloadController>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
 
@@ -314,12 +317,14 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		                    m_ReloadController != null &&
 		                    m_ReloadController.IsReloadBusy;
 
-		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks;
+		bool magazineLoadingBlocks = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
+
+		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks && !magazineLoadingBlocks;
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
 		bool reloadNeedsAimLayerClips = m_ReloadController != null && m_ReloadController.IsReloadBusy;
-		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks;
+		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !magazineLoadingBlocks;
 		float targetLayer = canUseAimLayerForStance && (reloadNeedsAimLayerClips || aimLayerHoldForCombat) ? 1f : 0f;
 
 		if (reloadNeedsAimLayerClips)

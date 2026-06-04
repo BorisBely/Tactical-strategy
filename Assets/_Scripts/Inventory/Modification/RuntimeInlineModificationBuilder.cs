@@ -126,7 +126,8 @@ public static class RuntimeInlineModificationBuilder
 				_isMainHand,
 				_bagIndex,
 				_isGroundWeapon,
-				_groundSlotIndex);
+				_groundSlotIndex,
+				_weaponSlot);
 		}
 	}
 

@@ -637,6 +637,7 @@ MonoBehaviour:
   m_MagazineSocket: {fileID: 180250356759457183}
   m_MuzzleModuleVisualSocket: {fileID: 5734274673481487383}
   m_OpticModuleVisualSocket: {fileID: 9183550955289704378}
+  m_SideRailModuleVisualSocket: {fileID: 0}
   m_StockSocket: {fileID: 2008093310157579996}
   m_UnderBarrelSocket: {fileID: 856216492645860028}
   m_RailSockets:
@@ -645,10 +646,11 @@ MonoBehaviour:
   - {fileID: 6003639994823439501}
   m_EquippedAttachments: []
   m_DefaultOpticVisuals:
-  - {fileID: 8306901439523733323}
   - {fileID: 6071062371551320363}
   m_DefaultStockVisuals:
   - {fileID: 6675697268666104352}
+  m_OpticRailMountVisuals: []
+  m_SideRailMountVisuals: []
   m_VisualRecoilKickPivot: {fileID: 0}
   m_DrawBarrelDebugRay: 0
   m_BarrelDebugRayLength: 4

@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a5279770b2553d4c8dd9c79c2f07095, type: 3}
+  m_Name: Attachment_M4_MuzzleBrakeM4
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponAttachmentDefinition
+  m_AttachmentType: 2
+  m_RequiredSlot: 0
+  m_UseExplicitWeaponCompatibility: 1
+  m_CompatibleWeapons:
+  - {fileID: 11400000, guid: f5b8c44e3f183b14c9d5550a0440a6d4, type: 2}
+  - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
+  m_CompatibleSlots: 00000000
+  m_CompatibleRailSocketIndices: 
+  m_AimTimeModifier: 1.02
+  m_EffectiveRangeModifier: 1
+  m_RecoilModifier: 0.82
+  m_ReloadTimeModifier: 1
+  m_DistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  m_WearPerShotMultiplier: 1
+  m_FoulingPerShotMultiplier: 1
+  m_JamRiskModifier: 1
+  m_SuppressedFireSound: {fileID: 0}
+  m_EquippedVisualPrefab: {fileID: 7625913517982822666, guid: 57afe278cf2a31e4abb3372390dae5f3, type: 3}

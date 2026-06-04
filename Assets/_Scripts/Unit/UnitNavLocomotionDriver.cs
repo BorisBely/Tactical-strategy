@@ -93,7 +93,15 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_EngageDirectionSmoothTime = 0.055f;
 	[SerializeField, Min(0.01f)] private float m_StopVelocityEpsilon = 0.08f;
 	[SerializeField, Range(0.35f, 1f)] private float m_StartNavSpeedFloor = 0.88f;
+	[Tooltip("StartNavSpeedFloor не выше фактической скорости + этот запас (0–1 по шкале Sprint). Убирает скольжение, когда параметр «убегает» вперёд тела.")]
+	[SerializeField, Range(0f, 0.25f)] private float m_StartNavSpeedFloorMaxLeadOverVelocity = 0.1f;
 	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
+
+	[Header("Animator playback sync")]
+	[Tooltip("Множитель Animator.speed ≈ (скорость тела / NavSpeed в blend tree). Компонент RtsUnitMember умножает свой вариационный speed на это значение.")]
+	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
+	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
+	[SerializeField, Range(0.5f, 2f)] private float m_PlaybackSyncMax = 1.45f;
 	#endregion
 
 	#region Private Fields
@@ -112,12 +120,15 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private MoveTier m_PendingNavMode;
 	private float m_TargetAgentSpeed;
 	private bool m_StanceMovementWasBlocked;
+	private RtsUnitMember m_CachedRtsMember;
 	#endregion
 
 	#region Public Properties
 	public bool IsSprintMoveMode => IsSprintActive();
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 	public bool HasMoveIntent => HasActiveMoveIntent();
+	/// <summary>Множитель скорости проигрывания клипов (1 = без подстройки). См. <see cref="RtsUnitMember"/>.</summary>
+	public float AnimatorPlaybackSpeedMultiplier { get; private set; } = 1f;
 	#endregion
 
 	private bool IsSprintActive()
@@ -222,6 +233,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 
 		m_Agent.updatePosition = true;
 		m_Agent.updateRotation = false;
@@ -694,6 +706,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 				locomotionTier = 0;
 			ApplyAnimatorLocomotionTierCap(ref locomotionTier);
 			SetAnimatorLocomotionTier(locomotionTier);
+			ApplyAnimatorPlaybackSpeedOutputs(0f, 0f);
 			return;
 		}
 
@@ -701,6 +714,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (ShouldSnapEngageSteadyLocomotion(planarSpeed))
 		{
 			ApplyEngageSteadyLocomotionAnimatorOutputs();
+			ApplyAnimatorPlaybackSpeedOutputs(0f, 0f);
 			return;
 		}
 		if (IsEngagingVisibleTarget() && NavAgentHasIncompletePath())
@@ -743,7 +757,13 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			float cruise01 = Mathf.Clamp01(m_Agent.speed / m_SprintSpeed);
 			float velocity01 = Mathf.Clamp01(planarSpeed / m_SprintSpeed);
 			if (cruise01 > 0.004f && velocity01 < cruise01 * 0.55f)
-				target01 = Mathf.Max(target01, cruise01 * m_StartNavSpeedFloor);
+			{
+				float floorTarget = cruise01 * m_StartNavSpeedFloor;
+				float cappedFloor = Mathf.Min(
+					floorTarget,
+					velocity01 + m_StartNavSpeedFloorMaxLeadOverVelocity);
+				target01 = Mathf.Max(target01, cappedFloor);
+			}
 		}
 
 		float speedSmooth = target01 > m_SmoothSpeed01 + 0.002f
@@ -799,6 +819,37 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
 		SetAnimatorLocomotionTier(locomotionTierOut);
+		ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
+	}
+
+	private void ApplyAnimatorPlaybackSpeedOutputs(float _navSpeedOut, float _planarSpeed)
+	{
+		AnimatorPlaybackSpeedMultiplier = 1f;
+		if (!m_SyncAnimatorPlaybackToGroundSpeed || m_SprintSpeed < 0.01f)
+		{
+			ApplyAnimatorPlaybackSpeedDirect(1f);
+			return;
+		}
+
+		const float moveThreshold = 0.055f;
+		if (_navSpeedOut < moveThreshold || _planarSpeed < m_StopVelocityEpsilon)
+		{
+			ApplyAnimatorPlaybackSpeedDirect(1f);
+			return;
+		}
+
+		float ground01 = Mathf.Clamp01(_planarSpeed / m_SprintSpeed);
+		float ratio = ground01 / Mathf.Max(_navSpeedOut, 0.02f);
+		AnimatorPlaybackSpeedMultiplier = Mathf.Clamp(ratio, m_PlaybackSyncMin, m_PlaybackSyncMax);
+		ApplyAnimatorPlaybackSpeedDirect(AnimatorPlaybackSpeedMultiplier);
+	}
+
+	private void ApplyAnimatorPlaybackSpeedDirect(float _multiplier)
+	{
+		if (m_Animator == null || m_CachedRtsMember != null)
+			return;
+
+		m_Animator.speed = _multiplier;
 	}
 
 	private bool ShouldSnapEngageSteadyLocomotion(float _planarSpeed)

@@ -103,6 +103,15 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	/// <summary>
+	/// Немедленно вернуть визуал основного оружия и убрать магазин с левой руки
+	/// (например перед перезарядкой оружия после зарядки магазина в сумке).
+	/// </summary>
+	public void CompleteLoadingPresentationNow()
+	{
+		FinishLoadingPresentationImmediately();
+	}
+
 	public bool TryStartLoadingMagazineFromAmmoBoxes()
 	{
 		return TryStartLoadingMagazineFromAmmoBoxes(-1);
@@ -436,9 +445,6 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		if (m_Animator == null)
 			return;
 
-		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
-			return;
-
 		if (m_MagazineLoadingLayerIndex < 0)
 			ResolveMagazineLoadingLayerIndex();
 		if (m_MagazineLoadingLayerIndex < 0)
@@ -447,7 +453,10 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		float targetWeight = m_IsLoadingMagazine ? 1f : 0f;
 		float fadeSeconds = Mathf.Max(0.02f, m_LayerWeightFadeSeconds);
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, Time.deltaTime / fadeSeconds);
-		m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, m_SmoothedLayerWeight);
+
+		bool weaponReloadOwnsLayers = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;
+		if (!weaponReloadOwnsLayers)
+			m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, m_SmoothedLayerWeight);
 	}
 
 	private void ApplyMagazineLoadingLayerWeightImmediate(float _weight)

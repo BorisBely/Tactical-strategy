@@ -56,7 +56,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 7400000, guid: 7713ad82c3c7a924a8dc8002e97869d5, type: 2}
+  m_Motion: {fileID: 7400000, guid: f23f3b178b6621e41a7783d81d03879e, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -355,7 +355,7 @@ AnimatorController:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: UnitAnimController
-  serializedVersion: 5
+  serializedVersion: 6
   m_AnimatorParameters:
   - m_Name: NavSpeed
     m_Type: 1
@@ -472,6 +472,7 @@ AnimatorController:
     m_IKPass: 0
     m_SyncedLayerAffectsTiming: 0
     m_Controller: {fileID: 9100000}
+  m_EvaluateTransitionsOnStart: 0
 --- !u!1102 &110200210
 AnimatorState:
   serializedVersion: 6
@@ -689,7 +690,7 @@ AnimatorState:
   m_TimeParameter: 
 --- !u!1107 &110700000
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -733,7 +734,7 @@ AnimatorStateMachine:
   m_DefaultState: {fileID: 772010001}
 --- !u!1107 &110700110
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -751,7 +752,7 @@ AnimatorStateMachine:
     m_Position: {x: 300, y: 260, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 8849338150011110001}
-    m_Position: {x: 580, y: 270, z: 0}
+    m_Position: {x: 580, y: 260, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 110200222}
     m_Position: {x: 300, y: -30, z: 0}
@@ -773,7 +774,7 @@ AnimatorStateMachine:
   m_DefaultState: {fileID: 110200210}
 --- !u!1107 &110700120
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -799,7 +800,7 @@ AnimatorStateMachine:
   m_DefaultState: {fileID: 110200220}
 --- !u!1107 &110700200
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -830,7 +831,7 @@ AnimatorStateMachine:
   m_DefaultState: {fileID: 772010001}
 --- !u!1107 &110700201
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -845,7 +846,7 @@ AnimatorStateMachine:
     m_Position: {x: 20, y: 390, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 8388611184340939894}
-    m_Position: {x: 240, y: 320, z: 0}
+    m_Position: {x: 230, y: 320, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -2745491479197288676}
     m_Position: {x: 460, y: 320, z: 0}
@@ -870,7 +871,7 @@ AnimatorStateMachine:
   m_DefaultState: {fileID: -6175595078519263152}
 --- !u!1107 &110700202
 AnimatorStateMachine:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -908,7 +909,7 @@ BlendTree:
   m_Name: UnarmedStandLocomotionFwd
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: f0f402e7359a7df4aa0b5188149a303f, type: 2}
+    m_Motion: {fileID: 7400000, guid: 501d286a6eab1d0428f139a4254a7e8a, type: 2}
     m_Threshold: 0.207
     m_Position: {x: 0, y: 0}
     m_TimeScale: 1
@@ -5179,7 +5180,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 7400000, guid: 5bf5dcba3a6754744af3015ed480fb89, type: 2}
+  m_Motion: {fileID: 7400000, guid: 573714b1707d3534aa82fc7f22f2d896, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 

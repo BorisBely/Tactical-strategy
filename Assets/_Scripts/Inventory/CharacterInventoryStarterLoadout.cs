@@ -36,6 +36,10 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 	[Tooltip("Каждый элемент — отдельный слот (ItemDefinition с AmmoDefinition, как пачка/коробка).")]
 	[SerializeField] private ItemDefinition[] m_AmmoBoxItems;
 
+	[Header("Дополнительные предметы в сумку")]
+	[Tooltip("Любые тестовые предметы отдельными слотами: магазины, патроны, оружие или модули.")]
+	[SerializeField] private ItemDefinition[] m_ExtraItemsInBag;
+
 	[Header("Модули в сумку")]
 	[Tooltip("Предметы-модули (прицел, рукоятка, глушитель и т.д.) — отдельные слоты для теста установки на оружие.")]
 	[SerializeField] private ItemDefinition[] m_AttachmentItemsInBag;
@@ -137,6 +141,18 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 					continue;
 
 				m_Inventory.TryAdd(InventorySlotRuntimeData.FromDefinition(box));
+			}
+		}
+
+		if (m_ExtraItemsInBag != null)
+		{
+			for (int i = 0; i < m_ExtraItemsInBag.Length; i++)
+			{
+				ItemDefinition item = m_ExtraItemsInBag[i];
+				if (item == null)
+					continue;
+
+				m_Inventory.TryAdd(InventorySlotRuntimeData.FromDefinition(item));
 			}
 		}
 

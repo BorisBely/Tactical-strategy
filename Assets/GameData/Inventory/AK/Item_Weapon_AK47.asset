@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_AK47
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.ak47
+  m_Description: AK-47 rifle chambered in 7.62x39.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 2400
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 2979549775684822698, guid: 476ae17177d2dec468a68bcbfde24d3a, type: 3}
+  m_EquippedVisualPrefab: {fileID: 6059082158046521582, guid: d3d879d1d6bb6e64b88b8e3b35048c7e, type: 3}
+  m_RightHandLocalPosition: {x: 0.4233, y: 0.006, z: -0.2814}
+  m_RightHandLocalEulerAngles: {x: 8.7, y: 81.125, z: -89}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 11400000, guid: c4e8f1a23b5d6e709182a3b4c5d6e7f8, type: 2}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}

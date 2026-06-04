@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,6 +23,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_WeaponReady = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponReady);
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_AimRelaxedIdleStateHash = Animator.StringToHash("Stand_Relaxed_Idle");
+	private static readonly int s_AimRelaxedReloadStateHash = Animator.StringToHash("Stand_Relaxed_Reload");
+	private static readonly int s_AimReloadStateHash = Animator.StringToHash("Stand_Aim_Reload");
+	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
+	private const float c_ReloadClipDurationSeconds = 2.966667f;
+	private const float c_ReloadClipSampleRate = 30f;
+	/// <summary>UI install-only: начало фазы вставки (кадр 40 в DCC / в клипе перезарядки).</summary>
+	private const int c_UiInstallOnlyReloadStartFrame = 40;
 	#endregion
 
 	#region Serialized Fields
@@ -44,6 +52,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[Tooltip("После FinishWeaponReload: дополнительно блокировать стрельбу и держать IsReloadBusy на это время, пока доигрывается анимация затвора. Сбрасывается раньше, если вызван AnimationEvent_BoltMotionPresentationFinished. 0 = не блокировать после финиша (точный контроль только ивентом BoltMotionPresentationFinished).")]
 	[SerializeField, Min(0f)] private float m_BoltPresentationFireTailSeconds;
 
+	[Header("Magazine visual transfer")]
+	[Tooltip("Длительность сглаживания локальной позиции/поворота при переносе магазина между сокетом оружия и левой рукой.")]
+	[SerializeField, Min(0.01f)] private float m_MagazineVisualTransferDuration = 0.12f;
+
 	[Header("Debug")]
 	[SerializeField] private bool m_IsReloadingWeapon;
 	[SerializeField] private bool m_IsCyclingBolt;
@@ -56,6 +68,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	#region Private Fields
 	private InventorySlotRuntimeData m_PendingReplacementMagazine;
 	private GameObject m_LeftHandMagazineVisualInstance;
+	private Coroutine m_MagazineVisualTransferCoroutine;
+	private GameObject m_ActiveMagazineVisualTransferInstance;
+	private Vector3 m_ActiveMagazineVisualTransferTargetLocalPosition;
+	private Quaternion m_ActiveMagazineVisualTransferTargetLocalRotation = Quaternion.identity;
 	private bool m_ShouldStartManualMagazineLoadingAfterReload;
 	private bool m_ShouldStartReloadAfterMagazineLoading;
 	private int m_PendingReloadPreferredBagIndex = -1;
@@ -66,6 +82,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private bool m_MalfunctionStripReinsertReloadActive;
 	private bool m_UiMagazineModificationActive;
 	private bool m_UiMagazineEjectOnly;
+	/// <summary>UI-вставка в пустое оружие: только фаза insert (+ затвор при пустом патроннике), без извлечения.</summary>
+	private bool m_UiMagazineInstallOnly;
 	/// <summary>Только анимация на зеркальных юнитах пресета — без мутации сумки и без <see cref="UiMagazineModificationCompleted"/>.</summary>
 	private bool m_UiMagazineMirrorAnimationOnly;
 	private InventorySlotRuntimeData m_UiLastEjectedMagazine;
@@ -227,7 +245,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
-		AttachPendingMagazineVisualToLeftHand();
+		TryAttachPendingMagazineVisualToLeftHand();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
 		return true;
@@ -322,8 +340,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!TryValidateUiMagazineModificationStart())
 			return false;
 
-		if (m_WeaponRuntime.RuntimeState != null &&
-		    !m_WeaponRuntime.RuntimeState.CanAcceptMagazineItem(_magazineFromSource))
+		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
+		if (runtimeState != null &&
+		    !runtimeState.CanAcceptMagazineItem(_magazineFromSource))
 		{
 			m_DebugLastFailureReason = "Magazine incompatible with equipped weapon";
 			return false;
@@ -332,12 +351,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_UiMagazineModificationActive = true;
 		m_UiMagazineEjectOnly = false;
+		m_UiMagazineInstallOnly = runtimeState == null || !runtimeState.HasMagazine;
 		m_UiMagazineMirrorAnimationOnly = _mirrorAnimationOnly;
 		m_UiLastEjectedMagazine = default;
 		m_IsReloadingWeapon = true;
 		m_IsCyclingBolt = false;
 		m_BoltPresentationSuppressesFire = false;
-		m_HasEjectedCurrentMagazine = false;
+		m_HasEjectedCurrentMagazine = m_UiMagazineInstallOnly;
 		m_MagazineInsertCompletedThisReload = false;
 		m_PendingReplacementMagazine = _magazineFromSource;
 		m_ShouldStartManualMagazineLoadingAfterReload = false;
@@ -345,13 +365,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
-		AttachPendingMagazineVisualToLeftHand();
+		TryAttachPendingMagazineVisualToLeftHand();
 		SyncAnimatorState();
+		if (m_UiMagazineInstallOnly)
+			SnapAimLayerToReloadInsertPhaseForUiInstallOnly();
 		RefreshInventoryUiIfActive();
 		return true;
 	}
 
-	/// <summary>Извлечение магазина из UI модификации: снятие на animation event, без вставки замены.</summary>
+	/// <summary>Извлечение магазина из UI модификации: снятие на animation event, без вставки и затвора.</summary>
 	public bool TryStartUiMagazineEject(bool _mirrorAnimationOnly = false)
 	{
 		m_DebugLastFailureReason = null;
@@ -369,6 +391,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_UiMagazineModificationActive = true;
 		m_UiMagazineEjectOnly = true;
+		m_UiMagazineInstallOnly = false;
 		m_UiMagazineMirrorAnimationOnly = _mirrorAnimationOnly;
 		m_UiLastEjectedMagazine = default;
 		m_IsReloadingWeapon = true;
@@ -382,6 +405,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		StopMagazineVisualTransfer();
+		ClearLeftHandMagazineVisual();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
 		return true;
@@ -460,7 +485,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugFallbackMagazineBagIndex = hasReplacementMagazine ? -1 : fallbackMagazineBagIndex;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
-		AttachPendingMagazineVisualToLeftHand();
+		TryAttachPendingMagazineVisualToLeftHand();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
 		return true;
@@ -480,28 +505,38 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon || m_HasEjectedCurrentMagazine || m_WeaponRuntime == null)
 			return;
 
+		if (m_UiMagazineInstallOnly)
+			return;
+
 		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagOutSound);
 
 		if (m_MalfunctionStripReinsertReloadActive)
 		{
-			if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine))
+			GameObject detachedMagazineVisual = TryDetachWeaponMagazineVisual();
+			if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazine, _syncVisual: false))
 			{
 				m_PendingReplacementMagazine = ejectedMagazine;
 				m_HasEjectedCurrentMagazine = true;
-				AttachPendingMagazineVisualToLeftHand();
+				PresentEjectedMagazineVisual(detachedMagazineVisual, ejectedMagazine);
 			}
+			else if (detachedMagazineVisual != null)
+				Destroy(detachedMagazineVisual);
 
+			EnsurePendingReplacementMagazineInLeftHand();
 			RefreshInventoryUiIfActive();
 			return;
 		}
 
-		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazineNormal))
+		GameObject detachedWeaponMagazineVisual = TryDetachWeaponMagazineVisual();
+		if (m_WeaponRuntime.TryEjectMagazine(out InventorySlotRuntimeData ejectedMagazineNormal, _syncVisual: false))
 		{
 			if (m_UiMagazineModificationActive)
 				m_UiLastEjectedMagazine = ejectedMagazineNormal;
 
 			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly)
-				AttachMagazineVisualToLeftHand(ejectedMagazineNormal);
+				PresentEjectedMagazineVisual(detachedWeaponMagazineVisual, ejectedMagazineNormal);
+			else if (detachedWeaponMagazineVisual != null)
+				Destroy(detachedWeaponMagazineVisual);
 
 			if (m_CharacterInventory != null &&
 			    !m_UiMagazineMirrorAnimationOnly &&
@@ -511,10 +546,25 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 				if (m_CharacterInventory.TryAdd(ejectedMagazineNormal) && m_ShouldStartManualMagazineLoadingAfterReload)
 					m_DebugFallbackMagazineBagIndex = bagIndexBeforeAdd;
 			}
+
 		}
+		else if (detachedWeaponMagazineVisual != null)
+			Destroy(detachedWeaponMagazineVisual);
 
 		m_HasEjectedCurrentMagazine = true;
+		EnsurePendingReplacementMagazineInLeftHand();
 		RefreshInventoryUiIfActive();
+
+		if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly)
+		{
+			if (!m_UiLastEjectedMagazine.IsEmpty)
+			{
+				SnapAimLayerOutOfReloadAfterUiEjectOnly();
+				FinalizeReloadSequenceAndMaybeChainManualLoad();
+			}
+			else
+				StopReloadInternal(false);
+		}
 	}
 
 	/// <summary>
@@ -528,29 +578,23 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_PendingReplacementMagazine.IsEmpty)
 		{
-			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly && m_HasEjectedCurrentMagazine)
-			{
-				WeaponDefinition ejectOnlyWeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
-				if (ejectOnlyWeaponDefinition != null && !ejectOnlyWeaponDefinition.HasBoltHoldOpenDelay)
-				{
-					m_BoltPresentationSuppressesFire = true;
-					m_IsReloadingWeapon = false;
-					m_IsCyclingBolt = true;
-					SyncAnimatorState();
-				}
-				else
-					FinalizeReloadSequenceAndMaybeChainManualLoad();
-
+			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly)
 				return;
-			}
 
 			if (m_ShouldStartManualMagazineLoadingAfterReload)
 				FinalizeReloadSequenceAndMaybeChainManualLoad();
 			return;
 		}
 
-		if (!m_WeaponRuntime.TryInsertMagazine(m_PendingReplacementMagazine))
+		EnsurePendingReplacementMagazineInLeftHand();
+
+		ItemDefinition insertedMagazineDefinition = m_PendingReplacementMagazine.Definition;
+		GameObject handMagazineVisual = m_LeftHandMagazineVisualInstance;
+		m_LeftHandMagazineVisualInstance = null;
+
+		if (!m_WeaponRuntime.TryInsertMagazine(m_PendingReplacementMagazine, _syncVisual: handMagazineVisual == null))
 		{
+			m_LeftHandMagazineVisualInstance = handMagazineVisual;
 			StopReloadInternal(true);
 			return;
 		}
@@ -562,10 +606,21 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_MalfunctionController.OnMalfunctionStripReloadInsertComplete();
 
 		m_PendingReplacementMagazine = default;
-		ClearLeftHandMagazineVisual();
+
+		if (handMagazineVisual != null)
+			TransferMagazineVisualToWeaponSocket(handMagazineVisual, insertedMagazineDefinition);
+		else
+			m_WeaponRuntime.SyncInsertedMagazineVisualFromState();
+
 		RefreshInventoryUiIfActive();
 
 		WeaponDefinition weaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
+		if (ShouldSkipBoltCycleAfterUiMagazineInstall())
+		{
+			FinalizeUiMagazineInstallOnlyWithoutBolt();
+			return;
+		}
+
 		if (weaponDefinition != null && !weaponDefinition.HasBoltHoldOpenDelay)
 		{
 			m_BoltPresentationSuppressesFire = true;
@@ -590,6 +645,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (!m_MagazineInsertCompletedThisReload)
 			return;
+
+		if (ShouldSkipBoltCycleAfterUiMagazineInstall())
+		{
+			FinalizeUiMagazineInstallOnlyWithoutBolt();
+			return;
+		}
 
 		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadBoltHoldOpenDelaySound);
 		m_WeaponRuntime.TryChamberRoundFromMagazine();
@@ -887,6 +948,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_WasAimReloadBusy = false;
 		m_UiMagazineModificationActive = false;
 		m_UiMagazineEjectOnly = false;
+		m_UiMagazineInstallOnly = false;
 		m_UiMagazineMirrorAnimationOnly = false;
 		m_UiLastEjectedMagazine = default;
 		m_PendingReplacementMagazine = default;
@@ -900,7 +962,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugSourceBagIndex = -1;
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
+		StopMagazineVisualTransfer();
 		ClearLeftHandMagazineVisual();
+		SnapEquippedMagazineVisualToSocketOrigin();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
 	}
@@ -917,6 +981,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!_completedWithUsableMagazine)
 			return;
 
+		m_MagazineLoadingController?.CompleteLoadingPresentationNow();
 		TryStartReloadInternal(preferredBagIndex);
 	}
 
@@ -995,20 +1060,130 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
 	}
 
+	/// <summary>
+	/// UI eject-only: после ивента извлечения сразу выходим из клипа перезарядки, не доигрывая вставку/затвор.
+	/// </summary>
+	private void SnapAimLayerOutOfReloadAfterUiEjectOnly()
+	{
+		SnapAimLayerToRelaxedIdleAfterUiMagazineModification();
+	}
+
+	/// <summary>
+	/// UI install-only: начать клип перезарядки с кадра <see cref="c_UiInstallOnlyReloadStartFrame"/> (фаза вставки).
+	/// </summary>
+	private void SnapAimLayerToReloadInsertPhaseForUiInstallOnly()
+	{
+		if (m_Animator == null)
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) != (int)LocomotionStance.Standing)
+			return;
+
+		float startSeconds = c_UiInstallOnlyReloadStartFrame / c_ReloadClipSampleRate;
+		float normalizedTime = Mathf.Clamp01(startSeconds / c_ReloadClipDurationSeconds);
+		int reloadStateHash = m_Animator.GetBool(s_WeaponReady) ? s_AimReloadStateHash : s_AimRelaxedReloadStateHash;
+		m_Animator.Play(reloadStateHash, m_AimReloadLayerIndex, normalizedTime);
+	}
+
+	private void SnapAimLayerToRelaxedIdleAfterUiMagazineModification()
+	{
+		if (m_Animator == null || m_Animator.GetBool(s_WeaponReady))
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) != (int)LocomotionStance.Standing)
+			return;
+
+		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
+	}
+
+	private void FinalizeUiMagazineInstallOnlyWithoutBolt()
+	{
+		SnapAimLayerToRelaxedIdleAfterUiMagazineModification();
+		FinalizeReloadSequenceAndMaybeChainManualLoad();
+	}
+
+	private bool ShouldSkipBoltCycleAfterUiMagazineInstall()
+	{
+		return m_UiMagazineInstallOnly &&
+		       m_WeaponRuntime?.RuntimeState != null &&
+		       m_WeaponRuntime.RuntimeState.HasRoundInChamber;
+	}
+
 	private void TryPlayBoltCycleSound()
 	{
 		TryPlayReloadSoundFromWeaponDefinition(wd => wd.BoltCycleSound);
 	}
 
-	private void AttachPendingMagazineVisualToLeftHand()
+	private bool ShouldDeferReplacementMagazineHandVisualUntilEject()
 	{
+		return m_WeaponRuntime?.RuntimeState != null && m_WeaponRuntime.RuntimeState.HasMagazine;
+	}
+
+	private void TryAttachPendingMagazineVisualToLeftHand()
+	{
+		if (m_PendingReplacementMagazine.IsEmpty)
+			return;
+
+		if (!m_HasEjectedCurrentMagazine && ShouldDeferReplacementMagazineHandVisualUntilEject())
+			return;
+
+		EnsurePendingReplacementMagazineInLeftHand();
+	}
+
+	private void EnsurePendingReplacementMagazineInLeftHand()
+	{
+		if (m_PendingReplacementMagazine.IsEmpty || m_LeftHandAnchor == null)
+			return;
+
+		if (m_LeftHandMagazineVisualInstance != null)
+			return;
+
 		AttachMagazineVisualToLeftHand(m_PendingReplacementMagazine);
+	}
+
+	private GameObject TryDetachWeaponMagazineVisual()
+	{
+		EquippedWeapon equippedWeapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		return equippedWeapon != null ? equippedWeapon.TryDetachInsertedMagazineVisual() : null;
+	}
+
+	private void PresentEjectedMagazineVisual(GameObject _detachedVisual, InventorySlotRuntimeData _magazineItem)
+	{
+		if (_magazineItem.IsEmpty)
+		{
+			if (_detachedVisual != null)
+				Destroy(_detachedVisual);
+			return;
+		}
+
+		if (_detachedVisual != null)
+		{
+			if (m_LeftHandMagazineVisualInstance != null)
+			{
+				Destroy(_detachedVisual);
+				EnsurePendingReplacementMagazineInLeftHand();
+				return;
+			}
+
+			TransferMagazineVisualToLeftHand(_detachedVisual);
+			return;
+		}
+
+		AttachMagazineVisualToLeftHand(_magazineItem);
 	}
 
 	private void AttachMagazineVisualToLeftHand(InventorySlotRuntimeData _magazineItem)
 	{
-		ClearLeftHandMagazineVisual();
-
 		if (_magazineItem.IsEmpty || m_LeftHandAnchor == null)
 			return;
 
@@ -1016,14 +1191,124 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (magazineDefinition == null || magazineDefinition.EquippedVisualPrefab == null)
 			return;
 
+		StopMagazineVisualTransfer();
+		ClearLeftHandMagazineVisual();
+
 		m_LeftHandMagazineVisualInstance = Instantiate(magazineDefinition.EquippedVisualPrefab, m_LeftHandAnchor);
 		m_LeftHandMagazineVisualInstance.transform.localPosition = magazineDefinition.RightHandLocalPosition;
 		m_LeftHandMagazineVisualInstance.transform.localRotation = magazineDefinition.RightHandLocalRotation;
 		DisablePhysicsOnVisual(m_LeftHandMagazineVisualInstance);
 	}
 
+	private void TransferMagazineVisualToLeftHand(GameObject _instance)
+	{
+		if (_instance == null || m_LeftHandAnchor == null)
+			return;
+
+		StopMagazineVisualTransfer();
+		ClearLeftHandMagazineVisual();
+		DisablePhysicsOnVisual(_instance);
+		m_LeftHandMagazineVisualInstance = _instance;
+		_instance.transform.SetParent(m_LeftHandAnchor, true);
+	}
+
+	private void TransferMagazineVisualToWeaponSocket(GameObject _instance, ItemDefinition _magazineDefinition)
+	{
+		EquippedWeapon equippedWeapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Transform magazineSocket = equippedWeapon != null ? equippedWeapon.MagazineSocketTransform : null;
+		if (_instance == null || magazineSocket == null)
+		{
+			if (_instance != null)
+				Destroy(_instance);
+			return;
+		}
+
+		StopMagazineVisualTransfer();
+		equippedWeapon.AcceptTransferredMagazineVisual(_instance, _magazineDefinition);
+		DisablePhysicsOnVisual(_instance);
+		_instance.transform.SetParent(magazineSocket, true);
+
+		Vector3 targetLocalPosition = Vector3.zero;
+		Quaternion targetLocalRotation = Quaternion.identity;
+		m_ActiveMagazineVisualTransferInstance = _instance;
+		m_ActiveMagazineVisualTransferTargetLocalPosition = targetLocalPosition;
+		m_ActiveMagazineVisualTransferTargetLocalRotation = targetLocalRotation;
+		m_MagazineVisualTransferCoroutine = StartCoroutine(AnimateMagazineVisualLocalTransform(
+			_instance,
+			targetLocalPosition,
+			targetLocalRotation));
+	}
+
+	private IEnumerator AnimateMagazineVisualLocalTransform(
+		GameObject _instance,
+		Vector3 _targetLocalPosition,
+		Quaternion _targetLocalRotation)
+	{
+		if (_instance == null)
+			yield break;
+
+		Vector3 startLocalPosition = _instance.transform.localPosition;
+		Quaternion startLocalRotation = _instance.transform.localRotation;
+		float duration = m_MagazineVisualTransferDuration;
+		float elapsed = 0f;
+
+		while (elapsed < duration)
+		{
+			elapsed += Time.deltaTime;
+			float t = Mathf.Clamp01(elapsed / duration);
+			float smoothT = Mathf.SmoothStep(0f, 1f, t);
+			_instance.transform.localPosition = Vector3.Lerp(startLocalPosition, _targetLocalPosition, smoothT);
+			_instance.transform.localRotation = Quaternion.Slerp(startLocalRotation, _targetLocalRotation, smoothT);
+			yield return null;
+		}
+
+		_instance.transform.localPosition = _targetLocalPosition;
+		_instance.transform.localRotation = _targetLocalRotation;
+		m_MagazineVisualTransferCoroutine = null;
+		m_ActiveMagazineVisualTransferInstance = null;
+	}
+
+	private void StopMagazineVisualTransfer()
+	{
+		if (m_MagazineVisualTransferCoroutine != null)
+		{
+			StopCoroutine(m_MagazineVisualTransferCoroutine);
+			m_MagazineVisualTransferCoroutine = null;
+		}
+
+		FinalizeActiveMagazineVisualTransferSnap();
+	}
+
+	private void FinalizeActiveMagazineVisualTransferSnap()
+	{
+		if (m_ActiveMagazineVisualTransferInstance == null)
+			return;
+
+		GameObject instance = m_ActiveMagazineVisualTransferInstance;
+		m_ActiveMagazineVisualTransferInstance = null;
+
+		if (instance == null)
+			return;
+
+		EquippedWeapon equippedWeapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Transform magazineSocket = equippedWeapon != null ? equippedWeapon.MagazineSocketTransform : null;
+		if (magazineSocket != null && instance.transform.parent != magazineSocket)
+			instance.transform.SetParent(magazineSocket, false);
+
+		instance.transform.localPosition = m_ActiveMagazineVisualTransferTargetLocalPosition;
+		instance.transform.localRotation = m_ActiveMagazineVisualTransferTargetLocalRotation;
+	}
+
+	private void SnapEquippedMagazineVisualToSocketOrigin()
+	{
+		EquippedWeapon equippedWeapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		equippedWeapon?.SnapInsertedMagazineVisualToSocketOrigin();
+	}
+
 	private void ClearLeftHandMagazineVisual()
 	{
+		StopMagazineVisualTransfer();
+
 		if (m_LeftHandMagazineVisualInstance == null)
 			return;
 

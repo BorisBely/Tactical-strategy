@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Mag_AK_762_30
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.mag.ak_762_30
+  m_Description: 30-round 7.62x39 AK steel magazine.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 120
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 8329658870907925182, guid: 23ce45df89c1e9841a37ebcad9e0fb7e, type: 3}
+  m_EquippedVisualPrefab: {fileID: 2420019036946303748, guid: 3e0b52c4e4a601945bf793d1bbf5c17e, type: 3}
+  m_RightHandLocalPosition: {x: -0.114, y: -0.062, z: -0.02}
+  m_RightHandLocalEulerAngles: {x: -56.973, y: 214.588, z: 317.758}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 11400000, guid: 0566e07d946e34b4386a6463aa173fca, type: 2}
+  m_WeaponAttachmentDefinition: {fileID: 0}

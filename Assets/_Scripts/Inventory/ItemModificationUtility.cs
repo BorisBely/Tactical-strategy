@@ -111,6 +111,7 @@ public static class ItemModificationUtility
 			WeaponAttachmentSlotType.Rail => "weapon.mod_slot.rail",
 			WeaponAttachmentSlotType.Optic => "weapon.mod_slot.optic",
 			WeaponAttachmentSlotType.Stock => "weapon.mod_slot.stock",
+			WeaponAttachmentSlotType.SideRail => "weapon.mod_slot.side_rail",
 			_ => "weapon.mod_slot.attachment"
 		};
 	}
@@ -328,10 +329,16 @@ public static class ItemModificationUtility
 		if (_descriptorBuffer == null)
 			return;
 
+		WeaponDefinition weapon = _weaponData.Definition != null ? _weaponData.Definition.WeaponDefinition : null;
+		WeaponRuntimeState weaponState = GetWeaponState(_weaponData);
+
 		for (int i = 0; i < _descriptorBuffer.Count; i++)
 		{
 			ItemModificationSlotDescriptor descriptor = _descriptorBuffer[i];
 			bool hasInstalledItem = TryGetInstalledItem(descriptor, _weaponData, out _);
+			if (!WeaponOpticSlotUtility.ShouldShowModificationSlot(weapon, weaponState, descriptor, _expandEmptySlots, hasInstalledItem))
+				continue;
+
 			if (hasInstalledItem || _expandEmptySlots)
 				_outVisibleDescriptors.Add(descriptor);
 		}
@@ -414,6 +421,9 @@ public static class ItemModificationUtility
 			_replacedItem = InventorySlotRuntimeData.FromDefinition(replacedDefinition);
 		else if (attachments[_slot.WeaponSlotIndex] != null)
 			_replacedItem = InventorySlotRuntimeData.FromDisplayName(attachments[_slot.WeaponSlotIndex].name);
+
+		if (WeaponOpticSlotUtility.IsOpticSlotType(_slot.AttachmentSlotType))
+			WeaponOpticSlotUtility.ClearConflictingOpticSlot(_weaponState.WeaponDefinition, _slot.AttachmentSlotType, attachments, items);
 
 		attachments[_slot.WeaponSlotIndex] = attachment;
 		items[_slot.WeaponSlotIndex] = _candidate.Definition;
@@ -560,6 +570,7 @@ public static class ItemModificationUtility
 			WeaponAttachmentSlotType.Rail => "Rail",
 			WeaponAttachmentSlotType.Optic => "Optic",
 			WeaponAttachmentSlotType.Stock => "Stock",
+			WeaponAttachmentSlotType.SideRail => "Side rail",
 			_ => "Attachment"
 		};
 	}

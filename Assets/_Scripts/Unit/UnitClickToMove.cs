@@ -130,8 +130,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_StopVelocityEpsilon = 0.08f;
 	[Tooltip("Пока фактическая скорость агента ниже доли круиза, NavSpeed не ниже этого уровня от круиза — чтобы стартовые клипы не отставали от разгона NavMeshAgent.")]
 	[SerializeField, Range(0.35f, 1f)] private float m_StartNavSpeedFloor = 0.88f;
+	[SerializeField, Range(0f, 0.25f)] private float m_StartNavSpeedFloorMaxLeadOverVelocity = 0.1f;
 	[Tooltip("За сколько метров до цели (поверх stopping distance) начинать снижать NavSpeed, чтобы клип остановки шёл во время замедления, а не после полной остановки.")]
 	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
+
+	[Header("Animator playback sync")]
+	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
+	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
+	[SerializeField, Range(0.5f, 2f)] private float m_PlaybackSyncMax = 1.45f;
 
 	private NavMeshAgent m_Agent;
 	private MoveTier m_Mode = MoveTier.Walk;
@@ -161,8 +167,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
 	private bool m_StanceMovementWasBlocked;
+	private RtsUnitMember m_CachedRtsMember;
 
 	public bool IsSprintMoveMode => IsSprintActive();
+
+	/// <summary>Множитель скорости проигрывания клипов (1 = без подстройки).</summary>
+	public float AnimatorPlaybackSpeedMultiplier { get; private set; } = 1f;
 
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 
@@ -275,6 +285,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
+		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 	}
 
 	private void Start()
@@ -897,6 +908,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 				locomotionTier = 0;
 			ApplyAnimatorLocomotionTierCap(ref locomotionTier);
 			SetAnimatorLocomotionTier(locomotionTier);
+			ApplyAnimatorPlaybackSpeedOutputs(0f, 0f);
 			return;
 		}
 
@@ -904,6 +916,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (ShouldSnapEngageSteadyLocomotion(planarSpeed))
 		{
 			ApplyEngageSteadyLocomotionAnimatorOutputs();
+			ApplyAnimatorPlaybackSpeedOutputs(0f, 0f);
 			return;
 		}
 		if (IsEngagingVisibleTarget() && NavAgentHasIncompletePath())
@@ -947,7 +960,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 			float cruise01 = Mathf.Clamp01(m_Agent.speed / m_SprintSpeed);
 			float vel01 = Mathf.Clamp01(planarSpeed / m_SprintSpeed);
 			if (cruise01 > 0.004f && vel01 < cruise01 * 0.55f)
-				target01 = Mathf.Max(target01, cruise01 * m_StartNavSpeedFloor);
+			{
+				float floorTarget = cruise01 * m_StartNavSpeedFloor;
+				float cappedFloor = Mathf.Min(floorTarget, vel01 + m_StartNavSpeedFloorMaxLeadOverVelocity);
+				target01 = Mathf.Max(target01, cappedFloor);
+			}
 		}
 
 		float speedSmooth = target01 > m_SmoothSpeed01 + 0.002f
@@ -1003,6 +1020,37 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
 		SetAnimatorLocomotionTier(tier);
+		ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
+	}
+
+	private void ApplyAnimatorPlaybackSpeedOutputs(float _navSpeedOut, float _planarSpeed)
+	{
+		AnimatorPlaybackSpeedMultiplier = 1f;
+		if (!m_SyncAnimatorPlaybackToGroundSpeed || m_SprintSpeed < 0.01f)
+		{
+			ApplyAnimatorPlaybackSpeedDirect(1f);
+			return;
+		}
+
+		const float moveThreshold = 0.055f;
+		if (_navSpeedOut < moveThreshold || _planarSpeed < m_StopVelocityEpsilon)
+		{
+			ApplyAnimatorPlaybackSpeedDirect(1f);
+			return;
+		}
+
+		float ground01 = Mathf.Clamp01(_planarSpeed / m_SprintSpeed);
+		float ratio = ground01 / Mathf.Max(_navSpeedOut, 0.02f);
+		AnimatorPlaybackSpeedMultiplier = Mathf.Clamp(ratio, m_PlaybackSyncMin, m_PlaybackSyncMax);
+		ApplyAnimatorPlaybackSpeedDirect(AnimatorPlaybackSpeedMultiplier);
+	}
+
+	private void ApplyAnimatorPlaybackSpeedDirect(float _multiplier)
+	{
+		if (m_Animator == null || m_CachedRtsMember != null)
+			return;
+
+		m_Animator.speed = _multiplier;
 	}
 
 	public enum MoveTier
