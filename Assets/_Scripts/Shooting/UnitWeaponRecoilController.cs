@@ -14,6 +14,8 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[Tooltip("Проверка ready для логики восстановления отдачи.")]
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitCombatCondition m_CombatCondition;
 
 	[Header("Recovery")]
 	[Tooltip("Множитель восстановления отдачи, пока удерживается огонь.")]
@@ -24,6 +26,10 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[Header("Debug")]
 	[SerializeField, Min(0f)] private float m_DebugLastRecoilAdded;
 	[SerializeField, Min(0f)] private float m_DebugLastRecoveryPerSecond;
+	[SerializeField, Min(0.01f)] private float m_DebugSkillRecoilAddedMultiplier = 1f;
+	[SerializeField, Min(0.01f)] private float m_DebugConditionRecoilAddedMultiplier = 1f;
+	[SerializeField, Min(0.01f)] private float m_DebugSkillRecoveryMultiplier = 1f;
+	[SerializeField, Min(0.01f)] private float m_DebugConditionRecoveryMultiplier = 1f;
 	#endregion
 
 	#region Unity Lifecycle
@@ -35,6 +41,10 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_CombatCondition == null)
+			m_CombatCondition = GetComponent<UnitCombatCondition>();
 	}
 
 	private void OnEnable()
@@ -90,7 +100,13 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		float attachmentModifier = m_WeaponRuntime.RuntimeState != null
 			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
 			: 1f;
-		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier);
+		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
+		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
+		m_DebugSkillRecoilAddedMultiplier = skillMultiplier;
+		m_DebugConditionRecoilAddedMultiplier = conditionMultiplier;
+		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier) *
+		       skillMultiplier *
+		       conditionMultiplier;
 	}
 
 	private float CalculateCurrentRecoveryPerSecond()
@@ -106,6 +122,13 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 
 		if (m_ReadyHands != null && !m_ReadyHands.IsWeaponEquippedAndReady())
 			recoveryPerSecond *= m_RecoveryWhenNotReadyMultiplier;
+
+		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilRecoveryMultiplier() : 1f;
+		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilRecoveryMultiplier() : 1f;
+		recoveryPerSecond *= skillMultiplier;
+		recoveryPerSecond *= conditionMultiplier;
+		m_DebugSkillRecoveryMultiplier = skillMultiplier;
+		m_DebugConditionRecoveryMultiplier = conditionMultiplier;
 
 		return Mathf.Max(0f, recoveryPerSecond);
 	}

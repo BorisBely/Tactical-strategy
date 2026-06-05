@@ -7510,6 +7510,9 @@ GameObject:
   - component: {fileID: 2745828861811900171}
   - component: {fileID: 8412401315927888462}
   - component: {fileID: 8082661923994252123}
+  - component: {fileID: 731300000000000001}
+  - component: {fileID: 731300000000000002}
+  - component: {fileID: 731300000000000003}
   - component: {fileID: 3544168995589682661}
   - component: {fileID: 2876543210987654320}
   - component: {fileID: 9123456789012345678}
@@ -8002,8 +8005,8 @@ MonoBehaviour:
   m_DebugWeaponPitchAppliedDegrees: 0
   m_DebugSmoothedPitch01: 0
   m_DebugAimLayerWeight: 0
-  m_DrawBarrelForwardRay: 0
-  m_BarrelForwardRayLength: 4
+  m_DrawBarrelForwardRay: 1
+  m_BarrelForwardRayLength: 120
   m_BarrelForwardRayColor: {r: 1, g: 0.85, b: 0, a: 0.95}
 --- !u!114 &1512094426153763378
 MonoBehaviour:
@@ -8126,8 +8129,8 @@ MonoBehaviour:
   m_MaxHalfAngleDegrees: 12
   m_UseDistanceFalloff: 1
   m_FalloffZeroRangeMultiplier: 2
-  m_DrawDebugRays: 0
-  m_DebugRayDuration: 0.15
+  m_DrawDebugRays: 1
+  m_DebugRayDuration: 10
   m_DebugLastHitName: 
   m_DebugLastDamage: 0
 --- !u!114 &8854059317223957988
@@ -8268,10 +8271,61 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponShellEjection
   m_FireController: {fileID: 8854059317223957988}
   m_Equipment: {fileID: 5322687323565292150}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
   m_PoolRoot: {fileID: 6544963493894048048}
   m_ImpactAudio: {fileID: 0}
   m_DefaultPoolCapacity: 12
   m_MaxPoolSize: 48
+--- !u!114 &731300000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41f50c1d20f4b5a9e0b7c7e89a10002, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponMuzzleVfx
+  m_FireController: {fileID: 8854059317223957988}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_DefaultPoolCapacity: 6
+  m_MaxPoolSize: 24
+--- !u!114 &731300000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41f50c1d20f4b5a9e0b7c7e89a10003, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponImpactVfx
+  m_HitscanShooting: {fileID: 430373704858629585}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_DefaultPoolCapacity: 24
+  m_MaxPoolSize: 96
+--- !u!114 &731300000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41f50c1d20f4b5a9e0b7c7e89a10004, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponParticleShellEjection
+  m_FireController: {fileID: 8854059317223957988}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_DefaultPoolCapacity: 8
+  m_MaxPoolSize: 32
 --- !u!114 &3544168995589682661
 MonoBehaviour:
   m_ObjectHideFlags: 0

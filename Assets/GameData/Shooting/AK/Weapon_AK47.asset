@@ -121,3 +121,4 @@ MonoBehaviour:
   m_FoulingJamStartThreshold: 0
   m_WearJamInfluence: 1
   m_FoulingJamInfluence: 1
+  m_VfxProfile: {fileID: 11400000, guid: a8d4f2b13c6e5d7091a2b3c4d5e6f708, type: 2}

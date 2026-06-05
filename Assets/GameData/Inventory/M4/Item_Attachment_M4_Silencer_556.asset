@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Silencer_556
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_silencer_556
-  m_Description: 5.56 muzzle suppressor.
+  m_Description: Глушитель 5.56 для M4, снижает заметность выстрела.
   m_Icon: {fileID: 0}
   m_BasePrice: 620
   m_Category: 0

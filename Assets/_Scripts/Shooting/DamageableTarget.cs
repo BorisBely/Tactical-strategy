@@ -43,13 +43,43 @@ public sealed class DamageableTarget : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	public void ResetHealth()
+	{
+		m_CurrentHealth = m_MaxHealth;
+	}
+
+	public void SetMaxHealth(float _maxHealth, bool _resetCurrent = true)
+	{
+		m_MaxHealth = Mathf.Max(0.01f, _maxHealth);
+		if (_resetCurrent)
+			m_CurrentHealth = m_MaxHealth;
+	}
+
 	/// <summary>Нанести урон от выстрела. Точка и направление — в мировых координатах (для VFX).</summary>
 	public void ApplyDamage(float _damage, Vector3 _hitPointWorld, Vector3 _hitNormalWorld, Vector3 _incomingDirection, AmmoDefinition _ammo)
+	{
+		ApplyDamage(_damage, _hitPointWorld, _hitNormalWorld, _incomingDirection, _ammo, null);
+	}
+
+	/// <summary>Нанести урон от выстрела с учётом опциональной зоны тела на коллайдере.</summary>
+	public void ApplyDamage(
+		float _damage,
+		Vector3 _hitPointWorld,
+		Vector3 _hitNormalWorld,
+		Vector3 _incomingDirection,
+		AmmoDefinition _ammo,
+		Collider _hitCollider)
 	{
 		if (!IsAlive || _damage <= 0f)
 			return;
 
-		float applied = Mathf.Min(_damage, m_CurrentHealth);
+		UnitBodyHitZone hitZone = _hitCollider != null ? _hitCollider.GetComponentInParent<UnitBodyHitZone>() : null;
+		float damageMultiplier = hitZone != null ? hitZone.DamageMultiplier : 1f;
+		float finalDamage = Mathf.Max(0f, _damage * damageMultiplier);
+		if (finalDamage <= 0f)
+			return;
+
+		float applied = Mathf.Min(finalDamage, m_CurrentHealth);
 		m_CurrentHealth -= applied;
 
 		var info = new DamageHitInfo
@@ -59,8 +89,13 @@ public sealed class DamageableTarget : MonoBehaviour
 			HitNormalWorld = _hitNormalWorld,
 			IncomingDirection = _incomingDirection,
 			Ammo = _ammo,
+			HitCollider = _hitCollider,
+			BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
 			RemainingHealth = Mathf.Max(0f, m_CurrentHealth)
 		};
+
+		if (hitZone != null)
+			hitZone.ApplyConditionEffects(GetComponentInParent<UnitCombatCondition>(), applied);
 
 		Damaged?.Invoke(info);
 
@@ -85,5 +120,7 @@ public struct DamageHitInfo
 	public Vector3 HitNormalWorld;
 	public Vector3 IncomingDirection;
 	public AmmoDefinition Ammo;
+	public Collider HitCollider;
+	public CombatBodyZone BodyZone;
 	public float RemainingHealth;
 }

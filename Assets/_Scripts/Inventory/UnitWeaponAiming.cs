@@ -395,6 +395,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private Vector3 GetTargetAimPointWorld(Transform _targetRoot)
 	{
+		if (m_Vision != null && _targetRoot != null && _targetRoot == m_Vision.VisibleTarget)
+			return m_Vision.GetVisibleTargetAimPointWorld();
+
 		if (_targetRoot != null && _targetRoot.TryGetComponent(out UnitVision uv) && uv.BodyCollider != null)
 			return uv.BodyCollider.bounds.center;
 

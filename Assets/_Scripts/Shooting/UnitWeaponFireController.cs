@@ -15,6 +15,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	#region Serialized Fields
 	[Tooltip("Runtime оружия, привязанный к экипированному предмету.")]
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
+	[Tooltip("Источник визуально экипированного оружия для проверки наведения ствола.")]
+	[SerializeField] private UnitEquipment m_Equipment;
 	[Tooltip("Проверка, что оружие действительно находится в состоянии ready.")]
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[Tooltip("Текущая видимая цель, если выстрелы требуют target lock.")]
@@ -37,6 +39,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private bool m_TryReloadWhenOutOfAmmo = true;
 	[SerializeField, Min(0.05f)] private float m_OutOfAmmoReloadRetrySeconds = 0.35f;
 
+	[Header("Aiming Gate")]
+	[Tooltip("Запрещать выстрел, пока AimProgress не восстановился после отдачи/смены цели.")]
+	[SerializeField] private bool m_RequireAimProgressToFire = true;
+	[SerializeField, Range(0f, 1f)] private float m_MinAimProgressToFire = 0.98f;
+	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick.")]
+	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 1.5f;
+
 	[Header("Debug")]
 	[SerializeField] private bool m_IsFiringCommandActive;
 	[SerializeField] private WeaponShotAttemptResult m_LastShotAttemptResult = WeaponShotAttemptResult.NoWeapon;
@@ -44,6 +54,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private int m_DebugSuccessfulShotCount;
 	[SerializeField] private int m_DebugBurstShotsRemaining;
 	[SerializeField] private float m_DebugNextBurstWaveTime;
+	[SerializeField, Range(0f, 1f)] private float m_DebugCurrentAimProgress;
+	[SerializeField, Min(0f)] private float m_DebugLastBarrelAimErrorDegrees;
 	#endregion
 
 	#region Private Fields
@@ -62,6 +74,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	{
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_Vision == null)
@@ -176,7 +190,39 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
 			return WeaponShotAttemptResult.NoVisibleTarget;
 
+		if (!IsAimedEnoughToFire())
+			return WeaponShotAttemptResult.NotAimed;
+
 		return m_WeaponRuntime.TryConsumeShot(_currentTime, out _firedAmmoDefinition);
+	}
+
+	private bool IsAimedEnoughToFire()
+	{
+		m_DebugCurrentAimProgress = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState.AimProgress01 : 0f;
+		if (m_RequireAimProgressToFire && m_DebugCurrentAimProgress < m_MinAimProgressToFire)
+			return false;
+
+		if (!m_RequireBarrelAlignedToFire || m_Vision == null || m_Vision.VisibleTarget == null)
+			return true;
+
+		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Transform barrel = weapon != null ? weapon.BarrelTransform : null;
+		if (barrel == null)
+			return false;
+
+		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (targetPoint == Vector3.zero)
+			targetPoint = m_Vision.VisibleTarget.position;
+
+		Vector3 toTarget = targetPoint - barrel.position;
+		if (toTarget.sqrMagnitude < 1e-6f)
+		{
+			m_DebugLastBarrelAimErrorDegrees = 0f;
+			return true;
+		}
+
+		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(barrel.forward, toTarget.normalized);
+		return m_DebugLastBarrelAimErrorDegrees <= m_MaxBarrelAimErrorDegrees;
 	}
 
 	private void UpdateBurstFire(float _time)

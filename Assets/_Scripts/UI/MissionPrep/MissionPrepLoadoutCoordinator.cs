@@ -1329,8 +1329,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void AdjustAllUnitsAfterPresetDeletion(int _deletedIndex)
 	{
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -1348,8 +1347,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -1524,8 +1522,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		bool startedAuthoritative = false;
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 
 		for (int i = 0; i < units.Length; i++)
 		{

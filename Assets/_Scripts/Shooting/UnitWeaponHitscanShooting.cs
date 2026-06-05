@@ -8,10 +8,19 @@ using UnityEngine;
 [DefaultExecutionOrder(57)]
 public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 {
+	#region Events
+	public event System.Action<WeaponShotTraceInfo> ShotTrace;
+	#endregion
+
 	#region Serialized Fields
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private UnitAnimatorStance m_Stance;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitCombatCondition m_CombatCondition;
 
 	[Header("Hitscan")]
 	[Tooltip("Слои, по которым проверяем попадание. Создай слой Target и назначь мишеням.")]
@@ -35,6 +44,18 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[Tooltip("Максимальный полу-угол конуса в градусах.")]
 	[SerializeField, Min(0.01f)] private float m_MaxHalfAngleDegrees = 12f;
 
+	[Header("Advanced Spread Multipliers")]
+	[Tooltip("Прямой множитель финального разброса стоя.")]
+	[SerializeField, Min(0.01f)] private float m_StandingSpreadMultiplier = 1f;
+	[Tooltip("Прямой множитель финального разброса в приседе.")]
+	[SerializeField, Min(0.01f)] private float m_CrouchSpreadMultiplier = 0.9f;
+	[Tooltip("Прямой множитель финального разброса лёжа.")]
+	[SerializeField, Min(0.01f)] private float m_ProneSpreadMultiplier = 0.75f;
+	[Tooltip("Прямой множитель финального разброса при движении.")]
+	[SerializeField, Min(0.01f)] private float m_MovingSpreadMultiplier = 1.35f;
+	[Tooltip("Прямой множитель финального разброса в спринте. Обычно спринт блокирует ready/fire раньше этого этапа.")]
+	[SerializeField, Min(0.01f)] private float m_SprintSpreadMultiplier = 2f;
+
 	[Header("Damage falloff")]
 	[Tooltip("Если включено: за эффективной дальностью урон падает (см. кривую).")]
 	[SerializeField] private bool m_UseDistanceFalloff = true;
@@ -43,9 +64,17 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	[Header("Debug")]
 	[SerializeField] private bool m_DrawDebugRays;
-	[SerializeField] private float m_DebugRayDuration = 0.15f;
+	[SerializeField, Min(0f)] private float m_DebugRayDuration = 10f;
 	[SerializeField] private string m_DebugLastHitName;
 	[SerializeField] private float m_DebugLastDamage;
+	[SerializeField, Min(0f)] private float m_DebugLastHalfAngleDegrees;
+	[SerializeField, Min(0f)] private float m_DebugLastTargetDistanceMeters;
+	[SerializeField, Min(0f)] private float m_DebugLastAimMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastRecoilMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastStanceMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastMovementMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastSkillMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastConditionMultiplier = 1f;
 	#endregion
 
 	#region Private Fields
@@ -61,6 +90,16 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_CombatCondition == null)
+			m_CombatCondition = GetComponent<UnitCombatCondition>();
 
 		m_ShooterRoot = transform.root;
 	}
@@ -86,32 +125,45 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		Transform barrel = weapon.BarrelTransform;
 		Vector3 origin = barrel.position + barrel.forward * m_BarrelRayStartOffset;
+		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel);
 		float halfAngle = ComputeHalfAngleDegrees(_ammo);
 
 		for (int i = 0; i < _ammo.ProjectileCount; i++)
 		{
-			Vector3 dir = ApplyConeSpread(barrel.forward, halfAngle);
+			Vector3 dir = ApplyConeSpread(baseDirection, halfAngle);
 			TryHit(origin, dir, _ammo);
 		}
 	}
 
 	private float ComputeHalfAngleDegrees(AmmoDefinition _ammo)
 	{
-		WeaponDefinition wd = m_WeaponRuntime.CurrentWeaponDefinition;
-		float baseDispersion = wd != null ? wd.BaseShotDispersion : 1f;
-		float aim = m_WeaponRuntime.TransientState.AimProgress01;
-		float recoil = m_WeaponRuntime.TransientState.RecoilPenalty;
-		float targetDistanceMeters = EstimateTargetDistanceMeters();
-		float weaponDistanceFactor = wd != null ? wd.GetDistanceDispersionMultiplier(targetDistanceMeters) : 1f;
-		WeaponRuntimeState weaponState = m_WeaponRuntime.RuntimeState;
-		float attachmentDistanceFactor = weaponState != null
-			? weaponState.GetAttachmentDistanceDispersionProduct(targetDistanceMeters)
-			: 1f;
+		WeaponShotAccuracyInput input = new WeaponShotAccuracyInput
+		{
+			WeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition,
+			WeaponState = m_WeaponRuntime.RuntimeState,
+			TransientState = m_WeaponRuntime.TransientState,
+			AmmoDefinition = _ammo,
+			CombatStats = m_CombatStats,
+			CombatCondition = m_CombatCondition,
+			TargetDistanceMeters = EstimateTargetDistanceMeters(),
+			BaseSpreadToDegrees = m_BaseSpreadToDegrees,
+			AimProgressTighten = m_AimProgressTighten,
+			RecoilSpreadScale = m_RecoilSpreadScale,
+			MinHalfAngleDegrees = m_MinHalfAngleDegrees,
+			MaxHalfAngleDegrees = m_MaxHalfAngleDegrees,
+			Stance = GetCurrentStance(),
+			IsMoving = IsMoving(),
+			IsSprinting = IsSprinting(),
+			StandingSpreadMultiplier = m_StandingSpreadMultiplier,
+			CrouchSpreadMultiplier = m_CrouchSpreadMultiplier,
+			ProneSpreadMultiplier = m_ProneSpreadMultiplier,
+			MovingSpreadMultiplier = m_MovingSpreadMultiplier,
+			SprintSpreadMultiplier = m_SprintSpreadMultiplier
+		};
 
-		float aimFactor = 1f - aim * m_AimProgressTighten;
-		float recoilFactor = 1f + recoil * m_RecoilSpreadScale;
-		float raw = baseDispersion * _ammo.SpreadModifier * weaponDistanceFactor * attachmentDistanceFactor * aimFactor * recoilFactor * m_BaseSpreadToDegrees;
-		return Mathf.Clamp(raw, m_MinHalfAngleDegrees, m_MaxHalfAngleDegrees);
+		WeaponShotAccuracyContext context = WeaponShotAccuracyEvaluator.Evaluate(input);
+		StoreDebugAccuracyContext(context);
+		return context.HalfAngleDegrees;
 	}
 
 	private void TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)
@@ -125,6 +177,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				Debug.DrawRay(_origin, dir * maxDist, Color.yellow, m_DebugRayDuration);
 			m_DebugLastHitName = "";
 			m_DebugLastDamage = 0f;
+			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
 			return;
 		}
 
@@ -132,6 +185,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		{
 			if (m_DrawDebugRays)
 				Debug.DrawRay(_origin, dir * hit.distance, new Color(1f, 0.5f, 0f), m_DebugRayDuration);
+			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, hit, _ammo));
 			return;
 		}
 
@@ -145,9 +199,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		m_DebugLastHitName = hit.collider.name;
 		m_DebugLastDamage = damage;
+		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, dir, hit, _ammo, damage));
 
 		if (target != null)
-			target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo);
+			target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo, hit.collider);
 	}
 
 	private bool IsSelfCollider(Collider _collider)
@@ -196,6 +251,51 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return Vector3.Distance(barrel.position, targetPoint);
 	}
 
+	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _barrel)
+	{
+		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		if (target == null)
+			return _barrel.forward;
+
+		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (targetPoint == Vector3.zero)
+			targetPoint = target.position;
+
+		Vector3 toTarget = targetPoint - _origin;
+		return toTarget.sqrMagnitude > 1e-6f ? toTarget.normalized : _barrel.forward;
+	}
+
+	private LocomotionStance GetCurrentStance()
+	{
+		return m_Stance != null ? m_Stance.CurrentStance : LocomotionStance.Standing;
+	}
+
+	private bool IsMoving()
+	{
+		if (m_LocomotionDriver != null)
+			return m_LocomotionDriver.HasMoveIntent;
+		return m_ClickToMove != null && m_ClickToMove.HasMoveIntent;
+	}
+
+	private bool IsSprinting()
+	{
+		if (m_LocomotionDriver != null)
+			return m_LocomotionDriver.IsSprintMoveMode;
+		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
+	}
+
+	private void StoreDebugAccuracyContext(WeaponShotAccuracyContext _context)
+	{
+		m_DebugLastHalfAngleDegrees = _context.HalfAngleDegrees;
+		m_DebugLastTargetDistanceMeters = _context.TargetDistanceMeters;
+		m_DebugLastAimMultiplier = _context.AimProgressMultiplier;
+		m_DebugLastRecoilMultiplier = _context.RecoilMultiplier;
+		m_DebugLastStanceMultiplier = _context.StanceMultiplier;
+		m_DebugLastMovementMultiplier = _context.MovementMultiplier;
+		m_DebugLastSkillMultiplier = _context.SkillMultiplier;
+		m_DebugLastConditionMultiplier = _context.ConditionMultiplier;
+	}
+
 	private static Vector3 ApplyConeSpread(Vector3 _forward, float _halfAngleDegrees)
 	{
 		Vector3 f = _forward.normalized;
@@ -211,4 +311,55 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return (f + right * rnd.x + upOrtho * rnd.y).normalized;
 	}
 	#endregion
+}
+
+/// <summary>Данные трассы одного hitscan-снаряда для визуальных эффектов.</summary>
+public struct WeaponShotTraceInfo
+{
+	public readonly Vector3 Origin;
+	public readonly Vector3 Direction;
+	public readonly Vector3 EndPoint;
+	public readonly Vector3 HitNormal;
+	public readonly Collider HitCollider;
+	public readonly AmmoDefinition Ammo;
+	public readonly float Damage;
+	public readonly bool HasHit;
+	public readonly bool HitSelf;
+
+	private WeaponShotTraceInfo(
+		Vector3 _origin,
+		Vector3 _direction,
+		Vector3 _endPoint,
+		Vector3 _hitNormal,
+		Collider _hitCollider,
+		AmmoDefinition _ammo,
+		float _damage,
+		bool _hasHit,
+		bool _hitSelf)
+	{
+		Origin = _origin;
+		Direction = _direction;
+		EndPoint = _endPoint;
+		HitNormal = _hitNormal;
+		HitCollider = _hitCollider;
+		Ammo = _ammo;
+		Damage = _damage;
+		HasHit = _hasHit;
+		HitSelf = _hitSelf;
+	}
+
+	public static WeaponShotTraceInfo CreateHit(Vector3 _origin, Vector3 _direction, RaycastHit _hit, AmmoDefinition _ammo, float _damage)
+	{
+		return new WeaponShotTraceInfo(_origin, _direction, _hit.point, _hit.normal, _hit.collider, _ammo, _damage, true, false);
+	}
+
+	public static WeaponShotTraceInfo CreateMiss(Vector3 _origin, Vector3 _direction, Vector3 _endPoint, AmmoDefinition _ammo)
+	{
+		return new WeaponShotTraceInfo(_origin, _direction, _endPoint, Vector3.zero, null, _ammo, 0f, false, false);
+	}
+
+	public static WeaponShotTraceInfo CreateBlockedBySelf(Vector3 _origin, Vector3 _direction, RaycastHit _hit, AmmoDefinition _ammo)
+	{
+		return new WeaponShotTraceInfo(_origin, _direction, _hit.point, _hit.normal, _hit.collider, _ammo, 0f, true, true);
+	}
 }

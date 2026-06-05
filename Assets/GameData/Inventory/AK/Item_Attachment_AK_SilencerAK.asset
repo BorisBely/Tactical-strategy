@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_SilencerAK
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_silencer
-  m_Description: AK-series suppressor.
+  m_Description: Глушитель для серии AK, снижает заметность выстрела.
   m_Icon: {fileID: 0}
   m_BasePrice: 760
   m_Category: 0

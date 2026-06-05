@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a5279770b2553d4c8dd9c79c2f07095, type: 3}
-  m_Name: Attachment_M4_Vortex_Razor
+  m_Name: Attachment_Vortex_Razor
   m_EditorClassIdentifier: Assembly-CSharp::WeaponAttachmentDefinition
   m_AttachmentType: 0
   m_RequiredSlot: 3
-  m_UseExplicitWeaponCompatibility: 1
-  m_CompatibleWeapons:
-  - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
+  m_UseExplicitWeaponCompatibility: 0
+  m_CompatibleWeapons: []
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.16

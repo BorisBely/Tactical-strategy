@@ -12,6 +12,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private Transform m_PoolRoot;
 	[SerializeField] private AudioSource m_ImpactAudio;
 	[SerializeField, Min(1)] private int m_DefaultPoolCapacity = 12;
@@ -29,6 +30,8 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Equipment == null)
 			m_Equipment = GetComponentInChildren<UnitEquipment>(true);
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 
 		EnsurePoolRoot();
 		EnsureImpactAudio();
@@ -66,23 +69,17 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 		if (_ammo == null || !_ammo.HasShellPrefab)
 			return;
 
+		WeaponVfxProfile profile = WeaponVfxUtility.GetCurrentProfile(m_WeaponRuntime);
+		if (profile != null && !profile.UsePhysicalShellEjection)
+			return;
+
 		GameObject prefab = _ammo.ShellPrefab;
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		if (weapon == null)
 			return;
 
-		Transform barrel = weapon.BarrelTransform;
-		if (barrel == null)
+		if (!WeaponVfxUtility.TryGetShellEjectionPose(weapon, out Vector3 pos, out Vector3 dir))
 			return;
-
-		Transform eject = weapon.ShellEjectTransform;
-		Vector3 pos = eject != null ? eject.position : barrel.position;
-		Vector3 dir = eject != null ? eject.forward : (-barrel.right);
-		float dirLen = dir.sqrMagnitude;
-		if (dirLen > 1e-6f)
-			dir /= Mathf.Sqrt(dirLen);
-		else
-			dir = Vector3.right;
 
 		float speed = _ammo.ShellEjectSpeed + Random.Range(-_ammo.ShellEjectSpeedVariance, _ammo.ShellEjectSpeedVariance);
 		speed = Mathf.Max(0.1f, speed);

@@ -112,7 +112,9 @@ public enum WeaponShotAttemptResult
 	/// <summary>Только что произошёл отказ (щелчок без выстрела).</summary>
 	MalfunctionOccurred = 10,
 	/// <summary>Оружие в окончательной неисправности (негодно к экипировке).</summary>
-	WeaponBroken = 11
+	WeaponBroken = 11,
+	/// <summary>Прицеливание после отдачи/поворота ещё не завершено.</summary>
+	NotAimed = 12
 }
 
 /// <summary>Тип текущего отказа (лёгкий / тяжёлый).</summary>

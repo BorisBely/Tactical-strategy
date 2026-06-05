@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
-  m_Name: Item_Attachment_M4_Scope9
+  m_Name: Item_Attachment_Scope9
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
-  m_LocalizationKey: item.attachment.m4_scope9
-  m_Description: High-magnification optical sight.
+  m_LocalizationKey: item.attachment.scope9
+  m_Description: Оптический прицел с высоким увеличением.
   m_Icon: {fileID: 0}
   m_BasePrice: 1100
   m_Category: 0

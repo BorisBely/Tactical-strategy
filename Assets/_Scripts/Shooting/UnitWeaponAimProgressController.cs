@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Обновляет AimProgress оружия по времени прицеливания, стойке, движению и смене цели.
+/// Обновляет AimProgress оружия по времени прицеливания, стойке, движению, смене цели и сбитию прицела после выстрела.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(57)]
@@ -20,6 +20,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
+	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitCombatCondition m_CombatCondition;
 
 	[Header("Aim Conditions")]
 	[Tooltip("Если true, AimProgress растёт только когда оружие в ready.")]
@@ -49,10 +52,22 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[Tooltip("При смене цели текущий прогресс умножается на это значение.")]
 	[SerializeField, Range(0f, 1f)] private float m_TargetSwitchRetainProgress01 = 0.25f;
 
+	[Header("Post Shot Re-Aim")]
+	[Tooltip("После успешного выстрела отдача сбивает AimProgress, и следующий выстрел ждёт повторного наведения.")]
+	[SerializeField] private bool m_ReduceAimProgressAfterShot = true;
+	[Tooltip("Сколько AimProgress теряется на единицу добавленного RecoilPenalty.")]
+	[SerializeField, Range(0f, 1f)] private float m_AimLossPerRecoilPenaltyUnit = 0.65f;
+	[Tooltip("Ниже этого значения AimProgress после выстрела не опускается.")]
+	[SerializeField, Range(0f, 1f)] private float m_MinAimProgressAfterShot = 0f;
+
 	[Header("Debug")]
 	[SerializeField, Min(0.01f)] private float m_DebugCurrentAimTimeSeconds = 0.25f;
 	[SerializeField] private bool m_DebugCanAccumulateAim;
 	[SerializeField] private Transform m_DebugCurrentTarget;
+	[SerializeField, Min(0.01f)] private float m_DebugSkillAimTimeMultiplier = 1f;
+	[SerializeField, Min(0.01f)] private float m_DebugConditionAimTimeMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_DebugLastShotAimLoss;
+	[SerializeField, Range(0f, 1f)] private float m_DebugAimProgressAfterLastShot;
 	#endregion
 
 	#region Private Fields
@@ -80,12 +95,20 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_MagazineLoadingController == null)
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_CombatCondition == null)
+			m_CombatCondition = GetComponent<UnitCombatCondition>();
 	}
 
 	private void OnEnable()
 	{
 		if (m_Vision != null)
 			m_Vision.VisibleTargetChanged += HandleVisibleTargetChanged;
+		if (m_FireController != null)
+			m_FireController.ShotFired += HandleShotFired;
 
 		m_LastVisibleTarget = m_Vision != null ? m_Vision.VisibleTarget : null;
 	}
@@ -94,6 +117,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	{
 		if (m_Vision != null)
 			m_Vision.VisibleTargetChanged -= HandleVisibleTargetChanged;
+		if (m_FireController != null)
+			m_FireController.ShotFired -= HandleShotFired;
 	}
 
 	private void Update()
@@ -164,6 +189,12 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		}
 		aimTimeSeconds *= GetStanceAimTimeMultiplier();
 		aimTimeSeconds *= GetMovementAimTimeMultiplier();
+		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetAimTimeMultiplier() : 1f;
+		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetAimTimeMultiplier(IsMoving()) : 1f;
+		aimTimeSeconds *= skillMultiplier;
+		aimTimeSeconds *= conditionMultiplier;
+		m_DebugSkillAimTimeMultiplier = skillMultiplier;
+		m_DebugConditionAimTimeMultiplier = conditionMultiplier;
 		return Mathf.Max(0.01f, aimTimeSeconds);
 	}
 
@@ -193,19 +224,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private float GetMovementAimTimeMultiplier()
 	{
-		bool isMoving = false;
-		bool isSprinting = false;
-
-		if (m_LocomotionDriver != null)
-		{
-			isMoving = m_LocomotionDriver.HasMoveIntent;
-			isSprinting = m_LocomotionDriver.IsSprintMoveMode;
-		}
-		else if (m_ClickToMove != null)
-		{
-			isMoving = m_ClickToMove.HasMoveIntent;
-			isSprinting = m_ClickToMove.IsSprintMoveMode;
-		}
+		bool isMoving = IsMoving();
+		bool isSprinting = IsSprinting();
 
 		if (isSprinting)
 			return m_SprintAimTimeMultiplier;
@@ -213,6 +233,62 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			return m_MovingAimTimeMultiplier;
 
 		return 1f;
+	}
+
+	private bool IsMoving()
+	{
+		bool isMoving = false;
+
+		if (m_LocomotionDriver != null)
+			isMoving = m_LocomotionDriver.HasMoveIntent;
+		else if (m_ClickToMove != null)
+			isMoving = m_ClickToMove.HasMoveIntent;
+
+		return isMoving;
+	}
+
+	private bool IsSprinting()
+	{
+		if (m_LocomotionDriver != null)
+			return m_LocomotionDriver.IsSprintMoveMode;
+		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
+	}
+
+	private void HandleShotFired(AmmoDefinition _ammoDefinition)
+	{
+		if (!m_ReduceAimProgressAfterShot || m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
+			return;
+
+		float aimLoss = CalculateShotAimLoss(_ammoDefinition);
+		if (aimLoss <= 0f)
+			return;
+
+		float currentProgress = m_WeaponRuntime.TransientState.AimProgress01;
+		float nextProgress = Mathf.Max(m_MinAimProgressAfterShot, currentProgress - aimLoss);
+		m_WeaponRuntime.SetAimProgress(nextProgress);
+		m_DebugLastShotAimLoss = aimLoss;
+		m_DebugAimProgressAfterLastShot = nextProgress;
+	}
+
+	private float CalculateShotAimLoss(AmmoDefinition _ammoDefinition)
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
+		WeaponFireMode fireMode = m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.SelectedFireMode
+			: WeaponFireMode.SemiAuto;
+
+		float attachmentModifier = m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
+			: 1f;
+		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
+		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
+		float recoilAdded = WeaponDefinition.ComputeAddedRecoilPenalty(
+			weaponDefinition,
+			fireMode,
+			_ammoDefinition,
+			attachmentModifier) * skillMultiplier * conditionMultiplier;
+
+		return Mathf.Clamp01(recoilAdded * m_AimLossPerRecoilPenaltyUnit);
 	}
 
 	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)

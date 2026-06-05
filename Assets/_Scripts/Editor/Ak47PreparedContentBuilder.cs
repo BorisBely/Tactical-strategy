@@ -437,7 +437,7 @@ public static class Ak47PreparedContentBuilder
 		Dictionary<string, ItemDefinition> _magazineItems,
 		params ItemDefinition[] _attachmentItems)
 	{
-		CharacterInventoryStarterLoadout starter = UnityEngine.Object.FindFirstObjectByType<CharacterInventoryStarterLoadout>(FindObjectsInactive.Include);
+		CharacterInventoryStarterLoadout starter = UnityEngine.Object.FindAnyObjectByType<CharacterInventoryStarterLoadout>(FindObjectsInactive.Include);
 		if (starter == null)
 			return;
 

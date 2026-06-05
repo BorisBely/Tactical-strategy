@@ -14,11 +14,24 @@ public sealed class UnitVision : MonoBehaviour
 {
 	#region Constants
 	private const int c_RaycastHitBuffer = 16;
-	private const int c_BundlePoints = 5;
+	private const int c_AimCandidateCapacity = 9;
 	#endregion
+
+	private readonly struct AimCandidate
+	{
+		public readonly Vector3 Point;
+		public readonly float Weight;
+
+		public AimCandidate(Vector3 _point, float _weight)
+		{
+			Point = _point;
+			Weight = _weight;
+		}
+	}
 
 	#region Private Fields
 	[SerializeField] private UnitVisionRegistry m_Registry;
+	[SerializeField] private ShootingRangeTargetRegistry m_RangeTargetRegistry;
 	[SerializeField] private UnitTeam m_Team;
 	[Tooltip("Коллайдер этого юнита для попадания чужих лучей; если пусто — GetComponentInChildren.")]
 	[SerializeField] private Collider m_BodyCollider;
@@ -69,12 +82,15 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private Color m_EyeLookDebugRayColor = new Color(1f, 0.35f, 0.9f, 1f);
 
 	private readonly List<UnitVision> m_OpponentBuffer = new List<UnitVision>(128);
-	private readonly List<Vector3> m_BundleScratch = new List<Vector3>(c_BundlePoints);
+	private readonly List<ShootingRangeTarget> m_RangeTargetBuffer = new List<ShootingRangeTarget>(32);
+	private readonly List<AimCandidate> m_AimCandidateScratch = new List<AimCandidate>(c_AimCandidateCapacity);
 	private readonly List<(Vector3 from, Vector3 to, bool hitTarget)> m_DebugRays = new List<(Vector3, Vector3, bool)>(256);
 
 	private RaycastHit[] m_Hits;
 	private float m_NextScanTime;
 	private Transform m_VisibleTarget;
+	private bool m_HasVisibleTargetAimPoint;
+	private Vector3 m_VisibleTargetAimPointWorld;
 	private Vector3 m_SmoothedVisionForwardXZ;
 	private Transform m_CachedSightFromWeapon;
 	private ItemDefinition m_CachedSightWeaponDef;
@@ -111,17 +127,37 @@ public sealed class UnitVision : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Точка, к которой разворачиваемся/целимся по видимой цели: центр коллайдера, иначе позиция корня.
+	/// Точка, к которой разворачиваемся/целимся по видимой цели: лучший видимый aim point внутри одного коллайдера.
 	/// </summary>
 	public Vector3 GetVisibleTargetAimPointWorld()
 	{
 		if (m_VisibleTarget == null)
 			return Vector3.zero;
 
+		if (m_HasVisibleTargetAimPoint)
+			return m_VisibleTargetAimPointWorld;
+
+		if (m_VisibleTarget.TryGetComponent(out ShootingRangeTarget rangeTarget))
+			return rangeTarget.GetAimPointWorld();
+
 		if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision) && targetVision.BodyCollider != null)
 			return targetVision.BodyCollider.bounds.center;
 
 		return m_VisibleTarget.position;
+	}
+
+	public void SetVisionRange(float _range)
+	{
+		m_VisionRange = Mathf.Max(0.5f, _range);
+	}
+
+	public void RequestImmediateScan()
+	{
+		if (!isActiveAndEnabled || m_Registry == null || m_Team == null)
+			return;
+
+		RunVisionScan();
+		ScheduleNextScan(0f);
 	}
 
 	/// <summary>
@@ -247,14 +283,23 @@ public sealed class UnitVision : MonoBehaviour
 	#region Private Methods
 	private void ResolveRegistryIfNeeded()
 	{
-		if (m_Registry != null)
-			return;
-
+		if (m_Registry == null)
+		{
 #if UNITY_2023_1_OR_NEWER
-		m_Registry = FindAnyObjectByType<UnitVisionRegistry>(FindObjectsInactive.Exclude);
+			m_Registry = FindAnyObjectByType<UnitVisionRegistry>(FindObjectsInactive.Exclude);
 #else
-		m_Registry = FindObjectOfType<UnitVisionRegistry>();
+			m_Registry = FindObjectOfType<UnitVisionRegistry>();
 #endif
+		}
+
+		if (m_RangeTargetRegistry == null)
+		{
+#if UNITY_2023_1_OR_NEWER
+			m_RangeTargetRegistry = FindAnyObjectByType<ShootingRangeTargetRegistry>(FindObjectsInactive.Exclude);
+#else
+			m_RangeTargetRegistry = FindObjectOfType<ShootingRangeTargetRegistry>();
+#endif
+		}
 	}
 
 	private void ScheduleNextScan(float _delayOffset)
@@ -273,7 +318,9 @@ public sealed class UnitVision : MonoBehaviour
 
 		m_Registry.GetOpponents(m_Team.Team, m_OpponentBuffer);
 
-		UnitVision best = null;
+		Transform bestTarget = null;
+		bool hasBestAimPoint = false;
+		Vector3 bestAimPoint = Vector3.zero;
 		float bestDistSq = float.MaxValue;
 		float rangeSq = m_VisionRange * m_VisionRange;
 		float halfFov = m_FieldOfViewDegrees * 0.5f;
@@ -288,39 +335,102 @@ public sealed class UnitVision : MonoBehaviour
 			if (other == null || other == this || !other.isActiveAndEnabled)
 				continue;
 
+			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
+				continue;
+
 			Collider targetCol = other.BodyCollider != null
 				? other.BodyCollider
 				: other.GetComponentInChildren<Collider>();
 			if (targetCol == null)
 				continue;
 
-			Vector3 targetCenter = targetCol.bounds.center;
-			Vector3 toTarget = targetCenter - origin;
-			toTarget.y = 0f;
-			float distSq = toTarget.sqrMagnitude;
-			if (distSq > rangeSq || distSq < 0.0001f)
-				continue;
+			TryEvaluateVisionCandidate(
+				origin,
+				forwardXZ,
+				rangeSq,
+				halfFov,
+				other.transform,
+				targetCol,
+				ref bestDistSq,
+				ref bestTarget,
+				ref bestAimPoint,
+				ref hasBestAimPoint);
+		}
 
-			float ang = Vector3.Angle(forwardXZ, toTarget.normalized);
-			if (ang > halfFov)
-				continue;
-
-			if (!IsAnyBundlePointVisible(origin, targetCol, other.transform))
-				continue;
-
-			if (distSq < bestDistSq)
+		if (m_Team != null && m_Team.Team == UnitTeamId.Player && m_RangeTargetRegistry != null)
+		{
+			m_RangeTargetRegistry.GetActiveTargets(m_RangeTargetBuffer);
+			for (int i = 0; i < m_RangeTargetBuffer.Count; i++)
 			{
-				bestDistSq = distSq;
-				best = other;
+				ShootingRangeTarget rangeTarget = m_RangeTargetBuffer[i];
+				if (rangeTarget == null || !rangeTarget.IsAvailableForTargeting)
+					continue;
+
+				Collider targetCol = rangeTarget.TargetCollider;
+				if (targetCol == null)
+					continue;
+
+				TryEvaluateVisionCandidate(
+					origin,
+					forwardXZ,
+					rangeSq,
+					halfFov,
+					rangeTarget.transform,
+					targetCol,
+					ref bestDistSq,
+					ref bestTarget,
+					ref bestAimPoint,
+					ref hasBestAimPoint);
 			}
 		}
 
-		Transform newTarget = best != null ? best.transform : null;
-		if (newTarget != m_VisibleTarget)
+		Transform newTarget = bestTarget;
+		bool targetChanged = newTarget != m_VisibleTarget;
+		m_VisibleTarget = newTarget;
+		m_HasVisibleTargetAimPoint = newTarget != null && hasBestAimPoint;
+		m_VisibleTargetAimPointWorld = m_HasVisibleTargetAimPoint ? bestAimPoint : Vector3.zero;
+		if (targetChanged)
 		{
-			m_VisibleTarget = newTarget;
 			VisibleTargetChanged?.Invoke(m_VisibleTarget);
 		}
+	}
+
+	private bool TryEvaluateVisionCandidate(
+		Vector3 _origin,
+		Vector3 _forwardXZ,
+		float _rangeSq,
+		float _halfFov,
+		Transform _targetRoot,
+		Collider _targetCol,
+		ref float _bestDistSq,
+		ref Transform _bestTarget,
+		ref Vector3 _bestAimPoint,
+		ref bool _hasBestAimPoint)
+	{
+		Vector3 targetCenter = _targetCol.bounds.center;
+		Vector3 toTarget = targetCenter - _origin;
+		toTarget.y = 0f;
+		float distSq = toTarget.sqrMagnitude;
+		if (distSq > _rangeSq || distSq < 0.0001f)
+			return false;
+
+		float ang = Vector3.Angle(_forwardXZ, toTarget.normalized);
+		if (ang > _halfFov)
+			return false;
+
+		if (!TryFindBestVisibleAimPoint(_origin, _targetCol, _targetRoot, out Vector3 aimPoint))
+			return false;
+
+		if (distSq < _bestDistSq)
+		{
+			_bestDistSq = distSq;
+			_bestTarget = _targetRoot;
+			_bestAimPoint = aimPoint;
+			_hasBestAimPoint = true;
+			return true;
+		}
+
+		return false;
 	}
 
 	private Vector3 GetEyeWorldPosition()
@@ -491,34 +601,49 @@ public sealed class UnitVision : MonoBehaviour
 		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 
-	private void BuildBundleWorldPoints(Collider _col, List<Vector3> _out)
+	private void BuildAimCandidates(Collider _col, List<AimCandidate> _out)
 	{
 		_out.Clear();
 		Bounds b = _col.bounds;
-		float y = b.center.y;
-		Vector3 c = new Vector3(b.center.x, y, b.center.z);
+		Vector3 c = b.center;
 		Vector3 e = b.extents;
-		_out.Add(c);
-		_out.Add(new Vector3(c.x + e.x, y, c.z + e.z));
-		_out.Add(new Vector3(c.x - e.x, y, c.z + e.z));
-		_out.Add(new Vector3(c.x + e.x, y, c.z - e.z));
-		_out.Add(new Vector3(c.x - e.x, y, c.z - e.z));
+
+		// One-collider fallback that mimics future body zones:
+		// primary ~= chest, then center/upper/lower, then low-priority visible edges.
+		float primaryY = c.y + e.y * 0.35f;
+		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z), 100f));
+		_out.Add(new AimCandidate(c, 80f));
+		_out.Add(new AimCandidate(new Vector3(c.x, c.y + e.y * 0.75f, c.z), 70f));
+		_out.Add(new AimCandidate(new Vector3(c.x, c.y - e.y * 0.35f, c.z), 50f));
+		_out.Add(new AimCandidate(new Vector3(c.x + e.x, primaryY, c.z), 30f));
+		_out.Add(new AimCandidate(new Vector3(c.x - e.x, primaryY, c.z), 30f));
+		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z + e.z), 30f));
+		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z - e.z), 30f));
+		_out.Add(new AimCandidate(new Vector3(c.x, c.y - e.y * 0.75f, c.z), 25f));
 	}
 
-	private bool IsAnyBundlePointVisible(Vector3 _eye, Collider _targetCol, Transform _opponentRoot)
+	private bool TryFindBestVisibleAimPoint(Vector3 _eye, Collider _targetCol, Transform _opponentRoot, out Vector3 _aimPoint)
 	{
-		BuildBundleWorldPoints(_targetCol, m_BundleScratch);
-		for (int i = 0; i < m_BundleScratch.Count; i++)
+		_aimPoint = Vector3.zero;
+		bool found = false;
+		float bestWeight = float.MinValue;
+
+		BuildAimCandidates(_targetCol, m_AimCandidateScratch);
+		for (int i = 0; i < m_AimCandidateScratch.Count; i++)
 		{
-			Vector3 pt = m_BundleScratch[i];
-			bool ok = HasLineOfSightToPoint(_eye, pt, _opponentRoot, _targetCol, out Vector3 rayEnd, out bool hitTarget);
+			AimCandidate candidate = m_AimCandidateScratch[i];
+			bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, _targetCol, out Vector3 rayEnd, out bool hitTarget);
 			if (m_DrawVisionGizmos)
 				m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));
-			if (ok)
-				return true;
+			if (!ok || candidate.Weight <= bestWeight)
+				continue;
+
+			bestWeight = candidate.Weight;
+			_aimPoint = candidate.Point;
+			found = true;
 		}
 
-		return false;
+		return found;
 	}
 
 	private bool HasLineOfSightToPoint(
@@ -617,7 +742,9 @@ public sealed class UnitVision : MonoBehaviour
 		if (m_VisibleTarget != null && Application.isPlaying)
 		{
 			Gizmos.color = Color.yellow;
-			Gizmos.DrawLine(origin, m_VisibleTarget.position + Vector3.up * 1f);
+			Vector3 aimPoint = GetVisibleTargetAimPointWorld();
+			Gizmos.DrawLine(origin, aimPoint);
+			Gizmos.DrawWireSphere(aimPoint, 0.08f);
 		}
 	}
 	#endregion

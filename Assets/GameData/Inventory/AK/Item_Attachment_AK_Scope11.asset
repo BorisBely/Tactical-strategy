@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_Scope11
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_scope11
-  m_Description: Side-rail optical sight (PSO-style) for AK platform.
+  m_Description: Оптический прицел в стиле PSO на боковую планку AK.
   m_Icon: {fileID: 0}
   m_BasePrice: 720
   m_Category: 0

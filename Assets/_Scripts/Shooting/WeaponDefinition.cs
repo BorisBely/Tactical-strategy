@@ -76,6 +76,10 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private AudioClip m_ReloadBoltHoldOpenDelaySound;
 	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 1f;
 
+	[Header("Visual FX")]
+	[Tooltip("Профиль muzzle / shell / trail / impact для этого оружия. Без профиля юнит не спавнит weapon-specific FX.")]
+	[SerializeField] private WeaponVfxProfile m_VfxProfile;
+
 	[Header("Reliability")]
 	[Tooltip("Общая надёжность оружия: устойчивость к износу, загрязнению и проблемам в тяжёлых условиях.")]
 	[SerializeField, Range(0f, 1f)] private float m_Reliability = 0.8f;
@@ -131,6 +135,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float FoulingJamStartThreshold => m_FoulingJamStartThreshold;
 	public float WearJamInfluence => m_WearJamInfluence;
 	public float FoulingJamInfluence => m_FoulingJamInfluence;
+	public WeaponVfxProfile VfxProfile => m_VfxProfile;
 	#endregion
 
 	#region Public Methods

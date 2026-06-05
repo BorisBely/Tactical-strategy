@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_Mosin_Scope8
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.mosin_scope8
-  m_Description: High-magnification optical sight for precision shooting.
+  m_Description: Оптический прицел высокого увеличения для точной стрельбы.
   m_Icon: {fileID: 0}
   m_BasePrice: 520
   m_Category: 0

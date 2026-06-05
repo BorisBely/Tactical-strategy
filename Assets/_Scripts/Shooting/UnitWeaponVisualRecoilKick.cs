@@ -147,7 +147,8 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		float pitch = penaltyAdded * m_PitchDegreesPerPenaltyUnit;
 		float yawScale = pitch * m_YawJitterFraction;
 		float yaw = yawScale == 0f ? 0f : Random.Range(-yawScale, yawScale);
-		Quaternion shotKick = Quaternion.Euler(pitch, yaw, 0f);
+		// Unity's positive local X tilts a forward-facing barrel down on these weapon rigs.
+		Quaternion shotKick = Quaternion.Euler(-pitch, yaw, 0f);
 		m_KickRotationOffset = m_KickRotationOffset * shotKick;
 	}
 
