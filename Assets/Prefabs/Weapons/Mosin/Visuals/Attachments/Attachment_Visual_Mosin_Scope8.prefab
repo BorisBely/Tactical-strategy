@@ -191,7 +191,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4565500981874617609}
   m_Layer: 0
-  m_Name: Attachment_Visual_M4_Scope8Mosin
+  m_Name: Attachment_Visual_Mosin_Scope8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

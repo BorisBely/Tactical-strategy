@@ -91,6 +91,43 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 
 		if (m_ItemSet != null)
 			m_ItemSet.AppendUnique(_outSlots, seen);
+
+		SortSlotsForDisplay(_outSlots);
+	}
+
+	private static void SortSlotsForDisplay(List<InventorySlotRuntimeData> _slots)
+	{
+		if (_slots == null || _slots.Count <= 1)
+			return;
+
+		_slots.Sort(static (a, b) =>
+		{
+			int orderA = GetDisplaySortOrder(a.Definition);
+			int orderB = GetDisplaySortOrder(b.Definition);
+			if (orderA != orderB)
+				return orderA.CompareTo(orderB);
+
+			string nameA = a.Definition != null ? a.Definition.name : string.Empty;
+			string nameB = b.Definition != null ? b.Definition.name : string.Empty;
+			return string.Compare(nameA, nameB, System.StringComparison.Ordinal);
+		});
+	}
+
+	private static int GetDisplaySortOrder(ItemDefinition _definition)
+	{
+		if (_definition == null)
+			return 99;
+
+		if (_definition.WeaponDefinition != null)
+			return 0;
+		if (_definition.WeaponAttachmentDefinition != null)
+			return 1;
+		if (_definition.MagazineDefinition != null)
+			return 2;
+		if (_definition.AmmoDefinition != null)
+			return 3;
+
+		return 4;
 	}
 	#endregion
 

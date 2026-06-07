@@ -196,6 +196,12 @@ public sealed class WeaponDistanceAimProfile
 	{
 		return EvaluateMultiplier(m_AimTimeMultiplierByDistance, _distanceMeters);
 	}
+
+	public void SetCurves(AnimationCurve _dispersionMultiplierByDistance, AnimationCurve _aimTimeMultiplierByDistance)
+	{
+		m_DispersionMultiplierByDistance = _dispersionMultiplierByDistance;
+		m_AimTimeMultiplierByDistance = _aimTimeMultiplierByDistance;
+	}
 	#endregion
 
 	#region Private Methods
@@ -205,7 +211,31 @@ public sealed class WeaponDistanceAimProfile
 			return 1f;
 
 		float clampedDistance = Mathf.Clamp(_distanceMeters, c_MinDistanceMeters, c_MaxDistanceMeters);
-		return Mathf.Max(c_MinMultiplier, _curve.Evaluate(clampedDistance));
+		int count = _curve.length;
+		if (count == 1)
+			return Mathf.Max(c_MinMultiplier, _curve.keys[0].value);
+
+		Keyframe[] keys = _curve.keys;
+		if (clampedDistance <= keys[0].time)
+			return Mathf.Max(c_MinMultiplier, keys[0].value);
+		if (clampedDistance >= keys[count - 1].time)
+			return Mathf.Max(c_MinMultiplier, keys[count - 1].value);
+
+		for (int i = 0; i < count - 1; i++)
+		{
+			float t0 = keys[i].time;
+			float t1 = keys[i + 1].time;
+			if (t0 > clampedDistance || clampedDistance > t1)
+				continue;
+
+			if (Mathf.Approximately(t1, t0))
+				return Mathf.Max(c_MinMultiplier, keys[i].value);
+
+			float t = (clampedDistance - t0) / (t1 - t0);
+			return Mathf.Max(c_MinMultiplier, Mathf.Lerp(keys[i].value, keys[i + 1].value, t));
+		}
+
+		return Mathf.Max(c_MinMultiplier, keys[count - 1].value);
 	}
 	#endregion
 }

@@ -7505,6 +7505,7 @@ GameObject:
   - component: {fileID: 4859917004016156609}
   - component: {fileID: 430373704858629585}
   - component: {fileID: 8854059317223957988}
+  - component: {fileID: 731300000000000005}
   - component: {fileID: 365107933097138229}
   - component: {fileID: 1564013067425680078}
   - component: {fileID: 2745828861811900171}
@@ -7516,6 +7517,8 @@ GameObject:
   - component: {fileID: 3544168995589682661}
   - component: {fileID: 2876543210987654320}
   - component: {fileID: 9123456789012345678}
+  - component: {fileID: 3408199974750778793}
+  - component: {fileID: 1357371775586804989}
   m_Layer: 7
   m_Name: PlayerUnit
   m_TagString: Untagged
@@ -7710,7 +7713,11 @@ MonoBehaviour:
   m_EngageDirectionSmoothTime: 0.055
   m_StopVelocityEpsilon: 0.08
   m_StartNavSpeedFloor: 0.88
+  m_StartNavSpeedFloorMaxLeadOverVelocity: 0.1
   m_BrakeAnimLeadDistance: 0.9
+  m_SyncAnimatorPlaybackToGroundSpeed: 1
+  m_PlaybackSyncMin: 0.55
+  m_PlaybackSyncMax: 1.45
 --- !u!114 &3503617795371132269
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7785,7 +7792,11 @@ MonoBehaviour:
   m_EngageDirectionSmoothTime: 0.055
   m_StopVelocityEpsilon: 0.08
   m_StartNavSpeedFloor: 0.88
+  m_StartNavSpeedFloorMaxLeadOverVelocity: 0.1
   m_BrakeAnimLeadDistance: 0.9
+  m_SyncAnimatorPlaybackToGroundSpeed: 1
+  m_PlaybackSyncMin: 0.55
+  m_PlaybackSyncMax: 1.45
 --- !u!114 &3741241907743255212
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7856,6 +7867,7 @@ MonoBehaviour:
         m_Wear01: 0
         m_Fouling01: 0
         m_EquippedAttachments: []
+        m_EquippedAttachmentItems: []
         m_IsTerminallyBroken: 0
         m_HasRoundInChamber: 0
         m_ChamberedAmmoDefinition: {fileID: 0}
@@ -7932,6 +7944,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitVision
   m_Registry: {fileID: 0}
+  m_RangeTargetRegistry: {fileID: 0}
   m_Team: {fileID: 7069730870354710805}
   m_BodyCollider: {fileID: 5339209680734274384}
   m_Animator: {fileID: 5771954729034314130}
@@ -7979,6 +7992,7 @@ MonoBehaviour:
   m_ReadyHands: {fileID: 1703047740406568110}
   m_BusyState: {fileID: 0}
   m_ReloadController: {fileID: 4859917004016156609}
+  m_MagazineLoadingController: {fileID: 0}
   m_FireController: {fileID: 0}
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
@@ -8025,6 +8039,7 @@ MonoBehaviour:
   m_TransientState:
     m_AimProgress01: 0
     m_RecoilPenalty: 0
+    m_ConsecutiveBurstShotsFired: 0
     m_NextAllowedShotTime: 0
     m_MalfunctionKind: 0
     m_MalfunctionChannel: 0
@@ -8060,12 +8075,14 @@ MonoBehaviour:
   m_CharacterInventory: {fileID: 6875159727817653897}
   m_BusyState: {fileID: 383407823447829567}
   m_UnitEquipment: {fileID: 5322687323565292150}
+  m_WeaponReloadController: {fileID: 0}
   m_InventoryBindings: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_LeftHandAnchor: {fileID: 4085402320402330437}
   m_RoundLoadAudioSource: {fileID: 0}
   m_RoundLoadSoundSpatialMinDistance: 1
   m_RoundLoadSoundSpatialMaxDistance: 45
+  m_LayerWeightFadeSeconds: 0.28
   m_IsLoadingMagazine: 0
   m_DebugTargetMagazineBagIndex: -1
   m_DebugLastFailureReason: 
@@ -8096,6 +8113,7 @@ MonoBehaviour:
   m_ReloadSoundSpatialMinDistance: 1
   m_ReloadSoundSpatialMaxDistance: 45
   m_BoltPresentationFireTailSeconds: 0
+  m_MagazineVisualTransferDuration: 0.12
   m_IsReloadingWeapon: 0
   m_IsCyclingBolt: 0
   m_HasEjectedCurrentMagazine: 0
@@ -8116,6 +8134,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponHitscanShooting
   m_Equipment: {fileID: 5322687323565292150}
   m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Vision: {fileID: 0}
+  m_Stance: {fileID: 0}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
+  m_CombatStats: {fileID: 3408199974750778793}
+  m_CombatCondition: {fileID: 1357371775586804989}
+  m_AimProgressController: {fileID: 365107933097138229}
   m_HitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8123,16 +8148,28 @@ MonoBehaviour:
   m_BarrelRayStartOffset: 0.08
   m_TriggerInteraction: 1
   m_BaseSpreadToDegrees: 0.35
-  m_AimProgressTighten: 0.55
   m_RecoilSpreadScale: 0.22
   m_MinHalfAngleDegrees: 0.04
   m_MaxHalfAngleDegrees: 12
+  m_StandingSpreadMultiplier: 1
+  m_CrouchSpreadMultiplier: 0.9
+  m_ProneSpreadMultiplier: 0.75
+  m_MovingSpreadMultiplier: 1.35
+  m_SprintSpreadMultiplier: 2
   m_UseDistanceFalloff: 1
   m_FalloffZeroRangeMultiplier: 2
+  m_LogShots: 1
   m_DrawDebugRays: 1
   m_DebugRayDuration: 10
   m_DebugLastHitName: 
   m_DebugLastDamage: 0
+  m_DebugLastHalfAngleDegrees: 0
+  m_DebugLastTargetDistanceMeters: 0
+  m_DebugLastRecoilMultiplier: 1
+  m_DebugLastStanceMultiplier: 1
+  m_DebugLastMovementMultiplier: 1
+  m_DebugLastSkillMultiplier: 1
+  m_DebugLastConditionMultiplier: 1
 --- !u!114 &8854059317223957988
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8146,6 +8183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponFireController
   m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 0}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
@@ -8156,12 +8194,36 @@ MonoBehaviour:
   m_EnableAutomaticFireLoop: 1
   m_TryReloadWhenOutOfAmmo: 1
   m_OutOfAmmoReloadRetrySeconds: 0.35
+  m_RequireFullAimToFire: 1
+  m_RequireBarrelAlignedToFire: 1
+  m_MaxBarrelAimErrorDegrees: 1.5
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
   m_LastFiredAmmoDefinition: {fileID: 0}
   m_DebugSuccessfulShotCount: 0
   m_DebugBurstShotsRemaining: 0
   m_DebugNextBurstWaveTime: 0
+  m_DebugCurrentAimProgress: 0
+  m_DebugLastBarrelAimErrorDegrees: 0
+--- !u!114 &731300000000000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2b4c6d8f0a142638597acbdef012345, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponFireAudio
+  m_FireController: {fileID: 8854059317223957988}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_AudioSource: {fileID: 0}
+  m_FireVoiceCount: 4
+  m_SpatialMinDistance: 1
+  m_SpatialMaxDistance: 45
 --- !u!114 &365107933097138229
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8177,22 +8239,20 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_Vision: {fileID: 1773384317962348157}
-  m_ClickToMove: {fileID: 4256334534260426623}
-  m_LocomotionDriver: {fileID: 6826918016596314260}
-  m_Stance: {fileID: 3741241907743255212}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
+  m_MagazineLoadingController: {fileID: 0}
+  m_FireController: {fileID: 8854059317223957988}
+  m_CombatStats: {fileID: 3408199974750778793}
+  m_CombatCondition: {fileID: 1357371775586804989}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
   m_BlockDuringStanceTransition: 1
   m_BlockDuringReloadOrBoltCycle: 1
-  m_StandingAimTimeMultiplier: 1
-  m_CrouchAimTimeMultiplier: 0.82
-  m_ProneAimTimeMultiplier: 0.68
-  m_MovingAimTimeMultiplier: 1.55
-  m_SprintAimTimeMultiplier: 2.25
   m_AimLossSpeedMultiplier: 1.65
-  m_TargetSwitchRetainProgress01: 0.25
+  m_ResetAimProgressAfterShot: 1
   m_DebugCurrentAimTimeSeconds: 0.25
   m_DebugCanAccumulateAim: 0
   m_DebugCurrentTarget: {fileID: 0}
@@ -8214,7 +8274,6 @@ MonoBehaviour:
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
-  m_MinAimProgress01: 0.98
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
 --- !u!114 &2745828861811900171
@@ -8232,10 +8291,16 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_FireController: {fileID: 8854059317223957988}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_CombatStats: {fileID: 3408199974750778793}
+  m_CombatCondition: {fileID: 0}
   m_RecoveryWhileFiringMultiplier: 0.45
   m_RecoveryWhenNotReadyMultiplier: 1.2
   m_DebugLastRecoilAdded: 0
   m_DebugLastRecoveryPerSecond: 0
+  m_DebugSkillRecoilAddedMultiplier: 1
+  m_DebugConditionRecoilAddedMultiplier: 1
+  m_DebugSkillRecoveryMultiplier: 1
+  m_DebugConditionRecoveryMultiplier: 1
 --- !u!114 &8412401315927888462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8407,6 +8472,58 @@ MonoBehaviour:
   m_StopVelocityEpsilon: 0.08
   m_LimitOneFootstepPerFrame: 1
   m_FootstepMinIntervalSeconds: 0.14
+--- !u!114 &3408199974750778793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cbb459443b20c04f918012203624e35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCombatStats
+  m_RankPreset: {fileID: 11400000, guid: d2b3c4e5f60718293a4b5c6d7e8f9011, type: 2}
+  m_ApplyRankPresetOnAwake: 1
+  m_Marksmanship: 50
+  m_WeaponHandling: 50
+  m_RecoilControl: 50
+  m_WorstMarksmanshipDispersionMultiplier: 1.25
+  m_BestMarksmanshipDispersionMultiplier: 0.75
+  m_WorstHandlingAimTimeMultiplier: 1.25
+  m_BestHandlingAimTimeMultiplier: 0.75
+  m_WorstRecoilAddedMultiplier: 1.2
+  m_BestRecoilAddedMultiplier: 0.8
+  m_WorstRecoilRecoveryMultiplier: 0.8
+  m_BestRecoilRecoveryMultiplier: 1.2
+--- !u!114 &1357371775586804989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df15498df5a70f34cad81fca70031dfc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCombatCondition
+  m_ArmsWounded: 0
+  m_LegsWounded: 0
+  m_HeavyPain: 0
+  m_Suppressed: 0
+  m_ArmsWoundedDispersionMultiplier: 1.35
+  m_ArmsWoundedAimTimeMultiplier: 1.25
+  m_LegsWoundedMovingAimTimeMultiplier: 1.2
+  m_HeavyPainDispersionMultiplier: 1.2
+  m_HeavyPainAimTimeMultiplier: 1.15
+  m_SuppressedDispersionMultiplier: 1.15
+  m_SuppressedAimTimeMultiplier: 1.2
+  m_ArmsWoundedRecoilAddedMultiplier: 1.25
+  m_ArmsWoundedRecoilRecoveryMultiplier: 0.85
+  m_HeavyPainRecoilAddedMultiplier: 1.1
+  m_HeavyPainRecoilRecoveryMultiplier: 0.9
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

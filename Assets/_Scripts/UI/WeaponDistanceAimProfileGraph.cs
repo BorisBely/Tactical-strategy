@@ -11,8 +11,7 @@ public enum WeaponDistanceAimGraphMetric
 
 /// <summary>
 /// UI-график дистанционного поведения оружия: точность и скорость прицеливания на 0..100 м.
-/// Чем выше линия, тем лучше: для точности используется 1 / dispersion multiplier,
-/// для скорости прицеливания используется 1 / aim time multiplier.
+/// Формулы — Assets/Docs/CombatBalance/OpticDistanceBalance.md, расчёт — <see cref="WeaponDistanceAimEvaluator"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class WeaponDistanceAimProfileGraph : Graphic
@@ -39,10 +38,19 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[SerializeField, Range(8, 128)] private int m_SampleCount = 64;
 
 	[Header("Value Scale")]
-	[Tooltip("Нижняя граница качества на графике. 1 = базовое значение без бонуса/штрафа.")]
-	[SerializeField, Min(0.01f)] private float m_MinDisplayedQuality = 0.5f;
-	[Tooltip("Верхняя граница качества на графике. 2 = в два раза лучше базового значения.")]
-	[SerializeField, Min(0.02f)] private float m_MaxDisplayedQuality = 2f;
+	[Tooltip("Подгоняет вертикальную шкалу под min/max отображаемых линий. Выключите для совпадения с Canvas и таблицами баланса.")]
+	[SerializeField] private bool m_AutoFitQualityScale = false;
+	[Tooltip("Нижняя граница качества на графике. 1 = множитель 1.0 (нейтральное значение).")]
+	[SerializeField, Min(0.01f)] private float m_MinDisplayedQuality = 0.15f;
+	[Tooltip("Верхняя граница качества на графике. 2 = в два раза лучше нейтрального множителя.")]
+	[SerializeField, Min(0.02f)] private float m_MaxDisplayedQuality = 2.75f;
+
+	[Header("Line Colors")]
+	[Tooltip("Текущий экипированный loadout (первая линия).")]
+	[SerializeField] private Color m_CurrentLineColor = new Color(0.55f, 0.55f, 0.55f, 1f);
+	[Tooltip("Временный preview при наведении на оружие или модуль (вторая линия).")]
+	[SerializeField] private Color m_PreviewLineColor = new Color(1f, 1f, 1f, 1f);
+	[SerializeField, Min(0.5f)] private float m_PreviewLineWidthMultiplier = 1.2f;
 
 	[Header("Style")]
 	[SerializeField, Min(0)] private int m_PaddingLeft = 8;
@@ -54,9 +62,6 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[SerializeField, Range(0, 12)] private int m_VerticalGridLines = 5;
 	[SerializeField, Range(0, 12)] private int m_HorizontalGridLines = 4;
 	[SerializeField] private Color m_GridColor = new Color(1f, 1f, 1f, 0.16f);
-	[SerializeField] private Color m_AccuracyColor = new Color(0.25f, 0.85f, 1f, 1f);
-	[SerializeField] private Color m_AimSpeedColor = new Color(1f, 0.72f, 0.18f, 1f);
-	[SerializeField] private Color m_PreviewColor = new Color(0.65f, 1f, 0.35f, 1f);
 	[SerializeField] private bool m_ShowAccuracy = true;
 	[SerializeField] private bool m_ShowAimSpeed = true;
 	#endregion
@@ -200,19 +205,39 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 
 		bool showAccuracy = m_Metric == WeaponDistanceAimGraphMetric.Both || m_Metric == WeaponDistanceAimGraphMetric.Accuracy;
 		bool showAimTime = m_Metric == WeaponDistanceAimGraphMetric.Both || m_Metric == WeaponDistanceAimGraphMetric.AimTime;
+		bool hasCurrentLoadout = m_WeaponDefinition != null;
+		bool hasPreviewLoadout = HasPreviewCurve;
+		bool hasAccuracyPreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAccuracyQuality, EvaluatePreviewAccuracyQuality));
+		bool hasAimTimePreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAimSpeedQuality, EvaluatePreviewAimSpeedQuality));
+		ComputeQualityScaleRange(
+			showAccuracy,
+			showAimTime,
+			hasCurrentLoadout,
+			hasAccuracyPreview,
+			hasAimTimePreview,
+			out float minQuality,
+			out float maxQuality);
 
-		if (m_ShowAccuracy && showAccuracy)
+		if (hasCurrentLoadout && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_AccuracyColor);
-			if (HasPreviewCurve)
-				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewColor);
+			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_CurrentLineColor, m_LineWidth, minQuality, maxQuality);
+			if (hasAccuracyPreview)
+				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+		}
+		else if (!hasCurrentLoadout && hasAccuracyPreview && m_ShowAccuracy && showAccuracy)
+		{
+			DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
 		}
 
-		if (m_ShowAimSpeed && showAimTime)
+		if (hasCurrentLoadout && m_ShowAimSpeed && showAimTime)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_AimSpeedColor);
-			if (HasPreviewCurve)
-				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewColor);
+			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_CurrentLineColor, m_LineWidth, minQuality, maxQuality);
+			if (hasAimTimePreview)
+				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+		}
+		else if (!hasCurrentLoadout && hasAimTimePreview && m_ShowAimSpeed && showAimTime)
+		{
+			DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
 		}
 	}
 	#endregion
@@ -316,7 +341,14 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		}
 	}
 
-	private void DrawCurve(VertexHelper _vh, Rect _rect, System.Func<float, float> _qualityEvaluator, Color _lineColor)
+	private void DrawCurve(
+		VertexHelper _vh,
+		Rect _rect,
+		System.Func<float, float> _qualityEvaluator,
+		Color _lineColor,
+		float _lineWidth,
+		float _minQuality,
+		float _maxQuality)
 	{
 		int sampleCount = Mathf.Max(2, m_SampleCount);
 		Vector2 previousPoint = Vector2.zero;
@@ -328,88 +360,127 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
 			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
 			float quality = _qualityEvaluator(distance);
-			float y01 = Mathf.InverseLerp(m_MinDisplayedQuality, m_MaxDisplayedQuality, quality);
+			float y01 = Mathf.InverseLerp(_minQuality, _maxQuality, quality);
 			Vector2 point = new Vector2(
 				Mathf.Lerp(_rect.xMin, _rect.xMax, t),
 				Mathf.Lerp(_rect.yMin, _rect.yMax, Mathf.Clamp01(y01)));
 
 			if (hasPreviousPoint)
-				AddLine(_vh, previousPoint, point, m_LineWidth, lineColor);
+				AddLine(_vh, previousPoint, point, _lineWidth, lineColor);
 
 			previousPoint = point;
 			hasPreviousPoint = true;
 		}
 	}
 
+	private void ComputeQualityScaleRange(
+		bool _showAccuracy,
+		bool _showAimTime,
+		bool _hasCurrentLoadout,
+		bool _hasAccuracyPreview,
+		bool _hasAimTimePreview,
+		out float _minQuality,
+		out float _maxQuality)
+	{
+		if (!m_AutoFitQualityScale)
+		{
+			_minQuality = m_MinDisplayedQuality;
+			_maxQuality = m_MaxDisplayedQuality;
+			return;
+		}
+
+		float minQuality = float.PositiveInfinity;
+		float maxQuality = float.NegativeInfinity;
+		int sampleCount = Mathf.Max(2, m_SampleCount);
+
+		for (int i = 0; i < sampleCount; i++)
+		{
+			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
+			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
+
+			if (_showAccuracy)
+			{
+				if (_hasCurrentLoadout)
+					IncludeQualitySample(EvaluateCurrentAccuracyQuality(distance), ref minQuality, ref maxQuality);
+				if (_hasAccuracyPreview)
+					IncludeQualitySample(EvaluatePreviewAccuracyQuality(distance), ref minQuality, ref maxQuality);
+			}
+
+			if (_showAimTime)
+			{
+				if (_hasCurrentLoadout)
+					IncludeQualitySample(EvaluateCurrentAimSpeedQuality(distance), ref minQuality, ref maxQuality);
+				if (_hasAimTimePreview)
+					IncludeQualitySample(EvaluatePreviewAimSpeedQuality(distance), ref minQuality, ref maxQuality);
+			}
+		}
+
+		if (minQuality > maxQuality)
+		{
+			_minQuality = m_MinDisplayedQuality;
+			_maxQuality = m_MaxDisplayedQuality;
+			return;
+		}
+
+		float padding = Mathf.Max(0.05f, (maxQuality - minQuality) * 0.1f);
+		minQuality = Mathf.Max(0.05f, minQuality - padding);
+		maxQuality += padding;
+
+		if (maxQuality - minQuality < 0.15f)
+		{
+			float center = (minQuality + maxQuality) * 0.5f;
+			minQuality = center - 0.075f;
+			maxQuality = center + 0.075f;
+		}
+
+		_minQuality = minQuality;
+		_maxQuality = maxQuality;
+	}
+
+	private static void IncludeQualitySample(float _quality, ref float _minQuality, ref float _maxQuality)
+	{
+		if (!float.IsFinite(_quality))
+			return;
+
+		_minQuality = Mathf.Min(_minQuality, _quality);
+		_maxQuality = Mathf.Max(_maxQuality, _quality);
+	}
+
+	private bool CurvesDiffer(System.Func<float, float> _currentEvaluator, System.Func<float, float> _previewEvaluator)
+	{
+		const float epsilon = 0.001f;
+		int sampleCount = Mathf.Max(2, m_SampleCount);
+		for (int i = 0; i < sampleCount; i++)
+		{
+			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
+			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
+			if (Mathf.Abs(_currentEvaluator(distance) - _previewEvaluator(distance)) > epsilon)
+				return true;
+		}
+
+		return false;
+	}
+
 	private float EvaluatePreviewAccuracyQuality(float _distanceMeters)
 	{
 		WeaponDefinition weaponDefinition = m_PreviewWeaponDefinition != null ? m_PreviewWeaponDefinition : m_WeaponDefinition;
-		return EvaluateAccuracyQuality(weaponDefinition, _distanceMeters, m_PreviewAttachments);
+		return WeaponDistanceAimEvaluator.EvaluateAccuracyQuality(weaponDefinition, m_PreviewAttachments, _distanceMeters);
 	}
 
 	private float EvaluateCurrentAimSpeedQuality(float _distanceMeters)
 	{
-		return EvaluateAimSpeedQuality(m_WeaponDefinition, _distanceMeters, m_Attachments);
+		return WeaponDistanceAimEvaluator.EvaluateAimSpeedQuality(m_WeaponDefinition, m_Attachments, _distanceMeters);
 	}
 
 	private float EvaluatePreviewAimSpeedQuality(float _distanceMeters)
 	{
 		WeaponDefinition weaponDefinition = m_PreviewWeaponDefinition != null ? m_PreviewWeaponDefinition : m_WeaponDefinition;
-		return EvaluateAimSpeedQuality(weaponDefinition, _distanceMeters, m_PreviewAttachments);
+		return WeaponDistanceAimEvaluator.EvaluateAimSpeedQuality(weaponDefinition, m_PreviewAttachments, _distanceMeters);
 	}
 
 	private float EvaluateCurrentAccuracyQuality(float _distanceMeters)
 	{
-		return EvaluateAccuracyQuality(m_WeaponDefinition, _distanceMeters, m_Attachments);
-	}
-
-	private float EvaluateAccuracyQuality(
-		WeaponDefinition _weaponDefinition,
-		float _distanceMeters,
-		WeaponAttachmentDefinition[] _attachments)
-	{
-		float dispersionMultiplier = 1f;
-		if (_weaponDefinition != null)
-			dispersionMultiplier *= Mathf.Max(0.01f, _weaponDefinition.GetDistanceDispersionMultiplier(_distanceMeters));
-
-		ApplyAttachmentMultipliers(_attachments, _distanceMeters, ref dispersionMultiplier, _aimTime: false);
-		return 1f / Mathf.Max(0.01f, dispersionMultiplier);
-	}
-
-	private float EvaluateAimSpeedQuality(
-		WeaponDefinition _weaponDefinition,
-		float _distanceMeters,
-		WeaponAttachmentDefinition[] _attachments)
-	{
-		float aimTimeMultiplier = 1f;
-		if (_weaponDefinition != null)
-			aimTimeMultiplier *= Mathf.Max(0.01f, _weaponDefinition.GetDistanceAimTimeMultiplier(_distanceMeters));
-
-		ApplyAttachmentMultipliers(_attachments, _distanceMeters, ref aimTimeMultiplier, _aimTime: true);
-		return 1f / Mathf.Max(0.01f, aimTimeMultiplier);
-	}
-
-	private static void ApplyAttachmentMultipliers(WeaponAttachmentDefinition[] _attachments, float _distanceMeters, ref float _multiplier, bool _aimTime)
-	{
-		if (_attachments == null)
-			return;
-
-		for (int i = 0; i < _attachments.Length; i++)
-		{
-			WeaponAttachmentDefinition attachment = _attachments[i];
-			if (attachment == null)
-				continue;
-
-			if (_aimTime)
-			{
-				_multiplier *= Mathf.Max(0.01f, attachment.AimTimeModifier);
-				_multiplier *= Mathf.Max(0.01f, attachment.GetDistanceAimTimeMultiplier(_distanceMeters));
-			}
-			else
-			{
-				_multiplier *= Mathf.Max(0.01f, attachment.GetDistanceDispersionMultiplier(_distanceMeters));
-			}
-		}
+		return WeaponDistanceAimEvaluator.EvaluateAccuracyQuality(m_WeaponDefinition, m_Attachments, _distanceMeters);
 	}
 
 	private static WeaponAttachmentDefinition[] CopyAttachments(IReadOnlyList<WeaponAttachmentDefinition> _attachments)

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a5279770b2553d4c8dd9c79c2f07095, type: 3}
-  m_Name: Attachment_Flashlight1
+  m_Name: Attachment_M4_Flashlight1
   m_EditorClassIdentifier: Assembly-CSharp::WeaponAttachmentDefinition
   m_AttachmentType: 7
   m_RequiredSlot: 2
@@ -25,11 +25,5 @@ MonoBehaviour:
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1
-  m_OpticCloseRangeMeters: 25
-  m_OpticMidRangeMeters: 100
-  m_OpticLongRangeMeters: 250
-  m_OpticCloseRangeDispersionModifier: 1
-  m_OpticMidRangeDispersionModifier: 1
-  m_OpticLongRangeDispersionModifier: 1
   m_SuppressedFireSound: {fileID: 0}
   m_EquippedVisualPrefab: {fileID: 2183598463139208445, guid: 954d2d49fc7310241b1680def4a5d5d2, type: 3}

@@ -142,11 +142,13 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 			MissionPrepUnitArmorVisualController.GetOrCreate(instance, presetState.ArmorVisualIndex);
 
+			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(GenerateRandomCallsign());
+
 			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
 			if (cell != null)
 			{
-				cell.BindToUnit(instance, GenerateRandomCallsign());
-				cell.SetPresetDisplayName(GetDefaultPresetLabelForSpawnedUnit());
+				UnitCellDisplayBinder.Apply(cell, instance);
+				cell.SetInteractionEnabled(true);
 			}
 		}
 	}
@@ -255,14 +257,6 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		UnitVision vision = _root.GetComponentInChildren<UnitVision>(true);
 		if (vision != null)
 			vision.enabled = false;
-	}
-
-	private string GetDefaultPresetLabelForSpawnedUnit()
-	{
-		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
-			return m_PresetCatalog.GetPresetLabel(0);
-
-		return LocalizationManager.Get("mission_prep.equipment.preset.standard", "Standard");
 	}
 
 	private static string GenerateRandomCallsign()

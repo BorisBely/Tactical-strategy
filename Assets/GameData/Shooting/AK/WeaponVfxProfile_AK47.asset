@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: WeaponVfxProfile_AK47
   m_EditorClassIdentifier: Assembly-CSharp::WeaponVfxProfile
   m_EnableMuzzleFlash: 1
-  m_UnsuppressedMuzzleFlashPrefab: {fileID: 1126046646508270, guid: f913bc3b5f93c1d4cac760813a9a6bf1, type: 3}
-  m_SuppressedMuzzleFlashPrefab: {fileID: 1120296117247780, guid: a5ef242807d7c2649942d9d654c8c463, type: 3}
-  m_UnsuppressedMuzzleLifetimeSeconds: 0.18
-  m_SuppressedMuzzleLifetimeSeconds: 0.12
+  m_UnsuppressedMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_SuppressedMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_UnsuppressedMuzzleLifetimeSeconds: 0.5
+  m_SuppressedMuzzleLifetimeSeconds: 0.5
   m_UnsuppressedMuzzleScale: 1
   m_SuppressedMuzzleScale: 0.35
   m_ShellEjectionMode: 1

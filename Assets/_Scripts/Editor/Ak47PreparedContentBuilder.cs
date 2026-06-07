@@ -482,37 +482,7 @@ public static class Ak47PreparedContentBuilder
 		Dictionary<string, ItemDefinition> _magazineItems,
 		params ItemDefinition[] _attachmentItems)
 	{
-		MissionPrepAvailableEquipmentItemSet set = AssetDatabase.LoadAssetAtPath<MissionPrepAvailableEquipmentItemSet>(c_MissionPrepSetPath);
-		if (set == null)
-			return;
-
-		var items = new List<ItemDefinition>();
-		var seen = new HashSet<ItemDefinition>();
-		var so = new SerializedObject(set);
-		SerializedProperty array = so.FindProperty("m_Items");
-		for (int i = 0; i < array.arraySize; i++)
-		{
-			ItemDefinition item = array.GetArrayElementAtIndex(i).objectReferenceValue as ItemDefinition;
-			if (item != null && seen.Add(item))
-				items.Add(item);
-		}
-
-		AddUnique(items, seen, _weaponItem);
-		foreach (KeyValuePair<string, ItemDefinition> pair in _magazineItems)
-			AddUnique(items, seen, pair.Value);
-		if (_attachmentItems != null)
-		{
-			for (int i = 0; i < _attachmentItems.Length; i++)
-				AddUnique(items, seen, _attachmentItems[i]);
-		}
-		AddUnique(items, seen, LoadAsset<ItemDefinition>("Assets/GameData/Inventory/Item_Loot_AmmoBox_762x39.asset"));
-
-		array.arraySize = items.Count;
-		for (int i = 0; i < items.Count; i++)
-			array.GetArrayElementAtIndex(i).objectReferenceValue = items[i];
-		so.FindProperty("m_MagazineAmmo").objectReferenceValue = LoadAsset<AmmoDefinition>("Assets/GameData/Shooting/Ammo_762x39mm.asset");
-		so.ApplyModifiedPropertiesWithoutUndo();
-		EditorUtility.SetDirty(set);
+		MissionPrepAvailableEquipmentBaker.RebuildAvailableEquipmentSet();
 	}
 
 	private static void SetItemBasics(

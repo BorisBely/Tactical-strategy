@@ -51,7 +51,7 @@ public sealed class ShootingRangeTargetRegistry : MonoBehaviour
 			return;
 
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>();
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif

@@ -22,7 +22,9 @@ public static class UiEventSystemTeardownUtility
 
 		s_ReleaseRequested = true;
 
-		EventSystem[] eventSystems = Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include);
+		EventSystem[] eventSystems = Object.FindObjectsByType<EventSystem>(
+			FindObjectsInactive.Include,
+			FindObjectsSortMode.None);
 		for (int i = 0; i < eventSystems.Length; i++)
 			ReleaseEventSystem(eventSystems[i]);
 

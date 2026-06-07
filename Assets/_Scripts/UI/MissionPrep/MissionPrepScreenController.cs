@@ -250,7 +250,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		if (_cell == null)
 			return;
 
-		_cell.SetPresetDisplayName(GetPresetLabelForUnit(_cell.BoundUnitRoot));
+		UnitCellDisplayBinder.Apply(_cell, _cell.BoundUnitRoot);
+		_cell.SetInteractionEnabled(true);
 	}
 
 	private void RefreshAllUnitCellPresetLabels()

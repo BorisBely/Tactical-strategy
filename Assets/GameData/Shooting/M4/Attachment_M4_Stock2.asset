@@ -26,11 +26,5 @@ MonoBehaviour:
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1
-  m_OpticCloseRangeMeters: 25
-  m_OpticMidRangeMeters: 100
-  m_OpticLongRangeMeters: 250
-  m_OpticCloseRangeDispersionModifier: 1
-  m_OpticMidRangeDispersionModifier: 1
-  m_OpticLongRangeDispersionModifier: 1
   m_SuppressedFireSound: {fileID: 0}
   m_EquippedVisualPrefab: {fileID: 2944952169283220253, guid: 73685e390ffb8a84daf715ad7649f98f, type: 3}

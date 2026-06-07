@@ -40,9 +40,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField, Min(0.05f)] private float m_OutOfAmmoReloadRetrySeconds = 0.35f;
 
 	[Header("Aiming Gate")]
-	[Tooltip("Запрещать выстрел, пока AimProgress не восстановился после отдачи/смены цели.")]
-	[SerializeField] private bool m_RequireAimProgressToFire = true;
-	[SerializeField, Range(0f, 1f)] private float m_MinAimProgressToFire = 0.98f;
+	[Tooltip("Запрещать выстрел, пока не завершено полное прицеливание (AimProgress = 1).")]
+	[SerializeField] private bool m_RequireFullAimToFire = true;
 	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick.")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 1.5f;
@@ -127,6 +126,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_IsFiringCommandActive = false;
 		m_BurstShotsRemainingInWave = 0;
 		m_NextBurstWaveTime = 0f;
+		ResetBurstSpreadCounter();
 	}
 
 	/// <summary>
@@ -140,6 +140,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_NextBurstWaveTime = 0f;
 		m_DebugBurstShotsRemaining = 0;
 		m_DebugNextBurstWaveTime = 0f;
+		ResetBurstSpreadCounter();
 	}
 
 	public WeaponShotAttemptResult TryFireSingleShot()
@@ -153,6 +154,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		{
 			m_DebugSuccessfulShotCount++;
 			m_HitscanShooting?.ProcessSuccessfulShot(firedAmmoDefinition);
+			RegisterBurstSpreadShotIfNeeded();
 			ShotFired?.Invoke(firedAmmoDefinition);
 
 			if (m_WeaponRuntime != null && !m_WeaponRuntime.HasAmmoInMagazine && !m_WeaponRuntime.HasRoundInChamber)
@@ -198,8 +200,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private bool IsAimedEnoughToFire()
 	{
-		m_DebugCurrentAimProgress = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState.AimProgress01 : 0f;
-		if (m_RequireAimProgressToFire && m_DebugCurrentAimProgress < m_MinAimProgressToFire)
+		EquippedWeaponTransientState transientState = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState : null;
+		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
+		if (m_RequireFullAimToFire && (transientState == null || !transientState.IsFullyAimed))
 			return false;
 
 		if (!m_RequireBarrelAlignedToFire || m_Vision == null || m_Vision.VisibleTarget == null)
@@ -244,6 +247,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			}
 
 			m_BurstShotsRemainingInWave = burstSize;
+			ResetBurstSpreadCounter();
 		}
 
 		WeaponShotAttemptResult result = TryFireSingleShot();
@@ -287,6 +291,23 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_ReloadController.TryStartBoltCycleOnly();
 		else
 			m_ReloadController.TryStartReload();
+	}
+
+	private void RegisterBurstSpreadShotIfNeeded()
+	{
+		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			return;
+
+		WeaponFireMode mode = m_WeaponRuntime.RuntimeState.SelectedFireMode;
+		if (mode != WeaponFireMode.FullAuto && mode != WeaponFireMode.Burst)
+			return;
+
+		m_WeaponRuntime.TransientState.RegisterBurstShotFired();
+	}
+
+	private void ResetBurstSpreadCounter()
+	{
+		m_WeaponRuntime?.TransientState.ResetBurstShotCounter();
 	}
 	#endregion
 }

@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
-  m_Name: Item_Attachment_Scope4
+  m_Name: Item_Attachment_M4_Scope4
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
-  m_LocalizationKey: item.attachment.scope4
+  m_LocalizationKey: item.attachment.m4_scope4
   m_Description: Оптический прицел средней дальности.
   m_Icon: {fileID: 0}
   m_BasePrice: 780

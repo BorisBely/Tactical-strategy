@@ -26,6 +26,8 @@ public class InventoryScreenBindings : MonoBehaviour
 	[SerializeField] private TMP_Text m_HealthWindowTitleText;
 	[SerializeField] private HealthStatusPanelView m_HealthStatusPanel;
 	[SerializeField] private HealthStatusSlotView m_HealthStatusSlotPrefab;
+	[Header("Список юнита")]
+	[SerializeField] private InventoryUnitListPresenter m_UnitListPresenter;
 	#endregion
 
 	#region Static Access
@@ -137,7 +139,10 @@ public class InventoryScreenBindings : MonoBehaviour
 		m_ActiveCharacterInventory = _inventory;
 		RefreshActiveCharacterPanel();
 		if (IsInventoryOpen)
+		{
 			RefreshGroundPanelForActiveCharacter();
+			RefreshInventoryUnitList();
+		}
 		if (IsHealthWindowOpen)
 			RefreshHealthPanel();
 	}
@@ -170,6 +175,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		RefreshActiveCharacterPanelImmediate();
 		RuntimeInventoryModificationCoordinator.Instance?.EnsureModificationUiHooks();
 		RefreshGroundPanelForActiveCharacter();
+		RefreshInventoryUnitList();
 	}
 
 	/// <summary>Перестроить панель «земля» по <see cref="InventoryPickupZone"/> активного юнита.</summary>
@@ -213,6 +219,9 @@ public class InventoryScreenBindings : MonoBehaviour
 			SetHealthTitleVisible(false);
 		}
 
+		if (_open && MissionPrepScreenBindings.Instance != null && MissionPrepScreenBindings.Instance.IsMissionPrepOpen)
+			MissionPrepScreenBindings.Instance.SetMissionPrepWindowOpen(false);
+
 		if (!_open)
 			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
 
@@ -220,6 +229,8 @@ public class InventoryScreenBindings : MonoBehaviour
 		SetInventoryTitleVisible(_open);
 		if (_open)
 			RefreshPanelsOnOpen();
+		else
+			m_UnitListPresenter?.Clear();
 	}
 
 	public void SetHealthWindowOpen(bool _open)
@@ -246,6 +257,14 @@ public class InventoryScreenBindings : MonoBehaviour
 			RefreshPanelsOnOpen();
 		if (IsHealthWindowOpen)
 			RefreshHealthPanel();
+	}
+
+	private void RefreshInventoryUnitList()
+	{
+		if (m_UnitListPresenter == null)
+			return;
+
+		m_UnitListPresenter.RefreshForInventory(ResolveActiveCharacterInventoryForUi());
 	}
 
 	private void RefreshLocalizedTexts()

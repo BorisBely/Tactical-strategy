@@ -110,6 +110,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// <summary>Узел для процедурной отдачи визуала; null — использовать корень инстанса.</summary>
 	public Transform VisualRecoilKickPivot => m_VisualRecoilKickPivot;
 
+	/// <summary>Пресет модулей с префаба оружия (стандартная комплектация).</summary>
+	public WeaponAttachmentDefinition[] PresetEquippedAttachments => m_EquippedAttachments;
+
 	/// <summary>Инстанс визуала рукоятки (UnderBarrel + Foregrip), если установлен.</summary>
 	public Transform UnderBarrelForegripVisualRoot =>
 		m_UnderBarrelForegripVisualInstance != null ? m_UnderBarrelForegripVisualInstance.transform : null;

@@ -46,8 +46,31 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	#region Public Properties
 	public static RtsUnitSelectionManager Instance => s_Instance;
+	public int SelectedUnitCount => m_SelectedUnits != null ? m_SelectedUnits.Count : 0;
 	public InventoryPanelView GroundPanel => m_GroundPanel;
 	public InventoryPanelView CharacterInventoryPanel => m_CharacterInventoryPanel;
+	#endregion
+
+	#region Public Methods
+	public bool TryGetFirstSelectedPlayerCombatStats(out UnitCombatStats _combatStats)
+	{
+		_combatStats = null;
+		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
+			return false;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null || !unit.IsPlayerSelectable)
+				continue;
+
+			_combatStats = unit.GetComponent<UnitCombatStats>();
+			if (_combatStats != null)
+				return true;
+		}
+
+		return false;
+	}
 	#endregion
 
 	#region Unity Lifecycle

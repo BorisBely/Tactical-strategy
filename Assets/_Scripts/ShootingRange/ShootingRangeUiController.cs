@@ -9,6 +9,10 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class ShootingRangeUiController : MonoBehaviour
 {
+	#region Constants
+	private static readonly int[] c_QuickResetDistancesMeters = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+	#endregion
+
 	#region Private Types
 	private sealed class TargetRowUi
 	{
@@ -27,10 +31,12 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	[SerializeField] private Button m_ResetAllButton;
 	[SerializeField] private Button m_EnableAllButton;
 	[SerializeField] private Button m_DisableAllButton;
+	[SerializeField] private Button m_CycleRankButton;
 	#endregion
 
 	#region Private Fields
 	private readonly List<TargetRowUi> m_Rows = new List<TargetRowUi>(16);
+	private readonly List<Button> m_QuickResetButtons = new List<Button>(10);
 	private bool m_Built;
 	#endregion
 
@@ -39,12 +45,17 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	{
 		if (m_Manager == null)
 			m_Manager = GetComponent<ShootingRangeManager>();
+
+		BuildUiIfNeeded();
 	}
 
 	private void Start()
 	{
-		BuildUiIfNeeded();
+		if (m_Manager != null && m_TargetListRoot != null && m_Rows.Count != m_Manager.Targets.Count)
+			BuildTargetRows();
+
 		RefreshAllRows();
+		RefreshRankButtonLabel();
 	}
 
 	private void OnEnable()
@@ -54,6 +65,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		WireGlobalButtons();
 		RefreshAllRows();
+		RefreshRankButtonLabel();
 	}
 
 	private void OnDisable()
@@ -107,6 +119,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 			CreateTitle(m_PanelRoot, "Shooting Range");
 			CreateGlobalButtonsRow(m_PanelRoot);
+			CreateQuickResetButtonsGrid(m_PanelRoot);
+			CreateRankButtonRow(m_PanelRoot);
 			m_TargetListRoot = CreateScrollList(m_PanelRoot);
 		}
 
@@ -224,12 +238,16 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 	private void WireGlobalButtons()
 	{
+		UnwireGlobalButtons();
+
 		if (m_ResetAllButton != null)
 			m_ResetAllButton.onClick.AddListener(HandleResetAll);
 		if (m_EnableAllButton != null)
 			m_EnableAllButton.onClick.AddListener(HandleEnableAll);
 		if (m_DisableAllButton != null)
 			m_DisableAllButton.onClick.AddListener(HandleDisableAll);
+		if (m_CycleRankButton != null)
+			m_CycleRankButton.onClick.AddListener(HandleCycleRank);
 	}
 
 	private void UnwireGlobalButtons()
@@ -240,6 +258,20 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			m_EnableAllButton.onClick.RemoveListener(HandleEnableAll);
 		if (m_DisableAllButton != null)
 			m_DisableAllButton.onClick.RemoveListener(HandleDisableAll);
+		if (m_CycleRankButton != null)
+			m_CycleRankButton.onClick.RemoveListener(HandleCycleRank);
+	}
+
+	private void UnwireQuickResetButtons()
+	{
+		for (int i = 0; i < m_QuickResetButtons.Count; i++)
+		{
+			Button button = m_QuickResetButtons[i];
+			if (button != null)
+				button.onClick.RemoveAllListeners();
+		}
+
+		m_QuickResetButtons.Clear();
 	}
 
 	private void UnwireRowButtons()
@@ -276,6 +308,81 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshAllRows();
 	}
 
+	private void HandleQuickResetTarget(int _distanceMeters)
+	{
+		m_Manager?.ResetTargetByDistanceMeters(_distanceMeters);
+		RefreshAllRows();
+	}
+
+	private void HandleCycleRank()
+	{
+		if (m_Manager == null)
+			return;
+
+		if (m_Manager.TryCyclePlayerUnitRank(out string newRankLabel))
+		{
+			RefreshRankButtonLabel();
+			return;
+		}
+
+		Debug.LogWarning("[Полигон] Не удалось сменить ранг: не найден UnitCombatStats у активного игрока или не задан Rank Cycle Order.", m_Manager);
+	}
+
+	private void RefreshRankButtonLabel()
+	{
+		if (m_CycleRankButton == null || m_Manager == null)
+			return;
+
+		SetButtonLabel(m_CycleRankButton, $"Rank: {m_Manager.GetPlayerUnitRankLabel()}");
+	}
+
+	private void CreateQuickResetButtonsGrid(Transform _parent)
+	{
+		UnwireQuickResetButtons();
+
+		GameObject rowGo = new GameObject("QuickResetButtons", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
+		rowGo.transform.SetParent(_parent, false);
+
+		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
+		rowElement.minHeight = 64f;
+		rowElement.preferredHeight = 64f;
+
+		GridLayoutGroup grid = rowGo.GetComponent<GridLayoutGroup>();
+		grid.cellSize = new Vector2(58f, 28f);
+		grid.spacing = new Vector2(4f, 4f);
+		grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+		grid.constraintCount = 5;
+		grid.childAlignment = TextAnchor.UpperCenter;
+
+		for (int i = 0; i < c_QuickResetDistancesMeters.Length; i++)
+		{
+			int distanceMeters = c_QuickResetDistancesMeters[i];
+			Button button = CreateButton(rowGo.transform, $"{distanceMeters}m", 0f);
+			button.onClick.AddListener(() => HandleQuickResetTarget(distanceMeters));
+			m_QuickResetButtons.Add(button);
+		}
+	}
+
+	private void CreateRankButtonRow(Transform _parent)
+	{
+		GameObject rowGo = new GameObject("RankButtonRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+		rowGo.transform.SetParent(_parent, false);
+
+		HorizontalLayoutGroup layout = rowGo.GetComponent<HorizontalLayoutGroup>();
+		layout.spacing = 6f;
+		layout.childAlignment = TextAnchor.MiddleCenter;
+		layout.childControlWidth = true;
+		layout.childControlHeight = true;
+		layout.childForceExpandWidth = true;
+		layout.childForceExpandHeight = false;
+
+		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
+		rowElement.minHeight = 32f;
+		rowElement.preferredHeight = 32f;
+
+		m_CycleRankButton = CreateButton(rowGo.transform, "Rank: —", 0f);
+	}
+
 	private void CreateGlobalButtonsRow(Transform _parent)
 	{
 		GameObject rowGo = new GameObject("GlobalButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
@@ -296,14 +403,39 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 	private static RectTransform CreateScrollList(Transform _parent)
 	{
-		GameObject scrollGo = new GameObject("TargetList", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+		GameObject scrollGo = new GameObject(
+			"TargetListScroll",
+			typeof(RectTransform),
+			typeof(Image),
+			typeof(ScrollRect),
+			typeof(LayoutElement));
 		scrollGo.transform.SetParent(_parent, false);
 
 		LayoutElement scrollElement = scrollGo.GetComponent<LayoutElement>();
-		scrollElement.minHeight = 220f;
-		scrollElement.preferredHeight = 320f;
+		scrollElement.minHeight = 180f;
+		scrollElement.preferredHeight = 220f;
 
-		VerticalLayoutGroup layout = scrollGo.GetComponent<VerticalLayoutGroup>();
+		Image scrollBackground = scrollGo.GetComponent<Image>();
+		scrollBackground.color = new Color(0f, 0f, 0f, 0.18f);
+
+		GameObject viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+		viewportGo.transform.SetParent(scrollGo.transform, false);
+		RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
+		viewportRect.anchorMin = Vector2.zero;
+		viewportRect.anchorMax = Vector2.one;
+		viewportRect.offsetMin = Vector2.zero;
+		viewportRect.offsetMax = Vector2.zero;
+
+		GameObject contentGo = new GameObject("TargetList", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+		contentGo.transform.SetParent(viewportGo.transform, false);
+		RectTransform contentRect = contentGo.GetComponent<RectTransform>();
+		contentRect.anchorMin = new Vector2(0f, 1f);
+		contentRect.anchorMax = new Vector2(1f, 1f);
+		contentRect.pivot = new Vector2(0.5f, 1f);
+		contentRect.anchoredPosition = Vector2.zero;
+		contentRect.sizeDelta = new Vector2(0f, 0f);
+
+		VerticalLayoutGroup layout = contentGo.GetComponent<VerticalLayoutGroup>();
 		layout.spacing = 4f;
 		layout.childAlignment = TextAnchor.UpperRight;
 		layout.childControlWidth = true;
@@ -311,7 +443,18 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		layout.childForceExpandWidth = true;
 		layout.childForceExpandHeight = false;
 
-		return scrollGo.GetComponent<RectTransform>();
+		ContentSizeFitter fitter = contentGo.GetComponent<ContentSizeFitter>();
+		fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+		fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+		ScrollRect scrollRect = scrollGo.GetComponent<ScrollRect>();
+		scrollRect.viewport = viewportRect;
+		scrollRect.content = contentRect;
+		scrollRect.horizontal = false;
+		scrollRect.vertical = true;
+		scrollRect.movementType = ScrollRect.MovementType.Clamped;
+
+		return contentRect;
 	}
 
 	private static void CreateTitle(Transform _parent, string _text)
@@ -342,6 +485,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		tmp.color = Color.white;
 		tmp.alignment = _alignment;
 		tmp.textWrappingMode = TextWrappingModes.NoWrap;
+		tmp.raycastTarget = false;
 		return tmp;
 	}
 
@@ -385,7 +529,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	private static Canvas FindSceneCanvas()
 	{
 #if UNITY_2023_1_OR_NEWER
-		Canvas[] canvases = FindObjectsByType<Canvas>();
+		Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
 		Canvas[] canvases = FindObjectsOfType<Canvas>();
 #endif

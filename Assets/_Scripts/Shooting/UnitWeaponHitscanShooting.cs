@@ -21,6 +21,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
+	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
 
 	[Header("Hitscan")]
 	[Tooltip("Слои, по которым проверяем попадание. Создай слой Target и назначь мишеням.")]
@@ -35,8 +36,6 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[Header("Spread (множители к WeaponDefinition.BaseShotDispersion)")]
 	[Tooltip("Градусы половины конуса: BaseShotDispersion, патрон, модуль прицела, отдача, умножить на этот коэффициент.")]
 	[SerializeField, Min(0.001f)] private float m_BaseSpreadToDegrees = 0.35f;
-	[Tooltip("Насколько полный AimProgress сужает разброс: 0 = не влияет, 1 = при полном прицеле множитель (1 - tighten).")]
-	[SerializeField, Range(0f, 1f)] private float m_AimProgressTighten = 0.55f;
 	[Tooltip("Вклад RecoilPenalty: множитель разброса += penalty * это значение.")]
 	[SerializeField, Min(0f)] private float m_RecoilSpreadScale = 0.22f;
 	[Tooltip("Минимальный полу-угол конуса в градусах.")]
@@ -63,13 +62,13 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField, Min(1.01f)] private float m_FalloffZeroRangeMultiplier = 2f;
 
 	[Header("Debug")]
+	[SerializeField] private bool m_LogShots = true;
 	[SerializeField] private bool m_DrawDebugRays;
 	[SerializeField, Min(0f)] private float m_DebugRayDuration = 10f;
 	[SerializeField] private string m_DebugLastHitName;
 	[SerializeField] private float m_DebugLastDamage;
 	[SerializeField, Min(0f)] private float m_DebugLastHalfAngleDegrees;
 	[SerializeField, Min(0f)] private float m_DebugLastTargetDistanceMeters;
-	[SerializeField, Min(0f)] private float m_DebugLastAimMultiplier = 1f;
 	[SerializeField, Min(0f)] private float m_DebugLastRecoilMultiplier = 1f;
 	[SerializeField, Min(0f)] private float m_DebugLastStanceMultiplier = 1f;
 	[SerializeField, Min(0f)] private float m_DebugLastMovementMultiplier = 1f;
@@ -96,10 +95,11 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
 			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
-		if (m_CombatStats == null)
-			m_CombatStats = GetComponent<UnitCombatStats>();
+		m_CombatStats = ResolveCombatStats();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
+		if (m_AimProgressController == null)
+			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
 
 		m_ShooterRoot = transform.root;
 	}
@@ -126,28 +126,41 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		Transform barrel = weapon.BarrelTransform;
 		Vector3 origin = barrel.position + barrel.forward * m_BarrelRayStartOffset;
 		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel);
-		float halfAngle = ComputeHalfAngleDegrees(_ammo);
+		WeaponShotAccuracyContext accuracyContext = BuildAccuracyContext(_ammo);
+		float halfAngle = accuracyContext.HalfAngleDegrees;
+		StoreDebugAccuracyContext(accuracyContext);
 
-		for (int i = 0; i < _ammo.ProjectileCount; i++)
+		WeaponShotHitResult aggregateHitResult = WeaponShotHitResult.Miss;
+		int projectileCount = Mathf.Max(1, _ammo.ProjectileCount);
+		for (int i = 0; i < projectileCount; i++)
 		{
 			Vector3 dir = ApplyConeSpread(baseDirection, halfAngle);
-			TryHit(origin, dir, _ammo);
+			WeaponShotHitResult shotResult = TryHit(origin, dir, _ammo);
+			aggregateHitResult = CombineHitResults(aggregateHitResult, shotResult);
 		}
+
+		if (m_LogShots)
+			LogShot(_ammo, weapon, accuracyContext, aggregateHitResult, projectileCount);
 	}
 
-	private float ComputeHalfAngleDegrees(AmmoDefinition _ammo)
+	private UnitCombatStats ResolveCombatStats()
 	{
+		return UnitCombatStatsLookup.ResolveOnUnit(this);
+	}
+
+	private WeaponShotAccuracyContext BuildAccuracyContext(AmmoDefinition _ammo)
+	{
+		UnitCombatStats combatStats = ResolveCombatStats();
 		WeaponShotAccuracyInput input = new WeaponShotAccuracyInput
 		{
 			WeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition,
 			WeaponState = m_WeaponRuntime.RuntimeState,
 			TransientState = m_WeaponRuntime.TransientState,
 			AmmoDefinition = _ammo,
-			CombatStats = m_CombatStats,
+			CombatStats = combatStats,
 			CombatCondition = m_CombatCondition,
 			TargetDistanceMeters = EstimateTargetDistanceMeters(),
 			BaseSpreadToDegrees = m_BaseSpreadToDegrees,
-			AimProgressTighten = m_AimProgressTighten,
 			RecoilSpreadScale = m_RecoilSpreadScale,
 			MinHalfAngleDegrees = m_MinHalfAngleDegrees,
 			MaxHalfAngleDegrees = m_MaxHalfAngleDegrees,
@@ -158,15 +171,19 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			CrouchSpreadMultiplier = m_CrouchSpreadMultiplier,
 			ProneSpreadMultiplier = m_ProneSpreadMultiplier,
 			MovingSpreadMultiplier = m_MovingSpreadMultiplier,
-			SprintSpreadMultiplier = m_SprintSpreadMultiplier
+			SprintSpreadMultiplier = m_SprintSpreadMultiplier,
+			FireMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
+				? m_WeaponRuntime.RuntimeState.SelectedFireMode
+				: WeaponFireMode.SemiAuto,
+			BurstShotIndex = m_WeaponRuntime != null
+				? m_WeaponRuntime.TransientState.GetNextBurstShotIndex()
+				: 1
 		};
 
-		WeaponShotAccuracyContext context = WeaponShotAccuracyEvaluator.Evaluate(input);
-		StoreDebugAccuracyContext(context);
-		return context.HalfAngleDegrees;
+		return WeaponShotAccuracyEvaluator.Evaluate(input);
 	}
 
-	private void TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)
+	private WeaponShotHitResult TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)
 	{
 		Vector3 dir = _direction.normalized;
 		float maxDist = m_MaxDistance;
@@ -178,7 +195,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_DebugLastHitName = "";
 			m_DebugLastDamage = 0f;
 			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
-			return;
+			return WeaponShotHitResult.Miss;
 		}
 
 		if (IsSelfCollider(hit.collider))
@@ -186,10 +203,11 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			if (m_DrawDebugRays)
 				Debug.DrawRay(_origin, dir * hit.distance, new Color(1f, 0.5f, 0f), m_DebugRayDuration);
 			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, hit, _ammo));
-			return;
+			return WeaponShotHitResult.BlockedBySelf;
 		}
 
 		DamageableTarget target = hit.collider.GetComponentInParent<DamageableTarget>();
+		bool hitVisibleTarget = IsHitOnVisibleTarget(hit.collider);
 		float damage = _ammo.BaseDamage;
 		if (m_UseDistanceFalloff)
 			damage *= ComputeFalloffMultiplier(hit.distance, _ammo);
@@ -203,6 +221,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		if (target != null)
 			target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo, hit.collider);
+
+		return hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther;
 	}
 
 	private bool IsSelfCollider(Collider _collider)
@@ -284,11 +304,74 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
 	}
 
+	private void LogShot(
+		AmmoDefinition _ammo,
+		EquippedWeapon _weapon,
+		WeaponShotAccuracyContext _accuracyContext,
+		WeaponShotHitResult _hitResult,
+		int _projectileCount)
+	{
+		if (_ammo == null || m_WeaponRuntime == null)
+			return;
+
+		float targetDistanceMeters = _accuracyContext.TargetDistanceMeters;
+		float weaponAimTimeSeconds = WeaponDistanceAimEvaluator.GetRequiredAimTimeSeconds(
+			m_WeaponRuntime.CurrentWeaponDefinition,
+			m_WeaponRuntime.RuntimeState != null ? m_WeaponRuntime.RuntimeState.EquippedAttachments : null,
+			targetDistanceMeters);
+		UnitCombatStats combatStats = ResolveCombatStats();
+		float unitAimTimeMultiplier = combatStats != null ? combatStats.GetAimTimeMultiplier() : 1f;
+		float conditionAimTimeMultiplier = m_CombatCondition != null
+			? m_CombatCondition.GetAimTimeMultiplier(IsMoving())
+			: 1f;
+		float overallAimTimeSeconds = m_AimProgressController != null
+			? m_AimProgressController.CurrentAimTimeSeconds
+			: weaponAimTimeSeconds * unitAimTimeMultiplier * conditionAimTimeMultiplier;
+		WeaponAttachmentDefinition[] presetAttachments = _weapon != null
+			? _weapon.PresetEquippedAttachments
+			: null;
+
+		WeaponShotCombatLogger.LogShot(
+			this,
+			gameObject.name,
+			m_Equipment != null ? m_Equipment.EquippedDefinition : null,
+			m_WeaponRuntime.CurrentWeaponDefinition,
+			m_WeaponRuntime.RuntimeState,
+			presetAttachments,
+			combatStats,
+			_accuracyContext,
+			weaponAimTimeSeconds,
+			overallAimTimeSeconds,
+			m_Vision != null ? m_Vision.VisibleTarget : null,
+			_hitResult,
+			_projectileCount);
+	}
+
+	private static WeaponShotHitResult CombineHitResults(WeaponShotHitResult _current, WeaponShotHitResult _next)
+	{
+		if (_next == WeaponShotHitResult.HitTarget || _current == WeaponShotHitResult.HitTarget)
+			return WeaponShotHitResult.HitTarget;
+		if (_next == WeaponShotHitResult.HitOther || _current == WeaponShotHitResult.HitOther)
+			return WeaponShotHitResult.HitOther;
+		if (_next == WeaponShotHitResult.BlockedBySelf || _current == WeaponShotHitResult.BlockedBySelf)
+			return WeaponShotHitResult.BlockedBySelf;
+		return WeaponShotHitResult.Miss;
+	}
+
+	private bool IsHitOnVisibleTarget(Collider _hitCollider)
+	{
+		Transform visibleTarget = m_Vision != null ? m_Vision.VisibleTarget : null;
+		if (visibleTarget == null || _hitCollider == null)
+			return false;
+
+		Transform hitTransform = _hitCollider.transform;
+		return hitTransform == visibleTarget || hitTransform.IsChildOf(visibleTarget);
+	}
+
 	private void StoreDebugAccuracyContext(WeaponShotAccuracyContext _context)
 	{
 		m_DebugLastHalfAngleDegrees = _context.HalfAngleDegrees;
 		m_DebugLastTargetDistanceMeters = _context.TargetDistanceMeters;
-		m_DebugLastAimMultiplier = _context.AimProgressMultiplier;
 		m_DebugLastRecoilMultiplier = _context.RecoilMultiplier;
 		m_DebugLastStanceMultiplier = _context.StanceMultiplier;
 		m_DebugLastMovementMultiplier = _context.MovementMultiplier;

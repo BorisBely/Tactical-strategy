@@ -122,12 +122,16 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 
 	public float GetDistanceDispersionMultiplier(float _distanceMeters)
 	{
-		return m_DistanceAimProfile != null ? m_DistanceAimProfile.GetDispersionMultiplier(_distanceMeters) : 1f;
+		return m_DistanceAimProfile != null
+			? m_DistanceAimProfile.GetDispersionMultiplier(_distanceMeters)
+			: 1f;
 	}
 
 	public float GetDistanceAimTimeMultiplier(float _distanceMeters)
 	{
-		return m_DistanceAimProfile != null ? m_DistanceAimProfile.GetAimTimeMultiplier(_distanceMeters) : 1f;
+		return m_DistanceAimProfile != null
+			? m_DistanceAimProfile.GetAimTimeMultiplier(_distanceMeters)
+			: 1f;
 	}
 	#endregion
 }

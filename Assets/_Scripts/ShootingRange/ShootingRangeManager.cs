@@ -17,6 +17,10 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	[SerializeField, Min(10f)] private float m_PlayerVisionRange = 120f;
 	[SerializeField] private bool m_AutoDiscoverTargetsOnAwake = true;
 	[SerializeField] private int m_TargetLayer = 8;
+
+	[Header("Player Unit Rank")]
+	[Tooltip("Ранги от худшего к лучшему для кнопки смены ранга на полигоне.")]
+	[SerializeField] private UnitCombatRankDefinition[] m_RankCycleOrder;
 	#endregion
 
 	#region Private Fields
@@ -71,7 +75,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		ResolveRegistry();
 
 #if UNITY_2023_1_OR_NEWER
-		Transform[] transforms = FindObjectsByType<Transform>();
+		Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
 		Transform[] transforms = FindObjectsOfType<Transform>();
 #endif
@@ -96,7 +100,6 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		}
 
 		RequestVisionRescanForPlayers();
-		TargetsChanged?.Invoke();
 	}
 
 	public void SetAllTargetsEnabled(bool _enabled)
@@ -108,7 +111,6 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		}
 
 		RequestVisionRescanForPlayers();
-		TargetsChanged?.Invoke();
 	}
 
 	public void ResetTarget(ShootingRangeTarget _target)
@@ -118,7 +120,6 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 		_target.ResetTarget();
 		RequestVisionRescanForPlayers();
-		TargetsChanged?.Invoke();
 	}
 
 	public void SetTargetEnabled(ShootingRangeTarget _target, bool _enabled)
@@ -128,13 +129,66 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 		_target.SetUserEnabled(_enabled);
 		RequestVisionRescanForPlayers();
-		TargetsChanged?.Invoke();
+	}
+
+	public bool TryGetTargetByDistanceMeters(int _distanceMeters, out ShootingRangeTarget _target)
+	{
+		string targetName = $"Cube{_distanceMeters}";
+		for (int i = 0; i < m_Targets.Count; i++)
+		{
+			ShootingRangeTarget candidate = m_Targets[i];
+			if (candidate != null && candidate.DisplayName == targetName)
+			{
+				_target = candidate;
+				return true;
+			}
+		}
+
+		_target = null;
+		return false;
+	}
+
+	public void ResetTargetByDistanceMeters(int _distanceMeters)
+	{
+		if (TryGetTargetByDistanceMeters(_distanceMeters, out ShootingRangeTarget target))
+			ResetTarget(target);
+	}
+
+	public bool TryCyclePlayerUnitRank(out string _newRankLabel)
+	{
+		_newRankLabel = "—";
+
+		if (!TryFindPlayerUnitCombatStats(out UnitCombatStats combatStats))
+			return false;
+
+		UnitCombatRankDefinition[] rankOrder = ResolveRankCycleOrder();
+		if (rankOrder == null || rankOrder.Length == 0)
+			return false;
+
+		UnitCombatRankDefinition nextRank = UnitCombatRankCycle.GetNextRank(combatStats.RankPreset, rankOrder);
+		if (nextRank == null)
+			return false;
+
+		combatStats.ApplyRankPreset(nextRank);
+		_newRankLabel = UnitCombatRankCycle.ResolveRankLabel(nextRank);
+		Debug.Log(
+			$"[Полигон] Ранг юнита: {_newRankLabel} | меткость {combatStats.Marksmanship:F0} | handling {combatStats.WeaponHandling:F0} | отдача {combatStats.RecoilControl:F0} | юнит: {combatStats.gameObject.name}",
+			this);
+		return true;
+	}
+
+	public string GetPlayerUnitRankLabel()
+	{
+		if (!TryFindPlayerUnitCombatStats(out UnitCombatStats combatStats))
+			return "—";
+
+		return UnitCombatRankCycle.ResolveRankLabel(combatStats.RankPreset);
 	}
 
 	public void ApplyPlayerVisionRange()
 	{
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>();
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif
@@ -208,13 +262,53 @@ public sealed class ShootingRangeManager : MonoBehaviour
 			return 1;
 		if (_b == null)
 			return -1;
-		return string.CompareOrdinal(_a.DisplayName, _b.DisplayName);
+
+		int distanceCompare = GetTargetDistanceSortKey(_a).CompareTo(GetTargetDistanceSortKey(_b));
+		return distanceCompare != 0
+			? distanceCompare
+			: string.CompareOrdinal(_a.DisplayName, _b.DisplayName);
+	}
+
+	private static int GetTargetDistanceSortKey(ShootingRangeTarget _target)
+	{
+		if (_target == null)
+			return int.MaxValue;
+
+		string name = _target.DisplayName;
+		if (name != null &&
+		    name.StartsWith("Cube") &&
+		    int.TryParse(name.Substring(4), out int distanceMeters))
+		{
+			return distanceMeters;
+		}
+
+		return int.MaxValue - 1;
+	}
+
+	private UnitCombatRankDefinition[] ResolveRankCycleOrder()
+	{
+		if (m_RankCycleOrder == null || m_RankCycleOrder.Length == 0)
+			return null;
+
+		int assignedCount = 0;
+		for (int i = 0; i < m_RankCycleOrder.Length; i++)
+		{
+			if (m_RankCycleOrder[i] != null)
+				assignedCount++;
+		}
+
+		return assignedCount > 0 ? m_RankCycleOrder : null;
+	}
+
+	private bool TryFindPlayerUnitCombatStats(out UnitCombatStats _combatStats)
+	{
+		return UnitCombatStatsLookup.TryGetActivePlayerCombatStats(out _combatStats);
 	}
 
 	private void RequestVisionRescanForPlayers()
 	{
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>();
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif

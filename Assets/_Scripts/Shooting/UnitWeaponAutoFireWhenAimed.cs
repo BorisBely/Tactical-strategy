@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Удерживает «курок» виртуально: когда <see cref="EquippedWeaponTransientState.AimProgress01"/> достигает порога
+/// Удерживает «курок» виртуально: когда прицеливание полностью завершено
 /// и выполнены те же базовые условия, что и у <see cref="UnitWeaponFireController"/>, вызывает
 /// <see cref="UnitWeaponFireController.StartFiring"/>; иначе <see cref="UnitWeaponFireController.StopFiring"/>.
 /// Должен выполняться раньше <see cref="UnitWeaponFireController"/> (порядок 54 &lt; 56).
@@ -19,8 +19,6 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 
 	[Header("Условия")]
-	[Tooltip("Считаем «прицелился», когда AimProgress >= этого значения (0..1).")]
-	[SerializeField, Range(0.5f, 1f)] private float m_MinAimProgress01 = 0.98f;
 	[Tooltip("Дублирует смысл UnitWeaponFireController: не стрелять без ready.")]
 	[SerializeField] private bool m_RequireReady = true;
 	[Tooltip("Дублирует смысл UnitWeaponFireController: не стрелять без видимой цели.")]
@@ -87,7 +85,7 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
 			return false;
 
-		return m_WeaponRuntime.TransientState.AimProgress01 >= m_MinAimProgress01;
+		return m_WeaponRuntime.TransientState.IsFullyAimed;
 	}
 	#endregion
 }

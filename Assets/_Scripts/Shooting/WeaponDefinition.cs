@@ -41,6 +41,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_BaseShotDispersion = 1f;
 	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..100 м.")]
 	[SerializeField] private WeaponDistanceAimProfile m_DistanceAimProfile = new WeaponDistanceAimProfile();
+	[Tooltip("Множитель разброса по номеру выстрела в непрерывной автоматической очереди. Ось X = номер выстрела (1 = без штрафа).")]
+	[SerializeField] private AnimationCurve m_AutoBurstSpreadMultiplierByShot = AnimationCurve.Linear(1f, 1f, 10f, 1f);
 	[Tooltip("Базовое накопление штрафа отдачи после одного выстрела.")]
 	[SerializeField, Min(0f)] private float m_RecoilPerShot = 1f;
 	[Tooltip("Множитель накопления отдачи при одиночной стрельбе.")]
@@ -147,6 +149,31 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float GetDistanceAimTimeMultiplier(float _distanceMeters)
 	{
 		return m_DistanceAimProfile != null ? m_DistanceAimProfile.GetAimTimeMultiplier(_distanceMeters) : 1f;
+	}
+
+	public float GetAutoBurstSpreadMultiplier(int _shotIndexInBurst)
+	{
+		if (_shotIndexInBurst <= 1)
+			return 1f;
+
+		if (m_AutoBurstSpreadMultiplierByShot == null || m_AutoBurstSpreadMultiplierByShot.length == 0)
+			return 1f;
+
+		return Mathf.Max(0.01f, m_AutoBurstSpreadMultiplierByShot.Evaluate(_shotIndexInBurst));
+	}
+
+	public void SetCombatBalanceData(
+		float _baseShotDispersion,
+		AnimationCurve _dispersionByDistance,
+		AnimationCurve _aimTimeByDistance,
+		AnimationCurve _autoBurstSpreadByShot)
+	{
+		m_BaseShotDispersion = Mathf.Max(0f, _baseShotDispersion);
+		if (m_DistanceAimProfile == null)
+			m_DistanceAimProfile = new WeaponDistanceAimProfile();
+
+		m_DistanceAimProfile.SetCurves(_dispersionByDistance, _aimTimeByDistance);
+		m_AutoBurstSpreadMultiplierByShot = _autoBurstSpreadByShot;
 	}
 	#endregion
 

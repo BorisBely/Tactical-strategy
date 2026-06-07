@@ -15,7 +15,6 @@ public static class WeaponShotAccuracyEvaluator
 
 		float baseDispersion = weaponDefinition != null ? weaponDefinition.BaseShotDispersion : 1f;
 		float ammoSpread = ammoDefinition != null ? ammoDefinition.SpreadModifier : 1f;
-		float aim = transientState != null ? transientState.AimProgress01 : 0f;
 		float recoil = transientState != null ? transientState.RecoilPenalty : 0f;
 
 		float weaponDistance = weaponDefinition != null
@@ -25,23 +24,23 @@ public static class WeaponShotAccuracyEvaluator
 			? weaponState.GetAttachmentDistanceDispersionProduct(_input.TargetDistanceMeters)
 			: 1f;
 
-		float aimFactor = 1f - aim * _input.AimProgressTighten;
 		float recoilFactor = 1f + recoil * _input.RecoilSpreadScale;
 		float stanceFactor = GetStanceDispersionMultiplier(_input);
 		float movementFactor = GetMovementDispersionMultiplier(_input);
 		float skillFactor = _input.CombatStats != null ? _input.CombatStats.GetDispersionMultiplier() : 1f;
 		float conditionFactor = _input.CombatCondition != null ? _input.CombatCondition.GetDispersionMultiplier() : 1f;
+		float autoBurstFactor = GetAutoBurstSpreadMultiplier(_input);
 
 		float raw = baseDispersion *
 		            ammoSpread *
 		            weaponDistance *
 		            attachmentDistance *
-		            aimFactor *
 		            recoilFactor *
 		            stanceFactor *
 		            movementFactor *
 		            skillFactor *
 		            conditionFactor *
+		            autoBurstFactor *
 		            _input.BaseSpreadToDegrees;
 
 		float halfAngle = Mathf.Clamp(raw, _input.MinHalfAngleDegrees, _input.MaxHalfAngleDegrees);
@@ -51,18 +50,30 @@ public static class WeaponShotAccuracyEvaluator
 			ammoSpread,
 			weaponDistance,
 			attachmentDistance,
-			aimFactor,
 			recoilFactor,
 			stanceFactor,
 			movementFactor,
 			skillFactor,
 			conditionFactor,
+			autoBurstFactor,
 			raw,
 			halfAngle);
 	}
 	#endregion
 
 	#region Private Methods
+	private static float GetAutoBurstSpreadMultiplier(WeaponShotAccuracyInput _input)
+	{
+		if (_input.FireMode != WeaponFireMode.FullAuto && _input.FireMode != WeaponFireMode.Burst)
+			return 1f;
+
+		if (_input.WeaponDefinition == null)
+			return 1f;
+
+		int shotIndex = Mathf.Max(1, _input.BurstShotIndex);
+		return _input.WeaponDefinition.GetAutoBurstSpreadMultiplier(shotIndex);
+	}
+
 	private static float GetStanceDispersionMultiplier(WeaponShotAccuracyInput _input)
 	{
 		switch (_input.Stance)
@@ -100,7 +111,6 @@ public struct WeaponShotAccuracyInput
 	public UnitCombatCondition CombatCondition;
 	public float TargetDistanceMeters;
 	public float BaseSpreadToDegrees;
-	public float AimProgressTighten;
 	public float RecoilSpreadScale;
 	public float MinHalfAngleDegrees;
 	public float MaxHalfAngleDegrees;
@@ -112,6 +122,8 @@ public struct WeaponShotAccuracyInput
 	public float ProneSpreadMultiplier;
 	public float MovingSpreadMultiplier;
 	public float SprintSpreadMultiplier;
+	public WeaponFireMode FireMode;
+	public int BurstShotIndex;
 }
 
 /// <summary>
@@ -124,12 +136,12 @@ public readonly struct WeaponShotAccuracyContext
 	public readonly float AmmoSpreadModifier;
 	public readonly float WeaponDistanceMultiplier;
 	public readonly float AttachmentDistanceMultiplier;
-	public readonly float AimProgressMultiplier;
 	public readonly float RecoilMultiplier;
 	public readonly float StanceMultiplier;
 	public readonly float MovementMultiplier;
 	public readonly float SkillMultiplier;
 	public readonly float ConditionMultiplier;
+	public readonly float AutoBurstSpreadMultiplier;
 	public readonly float RawHalfAngleDegrees;
 	public readonly float HalfAngleDegrees;
 
@@ -139,12 +151,12 @@ public readonly struct WeaponShotAccuracyContext
 		float _ammoSpreadModifier,
 		float _weaponDistanceMultiplier,
 		float _attachmentDistanceMultiplier,
-		float _aimProgressMultiplier,
 		float _recoilMultiplier,
 		float _stanceMultiplier,
 		float _movementMultiplier,
 		float _skillMultiplier,
 		float _conditionMultiplier,
+		float _autoBurstSpreadMultiplier,
 		float _rawHalfAngleDegrees,
 		float _halfAngleDegrees)
 	{
@@ -153,12 +165,12 @@ public readonly struct WeaponShotAccuracyContext
 		AmmoSpreadModifier = _ammoSpreadModifier;
 		WeaponDistanceMultiplier = _weaponDistanceMultiplier;
 		AttachmentDistanceMultiplier = _attachmentDistanceMultiplier;
-		AimProgressMultiplier = _aimProgressMultiplier;
 		RecoilMultiplier = _recoilMultiplier;
 		StanceMultiplier = _stanceMultiplier;
 		MovementMultiplier = _movementMultiplier;
 		SkillMultiplier = _skillMultiplier;
 		ConditionMultiplier = _conditionMultiplier;
+		AutoBurstSpreadMultiplier = _autoBurstSpreadMultiplier;
 		RawHalfAngleDegrees = _rawHalfAngleDegrees;
 		HalfAngleDegrees = _halfAngleDegrees;
 	}

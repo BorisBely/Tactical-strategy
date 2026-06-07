@@ -515,6 +515,7 @@ public sealed class EquippedWeaponTransientState
 	#region Private Fields
 	[SerializeField, Range(0f, 1f)] private float m_AimProgress01;
 	[SerializeField, Min(0f)] private float m_RecoilPenalty;
+	[SerializeField, Min(0)] private int m_ConsecutiveBurstShotsFired;
 	[SerializeField] private float m_NextAllowedShotTime;
 	[SerializeField] private WeaponMalfunctionKind m_MalfunctionKind;
 	[SerializeField] private WeaponMalfunctionChannel m_MalfunctionChannel;
@@ -524,8 +525,11 @@ public sealed class EquippedWeaponTransientState
 	#endregion
 
 	#region Public Properties
+	public const float FullAimProgress01 = 1f;
 	public float AimProgress01 => m_AimProgress01;
+	public bool IsFullyAimed => m_AimProgress01 >= FullAimProgress01;
 	public float RecoilPenalty => m_RecoilPenalty;
+	public int ConsecutiveBurstShotsFired => m_ConsecutiveBurstShotsFired;
 	public float NextAllowedShotTime => m_NextAllowedShotTime;
 	public WeaponMalfunctionKind MalfunctionKind => m_MalfunctionKind;
 	public WeaponMalfunctionChannel MalfunctionChannel => m_MalfunctionChannel;
@@ -540,6 +544,7 @@ public sealed class EquippedWeaponTransientState
 	{
 		m_AimProgress01 = 0f;
 		m_RecoilPenalty = 0f;
+		m_ConsecutiveBurstShotsFired = 0;
 		m_NextAllowedShotTime = 0f;
 		ClearMalfunction();
 	}
@@ -586,6 +591,18 @@ public sealed class EquippedWeaponTransientState
 	public void SetRecoilPenalty(float _value)
 	{
 		m_RecoilPenalty = Mathf.Max(0f, _value);
+	}
+
+	public int GetNextBurstShotIndex() => m_ConsecutiveBurstShotsFired + 1;
+
+	public void RegisterBurstShotFired()
+	{
+		m_ConsecutiveBurstShotsFired = Mathf.Max(0, m_ConsecutiveBurstShotsFired + 1);
+	}
+
+	public void ResetBurstShotCounter()
+	{
+		m_ConsecutiveBurstShotsFired = 0;
 	}
 
 	public void SetNextAllowedShotTime(float _time)

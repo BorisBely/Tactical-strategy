@@ -15,7 +15,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 
 	#region Private Fields
 	[SerializeField] private Button m_ClickArea;
-	[SerializeField] private Image m_RankIcon;
+	[SerializeField] private TextMeshProUGUI m_UnitRankText;
 	[SerializeField] private TextMeshProUGUI m_UnitNameText;
 	[SerializeField] private TextMeshProUGUI m_UnitPresetText;
 
@@ -23,14 +23,17 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	[SerializeField] private Graphic m_SelectionBackground;
 	[SerializeField] private Color m_NormalBackgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.85f);
 	[SerializeField] private Color m_SelectedBackgroundColor = new Color(0.28f, 0.45f, 0.65f, 1f);
+
+	private bool m_InteractionEnabled = true;
 	#endregion
 
 	#region Public Properties
-	public Image RankIcon => m_RankIcon;
+	public TextMeshProUGUI UnitRankText => m_UnitRankText;
 	public TextMeshProUGUI UnitNameText => m_UnitNameText;
 	public TextMeshProUGUI UnitPresetText => m_UnitPresetText;
 	public GameObject BoundUnitRoot { get; private set; }
 	public bool IsSelected { get; private set; }
+	public bool InteractionEnabled => m_InteractionEnabled;
 	#endregion
 
 	#region Public Methods
@@ -48,10 +51,23 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			m_UnitPresetText.text = _presetName ?? string.Empty;
 	}
 
+	public void SetRankDisplayName(string _rankName)
+	{
+		if (m_UnitRankText != null)
+			m_UnitRankText.text = _rankName ?? string.Empty;
+	}
+
 	public void SetSelected(bool _selected)
 	{
 		IsSelected = _selected;
 		ApplySelectionVisual();
+	}
+
+	public void SetInteractionEnabled(bool _enabled)
+	{
+		m_InteractionEnabled = _enabled;
+		if (m_ClickArea != null)
+			m_ClickArea.interactable = _enabled;
 	}
 
 	public void ClearBinding()
@@ -61,6 +77,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 		if (m_UnitNameText != null)
 			m_UnitNameText.text = string.Empty;
 		SetPresetDisplayName(string.Empty);
+		SetRankDisplayName(string.Empty);
 	}
 	#endregion
 
@@ -89,6 +106,9 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	#region Private Methods
 	private void HandleClicked()
 	{
+		if (!m_InteractionEnabled)
+			return;
+
 		Clicked?.Invoke(this);
 	}
 

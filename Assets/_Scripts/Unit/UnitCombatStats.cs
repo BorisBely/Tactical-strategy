@@ -13,6 +13,10 @@ public sealed class UnitCombatStats : MonoBehaviour
 	#endregion
 
 	#region Serialized Fields
+	[Header("Rank Preset")]
+	[SerializeField] private UnitCombatRankDefinition m_RankPreset;
+	[SerializeField] private bool m_ApplyRankPresetOnAwake = true;
+
 	[Header("Shooting Skills")]
 	[SerializeField, Range(0f, c_MaxSkill)] private float m_Marksmanship = c_NeutralSkill;
 	[SerializeField, Range(0f, c_MaxSkill)] private float m_WeaponHandling = c_NeutralSkill;
@@ -38,12 +42,35 @@ public sealed class UnitCombatStats : MonoBehaviour
 	#endregion
 
 	#region Public Properties
+	public UnitCombatRankDefinition RankPreset => m_RankPreset;
 	public float Marksmanship => m_Marksmanship;
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
 	#endregion
 
+	#region Unity Lifecycle
+	private void Awake()
+	{
+		if (m_ApplyRankPresetOnAwake && m_RankPreset != null)
+			m_RankPreset.ApplyTo(this);
+	}
+	#endregion
+
 	#region Public Methods
+	public void ApplyRankPreset(UnitCombatRankDefinition _rankPreset)
+	{
+		m_RankPreset = _rankPreset;
+		if (_rankPreset != null)
+			_rankPreset.ApplyTo(this);
+	}
+
+	public void ApplySkills(float _marksmanship, float _weaponHandling, float _recoilControl)
+	{
+		m_Marksmanship = Mathf.Clamp(_marksmanship, 0f, c_MaxSkill);
+		m_WeaponHandling = Mathf.Clamp(_weaponHandling, 0f, c_MaxSkill);
+		m_RecoilControl = Mathf.Clamp(_recoilControl, 0f, c_MaxSkill);
+	}
+
 	public float GetDispersionMultiplier()
 	{
 		return EvaluateSkillMultiplier(

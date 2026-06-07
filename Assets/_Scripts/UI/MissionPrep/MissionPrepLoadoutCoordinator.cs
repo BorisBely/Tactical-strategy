@@ -269,7 +269,6 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			_saveSnapshotFromRuntime);
 
 		RepaintInventoryPanel();
-		ModificationGraphDataChanged?.Invoke();
 	}
 
 	public void PropagatePresetToAllUnitsWithCatalogIndex(int _presetIndex)
@@ -746,9 +745,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		_previewWeaponDefinition = null;
 		_previewAttachments = null;
 
-		if (!TryResolveGraphBaselineWeaponSlot(out InventorySlotRuntimeData baselineSlot) ||
-		    !TryExtractWeaponLoadout(baselineSlot, out _weaponDefinition, out _currentAttachments))
-			return false;
+		bool hasBaseline = TryResolveGraphBaselineWeaponSlot(out InventorySlotRuntimeData baselineSlot) &&
+		                   TryExtractWeaponLoadout(baselineSlot, out _weaponDefinition, out _currentAttachments);
 
 		bool hasModulePreview = false;
 		TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot);
@@ -761,30 +759,42 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			_previewAttachments = modulePreviewAttachments;
 			hasModulePreview = true;
 			if (TryExtractWeaponLoadout(modulePreviewWeaponSlot, out WeaponDefinition moduleWeaponDefinition, out _) &&
-			    !RepresentsSameWeaponInstance(baselineSlot, modulePreviewWeaponSlot))
+			    (!hasBaseline || !RepresentsSameWeaponInstance(baselineSlot, modulePreviewWeaponSlot)))
 				_previewWeaponDefinition = moduleWeaponDefinition;
 		}
 
 		if (!hasModulePreview &&
 		    !m_HoveredWeaponGraphCandidate.IsEmpty &&
 		    TryExtractWeaponLoadout(m_HoveredWeaponGraphCandidate, out WeaponDefinition hoveredWeaponDefinition, out WeaponAttachmentDefinition[] hoveredAttachments) &&
-		    !RepresentsSameWeaponInstance(baselineSlot, m_HoveredWeaponGraphCandidate))
+		    (!hasBaseline || !RepresentsSameWeaponInstance(baselineSlot, m_HoveredWeaponGraphCandidate)))
 		{
 			_previewWeaponDefinition = hoveredWeaponDefinition;
 			_previewAttachments = hoveredAttachments;
 		}
 
-		return true;
+		if (!PreviewLoadoutDiffersFromCurrent(_weaponDefinition, _currentAttachments, _previewWeaponDefinition, _previewAttachments))
+		{
+			_previewWeaponDefinition = null;
+			_previewAttachments = null;
+		}
+
+		return hasBaseline || _previewWeaponDefinition != null || _previewAttachments != null;
 	}
 
 	public void SetHoveredModificationPreviewCandidate(InventorySlotRuntimeData _candidate)
 	{
-		if (_candidate.IsEmpty || !ItemModificationUtility.IsModificationItem(_candidate))
+		if (_candidate.IsEmpty || !ItemModificationUtility.IsAttachmentItem(_candidate))
+		{
+			ResetHoveredModificationPreviewCandidate();
 			return;
+		}
 
 		if (!TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot) ||
 		    !ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, _candidate))
+		{
+			ResetHoveredModificationPreviewCandidate();
 			return;
+		}
 
 		m_HoveredModificationPreviewCandidate = _candidate;
 		ModificationGraphDataChanged?.Invoke();
@@ -793,7 +803,10 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	public void SetHoveredWeaponGraphCandidate(InventorySlotRuntimeData _candidate)
 	{
 		if (_candidate.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(_candidate.Definition))
+		{
+			ResetHoveredWeaponGraphCandidate();
 			return;
+		}
 
 		m_HoveredWeaponGraphCandidate = _candidate;
 		ModificationGraphDataChanged?.Invoke();
@@ -806,8 +819,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		    m_HoveredWeaponGraphCandidate.Definition != _candidate.Definition)
 			return;
 
-		m_HoveredWeaponGraphCandidate = default;
-		ModificationGraphDataChanged?.Invoke();
+		ResetHoveredWeaponGraphCandidate();
 	}
 
 	public void ClearHoveredModificationPreviewCandidate(InventorySlotRuntimeData _candidate)
@@ -817,7 +829,24 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		    m_HoveredModificationPreviewCandidate.Definition != _candidate.Definition)
 			return;
 
+		ResetHoveredModificationPreviewCandidate();
+	}
+
+	private void ResetHoveredModificationPreviewCandidate()
+	{
+		if (m_HoveredModificationPreviewCandidate.IsEmpty)
+			return;
+
 		m_HoveredModificationPreviewCandidate = default;
+		ModificationGraphDataChanged?.Invoke();
+	}
+
+	private void ResetHoveredWeaponGraphCandidate()
+	{
+		if (m_HoveredWeaponGraphCandidate.IsEmpty)
+			return;
+
+		m_HoveredWeaponGraphCandidate = default;
 		ModificationGraphDataChanged?.Invoke();
 	}
 
@@ -1150,6 +1179,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		m_ExpandedWeaponListIndex = preservedExpandedListIndex;
 		TryRestoreExpandedModificationSelectionAfterRepaint();
 		RebuildInlineModificationRows();
+		ModificationGraphDataChanged?.Invoke();
 	}
 
 	public void ScheduleRefreshInlineModificationRowsAfterDrag()
@@ -1329,7 +1359,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void AdjustAllUnitsAfterPresetDeletion(int _deletedIndex)
 	{
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude);
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -1347,7 +1378,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude);
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -1522,7 +1554,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		bool startedAuthoritative = false;
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude);
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
 
 		for (int i = 0; i < units.Length; i++)
 		{
@@ -1748,10 +1781,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (TryGetModificationWeaponSlot(out _weaponSlot))
 			return true;
 
-		if (!m_HoveredWeaponGraphCandidate.IsEmpty &&
-		    ItemModificationUtility.IsModifiableWeapon(m_HoveredWeaponGraphCandidate.Definition))
+		for (int i = 0; i < snapshot.BagCount; i++)
 		{
-			_weaponSlot = m_HoveredWeaponGraphCandidate;
+			if (!snapshot.TryGetInventorySlot(false, i, out InventorySlotRuntimeData bagSlot))
+				continue;
+
+			if (bagSlot.IsEmpty || !ItemModificationUtility.IsModifiableWeapon(bagSlot.Definition))
+				continue;
+
+			_weaponSlot = bagSlot;
 			return true;
 		}
 
@@ -3086,6 +3124,44 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			copy[i] = _attachments[i];
 
 		return copy;
+	}
+
+	private static bool PreviewLoadoutDiffersFromCurrent(
+		WeaponDefinition _currentWeaponDefinition,
+		WeaponAttachmentDefinition[] _currentAttachments,
+		WeaponDefinition _previewWeaponDefinition,
+		WeaponAttachmentDefinition[] _previewAttachments)
+	{
+		if (_previewWeaponDefinition == null && _previewAttachments == null)
+			return false;
+
+		WeaponDefinition previewWeapon = _previewWeaponDefinition != null ? _previewWeaponDefinition : _currentWeaponDefinition;
+		if (_currentWeaponDefinition == null)
+			return previewWeapon != null || _previewAttachments != null;
+
+		if (_previewWeaponDefinition != null && _previewWeaponDefinition != _currentWeaponDefinition)
+			return true;
+
+		return !AttachmentArraysEquivalent(_currentAttachments, _previewAttachments);
+	}
+
+	private static bool AttachmentArraysEquivalent(
+		WeaponAttachmentDefinition[] _left,
+		WeaponAttachmentDefinition[] _right)
+	{
+		if (_left == null || _left.Length == 0)
+			return _right == null || _right.Length == 0;
+
+		if (_right == null || _right.Length != _left.Length)
+			return false;
+
+		for (int i = 0; i < _left.Length; i++)
+		{
+			if (_left[i] != _right[i])
+				return false;
+		}
+
+		return true;
 	}
 	#endregion
 }

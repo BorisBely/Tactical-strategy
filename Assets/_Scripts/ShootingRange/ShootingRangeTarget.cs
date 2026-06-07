@@ -96,6 +96,7 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 	{
 		m_HitCount = 0;
 		m_IsDefeated = false;
+		m_IsUserEnabled = true;
 		m_Damageable?.ResetHealth();
 		ApplyColliderState();
 		ApplyVisualState();
