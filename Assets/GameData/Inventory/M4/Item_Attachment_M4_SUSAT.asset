@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_SUSAT
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_susat
-  m_Description: Фиксированный оптический прицел 4x.
+  m_Description: 4-кратный прицел с дополнительной ближней зоной 0-15 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 650
   m_Category: 0

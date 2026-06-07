@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_EOTech_G33
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_eotech_g33
-  m_Description: Голографический прицел с откидным увеличителем.
+  m_Description: Гибрид для 0-20 м и 35-45 м с провалом между режимами.
   m_Icon: {fileID: 0}
   m_BasePrice: 860
   m_Category: 0

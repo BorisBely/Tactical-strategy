@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ELCAN_SpecterDR
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_elcan_specterdr
-  m_Description: Переменный боевой прицел 1x/4x.
+  m_Description: Переменный прицел для 0-50 м с замедленным наведением.
   m_Icon: {fileID: 0}
   m_BasePrice: 900
   m_Category: 0

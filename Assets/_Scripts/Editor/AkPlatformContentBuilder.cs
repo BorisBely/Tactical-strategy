@@ -224,7 +224,7 @@ public static class AkPlatformContentBuilder
 		SetItemAttachment(c_MovedItemReddotPath, "Item_Attachment_AK_Reddot4_Rail", c_MovedAttachmentReddotPath, c_AkReddotVisualPath,
 			"item.attachment.ak_reddot4_rail", "Side-rail red dot (Kobra-style) for AK platform.");
 		SetItemAttachment(c_MovedItemScopePath, "Item_Attachment_AK_Scope11", c_MovedAttachmentScopePath, c_AkScopeVisualPath,
-			"item.attachment.ak_scope11", "Side-rail optical sight (PSO-style) for AK platform.");
+			"item.attachment.ak_scope11", "4x side-rail optical sight for AK platform.");
 	}
 
 	private static void SetAttachmentSideRail(string _assetPath, string _assetName, string _visualPrefabPath)

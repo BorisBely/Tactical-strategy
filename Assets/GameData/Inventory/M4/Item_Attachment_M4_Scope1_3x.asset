@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Scope1_3x
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_scope1_3x
-  m_Description: Фиксированный боевой прицел 3x.
+  m_Description: Оптический прицел для 35-45 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 520
   m_Category: 0

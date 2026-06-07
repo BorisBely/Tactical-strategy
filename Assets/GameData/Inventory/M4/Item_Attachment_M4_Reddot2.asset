@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Reddot2
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_reddot2
-  m_Description: Голографический прицел для быстрого захвата цели.
+  m_Description: Голографический прицел для 0-20 м без дальнего штрафа хуже базы.
   m_Icon: {fileID: 0}
   m_BasePrice: 280
   m_Category: 0

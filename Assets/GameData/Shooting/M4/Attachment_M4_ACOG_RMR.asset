@@ -18,7 +18,7 @@ MonoBehaviour:
   m_CompatibleWeapons: []
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
-  m_AimTimeModifier: 1.15
+  m_AimTimeModifier: 1.22
   m_EffectiveRangeModifier: 1.2
   m_RecoilModifier: 1
   m_ReloadTimeModifier: 1
@@ -28,7 +28,7 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.92
+        value: 0.98
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -36,8 +36,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 20
-        value: 0.88
+        time: 15
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -45,8 +45,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 40
-        value: 0.8
+        time: 30
+        value: 0.86
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -54,8 +54,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50
-        value: 0.76
+        time: 45
+        value: 0.78
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -63,17 +63,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 65
-        value: 0.82
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 85
-        value: 0.94
+        time: 60
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -82,7 +73,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1.04
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -97,7 +88,7 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1.1
+        value: 1.18
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -105,8 +96,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 20
-        value: 1.02
+        time: 13
+        value: 1.28
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -115,7 +106,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 40
-        value: 1.08
+        value: 1.18
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -124,15 +115,6 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 50
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 65
         value: 1.04
         inSlope: 0
         outSlope: 0
@@ -141,8 +123,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 85
-        value: 1.08
+        time: 55
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -151,7 +133,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1.14
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0

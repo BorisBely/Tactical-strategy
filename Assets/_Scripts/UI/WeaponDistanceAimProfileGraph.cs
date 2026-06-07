@@ -38,12 +38,24 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[SerializeField, Range(8, 128)] private int m_SampleCount = 64;
 
 	[Header("Value Scale")]
-	[Tooltip("Подгоняет вертикальную шкалу под min/max отображаемых линий. Выключите для совпадения с Canvas и таблицами баланса.")]
-	[SerializeField] private bool m_AutoFitQualityScale = false;
-	[Tooltip("Нижняя граница качества на графике. 1 = множитель 1.0 (нейтральное значение).")]
+	[Tooltip("Подгоняет вертикальную шкалу под min/max отображаемых линий. В Mission Prep включается автоматически.")]
+	[SerializeField] private bool m_AutoFitQualityScale = true;
+	[Tooltip("Доля отступа сверху/снизу относительно диапазона данных.")]
+	[SerializeField, Range(0f, 0.35f)] private float m_AutoFitQualityPaddingRatio = 0.12f;
+	[Tooltip("Минимальная высота шкалы качества, чтобы мелкие отличия были видны.")]
+	[SerializeField, Min(0.01f)] private float m_AutoFitQualityMinSpan = 0.08f;
+	[Tooltip("Нижняя граница качества на графике, если auto-fit выключен или нет данных.")]
 	[SerializeField, Min(0.01f)] private float m_MinDisplayedQuality = 0.15f;
-	[Tooltip("Верхняя граница качества на графике. 2 = в два раза лучше нейтрального множителя.")]
+	[Tooltip("Верхняя граница качества на графике, если auto-fit выключен или нет данных.")]
 	[SerializeField, Min(0.02f)] private float m_MaxDisplayedQuality = 2.75f;
+
+	[Header("Distance Auto Fit")]
+	[Tooltip("Сужает ось дистанции к диапазону, где линии заметно меняются. В Mission Prep включается автоматически.")]
+	[SerializeField] private bool m_AutoFitDistanceRange = true;
+	[Tooltip("Минимальная ширина окна дистанции при auto-fit.")]
+	[SerializeField, Min(5f)] private float m_AutoFitMinDistanceSpanMeters = 30f;
+	[Tooltip("Доля отступа слева/справа относительно найденного диапазона дистанции.")]
+	[SerializeField, Range(0f, 0.25f)] private float m_AutoFitDistancePaddingRatio = 0.08f;
 
 	[Header("Line Colors")]
 	[Tooltip("Текущий экипированный loadout (первая линия).")]
@@ -186,6 +198,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		base.OnValidate();
 		m_MaxDistanceMeters = Mathf.Max(m_MinDistanceMeters + 1f, m_MaxDistanceMeters);
 		m_MaxDisplayedQuality = Mathf.Max(m_MinDisplayedQuality + 0.01f, m_MaxDisplayedQuality);
+		m_AutoFitMinDistanceSpanMeters = Mathf.Clamp(m_AutoFitMinDistanceSpanMeters, 5f, m_MaxDistanceMeters - m_MinDistanceMeters);
 		SetVerticesDirty();
 	}
 #endif
@@ -209,35 +222,37 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		bool hasPreviewLoadout = HasPreviewCurve;
 		bool hasAccuracyPreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAccuracyQuality, EvaluatePreviewAccuracyQuality));
 		bool hasAimTimePreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAimSpeedQuality, EvaluatePreviewAimSpeedQuality));
-		ComputeQualityScaleRange(
+		ComputeDisplayBounds(
 			showAccuracy,
 			showAimTime,
 			hasCurrentLoadout,
 			hasAccuracyPreview,
 			hasAimTimePreview,
+			out float minDistanceMeters,
+			out float maxDistanceMeters,
 			out float minQuality,
 			out float maxQuality);
 
 		if (hasCurrentLoadout && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_CurrentLineColor, m_LineWidth, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 			if (hasAccuracyPreview)
-				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 		}
 		else if (!hasCurrentLoadout && hasAccuracyPreview && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 		}
 
 		if (hasCurrentLoadout && m_ShowAimSpeed && showAimTime)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_CurrentLineColor, m_LineWidth, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 			if (hasAimTimePreview)
-				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 		}
 		else if (!hasCurrentLoadout && hasAimTimePreview && m_ShowAimSpeed && showAimTime)
 		{
-			DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 		}
 	}
 	#endregion
@@ -348,6 +363,8 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		System.Func<float, float> _qualityEvaluator,
 		Color _lineColor,
 		float _lineWidth,
+		float _minDistanceMeters,
+		float _maxDistanceMeters,
 		float _minQuality,
 		float _maxQuality)
 	{
@@ -359,7 +376,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		for (int i = 0; i < sampleCount; i++)
 		{
 			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
-			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
+			float distance = Mathf.Lerp(_minDistanceMeters, _maxDistanceMeters, t);
 			float quality = _qualityEvaluator(distance);
 			float y01 = Mathf.InverseLerp(_minQuality, _maxQuality, quality);
 			Vector2 point = new Vector2(
@@ -374,17 +391,35 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		}
 	}
 
-	private void ComputeQualityScaleRange(
+	private bool ShouldAutoFitQualityScale =>
+		m_AutoFitQualityScale || m_AutoBindMissionPrepSelection;
+
+	private bool ShouldAutoFitDistanceRange =>
+		m_AutoFitDistanceRange || m_AutoBindMissionPrepSelection;
+
+	private void ComputeDisplayBounds(
 		bool _showAccuracy,
 		bool _showAimTime,
 		bool _hasCurrentLoadout,
 		bool _hasAccuracyPreview,
 		bool _hasAimTimePreview,
+		out float _minDistanceMeters,
+		out float _maxDistanceMeters,
 		out float _minQuality,
 		out float _maxQuality)
 	{
-		if (!m_AutoFitQualityScale)
+		CollectActiveEvaluators(
+			_showAccuracy,
+			_showAimTime,
+			_hasCurrentLoadout,
+			_hasAccuracyPreview,
+			_hasAimTimePreview,
+			out System.Func<float, float>[] evaluators);
+
+		if (evaluators.Length == 0)
 		{
+			_minDistanceMeters = m_MinDistanceMeters;
+			_maxDistanceMeters = m_MaxDistanceMeters;
 			_minQuality = m_MinDisplayedQuality;
 			_maxQuality = m_MaxDisplayedQuality;
 			return;
@@ -393,49 +428,133 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		float minQuality = float.PositiveInfinity;
 		float maxQuality = float.NegativeInfinity;
 		int sampleCount = Mathf.Max(2, m_SampleCount);
+		for (int i = 0; i < sampleCount; i++)
+		{
+			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
+			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
+			for (int j = 0; j < evaluators.Length; j++)
+				IncludeQualitySample(evaluators[j](distance), ref minQuality, ref maxQuality);
+		}
+
+		if (ShouldAutoFitDistanceRange && minQuality <= maxQuality)
+			ComputeAutoFitDistanceRange(evaluators, minQuality, maxQuality, out _minDistanceMeters, out _maxDistanceMeters);
+		else
+		{
+			_minDistanceMeters = m_MinDistanceMeters;
+			_maxDistanceMeters = m_MaxDistanceMeters;
+		}
+
+		if (ShouldAutoFitQualityScale && minQuality <= maxQuality)
+			ComputeAutoFitQualityRange(minQuality, maxQuality, out _minQuality, out _maxQuality);
+		else
+		{
+			_minQuality = m_MinDisplayedQuality;
+			_maxQuality = m_MaxDisplayedQuality;
+		}
+	}
+
+	private void CollectActiveEvaluators(
+		bool _showAccuracy,
+		bool _showAimTime,
+		bool _hasCurrentLoadout,
+		bool _hasAccuracyPreview,
+		bool _hasAimTimePreview,
+		out System.Func<float, float>[] _evaluators)
+	{
+		var evaluators = new List<System.Func<float, float>>(4);
+
+		if (_showAccuracy)
+		{
+			if (_hasCurrentLoadout)
+				evaluators.Add(EvaluateCurrentAccuracyQuality);
+			if (_hasAccuracyPreview)
+				evaluators.Add(EvaluatePreviewAccuracyQuality);
+		}
+
+		if (_showAimTime)
+		{
+			if (_hasCurrentLoadout)
+				evaluators.Add(EvaluateCurrentAimSpeedQuality);
+			if (_hasAimTimePreview)
+				evaluators.Add(EvaluatePreviewAimSpeedQuality);
+		}
+
+		_evaluators = evaluators.ToArray();
+	}
+
+	private void ComputeAutoFitQualityRange(float _minQuality, float _maxQuality, out float _minDisplayedQuality, out float _maxDisplayedQuality)
+	{
+		float range = Mathf.Max(0f, _maxQuality - _minQuality);
+		float padding = Mathf.Max(range * m_AutoFitQualityPaddingRatio, 0.01f);
+		float minQuality = Mathf.Max(0.05f, _minQuality - padding);
+		float maxQuality = _maxQuality + padding;
+
+		if (maxQuality - minQuality < m_AutoFitQualityMinSpan)
+		{
+			float center = (_minQuality + _maxQuality) * 0.5f;
+			minQuality = center - m_AutoFitQualityMinSpan * 0.5f;
+			maxQuality = center + m_AutoFitQualityMinSpan * 0.5f;
+		}
+
+		minQuality = Mathf.Max(0.05f, minQuality);
+		maxQuality = Mathf.Max(minQuality + 0.01f, maxQuality);
+		_minDisplayedQuality = minQuality;
+		_maxDisplayedQuality = maxQuality;
+	}
+
+	private void ComputeAutoFitDistanceRange(
+		System.Func<float, float>[] _evaluators,
+		float _minQuality,
+		float _maxQuality,
+		out float _minDistanceMeters,
+		out float _maxDistanceMeters)
+	{
+		float qualitySpan = Mathf.Max(0.01f, _maxQuality - _minQuality);
+		float threshold = qualitySpan * 0.06f;
+		float leftDistance = m_MaxDistanceMeters;
+		float rightDistance = m_MinDistanceMeters;
+		bool found = false;
+		int sampleCount = Mathf.Max(2, m_SampleCount);
 
 		for (int i = 0; i < sampleCount; i++)
 		{
 			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
 			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
-
-			if (_showAccuracy)
+			for (int j = 0; j < _evaluators.Length; j++)
 			{
-				if (_hasCurrentLoadout)
-					IncludeQualitySample(EvaluateCurrentAccuracyQuality(distance), ref minQuality, ref maxQuality);
-				if (_hasAccuracyPreview)
-					IncludeQualitySample(EvaluatePreviewAccuracyQuality(distance), ref minQuality, ref maxQuality);
-			}
+				float quality = _evaluators[j](distance);
+				if (quality > _minQuality + threshold && quality < _maxQuality - threshold)
+					continue;
 
-			if (_showAimTime)
-			{
-				if (_hasCurrentLoadout)
-					IncludeQualitySample(EvaluateCurrentAimSpeedQuality(distance), ref minQuality, ref maxQuality);
-				if (_hasAimTimePreview)
-					IncludeQualitySample(EvaluatePreviewAimSpeedQuality(distance), ref minQuality, ref maxQuality);
+				leftDistance = Mathf.Min(leftDistance, distance);
+				rightDistance = Mathf.Max(rightDistance, distance);
+				found = true;
 			}
 		}
 
-		if (minQuality > maxQuality)
+		if (!found || leftDistance >= rightDistance)
 		{
-			_minQuality = m_MinDisplayedQuality;
-			_maxQuality = m_MaxDisplayedQuality;
+			_minDistanceMeters = m_MinDistanceMeters;
+			_maxDistanceMeters = m_MaxDistanceMeters;
 			return;
 		}
 
-		float padding = Mathf.Max(0.05f, (maxQuality - minQuality) * 0.1f);
-		minQuality = Mathf.Max(0.05f, minQuality - padding);
-		maxQuality += padding;
+		float span = rightDistance - leftDistance;
+		float padding = Mathf.Max(5f, span * m_AutoFitDistancePaddingRatio);
+		float minDistance = Mathf.Max(m_MinDistanceMeters, leftDistance - padding);
+		float maxDistance = Mathf.Min(m_MaxDistanceMeters, rightDistance + padding);
 
-		if (maxQuality - minQuality < 0.15f)
+		if (maxDistance - minDistance < m_AutoFitMinDistanceSpanMeters)
 		{
-			float center = (minQuality + maxQuality) * 0.5f;
-			minQuality = center - 0.075f;
-			maxQuality = center + 0.075f;
+			float center = (leftDistance + rightDistance) * 0.5f;
+			minDistance = center - m_AutoFitMinDistanceSpanMeters * 0.5f;
+			maxDistance = center + m_AutoFitMinDistanceSpanMeters * 0.5f;
 		}
 
-		_minQuality = minQuality;
-		_maxQuality = maxQuality;
+		minDistance = Mathf.Clamp(minDistance, m_MinDistanceMeters, m_MaxDistanceMeters - 1f);
+		maxDistance = Mathf.Clamp(maxDistance, minDistance + 1f, m_MaxDistanceMeters);
+		_minDistanceMeters = minDistance;
+		_maxDistanceMeters = maxDistance;
 	}
 
 	private static void IncludeQualitySample(float _quality, ref float _minQuality, ref float _maxQuality)

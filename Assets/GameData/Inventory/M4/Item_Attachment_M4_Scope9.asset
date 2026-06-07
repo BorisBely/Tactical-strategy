@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Scope9
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_scope9
-  m_Description: Оптический прицел с высоким увеличением.
+  m_Description: Снайперский прицел для 80-100 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 1100
   m_Category: 0

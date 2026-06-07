@@ -28,15 +28,6 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.74
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 20
         value: 0.78
         inSlope: 0
         outSlope: 0
@@ -45,26 +36,17 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
+        time: 20
+        value: 0.82
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
         time: 35
-        value: 0.98
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 50
-        value: 1.12
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 70
-        value: 1.28
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -73,7 +55,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1.42
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -88,7 +70,7 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.88
+        value: 0.86
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -97,7 +79,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 20
-        value: 0.94
+        value: 0.92
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -106,25 +88,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 35
-        value: 1.04
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 50
-        value: 1.14
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 70
-        value: 1.26
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -133,7 +97,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1.38
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0

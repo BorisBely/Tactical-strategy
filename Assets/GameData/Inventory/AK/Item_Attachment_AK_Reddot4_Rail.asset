@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_Reddot4_Rail
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_reddot4_rail
-  m_Description: Коллиматорный прицел на боковую планку для платформы AK.
+  m_Description: Стандартный коллиматор для боковой планки AK.
   m_Icon: {fileID: 0}
   m_BasePrice: 260
   m_Category: 0

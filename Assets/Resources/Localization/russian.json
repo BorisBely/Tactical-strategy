@@ -1,117 +1,453 @@
 {
   "language": "russian",
   "entries": [
-    { "key": "inventory.window.title", "value": "Инвентарь" },
-    { "key": "inventory.ground.title", "value": "Найдено" },
-    { "key": "combat.rank.recruit", "value": "Рекрут" },
-    { "key": "combat.rank.soldier", "value": "Солдат" },
-    { "key": "combat.rank.veteran", "value": "Капрал" },
-    { "key": "combat.rank.specialist", "value": "Ветеран" },
-    { "key": "combat.rank.elite", "value": "Элита" },
-    { "key": "health.window.title", "value": "Состояние здоровья" },
-    { "key": "health.status.ok", "value": "В норме" },
-    { "key": "item.generic", "value": "Предмет" },
-    { "key": "item.loot.ammo_box.556", "value": "Коробка патронов 5.56x45" },
-    { "key": "item.weapon.m4_moda_1", "value": "M4 ModA 1" },
-    { "key": "item.weapon.m4_moda_2", "value": "M4 ModA 2" },
-    { "key": "item.mag.m4_556_20", "value": "Магазин 5.56×45 (20 патр.)" },
-    { "key": "item.mag.m4_556_30", "value": "Магазин 5.56x45 (30 патр.)" },
-    { "key": "item.mag.m4_556_40", "value": "Увеличенный магазин 5.56×45 (40 патр.)" },
-    { "key": "item.mag.m4_556_drum_60", "value": "Барабанный магазин 5.56×45 (60 патр.)" },
-    { "key": "item.mag.m4_556_drum_100", "value": "Барабанный магазин 5.56×45 (100 патр.)" },
-    { "key": "item.attachment.m4_silencer_556", "value": "Глушитель 5.56" },
-    { "key": "item.attachment.m4_acog", "value": "Оптический прицел 4x" },
-    { "key": "item.attachment.m4_acog_rmr", "value": "Оптический прицел 4x с коллиматором" },
-    { "key": "item.attachment.m4_aimpoint", "value": "Коллиматорный прицел" },
-    { "key": "item.attachment.m4_eotech_g33", "value": "Голографический прицел с 3x увеличителем" },
-    { "key": "item.attachment.m4_elcan_specterdr", "value": "Переменный прицел 1x/4x" },
-    { "key": "item.attachment.m4_vortex_razor", "value": "Переменный прицел 1x/6x" },
-    { "key": "item.attachment.m4_susat", "value": "Оптический прицел 4x" },
-    { "key": "item.attachment.m4_rdc", "value": "Компактный коллиматорный прицел" },
-    { "key": "item.attachment.m4_scope1_3x", "value": "Боевой прицел 3×" },
-    { "key": "item.attachment.m4_scope4", "value": "Оптический прицел средней дальности" },
-    { "key": "item.attachment.m4_scope5", "value": "Оптический прицел большой дальности" },
-    { "key": "item.attachment.m4_scope9", "value": "Оптический прицел высокого увеличения" },
-    { "key": "item.attachment.m4_reddot1", "value": "Компактный коллиматорный прицел" },
-    { "key": "item.attachment.m4_reddot2", "value": "Голографический прицел" },
-    { "key": "item.attachment.m4_reddot3", "value": "Низкопрофильный коллиматорный прицел" },
-    { "key": "item.attachment.m4_foregrip1", "value": "Вертикальная рукоятка (сильный контроль)" },
-    { "key": "item.attachment.m4_foregrip2", "value": "Угловая рукоятка (быстрое прицеливание)" },
-    { "key": "item.attachment.m4_foregrip3", "value": "Компактная вертикальная рукоятка" },
-    { "key": "item.attachment.m4_foregrip4", "value": "Лёгкая угловая рукоятка" },
-    { "key": "item.attachment.m4_foregrip5", "value": "Тяжёлая вертикальная рукоятка" },
-    { "key": "item.attachment.m4_laser1", "value": "Тактический ЛЦУ (продвинутый)" },
-    { "key": "item.attachment.m4_laser2", "value": "Компактный ЛЦУ" },
-    { "key": "item.attachment.m4_flashlight1", "value": "Тактический фонарь" },
-    { "key": "item.attachment.m4_rail_cover1", "value": "Защитные накладки на планку" },
-    { "key": "item.attachment.m4_stock1", "value": "Улучшенный телескопический приклад" },
-    { "key": "item.attachment.m4_stock2", "value": "Облегчённый приклад" },
-    { "key": "item.attachment.ak_reddot4_rail", "value": "Коллиматор на боковую планку (Reddot4+Rail)" },
-    { "key": "item.attachment.ak_scope11", "value": "Оптический прицел на боковую планку (Scope11)" },
-    { "key": "item.weapon.ak47", "value": "АК-47" },
-    { "key": "item.attachment.ak_silencer", "value": "Глушитель АК" },
-    { "key": "item.attachment.ak_muzzle_brake", "value": "Дульный тормоз АК" },
-    { "key": "item.attachment.m4_muzzle_brake", "value": "Дульный тормоз M4" },
-    { "key": "item.mag.ak_545_30", "value": "Магазин АК 5.45x39 (30 патр.)" },
-    { "key": "item.mag.ak_545_45", "value": "Магазин АК 5.45x39 (45 патр.)" },
-    { "key": "item.mag.ak_762_75", "value": "Барабанный магазин АК 7.62x39 (75 патр.)" },
-    { "key": "item.mag.ak_762_30", "value": "Стальной магазин АК 7.62x39 (30 патр.)" },
-    { "key": "item.mag.ak_762_30b", "value": "Бакелитовый магазин АК 7.62x39 (30 патр.)" },
-    { "key": "item.mag.ak_762_30c", "value": "Сдвоенный магазин АК 7.62x39 (30 патр.)" },
-    { "key": "item.loot.ammo_box.762", "value": "Коробка патронов 7.62x39" },
-    { "key": "item.attachment.mosin_scope8", "value": "Оптический прицел высокого увеличения" },
-    { "key": "pause.title", "value": "Пауза" },
-    { "key": "pause.subtitle", "value": "Управление" },
-    { "key": "pause.help.lmb", "value": "ЛКМ - Выделить одного юнита или начать рамку выделения" },
-    { "key": "pause.help.ctrl_lmb", "value": "Ctrl + ЛКМ - Добавить или убрать юнита из выделения" },
-    { "key": "pause.help.rmb", "value": "ПКМ - Приказ на движение выбранным юнитам" },
-    { "key": "pause.help.shift_rmb", "value": "Shift + ПКМ - Приказ на спринт" },
-    { "key": "pause.help.double_rmb", "value": "Двойной ПКМ - Приказ на бег" },
-    { "key": "pause.help.e", "value": "E - Переключить готовность" },
-    { "key": "pause.help.z", "value": "Z - Переключить лечь / встать" },
-    { "key": "pause.help.c", "value": "C - Переключить присесть / встать" },
-    { "key": "pause.help.f", "value": "F - Мгновенная остановка" },
-    { "key": "pause.help.r", "value": "R - Перезарядить оружие магазином из инвентаря" },
-    { "key": "pause.help.t", "value": "T - Снарядить магазин патронами из коробок в инвентаре" },
-    { "key": "pause.help.v", "value": "V - Режим огня у выделенных юнитов" },
-    { "key": "pause.help.i", "value": "I - Открыть инвентарь" },
-    { "key": "pause.help.u", "value": "U - Открыть подготовку пресета" },
-    { "key": "pause.help.h", "value": "H - Открыть окно здоровья" },
-    { "key": "pause.help.camera", "value": "WASD / Q E - Камера, ПКМ+мышь - поворот (Alt+ПКМ при выделении), СКМ+мышь - поворот при выделении / пан без выделения, Shift - быстрее, колёсико - скорость" },
-    { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + клик - Быстрый перенос в инвентаре" },
-    { "key": "pause.help.l", "value": "L - Сменить язык" },
-    { "key": "pause.help.esc", "value": "Esc - Открыть или закрыть паузу" },
-    { "key": "mission_prep.unit_list.title", "value": "Список юнитов" },
-    { "key": "mission_prep.equipment.title", "value": "Снаряжение" },
-    { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Пресет снаряжения" },
-    { "key": "mission_prep.equipment.create_new_preset", "value": "Создать новый пресет" },
-    { "key": "mission_prep.equipment.create_preset_button", "value": "Создать" },
-    { "key": "mission_prep.equipment.delete_preset", "value": "Удалить" },
-    { "key": "mission_prep.equipment.rename_preset_short", "value": "Имя" },
-    { "key": "mission_prep.equipment.delete_preset_short", "value": "X" },
-    { "key": "mission_prep.equipment.preset.new_default", "value": "Новый пресет" },
-    { "key": "mission_prep.equipment.preset_name.placeholder", "value": "Название пресета" },
-    { "key": "mission_prep.equipment.preset_name.error.empty", "value": "Введите название пресета." },
-    { "key": "mission_prep.equipment.preset_name.error.duplicate", "value": "Пресет с таким названием уже существует." },
-    { "key": "mission_prep.equipment.preset.standard", "value": "Стандартный" },
-    { "key": "mission_prep.equipment.preset.heavy", "value": "Тяжёлый" },
-    { "key": "mission_prep.equipment.armor.light", "value": "Лёгкая броня" },
-    { "key": "mission_prep.equipment.armor.heavy", "value": "Тяжёлая броня" },
-    { "key": "mission_prep.equipment.available_title", "value": "Доступное снаряжение" },
-    { "key": "mission_prep.stats.title", "value": "Характеристики" },
-    { "key": "mission_prep.stats.accuracy", "value": "Точность" },
-    { "key": "mission_prep.stats.aim_speed", "value": "Скорость прицеливания" },
-    { "key": "weapon.mod_slot.magazine", "value": "Магазин" },
-    { "key": "weapon.mod_slot.muzzle", "value": "Дуло" },
-    { "key": "weapon.mod_slot.underbarrel", "value": "Подствольник" },
-    { "key": "weapon.mod_slot.rail", "value": "Планка" },
-    { "key": "weapon.mod_slot.rail_1", "value": "Планка 1" },
-    { "key": "weapon.mod_slot.rail_2", "value": "Планка 2" },
-    { "key": "weapon.mod_slot.rail_3", "value": "Планка 3" },
-    { "key": "weapon.mod_slot.optic", "value": "Прицел" },
-    { "key": "weapon.mod_slot.side_rail", "value": "Боковая планка" },
-    { "key": "weapon.mod_slot.stock", "value": "Приклад" },
-    { "key": "weapon.mod_slot.attachment", "value": "Модуль" },
-    { "key": "weapon.mod_slot.empty", "value": "Пусто" }
+    {
+      "key": "inventory.window.title",
+      "value": "Инвентарь"
+    },
+    {
+      "key": "inventory.ground.title",
+      "value": "Найдено"
+    },
+    {
+      "key": "combat.rank.recruit",
+      "value": "Рекрут"
+    },
+    {
+      "key": "combat.rank.soldier",
+      "value": "Солдат"
+    },
+    {
+      "key": "combat.rank.veteran",
+      "value": "Капрал"
+    },
+    {
+      "key": "combat.rank.specialist",
+      "value": "Ветеран"
+    },
+    {
+      "key": "combat.rank.elite",
+      "value": "Элита"
+    },
+    {
+      "key": "health.window.title",
+      "value": "Состояние здоровья"
+    },
+    {
+      "key": "health.status.ok",
+      "value": "В норме"
+    },
+    {
+      "key": "item.generic",
+      "value": "Предмет"
+    },
+    {
+      "key": "item.loot.ammo_box.556",
+      "value": "Коробка патронов 5.56x45"
+    },
+    {
+      "key": "item.weapon.m4_moda_1",
+      "value": "M4 ModA 1"
+    },
+    {
+      "key": "item.weapon.m4_moda_2",
+      "value": "M4 ModA 2"
+    },
+    {
+      "key": "item.mag.m4_556_20",
+      "value": "Магазин 5.56×45 (20 патр.)"
+    },
+    {
+      "key": "item.mag.m4_556_30",
+      "value": "Магазин 5.56x45 (30 патр.)"
+    },
+    {
+      "key": "item.mag.m4_556_40",
+      "value": "Увеличенный магазин 5.56×45 (40 патр.)"
+    },
+    {
+      "key": "item.mag.m4_556_drum_60",
+      "value": "Барабанный магазин 5.56×45 (60 патр.)"
+    },
+    {
+      "key": "item.mag.m4_556_drum_100",
+      "value": "Барабанный магазин 5.56×45 (100 патр.)"
+    },
+    {
+      "key": "item.attachment.m4_silencer_556",
+      "value": "Глушитель 5.56"
+    },
+    {
+      "key": "item.attachment.m4_acog",
+      "value": "4-кратный оптический прицел"
+    },
+    {
+      "key": "item.attachment.m4_acog_rmr",
+      "value": "3.5-кратный оптический прицел"
+    },
+    {
+      "key": "item.attachment.m4_aimpoint",
+      "value": "2-кратный оптический прицел"
+    },
+    {
+      "key": "item.attachment.m4_eotech_g33",
+      "value": "Гибридный прицел"
+    },
+    {
+      "key": "item.attachment.m4_elcan_specterdr",
+      "value": "1-4-кратный оптический прицел мод 1"
+    },
+    {
+      "key": "item.attachment.m4_vortex_razor",
+      "value": "1-6-кратный оптический прицел"
+    },
+    {
+      "key": "item.attachment.m4_susat",
+      "value": "4-кратный оптический прицел мод 1"
+    },
+    {
+      "key": "item.attachment.m4_rdc",
+      "value": "Коллиматорный прицел мод 3"
+    },
+    {
+      "key": "item.attachment.m4_scope1_3x",
+      "value": "3-кратный оптический прицел"
+    },
+    {
+      "key": "item.attachment.m4_scope4",
+      "value": "Снайперский прицел"
+    },
+    {
+      "key": "item.attachment.m4_scope5",
+      "value": "Снайперский прицел мод 1"
+    },
+    {
+      "key": "item.attachment.m4_scope9",
+      "value": "Снайперский прицел мод 2"
+    },
+    {
+      "key": "item.attachment.m4_reddot1",
+      "value": "Коллиматорный прицел мод 1"
+    },
+    {
+      "key": "item.attachment.m4_reddot2",
+      "value": "Голографический прицел мод 1"
+    },
+    {
+      "key": "item.attachment.m4_reddot3",
+      "value": "Коллиматорный прицел мод 2"
+    },
+    {
+      "key": "item.attachment.m4_foregrip1",
+      "value": "Вертикальная рукоятка (сильный контроль)"
+    },
+    {
+      "key": "item.attachment.m4_foregrip2",
+      "value": "Угловая рукоятка (быстрое прицеливание)"
+    },
+    {
+      "key": "item.attachment.m4_foregrip3",
+      "value": "Компактная вертикальная рукоятка"
+    },
+    {
+      "key": "item.attachment.m4_foregrip4",
+      "value": "Лёгкая угловая рукоятка"
+    },
+    {
+      "key": "item.attachment.m4_foregrip5",
+      "value": "Тяжёлая вертикальная рукоятка"
+    },
+    {
+      "key": "item.attachment.m4_laser1",
+      "value": "Тактический ЛЦУ (продвинутый)"
+    },
+    {
+      "key": "item.attachment.m4_laser2",
+      "value": "Компактный ЛЦУ"
+    },
+    {
+      "key": "item.attachment.m4_flashlight1",
+      "value": "Тактический фонарь"
+    },
+    {
+      "key": "item.attachment.m4_rail_cover1",
+      "value": "Защитные накладки на планку"
+    },
+    {
+      "key": "item.attachment.m4_stock1",
+      "value": "Улучшенный телескопический приклад"
+    },
+    {
+      "key": "item.attachment.m4_stock2",
+      "value": "Облегчённый приклад"
+    },
+    {
+      "key": "item.attachment.ak_reddot4_rail",
+      "value": "Стандартный коллиматорный прицел"
+    },
+    {
+      "key": "item.attachment.ak_scope11",
+      "value": "4-кратный оптический прицел на боковую планку"
+    },
+    {
+      "key": "item.weapon.ak47",
+      "value": "АК-47"
+    },
+    {
+      "key": "item.attachment.ak_silencer",
+      "value": "Глушитель АК"
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake",
+      "value": "Дульный тормоз АК"
+    },
+    {
+      "key": "item.attachment.m4_muzzle_brake",
+      "value": "Дульный тормоз M4"
+    },
+    {
+      "key": "item.mag.ak_545_30",
+      "value": "Магазин АК 5.45x39 (30 патр.)"
+    },
+    {
+      "key": "item.mag.ak_545_45",
+      "value": "Магазин АК 5.45x39 (45 патр.)"
+    },
+    {
+      "key": "item.mag.ak_762_75",
+      "value": "Барабанный магазин АК 7.62x39 (75 патр.)"
+    },
+    {
+      "key": "item.mag.ak_762_30",
+      "value": "Стальной магазин АК 7.62x39 (30 патр.)"
+    },
+    {
+      "key": "item.mag.ak_762_30b",
+      "value": "Бакелитовый магазин АК 7.62x39 (30 патр.)"
+    },
+    {
+      "key": "item.mag.ak_762_30c",
+      "value": "Сдвоенный магазин АК 7.62x39 (30 патр.)"
+    },
+    {
+      "key": "item.loot.ammo_box.762",
+      "value": "Коробка патронов 7.62x39"
+    },
+    {
+      "key": "item.attachment.mosin_scope8",
+      "value": "Стандартный снайперский прицел"
+    },
+    {
+      "key": "pause.title",
+      "value": "Пауза"
+    },
+    {
+      "key": "pause.subtitle",
+      "value": "Управление"
+    },
+    {
+      "key": "pause.help.lmb",
+      "value": "ЛКМ - Выделить одного юнита или начать рамку выделения"
+    },
+    {
+      "key": "pause.help.ctrl_lmb",
+      "value": "Ctrl + ЛКМ - Добавить или убрать юнита из выделения"
+    },
+    {
+      "key": "pause.help.rmb",
+      "value": "ПКМ - Приказ на движение выбранным юнитам"
+    },
+    {
+      "key": "pause.help.shift_rmb",
+      "value": "Shift + ПКМ - Приказ на спринт"
+    },
+    {
+      "key": "pause.help.double_rmb",
+      "value": "Двойной ПКМ - Приказ на бег"
+    },
+    {
+      "key": "pause.help.e",
+      "value": "E - Переключить готовность"
+    },
+    {
+      "key": "pause.help.z",
+      "value": "Z - Переключить лечь / встать"
+    },
+    {
+      "key": "pause.help.c",
+      "value": "C - Переключить присесть / встать"
+    },
+    {
+      "key": "pause.help.f",
+      "value": "F - Мгновенная остановка"
+    },
+    {
+      "key": "pause.help.r",
+      "value": "R - Перезарядить оружие магазином из инвентаря"
+    },
+    {
+      "key": "pause.help.t",
+      "value": "T - Снарядить магазин патронами из коробок в инвентаре"
+    },
+    {
+      "key": "pause.help.v",
+      "value": "V - Режим огня у выделенных юнитов"
+    },
+    {
+      "key": "pause.help.i",
+      "value": "I - Открыть инвентарь"
+    },
+    {
+      "key": "pause.help.u",
+      "value": "U - Открыть подготовку пресета"
+    },
+    {
+      "key": "pause.help.h",
+      "value": "H - Открыть окно здоровья"
+    },
+    {
+      "key": "pause.help.camera",
+      "value": "WASD / Q E - Камера, ПКМ+мышь - поворот (Alt+ПКМ при выделении), СКМ+мышь - поворот при выделении / пан без выделения, Shift - быстрее, колёсико - скорость"
+    },
+    {
+      "key": "pause.help.ctrl_click_inventory",
+      "value": "Ctrl + клик - Быстрый перенос в инвентаре"
+    },
+    {
+      "key": "pause.help.l",
+      "value": "L - Сменить язык"
+    },
+    {
+      "key": "pause.help.esc",
+      "value": "Esc - Открыть или закрыть паузу"
+    },
+    {
+      "key": "mission_prep.unit_list.title",
+      "value": "Список юнитов"
+    },
+    {
+      "key": "mission_prep.equipment.title",
+      "value": "Снаряжение"
+    },
+    {
+      "key": "mission_prep.equipment.preset_dropdown_placeholder",
+      "value": "Пресет снаряжения"
+    },
+    {
+      "key": "mission_prep.equipment.create_new_preset",
+      "value": "Создать новый пресет"
+    },
+    {
+      "key": "mission_prep.equipment.create_preset_button",
+      "value": "Создать"
+    },
+    {
+      "key": "mission_prep.equipment.delete_preset",
+      "value": "Удалить"
+    },
+    {
+      "key": "mission_prep.equipment.rename_preset_short",
+      "value": "Имя"
+    },
+    {
+      "key": "mission_prep.equipment.delete_preset_short",
+      "value": "X"
+    },
+    {
+      "key": "mission_prep.equipment.preset.new_default",
+      "value": "Новый пресет"
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.placeholder",
+      "value": "Название пресета"
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.error.empty",
+      "value": "Введите название пресета."
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.error.duplicate",
+      "value": "Пресет с таким названием уже существует."
+    },
+    {
+      "key": "mission_prep.equipment.preset.standard",
+      "value": "Стандартный"
+    },
+    {
+      "key": "mission_prep.equipment.preset.heavy",
+      "value": "Тяжёлый"
+    },
+    {
+      "key": "mission_prep.equipment.armor.light",
+      "value": "Лёгкая броня"
+    },
+    {
+      "key": "mission_prep.equipment.armor.heavy",
+      "value": "Тяжёлая броня"
+    },
+    {
+      "key": "mission_prep.equipment.available_title",
+      "value": "Доступное снаряжение"
+    },
+    {
+      "key": "mission_prep.stats.title",
+      "value": "Характеристики"
+    },
+    {
+      "key": "mission_prep.stats.accuracy",
+      "value": "Точность"
+    },
+    {
+      "key": "mission_prep.stats.aim_speed",
+      "value": "Скорость прицеливания"
+    },
+    {
+      "key": "weapon.mod_slot.magazine",
+      "value": "Магазин"
+    },
+    {
+      "key": "weapon.mod_slot.muzzle",
+      "value": "Дуло"
+    },
+    {
+      "key": "weapon.mod_slot.underbarrel",
+      "value": "Подствольник"
+    },
+    {
+      "key": "weapon.mod_slot.rail",
+      "value": "Планка"
+    },
+    {
+      "key": "weapon.mod_slot.rail_1",
+      "value": "Планка 1"
+    },
+    {
+      "key": "weapon.mod_slot.rail_2",
+      "value": "Планка 2"
+    },
+    {
+      "key": "weapon.mod_slot.rail_3",
+      "value": "Планка 3"
+    },
+    {
+      "key": "weapon.mod_slot.optic",
+      "value": "Прицел"
+    },
+    {
+      "key": "weapon.mod_slot.side_rail",
+      "value": "Боковая планка"
+    },
+    {
+      "key": "weapon.mod_slot.stock",
+      "value": "Приклад"
+    },
+    {
+      "key": "weapon.mod_slot.attachment",
+      "value": "Модуль"
+    },
+    {
+      "key": "weapon.mod_slot.empty",
+      "value": "Пусто"
+    }
   ]
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Scope5
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_scope5
-  m_Description: Оптический прицел дальней дистанции.
+  m_Description: Снайперский прицел для 70-80 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 920
   m_Category: 0

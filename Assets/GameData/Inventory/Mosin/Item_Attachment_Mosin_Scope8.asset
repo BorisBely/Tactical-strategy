@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_Mosin_Scope8
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.mosin_scope8
-  m_Description: Оптический прицел высокого увеличения для точной стрельбы.
+  m_Description: Стандартный снайперский прицел для 30-45 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 520
   m_Category: 0

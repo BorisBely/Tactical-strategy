@@ -1032,9 +1032,14 @@ MonoBehaviour:
   m_MinDistanceMeters: 0
   m_MaxDistanceMeters: 100
   m_SampleCount: 64
-  m_AutoFitQualityScale: 0
+  m_AutoFitQualityScale: 1
+  m_AutoFitQualityPaddingRatio: 0.12
+  m_AutoFitQualityMinSpan: 0.08
   m_MinDisplayedQuality: 0.15
   m_MaxDisplayedQuality: 2.75
+  m_AutoFitDistanceRange: 1
+  m_AutoFitMinDistanceSpanMeters: 30
+  m_AutoFitDistancePaddingRatio: 0.08
   m_CurrentLineColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
   m_PreviewLineColor: {r: 1, g: 1, b: 1, a: 1}
   m_PreviewLineWidthMultiplier: 1.2
@@ -16092,9 +16097,14 @@ MonoBehaviour:
   m_MinDistanceMeters: 0
   m_MaxDistanceMeters: 100
   m_SampleCount: 64
-  m_AutoFitQualityScale: 0
+  m_AutoFitQualityScale: 1
+  m_AutoFitQualityPaddingRatio: 0.12
+  m_AutoFitQualityMinSpan: 0.08
   m_MinDisplayedQuality: 0.15
   m_MaxDisplayedQuality: 2.75
+  m_AutoFitDistanceRange: 1
+  m_AutoFitMinDistanceSpanMeters: 30
+  m_AutoFitDistancePaddingRatio: 0.08
   m_CurrentLineColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
   m_PreviewLineColor: {r: 1, g: 1, b: 1, a: 1}
   m_PreviewLineWidthMultiplier: 1.2

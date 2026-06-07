@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_Scope11
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_scope11
-  m_Description: Оптический прицел в стиле PSO на боковую планку AK.
+  m_Description: 4-кратный оптический прицел для боковой планки AK.
   m_Icon: {fileID: 0}
   m_BasePrice: 720
   m_Category: 0

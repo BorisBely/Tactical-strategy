@@ -1,117 +1,453 @@
 {
   "language": "english",
   "entries": [
-    { "key": "inventory.window.title", "value": "Inventory" },
-    { "key": "inventory.ground.title", "value": "Found" },
-    { "key": "combat.rank.recruit", "value": "Recruit" },
-    { "key": "combat.rank.soldier", "value": "Soldier" },
-    { "key": "combat.rank.veteran", "value": "Corporal" },
-    { "key": "combat.rank.specialist", "value": "Veteran" },
-    { "key": "combat.rank.elite", "value": "Elite" },
-    { "key": "health.window.title", "value": "Health Status" },
-    { "key": "health.status.ok", "value": "Stable" },
-    { "key": "item.generic", "value": "Item" },
-    { "key": "item.loot.ammo_box.556", "value": "5.56x45 ammo box" },
-    { "key": "item.weapon.m4_moda_1", "value": "M4 ModA 1" },
-    { "key": "item.weapon.m4_moda_2", "value": "M4 ModA 2" },
-    { "key": "item.mag.m4_556_20", "value": "5.56×45 magazine (20 rds)" },
-    { "key": "item.mag.m4_556_30", "value": "5.56x45 magazine (30 rds)" },
-    { "key": "item.mag.m4_556_40", "value": "5.56×45 extended magazine (40 rds)" },
-    { "key": "item.mag.m4_556_drum_60", "value": "5.56×45 drum magazine (60 rds)" },
-    { "key": "item.mag.m4_556_drum_100", "value": "5.56×45 drum magazine (100 rds)" },
-    { "key": "item.attachment.m4_silencer_556", "value": "5.56 suppressor" },
-    { "key": "item.attachment.m4_acog", "value": "4x optical sight" },
-    { "key": "item.attachment.m4_acog_rmr", "value": "4x optical sight with red dot" },
-    { "key": "item.attachment.m4_aimpoint", "value": "Red dot sight" },
-    { "key": "item.attachment.m4_eotech_g33", "value": "Holographic sight with 3x magnifier" },
-    { "key": "item.attachment.m4_elcan_specterdr", "value": "Variable 1x/4x optic" },
-    { "key": "item.attachment.m4_vortex_razor", "value": "Variable 1x/6x optic" },
-    { "key": "item.attachment.m4_susat", "value": "4x optical sight" },
-    { "key": "item.attachment.m4_rdc", "value": "Compact red dot sight" },
-    { "key": "item.attachment.m4_scope1_3x", "value": "3× combat scope" },
-    { "key": "item.attachment.m4_scope4", "value": "Medium-range optic" },
-    { "key": "item.attachment.m4_scope5", "value": "Long-range optic" },
-    { "key": "item.attachment.m4_scope9", "value": "High-magnification optic" },
-    { "key": "item.attachment.m4_reddot1", "value": "Compact red dot sight" },
-    { "key": "item.attachment.m4_reddot2", "value": "Holographic sight" },
-    { "key": "item.attachment.m4_reddot3", "value": "Low-profile red dot sight" },
-    { "key": "item.attachment.m4_foregrip1", "value": "Vertical foregrip (heavy control)" },
-    { "key": "item.attachment.m4_foregrip2", "value": "Angled foregrip (fast aim)" },
-    { "key": "item.attachment.m4_foregrip3", "value": "Compact vertical foregrip" },
-    { "key": "item.attachment.m4_foregrip4", "value": "Light angled foregrip" },
-    { "key": "item.attachment.m4_foregrip5", "value": "Heavy vertical foregrip" },
-    { "key": "item.attachment.m4_laser1", "value": "Tactical laser (advanced)" },
-    { "key": "item.attachment.m4_laser2", "value": "Compact laser" },
-    { "key": "item.attachment.m4_flashlight1", "value": "Tactical flashlight" },
-    { "key": "item.attachment.m4_rail_cover1", "value": "Protective rail covers" },
-    { "key": "item.attachment.m4_stock1", "value": "Improved telescopic stock" },
-    { "key": "item.attachment.m4_stock2", "value": "Lightweight stock" },
-    { "key": "item.attachment.ak_reddot4_rail", "value": "AK side-rail red dot (Reddot4+Rail)" },
-    { "key": "item.attachment.ak_scope11", "value": "AK side-rail scope (Scope11)" },
-    { "key": "item.weapon.ak47", "value": "AK-47" },
-    { "key": "item.attachment.ak_silencer", "value": "AK suppressor" },
-    { "key": "item.attachment.ak_muzzle_brake", "value": "AK muzzle brake" },
-    { "key": "item.attachment.m4_muzzle_brake", "value": "M4 muzzle brake" },
-    { "key": "item.mag.ak_545_30", "value": "5.45x39 AK magazine (30 rds)" },
-    { "key": "item.mag.ak_545_45", "value": "5.45x39 AK magazine (45 rds)" },
-    { "key": "item.mag.ak_762_75", "value": "7.62x39 AK drum magazine (75 rds)" },
-    { "key": "item.mag.ak_762_30", "value": "7.62x39 AK steel magazine (30 rds)" },
-    { "key": "item.mag.ak_762_30b", "value": "7.62x39 AK bakelite magazine (30 rds)" },
-    { "key": "item.mag.ak_762_30c", "value": "7.62x39 AK coupled magazine (30 rds)" },
-    { "key": "item.loot.ammo_box.762", "value": "7.62x39 ammo box" },
-    { "key": "item.attachment.mosin_scope8", "value": "High-magnification optic" },
-    { "key": "pause.title", "value": "Pause" },
-    { "key": "pause.subtitle", "value": "Controls" },
-    { "key": "pause.help.lmb", "value": "LMB - Select one unit or start box selection" },
-    { "key": "pause.help.ctrl_lmb", "value": "Ctrl + LMB - Add or remove a unit from selection" },
-    { "key": "pause.help.rmb", "value": "RMB - Move selected units" },
-    { "key": "pause.help.shift_rmb", "value": "Shift + RMB - Sprint move order" },
-    { "key": "pause.help.double_rmb", "value": "Double RMB - Run move order" },
-    { "key": "pause.help.e", "value": "E - Toggle ready state" },
-    { "key": "pause.help.z", "value": "Z - Toggle prone / stand" },
-    { "key": "pause.help.c", "value": "C - Toggle crouch / stand" },
-    { "key": "pause.help.f", "value": "F - Hard stop" },
-    { "key": "pause.help.r", "value": "R - Reload weapon with a magazine from inventory" },
-    { "key": "pause.help.t", "value": "T - Load one magazine from ammo boxes in inventory" },
-    { "key": "pause.help.v", "value": "V - Cycle weapon fire mode for selected units" },
-    { "key": "pause.help.i", "value": "I - Open inventory" },
-    { "key": "pause.help.u", "value": "U - Open mission prep / loadout" },
-    { "key": "pause.help.h", "value": "H - Open health window" },
-    { "key": "pause.help.camera", "value": "WASD / Q E - Camera, RMB+mouse - look (Alt+RMB when units selected), MMB+mouse - look with selection / pan without, Shift - faster, scroll - speed" },
-    { "key": "pause.help.ctrl_click_inventory", "value": "Ctrl + Click - Quick transfer in inventory" },
-    { "key": "pause.help.l", "value": "L - Switch language" },
-    { "key": "pause.help.esc", "value": "Esc - Open or close pause menu" },
-    { "key": "mission_prep.unit_list.title", "value": "Unit roster" },
-    { "key": "mission_prep.equipment.title", "value": "Equipment" },
-    { "key": "mission_prep.equipment.preset_dropdown_placeholder", "value": "Loadout preset" },
-    { "key": "mission_prep.equipment.create_new_preset", "value": "Create new preset" },
-    { "key": "mission_prep.equipment.create_preset_button", "value": "Create" },
-    { "key": "mission_prep.equipment.delete_preset", "value": "Delete" },
-    { "key": "mission_prep.equipment.rename_preset_short", "value": "Name" },
-    { "key": "mission_prep.equipment.delete_preset_short", "value": "X" },
-    { "key": "mission_prep.equipment.preset.new_default", "value": "New preset" },
-    { "key": "mission_prep.equipment.preset_name.placeholder", "value": "Preset name" },
-    { "key": "mission_prep.equipment.preset_name.error.empty", "value": "Enter a preset name." },
-    { "key": "mission_prep.equipment.preset_name.error.duplicate", "value": "A preset with this name already exists." },
-    { "key": "mission_prep.equipment.preset.standard", "value": "Standard" },
-    { "key": "mission_prep.equipment.preset.heavy", "value": "Heavy" },
-    { "key": "mission_prep.equipment.armor.light", "value": "Light armor" },
-    { "key": "mission_prep.equipment.armor.heavy", "value": "Heavy armor" },
-    { "key": "mission_prep.equipment.available_title", "value": "Available equipment" },
-    { "key": "mission_prep.stats.title", "value": "Characteristics" },
-    { "key": "mission_prep.stats.accuracy", "value": "Accuracy" },
-    { "key": "mission_prep.stats.aim_speed", "value": "Aim speed" },
-    { "key": "weapon.mod_slot.magazine", "value": "Magazine" },
-    { "key": "weapon.mod_slot.muzzle", "value": "Muzzle" },
-    { "key": "weapon.mod_slot.underbarrel", "value": "Underbarrel" },
-    { "key": "weapon.mod_slot.rail", "value": "Rail" },
-    { "key": "weapon.mod_slot.rail_1", "value": "Rail 1" },
-    { "key": "weapon.mod_slot.rail_2", "value": "Rail 2" },
-    { "key": "weapon.mod_slot.rail_3", "value": "Rail 3" },
-    { "key": "weapon.mod_slot.optic", "value": "Optic" },
-    { "key": "weapon.mod_slot.side_rail", "value": "Side rail" },
-    { "key": "weapon.mod_slot.stock", "value": "Stock" },
-    { "key": "weapon.mod_slot.attachment", "value": "Attachment" },
-    { "key": "weapon.mod_slot.empty", "value": "Empty" }
+    {
+      "key": "inventory.window.title",
+      "value": "Inventory"
+    },
+    {
+      "key": "inventory.ground.title",
+      "value": "Found"
+    },
+    {
+      "key": "combat.rank.recruit",
+      "value": "Recruit"
+    },
+    {
+      "key": "combat.rank.soldier",
+      "value": "Soldier"
+    },
+    {
+      "key": "combat.rank.veteran",
+      "value": "Corporal"
+    },
+    {
+      "key": "combat.rank.specialist",
+      "value": "Veteran"
+    },
+    {
+      "key": "combat.rank.elite",
+      "value": "Elite"
+    },
+    {
+      "key": "health.window.title",
+      "value": "Health Status"
+    },
+    {
+      "key": "health.status.ok",
+      "value": "Stable"
+    },
+    {
+      "key": "item.generic",
+      "value": "Item"
+    },
+    {
+      "key": "item.loot.ammo_box.556",
+      "value": "5.56x45 ammo box"
+    },
+    {
+      "key": "item.weapon.m4_moda_1",
+      "value": "M4 ModA 1"
+    },
+    {
+      "key": "item.weapon.m4_moda_2",
+      "value": "M4 ModA 2"
+    },
+    {
+      "key": "item.mag.m4_556_20",
+      "value": "5.56×45 magazine (20 rds)"
+    },
+    {
+      "key": "item.mag.m4_556_30",
+      "value": "5.56x45 magazine (30 rds)"
+    },
+    {
+      "key": "item.mag.m4_556_40",
+      "value": "5.56×45 extended magazine (40 rds)"
+    },
+    {
+      "key": "item.mag.m4_556_drum_60",
+      "value": "5.56×45 drum magazine (60 rds)"
+    },
+    {
+      "key": "item.mag.m4_556_drum_100",
+      "value": "5.56×45 drum magazine (100 rds)"
+    },
+    {
+      "key": "item.attachment.m4_silencer_556",
+      "value": "5.56 suppressor"
+    },
+    {
+      "key": "item.attachment.m4_acog",
+      "value": "4x optical sight"
+    },
+    {
+      "key": "item.attachment.m4_acog_rmr",
+      "value": "3.5x optical sight"
+    },
+    {
+      "key": "item.attachment.m4_aimpoint",
+      "value": "2x optical sight"
+    },
+    {
+      "key": "item.attachment.m4_eotech_g33",
+      "value": "Hybrid sight"
+    },
+    {
+      "key": "item.attachment.m4_elcan_specterdr",
+      "value": "1-4x optical sight mod 1"
+    },
+    {
+      "key": "item.attachment.m4_vortex_razor",
+      "value": "1-6x optical sight"
+    },
+    {
+      "key": "item.attachment.m4_susat",
+      "value": "4x optical sight mod 1"
+    },
+    {
+      "key": "item.attachment.m4_rdc",
+      "value": "Collimator sight mod 3"
+    },
+    {
+      "key": "item.attachment.m4_scope1_3x",
+      "value": "3x optical sight"
+    },
+    {
+      "key": "item.attachment.m4_scope4",
+      "value": "Sniper scope"
+    },
+    {
+      "key": "item.attachment.m4_scope5",
+      "value": "Sniper scope mod 1"
+    },
+    {
+      "key": "item.attachment.m4_scope9",
+      "value": "Sniper scope mod 2"
+    },
+    {
+      "key": "item.attachment.m4_reddot1",
+      "value": "Collimator sight mod 1"
+    },
+    {
+      "key": "item.attachment.m4_reddot2",
+      "value": "Holographic sight mod 1"
+    },
+    {
+      "key": "item.attachment.m4_reddot3",
+      "value": "Collimator sight mod 2"
+    },
+    {
+      "key": "item.attachment.m4_foregrip1",
+      "value": "Vertical foregrip (heavy control)"
+    },
+    {
+      "key": "item.attachment.m4_foregrip2",
+      "value": "Angled foregrip (fast aim)"
+    },
+    {
+      "key": "item.attachment.m4_foregrip3",
+      "value": "Compact vertical foregrip"
+    },
+    {
+      "key": "item.attachment.m4_foregrip4",
+      "value": "Light angled foregrip"
+    },
+    {
+      "key": "item.attachment.m4_foregrip5",
+      "value": "Heavy vertical foregrip"
+    },
+    {
+      "key": "item.attachment.m4_laser1",
+      "value": "Tactical laser (advanced)"
+    },
+    {
+      "key": "item.attachment.m4_laser2",
+      "value": "Compact laser"
+    },
+    {
+      "key": "item.attachment.m4_flashlight1",
+      "value": "Tactical flashlight"
+    },
+    {
+      "key": "item.attachment.m4_rail_cover1",
+      "value": "Protective rail covers"
+    },
+    {
+      "key": "item.attachment.m4_stock1",
+      "value": "Improved telescopic stock"
+    },
+    {
+      "key": "item.attachment.m4_stock2",
+      "value": "Lightweight stock"
+    },
+    {
+      "key": "item.attachment.ak_reddot4_rail",
+      "value": "Standard collimator sight"
+    },
+    {
+      "key": "item.attachment.ak_scope11",
+      "value": "4x side-rail optical sight"
+    },
+    {
+      "key": "item.weapon.ak47",
+      "value": "AK-47"
+    },
+    {
+      "key": "item.attachment.ak_silencer",
+      "value": "AK suppressor"
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake",
+      "value": "AK muzzle brake"
+    },
+    {
+      "key": "item.attachment.m4_muzzle_brake",
+      "value": "M4 muzzle brake"
+    },
+    {
+      "key": "item.mag.ak_545_30",
+      "value": "5.45x39 AK magazine (30 rds)"
+    },
+    {
+      "key": "item.mag.ak_545_45",
+      "value": "5.45x39 AK magazine (45 rds)"
+    },
+    {
+      "key": "item.mag.ak_762_75",
+      "value": "7.62x39 AK drum magazine (75 rds)"
+    },
+    {
+      "key": "item.mag.ak_762_30",
+      "value": "7.62x39 AK steel magazine (30 rds)"
+    },
+    {
+      "key": "item.mag.ak_762_30b",
+      "value": "7.62x39 AK bakelite magazine (30 rds)"
+    },
+    {
+      "key": "item.mag.ak_762_30c",
+      "value": "7.62x39 AK coupled magazine (30 rds)"
+    },
+    {
+      "key": "item.loot.ammo_box.762",
+      "value": "7.62x39 ammo box"
+    },
+    {
+      "key": "item.attachment.mosin_scope8",
+      "value": "Standard sniper scope"
+    },
+    {
+      "key": "pause.title",
+      "value": "Pause"
+    },
+    {
+      "key": "pause.subtitle",
+      "value": "Controls"
+    },
+    {
+      "key": "pause.help.lmb",
+      "value": "LMB - Select one unit or start box selection"
+    },
+    {
+      "key": "pause.help.ctrl_lmb",
+      "value": "Ctrl + LMB - Add or remove a unit from selection"
+    },
+    {
+      "key": "pause.help.rmb",
+      "value": "RMB - Move selected units"
+    },
+    {
+      "key": "pause.help.shift_rmb",
+      "value": "Shift + RMB - Sprint move order"
+    },
+    {
+      "key": "pause.help.double_rmb",
+      "value": "Double RMB - Run move order"
+    },
+    {
+      "key": "pause.help.e",
+      "value": "E - Toggle ready state"
+    },
+    {
+      "key": "pause.help.z",
+      "value": "Z - Toggle prone / stand"
+    },
+    {
+      "key": "pause.help.c",
+      "value": "C - Toggle crouch / stand"
+    },
+    {
+      "key": "pause.help.f",
+      "value": "F - Hard stop"
+    },
+    {
+      "key": "pause.help.r",
+      "value": "R - Reload weapon with a magazine from inventory"
+    },
+    {
+      "key": "pause.help.t",
+      "value": "T - Load one magazine from ammo boxes in inventory"
+    },
+    {
+      "key": "pause.help.v",
+      "value": "V - Cycle weapon fire mode for selected units"
+    },
+    {
+      "key": "pause.help.i",
+      "value": "I - Open inventory"
+    },
+    {
+      "key": "pause.help.u",
+      "value": "U - Open mission prep / loadout"
+    },
+    {
+      "key": "pause.help.h",
+      "value": "H - Open health window"
+    },
+    {
+      "key": "pause.help.camera",
+      "value": "WASD / Q E - Camera, RMB+mouse - look (Alt+RMB when units selected), MMB+mouse - look with selection / pan without, Shift - faster, scroll - speed"
+    },
+    {
+      "key": "pause.help.ctrl_click_inventory",
+      "value": "Ctrl + Click - Quick transfer in inventory"
+    },
+    {
+      "key": "pause.help.l",
+      "value": "L - Switch language"
+    },
+    {
+      "key": "pause.help.esc",
+      "value": "Esc - Open or close pause menu"
+    },
+    {
+      "key": "mission_prep.unit_list.title",
+      "value": "Unit roster"
+    },
+    {
+      "key": "mission_prep.equipment.title",
+      "value": "Equipment"
+    },
+    {
+      "key": "mission_prep.equipment.preset_dropdown_placeholder",
+      "value": "Loadout preset"
+    },
+    {
+      "key": "mission_prep.equipment.create_new_preset",
+      "value": "Create new preset"
+    },
+    {
+      "key": "mission_prep.equipment.create_preset_button",
+      "value": "Create"
+    },
+    {
+      "key": "mission_prep.equipment.delete_preset",
+      "value": "Delete"
+    },
+    {
+      "key": "mission_prep.equipment.rename_preset_short",
+      "value": "Name"
+    },
+    {
+      "key": "mission_prep.equipment.delete_preset_short",
+      "value": "X"
+    },
+    {
+      "key": "mission_prep.equipment.preset.new_default",
+      "value": "New preset"
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.placeholder",
+      "value": "Preset name"
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.error.empty",
+      "value": "Enter a preset name."
+    },
+    {
+      "key": "mission_prep.equipment.preset_name.error.duplicate",
+      "value": "A preset with this name already exists."
+    },
+    {
+      "key": "mission_prep.equipment.preset.standard",
+      "value": "Standard"
+    },
+    {
+      "key": "mission_prep.equipment.preset.heavy",
+      "value": "Heavy"
+    },
+    {
+      "key": "mission_prep.equipment.armor.light",
+      "value": "Light armor"
+    },
+    {
+      "key": "mission_prep.equipment.armor.heavy",
+      "value": "Heavy armor"
+    },
+    {
+      "key": "mission_prep.equipment.available_title",
+      "value": "Available equipment"
+    },
+    {
+      "key": "mission_prep.stats.title",
+      "value": "Characteristics"
+    },
+    {
+      "key": "mission_prep.stats.accuracy",
+      "value": "Accuracy"
+    },
+    {
+      "key": "mission_prep.stats.aim_speed",
+      "value": "Aim speed"
+    },
+    {
+      "key": "weapon.mod_slot.magazine",
+      "value": "Magazine"
+    },
+    {
+      "key": "weapon.mod_slot.muzzle",
+      "value": "Muzzle"
+    },
+    {
+      "key": "weapon.mod_slot.underbarrel",
+      "value": "Underbarrel"
+    },
+    {
+      "key": "weapon.mod_slot.rail",
+      "value": "Rail"
+    },
+    {
+      "key": "weapon.mod_slot.rail_1",
+      "value": "Rail 1"
+    },
+    {
+      "key": "weapon.mod_slot.rail_2",
+      "value": "Rail 2"
+    },
+    {
+      "key": "weapon.mod_slot.rail_3",
+      "value": "Rail 3"
+    },
+    {
+      "key": "weapon.mod_slot.optic",
+      "value": "Optic"
+    },
+    {
+      "key": "weapon.mod_slot.side_rail",
+      "value": "Side rail"
+    },
+    {
+      "key": "weapon.mod_slot.stock",
+      "value": "Stock"
+    },
+    {
+      "key": "weapon.mod_slot.attachment",
+      "value": "Attachment"
+    },
+    {
+      "key": "weapon.mod_slot.empty",
+      "value": "Empty"
+    }
   ]
 }

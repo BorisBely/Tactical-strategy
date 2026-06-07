@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Reddot3
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_reddot3
-  m_Description: Низкопрофильный компактный коллиматорный прицел.
+  m_Description: Коллиматор с более спокойной дальностью до 30 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 240
   m_Category: 0
