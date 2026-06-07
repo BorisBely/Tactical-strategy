@@ -749,18 +749,29 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		                   TryExtractWeaponLoadout(baselineSlot, out _weaponDefinition, out _currentAttachments);
 
 		bool hasModulePreview = false;
-		TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot);
 		InventorySlotRuntimeData previewCandidate = ResolveGraphPreviewCandidate();
-		if (!previewCandidate.IsEmpty &&
-		    ItemModificationUtility.IsAttachmentItem(previewCandidate) &&
-		    ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, previewCandidate) &&
-		    TryBuildPreviewAttachments(modulePreviewWeaponSlot, previewCandidate, out WeaponAttachmentDefinition[] modulePreviewAttachments))
+		if (!previewCandidate.IsEmpty && ItemModificationUtility.IsAttachmentItem(previewCandidate))
 		{
-			_previewAttachments = modulePreviewAttachments;
-			hasModulePreview = true;
-			if (TryExtractWeaponLoadout(modulePreviewWeaponSlot, out WeaponDefinition moduleWeaponDefinition, out _) &&
-			    (!hasBaseline || !RepresentsSameWeaponInstance(baselineSlot, modulePreviewWeaponSlot)))
-				_previewWeaponDefinition = moduleWeaponDefinition;
+			WeaponAttachmentDefinition candidateAttachment = previewCandidate.Definition != null
+				? previewCandidate.Definition.WeaponAttachmentDefinition
+				: null;
+
+			if (candidateAttachment != null &&
+			    TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot) &&
+			    ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, previewCandidate) &&
+			    TryBuildPreviewAttachments(modulePreviewWeaponSlot, previewCandidate, out WeaponAttachmentDefinition[] modulePreviewAttachments))
+			{
+				_previewAttachments = modulePreviewAttachments;
+				hasModulePreview = true;
+				if (TryExtractWeaponLoadout(modulePreviewWeaponSlot, out WeaponDefinition moduleWeaponDefinition, out _) &&
+				    (!hasBaseline || !RepresentsSameWeaponInstance(baselineSlot, modulePreviewWeaponSlot)))
+					_previewWeaponDefinition = moduleWeaponDefinition;
+			}
+			else if (candidateAttachment != null && !hasBaseline)
+			{
+				_previewAttachments = new[] { candidateAttachment };
+				hasModulePreview = true;
+			}
 		}
 
 		if (!hasModulePreview &&
@@ -789,8 +800,10 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 		}
 
-		if (!TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot) ||
-		    !ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, _candidate))
+		bool hasWeaponSlot = TryResolveGraphModulePreviewWeaponSlot(out InventorySlotRuntimeData modulePreviewWeaponSlot);
+		bool isCompatible = hasWeaponSlot &&
+		                    ItemModificationUtility.IsCompatibleWithWeapon(modulePreviewWeaponSlot, _candidate);
+		if (hasWeaponSlot && !isCompatible)
 		{
 			ResetHoveredModificationPreviewCandidate();
 			return;
@@ -3162,6 +3175,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		}
 
 		return true;
+	}
+
+	private static string FormatInventorySlotWeapon(InventorySlotRuntimeData _weaponSlot)
+	{
+		if (_weaponSlot.IsEmpty || _weaponSlot.Definition == null)
+			return "empty";
+
+		WeaponDefinition weaponDefinition = _weaponSlot.Definition.WeaponDefinition;
+		return weaponDefinition != null ? weaponDefinition.name : _weaponSlot.Definition.name;
 	}
 	#endregion
 }

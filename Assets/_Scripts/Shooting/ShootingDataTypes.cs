@@ -202,9 +202,27 @@ public sealed class WeaponDistanceAimProfile
 		m_DispersionMultiplierByDistance = _dispersionMultiplierByDistance;
 		m_AimTimeMultiplierByDistance = _aimTimeMultiplierByDistance;
 	}
+
+	public bool IsFlatDispersionCurve() => IsFlatNeutralCurve(m_DispersionMultiplierByDistance);
+
+	public bool IsFlatAimTimeCurve() => IsFlatNeutralCurve(m_AimTimeMultiplierByDistance);
 	#endregion
 
 	#region Private Methods
+	private static bool IsFlatNeutralCurve(AnimationCurve _curve)
+	{
+		if (_curve == null || _curve.length == 0)
+			return true;
+
+		for (int i = 0; i < _curve.length; i++)
+		{
+			if (!Mathf.Approximately(_curve.keys[i].value, 1f))
+				return false;
+		}
+
+		return true;
+	}
+
 	private static float EvaluateMultiplier(AnimationCurve _curve, float _distanceMeters)
 	{
 		if (_curve == null || _curve.length == 0)

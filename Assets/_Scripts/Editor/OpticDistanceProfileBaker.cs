@@ -8,6 +8,8 @@ using UnityEngine;
 public static class OpticDistanceProfileBaker
 {
 	private const string c_ShootingRoot = "Assets/GameData/Shooting";
+	private const string c_DispersionCurveProperty = "m_DispersionMultiplierByDistance";
+	private const string c_AimTimeCurveProperty = "m_AimTimeMultiplierByDistance";
 
 	[MenuItem("Polygone/Combat Balance/Bake Optic Distance Profiles")]
 	public static void BakeAllOpticProfiles()
@@ -22,9 +24,8 @@ public static class OpticDistanceProfileBaker
 			if (attachment == null || attachment.AttachmentType != WeaponAttachmentType.Optic)
 				continue;
 
-			BakeAttachment(attachment);
-			EditorUtility.SetDirty(attachment);
-			baked++;
+			if (BakeAttachment(attachment))
+				baked++;
 		}
 
 		AssetDatabase.SaveAssets();
@@ -32,12 +33,32 @@ public static class OpticDistanceProfileBaker
 		Debug.Log($"Optic distance profiles baked for {baked} optic attachments.");
 	}
 
-	public static void BakeAttachment(WeaponAttachmentDefinition _attachment)
+	public static bool BakeAttachment(WeaponAttachmentDefinition _attachment)
 	{
 		if (_attachment == null)
-			return;
+			return false;
 
-		OpticDistanceCurveLibrary.ApplyToProfile(_attachment.DistanceAimProfile, _attachment);
+		var curves = OpticDistanceCurveLibrary.GetCurvesForAttachment(_attachment);
+		AnimationCurve dispersionCurve = OpticDistanceCurveLibrary.BuildCurve(curves.DispersionKeyframes);
+		AnimationCurve aimTimeCurve = OpticDistanceCurveLibrary.BuildCurve(curves.AimTimeKeyframes);
+
+		SerializedObject serializedAttachment = new SerializedObject(_attachment);
+		SerializedProperty profileProperty = serializedAttachment.FindProperty("m_DistanceAimProfile");
+		if (profileProperty == null)
+			return false;
+
+		SerializedProperty dispersionProperty = profileProperty.FindPropertyRelative(c_DispersionCurveProperty);
+		SerializedProperty aimTimeProperty = profileProperty.FindPropertyRelative(c_AimTimeCurveProperty);
+		if (dispersionProperty == null || aimTimeProperty == null)
+			return false;
+
+		dispersionProperty.animationCurveValue = dispersionCurve;
+		aimTimeProperty.animationCurveValue = aimTimeCurve;
+		serializedAttachment.ApplyModifiedPropertiesWithoutUndo();
+
+		_attachment.DistanceAimProfile.SetCurves(dispersionCurve, aimTimeCurve);
+		EditorUtility.SetDirty(_attachment);
+		return true;
 	}
 }
 #endif

@@ -122,6 +122,9 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 
 	public float GetDistanceDispersionMultiplier(float _distanceMeters)
 	{
+		if (ShouldUseLibraryDistanceCurveFallback())
+			return OpticDistanceCurveLibrary.EvaluateDispersionMultiplier(this, _distanceMeters);
+
 		return m_DistanceAimProfile != null
 			? m_DistanceAimProfile.GetDispersionMultiplier(_distanceMeters)
 			: 1f;
@@ -129,9 +132,21 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 
 	public float GetDistanceAimTimeMultiplier(float _distanceMeters)
 	{
+		if (ShouldUseLibraryDistanceCurveFallback())
+			return OpticDistanceCurveLibrary.EvaluateAimTimeMultiplier(this, _distanceMeters);
+
 		return m_DistanceAimProfile != null
 			? m_DistanceAimProfile.GetAimTimeMultiplier(_distanceMeters)
 			: 1f;
+	}
+
+	private bool ShouldUseLibraryDistanceCurveFallback()
+	{
+		if (m_AttachmentType != WeaponAttachmentType.Optic || m_DistanceAimProfile == null)
+			return false;
+
+		return m_DistanceAimProfile.IsFlatDispersionCurve()
+			&& m_DistanceAimProfile.IsFlatAimTimeCurve();
 	}
 	#endregion
 }

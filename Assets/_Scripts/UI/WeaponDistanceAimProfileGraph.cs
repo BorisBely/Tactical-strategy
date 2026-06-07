@@ -305,6 +305,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		m_Attachments = currentAttachments;
 		m_PreviewWeaponDefinition = previewWeaponDefinition;
 		m_PreviewAttachments = previewAttachments;
+
 		SetVerticesDirty();
 	}
 

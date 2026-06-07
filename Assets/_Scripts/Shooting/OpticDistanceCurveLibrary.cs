@@ -100,6 +100,22 @@ public static class OpticDistanceCurveLibrary
 			BuildCurve(curves.AimTimeKeyframes));
 	}
 
+	public static float EvaluateDispersionMultiplier(
+		WeaponAttachmentDefinition _attachment,
+		float _distanceMeters)
+	{
+		OpticDistanceCurves curves = GetCurvesForAttachment(_attachment);
+		return EvaluateKeyframes(curves.DispersionKeyframes, _distanceMeters);
+	}
+
+	public static float EvaluateAimTimeMultiplier(
+		WeaponAttachmentDefinition _attachment,
+		float _distanceMeters)
+	{
+		OpticDistanceCurves curves = GetCurvesForAttachment(_attachment);
+		return EvaluateKeyframes(curves.AimTimeKeyframes, _distanceMeters);
+	}
+
 	public static OpticDistanceProfileKind ResolveKind(WeaponAttachmentDefinition _attachment)
 	{
 		if (_attachment == null || _attachment.AttachmentType != WeaponAttachmentType.Optic)
@@ -130,36 +146,6 @@ public static class OpticDistanceCurveLibrary
 			return OpticDistanceProfileKind.Collimator;
 
 		return OpticDistanceProfileKind.Collimator;
-	}
-	#endregion
-
-	#region Named Lookup
-	private static readonly Dictionary<string, OpticDistanceCurves> s_NamedCurves = BuildNamedCurves();
-
-	private static Dictionary<string, OpticDistanceCurves> BuildNamedCurves()
-	{
-		var map = new Dictionary<string, OpticDistanceCurves>
-		{
-			["Attachment_M4_Reddot1"] = s_Reddot1,
-			["Attachment_M4_Reddot3"] = s_Reddot3,
-			["Attachment_M4_RDC"] = s_Rdc,
-			["Attachment_M4_Aimpoint"] = s_Aimpoint,
-			["Attachment_M4_Reddot2"] = s_Reddot2,
-			["Attachment_M4_EOTech_G33"] = s_EotechG33,
-			["Attachment_M4_Vortex_Razor"] = s_VortexRazor,
-			["Attachment_M4_ELCAN_SpecterDR"] = s_ElcanSpecterDr,
-			["Attachment_M4_Scope1_3x"] = s_Scope1_3x,
-			["Attachment_M4_ACOG"] = s_Acog,
-			["Attachment_M4_SUSAT"] = s_Susat,
-			["Attachment_M4_ACOG_RMR"] = s_AcogRmr,
-			["Attachment_Mosin_Scope8"] = s_MosinScope8,
-			["Attachment_M4_Scope4"] = s_Scope4,
-			["Attachment_M4_Scope5"] = s_Scope5,
-			["Attachment_M4_Scope9"] = s_Scope9,
-			["Attachment_AK_Reddot4_Rail"] = s_AkReddot4,
-			["Attachment_AK_Scope11"] = s_AkScope11
-		};
-		return map;
 	}
 	#endregion
 
@@ -239,9 +225,76 @@ public static class OpticDistanceCurveLibrary
 	private static readonly OpticDistanceCurves s_AkScope11 = Make("50–60 м (PSO)",
 		new[] { K(0f, 1.14f), K(35f, 1.00f), K(50f, 0.78f), K(60f, 0.76f), K(75f, 0.80f), K(100f, 0.86f) },
 		new[] { K(0f, 1.32f), K(35f, 1.14f), K(50f, 1.00f), K(60f, 0.96f), K(75f, 1.00f), K(100f, 1.08f) });
+
+	// Named lookup must be initialized after all curve static fields above.
+	private static readonly Dictionary<string, OpticDistanceCurves> s_NamedCurves = BuildNamedCurves();
+
+	private static Dictionary<string, OpticDistanceCurves> BuildNamedCurves()
+	{
+		var map = new Dictionary<string, OpticDistanceCurves>
+		{
+			["Attachment_M4_Reddot1"] = s_Reddot1,
+			["Attachment_M4_Reddot3"] = s_Reddot3,
+			["Attachment_M4_RDC"] = s_Rdc,
+			["Attachment_M4_Aimpoint"] = s_Aimpoint,
+			["Attachment_M4_Reddot2"] = s_Reddot2,
+			["Attachment_M4_EOTech_G33"] = s_EotechG33,
+			["Attachment_M4_Vortex_Razor"] = s_VortexRazor,
+			["Attachment_M4_ELCAN_SpecterDR"] = s_ElcanSpecterDr,
+			["Attachment_M4_Scope1_3x"] = s_Scope1_3x,
+			["Attachment_M4_ACOG"] = s_Acog,
+			["Attachment_M4_SUSAT"] = s_Susat,
+			["Attachment_M4_ACOG_RMR"] = s_AcogRmr,
+			["Attachment_Mosin_Scope8"] = s_MosinScope8,
+			["Attachment_M4_Scope4"] = s_Scope4,
+			["Attachment_M4_Scope5"] = s_Scope5,
+			["Attachment_M4_Scope9"] = s_Scope9,
+			["Attachment_AK_Reddot4_Rail"] = s_AkReddot4,
+			["Attachment_AK_Scope11"] = s_AkScope11
+		};
+		return map;
+	}
 	#endregion
 
 	#region Helpers
+	private const float c_MinDistanceMeters = 0f;
+	private const float c_MaxDistanceMeters = 100f;
+	private const float c_MinMultiplier = 0.01f;
+
+	private static float EvaluateKeyframes(IReadOnlyList<DistanceKeyframe> _keyframes, float _distanceMeters)
+	{
+		if (_keyframes == null || _keyframes.Count == 0)
+			return 1f;
+
+		float clampedDistance = Mathf.Clamp(_distanceMeters, c_MinDistanceMeters, c_MaxDistanceMeters);
+		int count = _keyframes.Count;
+		if (count == 1)
+			return Mathf.Max(c_MinMultiplier, _keyframes[0].Value);
+
+		if (clampedDistance <= _keyframes[0].DistanceMeters)
+			return Mathf.Max(c_MinMultiplier, _keyframes[0].Value);
+		if (clampedDistance >= _keyframes[count - 1].DistanceMeters)
+			return Mathf.Max(c_MinMultiplier, _keyframes[count - 1].Value);
+
+		for (int i = 0; i < count - 1; i++)
+		{
+			float t0 = _keyframes[i].DistanceMeters;
+			float t1 = _keyframes[i + 1].DistanceMeters;
+			if (t0 > clampedDistance || clampedDistance > t1)
+				continue;
+
+			if (Mathf.Approximately(t1, t0))
+				return Mathf.Max(c_MinMultiplier, _keyframes[i].Value);
+
+			float t = (clampedDistance - t0) / (t1 - t0);
+			return Mathf.Max(
+				c_MinMultiplier,
+				Mathf.Lerp(_keyframes[i].Value, _keyframes[i + 1].Value, t));
+		}
+
+		return Mathf.Max(c_MinMultiplier, _keyframes[count - 1].Value);
+	}
+
 	private static DistanceKeyframe K(float _distanceMeters, float _value) =>
 		new DistanceKeyframe(_distanceMeters, _value);
 
