@@ -19,9 +19,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
   m_CompatibleSlots: 02000000
   m_CompatibleRailSocketIndices: 0100000002000000
-  m_AimTimeModifier: 0.99
+  m_AimTimeModifier: 0.975609756
   m_EffectiveRangeModifier: 1
-  m_RecoilModifier: 0.98
+  m_RecoilModifier: 1
   m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1

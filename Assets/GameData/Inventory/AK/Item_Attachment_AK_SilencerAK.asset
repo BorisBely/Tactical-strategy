@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_SilencerAK
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_silencer
-  m_Description: Глушитель для серии AK, снижает заметность выстрела.
+  m_Description: Глушитель для серии AK. Тише выстрел, чуть дальше эффективная дистанция; в будущем — механика скрытных выстрелов. Утяжеляет оружие и ускоряет загрязнение.
   m_Icon: {fileID: 0}
   m_BasePrice: 760
   m_Category: 0

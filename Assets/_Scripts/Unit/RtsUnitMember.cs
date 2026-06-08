@@ -254,7 +254,41 @@ public sealed class RtsUnitMember : MonoBehaviour
 			}
 
 			WeaponFireMode after = m_WeaponRuntime.RuntimeState.SelectedFireMode;
-			Debug.Log($"{name}: режим огня {before} → {after}.", this);
+			WeaponFireMode effectiveAfter = m_FireController != null
+				? m_FireController.ResolveEffectiveFireMode()
+				: after;
+			string afterLabel = after == WeaponFireMode.Auto
+				? $"{WeaponFireModeUtility.GetDisplayName(after)}→{WeaponFireModeUtility.GetDisplayName(effectiveAfter)}"
+				: WeaponFireModeUtility.GetDisplayName(after);
+			Debug.Log(
+				$"{name}: режим огня {WeaponFireModeUtility.GetDisplayName(before)} → {afterLabel}.",
+				this);
+			PlayFireModeSwitchSound();
+		});
+	}
+
+	/// <summary>Следующий режим прицеливания юнита: полное, быстрое, на вскидку, авто.</summary>
+	public void CycleWeaponAimMode()
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_WeaponRuntime == null)
+			{
+				Debug.LogWarning($"{name}: смена режима прицеливания — нет runtime оружия.", this);
+				return;
+			}
+
+			WeaponAimMode before = m_WeaponRuntime.SelectedAimMode;
+			if (!m_WeaponRuntime.TryCycleToNextAimMode(out WeaponAimMode after))
+			{
+				Debug.Log($"{name}: режим прицеливания не изменён. Сейчас: {before}.", this);
+				return;
+			}
+
+			Debug.Log(
+				$"{name}: режим прицеливания {WeaponAimModeUtility.GetDisplayName(before)} → {WeaponAimModeUtility.GetDisplayName(after)} " +
+				$"(порог выстрела: {WeaponAimModeUtility.GetRequiredAimProgress01(after, 0f):P0}; в авто порог зависит от дистанции).",
+				this);
 			PlayFireModeSwitchSound();
 		});
 	}

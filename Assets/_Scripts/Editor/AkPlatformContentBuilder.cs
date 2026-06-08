@@ -321,7 +321,7 @@ public static class AkPlatformContentBuilder
 		weaponSo.FindProperty("m_FireRateRpm").intValue = 600;
 		weaponSo.FindProperty("m_AimTimeSeconds").floatValue = 0.32f;
 		weaponSo.FindProperty("m_ReloadTimeSeconds").floatValue = 2.4f;
-		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 350f;
+		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
 		weaponSo.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(weapon);
 

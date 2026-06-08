@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ForeGrip5
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_foregrip5
-  m_Description: Тяжелая вертикальная рукоять для автоматического огня.
+  m_Description: Укороченная рукоятка. Сильный контроль отдачи при заметном замедлении прицеливания.
   m_Icon: {fileID: 0}
   m_BasePrice: 250
   m_Category: 0

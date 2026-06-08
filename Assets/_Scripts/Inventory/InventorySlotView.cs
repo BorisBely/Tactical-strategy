@@ -42,6 +42,8 @@ public class InventorySlotView : MonoBehaviour
 	{
 		if (m_IconImage == null)
 			m_IconImage = FindChildIconImage();
+
+		InventorySlotUiUtility.EnsureDescriptionHover(this);
 	}
 
 	private void OnEnable()

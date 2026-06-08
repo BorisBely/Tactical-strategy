@@ -20,12 +20,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
   m_CompatibleSlots: 00000000
   m_CompatibleRailSocketIndices: 
-  m_AimTimeModifier: 1.08
-  m_EffectiveRangeModifier: 1.05
-  m_RecoilModifier: 0.95
+  m_AimTimeModifier: 1.05
+  m_EffectiveRangeModifier: 1.1
+  m_RecoilModifier: 1
   m_ReloadTimeModifier: 1
-  m_WearPerShotMultiplier: 1.1
-  m_FoulingPerShotMultiplier: 1.2
-  m_JamRiskModifier: 1.08
+  m_WearPerShotMultiplier: 1.08
+  m_FoulingPerShotMultiplier: 1.15
+  m_JamRiskModifier: 1.06
   m_SuppressedFireSound: {fileID: 0}
   m_EquippedVisualPrefab: {fileID: 4688285746590471711, guid: 6272a7cd01eb9f147b343a1f54c1084e, type: 3}

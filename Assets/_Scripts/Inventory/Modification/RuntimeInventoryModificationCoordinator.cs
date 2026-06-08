@@ -1134,6 +1134,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			if (slot.GetComponent<InventoryEquipDoubleClick>() == null)
 				slot.gameObject.AddComponent<InventoryEquipDoubleClick>();
 
+			InventorySlotUiUtility.EnsureDescriptionHover(slot);
+
 			RuntimeModificationSlotHighlightView highlight = slot.GetComponent<RuntimeModificationSlotHighlightView>();
 			if (highlight == null)
 				highlight = slot.gameObject.AddComponent<RuntimeModificationSlotHighlightView>();
@@ -1187,6 +1189,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 			if (slot.GetComponent<InventoryGroundEquipDoubleClick>() == null)
 				slot.gameObject.AddComponent<InventoryGroundEquipDoubleClick>();
+
+			InventorySlotUiUtility.EnsureDescriptionHover(slot);
 		}
 	}
 

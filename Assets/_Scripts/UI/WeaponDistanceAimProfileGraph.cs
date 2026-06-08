@@ -19,6 +19,9 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	#region Constants
 	private const float c_DefaultMinDistanceMeters = 0f;
 	private const float c_DefaultMaxDistanceMeters = 100f;
+	private const float c_DefaultMinRecoilPreviewShot = 1f;
+	private const float c_DefaultMaxRecoilPreviewShot = 12f;
+	private const int c_MinRecoilPreviewSampleCount = 192;
 	private const float c_MinLineLengthSqr = 0.0001f;
 	#endregion
 
@@ -56,6 +59,12 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[SerializeField, Min(5f)] private float m_AutoFitMinDistanceSpanMeters = 30f;
 	[Tooltip("Доля отступа слева/справа относительно найденного диапазона дистанции.")]
 	[SerializeField, Range(0f, 0.25f)] private float m_AutoFitDistancePaddingRatio = 0.08f;
+
+	[Header("Recoil Preview")]
+	[Tooltip("Первый отображаемый выстрел серии на графике контроля отдачи.")]
+	[SerializeField, Min(1f)] private float m_MinRecoilPreviewShot = c_DefaultMinRecoilPreviewShot;
+	[Tooltip("Последний отображаемый выстрел серии на графике контроля отдачи.")]
+	[SerializeField, Min(2f)] private float m_MaxRecoilPreviewShot = c_DefaultMaxRecoilPreviewShot;
 
 	[Header("Line Colors")]
 	[Tooltip("Текущий экипированный loadout (первая линия).")]
@@ -197,6 +206,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	{
 		base.OnValidate();
 		m_MaxDistanceMeters = Mathf.Max(m_MinDistanceMeters + 1f, m_MaxDistanceMeters);
+		m_MaxRecoilPreviewShot = Mathf.Max(m_MinRecoilPreviewShot + 1f, m_MaxRecoilPreviewShot);
 		m_MaxDisplayedQuality = Mathf.Max(m_MinDisplayedQuality + 0.01f, m_MaxDisplayedQuality);
 		m_AutoFitMinDistanceSpanMeters = Mathf.Clamp(m_AutoFitMinDistanceSpanMeters, 5f, m_MaxDistanceMeters - m_MinDistanceMeters);
 		SetVerticesDirty();
@@ -218,30 +228,60 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 
 		bool showAccuracy = m_Metric == WeaponDistanceAimGraphMetric.Both || m_Metric == WeaponDistanceAimGraphMetric.Accuracy;
 		bool showAimTime = m_Metric == WeaponDistanceAimGraphMetric.Both || m_Metric == WeaponDistanceAimGraphMetric.AimTime;
+		bool useRecoilMode = showAccuracy && !showAimTime && IsRecoilPreviewActive();
 		bool hasCurrentLoadout = m_WeaponDefinition != null;
 		bool hasPreviewLoadout = HasPreviewCurve;
-		bool hasAccuracyPreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAccuracyQuality, EvaluatePreviewAccuracyQuality));
-		bool hasAimTimePreview = hasPreviewLoadout && (!hasCurrentLoadout || CurvesDiffer(EvaluateCurrentAimSpeedQuality, EvaluatePreviewAimSpeedQuality));
+		bool isAttachmentOnlyPreviewWithoutWeapon = IsAttachmentOnlyPreviewWithoutWeapon;
+		System.Func<float, float> evaluateCurrentAccuracy = useRecoilMode
+			? EvaluateCurrentRecoilControlQuality
+			: EvaluateCurrentAccuracyQuality;
+		System.Func<float, float> evaluatePreviewAccuracy = useRecoilMode
+			? EvaluatePreviewRecoilControlQuality
+			: EvaluatePreviewAccuracyQuality;
+		float accuracyCompareMin = useRecoilMode ? m_MinRecoilPreviewShot : m_MinDistanceMeters;
+		float accuracyCompareMax = useRecoilMode ? m_MaxRecoilPreviewShot : m_MaxDistanceMeters;
+		int accuracyCompareSampleCount = GetCurveSampleCount(useRecoilMode);
+		bool hasAccuracyPreview = TryResolvePreviewCurveVisible(
+			hasPreviewLoadout,
+			hasCurrentLoadout,
+			isAttachmentOnlyPreviewWithoutWeapon,
+			evaluateCurrentAccuracy,
+			evaluatePreviewAccuracy,
+			accuracyCompareMin,
+			accuracyCompareMax,
+			accuracyCompareSampleCount);
+		bool hasAimTimePreview = TryResolvePreviewCurveVisible(
+			hasPreviewLoadout,
+			hasCurrentLoadout,
+			isAttachmentOnlyPreviewWithoutWeapon,
+			EvaluateCurrentAimSpeedQuality,
+			EvaluatePreviewAimSpeedQuality,
+			m_MinDistanceMeters,
+			m_MaxDistanceMeters);
+		bool useAttachmentOnlyOpticScale = IsAttachmentOnlyOpticPreview();
 		ComputeDisplayBounds(
 			showAccuracy,
 			showAimTime,
 			hasCurrentLoadout,
 			hasAccuracyPreview,
 			hasAimTimePreview,
+			useRecoilMode,
+			useAttachmentOnlyOpticScale,
 			out float minDistanceMeters,
 			out float maxDistanceMeters,
 			out float minQuality,
 			out float maxQuality);
 
+		int accuracySampleCount = GetCurveSampleCount(useRecoilMode);
 		if (hasCurrentLoadout && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAccuracyQuality, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, evaluateCurrentAccuracy, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
 			if (hasAccuracyPreview)
-				DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
+				DrawCurve(_vh, graphRect, evaluatePreviewAccuracy, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
 		}
 		else if (!hasCurrentLoadout && hasAccuracyPreview && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, EvaluatePreviewAccuracyQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, evaluatePreviewAccuracy, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
 		}
 
 		if (hasCurrentLoadout && m_ShowAimSpeed && showAimTime)
@@ -327,6 +367,12 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	private bool HasPreviewCurve =>
 		m_PreviewAttachments != null || m_PreviewWeaponDefinition != null;
 
+	private bool IsAttachmentOnlyPreviewWithoutWeapon =>
+		m_WeaponDefinition == null &&
+		m_PreviewWeaponDefinition == null &&
+		m_PreviewAttachments != null &&
+		m_PreviewAttachments.Length > 0;
+
 	private Rect GetGraphRect()
 	{
 		Rect rect = rectTransform.rect;
@@ -366,9 +412,10 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		float _minDistanceMeters,
 		float _maxDistanceMeters,
 		float _minQuality,
-		float _maxQuality)
+		float _maxQuality,
+		int _sampleCount = -1)
 	{
-		int sampleCount = Mathf.Max(2, m_SampleCount);
+		int sampleCount = Mathf.Max(2, _sampleCount > 0 ? _sampleCount : m_SampleCount);
 		Vector2 previousPoint = Vector2.zero;
 		bool hasPreviousPoint = false;
 		Color32 lineColor = _lineColor;
@@ -397,12 +444,59 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	private bool ShouldAutoFitDistanceRange =>
 		m_AutoFitDistanceRange || m_AutoBindMissionPrepSelection;
 
+	private bool IsRecoilPreviewActive()
+	{
+		if (!m_AutoBindMissionPrepSelection || m_Metric != WeaponDistanceAimGraphMetric.Accuracy)
+			return false;
+
+		ResolveCoordinator();
+		return m_Coordinator != null && m_Coordinator.IsAccuracyGraphRecoilPreviewActive;
+	}
+
+	private int GetCurveSampleCount(bool _useRecoilAccuracy)
+	{
+		if (!_useRecoilAccuracy)
+			return m_SampleCount;
+
+		return Mathf.Max(c_MinRecoilPreviewSampleCount, m_SampleCount * 3);
+	}
+
+	private bool IsAttachmentOnlyOpticPreview()
+	{
+		if (m_WeaponDefinition != null || m_PreviewWeaponDefinition != null || m_PreviewAttachments == null)
+			return false;
+
+		bool hasOpticAttachment = false;
+		for (int i = 0; i < m_PreviewAttachments.Length; i++)
+		{
+			WeaponAttachmentDefinition attachment = m_PreviewAttachments[i];
+			if (attachment == null)
+				continue;
+
+			if (!IsDistanceProfileOpticAttachment(attachment))
+				return false;
+
+			hasOpticAttachment = true;
+		}
+
+		return hasOpticAttachment;
+	}
+
+	private static bool IsDistanceProfileOpticAttachment(WeaponAttachmentDefinition _attachment)
+	{
+		return _attachment.AttachmentType == WeaponAttachmentType.Optic ||
+		       _attachment.SupportsSlot(WeaponAttachmentSlotType.Optic) ||
+		       _attachment.SupportsSlot(WeaponAttachmentSlotType.SideRail);
+	}
+
 	private void ComputeDisplayBounds(
 		bool _showAccuracy,
 		bool _showAimTime,
 		bool _hasCurrentLoadout,
 		bool _hasAccuracyPreview,
 		bool _hasAimTimePreview,
+		bool _useRecoilAccuracy,
+		bool _useAttachmentOnlyOpticScale,
 		out float _minDistanceMeters,
 		out float _maxDistanceMeters,
 		out float _minQuality,
@@ -414,6 +508,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 			_hasCurrentLoadout,
 			_hasAccuracyPreview,
 			_hasAimTimePreview,
+			_useRecoilAccuracy,
 			out System.Func<float, float>[] evaluators);
 
 		if (evaluators.Length == 0)
@@ -427,21 +522,33 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 
 		float minQuality = float.PositiveInfinity;
 		float maxQuality = float.NegativeInfinity;
-		int sampleCount = Mathf.Max(2, m_SampleCount);
+		float sampleMin = _useRecoilAccuracy ? m_MinRecoilPreviewShot : m_MinDistanceMeters;
+		float sampleMax = _useRecoilAccuracy ? m_MaxRecoilPreviewShot : m_MaxDistanceMeters;
+		int sampleCount = Mathf.Max(2, GetCurveSampleCount(_useRecoilAccuracy));
 		for (int i = 0; i < sampleCount; i++)
 		{
 			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
-			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
+			float distance = Mathf.Lerp(sampleMin, sampleMax, t);
 			for (int j = 0; j < evaluators.Length; j++)
 				IncludeQualitySample(evaluators[j](distance), ref minQuality, ref maxQuality);
 		}
 
-		if (ShouldAutoFitDistanceRange && minQuality <= maxQuality)
+		if (!_useRecoilAccuracy &&
+		    !_useAttachmentOnlyOpticScale &&
+		    ShouldAutoFitDistanceRange &&
+		    minQuality <= maxQuality)
 			ComputeAutoFitDistanceRange(evaluators, minQuality, maxQuality, out _minDistanceMeters, out _maxDistanceMeters);
 		else
 		{
-			_minDistanceMeters = m_MinDistanceMeters;
-			_maxDistanceMeters = m_MaxDistanceMeters;
+			_minDistanceMeters = sampleMin;
+			_maxDistanceMeters = sampleMax;
+		}
+
+		if (_useAttachmentOnlyOpticScale)
+		{
+			_minQuality = m_MinDisplayedQuality;
+			_maxQuality = m_MaxDisplayedQuality;
+			return;
 		}
 
 		if (ShouldAutoFitQualityScale && minQuality <= maxQuality)
@@ -459,6 +566,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		bool _hasCurrentLoadout,
 		bool _hasAccuracyPreview,
 		bool _hasAimTimePreview,
+		bool _useRecoilAccuracy,
 		out System.Func<float, float>[] _evaluators)
 	{
 		var evaluators = new List<System.Func<float, float>>(4);
@@ -466,9 +574,9 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		if (_showAccuracy)
 		{
 			if (_hasCurrentLoadout)
-				evaluators.Add(EvaluateCurrentAccuracyQuality);
+				evaluators.Add(_useRecoilAccuracy ? EvaluateCurrentRecoilControlQuality : EvaluateCurrentAccuracyQuality);
 			if (_hasAccuracyPreview)
-				evaluators.Add(EvaluatePreviewAccuracyQuality);
+				evaluators.Add(_useRecoilAccuracy ? EvaluatePreviewRecoilControlQuality : EvaluatePreviewAccuracyQuality);
 		}
 
 		if (_showAimTime)
@@ -566,19 +674,73 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		_maxQuality = Mathf.Max(_maxQuality, _quality);
 	}
 
-	private bool CurvesDiffer(System.Func<float, float> _currentEvaluator, System.Func<float, float> _previewEvaluator)
+	private bool CurvesDiffer(
+		System.Func<float, float> _currentEvaluator,
+		System.Func<float, float> _previewEvaluator,
+		float _domainMin,
+		float _domainMax,
+		int _sampleCount = -1)
 	{
 		const float epsilon = 0.001f;
-		int sampleCount = Mathf.Max(2, m_SampleCount);
+		int sampleCount = Mathf.Max(2, _sampleCount > 0 ? _sampleCount : m_SampleCount);
 		for (int i = 0; i < sampleCount; i++)
 		{
 			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
-			float distance = Mathf.Lerp(m_MinDistanceMeters, m_MaxDistanceMeters, t);
-			if (Mathf.Abs(_currentEvaluator(distance) - _previewEvaluator(distance)) > epsilon)
+			float domainValue = Mathf.Lerp(_domainMin, _domainMax, t);
+			if (Mathf.Abs(_currentEvaluator(domainValue) - _previewEvaluator(domainValue)) > epsilon)
 				return true;
 		}
 
 		return false;
+	}
+
+	private bool IsCurveConstant(
+		System.Func<float, float> _evaluator,
+		float _domainMin,
+		float _domainMax,
+		int _sampleCount = -1)
+	{
+		const float epsilon = 0.001f;
+		int sampleCount = Mathf.Max(2, _sampleCount > 0 ? _sampleCount : m_SampleCount);
+		float referenceValue = _evaluator(_domainMin);
+		for (int i = 1; i < sampleCount; i++)
+		{
+			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
+			float domainValue = Mathf.Lerp(_domainMin, _domainMax, t);
+			if (Mathf.Abs(_evaluator(domainValue) - referenceValue) > epsilon)
+				return false;
+		}
+
+		return true;
+	}
+
+	private bool TryResolvePreviewCurveVisible(
+		bool _hasPreviewLoadout,
+		bool _hasCurrentLoadout,
+		bool _isAttachmentOnlyPreviewWithoutWeapon,
+		System.Func<float, float> _currentEvaluator,
+		System.Func<float, float> _previewEvaluator,
+		float _domainMin,
+		float _domainMax,
+		int _sampleCount = -1)
+	{
+		if (!_hasPreviewLoadout)
+			return false;
+
+		if (_hasCurrentLoadout)
+		{
+			return CurvesDiffer(
+				_currentEvaluator,
+				_previewEvaluator,
+				_domainMin,
+				_domainMax,
+				_sampleCount);
+		}
+
+		if (_isAttachmentOnlyPreviewWithoutWeapon)
+			return !IsCurveConstant(_previewEvaluator, _domainMin, _domainMax, _sampleCount);
+
+		return true;
 	}
 
 	private float EvaluatePreviewAccuracyQuality(float _distanceMeters)
@@ -601,6 +763,17 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	private float EvaluateCurrentAccuracyQuality(float _distanceMeters)
 	{
 		return WeaponDistanceAimEvaluator.EvaluateAccuracyQuality(m_WeaponDefinition, m_Attachments, _distanceMeters);
+	}
+
+	private float EvaluateCurrentRecoilControlQuality(float _distanceMeters)
+	{
+		return WeaponDistanceAimEvaluator.EvaluateSustainedRecoilControlQuality(m_WeaponDefinition, m_Attachments, _distanceMeters);
+	}
+
+	private float EvaluatePreviewRecoilControlQuality(float _distanceMeters)
+	{
+		WeaponDefinition weaponDefinition = m_PreviewWeaponDefinition != null ? m_PreviewWeaponDefinition : m_WeaponDefinition;
+		return WeaponDistanceAimEvaluator.EvaluateSustainedRecoilControlQuality(weaponDefinition, m_PreviewAttachments, _distanceMeters);
 	}
 
 	private static WeaponAttachmentDefinition[] CopyAttachments(IReadOnlyList<WeaponAttachmentDefinition> _attachments)

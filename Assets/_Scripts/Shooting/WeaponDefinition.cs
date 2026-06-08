@@ -194,6 +194,8 @@ public sealed class WeaponDefinition : ScriptableObject
 		float fireModeMultiplier = fireMode switch
 		{
 			WeaponFireMode.FullAuto => weaponDefinition.AutoRecoilMultiplier,
+			WeaponFireMode.Burst => weaponDefinition.AutoRecoilMultiplier,
+			WeaponFireMode.Auto => weaponDefinition.AutoRecoilMultiplier,
 			_ => weaponDefinition.SemiAutoRecoilMultiplier
 		};
 

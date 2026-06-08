@@ -137,6 +137,16 @@ public class InventoryScreenBindings : MonoBehaviour
 	public void SetActiveCharacterInventory(CharacterInventory _inventory)
 	{
 		m_ActiveCharacterInventory = _inventory;
+
+		if (_inventory == null && IsInventoryOpen)
+		{
+			SetInventoryWindowOpen(false);
+			RefreshActiveCharacterPanel();
+			if (IsHealthWindowOpen)
+				RefreshHealthPanel();
+			return;
+		}
+
 		RefreshActiveCharacterPanel();
 		if (IsInventoryOpen)
 		{

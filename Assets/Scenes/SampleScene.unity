@@ -1040,6 +1040,8 @@ MonoBehaviour:
   m_AutoFitDistanceRange: 1
   m_AutoFitMinDistanceSpanMeters: 30
   m_AutoFitDistancePaddingRatio: 0.08
+  m_MinRecoilPreviewShot: 1
+  m_MaxRecoilPreviewShot: 12
   m_CurrentLineColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
   m_PreviewLineColor: {r: 1, g: 1, b: 1, a: 1}
   m_PreviewLineWidthMultiplier: 1.2
@@ -3265,6 +3267,7 @@ GameObject:
   - component: {fileID: 332745181}
   - component: {fileID: 332745180}
   - component: {fileID: 332745179}
+  - component: {fileID: 332745182}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -3405,6 +3408,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 332745177}
   m_CullTransparentMesh: 1
+--- !u!114 &332745182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 332745177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f3e9a2b1c4d5e6f8091a2b3c4d5e6f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MissionPrepModificationGraphCaption
+  m_Coordinator: {fileID: 1971120519}
+  m_LocalizedText: {fileID: 332745179}
 --- !u!1 &349342231
 GameObject:
   m_ObjectHideFlags: 0
@@ -13499,6 +13516,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 731300000000000005, guid: 4dd9db64368f5e442ae4f0d35723eea3, type: 3}
+      propertyPath: m_FireVoiceCount
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6544963493894048048, guid: 4dd9db64368f5e442ae4f0d35723eea3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 12.36
@@ -16105,6 +16126,8 @@ MonoBehaviour:
   m_AutoFitDistanceRange: 1
   m_AutoFitMinDistanceSpanMeters: 30
   m_AutoFitDistancePaddingRatio: 0.08
+  m_MinRecoilPreviewShot: 1
+  m_MaxRecoilPreviewShot: 12
   m_CurrentLineColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
   m_PreviewLineColor: {r: 1, g: 1, b: 1, a: 1}
   m_PreviewLineWidthMultiplier: 1.2
@@ -19246,6 +19269,7 @@ MonoBehaviour:
   m_ResetAllButton: {fileID: 0}
   m_EnableAllButton: {fileID: 0}
   m_DisableAllButton: {fileID: 0}
+  m_CycleRankButton: {fileID: 0}
 --- !u!1 &2008739124
 GameObject:
   m_ObjectHideFlags: 0

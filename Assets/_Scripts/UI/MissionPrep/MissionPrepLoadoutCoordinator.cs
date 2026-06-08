@@ -792,6 +792,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return hasBaseline || _previewWeaponDefinition != null || _previewAttachments != null;
 	}
 
+	public bool IsAccuracyGraphRecoilPreviewActive
+	{
+		get
+		{
+			if (!ItemModificationUtility.IsRecoilGraphPreviewItem(ResolveGraphPreviewCandidate()))
+				return false;
+
+			TryGetModificationGraphLoadout(
+				out WeaponDefinition weaponDefinition,
+				out _,
+				out WeaponDefinition previewWeaponDefinition,
+				out _);
+
+			return weaponDefinition != null || previewWeaponDefinition != null;
+		}
+	}
+
 	public void SetHoveredModificationPreviewCandidate(InventorySlotRuntimeData _candidate)
 	{
 		if (_candidate.IsEmpty || !ItemModificationUtility.IsAttachmentItem(_candidate))

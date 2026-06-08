@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Удерживает «курок» виртуально: когда прицеливание полностью завершено
+/// Удерживает «курок» виртуально: когда прицеливание достаточно для выбранного режима
 /// и выполнены те же базовые условия, что и у <see cref="UnitWeaponFireController"/>, вызывает
 /// <see cref="UnitWeaponFireController.StartFiring"/>; иначе <see cref="UnitWeaponFireController.StopFiring"/>.
 /// Должен выполняться раньше <see cref="UnitWeaponFireController"/> (порядок 54 &lt; 56).
@@ -12,17 +12,6 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private UnitWeaponFireController m_FireController;
-	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
-	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
-	[SerializeField] private UnitVision m_Vision;
-	[SerializeField] private UnitBusyState m_BusyState;
-	[SerializeField] private UnitWeaponReloadController m_ReloadController;
-
-	[Header("Условия")]
-	[Tooltip("Дублирует смысл UnitWeaponFireController: не стрелять без ready.")]
-	[SerializeField] private bool m_RequireReady = true;
-	[Tooltip("Дублирует смысл UnitWeaponFireController: не стрелять без видимой цели.")]
-	[SerializeField] private bool m_RequireVisibleTarget = true;
 	#endregion
 
 	#region Unity Lifecycle
@@ -30,16 +19,6 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 	{
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
-		if (m_WeaponRuntime == null)
-			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
-		if (m_ReadyHands == null)
-			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
-		if (m_BusyState == null)
-			m_BusyState = GetComponent<UnitBusyState>();
-		if (m_ReloadController == null)
-			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 	}
 
 	private void Update()
@@ -62,30 +41,7 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 	#region Private Methods
 	private bool ShouldHoldVirtualTrigger()
 	{
-		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
-			return false;
-
-		if (m_WeaponRuntime.CurrentWeaponDefinition == null)
-			return false;
-
-		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
-		bool canEventuallyFire = rs != null && (rs.HasRoundInChamber || (rs.HasMagazine && rs.HasAmmoInMagazine));
-		if (!canEventuallyFire)
-			return false;
-
-		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
-			return false;
-
-		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
-			return false;
-
-		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
-			return false;
-
-		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
-			return false;
-
-		return m_WeaponRuntime.TransientState.IsFullyAimed;
+		return m_FireController != null && m_FireController.ShouldHoldVirtualTrigger();
 	}
 	#endregion
 }

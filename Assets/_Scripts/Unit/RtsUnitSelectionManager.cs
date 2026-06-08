@@ -794,6 +794,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (Keyboard.current.bKey.wasPressedThisFrame)
+		{
+			CommandSelectedCycleWeaponAimMode();
+			return;
+		}
+
 		if (Keyboard.current.vKey.wasPressedThisFrame)
 			CommandSelectedCycleWeaponFireMode();
 	}
@@ -868,6 +874,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 
 			unit.CycleWeaponFireMode();
+		}
+	}
+
+	private void CommandSelectedCycleWeaponAimMode()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			unit.CycleWeaponAimMode();
 		}
 	}
 

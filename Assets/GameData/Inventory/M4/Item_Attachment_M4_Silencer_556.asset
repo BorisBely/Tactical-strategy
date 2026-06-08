@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Silencer_556
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_silencer_556
-  m_Description: Глушитель 5.56 для M4, снижает заметность выстрела.
+  m_Description: Глушитель 5.56 для M4. Тише выстрел, чуть дальше эффективная дистанция; в будущем — механика скрытных выстрелов. Утяжеляет оружие и ускоряет загрязнение.
   m_Icon: {fileID: 0}
   m_BasePrice: 620
   m_Category: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   m_WeaponClass: 2
   m_SupportedCaliber: 3
   m_SupportedMagazineType: 2
-  m_AvailableFireModes: 0000000001000000
+  m_AvailableFireModes: 00000000020000000100000003000000
   m_DefaultFireMode: 0
   m_AttachmentSlots:
   - SlotType: 0
@@ -352,7 +352,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  m_RecoilPerShot: 1
+  m_RecoilPerShot: 0.5
   m_SemiAutoRecoilMultiplier: 0.85
   m_AutoRecoilMultiplier: 1.25
   m_RecoilRecoveryPerSecond: 3.5

@@ -284,6 +284,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_UserWantsReady = _ready;
 		PushWeaponReadyParameter();
 
+		if (didChange && m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
+			m_WeaponReloadController.SyncAimReloadClipForWeaponReadyChange();
+
 		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
 			ForceWalkMoveModeOnAllLocomotionDrivers();
 

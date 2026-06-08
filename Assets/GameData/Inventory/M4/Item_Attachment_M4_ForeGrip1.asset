@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ForeGrip1
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_foregrip1
-  m_Description: Вертикальная рукоять с сильным контролем отдачи.
+  m_Description: Классическая вертикальная рукоятка. Максимальный контроль отдачи при цене скорости наведения.
   m_Icon: {fileID: 0}
   m_BasePrice: 210
   m_Category: 0

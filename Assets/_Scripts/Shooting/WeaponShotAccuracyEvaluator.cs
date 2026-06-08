@@ -29,6 +29,8 @@ public static class WeaponShotAccuracyEvaluator
 		float movementFactor = GetMovementDispersionMultiplier(_input);
 		float skillFactor = _input.CombatStats != null ? _input.CombatStats.GetDispersionMultiplier() : 1f;
 		float conditionFactor = _input.CombatCondition != null ? _input.CombatCondition.GetDispersionMultiplier() : 1f;
+		float aimProgressForSpread = ResolveAimProgressForSpread(_input);
+		float aimCompletionFactor = WeaponAimModeUtility.GetIncompleteAimSpreadMultiplier(aimProgressForSpread);
 		float autoBurstFactor = GetAutoBurstSpreadMultiplier(_input);
 
 		float raw = baseDispersion *
@@ -40,10 +42,13 @@ public static class WeaponShotAccuracyEvaluator
 		            movementFactor *
 		            skillFactor *
 		            conditionFactor *
+		            aimCompletionFactor *
 		            autoBurstFactor *
 		            _input.BaseSpreadToDegrees;
 
 		float halfAngle = Mathf.Clamp(raw, _input.MinHalfAngleDegrees, _input.MaxHalfAngleDegrees);
+		float spreadRadiusMeters = CalculateSpreadRadiusMeters(_input.TargetDistanceMeters, halfAngle);
+		float spreadDiameterMeters = spreadRadiusMeters * 2f;
 		return new WeaponShotAccuracyContext(
 			_input.TargetDistanceMeters,
 			baseDispersion,
@@ -55,13 +60,30 @@ public static class WeaponShotAccuracyEvaluator
 			movementFactor,
 			skillFactor,
 			conditionFactor,
+			aimCompletionFactor,
+			Mathf.Clamp01(_input.AimProgress01),
+			_input.SelectedAimMode,
+			_input.AimMode,
+			WeaponAimModeUtility.ResolveEffectiveMode(_input.AimMode, _input.TargetDistanceMeters),
+			_input.SelectedFireMode,
+			_input.FireMode,
+			_input.BurstShotIndex,
 			autoBurstFactor,
 			raw,
-			halfAngle);
+			halfAngle,
+			spreadRadiusMeters,
+			spreadDiameterMeters);
 	}
 	#endregion
 
 	#region Private Methods
+	private static float CalculateSpreadRadiusMeters(float _distanceMeters, float _halfAngleDegrees)
+	{
+		float distance = Mathf.Max(0f, _distanceMeters);
+		float halfAngleRadians = Mathf.Max(0f, _halfAngleDegrees) * Mathf.Deg2Rad;
+		return distance * Mathf.Tan(halfAngleRadians);
+	}
+
 	private static float GetAutoBurstSpreadMultiplier(WeaponShotAccuracyInput _input)
 	{
 		if (_input.FireMode != WeaponFireMode.FullAuto && _input.FireMode != WeaponFireMode.Burst)
@@ -72,6 +94,15 @@ public static class WeaponShotAccuracyEvaluator
 
 		int shotIndex = Mathf.Max(1, _input.BurstShotIndex);
 		return _input.WeaponDefinition.GetAutoBurstSpreadMultiplier(shotIndex);
+	}
+
+	/// <summary>Auto/Burst: неполное прицеливание влияет только на 1-й выстрел серии.</summary>
+	private static float ResolveAimProgressForSpread(WeaponShotAccuracyInput _input)
+	{
+		if (_input.BurstShotIndex > 1)
+			return WeaponAimModeUtility.FullAimProgress01;
+
+		return _input.AimProgress01;
 	}
 
 	private static float GetStanceDispersionMultiplier(WeaponShotAccuracyInput _input)
@@ -122,6 +153,10 @@ public struct WeaponShotAccuracyInput
 	public float ProneSpreadMultiplier;
 	public float MovingSpreadMultiplier;
 	public float SprintSpreadMultiplier;
+	public float AimProgress01;
+	public WeaponAimMode SelectedAimMode;
+	public WeaponAimMode AimMode;
+	public WeaponFireMode SelectedFireMode;
 	public WeaponFireMode FireMode;
 	public int BurstShotIndex;
 }
@@ -141,9 +176,19 @@ public readonly struct WeaponShotAccuracyContext
 	public readonly float MovementMultiplier;
 	public readonly float SkillMultiplier;
 	public readonly float ConditionMultiplier;
+	public readonly float AimCompletionMultiplier;
+	public readonly float AimProgress01;
+	public readonly WeaponAimMode SelectedAimMode;
+	public readonly WeaponAimMode AimMode;
+	public readonly WeaponAimMode EffectiveAimMode;
+	public readonly WeaponFireMode SelectedFireMode;
+	public readonly WeaponFireMode EffectiveFireMode;
+	public readonly int BurstShotIndex;
 	public readonly float AutoBurstSpreadMultiplier;
 	public readonly float RawHalfAngleDegrees;
 	public readonly float HalfAngleDegrees;
+	public readonly float SpreadRadiusMeters;
+	public readonly float SpreadDiameterMeters;
 
 	public WeaponShotAccuracyContext(
 		float _targetDistanceMeters,
@@ -156,9 +201,19 @@ public readonly struct WeaponShotAccuracyContext
 		float _movementMultiplier,
 		float _skillMultiplier,
 		float _conditionMultiplier,
+		float _aimCompletionMultiplier,
+		float _aimProgress01,
+		WeaponAimMode _selectedAimMode,
+		WeaponAimMode _aimMode,
+		WeaponAimMode _effectiveAimMode,
+		WeaponFireMode _selectedFireMode,
+		WeaponFireMode _effectiveFireMode,
+		int _burstShotIndex,
 		float _autoBurstSpreadMultiplier,
 		float _rawHalfAngleDegrees,
-		float _halfAngleDegrees)
+		float _halfAngleDegrees,
+		float _spreadRadiusMeters,
+		float _spreadDiameterMeters)
 	{
 		TargetDistanceMeters = _targetDistanceMeters;
 		BaseDispersion = _baseDispersion;
@@ -170,8 +225,18 @@ public readonly struct WeaponShotAccuracyContext
 		MovementMultiplier = _movementMultiplier;
 		SkillMultiplier = _skillMultiplier;
 		ConditionMultiplier = _conditionMultiplier;
+		AimCompletionMultiplier = _aimCompletionMultiplier;
+		AimProgress01 = _aimProgress01;
+		SelectedAimMode = _selectedAimMode;
+		AimMode = _aimMode;
+		EffectiveAimMode = _effectiveAimMode;
+		SelectedFireMode = _selectedFireMode;
+		EffectiveFireMode = _effectiveFireMode;
+		BurstShotIndex = _burstShotIndex;
 		AutoBurstSpreadMultiplier = _autoBurstSpreadMultiplier;
 		RawHalfAngleDegrees = _rawHalfAngleDegrees;
 		HalfAngleDegrees = _halfAngleDegrees;
+		SpreadRadiusMeters = _spreadRadiusMeters;
+		SpreadDiameterMeters = _spreadDiameterMeters;
 	}
 }

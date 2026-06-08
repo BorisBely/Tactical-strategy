@@ -16,8 +16,7 @@ public static class WeaponShotCombatLogger
 		WeaponAttachmentDefinition[] _presetAttachments,
 		UnitCombatStats _combatStats,
 		WeaponShotAccuracyContext _accuracy,
-		float _weaponAimTimeSeconds,
-		float _overallAimTimeSeconds,
+		float _fullAimTimeSeconds,
 		Transform _visibleTarget,
 		WeaponShotHitResult _hitResult,
 		int _projectileCount)
@@ -28,14 +27,33 @@ public static class WeaponShotCombatLogger
 		string hitLabel = FormatHitResult(_hitResult, _projectileCount);
 		string rankLabel = UnitCombatRankCycle.ResolveRankLabel(_combatStats != null ? _combatStats.RankPreset : null);
 		float unitAccuracyMultiplier = _accuracy.SkillMultiplier;
-		float unitAimTimeMultiplier = _combatStats != null ? _combatStats.GetAimTimeMultiplier() : 1f;
+		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
+			_accuracy.AimMode,
+			_accuracy.TargetDistanceMeters);
+		float modeAimTimeSeconds = WeaponAimModeUtility.GetRequiredAimTimeSeconds(
+			_fullAimTimeSeconds,
+			_accuracy.AimMode,
+			_accuracy.TargetDistanceMeters);
+		string aimModeLabel = FormatAimModeLabel(_accuracy.SelectedAimMode, _accuracy.EffectiveAimMode);
+		string fireModeLabel = FormatFireModeLabel(_accuracy.SelectedFireMode, _accuracy.EffectiveFireMode);
+		string aimingLabel =
+			$"режим={aimModeLabel} | полное наведение={_fullAimTimeSeconds:F2} с (100%) | " +
+			$"наведение по режиму={modeAimTimeSeconds:F2} с ({requiredProgress:P0}) | " +
+			$"факт на выстреле={_accuracy.AimProgress01:P0} | штраф разброса=×{_accuracy.AimCompletionMultiplier:F2}";
+		string fireLabel =
+			$"режим={fireModeLabel} | выстрел в серии={_accuracy.BurstShotIndex} | " +
+			$"множитель серии=×{_accuracy.AutoBurstSpreadMultiplier:F2}";
+		string spreadLabel =
+			$"ожидаемый диаметр={_accuracy.SpreadDiameterMeters:F2} м / " +
+			$"лимит={WeaponAutoModeSelectionUtility.AcceptableSpreadDiameterMeters:F2} м";
 
 		Debug.Log(
 			$"[Выстрел] {_shooterLabel} | ранг: {rankLabel} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +
 			$"дистанция: {_accuracy.TargetDistanceMeters:F1} м | " +
-			$"точность юнита: ×{unitAccuracyMultiplier:F2} | разброс общий: {_accuracy.HalfAngleDegrees:F2}° | " +
-			$"прицеливание юнита: ×{unitAimTimeMultiplier:F2} | прицеливание оружие: {_weaponAimTimeSeconds:F2} с | " +
-			$"прицеливание общее: {_overallAimTimeSeconds:F2} с | прицел: полный | " +
+			$"точность юнита: ×{unitAccuracyMultiplier:F2} | разброс: {_accuracy.HalfAngleDegrees:F2}° | " +
+			$"огонь: {fireLabel} | " +
+			$"наведение: {aimingLabel} | " +
+			$"Auto-критерий: {spreadLabel} | " +
 			$"цель: {targetLabel} | {hitLabel}",
 			_context);
 	}
@@ -117,6 +135,22 @@ public static class WeaponShotCombatLogger
 		}
 
 		return _attachment != null ? _attachment.name : "?";
+	}
+
+	private static string FormatAimModeLabel(WeaponAimMode _aimMode, WeaponAimMode _effectiveAimMode)
+	{
+		if (_aimMode == WeaponAimMode.Auto)
+			return $"{WeaponAimModeUtility.GetDisplayName(_aimMode)}→{WeaponAimModeUtility.GetDisplayName(_effectiveAimMode)}";
+
+		return WeaponAimModeUtility.GetDisplayName(_aimMode);
+	}
+
+	private static string FormatFireModeLabel(WeaponFireMode _selectedFireMode, WeaponFireMode _effectiveFireMode)
+	{
+		if (_selectedFireMode == WeaponFireMode.Auto)
+			return $"{WeaponFireModeUtility.GetDisplayName(_selectedFireMode)}→{WeaponFireModeUtility.GetDisplayName(_effectiveFireMode)}";
+
+		return WeaponFireModeUtility.GetDisplayName(_selectedFireMode);
 	}
 
 	private static string FormatHitResult(WeaponShotHitResult _hitResult, int _projectileCount)

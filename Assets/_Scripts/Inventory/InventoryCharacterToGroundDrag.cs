@@ -61,6 +61,9 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 	#region Drag Handlers
 	public void OnBeginDrag(PointerEventData eventData)
 	{
+		if (m_Slot != null)
+			InventoryItemTooltip.Instance.HideIfSource(m_Slot);
+
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
 		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
 		CharacterInventory inv = bindings != null ? bindings.GetActiveCharacterInventoryForUi() : null;

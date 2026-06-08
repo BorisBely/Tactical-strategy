@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Laser2
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_laser2
-  m_Description: Компактный лазерный целеуказатель.
+  m_Description: Компактный ЛЦУ: немного точнее до 15 м.
   m_Icon: {fileID: 0}
   m_BasePrice: 260
   m_Category: 0

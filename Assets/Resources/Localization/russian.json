@@ -139,27 +139,27 @@
     },
     {
       "key": "item.attachment.m4_foregrip1",
-      "value": "Вертикальная рукоятка (сильный контроль)"
+      "value": "Вертикальная рукоятка"
     },
     {
       "key": "item.attachment.m4_foregrip2",
-      "value": "Угловая рукоятка (быстрое прицеливание)"
+      "value": "Тактическая рукоятка"
     },
     {
       "key": "item.attachment.m4_foregrip3",
-      "value": "Компактная вертикальная рукоятка"
+      "value": "Горизонтальная рукоятка"
     },
     {
       "key": "item.attachment.m4_foregrip4",
-      "value": "Лёгкая угловая рукоятка"
+      "value": "Эргономичная рукоятка"
     },
     {
       "key": "item.attachment.m4_foregrip5",
-      "value": "Тяжёлая вертикальная рукоятка"
+      "value": "Укороченная рукоятка"
     },
     {
       "key": "item.attachment.m4_laser1",
-      "value": "Тактический ЛЦУ (продвинутый)"
+      "value": "Тактический ЛЦУ"
     },
     {
       "key": "item.attachment.m4_laser2",
@@ -236,6 +236,202 @@
     {
       "key": "item.attachment.mosin_scope8",
       "value": "Стандартный снайперский прицел"
+    },
+    {
+      "key": "item.weapon.ak47.desc",
+      "value": "Винтовка АК-47 под патрон 7.62x39."
+    },
+    {
+      "key": "item.weapon.m4_moda_1.desc",
+      "value": "Конфигурация M4 со стандартным цевьём, прикладом и механическим прицелом."
+    },
+    {
+      "key": "item.weapon.m4_moda_2.desc",
+      "value": "Конфигурация M4 с рельсовым цевьём, сменным прицелом и прикладом."
+    },
+    {
+      "key": "item.loot.ammo_box.556.desc",
+      "value": "Коробка патронов 5.56x45."
+    },
+    {
+      "key": "item.loot.ammo_box.762.desc",
+      "value": "Коробка патронов 7.62x39."
+    },
+    {
+      "key": "item.mag.m4_556_20.desc",
+      "value": "Укороченный магазин на 20 патронов 5.56."
+    },
+    {
+      "key": "item.mag.m4_556_30.desc",
+      "value": "Магазин на 30 патронов 5.56."
+    },
+    {
+      "key": "item.mag.m4_556_40.desc",
+      "value": "Увеличенный магазин на 40 патронов 5.56."
+    },
+    {
+      "key": "item.mag.m4_556_drum_60.desc",
+      "value": "Барабанный магазин на 60 патронов 5.56."
+    },
+    {
+      "key": "item.mag.m4_556_drum_100.desc",
+      "value": "Барабанный магазин на 100 патронов 5.56."
+    },
+    {
+      "key": "item.mag.ak_545_30.desc",
+      "value": "Магазин АК на 30 патронов 5.45x39."
+    },
+    {
+      "key": "item.mag.ak_545_45.desc",
+      "value": "Магазин АК на 45 патронов 5.45x39."
+    },
+    {
+      "key": "item.mag.ak_762_30.desc",
+      "value": "Магазин АК на 30 патронов 7.62x39."
+    },
+    {
+      "key": "item.mag.ak_762_30b.desc",
+      "value": "Бакелитовый магазин АК на 30 патронов 7.62x39."
+    },
+    {
+      "key": "item.mag.ak_762_30c.desc",
+      "value": "Сдвоенный магазин АК на 30 патронов 7.62x39."
+    },
+    {
+      "key": "item.mag.ak_762_75.desc",
+      "value": "Барабанный магазин АК на 75 патронов 7.62x39."
+    },
+    {
+      "key": "item.attachment.m4_silencer_556.desc",
+      "value": "Тише выстрел. Утяжеляет оружие и ускоряет загрязнение."
+    },
+    {
+      "key": "item.attachment.m4_muzzle_brake.desc",
+      "value": "Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди."
+    },
+    {
+      "key": "item.attachment.m4_foregrip1.desc",
+      "value": "Высокий контроль отдачи."
+    },
+    {
+      "key": "item.attachment.m4_foregrip2.desc",
+      "value": "Тактическая рукоятка для быстрого прицеливания."
+    },
+    {
+      "key": "item.attachment.m4_foregrip3.desc",
+      "value": "Высокая скорость прицеливания."
+    },
+    {
+      "key": "item.attachment.m4_foregrip4.desc",
+      "value": "Сбалансированная эргономичная рукоятка."
+    },
+    {
+      "key": "item.attachment.m4_foregrip5.desc",
+      "value": "Улучшенный контроль отдачи."
+    },
+    {
+      "key": "item.attachment.m4_rail_cover1.desc",
+      "value": "Повышают скорость прицеливания."
+    },
+    {
+      "key": "item.attachment.m4_reddot1.desc",
+      "value": "Коллиматор для ближней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_reddot2.desc",
+      "value": "Голографический прицел для ближней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_reddot3.desc",
+      "value": "Коллиматор для ближней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_rdc.desc",
+      "value": "Коллиматор для ближней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_aimpoint.desc",
+      "value": "Оптический прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_scope1_3x.desc",
+      "value": "Оптический прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_acog_rmr.desc",
+      "value": "Оптический прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_acog.desc",
+      "value": "Оптический прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_susat.desc",
+      "value": "Оптический прицел для средней дистанции с коллиматором."
+    },
+    {
+      "key": "item.attachment.m4_elcan_specterdr.desc",
+      "value": "Переменный прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_vortex_razor.desc",
+      "value": "Переменный прицел для средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_eotech_g33.desc",
+      "value": "Гибридный прицел для ближней и средней дистанции."
+    },
+    {
+      "key": "item.attachment.m4_scope4.desc",
+      "value": "Снайперский прицел для высокоточной стрельбы на дальнюю дистанцию."
+    },
+    {
+      "key": "item.attachment.m4_scope5.desc",
+      "value": "Снайперский прицел для высокоточной стрельбы на дальнюю дистанцию."
+    },
+    {
+      "key": "item.attachment.m4_scope9.desc",
+      "value": "Снайперский прицел для высокоточной стрельбы на дальнюю дистанцию."
+    },
+    {
+      "key": "item.attachment.m4_laser1.desc",
+      "value": "Немного улучшает точность на дистанции до 25 м, но замедляет прицеливание."
+    },
+    {
+      "key": "item.attachment.m4_laser2.desc",
+      "value": "Немного улучшает точность на дистанции до 15 м."
+    },
+    {
+      "key": "item.attachment.m4_flashlight1.desc",
+      "value": "Тактический фонарь на планку, немного замедляет прицеливание."
+    },
+    {
+      "key": "item.attachment.m4_stock1.desc",
+      "value": "Лучше контроль отдачи, но медленнее прицеливание."
+    },
+    {
+      "key": "item.attachment.m4_stock2.desc",
+      "value": "Быстрее прицеливание, но выше отдача."
+    },
+    {
+      "key": "item.attachment.ak_silencer.desc",
+      "value": "Тише выстрел. Утяжеляет оружие и ускоряет загрязнение."
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake.desc",
+      "value": "Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди."
+    },
+    {
+      "key": "item.attachment.ak_reddot4_rail.desc",
+      "value": "Стандартный коллиматор для боковой планки AK."
+    },
+    {
+      "key": "item.attachment.ak_scope11.desc",
+      "value": "4-кратный оптический прицел для боковой планки AK."
+    },
+    {
+      "key": "item.attachment.mosin_scope8.desc",
+      "value": "Стандартный снайперский прицел."
     },
     {
       "key": "pause.title",
@@ -400,6 +596,10 @@
     {
       "key": "mission_prep.stats.aim_speed",
       "value": "Скорость прицеливания"
+    },
+    {
+      "key": "mission_prep.stats.recoil_control",
+      "value": "Контроль отдачи"
     },
     {
       "key": "weapon.mod_slot.magazine",

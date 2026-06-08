@@ -95,5 +95,18 @@ public class ItemDefinition : ScriptableObject
 
 		return LocalizationManager.Get(m_LocalizationKey, LocalizationManager.Get("item.generic", "Item"));
 	}
+
+	public string GetLocalizedDescription()
+	{
+		if (!string.IsNullOrWhiteSpace(m_LocalizationKey))
+		{
+			string descriptionKey = $"{m_LocalizationKey}.desc";
+			string localized = LocalizationManager.Get(descriptionKey, m_Description);
+			if (localized != descriptionKey)
+				return localized;
+		}
+
+		return m_Description ?? string.Empty;
+	}
 	#endregion
 }

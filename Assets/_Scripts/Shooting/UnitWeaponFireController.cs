@@ -40,9 +40,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField, Min(0.05f)] private float m_OutOfAmmoReloadRetrySeconds = 0.35f;
 
 	[Header("Aiming Gate")]
-	[Tooltip("Запрещать выстрел, пока не завершено полное прицеливание (AimProgress = 1).")]
+	[Tooltip("Запрещать выстрел, пока не достигнут порог выбранного режима прицеливания. Для Burst/FullAuto — только 1-й выстрел серии или очереди.")]
 	[SerializeField] private bool m_RequireFullAimToFire = true;
-	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick.")]
+	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Только для одиночного и когда Auto выбрал SemiAuto; Burst/FullAuto идут по RPM и разбросу.")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 1.5f;
 
@@ -53,6 +53,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private int m_DebugSuccessfulShotCount;
 	[SerializeField] private int m_DebugBurstShotsRemaining;
 	[SerializeField] private float m_DebugNextBurstWaveTime;
+	[SerializeField] private WeaponFireMode m_DebugSelectedFireMode = WeaponFireMode.SemiAuto;
+	[SerializeField] private WeaponFireMode m_DebugEffectiveFireMode = WeaponFireMode.SemiAuto;
 	[SerializeField, Range(0f, 1f)] private float m_DebugCurrentAimProgress;
 	[SerializeField, Min(0f)] private float m_DebugLastBarrelAimErrorDegrees;
 	#endregion
@@ -61,6 +63,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private int m_BurstShotsRemainingInWave;
 	private float m_NextBurstWaveTime;
 	private float m_NextOutOfAmmoReloadAttemptTime;
+	private bool m_SemiShotConsumedForCurrentTrigger;
 	#endregion
 
 	#region Public Properties
@@ -94,7 +97,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return;
 
-		WeaponFireMode mode = m_WeaponRuntime.RuntimeState.SelectedFireMode;
+		WeaponFireMode mode = ResolveEffectiveFireMode();
 		if (mode == WeaponFireMode.FullAuto)
 		{
 			TryFireSingleShot();
@@ -111,36 +114,81 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	{
 		m_IsFiringCommandActive = true;
 
-		WeaponFireMode fireMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.SelectedFireMode
-			: WeaponFireMode.SemiAuto;
+		WeaponFireMode fireMode = ResolveEffectiveFireMode();
 
 		if (fireMode == WeaponFireMode.FullAuto || fireMode == WeaponFireMode.Burst)
 			return;
 
-		TryFireSingleShot();
+		if (m_SemiShotConsumedForCurrentTrigger)
+			return;
+
+		WeaponShotAttemptResult result = TryFireSingleShot();
+		if (result == WeaponShotAttemptResult.Success)
+			m_SemiShotConsumedForCurrentTrigger = true;
 	}
 
-	public void StopFiring()
+	public bool ShouldHoldVirtualTrigger()
 	{
-		m_IsFiringCommandActive = false;
-		m_BurstShotsRemainingInWave = 0;
-		m_NextBurstWaveTime = 0f;
-		ResetBurstSpreadCounter();
+		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			return false;
+
+		if (m_WeaponRuntime.CurrentWeaponDefinition == null)
+			return false;
+
+		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
+		bool canEventuallyFire = rs.HasRoundInChamber || (rs.HasMagazine && rs.HasAmmoInMagazine);
+		if (!canEventuallyFire)
+			return false;
+
+		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
+			return false;
+
+		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+			return false;
+
+		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+			return false;
+
+		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
+			return false;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
+		return !ShouldRequireAimProgressForNextShot() || HasRequiredAimProgress(transientState);
 	}
 
-	/// <summary>
-	/// Сброс очереди burst при смене режима огня. Не трогает <see cref="IsFiringCommandActive"/> —
-	/// иначе в том же кадре <see cref="UnitWeaponAutoFireWhenAimed"/> снова вызовет <see cref="StartFiring"/>,
-	/// и для полуавтомата повторится <see cref="TryFireSingleShot"/> (лишний выстрел/отдача).
-	/// </summary>
-	public void ResetBurstStateForFireModeChange()
+	public WeaponFireMode ResolveEffectiveFireMode()
 	{
-		m_BurstShotsRemainingInWave = 0;
-		m_NextBurstWaveTime = 0f;
-		m_DebugBurstShotsRemaining = 0;
-		m_DebugNextBurstWaveTime = 0f;
-		ResetBurstSpreadCounter();
+		WeaponFireMode selectedMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.SelectedFireMode
+			: WeaponFireMode.SemiAuto;
+		WeaponFireMode effectiveMode = m_HitscanShooting != null &&
+			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
+			? selection.EffectiveFireMode
+			: m_WeaponRuntime != null
+			? m_WeaponRuntime.ResolveEffectiveFireMode(EstimateTargetDistanceMeters())
+			: WeaponFireMode.SemiAuto;
+
+		m_DebugSelectedFireMode = selectedMode;
+		m_DebugEffectiveFireMode = effectiveMode;
+		return effectiveMode;
+	}
+
+	public WeaponFireMode GetSelectedFireMode()
+	{
+		return m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
+			? m_WeaponRuntime.RuntimeState.SelectedFireMode
+			: WeaponFireMode.SemiAuto;
+	}
+
+	public bool IsCurrentEffectiveFireModeAutomatic()
+	{
+		return WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode());
+	}
+
+	public void ResetSemiTriggerState()
+	{
+		m_SemiShotConsumedForCurrentTrigger = false;
 	}
 
 	public WeaponShotAttemptResult TryFireSingleShot()
@@ -195,18 +243,48 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (!IsAimedEnoughToFire())
 			return WeaponShotAttemptResult.NotAimed;
 
-		return m_WeaponRuntime.TryConsumeShot(_currentTime, out _firedAmmoDefinition);
+		return m_WeaponRuntime.TryConsumeShot(_currentTime, ResolveEffectiveFireMode(), out _firedAmmoDefinition);
+	}
+
+	public void StopFiring()
+	{
+		m_IsFiringCommandActive = false;
+		m_BurstShotsRemainingInWave = 0;
+		m_NextBurstWaveTime = 0f;
+		m_SemiShotConsumedForCurrentTrigger = false;
+		ResetBurstSpreadCounter();
+	}
+
+	/// <summary>
+	/// Сброс очереди burst при смене режима огня. Не трогает <see cref="IsFiringCommandActive"/> —
+	/// иначе в том же кадре <see cref="UnitWeaponAutoFireWhenAimed"/> снова вызовет <see cref="StartFiring"/>,
+	/// и для полуавтомата повторится <see cref="TryFireSingleShot"/> (лишний выстрел/отдача).
+	/// </summary>
+	public void ResetBurstStateForFireModeChange()
+	{
+		m_BurstShotsRemainingInWave = 0;
+		m_NextBurstWaveTime = 0f;
+		m_SemiShotConsumedForCurrentTrigger = false;
+		m_DebugBurstShotsRemaining = 0;
+		m_DebugNextBurstWaveTime = 0f;
+		ResetBurstSpreadCounter();
 	}
 
 	private bool IsAimedEnoughToFire()
 	{
 		EquippedWeaponTransientState transientState = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState : null;
 		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
-		if (m_RequireFullAimToFire && (transientState == null || !transientState.IsFullyAimed))
+		if (ShouldRequireAimProgressForNextShot() && !HasRequiredAimProgress(transientState))
 			return false;
 
 		if (!m_RequireBarrelAlignedToFire || m_Vision == null || m_Vision.VisibleTarget == null)
 			return true;
+
+		if (WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
+		{
+			m_DebugLastBarrelAimErrorDegrees = 0f;
+			return true;
+		}
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		Transform barrel = weapon != null ? weapon.BarrelTransform : null;
@@ -226,6 +304,50 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(barrel.forward, toTarget.normalized);
 		return m_DebugLastBarrelAimErrorDegrees <= m_MaxBarrelAimErrorDegrees;
+	}
+
+	private bool HasRequiredAimProgress(EquippedWeaponTransientState _transientState)
+	{
+		if (_transientState == null || m_WeaponRuntime == null)
+			return false;
+
+		WeaponAimMode effectiveAimMode = m_HitscanShooting != null &&
+			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
+			? selection.EffectiveAimMode
+			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
+		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(effectiveAimMode, EstimateTargetDistanceMeters());
+		return _transientState.AimProgress01 >= requiredProgress;
+	}
+
+	/// <summary>Burst/FullAuto: порог прицела только перед 1-м выстрелом серии; SemiAuto — каждый выстрел.</summary>
+	private bool ShouldRequireAimProgressForNextShot()
+	{
+		if (!m_RequireFullAimToFire)
+			return false;
+
+		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
+			return true;
+
+		if (m_WeaponRuntime == null)
+			return true;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		return transientState == null || transientState.GetNextBurstShotIndex() <= 1;
+	}
+
+	private float EstimateTargetDistanceMeters()
+	{
+		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		if (target == null)
+			return 0f;
+
+		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Transform barrel = weapon != null ? weapon.BarrelTransform : transform;
+		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (targetPoint == Vector3.zero)
+			targetPoint = target.position;
+
+		return Vector3.Distance(barrel.position, targetPoint);
 	}
 
 	private void UpdateBurstFire(float _time)
@@ -262,6 +384,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			case WeaponShotAttemptResult.FireRateLimited:
 			case WeaponShotAttemptResult.Busy:
 			case WeaponShotAttemptResult.NeedsBoltCycle:
+			case WeaponShotAttemptResult.NotAimed:
 				break;
 			default:
 				m_BurstShotsRemainingInWave = 0;
@@ -298,8 +421,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return;
 
-		WeaponFireMode mode = m_WeaponRuntime.RuntimeState.SelectedFireMode;
-		if (mode != WeaponFireMode.FullAuto && mode != WeaponFireMode.Burst)
+		WeaponFireMode mode = ResolveEffectiveFireMode();
+		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(mode))
 			return;
 
 		m_WeaponRuntime.TransientState.RegisterBurstShotFired();

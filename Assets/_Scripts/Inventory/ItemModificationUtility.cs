@@ -131,6 +131,22 @@ public static class ItemModificationUtility
 		return !_item.IsEmpty && _item.Definition != null && _item.Definition.WeaponAttachmentDefinition != null;
 	}
 
+	public static bool IsRecoilGraphPreviewAttachment(WeaponAttachmentDefinition _attachment)
+	{
+		return _attachment != null &&
+		       (_attachment.SupportsSlot(WeaponAttachmentSlotType.UnderBarrel) ||
+		        _attachment.SupportsSlot(WeaponAttachmentSlotType.Muzzle) ||
+		        _attachment.SupportsSlot(WeaponAttachmentSlotType.Stock));
+	}
+
+	public static bool IsRecoilGraphPreviewItem(InventorySlotRuntimeData _item)
+	{
+		if (!IsAttachmentItem(_item))
+			return false;
+
+		return IsRecoilGraphPreviewAttachment(_item.Definition.WeaponAttachmentDefinition);
+	}
+
 	public static bool CanAcceptItem(ItemModificationSlotDescriptor _slot, InventorySlotRuntimeData _weaponSlot, InventorySlotRuntimeData _candidate)
 	{
 		return string.Equals(

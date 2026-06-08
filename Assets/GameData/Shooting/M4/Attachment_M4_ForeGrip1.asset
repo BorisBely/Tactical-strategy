@@ -18,9 +18,9 @@ MonoBehaviour:
   m_CompatibleWeapons: []
   m_CompatibleSlots: 01000000
   m_CompatibleRailSocketIndices: 
-  m_AimTimeModifier: 1.04
+  m_AimTimeModifier: 1.06
   m_EffectiveRangeModifier: 1
-  m_RecoilModifier: 0.84
+  m_RecoilModifier: 0.82
   m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1

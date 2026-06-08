@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ForeGrip2
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_foregrip2
-  m_Description: Угловая рукоять для более быстрого наведения.
+  m_Description: Тактическая рукоятка для быстрого перехода к цели и стрельбы с ходу.
   m_Icon: {fileID: 0}
   m_BasePrice: 230
   m_Category: 0

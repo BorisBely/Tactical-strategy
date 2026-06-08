@@ -128,11 +128,11 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		if (m_KickTarget == null)
 			return;
 
-		WeaponFireMode fireMode = m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.SelectedFireMode
+		WeaponFireMode fireMode = m_FireController != null
+			? m_FireController.ResolveEffectiveFireMode()
 			: WeaponFireMode.SemiAuto;
 		float attachmentRecoilModifier = m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
+			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct(fireMode)
 			: 1f;
 
 		float penaltyAdded = WeaponDefinition.ComputeAddedRecoilPenalty(

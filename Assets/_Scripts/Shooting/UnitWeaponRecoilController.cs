@@ -93,12 +93,12 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	private float CalculateRecoilAddedPerShot(AmmoDefinition _ammoDefinition)
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
-		WeaponFireMode fireMode = m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.SelectedFireMode
+		WeaponFireMode fireMode = m_FireController != null
+			? m_FireController.ResolveEffectiveFireMode()
 			: WeaponFireMode.SemiAuto;
 
 		float attachmentModifier = m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct()
+			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct(fireMode)
 			: 1f;
 		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;

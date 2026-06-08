@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
-public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandler, IPointerClickHandler
+public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
 	#region Constants
 	private const float c_DoubleClickMaxDelaySeconds = 0.35f;
@@ -24,6 +24,7 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 	private TMP_Text m_LabelText;
 	private TMP_Text m_ItemText;
 	private float m_LastLeftClickUnscaledTime = -1f;
+	private bool m_IsGraphPreviewHovering;
 	#endregion
 
 	#region Public Properties
@@ -133,10 +134,47 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 				m_Descriptor,
 				m_WeaponSlot,
 				"double-click clear failed (see prior [WeaponMod] logs)");
+		else if (m_IsGraphPreviewHovering)
+			ClearGraphPreviewHover();
+	}
+
+	public void OnPointerEnter(PointerEventData eventData)
+	{
+		if (!TryGetInstalledItem(out InventorySlotRuntimeData installedItem) ||
+		    !ItemModificationUtility.IsAttachmentItem(installedItem))
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+		if (m_Coordinator == null)
+			return;
+
+		m_IsGraphPreviewHovering = true;
+		m_Coordinator.SetHoveredModificationPreviewCandidate(installedItem);
+	}
+
+	public void OnPointerExit(PointerEventData eventData)
+	{
+		if (!m_IsGraphPreviewHovering)
+			return;
+
+		ClearGraphPreviewHover();
 	}
 	#endregion
 
 	#region Private Methods
+	private void ClearGraphPreviewHover()
+	{
+		m_IsGraphPreviewHovering = false;
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		if (TryGetInstalledItem(out InventorySlotRuntimeData installedItem))
+			m_Coordinator?.ClearHoveredModificationPreviewCandidate(installedItem);
+		else
+			m_Coordinator?.ClearHoveredModificationPreviewCandidate(default);
+	}
+
 	private void EnsureUi()
 	{
 		if (m_BackgroundImage != null)

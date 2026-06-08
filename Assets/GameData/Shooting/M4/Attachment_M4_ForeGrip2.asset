@@ -20,7 +20,7 @@ MonoBehaviour:
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 0.94
   m_EffectiveRangeModifier: 1
-  m_RecoilModifier: 0.92
+  m_RecoilModifier: 0.94
   m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1

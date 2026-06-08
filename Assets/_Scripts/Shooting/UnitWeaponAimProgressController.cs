@@ -198,6 +198,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (!m_ResetAimProgressAfterShot || m_WeaponRuntime == null)
 			return;
 
+		if (m_FireController != null && m_FireController.IsCurrentEffectiveFireModeAutomatic())
+			return;
+
 		m_WeaponRuntime.SetAimProgress(0f);
 	}
 

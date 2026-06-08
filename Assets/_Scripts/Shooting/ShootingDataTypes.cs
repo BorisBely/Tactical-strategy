@@ -21,7 +21,167 @@ public enum WeaponFireMode
 {
 	SemiAuto = 0,
 	FullAuto = 1,
-	Burst = 2
+	Burst = 2,
+	Auto = 3
+}
+
+/// <summary>
+/// Баланс выбранного и эффективного режима огня.
+/// </summary>
+public static class WeaponFireModeUtility
+{
+	#region Public Methods
+	public static WeaponFireMode ResolveEffectiveMode(
+		WeaponFireMode _selectedMode,
+		float _distanceMeters,
+		WeaponFireMode[] _availableModes)
+	{
+		if (_selectedMode != WeaponFireMode.Auto)
+			return IsModeSupported(_selectedMode, _availableModes) ? _selectedMode : ResolveFallbackMode(_selectedMode, _availableModes);
+
+		return ResolveFallbackMode(WeaponFireMode.SemiAuto, _availableModes);
+	}
+
+	public static bool IsAutomaticEffectiveMode(WeaponFireMode _mode)
+	{
+		return _mode == WeaponFireMode.FullAuto || _mode == WeaponFireMode.Burst;
+	}
+
+	public static bool IsModeSupported(WeaponFireMode _mode, WeaponFireMode[] _availableModes)
+	{
+		if (_availableModes == null || _availableModes.Length == 0)
+			return _mode == WeaponFireMode.SemiAuto;
+
+		for (int i = 0; i < _availableModes.Length; i++)
+		{
+			if (_availableModes[i] == _mode)
+				return true;
+		}
+
+		return false;
+	}
+
+	public static string GetDisplayName(WeaponFireMode _mode)
+	{
+		return _mode switch
+		{
+			WeaponFireMode.SemiAuto => "одиночный",
+			WeaponFireMode.Burst => "короткая очередь",
+			WeaponFireMode.FullAuto => "автоматический",
+			WeaponFireMode.Auto => "автовыбор",
+			_ => _mode.ToString()
+		};
+	}
+	#endregion
+
+	#region Private Methods
+	private static WeaponFireMode ResolveFallbackMode(WeaponFireMode _desiredMode, WeaponFireMode[] _availableModes)
+	{
+		if (IsModeSupported(_desiredMode, _availableModes) && _desiredMode != WeaponFireMode.Auto)
+			return _desiredMode;
+
+		switch (_desiredMode)
+		{
+			case WeaponFireMode.FullAuto:
+				return FirstSupported(_availableModes, WeaponFireMode.FullAuto, WeaponFireMode.Burst, WeaponFireMode.SemiAuto);
+			case WeaponFireMode.Burst:
+				return FirstSupported(_availableModes, WeaponFireMode.Burst, WeaponFireMode.SemiAuto, WeaponFireMode.FullAuto);
+			default:
+				return FirstSupported(_availableModes, WeaponFireMode.SemiAuto, WeaponFireMode.Burst, WeaponFireMode.FullAuto);
+		}
+	}
+
+	private static WeaponFireMode FirstSupported(WeaponFireMode[] _availableModes, params WeaponFireMode[] _preferredModes)
+	{
+		for (int i = 0; i < _preferredModes.Length; i++)
+		{
+			if (IsModeSupported(_preferredModes[i], _availableModes))
+				return _preferredModes[i];
+		}
+
+		return WeaponFireMode.SemiAuto;
+	}
+	#endregion
+}
+
+/// <summary>
+/// Режим, определяющий сколько AimProgress нужно накопить перед выстрелом.
+/// </summary>
+public enum WeaponAimMode
+{
+	FullAim = 0,
+	QuickAim = 1,
+	SnapShot = 2,
+	Auto = 3
+}
+
+/// <summary>
+/// Баланс режимов неполного прицеливания и штрафов к разбросу.
+/// </summary>
+public static class WeaponAimModeUtility
+{
+	#region Constants
+	public const float SnapShotAimProgress01 = 0.25f;
+	public const float QuickAimProgress01 = 0.60f;
+	public const float FullAimProgress01 = 1.00f;
+	#endregion
+
+	#region Public Methods
+	public static WeaponAimMode ResolveEffectiveMode(WeaponAimMode _mode, float _distanceMeters)
+	{
+		if (_mode != WeaponAimMode.Auto)
+			return _mode;
+
+		return WeaponAimMode.FullAim;
+	}
+
+	public static float GetRequiredAimProgress01(WeaponAimMode _mode, float _distanceMeters)
+	{
+		switch (ResolveEffectiveMode(_mode, _distanceMeters))
+		{
+			case WeaponAimMode.SnapShot:
+				return SnapShotAimProgress01;
+			case WeaponAimMode.QuickAim:
+				return QuickAimProgress01;
+			default:
+				return FullAimProgress01;
+		}
+	}
+
+	/// <summary>Время до выстрела при линейном накоплении AimProgress: полное время × порог режима.</summary>
+	public static float GetRequiredAimTimeSeconds(float _fullAimTimeSeconds, WeaponAimMode _mode, float _distanceMeters)
+	{
+		return Mathf.Max(0f, _fullAimTimeSeconds * GetRequiredAimProgress01(_mode, _distanceMeters));
+	}
+
+	public static string GetDisplayName(WeaponAimMode _mode)
+	{
+		return _mode switch
+		{
+			WeaponAimMode.FullAim => "прицельная",
+			WeaponAimMode.QuickAim => "быстрое",
+			WeaponAimMode.SnapShot => "на вскидку",
+			WeaponAimMode.Auto => "авто",
+			_ => _mode.ToString()
+		};
+	}
+
+	public static float GetIncompleteAimSpreadMultiplier(float _aimProgress01)
+	{
+		float progress = Mathf.Clamp01(_aimProgress01);
+		if (progress >= FullAimProgress01)
+			return 1f;
+
+		if (progress >= 0.85f)
+			return Mathf.Lerp(1.15f, 1f, Mathf.InverseLerp(0.85f, FullAimProgress01, progress));
+		if (progress >= QuickAimProgress01)
+			return Mathf.Lerp(1.45f, 1.15f, Mathf.InverseLerp(QuickAimProgress01, 0.85f, progress));
+		if (progress >= SnapShotAimProgress01)
+			return Mathf.Lerp(2.20f, 1.45f, Mathf.InverseLerp(SnapShotAimProgress01, QuickAimProgress01, progress));
+
+		return Mathf.Lerp(3.00f, 2.20f, Mathf.InverseLerp(0f, SnapShotAimProgress01, progress));
+	}
+	#endregion
 }
 
 /// <summary>

@@ -120,9 +120,11 @@ public static class Ak47PreparedContentBuilder
 			silencerAkVisual,
 			new[] { LoadAsset<WeaponDefinition>(c_WeaponAkPath) },
 			760,
-			_aimTimeModifier: 1.1f,
-			_effectiveRangeModifier: 1.05f,
-			_recoilModifier: 0.95f);
+			_aimTimeModifier: 1.05f,
+			_effectiveRangeModifier: 1.1f,
+			_recoilModifier: 1f,
+			_semiAutoRecoilModifier: 1f,
+			_automaticRecoilModifier: 1f);
 
 		ItemDefinition muzzleBrakeAkItem = BuildAttachment(
 			"Attachment_AK_MuzzleBrakeAK",
@@ -136,9 +138,11 @@ public static class Ak47PreparedContentBuilder
 			muzzleBrakeAkVisual,
 			new[] { LoadAsset<WeaponDefinition>(c_WeaponAkPath) },
 			420,
-			_aimTimeModifier: 1.02f,
+			_aimTimeModifier: 0.91f,
 			_effectiveRangeModifier: 1f,
-			_recoilModifier: 0.82f);
+			_recoilModifier: 1f,
+			_semiAutoRecoilModifier: 0.9f,
+			_automaticRecoilModifier: 1.15f);
 
 		ItemDefinition muzzleBrakeM4Item = BuildAttachment(
 			"Attachment_M4_MuzzleBrakeM4",
@@ -152,9 +156,11 @@ public static class Ak47PreparedContentBuilder
 			muzzleBrakeM4Visual,
 			LoadM4Weapons(),
 			420,
-			_aimTimeModifier: 1.02f,
+			_aimTimeModifier: 0.91f,
 			_effectiveRangeModifier: 1f,
-			_recoilModifier: 0.82f);
+			_recoilModifier: 1f,
+			_semiAutoRecoilModifier: 0.9f,
+			_automaticRecoilModifier: 1.15f);
 
 		BuildLootForItem(silencerAkItem, $"{c_AkLootAttachmentsRoot}/Loot_Att_AK_SilencerAK.prefab", silencerAkVisual);
 		BuildLootForItem(muzzleBrakeAkItem, $"{c_AkLootAttachmentsRoot}/Loot_Att_AK_MuzzleBrakeAK.prefab", muzzleBrakeAkVisual);
@@ -185,7 +191,7 @@ public static class Ak47PreparedContentBuilder
 		so.FindProperty("m_ArmorDamage").floatValue = 10f;
 		so.FindProperty("m_ProjectileCount").intValue = 1;
 		so.FindProperty("m_Velocity").floatValue = 715f;
-		so.FindProperty("m_EffectiveRangeMeters").floatValue = 350f;
+		so.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
 		so.FindProperty("m_ShellEjectSpeed").floatValue = 5.5f;
 		so.FindProperty("m_ShellEjectSpeedVariance").floatValue = 0.75f;
 		so.FindProperty("m_ShellEjectUpSpeed").floatValue = 1.2f;
@@ -295,7 +301,9 @@ public static class Ak47PreparedContentBuilder
 		int _price,
 		float _aimTimeModifier,
 		float _effectiveRangeModifier,
-		float _recoilModifier)
+		float _recoilModifier,
+		float _semiAutoRecoilModifier = 1f,
+		float _automaticRecoilModifier = 1f)
 	{
 		WeaponAttachmentDefinition attachment = GetOrCreateAsset<WeaponAttachmentDefinition>(_attachmentPath, _attachmentName);
 		var so = new SerializedObject(attachment);
@@ -312,10 +320,12 @@ public static class Ak47PreparedContentBuilder
 		so.FindProperty("m_AimTimeModifier").floatValue = _aimTimeModifier;
 		so.FindProperty("m_EffectiveRangeModifier").floatValue = _effectiveRangeModifier;
 		so.FindProperty("m_RecoilModifier").floatValue = _recoilModifier;
+		so.FindProperty("m_SemiAutoRecoilModifier").floatValue = _semiAutoRecoilModifier;
+		so.FindProperty("m_AutomaticRecoilModifier").floatValue = _automaticRecoilModifier;
 		so.FindProperty("m_ReloadTimeModifier").floatValue = 1f;
 		so.FindProperty("m_WearPerShotMultiplier").floatValue = 1f;
-		so.FindProperty("m_FoulingPerShotMultiplier").floatValue = _attachmentType == WeaponAttachmentType.Suppressor ? 1.2f : 1f;
-		so.FindProperty("m_JamRiskModifier").floatValue = _attachmentType == WeaponAttachmentType.Suppressor ? 1.08f : 1f;
+		so.FindProperty("m_FoulingPerShotMultiplier").floatValue = _attachmentType == WeaponAttachmentType.Suppressor ? 1.15f : 1f;
+		so.FindProperty("m_JamRiskModifier").floatValue = _attachmentType == WeaponAttachmentType.Suppressor ? 1.06f : 1f;
 		so.FindProperty("m_EquippedVisualPrefab").objectReferenceValue = _visual;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(attachment);
@@ -373,7 +383,7 @@ public static class Ak47PreparedContentBuilder
 		weaponSo.FindProperty("m_FireRateRpm").intValue = 600;
 		weaponSo.FindProperty("m_AimTimeSeconds").floatValue = 0.32f;
 		weaponSo.FindProperty("m_ReloadTimeSeconds").floatValue = 2.4f;
-		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 350f;
+		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
 		weaponSo.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(weapon);
 

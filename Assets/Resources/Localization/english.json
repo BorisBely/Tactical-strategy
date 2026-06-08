@@ -139,27 +139,27 @@
     },
     {
       "key": "item.attachment.m4_foregrip1",
-      "value": "Vertical foregrip (heavy control)"
+      "value": "Vertical foregrip"
     },
     {
       "key": "item.attachment.m4_foregrip2",
-      "value": "Angled foregrip (fast aim)"
+      "value": "Tactical foregrip"
     },
     {
       "key": "item.attachment.m4_foregrip3",
-      "value": "Compact vertical foregrip"
+      "value": "Horizontal foregrip"
     },
     {
       "key": "item.attachment.m4_foregrip4",
-      "value": "Light angled foregrip"
+      "value": "Ergonomic foregrip"
     },
     {
       "key": "item.attachment.m4_foregrip5",
-      "value": "Heavy vertical foregrip"
+      "value": "Shortened foregrip"
     },
     {
       "key": "item.attachment.m4_laser1",
-      "value": "Tactical laser (advanced)"
+      "value": "Tactical laser"
     },
     {
       "key": "item.attachment.m4_laser2",
@@ -236,6 +236,202 @@
     {
       "key": "item.attachment.mosin_scope8",
       "value": "Standard sniper scope"
+    },
+    {
+      "key": "item.weapon.ak47.desc",
+      "value": "AK-47 rifle chambered in 7.62x39."
+    },
+    {
+      "key": "item.weapon.m4_moda_1.desc",
+      "value": "M4 configuration with standard handguard, fixed stock and iron sights."
+    },
+    {
+      "key": "item.weapon.m4_moda_2.desc",
+      "value": "M4 configuration with railed handguard, replaceable optic and stock."
+    },
+    {
+      "key": "item.loot.ammo_box.556.desc",
+      "value": "5.56x45 ammo box."
+    },
+    {
+      "key": "item.loot.ammo_box.762.desc",
+      "value": "7.62x39 ammo box."
+    },
+    {
+      "key": "item.mag.m4_556_20.desc",
+      "value": "20-round short 5.56 magazine."
+    },
+    {
+      "key": "item.mag.m4_556_30.desc",
+      "value": "30-round 5.56 magazine."
+    },
+    {
+      "key": "item.mag.m4_556_40.desc",
+      "value": "40-round extended 5.56 magazine."
+    },
+    {
+      "key": "item.mag.m4_556_drum_60.desc",
+      "value": "60-round 5.56 drum magazine."
+    },
+    {
+      "key": "item.mag.m4_556_drum_100.desc",
+      "value": "100-round 5.56 drum magazine."
+    },
+    {
+      "key": "item.mag.ak_545_30.desc",
+      "value": "30-round 5.45x39 AK magazine."
+    },
+    {
+      "key": "item.mag.ak_545_45.desc",
+      "value": "45-round 5.45x39 AK magazine."
+    },
+    {
+      "key": "item.mag.ak_762_30.desc",
+      "value": "30-round 7.62x39 AK magazine."
+    },
+    {
+      "key": "item.mag.ak_762_30b.desc",
+      "value": "30-round 7.62x39 AK bakelite magazine."
+    },
+    {
+      "key": "item.mag.ak_762_30c.desc",
+      "value": "30-round 7.62x39 AK coupled magazine."
+    },
+    {
+      "key": "item.mag.ak_762_75.desc",
+      "value": "75-round 7.62x39 AK drum magazine."
+    },
+    {
+      "key": "item.attachment.m4_silencer_556.desc",
+      "value": "Quieter shots. Adds weight and increases fouling."
+    },
+    {
+      "key": "item.attachment.m4_muzzle_brake.desc",
+      "value": "Faster recovery for accurate single shots, but worse control during long bursts."
+    },
+    {
+      "key": "item.attachment.m4_foregrip1.desc",
+      "value": "High recoil control."
+    },
+    {
+      "key": "item.attachment.m4_foregrip2.desc",
+      "value": "Tactical foregrip for fast aiming."
+    },
+    {
+      "key": "item.attachment.m4_foregrip3.desc",
+      "value": "High aim speed."
+    },
+    {
+      "key": "item.attachment.m4_foregrip4.desc",
+      "value": "Balanced ergonomic foregrip."
+    },
+    {
+      "key": "item.attachment.m4_foregrip5.desc",
+      "value": "Improved recoil control."
+    },
+    {
+      "key": "item.attachment.m4_rail_cover1.desc",
+      "value": "Increases aim speed."
+    },
+    {
+      "key": "item.attachment.m4_reddot1.desc",
+      "value": "Collimator sight for close range."
+    },
+    {
+      "key": "item.attachment.m4_reddot2.desc",
+      "value": "Holographic sight for close range."
+    },
+    {
+      "key": "item.attachment.m4_reddot3.desc",
+      "value": "Collimator sight for close range."
+    },
+    {
+      "key": "item.attachment.m4_rdc.desc",
+      "value": "Collimator sight for close range."
+    },
+    {
+      "key": "item.attachment.m4_aimpoint.desc",
+      "value": "Optical sight for medium range."
+    },
+    {
+      "key": "item.attachment.m4_scope1_3x.desc",
+      "value": "Optical sight for medium range."
+    },
+    {
+      "key": "item.attachment.m4_acog_rmr.desc",
+      "value": "Optical sight for medium range."
+    },
+    {
+      "key": "item.attachment.m4_acog.desc",
+      "value": "Optical sight for medium range."
+    },
+    {
+      "key": "item.attachment.m4_susat.desc",
+      "value": "Optical sight for medium range with a collimator."
+    },
+    {
+      "key": "item.attachment.m4_elcan_specterdr.desc",
+      "value": "Variable-power optic for medium range."
+    },
+    {
+      "key": "item.attachment.m4_vortex_razor.desc",
+      "value": "Variable-power optic for medium range."
+    },
+    {
+      "key": "item.attachment.m4_eotech_g33.desc",
+      "value": "Hybrid sight for close and medium range."
+    },
+    {
+      "key": "item.attachment.m4_scope4.desc",
+      "value": "Sniper scope for precise long-range shooting."
+    },
+    {
+      "key": "item.attachment.m4_scope5.desc",
+      "value": "Sniper scope for precise long-range shooting."
+    },
+    {
+      "key": "item.attachment.m4_scope9.desc",
+      "value": "Sniper scope for precise long-range shooting."
+    },
+    {
+      "key": "item.attachment.m4_laser1.desc",
+      "value": "Slightly improves accuracy up to 25 m, but slows aiming."
+    },
+    {
+      "key": "item.attachment.m4_laser2.desc",
+      "value": "Slightly improves accuracy up to 15 m."
+    },
+    {
+      "key": "item.attachment.m4_flashlight1.desc",
+      "value": "Tactical rail-mounted flashlight, slightly slows aiming."
+    },
+    {
+      "key": "item.attachment.m4_stock1.desc",
+      "value": "Better recoil control, but slower aiming."
+    },
+    {
+      "key": "item.attachment.m4_stock2.desc",
+      "value": "Faster aiming, but higher recoil."
+    },
+    {
+      "key": "item.attachment.ak_silencer.desc",
+      "value": "Quieter shots. Adds weight and increases fouling."
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake.desc",
+      "value": "Faster recovery for accurate single shots, but worse control during long bursts."
+    },
+    {
+      "key": "item.attachment.ak_reddot4_rail.desc",
+      "value": "Standard collimator sight for the AK side rail."
+    },
+    {
+      "key": "item.attachment.ak_scope11.desc",
+      "value": "4x optical sight for the AK side rail."
+    },
+    {
+      "key": "item.attachment.mosin_scope8.desc",
+      "value": "Standard sniper scope."
     },
     {
       "key": "pause.title",
@@ -400,6 +596,10 @@
     {
       "key": "mission_prep.stats.aim_speed",
       "value": "Aim speed"
+    },
+    {
+      "key": "mission_prep.stats.recoil_control",
+      "value": "Recoil control"
     },
     {
       "key": "weapon.mod_slot.magazine",

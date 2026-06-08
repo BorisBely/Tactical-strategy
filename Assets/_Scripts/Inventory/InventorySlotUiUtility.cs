@@ -173,6 +173,49 @@ public static class InventorySlotUiUtility
 	}
 
 	/// <summary>Вызывается при SpawnNewSlotFromPrefab для leading-ячейки 0 (слот экипировки).</summary>
+	public static void EnsureDescriptionHover(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+
+		DisableTextRaycastTargets(_slot);
+
+		GameObject hoverTarget = ResolveDescriptionHoverTarget(_slot);
+		if (hoverTarget == null)
+			return;
+
+		InventorySlotDescriptionHover[] existingHovers = _slot.GetComponentsInChildren<InventorySlotDescriptionHover>(true);
+		for (int i = 0; i < existingHovers.Length; i++)
+		{
+			InventorySlotDescriptionHover hover = existingHovers[i];
+			if (hover == null || hover.gameObject == hoverTarget)
+				continue;
+
+			if (Application.isPlaying)
+				Object.Destroy(hover);
+			else
+				Object.DestroyImmediate(hover);
+		}
+
+		if (hoverTarget.GetComponent<InventorySlotDescriptionHover>() == null)
+			hoverTarget.AddComponent<InventorySlotDescriptionHover>();
+	}
+
+	private static GameObject ResolveDescriptionHoverTarget(InventorySlotView _slot)
+	{
+		Transform equipmentReceiver = _slot.transform.Find(EquipmentDropReceiverObjectName);
+		if (equipmentReceiver != null)
+			return equipmentReceiver.gameObject;
+
+		if (_slot.TryGetComponent(out Image rootImage))
+		{
+			rootImage.raycastTarget = true;
+			return _slot.gameObject;
+		}
+
+		return _slot.gameObject;
+	}
+
 	public static void ConfigureMainHandEquipmentSlot(
 		InventorySlotView _slot,
 		InventoryEquipmentSlotAppearance _appearance)
@@ -183,6 +226,7 @@ public static class InventorySlotUiUtility
 		_appearance.ApplyNormal(_slot);
 		EnsureEquipmentSlotDropTarget(_slot);
 		DisableTextRaycastTargets(_slot);
+		EnsureDescriptionHover(_slot);
 
 		InventoryEquipmentSlotHighlightOverlay overlay = _slot.GetComponent<InventoryEquipmentSlotHighlightOverlay>();
 		if (overlay == null)

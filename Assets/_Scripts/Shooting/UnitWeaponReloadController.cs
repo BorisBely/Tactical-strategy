@@ -24,7 +24,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_AimRelaxedIdleStateHash = Animator.StringToHash("Stand_Relaxed_Idle");
 	private static readonly int s_AimRelaxedReloadStateHash = Animator.StringToHash("Stand_Relaxed_Reload");
+	private static readonly int s_AimRelaxedBoltStateHash = Animator.StringToHash("Stand_Relaxed__CyclingBolt");
 	private static readonly int s_AimReloadStateHash = Animator.StringToHash("Stand_Aim_Reload");
+	private static readonly int s_AimBoltStateHash = Animator.StringToHash("Stand_CyclingBolt");
 	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
 	private const float c_ReloadClipDurationSeconds = 2.966667f;
 	private const float c_ReloadClipSampleRate = 30f;
@@ -102,6 +104,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	public bool IsMalfunctionStripReinsertReloadActive => m_MalfunctionStripReinsertReloadActive;
 	public bool MagazineInsertCompletedThisReload => m_MagazineInsertCompletedThisReload;
 	public bool IsUiMagazineModificationActive => m_UiMagazineModificationActive;
+
+	/// <summary>
+	/// После смены <c>WeaponReady</c> во время перезарядки/затвора: aim↔relaxed парный клип на том же normalizedTime.
+	/// Иначе граф не имеет mid-clip переходов и ломается при старте <c>IsCyclingBolt</c>.
+	/// </summary>
+	public void SyncAimReloadClipForWeaponReadyChange()
+	{
+		SyncAimReloadLayerClipVariant();
+	}
 	#endregion
 
 	#region Events
@@ -1001,6 +1012,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		ApplyReloadAnimatorLayerWeightsIfBusy();
+		if (reloadBusy)
+			SyncAimReloadLayerClipVariant();
+
 		m_WasAimReloadBusy = reloadBusy;
 	}
 
@@ -1058,6 +1072,65 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 
 		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
+	}
+
+	/// <summary>
+	/// Aim-слой: при активной перезарядке/затворе держим парный ready/relaxed клип текущей фазы.
+	/// Переход reload→bolt оставляем графу, кроме «застрявшего» <c>Stand_Aim_Reload</c> при <c>!WeaponReady</c>.
+	/// </summary>
+	private void SyncAimReloadLayerClipVariant()
+	{
+		if (!IsReloadBusy || m_Animator == null)
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return;
+
+		bool weaponReady = m_Animator.GetBool(s_WeaponReady);
+		bool cyclingBolt = m_IsCyclingBolt || m_BoltPresentationSuppressesFire;
+		bool reloading = m_IsReloadingWeapon;
+
+		AnimatorStateInfo stateInfo = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
+		int currentHash = stateInfo.shortNameHash;
+		float normalizedTime = Mathf.Repeat(stateInfo.normalizedTime, 1f);
+
+		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, cyclingBolt, reloading);
+		if (targetHash == 0 || currentHash == targetHash)
+			return;
+
+		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash;
+		bool currentIsBoltClip = currentHash == s_AimBoltStateHash || currentHash == s_AimRelaxedBoltStateHash;
+		bool targetIsBoltClip = cyclingBolt;
+
+		if (!currentIsReloadClip && !currentIsBoltClip)
+			return;
+
+		if (currentIsReloadClip && targetIsBoltClip)
+		{
+			if (!weaponReady && currentHash == s_AimReloadStateHash)
+				m_Animator.Play(s_AimRelaxedReloadStateHash, m_AimReloadLayerIndex, normalizedTime);
+			return;
+		}
+
+		if (currentIsBoltClip && !targetIsBoltClip)
+			return;
+
+		m_Animator.Play(targetHash, m_AimReloadLayerIndex, normalizedTime);
+	}
+
+	private static int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading)
+	{
+		if (_cyclingBolt)
+			return _weaponReady ? s_AimBoltStateHash : s_AimRelaxedBoltStateHash;
+		if (_reloading)
+			return _weaponReady ? s_AimReloadStateHash : s_AimRelaxedReloadStateHash;
+
+		return 0;
 	}
 
 	/// <summary>

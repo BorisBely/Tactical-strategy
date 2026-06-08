@@ -28,6 +28,10 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_EffectiveRangeModifier = 1f;
 	[Tooltip("Как модуль меняет накопление отдачи.")]
 	[SerializeField, Min(0f)] private float m_RecoilModifier = 1f;
+	[Tooltip("Дополнительный множитель отдачи только для одиночного огня. 1 = использовать общий Recoil Modifier без изменений.")]
+	[SerializeField, Min(0f)] private float m_SemiAutoRecoilModifier = 1f;
+	[Tooltip("Дополнительный множитель отдачи для Burst / FullAuto / Auto. 1 = использовать общий Recoil Modifier без изменений.")]
+	[SerializeField, Min(0f)] private float m_AutomaticRecoilModifier = 1f;
 	[Tooltip("Как модуль меняет скорость смены магазина в оружии.")]
 	[SerializeField, Min(0f)] private float m_ReloadTimeModifier = 1f;
 	[Tooltip("Как модуль меняет точность и скорость прицеливания на дистанции 0..100 м.")]
@@ -60,6 +64,8 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float AimTimeModifier => m_AimTimeModifier;
 	public float EffectiveRangeModifier => m_EffectiveRangeModifier;
 	public float RecoilModifier => m_RecoilModifier;
+	public float SemiAutoRecoilModifier => m_SemiAutoRecoilModifier;
+	public float AutomaticRecoilModifier => m_AutomaticRecoilModifier;
 	public float ReloadTimeModifier => m_ReloadTimeModifier;
 	public WeaponDistanceAimProfile DistanceAimProfile => m_DistanceAimProfile;
 	public float WearPerShotMultiplier => m_WearPerShotMultiplier;
@@ -86,6 +92,14 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 		}
 
 		return false;
+	}
+
+	public float GetRecoilModifier(WeaponFireMode _fireMode)
+	{
+		float fireModeModifier = WeaponFireModeUtility.IsAutomaticEffectiveMode(_fireMode) || _fireMode == WeaponFireMode.Auto
+			? m_AutomaticRecoilModifier
+			: m_SemiAutoRecoilModifier;
+		return Mathf.Max(0.01f, m_RecoilModifier) * Mathf.Max(0.01f, fireModeModifier);
 	}
 
 	public bool SupportsSlot(WeaponAttachmentSlotType _slotType)
@@ -125,6 +139,9 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 		if (ShouldUseLibraryDistanceCurveFallback())
 			return OpticDistanceCurveLibrary.EvaluateDispersionMultiplier(this, _distanceMeters);
 
+		if (ShouldUseRailDistanceCurveLibrary())
+			return RailAttachmentDistanceCurveLibrary.EvaluateDispersionMultiplier(this, _distanceMeters);
+
 		return m_DistanceAimProfile != null
 			? m_DistanceAimProfile.GetDispersionMultiplier(_distanceMeters)
 			: 1f;
@@ -147,6 +164,14 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 
 		return m_DistanceAimProfile.IsFlatDispersionCurve()
 			&& m_DistanceAimProfile.IsFlatAimTimeCurve();
+	}
+
+	private bool ShouldUseRailDistanceCurveLibrary()
+	{
+		if (m_AttachmentType != WeaponAttachmentType.LaserDesignator || m_DistanceAimProfile == null)
+			return false;
+
+		return m_DistanceAimProfile.IsFlatDispersionCurve();
 	}
 	#endregion
 }

@@ -13,6 +13,14 @@ public sealed class LocalizedTextMeshProUGUI : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI m_Text;
 	#endregion
 
+	#region Public Methods
+	public void SetLocalizationKey(string _localizationKey)
+	{
+		m_LocalizationKey = _localizationKey;
+		RefreshText();
+	}
+	#endregion
+
 	#region Unity Lifecycle
 	private void Awake()
 	{

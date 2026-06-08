@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_AK_MuzzleBrakeAK
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.ak_muzzle_brake
-  m_Description: Дульный тормоз для серии AK, снижает отдачу.
+  m_Description: Дульный тормоз для серии AK. Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди.
   m_Icon: {fileID: 0}
   m_BasePrice: 420
   m_Category: 0
