@@ -21,7 +21,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
+	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
+	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
 
 	[Header("Hitscan")]
 	[Tooltip("Слои, по которым проверяем попадание. Создай слой Target и назначь мишеням.")]
@@ -45,7 +47,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	[Header("Procedural Recoil Pattern")]
 	[Tooltip("Геймплейный подъём паттерна на единицу накопленной отдачи. Случайный конус остаётся мелкой неточностью поверх этого смещения.")]
-	[SerializeField, Min(0f)] private float m_RecoilPatternPitchDegreesPerPenaltyUnit = 0.18f;
+	[SerializeField, Min(0f)] private float m_RecoilPatternPitchDegreesPerPenaltyUnit = 0.09f;
 	[Tooltip("Боковой увод паттерна как доля от вертикального подъёма.")]
 	[SerializeField, Range(0f, 1f)] private float m_RecoilPatternYawFraction = 0.55f;
 	[Tooltip("Небольшая процедурная неровность бокового увода, чтобы длинная очередь не была идеально синусоидальной.")]
@@ -86,6 +88,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField, Range(0f, 1f)] private float m_DebugLastAimProgress = 1f;
 	[SerializeField, Min(0f)] private float m_DebugLastSpreadDiameterMeters;
 	[SerializeField, Min(0f)] private float m_DebugAcceptableSpreadDiameterMeters;
+	[SerializeField, Min(0f)] private float m_DebugLastRecoilPenalty;
+	[SerializeField, Min(0f)] private float m_DebugLastPatternPitchDegrees;
+	[SerializeField, Min(0f)] private float m_DebugLastPatternVerticalOffsetMeters;
 	#endregion
 
 	#region Private Fields
@@ -110,8 +115,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		m_CombatStats = ResolveCombatStats();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
+		if (m_StanceCombatModifiers == null)
+			m_StanceCombatModifiers = GetComponent<UnitStanceCombatModifiers>();
 		if (m_AimProgressController == null)
 			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
+		if (m_RecoilController == null)
+			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 
 		m_ShooterRoot = transform.root;
 	}
@@ -154,9 +163,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		Vector3 origin = barrel.position + barrel.forward * m_BarrelRayStartOffset;
 		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel);
 		WeaponShotAccuracyContext accuracyContext = BuildAccuracyContext(_ammo);
-		Vector3 patternedDirection = ApplyProceduralRecoilPattern(baseDirection, accuracyContext);
+		ProceduralRecoilPatternResult patternResult = ApplyProceduralRecoilPattern(baseDirection, accuracyContext);
+		Vector3 patternedDirection = patternResult.Direction;
 		float halfAngle = accuracyContext.HalfAngleDegrees;
-		StoreDebugAccuracyContext(accuracyContext);
+		StoreDebugAccuracyContext(accuracyContext, patternResult);
 
 		WeaponShotHitResult aggregateHitResult = WeaponShotHitResult.Miss;
 		int projectileCount = Mathf.Max(1, _ammo.ProjectileCount);
@@ -168,7 +178,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		}
 
 		if (m_LogShots)
-			LogShot(_ammo, weapon, accuracyContext, aggregateHitResult, projectileCount);
+		{
+			WeaponShotRecoilLogInfo recoilLogInfo = BuildRecoilLogInfo(_ammo, accuracyContext, patternResult);
+			LogShot(_ammo, weapon, accuracyContext, recoilLogInfo, aggregateHitResult, projectileCount);
+		}
 	}
 
 	private UnitCombatStats ResolveCombatStats()
@@ -178,10 +191,17 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private WeaponShotAccuracyContext BuildAccuracyContext(AmmoDefinition _ammo)
 	{
-		if (TrySelectAutoModes(_ammo, out WeaponAutoModeSelectionResult selection))
-			return selection.AccuracyContext;
+		float targetDistanceMeters = EstimateTargetDistanceMeters();
+		WeaponShotAccuracyInput accuracyInput = BuildAccuracyInput(_ammo, targetDistanceMeters);
 
-		return WeaponShotAccuracyEvaluator.Evaluate(BuildAccuracyInput(_ammo, EstimateTargetDistanceMeters()));
+		if (TrySelectAutoModes(_ammo, out WeaponAutoModeSelectionResult selection))
+		{
+			accuracyInput.FireMode = selection.EffectiveFireMode;
+			accuracyInput.AimMode = selection.EffectiveAimMode;
+			return WeaponShotAccuracyEvaluator.Evaluate(accuracyInput);
+		}
+
+		return WeaponShotAccuracyEvaluator.Evaluate(accuracyInput);
 	}
 
 	private bool TryBuildAutoSelectionInput(AmmoDefinition _ammo, out WeaponAutoModeSelectionInput _input)
@@ -231,6 +251,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			ProneSpreadMultiplier = m_ProneSpreadMultiplier,
 			MovingSpreadMultiplier = m_MovingSpreadMultiplier,
 			SprintSpreadMultiplier = m_SprintSpreadMultiplier,
+			PostureSpreadMultiplier = m_StanceCombatModifiers != null
+				? m_StanceCombatModifiers.GetSpreadMultiplier()
+				: 0f,
 			AimProgress01 = m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
 				? m_WeaponRuntime.TransientState.AimProgress01
 				: 1f,
@@ -254,26 +277,30 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return weaponState.CurrentAmmoDefinition;
 	}
 
-	private Vector3 ApplyProceduralRecoilPattern(Vector3 _baseDirection, WeaponShotAccuracyContext _accuracyContext)
+	private ProceduralRecoilPatternResult ApplyProceduralRecoilPattern(
+		Vector3 _baseDirection,
+		WeaponShotAccuracyContext _accuracyContext)
 	{
+		Vector3 normalizedBase = _baseDirection.normalized;
 		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(_accuracyContext.EffectiveFireMode))
-			return _baseDirection;
+			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 		if (m_WeaponRuntime == null || m_WeaponRuntime.TransientState == null)
-			return _baseDirection;
+			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 
 		float recoilPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
 		if (recoilPenalty <= 0.0001f)
-			return _baseDirection;
+			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 
 		int shotIndex = Mathf.Max(1, _accuracyContext.BurstShotIndex);
 		float pitchDegrees = recoilPenalty * m_RecoilPatternPitchDegreesPerPenaltyUnit;
 		float yawDegrees = CalculateProceduralPatternYaw(shotIndex, pitchDegrees);
 
-		Vector3 forward = _baseDirection.normalized;
+		Vector3 forward = normalizedBase;
 		Vector3 up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > 0.98f ? Vector3.forward : Vector3.up;
 		Vector3 right = Vector3.Cross(up, forward).normalized;
 		Quaternion patternRotation = Quaternion.AngleAxis(yawDegrees, up) * Quaternion.AngleAxis(-pitchDegrees, right);
-		return (patternRotation * forward).normalized;
+		Vector3 direction = (patternRotation * forward).normalized;
+		return new ProceduralRecoilPatternResult(direction, recoilPenalty, pitchDegrees, yawDegrees, true);
 	}
 
 	private float CalculateProceduralPatternYaw(int _shotIndex, float _pitchDegrees)
@@ -361,7 +388,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
 			return 0f;
 
@@ -375,7 +402,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _barrel)
 	{
-		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
 			return _barrel.forward;
 
@@ -406,10 +433,80 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
 	}
 
+	private WeaponShotRecoilLogInfo BuildRecoilLogInfo(
+		AmmoDefinition _ammo,
+		WeaponShotAccuracyContext _accuracyContext,
+		ProceduralRecoilPatternResult _patternResult)
+	{
+		float maxPenalty = m_RecoilController != null ? m_RecoilController.MaxRecoilPenalty : 0f;
+		float penaltyBeforeShot = _patternResult.RecoilPenaltyUsed;
+		bool isAtCap = maxPenalty > 0.0001f && penaltyBeforeShot >= maxPenalty - 0.0001f;
+		float verticalOffsetMeters = CalculatePatternVerticalOffsetMeters(
+			_patternResult.PitchDegrees,
+			_accuracyContext.TargetDistanceMeters);
+		float recoilAddedPerShot = m_RecoilController != null
+			? m_RecoilController.ComputeRecoilAddedPerShot(_ammo)
+			: 0f;
+		float recoveryPerSecond = m_RecoilController != null
+			? m_RecoilController.GetCurrentRecoveryPerSecond()
+			: 0f;
+		bool isRecoveringWhileFiring = m_RecoilController != null && m_RecoilController.IsRecoveringWhileFiring;
+		float estimatedNetPerSecond = EstimateNetRecoilPenaltyPerSecond(
+			_accuracyContext.EffectiveFireMode,
+			recoilAddedPerShot,
+			recoveryPerSecond,
+			isRecoveringWhileFiring);
+
+		return new WeaponShotRecoilLogInfo(
+			penaltyBeforeShot,
+			maxPenalty,
+			isAtCap,
+			_patternResult.PatternApplied,
+			_patternResult.PitchDegrees,
+			_patternResult.YawDegrees,
+			verticalOffsetMeters,
+			recoilAddedPerShot,
+			recoveryPerSecond,
+			isRecoveringWhileFiring,
+			estimatedNetPerSecond,
+			m_RecoilPatternPitchDegreesPerPenaltyUnit,
+			m_RecoilSpreadScale,
+			_accuracyContext.RecoilMultiplier);
+	}
+
+	private static float CalculatePatternVerticalOffsetMeters(float _pitchDegrees, float _targetDistanceMeters)
+	{
+		if (_pitchDegrees <= 0.0001f)
+			return 0f;
+
+		float distance = Mathf.Max(0f, _targetDistanceMeters);
+		return distance * Mathf.Tan(_pitchDegrees * Mathf.Deg2Rad);
+	}
+
+	private float EstimateNetRecoilPenaltyPerSecond(
+		WeaponFireMode _effectiveFireMode,
+		float _recoilAddedPerShot,
+		float _recoveryPerSecond,
+		bool _isRecoveringWhileFiring)
+	{
+		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(_effectiveFireMode))
+			return -_recoveryPerSecond;
+
+		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
+		float rpm = weaponDefinition != null ? Mathf.Max(1f, weaponDefinition.FireRateRpm) : 600f;
+		float shotsPerSecond = rpm / 60f;
+		float accumulationPerSecond = _recoilAddedPerShot * shotsPerSecond;
+		if (_isRecoveringWhileFiring)
+			return accumulationPerSecond - _recoveryPerSecond;
+
+		return accumulationPerSecond;
+	}
+
 	private void LogShot(
 		AmmoDefinition _ammo,
 		EquippedWeapon _weapon,
 		WeaponShotAccuracyContext _accuracyContext,
+		WeaponShotRecoilLogInfo _recoilLogInfo,
 		WeaponShotHitResult _hitResult,
 		int _projectileCount)
 	{
@@ -430,6 +527,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		WeaponAttachmentDefinition[] presetAttachments = _weapon != null
 			? _weapon.PresetEquippedAttachments
 			: null;
+		WeaponShotPostureLogInfo postureLogInfo = m_StanceCombatModifiers != null
+			? m_StanceCombatModifiers.GetPostureLogInfo(IsSprinting())
+			: default;
 
 		WeaponShotCombatLogger.LogShot(
 			this,
@@ -440,8 +540,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			presetAttachments,
 			combatStats,
 			_accuracyContext,
+			postureLogInfo,
+			_recoilLogInfo,
 			fullAimTimeSeconds,
-			m_Vision != null ? m_Vision.VisibleTarget : null,
+			m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null,
 			_hitResult,
 			_projectileCount);
 	}
@@ -459,16 +561,29 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private bool IsHitOnVisibleTarget(Collider _hitCollider)
 	{
-		Transform visibleTarget = m_Vision != null ? m_Vision.VisibleTarget : null;
+		Transform visibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (visibleTarget == null || _hitCollider == null)
 			return false;
+
+		if (_hitCollider.TryGetComponent(out ShootingRangeTarget hitRangeTarget) &&
+			visibleTarget.TryGetComponent(out ShootingRangeTarget visibleRangeTarget))
+		{
+			return hitRangeTarget == visibleRangeTarget;
+		}
 
 		Transform hitTransform = _hitCollider.transform;
 		return hitTransform == visibleTarget || hitTransform.IsChildOf(visibleTarget);
 	}
 
-	private void StoreDebugAccuracyContext(WeaponShotAccuracyContext _context)
+	private void StoreDebugAccuracyContext(
+		WeaponShotAccuracyContext _context,
+		ProceduralRecoilPatternResult _patternResult)
 	{
+		m_DebugLastRecoilPenalty = _patternResult.RecoilPenaltyUsed;
+		m_DebugLastPatternPitchDegrees = _patternResult.PitchDegrees;
+		m_DebugLastPatternVerticalOffsetMeters = CalculatePatternVerticalOffsetMeters(
+			_patternResult.PitchDegrees,
+			_context.TargetDistanceMeters);
 		m_DebugLastHalfAngleDegrees = _context.HalfAngleDegrees;
 		m_DebugLastTargetDistanceMeters = _context.TargetDistanceMeters;
 		m_DebugLastRecoilMultiplier = _context.RecoilMultiplier;
@@ -497,6 +612,34 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return (f + right * rnd.x + upOrtho * rnd.y).normalized;
 	}
 	#endregion
+
+	private readonly struct ProceduralRecoilPatternResult
+	{
+		public readonly Vector3 Direction;
+		public readonly float RecoilPenaltyUsed;
+		public readonly float PitchDegrees;
+		public readonly float YawDegrees;
+		public readonly bool PatternApplied;
+
+		public ProceduralRecoilPatternResult(
+			Vector3 _direction,
+			float _recoilPenaltyUsed,
+			float _pitchDegrees,
+			float _yawDegrees,
+			bool _patternApplied)
+		{
+			Direction = _direction;
+			RecoilPenaltyUsed = _recoilPenaltyUsed;
+			PitchDegrees = _pitchDegrees;
+			YawDegrees = _yawDegrees;
+			PatternApplied = _patternApplied;
+		}
+
+		public static ProceduralRecoilPatternResult CreateUnchanged(Vector3 _direction)
+		{
+			return new ProceduralRecoilPatternResult(_direction, 0f, 0f, 0f, false);
+		}
+	}
 }
 
 /// <summary>Данные трассы одного hitscan-снаряда для визуальных эффектов.</summary>

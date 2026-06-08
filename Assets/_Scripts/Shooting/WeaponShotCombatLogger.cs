@@ -16,6 +16,8 @@ public static class WeaponShotCombatLogger
 		WeaponAttachmentDefinition[] _presetAttachments,
 		UnitCombatStats _combatStats,
 		WeaponShotAccuracyContext _accuracy,
+		WeaponShotPostureLogInfo _posture,
+		WeaponShotRecoilLogInfo _recoil,
 		float _fullAimTimeSeconds,
 		Transform _visibleTarget,
 		WeaponShotHitResult _hitResult,
@@ -27,6 +29,9 @@ public static class WeaponShotCombatLogger
 		string hitLabel = FormatHitResult(_hitResult, _projectileCount);
 		string rankLabel = UnitCombatRankCycle.ResolveRankLabel(_combatStats != null ? _combatStats.RankPreset : null);
 		float unitAccuracyMultiplier = _accuracy.SkillMultiplier;
+		string postureLabel = FormatPostureLabel(_posture, _accuracy);
+		string spreadFactorsLabel = FormatSpreadFactorsLabel(_accuracy);
+		string recoilLabel = FormatRecoilLabel(_recoil, _accuracy);
 		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
 			_accuracy.AimMode,
 			_accuracy.TargetDistanceMeters);
@@ -48,9 +53,10 @@ public static class WeaponShotCombatLogger
 			$"лимит={WeaponAutoModeSelectionUtility.AcceptableSpreadDiameterMeters:F2} м";
 
 		Debug.Log(
-			$"[Выстрел] {_shooterLabel} | ранг: {rankLabel} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +
+			$"[Выстрел] {_shooterLabel} | ранг: {rankLabel} | стойка: {postureLabel} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +
 			$"дистанция: {_accuracy.TargetDistanceMeters:F1} м | " +
-			$"точность юнита: ×{unitAccuracyMultiplier:F2} | разброс: {_accuracy.HalfAngleDegrees:F2}° | " +
+			$"навык: ×{unitAccuracyMultiplier:F2} | разброс: {_accuracy.HalfAngleDegrees:F2}° | {spreadFactorsLabel} | " +
+			$"отдача: {recoilLabel} | " +
 			$"огонь: {fireLabel} | " +
 			$"наведение: {aimingLabel} | " +
 			$"Auto-критерий: {spreadLabel} | " +
@@ -151,6 +157,64 @@ public static class WeaponShotCombatLogger
 			return $"{WeaponFireModeUtility.GetDisplayName(_selectedFireMode)}→{WeaponFireModeUtility.GetDisplayName(_effectiveFireMode)}";
 
 		return WeaponFireModeUtility.GetDisplayName(_selectedFireMode);
+	}
+
+	private static string FormatPostureLabel(WeaponShotPostureLogInfo _posture, WeaponShotAccuracyContext _accuracy)
+	{
+		if (!_posture.HasValue)
+			return "—";
+
+		string spreadPart = _posture.IsSprinting
+			? $"разброс применён=×{_accuracy.StanceMultiplier:F2}"
+			: $"разброс=×{_posture.SpreadMultiplier:F2}";
+
+		return
+			$"{_posture.Label} | {spreadPart} | прицел=×{_posture.AimTimeMultiplier:F2} | отдача=×{_posture.RecoilMultiplier:F2}";
+	}
+
+	private static string FormatSpreadFactorsLabel(WeaponShotAccuracyContext _accuracy)
+	{
+		return
+			$"факторы: стойка=×{_accuracy.StanceMultiplier:F2} состояние=×{_accuracy.ConditionMultiplier:F2} " +
+			$"отдача=×{_accuracy.RecoilMultiplier:F2} наведение=×{_accuracy.AimCompletionMultiplier:F2}";
+	}
+
+	private static string FormatRecoilLabel(WeaponShotRecoilLogInfo _recoil, WeaponShotAccuracyContext _accuracy)
+	{
+		if (!_recoil.HasPatternData && _recoil.RecoilAddedPerShot <= 0.0001f && _recoil.MaxRecoilPenalty <= 0.0001f)
+			return "—";
+
+		float penaltyAfterShot = _recoil.RecoilPenaltyBeforeShot + _recoil.RecoilAddedPerShot;
+		if (_recoil.MaxRecoilPenalty > 0.0001f)
+			penaltyAfterShot = Mathf.Min(penaltyAfterShot, _recoil.MaxRecoilPenalty);
+
+		string capLabel = _recoil.MaxRecoilPenalty > 0.0001f
+			? $"{_recoil.RecoilPenaltyBeforeShot:F2}→{penaltyAfterShot:F2}/{_recoil.MaxRecoilPenalty:F1}"
+			: $"{_recoil.RecoilPenaltyBeforeShot:F2}→{penaltyAfterShot:F2}";
+		if (_recoil.IsAtCap)
+			capLabel += " (лимит)";
+
+		string patternLabel = _recoil.PatternApplied
+			? $"паттерн: pitch={_recoil.PatternPitchDegrees:F2}° yaw={_recoil.PatternYawDegrees:F2}° | смещение≈{_recoil.PatternVerticalOffsetMeters:F2} м на {_accuracy.TargetDistanceMeters:F0} м"
+			: _recoil.RecoilPenaltyBeforeShot <= 0.0001f
+				? "паттерн: нет (штраф=0)"
+				: "паттерн: нет (режим без подъёма)";
+
+		string balanceLabel = FormatRecoilBalanceLabel(_recoil);
+		return
+			$"штраф={capLabel} | {patternLabel} | +за выстрел={_recoil.RecoilAddedPerShot:F2} | " +
+			$"восст.={_recoil.RecoveryPerSecond:F2}/с{(_recoil.IsRecoveringWhileFiring ? " (при огне)" : "")} | " +
+			$"баланс≈{balanceLabel} | разброс-штраф=×{_recoil.RecoilSpreadMultiplier:F2} (scale={_recoil.RecoilSpreadScale:F2})";
+	}
+
+	private static string FormatRecoilBalanceLabel(WeaponShotRecoilLogInfo _recoil)
+	{
+		float net = _recoil.EstimatedNetPenaltyPerSecond;
+		if (Mathf.Abs(net) <= 0.05f)
+			return "0/с (равновесие)";
+
+		string sign = net > 0f ? "+" : "";
+		return $"{sign}{net:F2}/с";
 	}
 
 	private static string FormatHitResult(WeaponShotHitResult _hitResult, int _projectileCount)

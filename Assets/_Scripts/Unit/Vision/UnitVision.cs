@@ -49,6 +49,8 @@ public sealed class UnitVision : MonoBehaviour
 	[Header("Опрос")]
 	[SerializeField, Min(0.02f)] private float m_ScanIntervalMin = 0.25f;
 	[SerializeField, Min(0.02f)] private float m_ScanIntervalMax = 0.45f;
+	[Tooltip("При повороте прицела сильнее этого угла (град.) — внеочередной скан, чтобы быстрее переключать мишени на полигоне.")]
+	[SerializeField, Range(0.5f, 15f)] private float m_ImmediateRescanAngleDegrees = 2.5f;
 
 	[Header("Физика")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
@@ -95,11 +97,18 @@ public sealed class UnitVision : MonoBehaviour
 	private Transform m_CachedSightFromWeapon;
 	private ItemDefinition m_CachedSightWeaponDef;
 	private bool m_WasUsingSightForward;
+	private Vector3 m_LastScanForwardXZ;
 	#endregion
 
 	#region Public Properties
 	/// <summary>Корень видимой цели (null если никого не видит).</summary>
 	public Transform VisibleTarget => m_VisibleTarget;
+
+	/// <summary>Видимая цель, по которой можно вести огонь (мишень не сбита, юнит жив).</summary>
+	public Transform GetEngageableVisibleTarget()
+	{
+		return IsEngageableTarget(m_VisibleTarget) ? m_VisibleTarget : null;
+	}
 
 	public Collider BodyCollider => m_BodyCollider;
 
@@ -131,7 +140,7 @@ public sealed class UnitVision : MonoBehaviour
 	/// </summary>
 	public Vector3 GetVisibleTargetAimPointWorld()
 	{
-		if (m_VisibleTarget == null)
+		if (!IsEngageableTarget(m_VisibleTarget))
 			return Vector3.zero;
 
 		if (m_HasVisibleTargetAimPoint)
@@ -158,6 +167,36 @@ public sealed class UnitVision : MonoBehaviour
 
 		RunVisionScan();
 		ScheduleNextScan(0f);
+	}
+
+	/// <summary>Мишень полигона доступна, юнит жив — цель годится для прицеливания и огня.</summary>
+	public bool IsEngageableTarget(Transform _target)
+	{
+		if (_target == null)
+			return false;
+
+		if (_target.TryGetComponent(out ShootingRangeTarget rangeTarget))
+			return rangeTarget.IsAvailableForTargeting;
+
+		if (_target.TryGetComponent(out DamageableTarget damageable))
+			return damageable.IsAlive;
+
+		return true;
+	}
+
+	/// <summary>
+	/// Нужно ли сбрасывать прицел/серию: переход на новую цель после null или смена живой цели A→B.
+	/// Не срабатывает при поражении/потере A (в т.ч. мишень на полигоне) и прямом A→B, если A уже невалидна.
+	/// </summary>
+	public bool ShouldReacquireAimAfterSwitch(Transform _previousEngageable, Transform _nextEngageable)
+	{
+		if (_nextEngageable == null || _nextEngageable == _previousEngageable)
+			return false;
+
+		if (_previousEngageable == null)
+			return true;
+
+		return IsEngageableTarget(_previousEngageable);
 	}
 
 	/// <summary>
@@ -258,7 +297,7 @@ public sealed class UnitVision : MonoBehaviour
 		if (Application.isPlaying)
 			UpdateSmoothedVisionForward();
 
-		if (Time.time < m_NextScanTime)
+		if (Time.time < m_NextScanTime && !ShouldImmediateRescanForAimMotion())
 			return;
 
 		RunVisionScan();
@@ -311,6 +350,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void RunVisionScan()
 	{
+		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
 		m_DebugRays.Clear();
 
 		Vector3 origin = GetVisionConeOriginWorld();
@@ -553,6 +593,18 @@ public sealed class UnitVision : MonoBehaviour
 			f = -f;
 
 		return f;
+	}
+
+	private bool ShouldImmediateRescanForAimMotion()
+	{
+		if (m_ImmediateRescanAngleDegrees <= 0f)
+			return false;
+
+		Vector3 forward = GetVisionForwardXZForGameplay();
+		if (forward.sqrMagnitude < 1e-6f || m_LastScanForwardXZ.sqrMagnitude < 1e-6f)
+			return false;
+
+		return Vector3.Angle(m_LastScanForwardXZ, forward) >= m_ImmediateRescanAngleDegrees;
 	}
 
 	private void UpdateSmoothedVisionForward()

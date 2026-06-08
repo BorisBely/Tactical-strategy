@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -10,13 +11,11 @@ using UnityEngine.InputSystem;
 public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
 {
 	#region Constants
-	private const bool c_LogDebug = true;
 	private const float c_ShowDelaySeconds = 2f;
 	#endregion
 
 	#region Private Fields
 	private InventorySlotView m_Slot;
-	private bool m_IsPointerInside;
 	private Coroutine m_ShowDelayCoroutine;
 	private Vector2 m_LastPointerPosition;
 	#endregion
@@ -42,10 +41,7 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 		if (m_ShowDelayCoroutine != null)
 		{
 			if (!overSlot)
-			{
-				m_IsPointerInside = false;
 				CancelShowDelay();
-			}
 
 			return;
 		}
@@ -55,12 +51,10 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 
 		if (overSlot)
 		{
-			m_IsPointerInside = true;
 			InventoryItemTooltip.Instance.UpdateScreenPosition(pointerPosition);
 			return;
 		}
 
-		m_IsPointerInside = false;
 		Log($"Raycast left slot '{m_Slot.name}', hiding tooltip.");
 		InventoryItemTooltip.Instance.HideIfSource(m_Slot);
 	}
@@ -96,7 +90,6 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 			return;
 		}
 
-		m_IsPointerInside = true;
 		m_LastPointerPosition = _eventData.position;
 		Log($"OnPointerEnter on '{m_Slot.name}', item='{ResolveItemLabel()}', delay={c_ShowDelaySeconds:0.0}s");
 
@@ -119,10 +112,7 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 
 		if (m_ShowDelayCoroutine != null &&
 		    (m_Slot == null || !InventorySlotUiUtility.IsScreenPointOverSlotRaycast(m_Slot, pointerPosition)))
-		{
-			m_IsPointerInside = false;
 			CancelShowDelay();
-		}
 	}
 	#endregion
 
@@ -144,11 +134,9 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 		if (!InventorySlotUiUtility.IsScreenPointOverSlotRaycast(m_Slot, pointerPosition))
 		{
 			Log("Delay finished but raycast says pointer is outside the slot.");
-			m_IsPointerInside = false;
 			yield break;
 		}
 
-		m_IsPointerInside = true;
 		m_LastPointerPosition = pointerPosition;
 		Log($"Delay finished, requesting tooltip for '{ResolveItemLabel()}'.");
 		InventoryItemTooltip.Instance.ShowForSlot(m_Slot, pointerPosition);
@@ -189,12 +177,10 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 		return m_Slot.Data.DisplayName;
 	}
 
+	[Conditional("ITEM_TOOLTIP_DEBUG")]
 	private static void Log(string _message)
 	{
-		if (!c_LogDebug)
-			return;
-
-		Debug.Log($"[ItemTooltipHover] {_message}");
+		UnityEngine.Debug.Log($"[ItemTooltipHover] {_message}");
 	}
 	#endregion
 }

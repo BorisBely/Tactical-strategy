@@ -20,6 +20,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
+	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 
@@ -77,6 +78,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_CombatStats = GetComponent<UnitCombatStats>();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
+		if (m_StanceCombatModifiers == null)
+			m_StanceCombatModifiers = GetComponent<UnitStanceCombatModifiers>();
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
@@ -90,7 +93,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_FireController != null)
 			m_FireController.ShotFired += HandleShotFired;
 
-		m_LastVisibleTarget = m_Vision != null ? m_Vision.VisibleTarget : null;
+		m_LastVisibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 	}
 
 	private void OnDisable()
@@ -103,6 +106,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private void Update()
 	{
+		TrySyncEngagementTarget();
+
 		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
 			return;
 
@@ -136,7 +141,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady()))
 			return false;
 
-		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
+		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.GetEngageableVisibleTarget() == null))
 			return false;
 
 		if (m_BlockDuringStanceTransition &&
@@ -170,7 +175,10 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		float conditionMultiplier = m_CombatCondition != null
 			? m_CombatCondition.GetAimTimeMultiplier(IsMoving())
 			: 1f;
-		return Mathf.Max(0.01f, weaponAimTimeSeconds * unitMultiplier * conditionMultiplier);
+		float postureMultiplier = m_StanceCombatModifiers != null
+			? m_StanceCombatModifiers.GetAimTimeMultiplier()
+			: 1f;
+		return Mathf.Max(0.01f, weaponAimTimeSeconds * unitMultiplier * conditionMultiplier * postureMultiplier);
 	}
 
 	private bool IsMoving()
@@ -182,7 +190,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
 			return 0f;
 
@@ -206,11 +214,24 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)
 	{
-		if (_newVisibleTarget == m_LastVisibleTarget)
+		TrySyncEngagementTarget();
+	}
+
+	private void TrySyncEngagementTarget()
+	{
+		Transform engageableTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		if (engageableTarget == m_LastVisibleTarget)
 			return;
 
-		m_LastVisibleTarget = _newVisibleTarget;
-		m_WeaponRuntime?.SetAimProgress(0f);
+		Transform previousTarget = m_LastVisibleTarget;
+		m_LastVisibleTarget = engageableTarget;
+
+		if (m_Vision != null &&
+			m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget) &&
+			m_WeaponRuntime != null)
+		{
+			m_WeaponRuntime.SetAimProgress(0f);
+		}
 	}
 	#endregion
 }

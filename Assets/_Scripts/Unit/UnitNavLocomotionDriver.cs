@@ -571,7 +571,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
 			return;
 
-		m_ReadyHands.TryRestoreReadyAfterSprint(false);
+		ForceWalkMoveMode();
 	}
 
 	private bool HasPendingSprintOrder()

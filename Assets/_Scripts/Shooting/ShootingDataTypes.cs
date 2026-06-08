@@ -417,3 +417,82 @@ public sealed class WeaponDistanceAimProfile
 	}
 	#endregion
 }
+
+/// <summary>Снимок отдачи и процедурного паттерна для лога выстрела (штраф до добавления за текущий выстрел).</summary>
+public readonly struct WeaponShotRecoilLogInfo
+{
+	public readonly float RecoilPenaltyBeforeShot;
+	public readonly float MaxRecoilPenalty;
+	public readonly bool IsAtCap;
+	public readonly bool PatternApplied;
+	public readonly float PatternPitchDegrees;
+	public readonly float PatternYawDegrees;
+	public readonly float PatternVerticalOffsetMeters;
+	public readonly float RecoilAddedPerShot;
+	public readonly float RecoveryPerSecond;
+	public readonly bool IsRecoveringWhileFiring;
+	public readonly float EstimatedNetPenaltyPerSecond;
+	public readonly float PitchDegreesPerPenaltyUnit;
+	public readonly float RecoilSpreadScale;
+	public readonly float RecoilSpreadMultiplier;
+
+	public bool HasPatternData => PatternApplied || RecoilPenaltyBeforeShot > 0.0001f;
+
+	public WeaponShotRecoilLogInfo(
+		float _recoilPenaltyBeforeShot,
+		float _maxRecoilPenalty,
+		bool _isAtCap,
+		bool _patternApplied,
+		float _patternPitchDegrees,
+		float _patternYawDegrees,
+		float _patternVerticalOffsetMeters,
+		float _recoilAddedPerShot,
+		float _recoveryPerSecond,
+		bool _isRecoveringWhileFiring,
+		float _estimatedNetPenaltyPerSecond,
+		float _pitchDegreesPerPenaltyUnit,
+		float _recoilSpreadScale,
+		float _recoilSpreadMultiplier)
+	{
+		RecoilPenaltyBeforeShot = _recoilPenaltyBeforeShot;
+		MaxRecoilPenalty = _maxRecoilPenalty;
+		IsAtCap = _isAtCap;
+		PatternApplied = _patternApplied;
+		PatternPitchDegrees = _patternPitchDegrees;
+		PatternYawDegrees = _patternYawDegrees;
+		PatternVerticalOffsetMeters = _patternVerticalOffsetMeters;
+		RecoilAddedPerShot = _recoilAddedPerShot;
+		RecoveryPerSecond = _recoveryPerSecond;
+		IsRecoveringWhileFiring = _isRecoveringWhileFiring;
+		EstimatedNetPenaltyPerSecond = _estimatedNetPenaltyPerSecond;
+		PitchDegreesPerPenaltyUnit = _pitchDegreesPerPenaltyUnit;
+		RecoilSpreadScale = _recoilSpreadScale;
+		RecoilSpreadMultiplier = _recoilSpreadMultiplier;
+	}
+}
+
+/// <summary>Снимок стойки/движения юнита для лога выстрела.</summary>
+public readonly struct WeaponShotPostureLogInfo
+{
+	public readonly string Label;
+	public readonly float SpreadMultiplier;
+	public readonly float AimTimeMultiplier;
+	public readonly float RecoilMultiplier;
+	public readonly bool IsSprinting;
+
+	public bool HasValue => !string.IsNullOrEmpty(Label);
+
+	public WeaponShotPostureLogInfo(
+		string _label,
+		float _spreadMultiplier,
+		float _aimTimeMultiplier,
+		float _recoilMultiplier,
+		bool _isSprinting)
+	{
+		Label = _label;
+		SpreadMultiplier = _spreadMultiplier;
+		AimTimeMultiplier = _aimTimeMultiplier;
+		RecoilMultiplier = _recoilMultiplier;
+		IsSprinting = _isSprinting;
+	}
+}

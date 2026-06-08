@@ -737,15 +737,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
 			return;
 
-		bool shiftPressed = Keyboard.current != null &&
-			(Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
 		bool doubleRightClick = m_LastRightClickTime >= 0f &&
 		                        Time.time - m_LastRightClickTime <= m_DoubleRightClickSeconds;
 		m_LastRightClickTime = Time.time;
 
-		UnitClickToMove.MoveTier moveTier = shiftPressed
+		UnitClickToMove.MoveTier moveTier = doubleRightClick
 			? UnitClickToMove.MoveTier.Sprint
-			: doubleRightClick ? UnitClickToMove.MoveTier.Run : UnitClickToMove.MoveTier.Walk;
+			: UnitClickToMove.MoveTier.Walk;
 
 		IssueScatteredMoveOrder(hit.point, moveTier);
 	}

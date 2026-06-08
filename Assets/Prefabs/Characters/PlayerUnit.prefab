@@ -8293,7 +8293,8 @@ MonoBehaviour:
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 3408199974750778793}
   m_CombatCondition: {fileID: 0}
-  m_RecoveryWhileFiringMultiplier: 0.45
+  m_MaxRecoilPenalty: 30
+  m_RecoveryWhileFiringMultiplier: 0.7
   m_RecoveryWhenNotReadyMultiplier: 1.2
   m_DebugLastRecoilAdded: 0
   m_DebugLastRecoveryPerSecond: 0
@@ -8317,9 +8318,11 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_FireController: {fileID: 8854059317223957988}
   m_KickTransformOverride: {fileID: 0}
-  m_PitchDegreesPerPenaltyUnit: 2.1
+  m_RecoilController: {fileID: 2745828861811900171}
+  m_PitchDegreesPerPenaltyUnit: 0.15
   m_YawJitterFraction: 0.28
   m_VisualRecoveryFromWeaponScale: 0.85
+  m_RecoveryWhileFiringMultiplier: 0.7
   m_FallbackVisualRecovery: 14
   m_AnimatorReplaceAngleSlopDegrees: 0.35
 --- !u!114 &8082661923994252123

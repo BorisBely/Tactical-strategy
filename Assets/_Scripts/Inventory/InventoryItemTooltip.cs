@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,6 @@ using UnityEngine.UI;
 public sealed class InventoryItemTooltip : MonoBehaviour
 {
 	#region Constants
-	private const bool c_LogDebug = true;
 	private const int c_TooltipSortingOrder = 32000;
 	private const float c_MaxWidth = 300f;
 	private const float c_MinHeight = 56f;
@@ -256,7 +256,7 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 		text.fontStyle = _fontStyle;
 		text.color = _color;
 		text.alignment = TextAlignmentOptions.TopLeft;
-		text.enableWordWrapping = true;
+		text.textWrappingMode = TextWrappingModes.Normal;
 		text.overflowMode = TextOverflowModes.Overflow;
 		text.raycastTarget = false;
 
@@ -424,9 +424,10 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 		}
 	}
 
+	[Conditional("ITEM_TOOLTIP_DEBUG")]
 	private void LogTooltipState(string _prefix)
 	{
-		if (!c_LogDebug || m_Root == null)
+		if (m_Root == null)
 			return;
 
 		Vector3[] corners = new Vector3[4];
@@ -476,12 +477,10 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 		return string.Empty;
 	}
 
+	[Conditional("ITEM_TOOLTIP_DEBUG")]
 	private static void Log(string _message)
 	{
-		if (!c_LogDebug)
-			return;
-
-		Debug.Log($"[ItemTooltip] {_message}");
+		UnityEngine.Debug.Log($"[ItemTooltip] {_message}");
 	}
 	#endregion
 }

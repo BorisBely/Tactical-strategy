@@ -263,8 +263,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_LocomotionDriver != null && m_LocomotionDriver.IsSprintMoveMode)
 			return true;
 
-		// Фоллбек: по параметру аниматора (0 walk, 1 run, 2 sprint).
-		if (m_Animator != null)
+		// Фоллбек по аниматору только без драйверов локомоции — иначе tier=2 может остаться после остановки.
+		if (m_ClickToMove == null && m_LocomotionDriver == null && m_Animator != null)
 			return m_Animator.GetInteger(s_LocomotionTier) == 2;
 
 		return false;

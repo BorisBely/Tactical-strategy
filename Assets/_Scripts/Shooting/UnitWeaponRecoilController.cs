@@ -16,10 +16,13 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
+	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 
 	[Header("Recovery")]
+	[Tooltip("Максимальный накопленный штраф отдачи. Ограничивает подъём паттерна и рост разброса при длинной очереди.")]
+	[SerializeField, Min(0.1f)] private float m_MaxRecoilPenalty = 30f;
 	[Tooltip("Множитель восстановления отдачи, пока удерживается огонь.")]
-	[SerializeField, Min(0f)] private float m_RecoveryWhileFiringMultiplier = 0.45f;
+	[SerializeField, Min(0f)] private float m_RecoveryWhileFiringMultiplier = 0.7f;
 	[Tooltip("Множитель восстановления отдачи, если оружие сейчас не на ready.")]
 	[SerializeField, Min(0f)] private float m_RecoveryWhenNotReadyMultiplier = 1.2f;
 
@@ -30,6 +33,13 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_DebugConditionRecoilAddedMultiplier = 1f;
 	[SerializeField, Min(0.01f)] private float m_DebugSkillRecoveryMultiplier = 1f;
 	[SerializeField, Min(0.01f)] private float m_DebugConditionRecoveryMultiplier = 1f;
+	#endregion
+
+	#region Public Properties
+	public float MaxRecoilPenalty => m_MaxRecoilPenalty;
+	public float RecoveryWhileFiringMultiplier => m_RecoveryWhileFiringMultiplier;
+	public bool IsRecoveringWhileFiring =>
+		m_FireController != null && m_FireController.IsFiringCommandActive;
 	#endregion
 
 	#region Unity Lifecycle
@@ -45,6 +55,8 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			m_CombatStats = GetComponent<UnitCombatStats>();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
+		if (m_StanceCombatModifiers == null)
+			m_StanceCombatModifiers = GetComponent<UnitStanceCombatModifiers>();
 	}
 
 	private void OnEnable()
@@ -72,7 +84,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		}
 
 		float recoveryPerSecond = CalculateCurrentRecoveryPerSecond();
-		float nextPenalty = Mathf.MoveTowards(currentPenalty, 0f, recoveryPerSecond * Time.deltaTime);
+		float nextPenalty = ClampRecoilPenalty(Mathf.MoveTowards(currentPenalty, 0f, recoveryPerSecond * Time.deltaTime));
 		m_WeaponRuntime.SetRecoilPenalty(nextPenalty);
 		m_DebugLastRecoveryPerSecond = recoveryPerSecond;
 	}
@@ -86,9 +98,14 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 
 		float recoilAdded = CalculateRecoilAddedPerShot(_ammoDefinition);
 		float currentPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
-		m_WeaponRuntime.SetRecoilPenalty(currentPenalty + recoilAdded);
+		m_WeaponRuntime.SetRecoilPenalty(ClampRecoilPenalty(currentPenalty + recoilAdded));
 		m_DebugLastRecoilAdded = recoilAdded;
 	}
+
+	public float GetCurrentRecoveryPerSecond() => CalculateCurrentRecoveryPerSecond();
+
+	public float ComputeRecoilAddedPerShot(AmmoDefinition _ammoDefinition) =>
+		CalculateRecoilAddedPerShot(_ammoDefinition);
 
 	private float CalculateRecoilAddedPerShot(AmmoDefinition _ammoDefinition)
 	{
@@ -102,11 +119,15 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			: 1f;
 		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
+		float postureMultiplier = m_StanceCombatModifiers != null
+			? m_StanceCombatModifiers.GetRecoilAddedMultiplier()
+			: 1f;
 		m_DebugSkillRecoilAddedMultiplier = skillMultiplier;
 		m_DebugConditionRecoilAddedMultiplier = conditionMultiplier;
 		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier) *
 		       skillMultiplier *
-		       conditionMultiplier;
+		       conditionMultiplier *
+		       postureMultiplier;
 	}
 
 	private float CalculateCurrentRecoveryPerSecond()
@@ -132,5 +153,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 
 		return Mathf.Max(0f, recoveryPerSecond);
 	}
+
+	private float ClampRecoilPenalty(float _value) => Mathf.Clamp(_value, 0f, m_MaxRecoilPenalty);
 	#endregion
 }

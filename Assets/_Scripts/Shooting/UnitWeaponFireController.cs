@@ -64,6 +64,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private float m_NextBurstWaveTime;
 	private float m_NextOutOfAmmoReloadAttemptTime;
 	private bool m_SemiShotConsumedForCurrentTrigger;
+	private Transform m_LastVisibleTargetForFire;
 	#endregion
 
 	#region Public Properties
@@ -88,10 +89,28 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting = GetComponent<UnitWeaponHitscanShooting>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (GetComponent<UnitStanceCombatModifiers>() == null)
+			gameObject.AddComponent<UnitStanceCombatModifiers>();
+	}
+
+	private void OnEnable()
+	{
+		if (m_Vision != null)
+			m_Vision.VisibleTargetChanged += HandleVisibleTargetChanged;
+
+		m_LastVisibleTargetForFire = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+	}
+
+	private void OnDisable()
+	{
+		if (m_Vision != null)
+			m_Vision.VisibleTargetChanged -= HandleVisibleTargetChanged;
 	}
 
 	private void Update()
 	{
+		TrySyncEngagementTarget();
+
 		if (!m_IsFiringCommandActive || !m_EnableAutomaticFireLoop)
 			return;
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
@@ -149,7 +168,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 			return false;
 
-		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
+		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
 			return false;
 
 		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
@@ -237,7 +256,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 			return WeaponShotAttemptResult.Busy;
 
-		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.VisibleTarget == null))
+		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
 			return WeaponShotAttemptResult.NoVisibleTarget;
 
 		if (!IsAimedEnoughToFire())
@@ -277,7 +296,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (ShouldRequireAimProgressForNextShot() && !HasRequiredAimProgress(transientState))
 			return false;
 
-		if (!m_RequireBarrelAlignedToFire || m_Vision == null || m_Vision.VisibleTarget == null)
+		if (!m_RequireBarrelAlignedToFire || !HasEngageableVisibleTarget())
 			return true;
 
 		if (WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
@@ -293,7 +312,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
-			targetPoint = m_Vision.VisibleTarget.position;
+			targetPoint = m_Vision.GetEngageableVisibleTarget().position;
 
 		Vector3 toTarget = targetPoint - barrel.position;
 		if (toTarget.sqrMagnitude < 1e-6f)
@@ -337,7 +356,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.VisibleTarget : null;
+		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
 			return 0f;
 
@@ -431,6 +450,29 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private void ResetBurstSpreadCounter()
 	{
 		m_WeaponRuntime?.TransientState.ResetBurstShotCounter();
+	}
+
+	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)
+	{
+		TrySyncEngagementTarget();
+	}
+
+	private bool HasEngageableVisibleTarget()
+	{
+		return m_Vision != null && m_Vision.GetEngageableVisibleTarget() != null;
+	}
+
+	private void TrySyncEngagementTarget()
+	{
+		Transform engageableTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		if (engageableTarget == m_LastVisibleTargetForFire)
+			return;
+
+		Transform previousTarget = m_LastVisibleTargetForFire;
+		m_LastVisibleTargetForFire = engageableTarget;
+
+		if (m_Vision != null && m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget))
+			StopFiring();
 	}
 	#endregion
 }

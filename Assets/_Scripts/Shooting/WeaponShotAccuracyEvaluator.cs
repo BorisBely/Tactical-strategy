@@ -25,8 +25,8 @@ public static class WeaponShotAccuracyEvaluator
 			: 1f;
 
 		float recoilFactor = 1f + recoil * _input.RecoilSpreadScale;
-		float stanceFactor = GetStanceDispersionMultiplier(_input);
-		float movementFactor = GetMovementDispersionMultiplier(_input);
+		float stanceFactor = GetPostureDispersionMultiplier(_input);
+		float movementFactor = 1f;
 		float skillFactor = _input.CombatStats != null ? _input.CombatStats.GetDispersionMultiplier() : 1f;
 		float conditionFactor = _input.CombatCondition != null ? _input.CombatCondition.GetDispersionMultiplier() : 1f;
 		float aimProgressForSpread = ResolveAimProgressForSpread(_input);
@@ -105,7 +105,22 @@ public static class WeaponShotAccuracyEvaluator
 		return _input.AimProgress01;
 	}
 
-	private static float GetStanceDispersionMultiplier(WeaponShotAccuracyInput _input)
+	private static float GetPostureDispersionMultiplier(WeaponShotAccuracyInput _input)
+	{
+		if (_input.IsSprinting)
+			return Mathf.Max(0.01f, _input.SprintSpreadMultiplier);
+
+		if (_input.PostureSpreadMultiplier > 0f)
+			return Mathf.Max(0.01f, _input.PostureSpreadMultiplier);
+
+		float stanceFactor = GetLegacyStanceDispersionMultiplier(_input);
+		float movementFactor = _input.IsMoving
+			? Mathf.Max(0.01f, _input.MovingSpreadMultiplier)
+			: 1f;
+		return stanceFactor * movementFactor;
+	}
+
+	private static float GetLegacyStanceDispersionMultiplier(WeaponShotAccuracyInput _input)
 	{
 		switch (_input.Stance)
 		{
@@ -116,15 +131,6 @@ public static class WeaponShotAccuracyEvaluator
 			default:
 				return Mathf.Max(0.01f, _input.StandingSpreadMultiplier);
 		}
-	}
-
-	private static float GetMovementDispersionMultiplier(WeaponShotAccuracyInput _input)
-	{
-		if (_input.IsSprinting)
-			return Mathf.Max(0.01f, _input.SprintSpreadMultiplier);
-		if (_input.IsMoving)
-			return Mathf.Max(0.01f, _input.MovingSpreadMultiplier);
-		return 1f;
 	}
 	#endregion
 }
@@ -153,6 +159,7 @@ public struct WeaponShotAccuracyInput
 	public float ProneSpreadMultiplier;
 	public float MovingSpreadMultiplier;
 	public float SprintSpreadMultiplier;
+	public float PostureSpreadMultiplier;
 	public float AimProgress01;
 	public WeaponAimMode SelectedAimMode;
 	public WeaponAimMode AimMode;

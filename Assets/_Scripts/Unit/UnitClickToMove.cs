@@ -4,9 +4,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// NavMesh: ПКМ — точка на поверхности, двойной ПКМ — бег, Shift+ПКМ — спринт (Shift важнее: Shift+двойной ПКМ = спринт), F — жёсткий стоп.
+/// NavMesh: ПКМ — точка на поверхности, двойной ПКМ — спринт, F — жёсткий стоп.
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
-/// Shift+ПКМ / двойной ПКМ из приседа: встать и сразу бег/спринт — отдельный путь, сброс на шаг не применяется.
+/// Двойной ПКМ из приседа/лёжа: встать и сразу спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
 /// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; при engage горизонталь от <see cref="UnitVision.GetEngageFacingOriginWorld"/> если активен прицел в UnitVision, иначе от корня. NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>). В UnitVision — расширение конуса при удержании цели.
 /// Root motion у Animator выключен.
@@ -111,7 +111,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Header("Input")]
 	[SerializeField] private bool m_EnableDirectInput = true;
 	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
-	[Tooltip("Гибрид одиночного/двойного ПКМ: одиночный клик откладывается на небольшой интервал, чтобы Unity успела распознать двойной клик.\nЕсли второй клик пришёл в окно double-click — одиночная команда отменяется и сразу идёт Run.")]
+	[Tooltip("Гибрид одиночного/двойного ПКМ: одиночный клик откладывается на небольшой интервал, чтобы Unity успела распознать двойной клик.\nЕсли второй клик пришёл в окно double-click — одиночная команда отменяется и сразу идёт Sprint.")]
 	[SerializeField, Min(0.01f)] private float m_SingleClickCommitDelaySeconds = 0.12f;
 	[SerializeField] private bool m_BlockClicksOverUi = true;
 	[SerializeField] private bool m_HardStopEnabled = true;
@@ -482,28 +482,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (!NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return;
 
-		bool shift = Keyboard.current != null &&
-		             (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
 		bool doubleClick = m_LastRightClickTime >= 0f &&
 		                   Time.time - m_LastRightClickTime <= m_DoubleClickSeconds;
 
 		m_LastRightClickTime = Time.time;
 
-		// Shift always commits immediately.
-		if (shift)
-		{
-			m_HasPendingRightClick = false;
-			m_PendingRightClickTime = -1f;
-			IssueNavOrderInternal(navHit.position, MoveTier.Sprint);
-			return;
-		}
-
-		// Double click commits immediately as Run (and cancels pending single click).
+		// Double click commits immediately as Sprint (and cancels pending single click).
 		if (doubleClick)
 		{
 			m_HasPendingRightClick = false;
 			m_PendingRightClickTime = -1f;
-			IssueNavOrderInternal(navHit.position, MoveTier.Run);
+			IssueNavOrderInternal(navHit.position, MoveTier.Sprint);
 			return;
 		}
 
@@ -770,7 +759,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
 			return;
 
-		m_ReadyHands.TryRestoreReadyAfterSprint(false);
+		ForceWalkMoveMode();
 	}
 
 	private bool HasPendingSprintOrder()
