@@ -46,6 +46,11 @@ public static class WeaponShotAccuracyEvaluator
 		            autoBurstFactor *
 		            _input.BaseSpreadToDegrees;
 
+		float autoSpreadMultiplier = _input.AutoSpreadMultiplier > 0f ? _input.AutoSpreadMultiplier : 1f;
+		if (autoSpreadMultiplier < 0.999f &&
+		    WeaponFireModeUtility.IsAutomaticEffectiveMode(_input.FireMode))
+			raw *= autoSpreadMultiplier;
+
 		float halfAngle = Mathf.Clamp(raw, _input.MinHalfAngleDegrees, _input.MaxHalfAngleDegrees);
 		float spreadRadiusMeters = CalculateSpreadRadiusMeters(_input.TargetDistanceMeters, halfAngle);
 		float spreadDiameterMeters = spreadRadiusMeters * 2f;
@@ -148,6 +153,7 @@ public struct WeaponShotAccuracyInput
 	public UnitCombatCondition CombatCondition;
 	public float TargetDistanceMeters;
 	public float BaseSpreadToDegrees;
+	public float AutoSpreadMultiplier;
 	public float RecoilSpreadScale;
 	public float MinHalfAngleDegrees;
 	public float MaxHalfAngleDegrees;

@@ -133,6 +133,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			GameObject instance = Instantiate(m_UnitPrefab, position, rotation, parent);
 			m_SpawnedInstances.Add(instance);
 			s_PresentationUnitRoots.Add(instance);
+			ApplyPlayerUnitRole(instance);
 			ApplyPresentationLockdown(instance);
 			MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(instance, 0);
 
@@ -235,6 +236,18 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		}
 
 		m_SpawnedInstances.Clear();
+	}
+
+	private static void ApplyPlayerUnitRole(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		if (!_root.TryGetComponent(out UnitFactionConfigurator configurator))
+			return;
+
+		configurator.Configure(UnitFactionConfigurator.CreatePlayerConfig(new UnitSpawnLoadout(), false));
+		configurator.ApplyConfiguration();
 	}
 
 	private static void ApplyPresentationLockdown(GameObject _root)

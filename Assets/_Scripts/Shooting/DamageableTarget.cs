@@ -70,17 +70,44 @@ public sealed class DamageableTarget : MonoBehaviour
 		AmmoDefinition _ammo,
 		Collider _hitCollider)
 	{
-		if (!IsAlive || _damage <= 0f)
-			return;
+		ApplyDamage(_damage, _hitPointWorld, _hitNormalWorld, _incomingDirection, _ammo, _hitCollider, out _);
+	}
 
-		UnitBodyHitZone hitZone = _hitCollider != null ? _hitCollider.GetComponentInParent<UnitBodyHitZone>() : null;
+	/// <summary>Нанести урон и вернуть назначенную травму (если на цели есть <see cref="UnitHealth"/>).</summary>
+	public bool ApplyDamage(
+		float _damage,
+		Vector3 _hitPointWorld,
+		Vector3 _hitNormalWorld,
+		Vector3 _incomingDirection,
+		AmmoDefinition _ammo,
+		Collider _hitCollider,
+		out InjuryUiEntry _resolvedInjury)
+	{
+		_resolvedInjury = default;
+
+		if (!IsAlive || _damage <= 0f)
+			return false;
+
+		UnitBodyHitZone hitZone = _hitCollider != null
+			? _hitCollider.GetComponent<UnitBodyHitZone>() ?? _hitCollider.GetComponentInParent<UnitBodyHitZone>()
+			: null;
 		float damageMultiplier = hitZone != null ? hitZone.DamageMultiplier : 1f;
 		float finalDamage = Mathf.Max(0f, _damage * damageMultiplier);
 		if (finalDamage <= 0f)
-			return;
+			return false;
 
-		float applied = Mathf.Min(finalDamage, m_CurrentHealth);
-		m_CurrentHealth -= applied;
+		UnitHealth unitHealth = GetComponent<UnitHealth>();
+		bool injuryOnly = unitHealth != null;
+		float applied;
+		if (injuryOnly)
+		{
+			applied = finalDamage;
+		}
+		else
+		{
+			applied = Mathf.Min(finalDamage, m_CurrentHealth);
+			m_CurrentHealth -= applied;
+		}
 
 		var info = new DamageHitInfo
 		{
@@ -90,16 +117,20 @@ public sealed class DamageableTarget : MonoBehaviour
 			IncomingDirection = _incomingDirection,
 			Ammo = _ammo,
 			HitCollider = _hitCollider,
+			BodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown,
 			BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
-			RemainingHealth = Mathf.Max(0f, m_CurrentHealth)
+			RemainingHealth = injuryOnly ? m_CurrentHealth : Mathf.Max(0f, m_CurrentHealth)
 		};
 
 		if (hitZone != null)
 			hitZone.ApplyConditionEffects(GetComponentInParent<UnitCombatCondition>(), applied);
 
+		if (injuryOnly && TryGetComponent(out InjuryResolver injuryResolver))
+			injuryResolver.TryApplyInjury(info, out _resolvedInjury);
+
 		Damaged?.Invoke(info);
 
-		if (m_CurrentHealth <= 0f)
+		if (!injuryOnly && m_CurrentHealth <= 0f)
 		{
 			Died?.Invoke(info);
 			if (m_DestroyOnDeath)
@@ -108,6 +139,8 @@ public sealed class DamageableTarget : MonoBehaviour
 				Destroy(root);
 			}
 		}
+
+		return true;
 	}
 	#endregion
 }
@@ -121,6 +154,7 @@ public struct DamageHitInfo
 	public Vector3 IncomingDirection;
 	public AmmoDefinition Ammo;
 	public Collider HitCollider;
+	public BodyPartType BodyPart;
 	public CombatBodyZone BodyZone;
 	public float RemainingHealth;
 }

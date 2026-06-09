@@ -38,6 +38,74 @@
       "value": "Stable"
     },
     {
+      "key": "health.body_part.head",
+      "value": "Head"
+    },
+    {
+      "key": "health.body_part.neck",
+      "value": "Neck"
+    },
+    {
+      "key": "health.body_part.chest",
+      "value": "Chest"
+    },
+    {
+      "key": "health.body_part.abdomen",
+      "value": "Abdomen"
+    },
+    {
+      "key": "health.body_part.left_arm",
+      "value": "Left arm"
+    },
+    {
+      "key": "health.body_part.right_arm",
+      "value": "Right arm"
+    },
+    {
+      "key": "health.body_part.left_leg",
+      "value": "Left leg"
+    },
+    {
+      "key": "health.body_part.right_leg",
+      "value": "Right leg"
+    },
+    {
+      "key": "health.body_part.unknown",
+      "value": "Unknown"
+    },
+    {
+      "key": "health.body_zone.head",
+      "value": "Head"
+    },
+    {
+      "key": "health.body_zone.torso",
+      "value": "Torso"
+    },
+    {
+      "key": "health.body_zone.arms",
+      "value": "Arms"
+    },
+    {
+      "key": "health.body_zone.legs",
+      "value": "Legs"
+    },
+    {
+      "key": "health.body_zone.unknown",
+      "value": "Unknown"
+    },
+    {
+      "key": "health.damage_source.bullet",
+      "value": "Bullet"
+    },
+    {
+      "key": "health.damage_source.fragment",
+      "value": "Fragment"
+    },
+    {
+      "key": "health.damage_source.explosive",
+      "value": "Explosive"
+    },
+    {
       "key": "item.generic",
       "value": "Item"
     },

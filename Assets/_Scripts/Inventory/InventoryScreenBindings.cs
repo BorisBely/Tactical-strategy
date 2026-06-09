@@ -1,7 +1,7 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 
 /// <summary>
 /// Единая точка доступа к UI инвентаря на Canvas. Юниты не ссылаются на панели;
@@ -23,7 +23,6 @@ public class InventoryScreenBindings : MonoBehaviour
 	[SerializeField] private bool m_StartWithInventoryClosed = true;
 	[SerializeField] private TMP_Text m_InventoryTitleText;
 	[SerializeField] private TMP_Text m_GroundItemsTitleText;
-	[SerializeField] private TMP_Text m_HealthWindowTitleText;
 	[SerializeField] private HealthStatusPanelView m_HealthStatusPanel;
 	[SerializeField] private HealthStatusSlotView m_HealthStatusSlotPrefab;
 	[Header("Список юнита")]
@@ -38,6 +37,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	#region Private Fields
 	private bool m_PendingActiveCharacterPanelRefresh;
+	private UnitHealth m_SubscribedUnitHealth;
 	#endregion
 
 	#region Public Properties
@@ -51,8 +51,6 @@ public class InventoryScreenBindings : MonoBehaviour
 	public CharacterInventory GetActiveCharacterInventoryForUi() => ResolveActiveCharacterInventoryForUi();
 	public bool IsInventoryOpen =>
 		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
-	public bool IsHealthWindowOpen =>
-		m_HealthStatusPanel != null && m_HealthStatusPanel.gameObject.activeSelf;
 	#endregion
 
 	#region Unity Lifecycle
@@ -70,16 +68,16 @@ public class InventoryScreenBindings : MonoBehaviour
 			m_HealthStatusPanel.gameObject.SetActive(false);
 		if (m_HealthStatusSlotPrefab != null && m_HealthStatusPanel != null)
 			m_HealthStatusPanel.SetRuntimeSlotPrefab(m_HealthStatusSlotPrefab);
-		ConfigureHealthWindowReadOnly();
 		EnsureRuntimeModificationCoordinator();
 		SetInventoryTitleVisible(IsInventoryOpen);
-		SetHealthTitleVisible(IsHealthWindowOpen);
 	}
 
 	private void Start()
 	{
 		ReconcileSingletonInstance();
 		RefreshActiveCharacterPanel();
+		SubscribeToActiveUnitHealth();
+		RefreshHealthUi();
 	}
 
 	private void LateUpdate()
@@ -101,13 +99,7 @@ public class InventoryScreenBindings : MonoBehaviour
 			return;
 
 		if (kb.iKey.wasPressedThisFrame)
-		{
 			ToggleInventoryWindow();
-			return;
-		}
-
-		if (kb.hKey.wasPressedThisFrame)
-			ToggleHealthWindow();
 	}
 
 	private void OnEnable()
@@ -118,6 +110,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	private void OnDestroy()
 	{
 		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
+		UnsubscribeFromActiveUnitHealth();
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -137,13 +130,13 @@ public class InventoryScreenBindings : MonoBehaviour
 	public void SetActiveCharacterInventory(CharacterInventory _inventory)
 	{
 		m_ActiveCharacterInventory = _inventory;
+		SubscribeToActiveUnitHealth();
 
 		if (_inventory == null && IsInventoryOpen)
 		{
 			SetInventoryWindowOpen(false);
 			RefreshActiveCharacterPanel();
-			if (IsHealthWindowOpen)
-				RefreshHealthPanel();
+			RefreshHealthUi();
 			return;
 		}
 
@@ -153,8 +146,8 @@ public class InventoryScreenBindings : MonoBehaviour
 			RefreshGroundPanelForActiveCharacter();
 			RefreshInventoryUnitList();
 		}
-		if (IsHealthWindowOpen)
-			RefreshHealthPanel();
+
+		RefreshHealthUi();
 	}
 
 	public void RefreshActiveCharacterPanel()
@@ -186,6 +179,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		RuntimeInventoryModificationCoordinator.Instance?.EnsureModificationUiHooks();
 		RefreshGroundPanelForActiveCharacter();
 		RefreshInventoryUnitList();
+		RefreshHealthUi();
 	}
 
 	/// <summary>Перестроить панель «земля» по <see cref="InventoryPickupZone"/> активного юнита.</summary>
@@ -208,11 +202,6 @@ public class InventoryScreenBindings : MonoBehaviour
 		SetInventoryWindowOpen(!IsInventoryOpen);
 	}
 
-	public void ToggleHealthWindow()
-	{
-		SetHealthWindowOpen(!IsHealthWindowOpen);
-	}
-
 	public void SetInventoryWindowOpen(bool _open)
 	{
 		if (m_InventoryCanvasRoot == null)
@@ -223,41 +212,55 @@ public class InventoryScreenBindings : MonoBehaviour
 			return;
 		}
 
-		if (_open && m_HealthStatusPanel != null && m_HealthStatusPanel.gameObject.activeSelf)
-		{
-			m_HealthStatusPanel.gameObject.SetActive(false);
-			SetHealthTitleVisible(false);
-		}
-
 		if (_open && MissionPrepScreenBindings.Instance != null && MissionPrepScreenBindings.Instance.IsMissionPrepOpen)
 			MissionPrepScreenBindings.Instance.SetMissionPrepWindowOpen(false);
 
 		if (!_open)
+		{
 			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
+			HealthStatusTooltip.Instance.HideImmediate();
+		}
 
 		m_InventoryCanvasRoot.SetActive(_open);
 		SetInventoryTitleVisible(_open);
 		if (_open)
 			RefreshPanelsOnOpen();
 		else
+		{
 			m_UnitListPresenter?.Clear();
+			if (m_HealthStatusPanel != null)
+				m_HealthStatusPanel.gameObject.SetActive(false);
+		}
 	}
 
-	public void SetHealthWindowOpen(bool _open)
+	public void RefreshHealthUi()
 	{
+		RefreshInventoryUnitHealthSummary();
+
 		if (m_HealthStatusPanel == null)
 			return;
 
-		if (_open && m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf)
+		m_HealthStatusPanel.ClearAllSlots();
+
+		UnitHealth health = ResolveActiveUnitHealth();
+		bool hasInjuries = health != null && health.HasInjuries;
+		bool showHealthPanel = hasInjuries && IsInventoryOpen;
+		m_HealthStatusPanel.gameObject.SetActive(showHealthPanel);
+
+		if (!showHealthPanel)
 		{
-			m_InventoryCanvasRoot.SetActive(false);
-			SetInventoryTitleVisible(false);
+			m_HealthStatusPanel.RebuildContentLayout();
+			return;
 		}
 
-		m_HealthStatusPanel.gameObject.SetActive(_open);
-		SetHealthTitleVisible(_open);
-		if (_open)
-			RefreshHealthPanel();
+		if (health != null)
+		{
+			IReadOnlyList<InjuryUiEntry> injuries = health.GetSortedInjuryEntries();
+			for (int i = 0; i < injuries.Count; i++)
+				m_HealthStatusPanel.TryAdd(injuries[i].ToEntryData());
+		}
+
+		m_HealthStatusPanel.RebuildContentLayout();
 	}
 
 	private void HandleLanguageChanged()
@@ -265,8 +268,8 @@ public class InventoryScreenBindings : MonoBehaviour
 		RefreshLocalizedTexts();
 		if (IsInventoryOpen)
 			RefreshPanelsOnOpen();
-		if (IsHealthWindowOpen)
-			RefreshHealthPanel();
+		else
+			RefreshHealthUi();
 	}
 
 	private void RefreshInventoryUnitList()
@@ -277,55 +280,59 @@ public class InventoryScreenBindings : MonoBehaviour
 		m_UnitListPresenter.RefreshForInventory(ResolveActiveCharacterInventoryForUi());
 	}
 
+	private void RefreshInventoryUnitHealthSummary()
+	{
+		if (m_UnitListPresenter == null)
+			return;
+
+		m_UnitListPresenter.RefreshHealthSummaryForActiveCell();
+	}
+
 	private void RefreshLocalizedTexts()
 	{
 		if (m_InventoryTitleText != null)
 			m_InventoryTitleText.text = LocalizationManager.Get("inventory.window.title");
 		if (m_GroundItemsTitleText != null)
 			m_GroundItemsTitleText.text = LocalizationManager.Get("inventory.ground.title");
-
-		if (m_HealthWindowTitleText != null)
-			m_HealthWindowTitleText.text = LocalizationManager.Get("health.window.title");
 	}
 
-	private void RefreshHealthPanel()
+	private void SubscribeToActiveUnitHealth()
 	{
-		if (m_HealthStatusPanel == null)
+		UnitHealth health = ResolveActiveUnitHealth();
+		if (health == m_SubscribedUnitHealth)
 			return;
 
-		m_HealthStatusPanel.ClearAllSlots();
-		if (m_ActiveCharacterInventory == null)
+		UnsubscribeFromActiveUnitHealth();
+		m_SubscribedUnitHealth = health;
+		if (m_SubscribedUnitHealth != null)
+			m_SubscribedUnitHealth.Changed += HandleActiveUnitHealthChanged;
+	}
+
+	private void UnsubscribeFromActiveUnitHealth()
+	{
+		if (m_SubscribedUnitHealth == null)
 			return;
 
-		HealthStatusEntryData healthyState = HealthStatusEntryData.FromLocalizedKey("health.status.ok");
-		m_HealthStatusPanel.TryAdd(healthyState);
-		m_HealthStatusPanel.RebuildContentLayout();
+		m_SubscribedUnitHealth.Changed -= HandleActiveUnitHealthChanged;
+		m_SubscribedUnitHealth = null;
 	}
 
-	private void ConfigureHealthWindowReadOnly()
+	private void HandleActiveUnitHealthChanged()
 	{
-		if (m_HealthStatusPanel == null)
-			return;
-
-		GameObject root = m_HealthStatusPanel.gameObject;
-		CanvasGroup canvasGroup = root.GetComponent<CanvasGroup>();
-		if (canvasGroup == null)
-			canvasGroup = root.AddComponent<CanvasGroup>();
-
-		canvasGroup.interactable = false;
-		canvasGroup.blocksRaycasts = false;
+		RefreshHealthUi();
 	}
 
-	private void SetInventoryTitleVisible(bool _visible)
+	private UnitHealth ResolveActiveUnitHealth()
 	{
-		if (m_InventoryTitleText != null)
-			m_InventoryTitleText.gameObject.SetActive(_visible);
-	}
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory == null)
+			return null;
 
-	private void SetHealthTitleVisible(bool _visible)
-	{
-		if (m_HealthWindowTitleText != null)
-			m_HealthWindowTitleText.gameObject.SetActive(_visible);
+		RtsUnitMember member = inventory.GetComponentInParent<RtsUnitMember>(true);
+		if (member != null && member.TryGetComponent(out UnitHealth health))
+			return health;
+
+		return inventory.GetComponentInParent<UnitHealth>(true);
 	}
 
 	private InventoryPickupZone FindPickupZoneOnActiveCharacter()
@@ -343,6 +350,12 @@ public class InventoryScreenBindings : MonoBehaviour
 			return selectionManager.TryGetActiveCharacterInventoryForUi();
 
 		return m_ActiveCharacterInventory;
+	}
+
+	private void SetInventoryTitleVisible(bool _visible)
+	{
+		if (m_InventoryTitleText != null)
+			m_InventoryTitleText.gameObject.SetActive(_visible);
 	}
 
 	private bool TryClaimSingletonInstance()

@@ -20,6 +20,18 @@ public static class UnitCellDisplayBinder
 		_cell.BindToUnit(_unitRoot, ResolveUnitName(_unitRoot));
 		_cell.SetRankDisplayName(ResolveRankName(_unitRoot));
 		_cell.SetPresetDisplayName(ResolvePresetName(_unitRoot));
+		_cell.SetHealthStatusText(ResolveHealthSummary(_unitRoot));
+	}
+
+	public static string ResolveHealthSummary(GameObject _unitRoot)
+	{
+		if (_unitRoot == null)
+			return string.Empty;
+
+		if (_unitRoot.TryGetComponent(out UnitHealth health))
+			return health.GetLocalizedOverallStatusText();
+
+		return LocalizationManager.Get("health.status.ok", "В норме");
 	}
 
 	public static string ResolveUnitName(GameObject _unitRoot)

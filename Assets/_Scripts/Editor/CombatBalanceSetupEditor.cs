@@ -7,10 +7,10 @@ using UnityEngine;
 /// </summary>
 public static class CombatBalanceSetupEditor
 {
-	private const string c_PlayerUnitPrefabPath = "Assets/Prefabs/Characters/PlayerUnit.prefab";
+	private const string c_PlayerUnitPrefabPath = "Assets/Prefabs/Characters/Unit.prefab";
 	private const string c_DefaultRankPath = "Assets/GameData/Combat/Ranks/Rank_Soldier.asset";
 
-	[MenuItem("Polygone/Combat Balance/Setup Player Unit Combat Components")]
+	[MenuItem("Polygone/Combat Balance/Setup Unit Combat Components")]
 	public static void SetupPlayerUnitCombatComponents()
 	{
 		var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(c_PlayerUnitPrefabPath);
@@ -42,11 +42,11 @@ public static class CombatBalanceSetupEditor
 		if (changed)
 		{
 			PrefabUtility.SaveAsPrefabAsset(root, c_PlayerUnitPrefabPath);
-			Debug.Log("PlayerUnit prefab updated with UnitCombatStats and UnitCombatCondition.");
+			Debug.Log("Unit prefab updated with UnitCombatStats and UnitCombatCondition.");
 		}
 		else
 		{
-			Debug.Log("PlayerUnit prefab already has combat components.");
+			Debug.Log("Unit prefab already has combat components.");
 		}
 
 		PrefabUtility.UnloadPrefabContents(root);

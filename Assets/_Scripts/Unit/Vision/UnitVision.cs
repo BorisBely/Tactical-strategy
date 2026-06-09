@@ -14,26 +14,14 @@ public sealed class UnitVision : MonoBehaviour
 {
 	#region Constants
 	private const int c_RaycastHitBuffer = 16;
-	private const int c_AimCandidateCapacity = 9;
+	private const int c_AimCandidateCapacity = 32;
 	#endregion
-
-	private readonly struct AimCandidate
-	{
-		public readonly Vector3 Point;
-		public readonly float Weight;
-
-		public AimCandidate(Vector3 _point, float _weight)
-		{
-			Point = _point;
-			Weight = _weight;
-		}
-	}
 
 	#region Private Fields
 	[SerializeField] private UnitVisionRegistry m_Registry;
 	[SerializeField] private ShootingRangeTargetRegistry m_RangeTargetRegistry;
 	[SerializeField] private UnitTeam m_Team;
-	[Tooltip("Коллайдер этого юнита для попадания чужих лучей; если пусто — GetComponentInChildren.")]
+	[Tooltip("Legacy fallback. Зрение и прицел используют UnitBodyHitZone; если пусто — ищутся хитбоксы на дочерних объектах.")]
 	[SerializeField] private Collider m_BodyCollider;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
@@ -85,7 +73,9 @@ public sealed class UnitVision : MonoBehaviour
 
 	private readonly List<UnitVision> m_OpponentBuffer = new List<UnitVision>(128);
 	private readonly List<ShootingRangeTarget> m_RangeTargetBuffer = new List<ShootingRangeTarget>(32);
-	private readonly List<AimCandidate> m_AimCandidateScratch = new List<AimCandidate>(c_AimCandidateCapacity);
+	private readonly List<UnitBodyHitZoneVisionUtility.VisionAimCandidate> m_AimCandidateScratch =
+		new List<UnitBodyHitZoneVisionUtility.VisionAimCandidate>(c_AimCandidateCapacity);
+	private UnitBodyHitZone[] m_BodyHitZones = Array.Empty<UnitBodyHitZone>();
 	private readonly List<(Vector3 from, Vector3 to, bool hitTarget)> m_DebugRays = new List<(Vector3, Vector3, bool)>(256);
 
 	private RaycastHit[] m_Hits;
@@ -110,7 +100,9 @@ public sealed class UnitVision : MonoBehaviour
 		return IsEngageableTarget(m_VisibleTarget) ? m_VisibleTarget : null;
 	}
 
-	public Collider BodyCollider => m_BodyCollider;
+	public Collider BodyCollider => ResolveBodyCollider();
+
+	public IReadOnlyList<UnitBodyHitZone> BodyHitZones => m_BodyHitZones;
 
 	/// <summary>
 	/// Горизонтальный вектор «на цель» при engage: при оружии в ready только позиция прицела,
@@ -136,7 +128,7 @@ public sealed class UnitVision : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Точка, к которой разворачиваемся/целимся по видимой цели: лучший видимый aim point внутри одного коллайдера.
+	/// Точка, к которой разворачиваемся/целимся по видимой цели: лучший видимый aim point среди хитбоксов цели.
 	/// </summary>
 	public Vector3 GetVisibleTargetAimPointWorld()
 	{
@@ -149,8 +141,14 @@ public sealed class UnitVision : MonoBehaviour
 		if (m_VisibleTarget.TryGetComponent(out ShootingRangeTarget rangeTarget))
 			return rangeTarget.GetAimPointWorld();
 
-		if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision) && targetVision.BodyCollider != null)
-			return targetVision.BodyCollider.bounds.center;
+		if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision))
+		{
+			if (UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(targetVision.m_BodyHitZones, out Bounds combined))
+				return combined.center;
+
+			if (targetVision.BodyCollider != null)
+				return targetVision.BodyCollider.bounds.center;
+		}
 
 		return m_VisibleTarget.position;
 	}
@@ -261,8 +259,7 @@ public sealed class UnitVision : MonoBehaviour
 		ResolveRegistryIfNeeded();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
-		if (m_BodyCollider == null)
-			m_BodyCollider = GetComponentInChildren<Collider>();
+		RefreshBodyHitZones();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_Equipment == null)
@@ -378,19 +375,35 @@ public sealed class UnitVision : MonoBehaviour
 			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
 				continue;
 
-			Collider targetCol = other.BodyCollider != null
-				? other.BodyCollider
+			if (other.m_BodyHitZones.Length > 0)
+			{
+				TryEvaluateHitZoneVisionCandidate(
+					origin,
+					forwardXZ,
+					rangeSq,
+					halfFov,
+					other.transform,
+					other.m_BodyHitZones,
+					ref bestDistSq,
+					ref bestTarget,
+					ref bestAimPoint,
+					ref hasBestAimPoint);
+				continue;
+			}
+
+			Collider legacyTargetCol = other.m_BodyCollider != null
+				? other.m_BodyCollider
 				: other.GetComponentInChildren<Collider>();
-			if (targetCol == null)
+			if (legacyTargetCol == null)
 				continue;
 
-			TryEvaluateVisionCandidate(
+			TryEvaluateLegacyVisionCandidate(
 				origin,
 				forwardXZ,
 				rangeSq,
 				halfFov,
 				other.transform,
-				targetCol,
+				legacyTargetCol,
 				ref bestDistSq,
 				ref bestTarget,
 				ref bestAimPoint,
@@ -410,7 +423,7 @@ public sealed class UnitVision : MonoBehaviour
 				if (targetCol == null)
 					continue;
 
-				TryEvaluateVisionCandidate(
+				TryEvaluateLegacyVisionCandidate(
 					origin,
 					forwardXZ,
 					rangeSq,
@@ -435,7 +448,59 @@ public sealed class UnitVision : MonoBehaviour
 		}
 	}
 
-	private bool TryEvaluateVisionCandidate(
+	private void RefreshBodyHitZones()
+	{
+		m_BodyHitZones = GetComponentsInChildren<UnitBodyHitZone>(true);
+	}
+
+	private Collider ResolveBodyCollider()
+	{
+		if (m_BodyCollider != null)
+			return m_BodyCollider;
+
+		return UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(m_BodyHitZones, BodyPartType.Chest)
+			?? UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(m_BodyHitZones, BodyPartType.Abdomen)
+			?? UnitBodyHitZoneVisionUtility.TryGetFirstCollider(m_BodyHitZones);
+	}
+
+	private bool TryEvaluateHitZoneVisionCandidate(
+		Vector3 _origin,
+		Vector3 _forwardXZ,
+		float _rangeSq,
+		float _halfFov,
+		Transform _targetRoot,
+		UnitBodyHitZone[] _hitZones,
+		ref float _bestDistSq,
+		ref Transform _bestTarget,
+		ref Vector3 _bestAimPoint,
+		ref bool _hasBestAimPoint)
+	{
+		if (!TryFindBestVisibleAimPointFromHitZones(_origin, _hitZones, _targetRoot, out Vector3 aimPoint))
+			return false;
+
+		Vector3 toAim = aimPoint - _origin;
+		toAim.y = 0f;
+		float distSq = toAim.sqrMagnitude;
+		if (distSq > _rangeSq || distSq < 0.0001f)
+			return false;
+
+		float ang = Vector3.Angle(_forwardXZ, toAim.normalized);
+		if (ang > _halfFov)
+			return false;
+
+		if (distSq < _bestDistSq)
+		{
+			_bestDistSq = distSq;
+			_bestTarget = _targetRoot;
+			_bestAimPoint = aimPoint;
+			_hasBestAimPoint = true;
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryEvaluateLegacyVisionCandidate(
 		Vector3 _origin,
 		Vector3 _forwardXZ,
 		float _rangeSq,
@@ -458,7 +523,7 @@ public sealed class UnitVision : MonoBehaviour
 		if (ang > _halfFov)
 			return false;
 
-		if (!TryFindBestVisibleAimPoint(_origin, _targetCol, _targetRoot, out Vector3 aimPoint))
+		if (!TryFindBestVisibleAimPointFromCollider(_origin, _targetCol, _targetRoot, out Vector3 aimPoint))
 			return false;
 
 		if (distSq < _bestDistSq)
@@ -653,37 +718,60 @@ public sealed class UnitVision : MonoBehaviour
 		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 
-	private void BuildAimCandidates(Collider _col, List<AimCandidate> _out)
+	private void BuildLegacyAimCandidates(Collider _col, List<UnitBodyHitZoneVisionUtility.VisionAimCandidate> _out)
 	{
-		_out.Clear();
-		Bounds b = _col.bounds;
-		Vector3 c = b.center;
-		Vector3 e = b.extents;
-
-		// One-collider fallback that mimics future body zones:
-		// primary ~= chest, then center/upper/lower, then low-priority visible edges.
-		float primaryY = c.y + e.y * 0.35f;
-		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z), 100f));
-		_out.Add(new AimCandidate(c, 80f));
-		_out.Add(new AimCandidate(new Vector3(c.x, c.y + e.y * 0.75f, c.z), 70f));
-		_out.Add(new AimCandidate(new Vector3(c.x, c.y - e.y * 0.35f, c.z), 50f));
-		_out.Add(new AimCandidate(new Vector3(c.x + e.x, primaryY, c.z), 30f));
-		_out.Add(new AimCandidate(new Vector3(c.x - e.x, primaryY, c.z), 30f));
-		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z + e.z), 30f));
-		_out.Add(new AimCandidate(new Vector3(c.x, primaryY, c.z - e.z), 30f));
-		_out.Add(new AimCandidate(new Vector3(c.x, c.y - e.y * 0.75f, c.z), 25f));
+		UnitBodyHitZoneVisionUtility.BuildAimCandidates(BodyPartType.Chest, _col, _out);
 	}
 
-	private bool TryFindBestVisibleAimPoint(Vector3 _eye, Collider _targetCol, Transform _opponentRoot, out Vector3 _aimPoint)
+	private bool TryFindBestVisibleAimPointFromHitZones(
+		Vector3 _eye,
+		UnitBodyHitZone[] _hitZones,
+		Transform _opponentRoot,
+		out Vector3 _aimPoint)
 	{
 		_aimPoint = Vector3.zero;
 		bool found = false;
 		float bestWeight = float.MinValue;
 
-		BuildAimCandidates(_targetCol, m_AimCandidateScratch);
+		for (int z = 0; z < _hitZones.Length; z++)
+		{
+			UnitBodyHitZone zone = _hitZones[z];
+			if (zone == null || !zone.TryGetComponent(out Collider zoneCol) || !zoneCol.enabled)
+				continue;
+
+			UnitBodyHitZoneVisionUtility.BuildAimCandidates(zone.BodyPart, zoneCol, m_AimCandidateScratch);
+			for (int i = 0; i < m_AimCandidateScratch.Count; i++)
+			{
+				UnitBodyHitZoneVisionUtility.VisionAimCandidate candidate = m_AimCandidateScratch[i];
+				bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, zoneCol, out Vector3 rayEnd, out bool hitTarget);
+				if (m_DrawVisionGizmos)
+					m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));
+				if (!ok || candidate.Weight <= bestWeight)
+					continue;
+
+				bestWeight = candidate.Weight;
+				_aimPoint = candidate.Point;
+				found = true;
+			}
+		}
+
+		return found;
+	}
+
+	private bool TryFindBestVisibleAimPointFromCollider(
+		Vector3 _eye,
+		Collider _targetCol,
+		Transform _opponentRoot,
+		out Vector3 _aimPoint)
+	{
+		_aimPoint = Vector3.zero;
+		bool found = false;
+		float bestWeight = float.MinValue;
+
+		BuildLegacyAimCandidates(_targetCol, m_AimCandidateScratch);
 		for (int i = 0; i < m_AimCandidateScratch.Count; i++)
 		{
-			AimCandidate candidate = m_AimCandidateScratch[i];
+			UnitBodyHitZoneVisionUtility.VisionAimCandidate candidate = m_AimCandidateScratch[i];
 			bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, _targetCol, out Vector3 rayEnd, out bool hitTarget);
 			if (m_DrawVisionGizmos)
 				m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));

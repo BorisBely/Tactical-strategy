@@ -52,7 +52,7 @@ public static class WorldPickupPrefabBuilder
 		("Assets/Prefabs/Equipment/M4/Equipped_M4_ModA_1.prefab", $"{c_WeaponsRoot}/M4/Equipped/Equipped_M4_ModA_1.prefab"),
 		("Assets/Prefabs/Equipment/M4/Equipped_M4_ModA_2.prefab", $"{c_WeaponsRoot}/M4/Equipped/Equipped_M4_ModA_2.prefab"),
 		("Assets/Prefabs/Equipment/ShellCasing_PolygonMilitary_556.prefab", $"{c_WeaponsRoot}/Effects/ShellCasing_PolygonMilitary_556.prefab"),
-		("Assets/Prefabs/PlayerUnit.prefab", "Assets/Prefabs/Characters/PlayerUnit.prefab"),
+		("Assets/Prefabs/PlayerUnit.prefab", "Assets/Prefabs/Characters/Unit.prefab"),
 		("Assets/Prefabs/Loot/Loot_AmmoBox_556NATO.prefab", $"{c_WorldLootRoot}/Ammo/Loot_AmmoBox_556NATO.prefab"),
 	};
 	#endregion

@@ -398,8 +398,14 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_Vision != null && _targetRoot != null && _targetRoot == m_Vision.VisibleTarget)
 			return m_Vision.GetVisibleTargetAimPointWorld();
 
-		if (_targetRoot != null && _targetRoot.TryGetComponent(out UnitVision uv) && uv.BodyCollider != null)
-			return uv.BodyCollider.bounds.center;
+		if (_targetRoot != null && _targetRoot.TryGetComponent(out UnitVision uv))
+		{
+			if (UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(uv.BodyHitZones, out Bounds combined))
+				return combined.center;
+
+			if (uv.BodyCollider != null)
+				return uv.BodyCollider.bounds.center;
+		}
 
 		return _targetRoot != null ? _targetRoot.position + Vector3.up * 1.2f : Vector3.zero;
 	}

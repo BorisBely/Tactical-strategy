@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 
 /// <summary>
 /// Автонастройка врага на префабе: команда, стартовое оружие и базовое состояние ready.
-/// Нужен, чтобы не разносить однотипную конфигурацию по нескольким компонентам вручную.
+/// Устарел — используйте <see cref="UnitFactionConfigurator"/>.
 /// </summary>
+[Obsolete("Use UnitFactionConfigurator instead.")]
 [DefaultExecutionOrder(-100)]
 [DisallowMultipleComponent]
 public sealed class EnemyUnitSetup : MonoBehaviour

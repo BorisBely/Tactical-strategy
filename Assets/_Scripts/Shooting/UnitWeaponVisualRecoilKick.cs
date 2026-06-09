@@ -21,8 +21,8 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	[SerializeField] private Transform m_KickTransformOverride;
 
 	[Header("Импульс от штрафа отдачи")]
-	[Tooltip("Градусы подъёма (локальный Euler X) на единицу RecoilPenalty. Ограничивается потолком штрафа из RecoilController.")]
-	[SerializeField, Min(0f)] private float m_PitchDegreesPerPenaltyUnit = 0.15f;
+	[Tooltip("Градусы подъёма (локальный Euler X) на единицу добавленного RecoilPenalty за выстрел. Ограничивается потолком штрафа из RecoilController.")]
+	[SerializeField, Min(0f)] private float m_PitchDegreesPerPenaltyUnit = 2.1f;
 	[Tooltip("Случайный yaw (локальный Y) как доля от pitch-импульса этого выстрела.")]
 	[SerializeField, Range(0f, 1f)] private float m_YawJitterFraction = 0.28f;
 
@@ -37,6 +37,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	[Header("Стабилизация")]
 	[Tooltip("Если локальный поворот совпадает с прошлым кадром после нашего kick — вычитаем отображённый kick (иначе накапливается ошибка). Только угол; поза позиции не трогается.")]
 	[SerializeField, Min(0.01f)] private float m_AnimatorReplaceAngleSlopDegrees = 0.35f;
+
+	[Header("Debug")]
+	[SerializeField] private bool m_LogVisualKick;
 	#endregion
 
 	#region Private Fields
@@ -156,6 +159,13 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		m_KickPitchDegrees += pitch;
 		m_KickYawDegrees += yaw;
 		ClampKickToGameplayCap();
+
+		if (m_LogVisualKick)
+		{
+			Debug.Log(
+				$"[VisualKick] shot penalty={penaltyAdded:F3} pitch+={pitch:F2} totalPitch={m_KickPitchDegrees:F2} target={m_KickTarget.name}",
+				this);
+		}
 	}
 
 	private void ClampKickToGameplayCap()

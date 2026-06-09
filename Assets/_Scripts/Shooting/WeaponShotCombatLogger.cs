@@ -23,45 +23,7 @@ public static class WeaponShotCombatLogger
 		WeaponShotHitResult _hitResult,
 		int _projectileCount)
 	{
-		string weaponLabel = ResolveWeaponLabel(_weaponItem, _weaponDefinition);
-		string attachmentsLabel = BuildNonStandardAttachmentsLabel(_weaponState, _presetAttachments);
-		string targetLabel = _visibleTarget != null ? _visibleTarget.name : "—";
-		string hitLabel = FormatHitResult(_hitResult, _projectileCount);
-		string rankLabel = UnitCombatRankCycle.ResolveRankLabel(_combatStats != null ? _combatStats.RankPreset : null);
-		float unitAccuracyMultiplier = _accuracy.SkillMultiplier;
-		string postureLabel = FormatPostureLabel(_posture, _accuracy);
-		string spreadFactorsLabel = FormatSpreadFactorsLabel(_accuracy);
-		string recoilLabel = FormatRecoilLabel(_recoil, _accuracy);
-		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
-			_accuracy.AimMode,
-			_accuracy.TargetDistanceMeters);
-		float modeAimTimeSeconds = WeaponAimModeUtility.GetRequiredAimTimeSeconds(
-			_fullAimTimeSeconds,
-			_accuracy.AimMode,
-			_accuracy.TargetDistanceMeters);
-		string aimModeLabel = FormatAimModeLabel(_accuracy.SelectedAimMode, _accuracy.EffectiveAimMode);
-		string fireModeLabel = FormatFireModeLabel(_accuracy.SelectedFireMode, _accuracy.EffectiveFireMode);
-		string aimingLabel =
-			$"режим={aimModeLabel} | полное наведение={_fullAimTimeSeconds:F2} с (100%) | " +
-			$"наведение по режиму={modeAimTimeSeconds:F2} с ({requiredProgress:P0}) | " +
-			$"факт на выстреле={_accuracy.AimProgress01:P0} | штраф разброса=×{_accuracy.AimCompletionMultiplier:F2}";
-		string fireLabel =
-			$"режим={fireModeLabel} | выстрел в серии={_accuracy.BurstShotIndex} | " +
-			$"множитель серии=×{_accuracy.AutoBurstSpreadMultiplier:F2}";
-		string spreadLabel =
-			$"ожидаемый диаметр={_accuracy.SpreadDiameterMeters:F2} м / " +
-			$"лимит={WeaponAutoModeSelectionUtility.AcceptableSpreadDiameterMeters:F2} м";
-
-		Debug.Log(
-			$"[Выстрел] {_shooterLabel} | ранг: {rankLabel} | стойка: {postureLabel} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +
-			$"дистанция: {_accuracy.TargetDistanceMeters:F1} м | " +
-			$"навык: ×{unitAccuracyMultiplier:F2} | разброс: {_accuracy.HalfAngleDegrees:F2}° | {spreadFactorsLabel} | " +
-			$"отдача: {recoilLabel} | " +
-			$"огонь: {fireLabel} | " +
-			$"наведение: {aimingLabel} | " +
-			$"Auto-критерий: {spreadLabel} | " +
-			$"цель: {targetLabel} | {hitLabel}",
-			_context);
+		// Отключено: боевые логи выстрелов не пишутся в консоль. См. HealthCombatLogger для травм.
 	}
 	#endregion
 

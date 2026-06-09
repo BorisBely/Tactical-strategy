@@ -18,6 +18,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI m_UnitRankText;
 	[SerializeField] private TextMeshProUGUI m_UnitNameText;
 	[SerializeField] private TextMeshProUGUI m_UnitPresetText;
+	[SerializeField] private TextMeshProUGUI m_HealthStatusText;
 
 	[Header("Выделение строки")]
 	[SerializeField] private Graphic m_SelectionBackground;
@@ -31,6 +32,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	public TextMeshProUGUI UnitRankText => m_UnitRankText;
 	public TextMeshProUGUI UnitNameText => m_UnitNameText;
 	public TextMeshProUGUI UnitPresetText => m_UnitPresetText;
+	public TextMeshProUGUI HealthStatusText => m_HealthStatusText;
 	public GameObject BoundUnitRoot { get; private set; }
 	public bool IsSelected { get; private set; }
 	public bool InteractionEnabled => m_InteractionEnabled;
@@ -57,6 +59,12 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			m_UnitRankText.text = _rankName ?? string.Empty;
 	}
 
+	public void SetHealthStatusText(string _healthStatusText)
+	{
+		if (m_HealthStatusText != null)
+			m_HealthStatusText.text = _healthStatusText ?? string.Empty;
+	}
+
 	public void SetSelected(bool _selected)
 	{
 		IsSelected = _selected;
@@ -78,6 +86,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			m_UnitNameText.text = string.Empty;
 		SetPresetDisplayName(string.Empty);
 		SetRankDisplayName(string.Empty);
+		SetHealthStatusText(string.Empty);
 	}
 	#endregion
 
@@ -86,6 +95,13 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	{
 		if (m_SelectionBackground == null && m_ClickArea != null)
 			m_SelectionBackground = m_ClickArea.GetComponent<Graphic>();
+
+		if (m_HealthStatusText == null)
+		{
+			Transform healthTextTransform = transform.Find("Button/HealthText");
+			if (healthTextTransform != null)
+				healthTextTransform.TryGetComponent(out m_HealthStatusText);
+		}
 
 		ApplySelectionVisual();
 	}

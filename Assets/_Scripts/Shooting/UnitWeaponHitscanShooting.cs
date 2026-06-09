@@ -45,6 +45,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[Tooltip("Максимальный полу-угол конуса в градусах.")]
 	[SerializeField, Min(0.01f)] private float m_MaxHalfAngleDegrees = 12f;
 
+	[Header("Auto Fire")]
+	[Tooltip("Множитель конуса разброса в FullAuto/Burst. 0.87 ≈ +15% точности в авто.")]
+	[SerializeField, Range(0.5f, 1f)] private float m_AutoSpreadMultiplier = 0.869565f;
+
 	[Header("Procedural Recoil Pattern")]
 	[Tooltip("Геймплейный подъём паттерна на единицу накопленной отдачи. Случайный конус остаётся мелкой неточностью поверх этого смещения.")]
 	[SerializeField, Min(0f)] private float m_RecoilPatternPitchDegreesPerPenaltyUnit = 0.09f;
@@ -72,7 +76,6 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField, Min(1.01f)] private float m_FalloffZeroRangeMultiplier = 2f;
 
 	[Header("Debug")]
-	[SerializeField] private bool m_LogShots = true;
 	[SerializeField] private bool m_DrawDebugRays;
 	[SerializeField, Min(0f)] private float m_DebugRayDuration = 10f;
 	[SerializeField] private string m_DebugLastHitName;
@@ -122,7 +125,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 
-		m_ShooterRoot = transform.root;
+		m_ShooterRoot = transform;
 	}
 	#endregion
 
@@ -168,19 +171,11 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		float halfAngle = accuracyContext.HalfAngleDegrees;
 		StoreDebugAccuracyContext(accuracyContext, patternResult);
 
-		WeaponShotHitResult aggregateHitResult = WeaponShotHitResult.Miss;
 		int projectileCount = Mathf.Max(1, _ammo.ProjectileCount);
 		for (int i = 0; i < projectileCount; i++)
 		{
 			Vector3 dir = ApplyConeSpread(patternedDirection, halfAngle);
-			WeaponShotHitResult shotResult = TryHit(origin, dir, _ammo);
-			aggregateHitResult = CombineHitResults(aggregateHitResult, shotResult);
-		}
-
-		if (m_LogShots)
-		{
-			WeaponShotRecoilLogInfo recoilLogInfo = BuildRecoilLogInfo(_ammo, accuracyContext, patternResult);
-			LogShot(_ammo, weapon, accuracyContext, recoilLogInfo, aggregateHitResult, projectileCount);
+			TryHit(origin, dir, _ammo);
 		}
 	}
 
@@ -240,6 +235,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			CombatCondition = m_CombatCondition,
 			TargetDistanceMeters = _targetDistanceMeters,
 			BaseSpreadToDegrees = m_BaseSpreadToDegrees,
+			AutoSpreadMultiplier = m_AutoSpreadMultiplier,
 			RecoilSpreadScale = m_RecoilSpreadScale,
 			MinHalfAngleDegrees = m_MinHalfAngleDegrees,
 			MaxHalfAngleDegrees = m_MaxHalfAngleDegrees,
@@ -292,7 +288,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 
 		int shotIndex = Mathf.Max(1, _accuracyContext.BurstShotIndex);
-		float pitchDegrees = recoilPenalty * m_RecoilPatternPitchDegreesPerPenaltyUnit;
+		float pitchDegrees = recoilPenalty * m_RecoilPatternPitchDegreesPerPenaltyUnit * m_AutoSpreadMultiplier;
 		float yawDegrees = CalculateProceduralPatternYaw(shotIndex, pitchDegrees);
 
 		Vector3 forward = normalizedBase;
@@ -312,46 +308,94 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return (mainWave + chaosWave) * _pitchDegrees * m_RecoilPatternYawFraction;
 	}
 
-	private WeaponShotHitResult TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)
+	private WeaponShotOutcome TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)
 	{
 		Vector3 dir = _direction.normalized;
 		float maxDist = m_MaxDistance;
 
-		if (!Physics.Raycast(_origin, dir, out RaycastHit hit, maxDist, m_HitLayers, m_TriggerInteraction))
+		RaycastHit[] hits = Physics.RaycastAll(_origin, dir, maxDist, m_HitLayers, m_TriggerInteraction);
+		if (hits.Length == 0)
 		{
 			if (m_DrawDebugRays)
 				Debug.DrawRay(_origin, dir * maxDist, Color.yellow, m_DebugRayDuration);
 			m_DebugLastHitName = "";
 			m_DebugLastDamage = 0f;
 			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
-			return WeaponShotHitResult.Miss;
+			return WeaponShotOutcome.Miss();
 		}
 
-		if (IsSelfCollider(hit.collider))
+		System.Array.Sort(hits, static (a, b) => a.distance.CompareTo(b.distance));
+
+		RaycastHit? firstSelfHit = null;
+		for (int i = 0; i < hits.Length; i++)
 		{
+			RaycastHit hit = hits[i];
+			if (IsSelfCollider(hit.collider))
+			{
+				firstSelfHit ??= hit;
+				continue;
+			}
+
+			DamageableTarget target = hit.collider.GetComponentInParent<DamageableTarget>();
+			bool hitVisibleTarget = IsHitOnVisibleTarget(hit.collider);
+			float damage = _ammo.BaseDamage;
+			if (m_UseDistanceFalloff)
+				damage *= ComputeFalloffMultiplier(hit.distance, _ammo);
+
 			if (m_DrawDebugRays)
-				Debug.DrawRay(_origin, dir * hit.distance, new Color(1f, 0.5f, 0f), m_DebugRayDuration);
-			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, hit, _ammo));
-			return WeaponShotHitResult.BlockedBySelf;
+				Debug.DrawRay(_origin, dir * hit.distance, Color.red, m_DebugRayDuration);
+
+			m_DebugLastHitName = hit.collider.name;
+			m_DebugLastDamage = damage;
+			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, dir, hit, _ammo, damage));
+
+			InjuryUiEntry resolvedInjury = default;
+			bool hasResolvedInjury = false;
+			UnitHealth targetHealth = null;
+			if (target != null)
+			{
+				target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo, hit.collider, out resolvedInjury);
+				target.TryGetComponent(out targetHealth);
+				hasResolvedInjury = targetHealth != null &&
+				                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
+				                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
+			}
+
+			UnitBodyHitZone hitZone = hit.collider.GetComponent<UnitBodyHitZone>() ??
+			                          hit.collider.GetComponentInParent<UnitBodyHitZone>();
+
+			return new WeaponShotOutcome
+			{
+				Result = hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther,
+				HitDistanceMeters = hit.distance,
+				Damage = damage,
+				HitColliderName = hit.collider.name,
+				HitRootName = hit.collider.transform.root.name,
+				BodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown,
+				BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
+				HasDamageableTarget = target != null,
+				HasUnitHealth = targetHealth != null,
+				ResolvedInjury = resolvedInjury,
+				HasResolvedInjury = hasResolvedInjury,
+				TargetHealth = targetHealth
+			};
 		}
 
-		DamageableTarget target = hit.collider.GetComponentInParent<DamageableTarget>();
-		bool hitVisibleTarget = IsHitOnVisibleTarget(hit.collider);
-		float damage = _ammo.BaseDamage;
-		if (m_UseDistanceFalloff)
-			damage *= ComputeFalloffMultiplier(hit.distance, _ammo);
+		if (firstSelfHit.HasValue)
+		{
+			RaycastHit selfHit = firstSelfHit.Value;
+			if (m_DrawDebugRays)
+				Debug.DrawRay(_origin, dir * selfHit.distance, new Color(1f, 0.5f, 0f), m_DebugRayDuration);
+			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, selfHit, _ammo));
+			return WeaponShotOutcome.BlockedBySelf(selfHit.collider.name, selfHit.distance);
+		}
 
 		if (m_DrawDebugRays)
-			Debug.DrawRay(_origin, dir * hit.distance, Color.red, m_DebugRayDuration);
-
-		m_DebugLastHitName = hit.collider.name;
-		m_DebugLastDamage = damage;
-		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, dir, hit, _ammo, damage));
-
-		if (target != null)
-			target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo, hit.collider);
-
-		return hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther;
+			Debug.DrawRay(_origin, dir * maxDist, Color.yellow, m_DebugRayDuration);
+		m_DebugLastHitName = "";
+		m_DebugLastDamage = 0f;
+		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
+		return WeaponShotOutcome.Miss();
 	}
 
 	private bool IsSelfCollider(Collider _collider)
@@ -359,7 +403,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (_collider == null || m_ShooterRoot == null)
 			return false;
 
-		return _collider.transform.IsChildOf(m_ShooterRoot);
+		Transform hitTransform = _collider.transform;
+		return hitTransform == m_ShooterRoot || hitTransform.IsChildOf(m_ShooterRoot);
 	}
 
 	private float ComputeFalloffMultiplier(float _distance, AmmoDefinition _ammo)
@@ -433,132 +478,6 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
 	}
 
-	private WeaponShotRecoilLogInfo BuildRecoilLogInfo(
-		AmmoDefinition _ammo,
-		WeaponShotAccuracyContext _accuracyContext,
-		ProceduralRecoilPatternResult _patternResult)
-	{
-		float maxPenalty = m_RecoilController != null ? m_RecoilController.MaxRecoilPenalty : 0f;
-		float penaltyBeforeShot = _patternResult.RecoilPenaltyUsed;
-		bool isAtCap = maxPenalty > 0.0001f && penaltyBeforeShot >= maxPenalty - 0.0001f;
-		float verticalOffsetMeters = CalculatePatternVerticalOffsetMeters(
-			_patternResult.PitchDegrees,
-			_accuracyContext.TargetDistanceMeters);
-		float recoilAddedPerShot = m_RecoilController != null
-			? m_RecoilController.ComputeRecoilAddedPerShot(_ammo)
-			: 0f;
-		float recoveryPerSecond = m_RecoilController != null
-			? m_RecoilController.GetCurrentRecoveryPerSecond()
-			: 0f;
-		bool isRecoveringWhileFiring = m_RecoilController != null && m_RecoilController.IsRecoveringWhileFiring;
-		float estimatedNetPerSecond = EstimateNetRecoilPenaltyPerSecond(
-			_accuracyContext.EffectiveFireMode,
-			recoilAddedPerShot,
-			recoveryPerSecond,
-			isRecoveringWhileFiring);
-
-		return new WeaponShotRecoilLogInfo(
-			penaltyBeforeShot,
-			maxPenalty,
-			isAtCap,
-			_patternResult.PatternApplied,
-			_patternResult.PitchDegrees,
-			_patternResult.YawDegrees,
-			verticalOffsetMeters,
-			recoilAddedPerShot,
-			recoveryPerSecond,
-			isRecoveringWhileFiring,
-			estimatedNetPerSecond,
-			m_RecoilPatternPitchDegreesPerPenaltyUnit,
-			m_RecoilSpreadScale,
-			_accuracyContext.RecoilMultiplier);
-	}
-
-	private static float CalculatePatternVerticalOffsetMeters(float _pitchDegrees, float _targetDistanceMeters)
-	{
-		if (_pitchDegrees <= 0.0001f)
-			return 0f;
-
-		float distance = Mathf.Max(0f, _targetDistanceMeters);
-		return distance * Mathf.Tan(_pitchDegrees * Mathf.Deg2Rad);
-	}
-
-	private float EstimateNetRecoilPenaltyPerSecond(
-		WeaponFireMode _effectiveFireMode,
-		float _recoilAddedPerShot,
-		float _recoveryPerSecond,
-		bool _isRecoveringWhileFiring)
-	{
-		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(_effectiveFireMode))
-			return -_recoveryPerSecond;
-
-		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
-		float rpm = weaponDefinition != null ? Mathf.Max(1f, weaponDefinition.FireRateRpm) : 600f;
-		float shotsPerSecond = rpm / 60f;
-		float accumulationPerSecond = _recoilAddedPerShot * shotsPerSecond;
-		if (_isRecoveringWhileFiring)
-			return accumulationPerSecond - _recoveryPerSecond;
-
-		return accumulationPerSecond;
-	}
-
-	private void LogShot(
-		AmmoDefinition _ammo,
-		EquippedWeapon _weapon,
-		WeaponShotAccuracyContext _accuracyContext,
-		WeaponShotRecoilLogInfo _recoilLogInfo,
-		WeaponShotHitResult _hitResult,
-		int _projectileCount)
-	{
-		if (_ammo == null || m_WeaponRuntime == null)
-			return;
-
-		float targetDistanceMeters = _accuracyContext.TargetDistanceMeters;
-		UnitCombatStats combatStats = ResolveCombatStats();
-		float conditionAimTimeMultiplier = m_CombatCondition != null
-			? m_CombatCondition.GetAimTimeMultiplier(IsMoving())
-			: 1f;
-		float fullAimTimeSeconds = m_AimProgressController != null
-			? m_AimProgressController.CurrentAimTimeSeconds
-			: WeaponDistanceAimEvaluator.GetRequiredAimTimeSeconds(
-				m_WeaponRuntime.CurrentWeaponDefinition,
-				m_WeaponRuntime.RuntimeState != null ? m_WeaponRuntime.RuntimeState.EquippedAttachments : null,
-				targetDistanceMeters) * (combatStats != null ? combatStats.GetAimTimeMultiplier() : 1f) * conditionAimTimeMultiplier;
-		WeaponAttachmentDefinition[] presetAttachments = _weapon != null
-			? _weapon.PresetEquippedAttachments
-			: null;
-		WeaponShotPostureLogInfo postureLogInfo = m_StanceCombatModifiers != null
-			? m_StanceCombatModifiers.GetPostureLogInfo(IsSprinting())
-			: default;
-
-		WeaponShotCombatLogger.LogShot(
-			this,
-			gameObject.name,
-			m_Equipment != null ? m_Equipment.EquippedDefinition : null,
-			m_WeaponRuntime.CurrentWeaponDefinition,
-			m_WeaponRuntime.RuntimeState,
-			presetAttachments,
-			combatStats,
-			_accuracyContext,
-			postureLogInfo,
-			_recoilLogInfo,
-			fullAimTimeSeconds,
-			m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null,
-			_hitResult,
-			_projectileCount);
-	}
-
-	private static WeaponShotHitResult CombineHitResults(WeaponShotHitResult _current, WeaponShotHitResult _next)
-	{
-		if (_next == WeaponShotHitResult.HitTarget || _current == WeaponShotHitResult.HitTarget)
-			return WeaponShotHitResult.HitTarget;
-		if (_next == WeaponShotHitResult.HitOther || _current == WeaponShotHitResult.HitOther)
-			return WeaponShotHitResult.HitOther;
-		if (_next == WeaponShotHitResult.BlockedBySelf || _current == WeaponShotHitResult.BlockedBySelf)
-			return WeaponShotHitResult.BlockedBySelf;
-		return WeaponShotHitResult.Miss;
-	}
-
 	private bool IsHitOnVisibleTarget(Collider _hitCollider)
 	{
 		Transform visibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
@@ -573,6 +492,15 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		Transform hitTransform = _hitCollider.transform;
 		return hitTransform == visibleTarget || hitTransform.IsChildOf(visibleTarget);
+	}
+
+	private static float CalculatePatternVerticalOffsetMeters(float _pitchDegrees, float _targetDistanceMeters)
+	{
+		if (_pitchDegrees <= 0.0001f)
+			return 0f;
+
+		float distance = Mathf.Max(0f, _targetDistanceMeters);
+		return distance * Mathf.Tan(_pitchDegrees * Mathf.Deg2Rad);
 	}
 
 	private void StoreDebugAccuracyContext(

@@ -38,6 +38,230 @@
       "value": "В норме"
     },
     {
+      "key": "health.status.wounded",
+      "value": "Ранен"
+    },
+    {
+      "key": "health.status.seriously_wounded",
+      "value": "Тяжело ранен"
+    },
+    {
+      "key": "health.status.critical",
+      "value": "Критическое состояние"
+    },
+    {
+      "key": "health.body_part.head",
+      "value": "Голова"
+    },
+    {
+      "key": "health.body_part.neck",
+      "value": "Шея"
+    },
+    {
+      "key": "health.body_part.chest",
+      "value": "Грудь"
+    },
+    {
+      "key": "health.body_part.abdomen",
+      "value": "Живот"
+    },
+    {
+      "key": "health.body_part.left_arm",
+      "value": "Левая рука"
+    },
+    {
+      "key": "health.body_part.right_arm",
+      "value": "Правая рука"
+    },
+    {
+      "key": "health.body_part.left_leg",
+      "value": "Левая нога"
+    },
+    {
+      "key": "health.body_part.right_leg",
+      "value": "Правая нога"
+    },
+    {
+      "key": "health.body_part.unknown",
+      "value": "Неизвестно"
+    },
+    {
+      "key": "health.body_zone.head",
+      "value": "Голова"
+    },
+    {
+      "key": "health.body_zone.torso",
+      "value": "Торс"
+    },
+    {
+      "key": "health.body_zone.arms",
+      "value": "Руки"
+    },
+    {
+      "key": "health.body_zone.legs",
+      "value": "Ноги"
+    },
+    {
+      "key": "health.body_zone.unknown",
+      "value": "Неизвестно"
+    },
+    {
+      "key": "health.damage_source.bullet",
+      "value": "Пуля"
+    },
+    {
+      "key": "health.damage_source.fragment",
+      "value": "Осколок"
+    },
+    {
+      "key": "health.damage_source.explosive",
+      "value": "Взрыв"
+    },
+    {
+      "key": "health.condition.moderate_bleeding",
+      "value": "Среднее кровотечение"
+    },
+    {
+      "key": "health.condition.fracture",
+      "value": "Перелом"
+    },
+    {
+      "key": "health.condition.internal",
+      "value": "Внутренняя травма"
+    },
+    {
+      "key": "health.injury.arm_bleeding",
+      "value": "Кровотечение: правая рука"
+    },
+    {
+      "key": "health.injury.arm_bleeding.desc",
+      "value": "Проникающее ранение мягких тканей руки. Кровопотеря снижает боеспособность и требует стабилизации."
+    },
+    {
+      "key": "health.injury.leg_fracture",
+      "value": "Перелом: левая нога"
+    },
+    {
+      "key": "health.injury.leg_fracture.desc",
+      "value": "Перелом кости ноги делает быстрое перемещение невозможным и сильно ограничивает манёвренность."
+    },
+    {
+      "key": "health.injury.lung_damage",
+      "value": "Повреждение легкого"
+    },
+    {
+      "key": "health.injury.lung_damage.desc",
+      "value": "Проникающее ранение груди нарушает дыхание. Состояние может ухудшаться со временем."
+    },
+    {
+      "key": "health.injury.head_wound",
+      "value": "Ранение головы"
+    },
+    {
+      "key": "health.injury.head_wound.desc",
+      "value": "Проникающее ранение головы снижает концентрацию и точность."
+    },
+    {
+      "key": "health.injury.concussion",
+      "value": "Сотрясение"
+    },
+    {
+      "key": "health.injury.concussion.desc",
+      "value": "Удар по голове вызывает дезориентацию и замедляет реакцию."
+    },
+    {
+      "key": "health.injury.neck_bleeding",
+      "value": "Кровотечение: шея"
+    },
+    {
+      "key": "health.injury.neck_bleeding.desc",
+      "value": "Проникающее ранение шеи опасно быстрой кровопотерей."
+    },
+    {
+      "key": "health.injury.chest_bleeding",
+      "value": "Кровотечение: грудь"
+    },
+    {
+      "key": "health.injury.chest_bleeding.desc",
+      "value": "Проникающее ранение груди вызывает кровопотерю и ограничивает подвижность."
+    },
+    {
+      "key": "health.injury.internal_bleeding",
+      "value": "Внутреннее кровотечение"
+    },
+    {
+      "key": "health.injury.internal_bleeding.desc",
+      "value": "Проникающее ранение живота может вызвать скрытую кровопотерю."
+    },
+    {
+      "key": "health.injury.left_arm_bleeding",
+      "value": "Кровотечение: левая рука"
+    },
+    {
+      "key": "health.injury.left_arm_bleeding.desc",
+      "value": "Проникающее ранение левой руки снижает боеспособность."
+    },
+    {
+      "key": "health.injury.left_leg_bleeding",
+      "value": "Кровотечение: левая нога"
+    },
+    {
+      "key": "health.injury.left_leg_bleeding.desc",
+      "value": "Проникающее ранение ноги ограничивает перемещение."
+    },
+    {
+      "key": "health.injury.right_leg_fracture",
+      "value": "Перелом: правая нога"
+    },
+    {
+      "key": "health.injury.right_leg_fracture.desc",
+      "value": "Перелом правой ноги делает быстрое перемещение невозможным."
+    },
+    {
+      "key": "health.injury.right_leg_bleeding",
+      "value": "Кровотечение: правая нога"
+    },
+    {
+      "key": "health.injury.right_leg_bleeding.desc",
+      "value": "Проникающее ранение правой ноги ограничивает перемещение."
+    },
+    {
+      "key": "health.injury.generic_wound",
+      "value": "Ранение"
+    },
+    {
+      "key": "health.injury.generic_wound.desc",
+      "value": "Проникающее ранение без точной локализации."
+    },
+    {
+      "key": "health.debuff.aim_penalty",
+      "value": "Снижена точность стрельбы"
+    },
+    {
+      "key": "health.debuff.reload_slow",
+      "value": "Медленная перезарядка"
+    },
+    {
+      "key": "health.debuff.no_sprint",
+      "value": "Нельзя бегать"
+    },
+    {
+      "key": "health.debuff.movement_slow",
+      "value": "Снижена скорость движения"
+    },
+    {
+      "key": "health.debuff.oxygen_loss",
+      "value": "Падает насыщение кислородом"
+    },
+    {
+      "key": "health.debuff.no_long_run",
+      "value": "Нельзя долго бежать"
+    },
+    {
+      "key": "health.tooltip.debuffs_header",
+      "value": "Дебафы:"
+    },
+    {
       "key": "item.generic",
       "value": "Предмет"
     },

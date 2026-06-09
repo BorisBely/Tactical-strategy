@@ -1,0 +1,218 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Настройка универсального префаба юнита под команду: инвентарь, включение подсистем, RTS/AI.
+/// Вызывается спавнером сразу после Instantiate или из Awake по сериализованному конфигу.
+/// </summary>
+[DefaultExecutionOrder(-100)]
+[DisallowMultipleComponent]
+public sealed class UnitFactionConfigurator : MonoBehaviour
+{
+	#region Serialized Fields
+	[SerializeField] private UnitSpawnConfig m_RuntimeConfig = new UnitSpawnConfig();
+	#endregion
+
+	#region Private Fields
+	private UnitTeam m_Team;
+	private CharacterInventory m_Inventory;
+	private UnitEquipment m_Equipment;
+	private UnitWeaponReadyHandsLayer m_ReadyHands;
+	private RtsUnitMember m_RtsMember;
+	private UnitClickToMove m_ClickToMove;
+	private UnitNavLocomotionDriver m_LocomotionDriver;
+	private InventoryPickupZone m_PickupZone;
+	private UnitAnimatorStance m_Stance;
+	private UnitVision m_Vision;
+	private DamageableTarget m_DamageableTarget;
+	private UnitWeaponRuntime m_WeaponRuntime;
+	#endregion
+
+	#region Public Methods
+	public void Configure(UnitSpawnConfig _config)
+	{
+		m_RuntimeConfig = _config ?? new UnitSpawnConfig();
+	}
+
+	public void ApplyConfiguration()
+	{
+		CacheComponents();
+
+		UnitTeamId team = m_RuntimeConfig.Team;
+		bool isPlayer = team == UnitTeamId.Player;
+
+		if (m_Team != null)
+			m_Team.SetTeam(team);
+
+		ApplyLoadout();
+		ApplyRoleComponents(isPlayer);
+
+		if (m_ReadyHands != null)
+			m_ReadyHands.SetReadyWanted(m_RuntimeConfig.StartReady, false);
+
+		if (!string.IsNullOrWhiteSpace(m_RuntimeConfig.DisplayName))
+			UnitRosterDisplayState.GetOrCreate(gameObject)?.SetCallsign(m_RuntimeConfig.DisplayName);
+
+		RefreshVisionRegistry();
+	}
+
+	/// <summary>Готовый конфиг для игрока (RTS, без прямого ввода).</summary>
+	public static UnitSpawnConfig CreatePlayerConfig(UnitSpawnLoadout _loadout, bool _startReady = false, string _displayName = null)
+	{
+		return new UnitSpawnConfig(UnitTeamId.Player, _loadout, _startReady, _displayName);
+	}
+
+	/// <summary>Готовый конфиг для врага.</summary>
+	public static UnitSpawnConfig CreateEnemyConfig(UnitSpawnLoadout _loadout, bool _startReady = false, string _displayName = null)
+	{
+		return new UnitSpawnConfig(UnitTeamId.Enemy, _loadout, _startReady, _displayName);
+	}
+	#endregion
+
+	#region Private Methods
+	private void CacheComponents()
+	{
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
+		if (m_Inventory == null)
+			m_Inventory = GetComponent<CharacterInventory>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_RtsMember == null)
+			m_RtsMember = GetComponent<RtsUnitMember>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_PickupZone == null)
+			m_PickupZone = GetComponentInChildren<InventoryPickupZone>(true);
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
+		if (m_DamageableTarget == null)
+			m_DamageableTarget = GetComponent<DamageableTarget>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+	}
+
+	private void ApplyLoadout()
+	{
+		if (m_Inventory == null)
+			return;
+
+		m_Inventory.Clear();
+
+		UnitSpawnLoadout loadout = m_RuntimeConfig.Loadout;
+		if (loadout == null)
+			return;
+
+		var bagSlots = new List<InventorySlotRuntimeData>();
+		ItemDefinition[] bagItems = loadout.BagItems;
+		for (int i = 0; i < bagItems.Length; i++)
+		{
+			ItemDefinition item = bagItems[i];
+			if (item == null)
+				continue;
+
+			if (InventoryLoadedMagazineUtility.IsMagazineDefinition(item) &&
+			    InventoryLoadedMagazineUtility.TryBuildLoadedMagazineSlot(
+				    item,
+				    loadout.AmmoForMagazines,
+				    loadout.RoundsPerMagazine,
+				    out InventorySlotRuntimeData loadedMagazine))
+				bagSlots.Add(loadedMagazine);
+			else
+				bagSlots.Add(InventorySlotRuntimeData.FromDefinition(item));
+		}
+
+		InventorySlotRuntimeData mainHand = default;
+		if (loadout.MainHandWeapon != null)
+		{
+			mainHand = InventorySlotRuntimeData.FromDefinition(loadout.MainHandWeapon);
+			TryInsertLoadedMagazineIntoWeapon(mainHand, bagSlots, loadout.LoadMagazineIntoWeapon);
+		}
+
+		if (!mainHand.IsEmpty && m_Equipment != null)
+			m_Inventory.RestoreAfterFailedDrop(true, mainHand);
+
+		for (int i = 0; i < bagSlots.Count; i++)
+			m_Inventory.TryAdd(bagSlots[i]);
+
+		if (m_WeaponRuntime != null)
+			m_WeaponRuntime.RefreshFromEquipment();
+	}
+
+	private static void TryInsertLoadedMagazineIntoWeapon(
+		InventorySlotRuntimeData _mainHand,
+		List<InventorySlotRuntimeData> _bagSlots,
+		bool _loadMagazineIntoWeapon)
+	{
+		if (!_loadMagazineIntoWeapon || _bagSlots == null || _bagSlots.Count == 0)
+			return;
+
+		WeaponRuntimeState weaponState = _mainHand.InstanceState?.WeaponState;
+		if (weaponState == null)
+			return;
+
+		for (int i = 0; i < _bagSlots.Count; i++)
+		{
+			InventorySlotRuntimeData candidate = _bagSlots[i];
+			MagazineRuntimeState magazineState = candidate.InstanceState?.MagazineState;
+			if (magazineState == null || magazineState.CurrentAmmoCount <= 0)
+				continue;
+
+			if (!weaponState.TryInsertMagazine(candidate))
+				continue;
+
+			weaponState.TryChamberRoundFromMagazine();
+			_bagSlots.RemoveAt(i);
+			return;
+		}
+	}
+
+	private void ApplyRoleComponents(bool _isPlayer)
+	{
+		SetBehaviourEnabled(m_RtsMember, _isPlayer);
+		SetBehaviourEnabled(m_ClickToMove, _isPlayer);
+		SetBehaviourEnabled(m_LocomotionDriver, !_isPlayer);
+		SetBehaviourEnabled(m_PickupZone, _isPlayer);
+		SetBehaviourEnabled(m_Stance, true);
+		SetBehaviourEnabled(m_ReadyHands, true);
+		SetBehaviourEnabled(m_Vision, true);
+		SetBehaviourEnabled(m_DamageableTarget, true);
+
+		if (m_Stance != null)
+			m_Stance.SetKeyboardInputEnabled(false);
+
+		if (m_ReadyHands != null)
+			m_ReadyHands.SetKeyboardInputEnabled(false);
+
+		if (_isPlayer && m_RtsMember != null && m_RtsMember.isActiveAndEnabled)
+			m_RtsMember.ApplyDirectInputState(false);
+	}
+
+	private static void SetBehaviourEnabled(Behaviour _behaviour, bool _enabled)
+	{
+		if (_behaviour == null)
+			return;
+
+		_behaviour.enabled = _enabled;
+	}
+
+	private void RefreshVisionRegistry()
+	{
+		if (m_Vision == null)
+			return;
+
+		bool wasEnabled = m_Vision.enabled;
+		if (wasEnabled)
+			m_Vision.enabled = false;
+
+		if (wasEnabled)
+			m_Vision.enabled = true;
+	}
+	#endregion
+}

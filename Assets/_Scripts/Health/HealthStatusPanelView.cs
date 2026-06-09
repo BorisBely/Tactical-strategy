@@ -113,6 +113,7 @@ public sealed class HealthStatusPanelView : MonoBehaviour
 		created.gameObject.name = $"{m_SlotPrefab.name}_{m_SpawnedSlots.Count}";
 		created.Clear();
 		created.MarkRuntimeSpawned();
+		HealthStatusSlotUiUtility.EnsureDescriptionHover(created);
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
 		return created;
