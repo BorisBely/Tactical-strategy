@@ -61,6 +61,11 @@ public static class BodyPartTypeUtility
 		return _bodyPart == BodyPartType.LeftLeg || _bodyPart == BodyPartType.RightLeg;
 	}
 
+	public static bool IsLimb(BodyPartType _bodyPart)
+	{
+		return IsArm(_bodyPart) || IsLeg(_bodyPart);
+	}
+
 	public static string GetDisplayName(BodyPartType _bodyPart)
 	{
 		switch (_bodyPart)

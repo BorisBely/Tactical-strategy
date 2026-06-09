@@ -38,6 +38,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	#region Private Fields
 	private bool m_PendingActiveCharacterPanelRefresh;
 	private UnitHealth m_SubscribedUnitHealth;
+	private UnitArmor m_SubscribedUnitArmor;
 	#endregion
 
 	#region Public Properties
@@ -77,6 +78,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		ReconcileSingletonInstance();
 		RefreshActiveCharacterPanel();
 		SubscribeToActiveUnitHealth();
+		SubscribeToActiveUnitArmor();
 		RefreshHealthUi();
 	}
 
@@ -111,6 +113,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
 		UnsubscribeFromActiveUnitHealth();
+		UnsubscribeFromActiveUnitArmor();
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -131,6 +134,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		m_ActiveCharacterInventory = _inventory;
 		SubscribeToActiveUnitHealth();
+		SubscribeToActiveUnitArmor();
 
 		if (_inventory == null && IsInventoryOpen)
 		{
@@ -285,7 +289,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		if (m_UnitListPresenter == null)
 			return;
 
-		m_UnitListPresenter.RefreshHealthSummaryForActiveCell();
+		m_UnitListPresenter.RefreshStatusSummaryForActiveCell();
 	}
 
 	private void RefreshLocalizedTexts()
@@ -322,6 +326,32 @@ public class InventoryScreenBindings : MonoBehaviour
 		RefreshHealthUi();
 	}
 
+	private void SubscribeToActiveUnitArmor()
+	{
+		UnitArmor armor = ResolveActiveUnitArmor();
+		if (armor == m_SubscribedUnitArmor)
+			return;
+
+		UnsubscribeFromActiveUnitArmor();
+		m_SubscribedUnitArmor = armor;
+		if (m_SubscribedUnitArmor != null)
+			m_SubscribedUnitArmor.Changed += HandleActiveUnitArmorChanged;
+	}
+
+	private void UnsubscribeFromActiveUnitArmor()
+	{
+		if (m_SubscribedUnitArmor == null)
+			return;
+
+		m_SubscribedUnitArmor.Changed -= HandleActiveUnitArmorChanged;
+		m_SubscribedUnitArmor = null;
+	}
+
+	private void HandleActiveUnitArmorChanged()
+	{
+		RefreshInventoryUnitHealthSummary();
+	}
+
 	private UnitHealth ResolveActiveUnitHealth()
 	{
 		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
@@ -333,6 +363,19 @@ public class InventoryScreenBindings : MonoBehaviour
 			return health;
 
 		return inventory.GetComponentInParent<UnitHealth>(true);
+	}
+
+	private UnitArmor ResolveActiveUnitArmor()
+	{
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory == null)
+			return null;
+
+		RtsUnitMember member = inventory.GetComponentInParent<RtsUnitMember>(true);
+		if (member != null && member.TryGetComponent(out UnitArmor armor))
+			return armor;
+
+		return inventory.GetComponentInParent<UnitArmor>(true);
 	}
 
 	private InventoryPickupZone FindPickupZoneOnActiveCharacter()

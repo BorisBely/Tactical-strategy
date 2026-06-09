@@ -19,6 +19,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI m_UnitNameText;
 	[SerializeField] private TextMeshProUGUI m_UnitPresetText;
 	[SerializeField] private TextMeshProUGUI m_HealthStatusText;
+	[SerializeField] private TextMeshProUGUI m_ArmorStatusText;
 
 	[Header("Выделение строки")]
 	[SerializeField] private Graphic m_SelectionBackground;
@@ -33,6 +34,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	public TextMeshProUGUI UnitNameText => m_UnitNameText;
 	public TextMeshProUGUI UnitPresetText => m_UnitPresetText;
 	public TextMeshProUGUI HealthStatusText => m_HealthStatusText;
+	public TextMeshProUGUI ArmorStatusText => m_ArmorStatusText;
 	public GameObject BoundUnitRoot { get; private set; }
 	public bool IsSelected { get; private set; }
 	public bool InteractionEnabled => m_InteractionEnabled;
@@ -65,6 +67,16 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			m_HealthStatusText.text = _healthStatusText ?? string.Empty;
 	}
 
+	public void SetArmorStatusText(string _armorStatusText)
+	{
+		if (m_ArmorStatusText == null)
+			return;
+
+		string status = _armorStatusText ?? string.Empty;
+		m_ArmorStatusText.text = status;
+		m_ArmorStatusText.gameObject.SetActive(!string.IsNullOrWhiteSpace(status));
+	}
+
 	public void SetSelected(bool _selected)
 	{
 		IsSelected = _selected;
@@ -87,6 +99,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 		SetPresetDisplayName(string.Empty);
 		SetRankDisplayName(string.Empty);
 		SetHealthStatusText(string.Empty);
+		SetArmorStatusText(string.Empty);
 	}
 	#endregion
 
@@ -101,6 +114,13 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 			Transform healthTextTransform = transform.Find("Button/HealthText");
 			if (healthTextTransform != null)
 				healthTextTransform.TryGetComponent(out m_HealthStatusText);
+		}
+
+		if (m_ArmorStatusText == null)
+		{
+			Transform armorTextTransform = transform.Find("Button/ArmorText");
+			if (armorTextTransform != null)
+				armorTextTransform.TryGetComponent(out m_ArmorStatusText);
 		}
 
 		ApplySelectionVisual();

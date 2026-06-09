@@ -142,6 +142,8 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 				presetState.ApplyActivePresetToRuntime(inventory);
 
 			MissionPrepUnitArmorVisualController.GetOrCreate(instance, presetState.ArmorVisualIndex);
+			UnitArmor armor = instance.GetComponent<UnitArmor>() ?? instance.AddComponent<UnitArmor>();
+			armor.SetArmorFromPresetIndex(presetState.ArmorVisualIndex);
 
 			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(GenerateRandomCallsign());
 

@@ -110,6 +110,22 @@ public static class WeaponVfxUtility
 		}
 	}
 
+	public static void PrepareBodyImpactParticleInstance(GameObject _instance)
+	{
+		if (_instance == null)
+			return;
+
+		ParticleSystem[] systems = _instance.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			ParticleSystem.MainModule main = systems[i].main;
+			main.loop = false;
+			main.playOnAwake = false;
+			main.stopAction = ParticleSystemStopAction.None;
+			main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+		}
+	}
+
 	public static bool IsParticleRootAlive(GameObject _instance)
 	{
 		ParticleSystem[] systems = _instance.GetComponentsInChildren<ParticleSystem>(true);

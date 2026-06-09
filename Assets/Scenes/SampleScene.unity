@@ -8678,7 +8678,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1032073189
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -15287,7 +15287,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1717102755
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17715,7 +17715,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022201
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17827,7 +17827,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022211
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17939,7 +17939,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022221
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18051,7 +18051,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022231
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18163,7 +18163,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022241
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18275,7 +18275,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022251
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18387,7 +18387,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022261
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18499,7 +18499,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!65 &1992022271
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -19799,6 +19799,7 @@ MonoBehaviour:
       m_LoadMagazineIntoWeapon: 1
     m_StartReady: 0
     m_DisplayName: Player-01
+    m_ArmorVisualIndex: 0
   m_EnemySpawn:
     m_SpawnPoint: {fileID: 2100000007}
     m_Team: 1
@@ -19820,6 +19821,7 @@ MonoBehaviour:
       m_LoadMagazineIntoWeapon: 1
     m_StartReady: 0
     m_DisplayName: Enemy-01
+    m_ArmorVisualIndex: 1
 --- !u!1 &2100000004
 GameObject:
   m_ObjectHideFlags: 0

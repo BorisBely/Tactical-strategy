@@ -25,12 +25,14 @@ MonoBehaviour:
   m_ShellParticleScale: 2
   m_ShellPrefabEjectionAxis: {x: 1, y: 0, z: 0}
   m_ShellLocalEulerOffset: {x: 0, y: 0, z: 0}
-  m_EnableBulletTrail: 1
-  m_BulletTrailPrefab: {fileID: 1046001694842650, guid: 9eb7304a6c9aedb40abba583aff826c5, type: 3}
-  m_TrailLifetimeSeconds: 0.06
-  m_TrailWidthScale: 0.035
-  m_TrailLengthMultiplier: 1
-  m_MaxTrailDistance: 120
+  m_EnableBodyImpactFx: 1
+  m_ArmorDeflectImpactPrefab: {fileID: 157586, guid: a61e0c2e6f92cb14bbd2a388aea0a297, type: 3}
+  m_FleshImpactPrefab: {fileID: 166404, guid: ff77fff4d9587d3479084495a044b105, type: 3}
+  m_ArmorDeflectImpactLifetimeSeconds: 0.35
+  m_FleshImpactLifetimeSeconds: 2.5
+  m_ArmorDeflectImpactScale: 1
+  m_FleshImpactScale: 0.2
+  m_BodyImpactSurfaceOffset: 0.01
   m_EnableImpactDecals: 1
   m_ConcreteImpactDecalPrefabs:
   - {fileID: 1364626547466708, guid: 3b1aa7e77622ff048b50275424ccd519, type: 3}

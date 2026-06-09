@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Pool;
 
 /// <summary>
-/// След пули и декаль попадания по данным из <see cref="WeaponVfxProfile"/>.
+/// FX попадания по данным из <see cref="WeaponVfxProfile"/>.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(58)]
@@ -52,32 +52,34 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		if (profile == null || _trace.HitSelf)
 			return;
 
-		if (profile.EnableBulletTrail)
-			SpawnTrail(profile, _trace);
+		if (!_trace.HasHit || _trace.HitCollider == null)
+			return;
 
-		if (profile.EnableImpactDecals && _trace.HasHit && _trace.HitCollider != null)
+		if (profile.EnableBodyImpactFx && _trace.ImpactVfxKind is WeaponShotImpactVfxKind.ArmorDeflect or WeaponShotImpactVfxKind.Flesh)
+			SpawnBodyImpact(profile, _trace);
+		else if (profile.EnableImpactDecals)
 			SpawnImpactDecal(profile, _trace);
 	}
 
-	private void SpawnTrail(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
+	private void SpawnBodyImpact(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
 	{
-		if (_profile.BulletTrailPrefab == null)
+		bool armorDeflect = _trace.ImpactVfxKind == WeaponShotImpactVfxKind.ArmorDeflect;
+		GameObject prefab = armorDeflect ? _profile.ArmorDeflectImpactPrefab : _profile.FleshImpactPrefab;
+		if (prefab == null)
 			return;
 
-		Vector3 delta = _trace.EndPoint - _trace.Origin;
-		float distance = Mathf.Min(delta.magnitude, _profile.MaxTrailDistance);
-		if (distance <= 0.05f)
-			return;
+		Vector3 normal = _trace.HitNormal.sqrMagnitude > 1e-6f ? _trace.HitNormal.normalized : Vector3.up;
+		Vector3 position = _trace.EndPoint + normal * _profile.BodyImpactSurfaceOffset;
+		Quaternion rotation = Quaternion.LookRotation(normal);
+		float intensityScale = armorDeflect ? _profile.ArmorDeflectImpactScale : _profile.FleshImpactScale;
+		float lifetime = armorDeflect
+			? _profile.ArmorDeflectImpactLifetimeSeconds
+			: _profile.FleshImpactLifetimeSeconds;
+		Vector3 scale = armorDeflect
+			? Vector3.Scale(prefab.transform.localScale, Vector3.one * intensityScale)
+			: Vector3.one * intensityScale;
 
-		Vector3 dir = delta.normalized;
-		Vector3 center = _trace.Origin + dir * (distance * 0.5f);
-		Quaternion rotation = Quaternion.LookRotation(dir, Vector3.up);
-		Vector3 scale = new Vector3(
-			_profile.TrailWidthScale,
-			_profile.TrailWidthScale,
-			distance * _profile.TrailLengthMultiplier);
-
-		SpawnPooled(_profile.BulletTrailPrefab, center, rotation, scale, _profile.TrailLifetimeSeconds);
+		SpawnParticleImpact(prefab, position, rotation, scale, lifetime);
 	}
 
 	private void SpawnImpactDecal(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
@@ -99,6 +101,35 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			rotation,
 			Vector3.one * _profile.DecalScale,
 			_profile.DecalLifetimeSeconds);
+	}
+
+	private void SpawnParticleImpact(
+		GameObject _prefab,
+		Vector3 _position,
+		Quaternion _rotation,
+		Vector3 _scale,
+		float _lifetime)
+	{
+		ObjectPool<GameObject> pool = GetOrCreatePool(_prefab);
+		GameObject instance = pool.Get();
+		Transform t = instance.transform;
+		t.SetPositionAndRotation(_position, _rotation);
+		t.localScale = _scale;
+
+		WeaponVfxUtility.PlayShellParticles(instance);
+		StartCoroutine(ReleaseParticleAfter(pool, instance, _lifetime));
+	}
+
+	private static IEnumerator ReleaseParticleAfter(ObjectPool<GameObject> _pool, GameObject _instance, float _minSeconds)
+	{
+		if (_minSeconds > 0f)
+			yield return new WaitForSeconds(_minSeconds);
+
+		while (_instance != null && WeaponVfxUtility.IsParticleRootAlive(_instance))
+			yield return null;
+
+		if (_instance != null)
+			_pool.Release(_instance);
 	}
 
 	private void SpawnPooled(
@@ -123,7 +154,12 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			return existing;
 
 		ObjectPool<GameObject> pool = new ObjectPool<GameObject>(
-			createFunc: () => Instantiate(_prefab),
+			createFunc: () =>
+			{
+				GameObject instance = Instantiate(_prefab);
+				WeaponVfxUtility.PrepareBodyImpactParticleInstance(instance);
+				return instance;
+			},
 			actionOnGet: go => go.SetActive(true),
 			actionOnRelease: go => go.SetActive(false),
 			actionOnDestroy: Destroy,

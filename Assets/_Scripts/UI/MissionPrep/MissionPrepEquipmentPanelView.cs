@@ -452,6 +452,9 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		MissionPrepUnitArmorVisualController visual = MissionPrepUnitArmorVisualController.GetOrCreate(unitRoot, armorIndex);
 		visual.ApplyArmorVisual(armorIndex);
+
+		UnitArmor armor = unitRoot.GetComponent<UnitArmor>() ?? unitRoot.AddComponent<UnitArmor>();
+		armor.SetArmorFromPresetIndex(armorIndex);
 	}
 
 	private static void ApplyDropdownTextOnlyMode(TMP_Dropdown _dropdown)

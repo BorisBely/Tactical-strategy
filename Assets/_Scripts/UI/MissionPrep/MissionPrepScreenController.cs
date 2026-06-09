@@ -232,6 +232,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void HandleArmorVisualSelected(MissionPrepUnitPresetState _state, int _armorIndex)
 	{
+		RefreshAllUnitCellPresetLabels();
 		RefreshInventoryPanel();
 	}
 

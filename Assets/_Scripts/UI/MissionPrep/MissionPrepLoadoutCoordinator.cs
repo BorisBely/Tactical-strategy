@@ -1441,6 +1441,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			MissionPrepUnitArmorVisualController visual =
 				MissionPrepUnitArmorVisualController.GetOrCreate(unit.gameObject, armorIndex);
 			visual.ApplyArmorVisual(armorIndex);
+			UnitArmor armor = unit.GetComponent<UnitArmor>() ?? unit.gameObject.AddComponent<UnitArmor>();
+			armor.SetArmorFromPresetIndex(armorIndex);
 		}
 	}
 
@@ -1655,6 +1657,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		int armorIndex = m_BoundPresetState.ActivePresetArmorIndex;
 		MissionPrepUnitArmorVisualController visual = MissionPrepUnitArmorVisualController.GetOrCreate(unitRoot, armorIndex);
 		visual.ApplyArmorVisual(armorIndex);
+		UnitArmor armor = unitRoot.GetComponent<UnitArmor>() ?? unitRoot.AddComponent<UnitArmor>();
+		armor.SetArmorFromPresetIndex(armorIndex);
 	}
 
 	private bool IsAvailableEquipmentSlot(InventorySlotView _slot)

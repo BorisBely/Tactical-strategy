@@ -327,6 +327,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		System.Array.Sort(hits, static (a, b) => a.distance.CompareTo(b.distance));
 
 		RaycastHit? firstSelfHit = null;
+		WeaponShotOutcome lastOutcome = default;
+		bool hadProcessedHit = false;
+
 		for (int i = 0; i < hits.Length; i++)
 		{
 			RaycastHit hit = hits[i];
@@ -336,50 +339,16 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				continue;
 			}
 
-			DamageableTarget target = hit.collider.GetComponentInParent<DamageableTarget>();
-			bool hitVisibleTarget = IsHitOnVisibleTarget(hit.collider);
-			float damage = _ammo.BaseDamage;
-			if (m_UseDistanceFalloff)
-				damage *= ComputeFalloffMultiplier(hit.distance, _ammo);
+			WeaponShotOutcome outcome = ProcessRaycastHit(_origin, dir, hit, _ammo);
+			lastOutcome = outcome;
+			hadProcessedHit = true;
 
-			if (m_DrawDebugRays)
-				Debug.DrawRay(_origin, dir * hit.distance, Color.red, m_DebugRayDuration);
-
-			m_DebugLastHitName = hit.collider.name;
-			m_DebugLastDamage = damage;
-			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, dir, hit, _ammo, damage));
-
-			InjuryUiEntry resolvedInjury = default;
-			bool hasResolvedInjury = false;
-			UnitHealth targetHealth = null;
-			if (target != null)
-			{
-				target.ApplyDamage(damage, hit.point, hit.normal, -dir, _ammo, hit.collider, out resolvedInjury);
-				target.TryGetComponent(out targetHealth);
-				hasResolvedInjury = targetHealth != null &&
-				                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
-				                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
-			}
-
-			UnitBodyHitZone hitZone = hit.collider.GetComponent<UnitBodyHitZone>() ??
-			                          hit.collider.GetComponentInParent<UnitBodyHitZone>();
-
-			return new WeaponShotOutcome
-			{
-				Result = hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther,
-				HitDistanceMeters = hit.distance,
-				Damage = damage,
-				HitColliderName = hit.collider.name,
-				HitRootName = hit.collider.transform.root.name,
-				BodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown,
-				BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
-				HasDamageableTarget = target != null,
-				HasUnitHealth = targetHealth != null,
-				ResolvedInjury = resolvedInjury,
-				HasResolvedInjury = hasResolvedInjury,
-				TargetHealth = targetHealth
-			};
+			if (!BodyPartTypeUtility.IsLimb(outcome.BodyPart))
+				return outcome;
 		}
+
+		if (hadProcessedHit)
+			return lastOutcome;
 
 		if (firstSelfHit.HasValue)
 		{
@@ -396,6 +365,79 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		m_DebugLastDamage = 0f;
 		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
 		return WeaponShotOutcome.Miss();
+	}
+
+	private WeaponShotOutcome ProcessRaycastHit(Vector3 _origin, Vector3 _dir, RaycastHit _hit, AmmoDefinition _ammo)
+	{
+		DamageableTarget target = _hit.collider.GetComponentInParent<DamageableTarget>();
+		bool hitVisibleTarget = IsHitOnVisibleTarget(_hit.collider);
+		float damage = _ammo.BaseDamage;
+		if (m_UseDistanceFalloff)
+			damage *= ComputeFalloffMultiplier(_hit.distance, _ammo);
+
+		if (m_DrawDebugRays)
+			Debug.DrawRay(_origin, _dir * _hit.distance, Color.red, m_DebugRayDuration);
+
+		m_DebugLastHitName = _hit.collider.name;
+		m_DebugLastDamage = damage;
+
+		InjuryUiEntry resolvedInjury = default;
+		bool hasResolvedInjury = false;
+		bool damageApplied = target == null;
+		bool armorFullyBlocked = false;
+		UnitHealth targetHealth = null;
+		if (target != null)
+		{
+			damageApplied = target.ApplyDamage(
+				damage,
+				_hit.point,
+				_hit.normal,
+				-_dir,
+				_ammo,
+				_hit.collider,
+				out resolvedInjury,
+				out armorFullyBlocked);
+			target.TryGetComponent(out targetHealth);
+			hasResolvedInjury = targetHealth != null &&
+			                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
+			                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
+		}
+
+		UnitBodyHitZone hitZone = _hit.collider.GetComponent<UnitBodyHitZone>() ??
+		                          _hit.collider.GetComponentInParent<UnitBodyHitZone>();
+
+		WeaponShotImpactVfxKind impactVfxKind = ResolveImpactVfxKind(target, hitZone, armorFullyBlocked);
+		float traceDamage = damageApplied ? damage : 0f;
+		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
+
+		return new WeaponShotOutcome
+		{
+			Result = hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther,
+			HitDistanceMeters = _hit.distance,
+			Damage = damageApplied ? damage : 0f,
+			HitColliderName = _hit.collider.name,
+			HitRootName = _hit.collider.transform.root.name,
+			BodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown,
+			BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
+			HasDamageableTarget = target != null,
+			HasUnitHealth = targetHealth != null,
+			ResolvedInjury = resolvedInjury,
+			HasResolvedInjury = hasResolvedInjury,
+			TargetHealth = targetHealth
+		};
+	}
+
+	private static WeaponShotImpactVfxKind ResolveImpactVfxKind(
+		DamageableTarget _target,
+		UnitBodyHitZone _hitZone,
+		bool _armorFullyBlocked)
+	{
+		if (_target == null || _hitZone == null)
+			return WeaponShotImpactVfxKind.Environment;
+
+		return _armorFullyBlocked
+			? WeaponShotImpactVfxKind.ArmorDeflect
+			: WeaponShotImpactVfxKind.Flesh;
 	}
 
 	private bool IsSelfCollider(Collider _collider)
@@ -570,6 +612,15 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	}
 }
 
+/// <summary>Тип FX в точке попадания hitscan-выстрела.</summary>
+public enum WeaponShotImpactVfxKind
+{
+	None = 0,
+	Environment = 1,
+	ArmorDeflect = 2,
+	Flesh = 3
+}
+
 /// <summary>Данные трассы одного hitscan-снаряда для визуальных эффектов.</summary>
 public struct WeaponShotTraceInfo
 {
@@ -582,6 +633,7 @@ public struct WeaponShotTraceInfo
 	public readonly float Damage;
 	public readonly bool HasHit;
 	public readonly bool HitSelf;
+	public readonly WeaponShotImpactVfxKind ImpactVfxKind;
 
 	private WeaponShotTraceInfo(
 		Vector3 _origin,
@@ -592,7 +644,8 @@ public struct WeaponShotTraceInfo
 		AmmoDefinition _ammo,
 		float _damage,
 		bool _hasHit,
-		bool _hitSelf)
+		bool _hitSelf,
+		WeaponShotImpactVfxKind _impactVfxKind)
 	{
 		Origin = _origin;
 		Direction = _direction;
@@ -603,20 +656,57 @@ public struct WeaponShotTraceInfo
 		Damage = _damage;
 		HasHit = _hasHit;
 		HitSelf = _hitSelf;
+		ImpactVfxKind = _impactVfxKind;
 	}
 
-	public static WeaponShotTraceInfo CreateHit(Vector3 _origin, Vector3 _direction, RaycastHit _hit, AmmoDefinition _ammo, float _damage)
+	public static WeaponShotTraceInfo CreateHit(
+		Vector3 _origin,
+		Vector3 _direction,
+		RaycastHit _hit,
+		AmmoDefinition _ammo,
+		float _damage,
+		WeaponShotImpactVfxKind _impactVfxKind = WeaponShotImpactVfxKind.Environment)
 	{
-		return new WeaponShotTraceInfo(_origin, _direction, _hit.point, _hit.normal, _hit.collider, _ammo, _damage, true, false);
+		return new WeaponShotTraceInfo(
+			_origin,
+			_direction,
+			_hit.point,
+			_hit.normal,
+			_hit.collider,
+			_ammo,
+			_damage,
+			true,
+			false,
+			_impactVfxKind);
 	}
 
 	public static WeaponShotTraceInfo CreateMiss(Vector3 _origin, Vector3 _direction, Vector3 _endPoint, AmmoDefinition _ammo)
 	{
-		return new WeaponShotTraceInfo(_origin, _direction, _endPoint, Vector3.zero, null, _ammo, 0f, false, false);
+		return new WeaponShotTraceInfo(
+			_origin,
+			_direction,
+			_endPoint,
+			Vector3.zero,
+			null,
+			_ammo,
+			0f,
+			false,
+			false,
+			WeaponShotImpactVfxKind.None);
 	}
 
 	public static WeaponShotTraceInfo CreateBlockedBySelf(Vector3 _origin, Vector3 _direction, RaycastHit _hit, AmmoDefinition _ammo)
 	{
-		return new WeaponShotTraceInfo(_origin, _direction, _hit.point, _hit.normal, _hit.collider, _ammo, 0f, true, true);
+		return new WeaponShotTraceInfo(
+			_origin,
+			_direction,
+			_hit.point,
+			_hit.normal,
+			_hit.collider,
+			_ammo,
+			0f,
+			true,
+			true,
+			WeaponShotImpactVfxKind.None);
 	}
 }

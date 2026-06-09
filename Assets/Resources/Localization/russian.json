@@ -806,6 +806,22 @@
       "value": "Тяжёлая броня"
     },
     {
+      "key": "armor.status.light",
+      "value": "Лёгкая броня"
+    },
+    {
+      "key": "armor.status.heavy",
+      "value": "Тяжёлая броня"
+    },
+    {
+      "key": "armor.status.damaged",
+      "value": "Броня повреждена"
+    },
+    {
+      "key": "armor.status.destroyed",
+      "value": "Броня разрушена"
+    },
+    {
       "key": "mission_prep.equipment.available_title",
       "value": "Доступное снаряжение"
     },

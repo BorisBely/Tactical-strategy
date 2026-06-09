@@ -26,13 +26,15 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField] private Vector3 m_ShellPrefabEjectionAxis = Vector3.right;
 	[SerializeField] private Vector3 m_ShellLocalEulerOffset;
 
-	[Header("Bullet Trail")]
-	[SerializeField] private bool m_EnableBulletTrail = true;
-	[SerializeField] private GameObject m_BulletTrailPrefab;
-	[SerializeField, Min(0.01f)] private float m_TrailLifetimeSeconds = 0.06f;
-	[SerializeField, Min(0.001f)] private float m_TrailWidthScale = 0.035f;
-	[SerializeField, Min(0.001f)] private float m_TrailLengthMultiplier = 1f;
-	[SerializeField, Min(0.1f)] private float m_MaxTrailDistance = 120f;
+	[Header("Body Impact FX")]
+	[SerializeField] private bool m_EnableBodyImpactFx = true;
+	[SerializeField] private GameObject m_ArmorDeflectImpactPrefab;
+	[SerializeField] private GameObject m_FleshImpactPrefab;
+	[SerializeField, Min(0.02f)] private float m_ArmorDeflectImpactLifetimeSeconds = 0.35f;
+	[SerializeField, Min(0.02f)] private float m_FleshImpactLifetimeSeconds = 0.8f;
+	[SerializeField, Min(0.01f)] private float m_ArmorDeflectImpactScale = 1f;
+	[SerializeField, Min(0.001f)] private float m_FleshImpactScale = 0.2f;
+	[SerializeField, Min(0f)] private float m_BodyImpactSurfaceOffset = 0.01f;
 
 	[Header("Impact Decals")]
 	[SerializeField] private bool m_EnableImpactDecals = true;
@@ -62,12 +64,14 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public Vector3 ShellPrefabEjectionAxis => m_ShellPrefabEjectionAxis;
 	public Vector3 ShellLocalEulerOffset => m_ShellLocalEulerOffset;
 
-	public bool EnableBulletTrail => m_EnableBulletTrail;
-	public GameObject BulletTrailPrefab => m_BulletTrailPrefab;
-	public float TrailLifetimeSeconds => m_TrailLifetimeSeconds;
-	public float TrailWidthScale => m_TrailWidthScale;
-	public float TrailLengthMultiplier => m_TrailLengthMultiplier;
-	public float MaxTrailDistance => m_MaxTrailDistance;
+	public bool EnableBodyImpactFx => m_EnableBodyImpactFx;
+	public GameObject ArmorDeflectImpactPrefab => m_ArmorDeflectImpactPrefab;
+	public GameObject FleshImpactPrefab => m_FleshImpactPrefab;
+	public float ArmorDeflectImpactLifetimeSeconds => m_ArmorDeflectImpactLifetimeSeconds;
+	public float FleshImpactLifetimeSeconds => m_FleshImpactLifetimeSeconds;
+	public float ArmorDeflectImpactScale => m_ArmorDeflectImpactScale;
+	public float FleshImpactScale => m_FleshImpactScale;
+	public float BodyImpactSurfaceOffset => m_BodyImpactSurfaceOffset;
 
 	public bool EnableImpactDecals => m_EnableImpactDecals;
 	public GameObject[] ConcreteImpactDecalPrefabs => m_ConcreteImpactDecalPrefabs;

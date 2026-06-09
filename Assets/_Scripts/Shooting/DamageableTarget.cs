@@ -70,7 +70,7 @@ public sealed class DamageableTarget : MonoBehaviour
 		AmmoDefinition _ammo,
 		Collider _hitCollider)
 	{
-		ApplyDamage(_damage, _hitPointWorld, _hitNormalWorld, _incomingDirection, _ammo, _hitCollider, out _);
+		ApplyDamage(_damage, _hitPointWorld, _hitNormalWorld, _incomingDirection, _ammo, _hitCollider, out _, out _);
 	}
 
 	/// <summary>Нанести урон и вернуть назначенную травму (если на цели есть <see cref="UnitHealth"/>).</summary>
@@ -81,9 +81,11 @@ public sealed class DamageableTarget : MonoBehaviour
 		Vector3 _incomingDirection,
 		AmmoDefinition _ammo,
 		Collider _hitCollider,
-		out InjuryUiEntry _resolvedInjury)
+		out InjuryUiEntry _resolvedInjury,
+		out bool _armorFullyBlocked)
 	{
 		_resolvedInjury = default;
+		_armorFullyBlocked = false;
 
 		if (!IsAlive || _damage <= 0f)
 			return false;
@@ -91,6 +93,21 @@ public sealed class DamageableTarget : MonoBehaviour
 		UnitBodyHitZone hitZone = _hitCollider != null
 			? _hitCollider.GetComponent<UnitBodyHitZone>() ?? _hitCollider.GetComponentInParent<UnitBodyHitZone>()
 			: null;
+		if (hitZone != null && _ammo != null && TryGetComponent(out UnitArmor armor))
+		{
+			ArmorMitigationResult armorMitigation = armor.TryMitigateBullet(hitZone.BodyPart, _ammo);
+			if (armorMitigation.FullyBlocked)
+			{
+				_armorFullyBlocked = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				Debug.Log(
+					$"[Броня] {name} | попадание в {BodyPartTypeUtility.GetDisplayName(hitZone.BodyPart)} полностью заблокировано — травма не назначается",
+					this);
+#endif
+				return false;
+			}
+		}
+
 		float damageMultiplier = hitZone != null ? hitZone.DamageMultiplier : 1f;
 		float finalDamage = Mathf.Max(0f, _damage * damageMultiplier);
 		if (finalDamage <= 0f)

@@ -21,6 +21,7 @@ public static class UnitCellDisplayBinder
 		_cell.SetRankDisplayName(ResolveRankName(_unitRoot));
 		_cell.SetPresetDisplayName(ResolvePresetName(_unitRoot));
 		_cell.SetHealthStatusText(ResolveHealthSummary(_unitRoot));
+		_cell.SetArmorStatusText(ResolveArmorSummary(_unitRoot));
 	}
 
 	public static string ResolveHealthSummary(GameObject _unitRoot)
@@ -32,6 +33,16 @@ public static class UnitCellDisplayBinder
 			return health.GetLocalizedOverallStatusText();
 
 		return LocalizationManager.Get("health.status.ok", "В норме");
+	}
+
+	public static string ResolveArmorSummary(GameObject _unitRoot)
+	{
+		if (_unitRoot == null)
+			return string.Empty;
+
+		return _unitRoot.TryGetComponent(out UnitArmor armor)
+			? armor.GetLocalizedStatusText()
+			: string.Empty;
 	}
 
 	public static string ResolveUnitName(GameObject _unitRoot)

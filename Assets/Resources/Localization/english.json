@@ -650,6 +650,22 @@
       "value": "Heavy armor"
     },
     {
+      "key": "armor.status.light",
+      "value": "Light armor"
+    },
+    {
+      "key": "armor.status.heavy",
+      "value": "Heavy armor"
+    },
+    {
+      "key": "armor.status.damaged",
+      "value": "Armor damaged"
+    },
+    {
+      "key": "armor.status.destroyed",
+      "value": "Armor destroyed"
+    },
+    {
       "key": "mission_prep.equipment.available_title",
       "value": "Available equipment"
     },

@@ -8177,6 +8177,7 @@ GameObject:
   - component: {fileID: 9123456789012345678}
   - component: {fileID: 3408199974750778793}
   - component: {fileID: 1357371775586804989}
+  - component: {fileID: 731400000000000200}
   - component: {fileID: 731300000000000010}
   - component: {fileID: 731300000000000011}
   - component: {fileID: 731300000000000012}
@@ -9251,6 +9252,22 @@ MonoBehaviour:
   m_OverallStatusLocalizationKey: health.status.ok
   m_OverallStatusDisplayName: "\u0412 \u043D\u043E\u0440\u043C\u0435"
   m_Injuries: []
+--- !u!114 &731400000000000200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e4c3b7a2d164f51a8b0c6d5e7f90123, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitArmor
+  m_ArmorType: 0
+  m_MaxDurability: 36
+  m_Durability: 0
+  m_LogArmor: 1
 --- !u!114 &731400000000000100
 MonoBehaviour:
   m_ObjectHideFlags: 0

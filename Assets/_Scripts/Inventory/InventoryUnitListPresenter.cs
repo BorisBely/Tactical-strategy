@@ -47,12 +47,13 @@ public sealed class InventoryUnitListPresenter : MonoBehaviour
 			m_UnitList.SetUnitCells(System.Array.Empty<MissionPrepUnitCellView>());
 	}
 
-	public void RefreshHealthSummaryForActiveCell()
+	public void RefreshStatusSummaryForActiveCell()
 	{
 		if (m_RuntimeCell == null || m_RuntimeCell.BoundUnitRoot == null)
 			return;
 
 		m_RuntimeCell.SetHealthStatusText(UnitCellDisplayBinder.ResolveHealthSummary(m_RuntimeCell.BoundUnitRoot));
+		m_RuntimeCell.SetArmorStatusText(UnitCellDisplayBinder.ResolveArmorSummary(m_RuntimeCell.BoundUnitRoot));
 	}
 	#endregion
 

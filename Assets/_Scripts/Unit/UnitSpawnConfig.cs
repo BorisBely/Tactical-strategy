@@ -34,22 +34,31 @@ public sealed class UnitSpawnConfig
 	[SerializeField] private UnitSpawnLoadout m_Loadout = new UnitSpawnLoadout();
 	[SerializeField] private bool m_StartReady;
 	[SerializeField] private string m_DisplayName;
+	[Tooltip("-1 = без брони. 0 = лёгкая, 1 = тяжёлая.")]
+	[SerializeField] private int m_ArmorVisualIndex = MissionPrepUnitArmorVisualController.LightArmorIndex;
 
 	public UnitTeamId Team => m_Team;
 	public UnitSpawnLoadout Loadout => m_Loadout;
 	public bool StartReady => m_StartReady;
 	public string DisplayName => m_DisplayName;
+	public int ArmorVisualIndex => m_ArmorVisualIndex;
 
 	public UnitSpawnConfig()
 	{
 	}
 
-	public UnitSpawnConfig(UnitTeamId _team, UnitSpawnLoadout _loadout, bool _startReady, string _displayName = null)
+	public UnitSpawnConfig(
+		UnitTeamId _team,
+		UnitSpawnLoadout _loadout,
+		bool _startReady,
+		string _displayName = null,
+		int _armorVisualIndex = MissionPrepUnitArmorVisualController.LightArmorIndex)
 	{
 		m_Team = _team;
 		m_Loadout = _loadout ?? new UnitSpawnLoadout();
 		m_StartReady = _startReady;
 		m_DisplayName = _displayName;
+		m_ArmorVisualIndex = _armorVisualIndex;
 	}
 }
 
@@ -64,11 +73,13 @@ public sealed class UnitSceneSpawnEntry
 	[SerializeField] private UnitSpawnLoadout m_Loadout = new UnitSpawnLoadout();
 	[SerializeField] private bool m_StartReady;
 	[SerializeField] private string m_DisplayName;
+	[Tooltip("-1 = без брони. 0 = лёгкая, 1 = тяжёлая.")]
+	[SerializeField] private int m_ArmorVisualIndex = MissionPrepUnitArmorVisualController.LightArmorIndex;
 
 	public Transform SpawnPoint => m_SpawnPoint;
 
 	public UnitSpawnConfig ToConfig()
 	{
-		return new UnitSpawnConfig(m_Team, m_Loadout, m_StartReady, m_DisplayName);
+		return new UnitSpawnConfig(m_Team, m_Loadout, m_StartReady, m_DisplayName, m_ArmorVisualIndex);
 	}
 }

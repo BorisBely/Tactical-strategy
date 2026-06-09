@@ -45,6 +45,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_Team.SetTeam(team);
 
 		ApplyLoadout();
+		ApplyArmor(m_RuntimeConfig.ArmorVisualIndex);
 		ApplyRoleComponents(isPlayer);
 
 		if (m_ReadyHands != null)
@@ -96,6 +97,25 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_DamageableTarget = GetComponent<DamageableTarget>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+	}
+
+	private void ApplyArmor(int _armorVisualIndex)
+	{
+		if (_armorVisualIndex < 0)
+		{
+			if (TryGetComponent(out UnitArmor armor))
+				armor.ClearArmor();
+			return;
+		}
+
+		int clamped = Mathf.Clamp(
+			_armorVisualIndex,
+			MissionPrepUnitArmorVisualController.LightArmorIndex,
+			MissionPrepUnitArmorVisualController.HeavyArmorIndex);
+
+		MissionPrepUnitArmorVisualController.GetOrCreate(gameObject, clamped).ApplyArmorVisual(clamped);
+		UnitArmor unitArmor = GetComponent<UnitArmor>() ?? gameObject.AddComponent<UnitArmor>();
+		unitArmor.SetArmorFromPresetIndex(clamped);
 	}
 
 	private void ApplyLoadout()
