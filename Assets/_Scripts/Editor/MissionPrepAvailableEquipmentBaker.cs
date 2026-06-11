@@ -83,17 +83,22 @@ public static class MissionPrepAvailableEquipmentBaker
 		if (_item == null)
 			return 99;
 
+		if (_item.IsEquipment && _item.EquipmentKind == EquipmentKind.Helmet)
+			return 1;
+
 		string name = _item.name ?? string.Empty;
 		if (name.Contains("Weapon"))
 			return 0;
-		if (name.Contains("Attachment"))
+		if (name.Contains("Helmet"))
 			return 1;
-		if (name.Contains("Mag"))
+		if (name.Contains("Attachment"))
 			return 2;
-		if (name.Contains("Ammo") || name.Contains("Loot"))
+		if (name.Contains("Mag"))
 			return 3;
+		if (name.Contains("Ammo") || name.Contains("Loot"))
+			return 4;
 
-		return 4;
+		return 5;
 	}
 }
 #endif

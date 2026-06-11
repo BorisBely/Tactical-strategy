@@ -110,15 +110,18 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	{
 		EnsureRuntimeReferences();
 		RuntimeInventoryModificationDragContext.Changed += HandleModificationDragContextChanged;
+		InventoryEquipmentEquipHoverContext.Changed += HandleEquipmentEquipHoverChanged;
 		TrySubscribeReloadCompletionHandler();
 	}
 
 	private void OnDisable()
 	{
 		RuntimeInventoryModificationDragContext.Changed -= HandleModificationDragContextChanged;
+		InventoryEquipmentEquipHoverContext.Changed -= HandleEquipmentEquipHoverChanged;
 		TryUnsubscribeReloadCompletionHandler();
 		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
 		RuntimeInventoryModificationDragContext.ResetAfterDrag();
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		if (m_DeferredMagazineRepaintCoroutine != null)
 		{
 			StopCoroutine(m_DeferredMagazineRepaintCoroutine);
@@ -761,7 +764,17 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	public bool TryResolveCharacterSlot(InventorySlotView _slot, out bool _isMainHandEquipmentSlot, out int _bagIndex)
 	{
+		return TryResolveCharacterSlot(_slot, out _isMainHandEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterSlot(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
+		_isHeadEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || CharacterPanel == null || ActiveInventory == null)
@@ -778,7 +791,12 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (slotIndex < lead)
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
-			return _isMainHandEquipmentSlot && ActiveInventory.HasMainHandEquipment;
+			_isHeadEquipmentSlot = slotIndex == 1;
+			if (_isMainHandEquipmentSlot)
+				return ActiveInventory.HasMainHandEquipment;
+			if (_isHeadEquipmentSlot)
+				return ActiveInventory.HasHeadEquipment;
+			return false;
 		}
 
 		_bagIndex = slotIndex - lead;
@@ -791,7 +809,17 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		out bool _isMainHandEquipmentSlot,
 		out int _bagIndex)
 	{
+		return TryResolveCharacterDropTarget(_slot, out _isMainHandEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterDropTarget(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
+		_isHeadEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || CharacterPanel == null)
@@ -808,7 +836,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (slotIndex < lead)
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
-			return _isMainHandEquipmentSlot;
+			_isHeadEquipmentSlot = slotIndex == 1;
+			return _isMainHandEquipmentSlot || _isHeadEquipmentSlot;
 		}
 
 		_bagIndex = slotIndex - lead;
@@ -820,6 +849,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(CharacterPanel);
 		return InventorySlotUiUtility.IsScreenPointOverMainHandEquipmentSlot(
 			mainHandSlot, _screenPosition, _eventCamera);
+	}
+
+	public bool IsScreenPointOverCharacterHeadSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		InventorySlotView headSlot = InventorySlotUiUtility.GetHeadEquipmentSlot(CharacterPanel);
+		return InventorySlotUiUtility.IsScreenPointOverHeadEquipmentSlot(
+			headSlot, _screenPosition, _eventCamera);
 	}
 
 	public bool TryEquipWeaponDragToMainHand()
@@ -858,6 +894,44 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		ClearModificationUiSelection();
 		return true;
 	}
+
+	public bool TryEquipHelmetDragToHead()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsHelmetEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet =>
+				selectionManager.TryEquipCharacterBagHelmetToHead(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundHelmet =>
+				selectionManager.TryEquipGroundHelmetToHead(
+					RuntimeInventoryModificationDragContext.SourceSlotView,
+					payload.SlotIndex),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
+	}
+
 
 	public bool TryResolveGroundSlot(InventorySlotView _slot, out int _groundSlotIndex)
 	{
@@ -1120,6 +1194,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return;
 
 		IReadOnlyList<InventorySlotView> slots = CharacterPanel.Slots;
+		int lead = Mathf.Max(0, CharacterPanel.LeadingEquipmentSlotCount);
 		for (int i = 0; i < slots.Count; i++)
 		{
 			InventorySlotView slot = slots[i];
@@ -1136,6 +1211,18 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 			InventorySlotUiUtility.EnsureDescriptionHover(slot);
 
+			if (lead > 0 && i < lead)
+			{
+				RuntimeModificationSlotHighlightView existingHighlight =
+					slot.GetComponent<RuntimeModificationSlotHighlightView>();
+				if (existingHighlight != null && Application.isPlaying)
+					Destroy(existingHighlight);
+				continue;
+			}
+
+			if (slot.GetComponent<InventoryEquipmentEquipPreviewHover>() == null)
+				slot.gameObject.AddComponent<InventoryEquipmentEquipPreviewHover>();
+
 			RuntimeModificationSlotHighlightView highlight = slot.GetComponent<RuntimeModificationSlotHighlightView>();
 			if (highlight == null)
 				highlight = slot.gameObject.AddComponent<RuntimeModificationSlotHighlightView>();
@@ -1143,6 +1230,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		EnsureMainHandEquipmentSlot();
+		EnsureHeadEquipmentSlot();
 		EnsureGroundPanelComponents();
 	}
 
@@ -1161,6 +1249,23 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			mainHandSlot = slots[0].gameObject.AddComponent<RuntimeCharacterMainHandEquipmentSlotView>();
 
 		mainHandSlot.Bind(this);
+	}
+
+	private void EnsureHeadEquipmentSlot()
+	{
+		if (CharacterPanel == null || CharacterPanel.LeadingEquipmentSlotCount <= 1)
+			return;
+
+		InventorySlotView headSlotView = InventorySlotUiUtility.GetHeadEquipmentSlot(CharacterPanel);
+		if (headSlotView == null)
+			return;
+
+		RuntimeCharacterHeadEquipmentSlotView headSlot =
+			headSlotView.GetComponent<RuntimeCharacterHeadEquipmentSlotView>();
+		if (headSlot == null)
+			headSlot = headSlotView.gameObject.AddComponent<RuntimeCharacterHeadEquipmentSlotView>();
+
+		headSlot.Bind(this);
 	}
 
 	private void EnsureGroundPanelComponents()
@@ -1191,6 +1296,9 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				slot.gameObject.AddComponent<InventoryGroundEquipDoubleClick>();
 
 			InventorySlotUiUtility.EnsureDescriptionHover(slot);
+
+			if (slot.GetComponent<InventoryEquipmentEquipPreviewHover>() == null)
+				slot.gameObject.AddComponent<InventoryEquipmentEquipPreviewHover>();
 		}
 	}
 
@@ -1266,7 +1374,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (CharacterPanel != null)
 		{
 			RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
-			RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(CharacterPanel);
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(CharacterPanel);
 		}
 
 		if (GroundPanel != null)
@@ -1974,8 +2082,14 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	private void HandleModificationDragContextChanged()
 	{
 		RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
-		RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(CharacterPanel);
+		RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(CharacterPanel);
 		RefreshModificationCompatibilityHighlights();
+	}
+
+	private void HandleEquipmentEquipHoverChanged()
+	{
+		if (CharacterPanel != null)
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(CharacterPanel);
 	}
 
 	private IEnumerator CoRefreshInlineModificationRowsNextFrame()

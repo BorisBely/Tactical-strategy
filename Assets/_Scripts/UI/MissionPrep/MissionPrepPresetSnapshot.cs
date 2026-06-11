@@ -11,12 +11,14 @@ public sealed class MissionPrepPresetSnapshot
 	#region Serialized Fields
 	[SerializeField, Min(0)] private int m_ArmorVisualIndex;
 	[SerializeField] private InventorySlotRuntimeData m_MainHandEquipment;
+	[SerializeField] private InventorySlotRuntimeData m_HeadEquipment;
 	[SerializeField] private List<InventorySlotRuntimeData> m_BagItems = new List<InventorySlotRuntimeData>();
 	#endregion
 
 	#region Public Properties
 	public int ArmorVisualIndex => m_ArmorVisualIndex;
 	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
+	public InventorySlotRuntimeData HeadEquipment => m_HeadEquipment;
 	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
 	public int BagCount => m_BagItems.Count;
 	#endregion
@@ -34,11 +36,13 @@ public sealed class MissionPrepPresetSnapshot
 		if (_inventory == null)
 		{
 			m_MainHandEquipment = default;
+			m_HeadEquipment = default;
 			m_BagItems.Clear();
 			return;
 		}
 
 		m_MainHandEquipment = MissionPrepInventoryCopyUtility.CloneSlot(_inventory.MainHandEquipment);
+		m_HeadEquipment = MissionPrepInventoryCopyUtility.CloneSlot(_inventory.HeadEquipment);
 		m_BagItems.Clear();
 
 		IReadOnlyList<InventorySlotRuntimeData> bag = _inventory.BagItems;
@@ -56,6 +60,9 @@ public sealed class MissionPrepPresetSnapshot
 		if (!m_MainHandEquipment.IsEmpty)
 			_inventory.RestoreAfterFailedDrop(true, MissionPrepInventoryCopyUtility.CloneSlot(m_MainHandEquipment));
 
+		if (!m_HeadEquipment.IsEmpty)
+			_inventory.RestoreAfterFailedDrop(false, true, MissionPrepInventoryCopyUtility.CloneSlot(m_HeadEquipment));
+
 		for (int i = 0; i < m_BagItems.Count; i++)
 		{
 			InventorySlotRuntimeData bagSlot = MissionPrepInventoryCopyUtility.CloneSlot(m_BagItems[i]);
@@ -69,6 +76,9 @@ public sealed class MissionPrepPresetSnapshot
 		if (!m_MainHandEquipment.IsEmpty)
 			return true;
 
+		if (!m_HeadEquipment.IsEmpty)
+			return true;
+
 		for (int i = 0; i < m_BagItems.Count; i++)
 		{
 			if (!m_BagItems[i].IsEmpty)
@@ -80,7 +90,16 @@ public sealed class MissionPrepPresetSnapshot
 
 	public void ReplaceInventory(InventorySlotRuntimeData _mainHand, List<InventorySlotRuntimeData> _bagItems)
 	{
+		ReplaceInventory(_mainHand, default, _bagItems);
+	}
+
+	public void ReplaceInventory(
+		InventorySlotRuntimeData _mainHand,
+		InventorySlotRuntimeData _head,
+		List<InventorySlotRuntimeData> _bagItems)
+	{
 		m_MainHandEquipment = _mainHand;
+		m_HeadEquipment = _head;
 		m_BagItems.Clear();
 
 		if (_bagItems == null)
@@ -113,12 +132,31 @@ public sealed class MissionPrepPresetSnapshot
 		return true;
 	}
 
+	public bool TryUnequipHeadToBag()
+	{
+		if (m_HeadEquipment.IsEmpty)
+			return false;
+
+		m_BagItems.Add(MissionPrepInventoryCopyUtility.CloneSlot(m_HeadEquipment));
+		m_HeadEquipment = default;
+		return true;
+	}
+
 	public bool TryClearMainHand()
 	{
 		if (m_MainHandEquipment.IsEmpty)
 			return false;
 
 		m_MainHandEquipment = default;
+		return true;
+	}
+
+	public bool TryClearHead()
+	{
+		if (m_HeadEquipment.IsEmpty)
+			return false;
+
+		m_HeadEquipment = default;
 		return true;
 	}
 
@@ -133,9 +171,24 @@ public sealed class MissionPrepPresetSnapshot
 
 	public bool TryGetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _slot)
 	{
+		return TryGetInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, out _slot);
+	}
+
+	public bool TryGetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _slot)
+	{
 		if (_isMainHandEquipmentSlot)
 		{
 			_slot = m_MainHandEquipment;
+			return !_slot.IsEmpty;
+		}
+
+		if (_isHeadEquipmentSlot)
+		{
+			_slot = m_HeadEquipment;
 			return !_slot.IsEmpty;
 		}
 
@@ -151,12 +204,30 @@ public sealed class MissionPrepPresetSnapshot
 
 	public bool TrySetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, InventorySlotRuntimeData _slot)
 	{
+		return TrySetInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, _slot);
+	}
+
+	public bool TrySetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		InventorySlotRuntimeData _slot)
+	{
 		if (_slot.IsEmpty)
 			return false;
 
 		if (_isMainHandEquipmentSlot)
 		{
 			m_MainHandEquipment = _slot;
+			return true;
+		}
+
+		if (_isHeadEquipmentSlot)
+		{
+			if (!HelmetEquipUtility.CanEquipToHead(_slot))
+				return false;
+
+			m_HeadEquipment = _slot;
 			return true;
 		}
 
@@ -169,7 +240,16 @@ public sealed class MissionPrepPresetSnapshot
 
 	public bool TryRemoveInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _removedSlot)
 	{
-		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _bagIndex, out _removedSlot))
+		return TryRemoveInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, out _removedSlot);
+	}
+
+	public bool TryRemoveInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _removedSlot)
+	{
+		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, _bagIndex, out _removedSlot))
 			return false;
 
 		if (_isMainHandEquipmentSlot)
@@ -178,7 +258,44 @@ public sealed class MissionPrepPresetSnapshot
 			return true;
 		}
 
+		if (_isHeadEquipmentSlot)
+		{
+			m_HeadEquipment = default;
+			return true;
+		}
+
 		m_BagItems.RemoveAt(_bagIndex);
+		return true;
+	}
+
+	public bool TryMoveBagItemToHead(int _bagIndex)
+	{
+		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
+		if (!HelmetEquipUtility.CanEquipToHead(picked))
+			return false;
+
+		InventorySlotRuntimeData previousHead = m_HeadEquipment;
+		m_BagItems.RemoveAt(_bagIndex);
+		m_HeadEquipment = MissionPrepInventoryCopyUtility.CloneSlot(picked);
+
+		if (!previousHead.IsEmpty)
+			m_BagItems.Insert(_bagIndex, MissionPrepInventoryCopyUtility.CloneSlot(previousHead));
+
+		return true;
+	}
+
+	public bool TryEquipExternalItemToHead(InventorySlotRuntimeData _item)
+	{
+		if (!HelmetEquipUtility.CanEquipToHead(_item))
+			return false;
+
+		if (!m_HeadEquipment.IsEmpty)
+			TryUnequipHeadToBag();
+
+		m_HeadEquipment = MissionPrepInventoryCopyUtility.CloneSlot(_item);
 		return true;
 	}
 
@@ -188,12 +305,7 @@ public sealed class MissionPrepPresetSnapshot
 			return false;
 
 		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
-		if (picked.Definition == null || !picked.Definition.IsEquipment)
-			return false;
-
-		if (picked.InstanceState != null &&
-		    picked.InstanceState.WeaponState != null &&
-		    picked.InstanceState.WeaponState.IsTerminallyBroken)
+		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(picked))
 			return false;
 
 		InventorySlotRuntimeData previousMain = m_MainHandEquipment;

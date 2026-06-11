@@ -57,6 +57,7 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 		}
 
 		InventorySlotRuntimeData mainHand = default;
+		InventorySlotRuntimeData head = default;
 		if (_entry.WeaponItem != null)
 		{
 			mainHand = InventorySlotRuntimeData.FromDefinition(_entry.WeaponItem);
@@ -77,7 +78,28 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			}
 		}
 
-		_snapshot.ReplaceInventory(mainHand, bagItems);
+		if (_entry.HeadItem != null)
+		{
+			InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(_entry.HeadItem);
+			if (HelmetEquipUtility.CanEquipToHead(headSlot))
+				head = headSlot;
+		}
+
+		if (_entry.ExtraHeadItemsInBag != null)
+		{
+			for (int i = 0; i < _entry.ExtraHeadItemsInBag.Length; i++)
+			{
+				ItemDefinition headItem = _entry.ExtraHeadItemsInBag[i];
+				if (headItem == null)
+					continue;
+
+				InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(headItem);
+				if (HelmetEquipUtility.CanEquipToHead(headSlot))
+					bagItems.Add(headSlot);
+			}
+		}
+
+		_snapshot.ReplaceInventory(mainHand, head, bagItems);
 	}
 
 	public static bool EntryDefinesInventory(MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
@@ -87,6 +109,18 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 
 		if (_entry.WeaponItem != null)
 			return true;
+
+		if (_entry.HeadItem != null)
+			return true;
+
+		if (_entry.ExtraHeadItemsInBag != null)
+		{
+			for (int i = 0; i < _entry.ExtraHeadItemsInBag.Length; i++)
+			{
+				if (_entry.ExtraHeadItemsInBag[i] != null)
+					return true;
+			}
+		}
 
 		if (_entry.MagazineItem != null)
 			return true;

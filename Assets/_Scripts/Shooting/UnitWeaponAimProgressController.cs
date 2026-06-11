@@ -19,6 +19,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitIndividualTraits m_IndividualTraits;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
@@ -76,6 +77,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_CombatStats == null)
 			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_IndividualTraits == null)
+			m_IndividualTraits = GetComponent<UnitIndividualTraits>();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
 		if (m_StanceCombatModifiers == null)
@@ -172,13 +175,14 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			weaponState != null ? weaponState.EquippedAttachments : null,
 			EstimateTargetDistanceMeters());
 		float unitMultiplier = m_CombatStats != null ? m_CombatStats.GetAimTimeMultiplier() : 1f;
+		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetAimTimeMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null
 			? m_CombatCondition.GetAimTimeMultiplier(IsMoving())
 			: 1f;
 		float postureMultiplier = m_StanceCombatModifiers != null
 			? m_StanceCombatModifiers.GetAimTimeMultiplier()
 			: 1f;
-		return Mathf.Max(0.01f, weaponAimTimeSeconds * unitMultiplier * conditionMultiplier * postureMultiplier);
+		return Mathf.Max(0.01f, weaponAimTimeSeconds * unitMultiplier * individualMultiplier * conditionMultiplier * postureMultiplier);
 	}
 
 	private bool IsMoving()

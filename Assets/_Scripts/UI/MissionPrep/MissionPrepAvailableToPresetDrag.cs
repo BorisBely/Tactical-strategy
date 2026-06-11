@@ -125,9 +125,10 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			return;
 
 		m_SourceData = m_Slot.Data;
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		MissionPrepModificationDragContext.BeginAvailable(m_SourceData);
 		if (m_Coordinator.PresetInventoryPanel != null)
-			InventorySlotUiUtility.RefreshMainHandEquipHighlight(m_Coordinator.PresetInventoryPanel);
+			InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_Coordinator.PresetInventoryPanel);
 		m_AvailableContentParent = transform.parent;
 		m_AvailableSiblingIndex = transform.GetSiblingIndex();
 		m_AvailablePanel.DetachSlotForDrag(m_Slot);
@@ -161,7 +162,7 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
 		if (m_Coordinator?.PresetInventoryPanel != null)
-			MissionPrepInlineModificationBuilder.RefreshMainHandSlotHighlights(m_Coordinator.PresetInventoryPanel);
+			MissionPrepInlineModificationBuilder.RefreshEquipmentSlotHighlights(m_Coordinator.PresetInventoryPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -178,6 +179,8 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 			Camera cam = GetDragCamera(eventData);
 			if (m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToMainHand(m_Slot);
+			else if (m_Coordinator.IsScreenPointOverPresetHeadSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToHead(m_Slot);
 			else if (m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
 		}

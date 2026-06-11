@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Двойной клик по оружию на панели доступного снаряжения — экипировка в слот основной руки пресета.
+/// Двойной клик по доступному снаряжению: оружие — в слот основной руки пресета; шлем — в сумку пресета.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(InventorySlotView))]
@@ -50,9 +50,6 @@ public sealed class MissionPrepAvailableEquipDoubleClick : MonoBehaviour, IPoint
 		if (m_Slot == null || !m_Slot.HasItem || m_Coordinator == null)
 			return;
 
-		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(m_Slot.Data))
-			return;
-
 		float now = Time.unscaledTime;
 		bool unityReportsDouble = eventData.clickCount >= 2;
 		bool timedDouble = m_LastLeftClickUnscaledTime >= 0f &&
@@ -60,6 +57,18 @@ public sealed class MissionPrepAvailableEquipDoubleClick : MonoBehaviour, IPoint
 		m_LastLeftClickUnscaledTime = now;
 
 		if (!unityReportsDouble && !timedDouble)
+			return;
+
+		ItemDefinition definition = m_Slot.Data.Definition;
+		if (definition != null &&
+		    definition.IsEquipment &&
+		    definition.EquipmentKind == EquipmentKind.Helmet)
+		{
+			m_Coordinator.TryEquipAvailableSlotToHead(m_Slot);
+			return;
+		}
+
+		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(m_Slot.Data))
 			return;
 
 		m_Coordinator.TryEquipAvailableSlotToMainHand(m_Slot);

@@ -225,7 +225,10 @@ public class WorldPickupItem : MonoBehaviour
 				DisablePhysicsAndNestedPickupOnWorldVisual(m_SpawnedWorldVisualRoot);
 			}
 
-			equippedWeapon = m_SpawnedWorldVisualRoot.GetComponentInChildren<EquippedWeapon>(true);
+			ApplyHelmetDefaultVisual(m_SpawnedWorldVisualRoot);
+			EnableWeaponRenderers(m_SpawnedWorldVisualRoot);
+			HidePlaceholderMeshOnPickupRoot();
+			return;
 		}
 
 		if (equippedWeapon != null)
@@ -260,6 +263,15 @@ public class WorldPickupItem : MonoBehaviour
 			if (skinnedRenderers[i] != null)
 				skinnedRenderers[i].enabled = true;
 		}
+	}
+
+	private static void ApplyHelmetDefaultVisual(GameObject _visualRoot)
+	{
+		if (_visualRoot == null)
+			return;
+
+		if (_visualRoot.TryGetComponent(out HelmetEquippedVisual helmetVisual))
+			helmetVisual.ApplyDefault();
 	}
 
 	private static void DisablePhysicsAndNestedPickupOnWorldVisual(GameObject _root)

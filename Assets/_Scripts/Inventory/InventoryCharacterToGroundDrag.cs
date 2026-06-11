@@ -25,6 +25,7 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 	private bool m_DropAccepted;
 	private Vector2 m_DragOffsetLocal;
 	private bool m_CapturedFromMainHandEquipmentSlot;
+	private bool m_CapturedFromHeadEquipmentSlot;
 	private int m_CapturedBagIndex;
 	private RuntimeInlineModificationDragHelper.DragAttachment m_ModDragAttachment;
 	#endregion
@@ -34,6 +35,8 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 	public bool WasDraggingThisFrame => m_Dragging;
 	/// <summary>Слот основного оружия (первая ячейка снаряжения на панели).</summary>
 	public bool CapturedFromMainHandEquipmentSlot => m_CapturedFromMainHandEquipmentSlot;
+	/// <summary>Слот головы (вторая ячейка снаряжения на панели).</summary>
+	public bool CapturedFromHeadEquipmentSlot => m_CapturedFromHeadEquipmentSlot;
 	/// <summary>Индекс в <see cref="CharacterInventory.BagItems"/> (если не слот оружия).</summary>
 	public int CapturedBagIndex => m_CapturedBagIndex;
 	#endregion
@@ -75,7 +78,11 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		if (m_CharacterPanel == null || m_CharacterPanel != selectionManager.CharacterInventoryPanel)
 			return;
 
-		if (!selectionManager.TryResolveCharacterInventorySlot(m_Slot, inv, out m_CapturedFromMainHandEquipmentSlot,
+		if (!selectionManager.TryResolveCharacterInventorySlot(
+			    m_Slot,
+			    inv,
+			    out m_CapturedFromMainHandEquipmentSlot,
+			    out m_CapturedFromHeadEquipmentSlot,
 			    out m_CapturedBagIndex))
 			return;
 
@@ -89,7 +96,22 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		{
 			RuntimeInventoryModificationDragContext.BeginCharacter(m_Slot.Data, false, m_CapturedBagIndex, m_Slot);
 			if (m_CharacterPanel != null)
-				InventorySlotUiUtility.RefreshMainHandEquipHighlight(m_CharacterPanel);
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_CharacterPanel);
+		}
+		else if (HelmetEquipUtility.CanEquipToHead(m_Slot.Data) && !m_CapturedFromHeadEquipmentSlot)
+		{
+			RuntimeInventoryModificationDragContext.BeginCharacter(m_Slot.Data, false, m_CapturedBagIndex, m_Slot);
+			if (m_CharacterPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_CharacterPanel);
+		}
+		else if (m_CapturedFromHeadEquipmentSlot)
+		{
+			RuntimeInventoryModificationDragContext.BeginCharacter(
+				m_Slot.Data,
+				_isMainHand: false,
+				_bagIndex: -1,
+				_sourceSlot: m_Slot,
+				_isHead: true);
 		}
 
 		m_CharacterContentParent = transform.parent;
@@ -117,7 +139,7 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 		if (coordinator?.CharacterPanel != null)
-			RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(coordinator.CharacterPanel);
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.CharacterPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)

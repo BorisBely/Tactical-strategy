@@ -47,9 +47,6 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void OnEnable()
 	{
-		if (m_LoadoutCoordinator != null)
-			m_LoadoutCoordinator.BeginEditingPresets();
-
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected += HandleUnitSelected;
 
@@ -69,10 +66,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		if (m_InventoryStartHidden)
 			SetInventoryVisible(false);
 		else
-		{
 			SetInventoryVisible(true);
-			RefreshInventoryPanel();
-		}
 	}
 
 	private void OnDisable()

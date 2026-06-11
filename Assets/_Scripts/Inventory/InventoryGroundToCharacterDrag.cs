@@ -96,7 +96,16 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 				m_GroundPanel.GetInventorySlotListIndex(m_Slot),
 				m_Slot);
 			if (selectionManager.CharacterInventoryPanel != null)
-				InventorySlotUiUtility.RefreshMainHandEquipHighlight(selectionManager.CharacterInventoryPanel);
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.CharacterInventoryPanel);
+		}
+		else if (HelmetEquipUtility.CanEquipToHead(m_Slot.Data))
+		{
+			RuntimeInventoryModificationDragContext.BeginGround(
+				m_Slot.Data,
+				m_GroundPanel.GetInventorySlotListIndex(m_Slot),
+				m_Slot);
+			if (selectionManager.CharacterInventoryPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.CharacterInventoryPanel);
 		}
 
 		m_GroundContentParent = transform.parent;
@@ -124,7 +133,7 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 		if (coordinator?.CharacterPanel != null)
-			RuntimeInlineModificationBuilder.RefreshMainHandSlotHighlights(coordinator.CharacterPanel);
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.CharacterPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -148,6 +157,13 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, eventCamera))
 			{
 				m_DropAccepted = coordinator.TryEquipWeaponDragToMainHand();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (coordinator != null &&
+			         coordinator.IsScreenPointOverCharacterHeadSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipHelmetDragToHead();
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}

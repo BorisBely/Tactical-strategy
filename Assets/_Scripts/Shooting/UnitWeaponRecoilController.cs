@@ -15,6 +15,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[Tooltip("Проверка ready для логики восстановления отдачи.")]
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitIndividualTraits m_IndividualTraits;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 
@@ -53,6 +54,8 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_CombatStats == null)
 			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_IndividualTraits == null)
+			m_IndividualTraits = GetComponent<UnitIndividualTraits>();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
 		if (m_StanceCombatModifiers == null)
@@ -118,14 +121,16 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct(fireMode)
 			: 1f;
 		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
+		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilAddedMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
 		float postureMultiplier = m_StanceCombatModifiers != null
 			? m_StanceCombatModifiers.GetRecoilAddedMultiplier()
 			: 1f;
-		m_DebugSkillRecoilAddedMultiplier = skillMultiplier;
+		m_DebugSkillRecoilAddedMultiplier = skillMultiplier * individualMultiplier;
 		m_DebugConditionRecoilAddedMultiplier = conditionMultiplier;
 		return WeaponDefinition.ComputeAddedRecoilPenalty(weaponDefinition, fireMode, _ammoDefinition, attachmentModifier) *
 		       skillMultiplier *
+		       individualMultiplier *
 		       conditionMultiplier *
 		       postureMultiplier;
 	}
@@ -145,10 +150,12 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			recoveryPerSecond *= m_RecoveryWhenNotReadyMultiplier;
 
 		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilRecoveryMultiplier() : 1f;
+		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilRecoveryMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilRecoveryMultiplier() : 1f;
 		recoveryPerSecond *= skillMultiplier;
+		recoveryPerSecond *= individualMultiplier;
 		recoveryPerSecond *= conditionMultiplier;
-		m_DebugSkillRecoveryMultiplier = skillMultiplier;
+		m_DebugSkillRecoveryMultiplier = skillMultiplier * individualMultiplier;
 		m_DebugConditionRecoveryMultiplier = conditionMultiplier;
 
 		return Mathf.Max(0f, recoveryPerSecond);

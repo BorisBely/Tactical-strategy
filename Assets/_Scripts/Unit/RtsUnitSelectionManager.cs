@@ -250,10 +250,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return false;
 	}
 
-	public bool TryResolveCharacterInventorySlot(InventorySlotView _slot, CharacterInventory _inventory, out bool _isMainHand,
+	public bool TryResolveCharacterInventorySlot(
+		InventorySlotView _slot,
+		CharacterInventory _inventory,
+		out bool _isMainHand,
+		out int _bagIndex)
+	{
+		return TryResolveCharacterInventorySlot(_slot, _inventory, out _isMainHand, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterInventorySlot(
+		InventorySlotView _slot,
+		CharacterInventory _inventory,
+		out bool _isMainHand,
+		out bool _isHead,
 		out int _bagIndex)
 	{
 		_isMainHand = false;
+		_isHead = false;
 		_bagIndex = -1;
 
 		if (m_CharacterInventoryPanel == null || _slot == null || _inventory == null || !_slot.HasItem)
@@ -280,20 +294,32 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		int lead = m_CharacterInventoryPanel.LeadingEquipmentSlotCount;
 		if (slotIndex < lead)
 		{
-			if (slotIndex != 0)
+			if (slotIndex == 0)
 			{
-				Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но не 0 — не поддерживается.");
-				return false;
+				_isMainHand = true;
+				if (!_inventory.HasMainHandEquipment)
+				{
+					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту оружия, но MainHand пуст.");
+					return false;
+				}
+
+				return true;
 			}
 
-			_isMainHand = true;
-			if (!_inventory.HasMainHandEquipment)
+			if (slotIndex == 1)
 			{
-				Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту оружия, но MainHand пуст.");
-				return false;
+				_isHead = true;
+				if (!_inventory.HasHeadEquipment)
+				{
+					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту шлема, но Head пуст.");
+					return false;
+				}
+
+				return true;
 			}
 
-			return true;
+			Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но поддерживаются только 0/1.");
+			return false;
 		}
 
 		_bagIndex = slotIndex - lead;
@@ -324,6 +350,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		    coordinator.TryEquipWeaponDragToMainHand())
 			return true;
 
+		if (slot != null && HelmetEquipUtility.CanEquipToHead(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipHelmetDragToHead())
+			return true;
+
 		return TryAcceptDraggedGroundSlot(_drag, _requireActiveDrag);
 	}
 
@@ -352,8 +383,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return TryAcceptMainHandDragToBag(_drag);
 		}
 
+		if (_drag.CapturedFromHeadEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+
+			if (coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptHeadDragToBag(_drag);
+		}
+
 		if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
 			return coordinator.TryEquipWeaponDragToMainHand();
+
+		if (coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipHelmetDragToHead();
 
 		return false;
 	}
@@ -369,6 +414,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 
 		if (!inventory.TryUnequipMainHandToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	/// <summary>Снять экипированный шлем в сумку (drag на панель инвентаря, не на землю).</summary>
+	public bool TryAcceptHeadDragToBag(InventoryCharacterToGroundDrag _drag)
+	{
+		if (_drag == null || !_drag.CapturedFromHeadEquipmentSlot)
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		if (!inventory.TryUnequipHeadToBag())
 			return false;
 
 		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
@@ -425,6 +489,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!inventory.TryRemoveMainHandEquipment(out data))
 				return false;
 		}
+		else if (_drag.CapturedFromHeadEquipmentSlot)
+		{
+			if (!inventory.TryRemoveHeadEquipment(out data))
+				return false;
+		}
 		else
 		{
 			int bagIndex = _drag.CapturedBagIndex;
@@ -434,7 +503,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return false;
 		}
 
-		return TryCompleteCharacterToGroundTransfer(inventory, data, slot, _drag.CapturedFromMainHandEquipmentSlot);
+		return TryCompleteCharacterToGroundTransfer(
+			inventory,
+			data,
+			slot,
+			_drag.CapturedFromMainHandEquipmentSlot,
+			_drag.CapturedFromHeadEquipmentSlot);
 	}
 
 	public bool TryEquipFromCharacterBagDoubleClick(InventorySlotView _slot)
@@ -453,7 +527,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		if (!TryResolveCharacterInventorySlot(_slot, inventory, out bool isMainHand, out int bagIndex))
+		if (!TryResolveCharacterInventorySlot(_slot, inventory, out bool isMainHand, out bool isHead, out int bagIndex))
 		{
 			Debug.Log(
 				$"{nameof(RtsUnitSelectionManager)}.{nameof(TryEquipFromCharacterBagDoubleClick)}: не удалось сопоставить слот UI с инвентарём (панель / Content / LeadingEquipmentSlotCount). Слот '{_slot.name}'.");
@@ -476,6 +550,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return true;
 		}
 
+		if (isHead)
+		{
+			if (!inventory.TryUnequipHeadToBag())
+			{
+				Debug.Log($"{nameof(TryEquipFromCharacterBagDoubleClick)}: TryUnequipHeadToBag failed.");
+				return false;
+			}
+
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+			return true;
+		}
+
 		InventorySlotRuntimeData data = _slot.Data;
 		if (data.Definition == null || !data.Definition.IsEquipment)
 		{
@@ -483,6 +570,37 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				$"{nameof(TryEquipFromCharacterBagDoubleClick)}: предмет не Equipment (Definition={data.Definition?.name ?? "null"}, IsEquipment={data.Definition != null && data.Definition.IsEquipment}).");
 			return false;
 		}
+
+		if (HelmetEquipUtility.CanEquipToHead(data))
+		{
+			if (inventory.HasHeadEquipment && inventory.HeadEquipment.Definition == data.Definition)
+			{
+				if (!inventory.TryUnequipHeadToBag())
+					return false;
+				inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+				RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+				return true;
+			}
+
+			UnitHeadEquipment headEquipment = inventory.GetComponentInChildren<UnitHeadEquipment>(true);
+			if (headEquipment == null)
+			{
+				Debug.LogWarning($"{nameof(RtsUnitSelectionManager)}: на юните с {nameof(CharacterInventory)} нет {nameof(UnitHeadEquipment)}.", this);
+				return false;
+			}
+
+			UnitIndividualTraits traits = inventory.GetComponentInChildren<UnitIndividualTraits>(true);
+			UnitCharacterAppearance appearance = inventory.GetComponentInChildren<UnitCharacterAppearance>(true);
+			if (!inventory.TryMoveBagItemToHead(bagIndex, headEquipment, traits, appearance))
+				return false;
+
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+			return true;
+		}
+
+		if (!WeaponEquipUtility.CanEquipToMainHand(data))
+			return false;
 
 		if (inventory.HasMainHandEquipment && inventory.MainHandEquipment.Definition == data.Definition)
 		{
@@ -524,6 +642,28 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 
 		if (!inventory.TryMoveBagItemToMainHand(_bagIndex, equipment))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	/// <summary>Экипировать шлем из сумки в слот головы (drag на слот экипировки).</summary>
+	public bool TryEquipCharacterBagHelmetToHead(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null || _bagIndex < 0 || _bagIndex >= inventory.BagCount)
+			return false;
+
+		UnitHeadEquipment headEquipment = inventory.GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment == null)
+			return false;
+
+		UnitIndividualTraits traits = inventory.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = inventory.GetComponentInChildren<UnitCharacterAppearance>(true);
+
+		if (!inventory.TryMoveBagItemToHead(_bagIndex, headEquipment, traits, appearance))
 			return false;
 
 		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
@@ -575,6 +715,53 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Экипировать шлем с панели земли в слот головы.</summary>
+	public bool TryEquipGroundHelmetToHead(InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		if (m_GroundPanel == null)
+			return false;
+
+		InventorySlotView slot = _slotView;
+		if ((slot == null || !slot.HasItem) && _groundSlotIndex >= 0 && _groundSlotIndex < m_GroundPanel.Slots.Count)
+			slot = m_GroundPanel.Slots[_groundSlotIndex];
+
+		if (slot == null || !slot.HasItem || !HelmetEquipUtility.CanEquipToHead(slot.Data))
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		UnitHeadEquipment headEquipment = inventory.GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment == null)
+			return false;
+
+		UnitIndividualTraits traits = inventory.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = inventory.GetComponentInChildren<UnitCharacterAppearance>(true);
+
+		if (!slot.TryTakeItem(out InventorySlotRuntimeData taken))
+			return false;
+
+		InventorySlotRuntimeData forEquip = taken;
+		forEquip.WorldSource = null;
+
+		if (!inventory.TryEquipExternalItemToHead(forEquip, headEquipment, traits, appearance))
+		{
+			slot.SetItem(taken);
+			if (taken.WorldSource != null)
+				taken.WorldSource.ApplyInventorySlotData(taken);
+			return false;
+		}
+
+		if (taken.WorldSource != null)
+			taken.WorldSource.OnTransferredToCharacterInventory();
+
+		m_GroundPanel.NotifyGroundSlotItemTakenAway(slot);
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
 	/// <summary>Двойной клик по оружию на панели земли — экипировка в основную руку.</summary>
 	public bool TryEquipFromGroundDoubleClick(InventorySlotView _slot)
 	{
@@ -584,7 +771,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_slot.GetComponentInParent<InventoryPanelView>() != m_GroundPanel)
 			return false;
 
-		if (!TryEquipGroundWeaponToMainHand(_slot))
+		if (!TryEquipGroundWeaponToMainHand(_slot) && !TryEquipGroundHelmetToHead(_slot))
 			return false;
 
 		RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
@@ -1129,7 +1316,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private bool TryQuickTransferCharacterToGroundInternal(CharacterInventory _inventory, InventorySlotView _slot)
 	{
-		if (!TryResolveCharacterInventorySlot(_slot, _inventory, out bool isMainHand, out int bagIndex))
+		if (!TryResolveCharacterInventorySlot(_slot, _inventory, out bool isMainHand, out bool isHead, out int bagIndex))
 			return false;
 
 		InventorySlotRuntimeData data;
@@ -1138,13 +1325,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!_inventory.TryRemoveMainHandEquipment(out data))
 				return false;
 		}
+		else if (isHead)
+		{
+			if (!_inventory.TryRemoveHeadEquipment(out data))
+				return false;
+		}
 		else
 		{
 			if (!_inventory.TryRemoveBagAt(bagIndex, out data))
 				return false;
 		}
 
-		return TryCompleteCharacterToGroundTransfer(_inventory, data, null, isMainHand);
+		return TryCompleteCharacterToGroundTransfer(_inventory, data, null, isMainHand, isHead);
 	}
 
 	private static WorldPickupItem SpawnDropWorldPickup(CharacterInventory _inventory, InventorySlotRuntimeData _data)
@@ -1218,12 +1410,16 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
-	private bool TryCompleteCharacterToGroundTransfer(CharacterInventory _inventory, InventorySlotRuntimeData _data,
-		InventorySlotView _adoptExistingSlotOrNull, bool _removedFromMainHandSlot)
+	private bool TryCompleteCharacterToGroundTransfer(
+		CharacterInventory _inventory,
+		InventorySlotRuntimeData _data,
+		InventorySlotView _adoptExistingSlotOrNull,
+		bool _removedFromMainHandSlot,
+		bool _removedFromHeadSlot = false)
 	{
 		if (!TryBuildGroundSlotData(_inventory, _data, out InventorySlotRuntimeData groundData, out WorldPickupItem spawned))
 		{
-			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
 			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 			return false;
 		}
@@ -1233,7 +1429,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			if (!m_GroundPanel.AdoptDraggedSlot(_adoptExistingSlotOrNull))
 			{
-				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
+				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
 				_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 				if (spawned != null)
 					Destroy(spawned.gameObject);
@@ -1248,7 +1444,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (!placed)
 		{
-			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _data);
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
 			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 			if (spawned != null)
 				Destroy(spawned.gameObject);

@@ -40,8 +40,10 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
 
 	[Header("Снаряжение (Equipment)")]
-	[Tooltip("Подтип снаряжения: оружие или другой экипируемый предмет.")]
+	[Tooltip("Подтип снаряжения: оружие, шлем или другой экипируемый предмет.")]
 	[SerializeField] private EquipmentKind m_EquipmentKind = EquipmentKind.Weapon;
+	[Tooltip("Профиль визуальных вариантов декора (шлем и т.д.).")]
+	[SerializeField] private EquipmentVisualProfileDefinition m_VisualProfile;
 
 	[Header("Оружие (Equipment, Kind = Weapon)")]
 	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
@@ -67,9 +69,21 @@ public class ItemDefinition : ScriptableObject
 	public Sprite Icon => m_Icon;
 	public int BasePrice => m_BasePrice;
 	public ItemCategory Category => m_Category;
-	/// <summary>Equipment сейчас всегда основная рука; другие слоты появятся позже.</summary>
-	public EquipmentSlotType EquipmentSlot =>
-		m_Category == ItemCategory.Equipment ? EquipmentSlotType.MainHand : EquipmentSlotType.None;
+	/// <summary>Слот экипировки по подтипу.</summary>
+	public EquipmentSlotType EquipmentSlot
+	{
+		get
+		{
+			if (m_Category != ItemCategory.Equipment)
+				return EquipmentSlotType.None;
+
+			return m_EquipmentKind switch
+			{
+				EquipmentKind.Helmet => EquipmentSlotType.Head,
+				_ => EquipmentSlotType.MainHand
+			};
+		}
+	}
 	public GameObject EquippedVisualPrefab => m_EquippedVisualPrefab;
 	public Vector3 RightHandLocalPosition => m_RightHandLocalPosition;
 	public Quaternion RightHandLocalRotation => Quaternion.Euler(m_RightHandLocalEulerAngles);
@@ -78,6 +92,7 @@ public class ItemDefinition : ScriptableObject
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
 	/// <summary>Подтип снаряжения (для Equipment).</summary>
 	public EquipmentKind EquipmentKind => m_EquipmentKind;
+	public EquipmentVisualProfileDefinition VisualProfile => m_VisualProfile;
 	/// <summary>Тип оружия (для Equipment).</summary>
 	public WeaponType WeaponType => m_WeaponType;
 	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;

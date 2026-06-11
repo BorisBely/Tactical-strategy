@@ -48,7 +48,7 @@ public sealed class MissionPrepAvailableEquipmentDropZone : MonoBehaviour, IDrop
 		if (!drag.HasResolvedSlot)
 			return;
 
-		if (!m_Coordinator.TryRemovePresetInventorySlot(drag.IsMainHandSlot, drag.BagIndex))
+		if (!m_Coordinator.TryRemovePresetInventorySlot(drag.IsMainHandSlot, drag.IsHeadSlot, drag.BagIndex))
 			return;
 
 		drag.NotifyDropAccepted();

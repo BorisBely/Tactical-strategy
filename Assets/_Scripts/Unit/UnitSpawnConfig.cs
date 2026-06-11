@@ -8,6 +8,7 @@ using UnityEngine;
 public sealed class UnitSpawnLoadout
 {
 	[SerializeField] private ItemDefinition m_MainHandWeapon;
+	[SerializeField] private ItemDefinition m_HeadItem;
 	[SerializeField] private ItemDefinition[] m_BagItems = Array.Empty<ItemDefinition>();
 
 	[Header("Магазины")]
@@ -18,6 +19,7 @@ public sealed class UnitSpawnLoadout
 	[SerializeField] private bool m_LoadMagazineIntoWeapon = true;
 
 	public ItemDefinition MainHandWeapon => m_MainHandWeapon;
+	public ItemDefinition HeadItem => m_HeadItem;
 	public ItemDefinition[] BagItems => m_BagItems ?? Array.Empty<ItemDefinition>();
 	public AmmoDefinition AmmoForMagazines => m_AmmoForMagazines;
 	public int RoundsPerMagazine => m_RoundsPerMagazine;

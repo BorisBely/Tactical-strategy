@@ -68,13 +68,7 @@ public class InventoryPanelView : MonoBehaviour
 	{
 		m_Slots.Clear();
 		Transform root = m_SlotsContainer != null ? m_SlotsContainer : transform;
-		InventorySlotView[] found = root.GetComponentsInChildren<InventorySlotView>(true);
-		for (int i = 0; i < found.Length; i++)
-		{
-			InventorySlotView slot = found[i];
-			if (slot != null)
-				m_Slots.Add(slot);
-		}
+		CollectDirectChildSlotViews(root, m_Slots);
 		m_SpawnedSlots.RemoveAll(_s => _s == null);
 		for (int i = m_SpawnedSlots.Count - 1; i >= 0; i--)
 		{
@@ -240,14 +234,16 @@ public class InventoryPanelView : MonoBehaviour
 
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
+		InventorySlotRuntimeData head = _inventory.HeadEquipment;
 		IReadOnlyList<InventorySlotRuntimeData> bag = _inventory.BagItems;
 
 		for (int i = 0; i < lead; i++)
 		{
-			bool isMainHandSlot = i == 0;
-			InventorySlotView cell = SpawnNewSlotFromPrefab(isMainHandSlot);
-			if (isMainHandSlot && !main.IsEmpty)
+			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			if (i == 0 && !main.IsEmpty)
 				cell.SetItem(main);
+			else if (i == 1 && !head.IsEmpty)
+				cell.SetItem(head);
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -270,14 +266,16 @@ public class InventoryPanelView : MonoBehaviour
 
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _snapshot.MainHandEquipment;
+		InventorySlotRuntimeData head = _snapshot.HeadEquipment;
 		IReadOnlyList<InventorySlotRuntimeData> bag = _snapshot.BagItems;
 
 		for (int i = 0; i < lead; i++)
 		{
-			bool isMainHandSlot = i == 0;
-			InventorySlotView cell = SpawnNewSlotFromPrefab(isMainHandSlot);
-			if (isMainHandSlot && !main.IsEmpty)
+			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			if (i == 0 && !main.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(main));
+			else if (i == 1 && !head.IsEmpty)
+				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(head));
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -362,6 +360,37 @@ public class InventoryPanelView : MonoBehaviour
 				m_Slots[i].Clear();
 		}
 
+		if (IsConfiguredForDynamicRepaint && m_DestroySpawnedSlotsOnClearAll && m_SlotsContainer != null)
+		{
+			var toKill = new List<GameObject>(m_Slots.Count + m_SpawnedSlots.Count);
+			for (int i = 0; i < m_SpawnedSlots.Count; i++)
+			{
+				if (m_SpawnedSlots[i] != null)
+					toKill.Add(m_SpawnedSlots[i].gameObject);
+			}
+
+			for (int i = 0; i < m_SlotsContainer.childCount; i++)
+			{
+				Transform child = m_SlotsContainer.GetChild(i);
+				if (child == null)
+					continue;
+
+				InventorySlotView slot = child.GetComponent<InventorySlotView>();
+				if (slot == null || !slot.IsRuntimeSpawned)
+					continue;
+
+				GameObject go = child.gameObject;
+				if (!toKill.Contains(go))
+					toKill.Add(go);
+			}
+
+			m_Slots.Clear();
+			m_SpawnedSlots.Clear();
+			if (toKill.Count > 0)
+				EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(toKill, transform);
+			return;
+		}
+
 		if (m_DestroySpawnedSlotsOnClearAll && m_SpawnedSlots.Count > 0)
 		{
 			var toKill = new List<GameObject>(m_SpawnedSlots.Count);
@@ -371,9 +400,9 @@ public class InventoryPanelView : MonoBehaviour
 					toKill.Add(m_SpawnedSlots[i].gameObject);
 			}
 
+			m_Slots.Clear();
 			m_SpawnedSlots.Clear();
 			EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(toKill, transform);
-			RefreshSlotsFromHierarchy();
 		}
 	}
 	#endregion
@@ -385,7 +414,24 @@ public class InventoryPanelView : MonoBehaviour
 			RefreshSlotsFromHierarchy();
 	}
 
-	private InventorySlotView SpawnNewSlotFromPrefab(bool _isMainHandEquipmentSlot = false)
+	private static void CollectDirectChildSlotViews(Transform _container, List<InventorySlotView> _outSlots)
+	{
+		if (_container == null || _outSlots == null)
+			return;
+
+		for (int i = 0; i < _container.childCount; i++)
+		{
+			Transform child = _container.GetChild(i);
+			if (child == null || !child.gameObject.activeInHierarchy)
+				continue;
+
+			InventorySlotView slot = child.GetComponent<InventorySlotView>();
+			if (slot != null)
+				_outSlots.Add(slot);
+		}
+	}
+
+	private InventorySlotView SpawnNewSlotFromPrefab(int _equipmentSlotIndex = -1)
 	{
 		InventorySlotView created = Instantiate(m_SlotPrefab, m_SlotsContainer);
 		created.gameObject.name = $"{m_SlotPrefab.name}_{m_SpawnedSlots.Count}";
@@ -394,8 +440,10 @@ public class InventoryPanelView : MonoBehaviour
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
 
-		if (_isMainHandEquipmentSlot)
+		if (_equipmentSlotIndex == 0)
 			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(created, m_EquipmentSlotAppearance);
+		else if (_equipmentSlotIndex == 1)
+			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(created, m_EquipmentSlotAppearance);
 
 		return created;
 	}

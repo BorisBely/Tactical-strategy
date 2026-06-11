@@ -15,8 +15,10 @@ public enum ItemCategory
 public enum EquipmentSlotType
 {
 	None = 0,
-	/// <summary>Основное оружие (единственный слот на данный момент).</summary>
-	MainHand = 1
+	/// <summary>Основное оружие.</summary>
+	MainHand = 1,
+	/// <summary>Шлем / голова.</summary>
+	Head = 2
 }
 
 /// <summary>
@@ -36,7 +38,8 @@ public enum WeaponType
 public enum EquipmentKind
 {
 	Weapon = 0,
-	Other = 1
+	Other = 1,
+	Helmet = 2
 }
 
 /// <summary>

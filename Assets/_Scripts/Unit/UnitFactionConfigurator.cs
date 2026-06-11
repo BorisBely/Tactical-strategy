@@ -17,6 +17,9 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private UnitTeam m_Team;
 	private CharacterInventory m_Inventory;
 	private UnitEquipment m_Equipment;
+	private UnitHeadEquipment m_HeadEquipment;
+	private UnitIndividualTraits m_Traits;
+	private UnitCharacterAppearance m_Appearance;
 	private UnitWeaponReadyHandsLayer m_ReadyHands;
 	private RtsUnitMember m_RtsMember;
 	private UnitClickToMove m_ClickToMove;
@@ -44,6 +47,8 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (m_Team != null)
 			m_Team.SetTeam(team);
 
+		ApplyCharacterGender();
+		EnsureIndividualTraits();
 		ApplyLoadout();
 		ApplyArmor(m_RuntimeConfig.ArmorVisualIndex);
 		ApplyRoleComponents(isPlayer);
@@ -79,6 +84,12 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_Inventory = GetComponent<CharacterInventory>();
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_HeadEquipment == null)
+			m_HeadEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
+		if (m_Traits == null)
+			m_Traits = GetComponentInChildren<UnitIndividualTraits>(true);
+		if (m_Appearance == null)
+			m_Appearance = GetComponentInChildren<UnitCharacterAppearance>(true);
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_RtsMember == null)
@@ -97,6 +108,25 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_DamageableTarget = GetComponent<DamageableTarget>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+	}
+
+	private void ApplyCharacterGender()
+	{
+		UnitCharacterAppearance appearance = UnitCharacterAppearance.GetOrCreate(gameObject);
+		if (appearance == null)
+			return;
+
+		appearance.EnsureDefaultMale();
+		m_Appearance = appearance;
+	}
+
+	private void EnsureIndividualTraits()
+	{
+		UnitIndividualTraits traits = UnitIndividualTraits.GetOrCreate(gameObject);
+		if (traits != null && !traits.IsInitialized)
+			traits.RollRandomTraits();
+
+		m_Traits = traits;
 	}
 
 	private void ApplyArmor(int _armorVisualIndex)
@@ -157,6 +187,13 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 
 		if (!mainHand.IsEmpty && m_Equipment != null)
 			m_Inventory.RestoreAfterFailedDrop(true, mainHand);
+
+		if (loadout.HeadItem != null)
+		{
+			InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(loadout.HeadItem);
+			if (HelmetEquipUtility.CanEquipToHead(headSlot))
+				m_Inventory.RestoreAfterFailedDrop(false, true, headSlot);
+		}
 
 		for (int i = 0; i < bagSlots.Count; i++)
 			m_Inventory.TryAdd(bagSlots[i]);

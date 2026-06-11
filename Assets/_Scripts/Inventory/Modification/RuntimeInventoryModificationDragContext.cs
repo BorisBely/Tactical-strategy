@@ -8,7 +8,10 @@ public enum RuntimeInventoryModificationDragSourceKind
 	GroundPanel = 3,
 	ModificationSlot = 4,
 	CharacterBagWeapon = 5,
-	GroundWeapon = 6
+	GroundWeapon = 6,
+	CharacterBagHelmet = 7,
+	GroundHelmet = 8,
+	CharacterHeadHelmet = 9
 }
 
 public readonly struct RuntimeInventoryModificationDragPayload
@@ -59,6 +62,7 @@ public static class RuntimeInventoryModificationDragContext
 	public static InventorySlotView SourceSlotView => s_SourceSlotView;
 	public static bool HasActiveModificationItem => s_Current.HasItem && ItemModificationUtility.IsModificationItem(s_Current.Item);
 	public static bool HasActiveWeaponEquipDrag => s_Current.HasItem && IsWeaponEquipDragSource(s_Current.SourceKind);
+	public static bool HasActiveHelmetEquipDrag => s_Current.HasItem && IsHelmetEquipDragSource(s_Current.SourceKind);
 	public static bool WasDropConsumed => s_DropConsumed;
 	#endregion
 
@@ -69,11 +73,22 @@ public static class RuntimeInventoryModificationDragContext
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundWeapon;
 	}
 
-	public static void BeginCharacter(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex, InventorySlotView _sourceSlot = null)
+	public static bool IsHelmetEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundHelmet;
+	}
+
+	public static void BeginCharacter(
+		InventorySlotRuntimeData _item,
+		bool _isMainHand,
+		int _bagIndex,
+		InventorySlotView _sourceSlot = null,
+		bool _isHead = false)
 	{
 		SetSourceSlot(_sourceSlot);
 		Begin(new RuntimeInventoryModificationDragPayload(
-			ResolveCharacterSourceKind(_item, _isMainHand),
+			ResolveCharacterSourceKind(_item, _isMainHand, _isHead),
 			_item,
 			_isMainHand,
 			_bagIndex));
@@ -146,16 +161,25 @@ public static class RuntimeInventoryModificationDragContext
 
 	private static RuntimeInventoryModificationDragSourceKind ResolveCharacterSourceKind(
 		InventorySlotRuntimeData _item,
-		bool _isMainHand)
+		bool _isMainHand,
+		bool _isHead)
 	{
 		if (_isMainHand)
 			return RuntimeInventoryModificationDragSourceKind.None;
+
+		if (_isHead)
+			return HelmetEquipUtility.CanEquipToHead(_item)
+				? RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet
+				: RuntimeInventoryModificationDragSourceKind.None;
 
 		if (ItemModificationUtility.IsModificationItem(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBag;
 
 		if (WeaponEquipUtility.CanEquipToMainHand(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon;
+
+		if (HelmetEquipUtility.CanEquipToHead(_item))
+			return RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet;
 
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
@@ -167,6 +191,9 @@ public static class RuntimeInventoryModificationDragContext
 
 		if (WeaponEquipUtility.CanEquipToMainHand(_item))
 			return RuntimeInventoryModificationDragSourceKind.GroundWeapon;
+
+		if (HelmetEquipUtility.CanEquipToHead(_item))
+			return RuntimeInventoryModificationDragSourceKind.GroundHelmet;
 
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
@@ -180,6 +207,7 @@ public static class RuntimeInventoryModificationDragContext
 		{
 			case RuntimeInventoryModificationDragSourceKind.ModificationSlot:
 			case RuntimeInventoryModificationDragSourceKind.CharacterMainHand:
+			case RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet:
 				return true;
 			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
 			case RuntimeInventoryModificationDragSourceKind.GroundPanel:
@@ -187,6 +215,9 @@ public static class RuntimeInventoryModificationDragContext
 			case RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon:
 			case RuntimeInventoryModificationDragSourceKind.GroundWeapon:
 				return WeaponEquipUtility.CanEquipToMainHand(_payload.Item);
+			case RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet:
+			case RuntimeInventoryModificationDragSourceKind.GroundHelmet:
+				return HelmetEquipUtility.CanEquipToHead(_payload.Item);
 			default:
 				return false;
 		}

@@ -30,6 +30,40 @@ public static class CombatBalanceSetupEditor
 		if (EnsureComponent<UnitCombatCondition>(root, out _))
 			changed = true;
 
+		if (EnsureComponent<UnitIndividualTraits>(root, out UnitIndividualTraits individualTraits))
+			changed = true;
+
+		if (EnsureComponent<UnitHeadEquipment>(root, out UnitHeadEquipment headEquipment))
+			changed = true;
+
+		if (EnsureComponent<UnitCharacterAppearance>(root, out _))
+			changed = true;
+
+		if (EnsureComponent<UnitHeadEquipmentDebug>(root, out _))
+			changed = true;
+
+		Transform headAnchor = FindChildByName(root.transform, "Head");
+		if (headEquipment != null && headAnchor != null)
+		{
+			SerializedObject headSo = new SerializedObject(headEquipment);
+			headSo.FindProperty("m_HeadAnchor").objectReferenceValue = headAnchor;
+			headSo.ApplyModifiedPropertiesWithoutUndo();
+			changed = true;
+		}
+
+		if (individualTraits != null)
+		{
+			EquipmentVisualProfileCatalog catalog = AssetDatabase.LoadAssetAtPath<EquipmentVisualProfileCatalog>(
+				EquipmentVisualProfileCatalog.DefaultAssetPath);
+			SerializedObject traitsSo = new SerializedObject(individualTraits);
+			if (catalog != null)
+				traitsSo.FindProperty("m_EquipmentVisualProfileCatalog").objectReferenceValue = catalog;
+			traitsSo.FindProperty("m_RollOnAwake").boolValue = true;
+			traitsSo.FindProperty("m_IsInitialized").boolValue = false;
+			traitsSo.ApplyModifiedPropertiesWithoutUndo();
+			changed = true;
+		}
+
 		if (stats != null && rank != null)
 		{
 			SerializedObject so = new SerializedObject(stats);
@@ -42,7 +76,7 @@ public static class CombatBalanceSetupEditor
 		if (changed)
 		{
 			PrefabUtility.SaveAsPrefabAsset(root, c_PlayerUnitPrefabPath);
-			Debug.Log("Unit prefab updated with UnitCombatStats and UnitCombatCondition.");
+			Debug.Log("Unit prefab updated with UnitCombatStats, UnitCombatCondition, UnitIndividualTraits and head equipment.");
 		}
 		else
 		{
@@ -70,6 +104,18 @@ public static class CombatBalanceSetupEditor
 
 		_component = _root.AddComponent<T>();
 		return true;
+	}
+
+	private static Transform FindChildByName(Transform _root, string _name)
+	{
+		Transform[] children = _root.GetComponentsInChildren<Transform>(true);
+		for (int i = 0; i < children.Length; i++)
+		{
+			if (children[i].name == _name)
+				return children[i];
+		}
+
+		return null;
 	}
 }
 #endif

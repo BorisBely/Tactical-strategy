@@ -19,6 +19,8 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 
 		[Header("Стартовый инвентарь")]
 		[SerializeField] private ItemDefinition m_WeaponItem;
+		[SerializeField] private ItemDefinition m_HeadItem;
+		[SerializeField] private ItemDefinition[] m_ExtraHeadItemsInBag = Array.Empty<ItemDefinition>();
 		[SerializeField] private ItemDefinition m_MagazineItem;
 		[SerializeField] private AmmoDefinition m_AmmoForMagazine;
 		[Tooltip("Сколько заряженных магазинов положить в сумку (не считая магазин в оружии).")]
@@ -34,6 +36,8 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		public string LocalizationKey => m_LocalizationKey;
 		public int DefaultArmorVisualIndex => m_DefaultArmorVisualIndex;
 		public ItemDefinition WeaponItem => m_WeaponItem;
+		public ItemDefinition HeadItem => m_HeadItem;
+		public ItemDefinition[] ExtraHeadItemsInBag => m_ExtraHeadItemsInBag;
 		public ItemDefinition MagazineItem => m_MagazineItem;
 		public AmmoDefinition AmmoForMagazine => m_AmmoForMagazine;
 		public int SpareLoadedMagazinesInBag => m_SpareLoadedMagazinesInBag;

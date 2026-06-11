@@ -50,6 +50,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		ApplyDropdownTextOnlyMode(m_PresetDropdown);
 		ApplyDropdownTextOnlyMode(m_ArmorDropdown);
 		EnsurePresetCaptionUi();
+		EnsureArmorDropdownDescriptionHover();
 		SyncPresetDropdownReferences();
 	}
 
@@ -67,6 +68,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	private void OnEnable()
 	{
 		TryResolveArmorDropdownReference();
+		EnsureArmorDropdownDescriptionHover();
 		ApplyDropdownTextOnlyMode(m_PresetDropdown);
 		ApplyDropdownTextOnlyMode(m_ArmorDropdown);
 
@@ -506,6 +508,19 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		if (GetComponent<MissionPrepPresetCaptionUi>() == null)
 			gameObject.AddComponent<MissionPrepPresetCaptionUi>();
+	}
+
+	private void EnsureArmorDropdownDescriptionHover()
+	{
+		if (m_ArmorDropdown == null)
+			return;
+
+		MissionPrepArmorDropdownDescriptionHover hover =
+			m_ArmorDropdown.GetComponent<MissionPrepArmorDropdownDescriptionHover>();
+		if (hover == null)
+			hover = m_ArmorDropdown.gameObject.AddComponent<MissionPrepArmorDropdownDescriptionHover>();
+
+		hover.Bind(m_ArmorDropdown, m_PresetCatalog);
 	}
 
 	private void EnsurePresetDropdownType()

@@ -120,14 +120,16 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 
 		if (_definition.WeaponDefinition != null)
 			return 0;
-		if (_definition.WeaponAttachmentDefinition != null)
+		if (_definition.IsEquipment && _definition.EquipmentKind == EquipmentKind.Helmet)
 			return 1;
-		if (_definition.MagazineDefinition != null)
+		if (_definition.WeaponAttachmentDefinition != null)
 			return 2;
-		if (_definition.AmmoDefinition != null)
+		if (_definition.MagazineDefinition != null)
 			return 3;
+		if (_definition.AmmoDefinition != null)
+			return 4;
 
-		return 4;
+		return 5;
 	}
 	#endregion
 

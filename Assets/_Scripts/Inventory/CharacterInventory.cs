@@ -21,6 +21,7 @@ public class CharacterInventory : MonoBehaviour
 
 	#region Private Fields
 	[SerializeField] private InventorySlotRuntimeData m_MainHandEquipment;
+	[SerializeField] private InventorySlotRuntimeData m_HeadEquipment;
 	[FormerlySerializedAs("m_Items")]
 	[SerializeField] private List<InventorySlotRuntimeData> m_BagItems = new List<InventorySlotRuntimeData>();
 	#endregion
@@ -28,13 +29,15 @@ public class CharacterInventory : MonoBehaviour
 	#region Public Properties
 	/// <summary>Слот основного оружия (первый на панели при LeadingEquipmentSlotCount ≥ 1).</summary>
 	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
+	public InventorySlotRuntimeData HeadEquipment => m_HeadEquipment;
 
 	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
 	public int BagCount => m_BagItems.Count;
 	public bool HasMainHandEquipment => !m_MainHandEquipment.IsEmpty;
+	public bool HasHeadEquipment => !m_HeadEquipment.IsEmpty;
 
-	/// <summary>Число предметов в сумке + занятый слот оружия (для общих оценок).</summary>
-	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0);
+	/// <summary>Число предметов в сумке + занятые слоты экипировки.</summary>
+	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0) + (HasHeadEquipment ? 1 : 0);
 	#endregion
 
 	#region Unity Lifecycle
@@ -95,6 +98,73 @@ public class CharacterInventory : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Снять шлем со слота головы. Снимает и визуал с юнита.</summary>
+	public bool TryRemoveHeadEquipment(out InventorySlotRuntimeData _removed)
+	{
+		if (m_HeadEquipment.IsEmpty)
+		{
+			_removed = default;
+			return false;
+		}
+
+		_removed = m_HeadEquipment;
+		m_HeadEquipment = default;
+		ClearHeadEquipmentVisual();
+		return true;
+	}
+
+	/// <summary>Переместить предмет из сумки в слот головы и обновить модель на юните.</summary>
+	public bool TryMoveBagItemToHead(int _bagIndex, UnitHeadEquipment _headEquipment, UnitIndividualTraits _traits, UnitCharacterAppearance _appearance)
+	{
+		if (_headEquipment == null || _bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
+		if (!HelmetEquipUtility.CanEquipToHead(picked))
+			return false;
+
+		InventorySlotRuntimeData previousHead = m_HeadEquipment;
+		m_BagItems.RemoveAt(_bagIndex);
+		m_HeadEquipment = picked;
+
+		if (!previousHead.IsEmpty)
+			m_BagItems.Insert(_bagIndex, previousHead);
+
+		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
+		return true;
+	}
+
+	/// <summary>Экипировать шлем извне (земля); прежний шлем уходит в сумку.</summary>
+	public bool TryEquipExternalItemToHead(
+		InventorySlotRuntimeData _item,
+		UnitHeadEquipment _headEquipment,
+		UnitIndividualTraits _traits,
+		UnitCharacterAppearance _appearance)
+	{
+		if (_headEquipment == null || !HelmetEquipUtility.CanEquipToHead(_item))
+			return false;
+
+		if (!m_HeadEquipment.IsEmpty && !TryUnequipHeadToBag())
+			return false;
+
+		m_HeadEquipment = _item;
+		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
+		return true;
+	}
+
+	/// <summary>Снять шлем в сумку.</summary>
+	public bool TryUnequipHeadToBag()
+	{
+		if (m_HeadEquipment.IsEmpty)
+			return false;
+
+		InventorySlotRuntimeData head = m_HeadEquipment;
+		m_HeadEquipment = default;
+		ClearHeadEquipmentVisual();
+		m_BagItems.Add(head);
+		return true;
+	}
+
 	/// <summary>Переместить предмет из сумки в слот основного оружия и обновить модель на юните. Старый слот оружия, если был, вставляется на место строки в сумке.</summary>
 	public bool TryMoveBagItemToMainHand(int _bagIndex, UnitEquipment _equipment)
 	{
@@ -102,12 +172,7 @@ public class CharacterInventory : MonoBehaviour
 			return false;
 
 		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
-		if (picked.Definition == null || !picked.Definition.IsEquipment)
-			return false;
-
-		if (picked.InstanceState != null &&
-		    picked.InstanceState.WeaponState != null &&
-		    picked.InstanceState.WeaponState.IsTerminallyBroken)
+		if (!WeaponEquipUtility.CanEquipToMainHand(picked))
 			return false;
 
 		InventorySlotRuntimeData previousMain = m_MainHandEquipment;
@@ -151,8 +216,10 @@ public class CharacterInventory : MonoBehaviour
 	public void Clear()
 	{
 		m_MainHandEquipment = default;
+		m_HeadEquipment = default;
 		m_BagItems.Clear();
 		ClearUnitEquipmentVisual();
+		ClearHeadEquipmentVisual();
 	}
 
 	/// <summary>Синхронизировать панель рюкзака (слоты экипировки + сумка).</summary>
@@ -177,9 +244,24 @@ public class CharacterInventory : MonoBehaviour
 
 	public bool TryGetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _slot)
 	{
+		return TryGetInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, out _slot);
+	}
+
+	public bool TryGetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _slot)
+	{
 		if (_isMainHandEquipmentSlot)
 		{
 			_slot = m_MainHandEquipment;
+			return !_slot.IsEmpty;
+		}
+
+		if (_isHeadEquipmentSlot)
+		{
+			_slot = m_HeadEquipment;
 			return !_slot.IsEmpty;
 		}
 
@@ -195,6 +277,15 @@ public class CharacterInventory : MonoBehaviour
 
 	public bool TrySetInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, InventorySlotRuntimeData _slot)
 	{
+		return TrySetInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, _slot);
+	}
+
+	public bool TrySetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		InventorySlotRuntimeData _slot)
+	{
 		if (_slot.IsEmpty)
 			return false;
 
@@ -203,6 +294,15 @@ public class CharacterInventory : MonoBehaviour
 		if (_isMainHandEquipmentSlot)
 		{
 			m_MainHandEquipment = _slot;
+			return true;
+		}
+
+		if (_isHeadEquipmentSlot)
+		{
+			if (!HelmetEquipUtility.CanEquipToHead(_slot))
+				return false;
+
+			m_HeadEquipment = _slot;
 			return true;
 		}
 
@@ -215,13 +315,29 @@ public class CharacterInventory : MonoBehaviour
 
 	public bool TryRemoveInventorySlot(bool _isMainHandEquipmentSlot, int _bagIndex, out InventorySlotRuntimeData _removedSlot)
 	{
-		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _bagIndex, out _removedSlot))
+		return TryRemoveInventorySlot(_isMainHandEquipmentSlot, false, _bagIndex, out _removedSlot);
+	}
+
+	public bool TryRemoveInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _removedSlot)
+	{
+		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, _bagIndex, out _removedSlot))
 			return false;
 
 		if (_isMainHandEquipmentSlot)
 		{
 			m_MainHandEquipment = default;
 			ClearUnitEquipmentVisual();
+			return true;
+		}
+
+		if (_isHeadEquipmentSlot)
+		{
+			m_HeadEquipment = default;
+			ClearHeadEquipmentVisual();
 			return true;
 		}
 
@@ -254,6 +370,7 @@ public class CharacterInventory : MonoBehaviour
 	private void EnsureRuntimeStatesInitialized()
 	{
 		EnsureSlotHasInstanceState(ref m_MainHandEquipment);
+		EnsureSlotHasInstanceState(ref m_HeadEquipment);
 
 		for (int i = 0; i < m_BagItems.Count; i++)
 		{
@@ -278,8 +395,20 @@ public class CharacterInventory : MonoBehaviour
 			equipment.ClearAllEquipment();
 	}
 
+	private void ClearHeadEquipmentVisual()
+	{
+		UnitHeadEquipment headEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment != null)
+			headEquipment.ClearHead();
+	}
+
 	/// <summary>Вернуть предмет после неудачного выброса (спавн/панель отклонили перенос).</summary>
 	public void RestoreAfterFailedDrop(bool _toMainHand, InventorySlotRuntimeData _data)
+	{
+		RestoreAfterFailedDrop(_toMainHand, false, _data);
+	}
+
+	public void RestoreAfterFailedDrop(bool _toMainHand, bool _toHead, InventorySlotRuntimeData _data)
 	{
 		if (_data.IsEmpty)
 			return;
@@ -290,6 +419,15 @@ public class CharacterInventory : MonoBehaviour
 			UnitEquipment equipment = GetComponentInChildren<UnitEquipment>(true);
 			if (equipment != null && _data.Definition != null)
 				equipment.TryEquip(_data.Definition);
+		}
+		else if (_toHead)
+		{
+			m_HeadEquipment = _data;
+			UnitHeadEquipment headEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
+			UnitIndividualTraits traits = GetComponentInChildren<UnitIndividualTraits>(true);
+			UnitCharacterAppearance appearance = GetComponentInChildren<UnitCharacterAppearance>(true);
+			if (headEquipment != null && _data.Definition != null)
+				headEquipment.TryEquip(_data.Definition, traits, appearance);
 		}
 		else
 			TryAdd(_data);

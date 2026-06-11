@@ -24,23 +24,46 @@ public static class InventorySlotUiUtility
 	#region Public Methods
 	public static InventorySlotView GetMainHandEquipmentSlot(InventoryPanelView _panel)
 	{
+		return GetLeadingEquipmentSlot(_panel, 0);
+	}
+
+	public static InventorySlotView GetHeadEquipmentSlot(InventoryPanelView _panel)
+	{
+		return GetLeadingEquipmentSlot(_panel, 1);
+	}
+
+	public static InventorySlotView GetLeadingEquipmentSlot(InventoryPanelView _panel, int _slotIndex)
+	{
 		if (_panel == null || _panel.LeadingEquipmentSlotCount <= 0)
+			return null;
+
+		if (_slotIndex < 0 || _slotIndex >= _panel.LeadingEquipmentSlotCount)
 			return null;
 
 		Transform container = _panel.SlotsContainerTransform;
 		if (container != null)
 		{
+			int foundIndex = 0;
 			for (int i = 0; i < container.childCount; i++)
 			{
-				InventorySlotView slot = container.GetChild(i).GetComponent<InventorySlotView>();
-				if (slot != null)
+				Transform child = container.GetChild(i);
+				if (child == null || !child.gameObject.activeInHierarchy)
+					continue;
+
+				InventorySlotView slot = child.GetComponent<InventorySlotView>();
+				if (slot == null)
+					continue;
+
+				if (foundIndex == _slotIndex)
 					return slot;
+
+				foundIndex++;
 			}
 		}
 
 		_panel.RefreshSlotsFromHierarchy();
 		IReadOnlyList<InventorySlotView> slots = _panel.Slots;
-		return slots.Count > 0 ? slots[0] : null;
+		return slots.Count > _slotIndex ? slots[_slotIndex] : null;
 	}
 
 	/// <summary>1×1 спрайт для заливки Image без назначенного sprite в префабе.</summary>
@@ -220,6 +243,20 @@ public static class InventorySlotUiUtility
 		InventorySlotView _slot,
 		InventoryEquipmentSlotAppearance _appearance)
 	{
+		ConfigureEquipmentSlot(_slot, _appearance);
+	}
+
+	public static void ConfigureHeadEquipmentSlot(
+		InventorySlotView _slot,
+		InventoryEquipmentSlotAppearance _appearance)
+	{
+		ConfigureEquipmentSlot(_slot, _appearance);
+	}
+
+	public static void ConfigureEquipmentSlot(
+		InventorySlotView _slot,
+		InventoryEquipmentSlotAppearance _appearance)
+	{
 		if (_slot == null || _appearance == null)
 			return;
 
@@ -238,6 +275,22 @@ public static class InventorySlotUiUtility
 
 	public static bool IsWeaponEquipDragActive()
 	{
+		if (IsWeaponEquipDragFromPayload())
+			return true;
+
+		return InventoryEquipmentEquipHoverContext.HasActiveWeaponEquipHover;
+	}
+
+	public static bool IsHelmetEquipDragActive()
+	{
+		if (IsHelmetEquipDragFromPayload())
+			return true;
+
+		return InventoryEquipmentEquipHoverContext.HasActiveHelmetEquipHover;
+	}
+
+	private static bool IsWeaponEquipDragFromPayload()
+	{
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsWeaponEquipDragSource(runtimePayload.SourceKind) &&
 		    WeaponEquipUtility.CanEquipToMainHand(runtimePayload.Item))
@@ -246,6 +299,24 @@ public static class InventorySlotUiUtility
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
 		return MissionPrepWeaponEquipUtility.IsWeaponEquipDragSource(missionPrepPayload.SourceKind) &&
 		       MissionPrepWeaponEquipUtility.CanEquipToMainHand(missionPrepPayload.Item);
+	}
+
+	private static bool IsHelmetEquipDragFromPayload()
+	{
+		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
+		if (RuntimeInventoryModificationDragContext.IsHelmetEquipDragSource(runtimePayload.SourceKind) &&
+		    HelmetEquipUtility.CanEquipToHead(runtimePayload.Item))
+			return true;
+
+		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
+		return MissionPrepHelmetEquipUtility.IsHelmetEquipDragSource(missionPrepPayload.SourceKind) &&
+		       MissionPrepHelmetEquipUtility.CanEquipToHead(missionPrepPayload.Item);
+	}
+
+	public static void RefreshEquipmentSlotHighlights(InventoryPanelView _panel)
+	{
+		RefreshMainHandEquipHighlight(_panel);
+		RefreshHeadEquipHighlight(_panel);
 	}
 
 	public static void RefreshMainHandEquipHighlight(InventoryPanelView _panel)
@@ -257,7 +328,26 @@ public static class InventorySlotUiUtility
 		ApplyMainHandEquipmentSlotHighlight(mainHandSlot, IsWeaponEquipDragActive());
 	}
 
+	public static void RefreshHeadEquipHighlight(InventoryPanelView _panel)
+	{
+		InventorySlotView headSlot = GetHeadEquipmentSlot(_panel);
+		if (headSlot == null)
+			return;
+
+		ApplyEquipmentSlotHighlight(headSlot, IsHelmetEquipDragActive());
+	}
+
 	public static void ApplyMainHandEquipmentSlotHighlight(InventorySlotView _slot, bool _highlighted)
+	{
+		ApplyEquipmentSlotHighlight(_slot, _highlighted);
+	}
+
+	public static void ApplyHeadEquipmentSlotHighlight(InventorySlotView _slot, bool _highlighted)
+	{
+		ApplyEquipmentSlotHighlight(_slot, _highlighted);
+	}
+
+	public static void ApplyEquipmentSlotHighlight(InventorySlotView _slot, bool _highlighted)
 	{
 		if (_slot == null)
 			return;
@@ -285,6 +375,14 @@ public static class InventorySlotUiUtility
 	}
 
 	public static bool IsScreenPointOverMainHandEquipmentSlot(
+		InventorySlotView _slot,
+		Vector2 _screenPosition,
+		Camera _eventCamera)
+	{
+		return IsScreenPointOverSlot(_slot, _screenPosition, _eventCamera, MainHandEquipDropPaddingPixels);
+	}
+
+	public static bool IsScreenPointOverHeadEquipmentSlot(
 		InventorySlotView _slot,
 		Vector2 _screenPosition,
 		Camera _eventCamera)

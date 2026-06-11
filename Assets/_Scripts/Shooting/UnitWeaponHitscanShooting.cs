@@ -20,6 +20,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitIndividualTraits m_IndividualTraits;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
@@ -116,6 +117,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (m_LocomotionDriver == null)
 			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
 		m_CombatStats = ResolveCombatStats();
+		m_IndividualTraits = ResolveIndividualTraits();
 		if (m_CombatCondition == null)
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
 		if (m_StanceCombatModifiers == null)
@@ -184,6 +186,14 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return UnitCombatStatsLookup.ResolveOnUnit(this);
 	}
 
+	private UnitIndividualTraits ResolveIndividualTraits()
+	{
+		if (m_IndividualTraits != null)
+			return m_IndividualTraits;
+
+		return GetComponent<UnitIndividualTraits>();
+	}
+
 	private WeaponShotAccuracyContext BuildAccuracyContext(AmmoDefinition _ammo)
 	{
 		float targetDistanceMeters = EstimateTargetDistanceMeters();
@@ -221,6 +231,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	private WeaponShotAccuracyInput BuildAccuracyInput(AmmoDefinition _ammo, float _targetDistanceMeters)
 	{
 		UnitCombatStats combatStats = ResolveCombatStats();
+		UnitIndividualTraits individualTraits = ResolveIndividualTraits();
 		WeaponFireMode selectedFireMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
@@ -232,6 +243,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			TransientState = m_WeaponRuntime.TransientState,
 			AmmoDefinition = _ammo != null ? _ammo : ResolveExpectedAmmoDefinition(),
 			CombatStats = combatStats,
+			IndividualTraits = individualTraits,
 			CombatCondition = m_CombatCondition,
 			TargetDistanceMeters = _targetDistanceMeters,
 			BaseSpreadToDegrees = m_BaseSpreadToDegrees,

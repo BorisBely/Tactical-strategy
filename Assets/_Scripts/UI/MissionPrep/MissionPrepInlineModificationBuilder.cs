@@ -82,12 +82,17 @@ public static class MissionPrepInlineModificationBuilder
 				rows[i].RefreshHighlight();
 		}
 
-		RefreshMainHandSlotHighlights(_panel);
+		RefreshEquipmentSlotHighlights(_panel);
 	}
 
 	public static void RefreshMainHandSlotHighlights(InventoryPanelView _panel)
 	{
 		InventorySlotUiUtility.RefreshMainHandEquipHighlight(_panel);
+	}
+
+	public static void RefreshEquipmentSlotHighlights(InventoryPanelView _panel)
+	{
+		InventorySlotUiUtility.RefreshEquipmentSlotHighlights(_panel);
 	}
 	#endregion
 

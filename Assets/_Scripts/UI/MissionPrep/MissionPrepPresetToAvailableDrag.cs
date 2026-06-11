@@ -23,6 +23,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 	private bool m_DropAccepted;
 	private bool m_HasResolvedSlot;
 	private bool m_IsMainHandSlot;
+	private bool m_IsHeadSlot;
 	private int m_BagIndex;
 	private Vector2 m_DragOffsetLocal;
 	#endregion
@@ -32,6 +33,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 	public InventoryPanelView SourcePresetPanel => m_PresetPanel;
 	public bool HasResolvedSlot => m_HasResolvedSlot;
 	public bool IsMainHandSlot => m_IsMainHandSlot;
+	public bool IsHeadSlot => m_IsHeadSlot;
 	public int BagIndex => m_BagIndex;
 	public bool IsDraggingFromPreset => m_Dragging;
 	#endregion
@@ -83,6 +85,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		m_HasResolvedSlot = false;
 		m_DropAccepted = false;
 		m_IsMainHandSlot = false;
+		m_IsHeadSlot = false;
 		m_BagIndex = -1;
 		m_PresetPanel = null;
 
@@ -96,13 +99,14 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		if (m_PresetPanel == null)
 			return;
 
-		if (!m_Coordinator.TryResolveInventorySlot(m_Slot, out m_IsMainHandSlot, out m_BagIndex))
+		if (!m_Coordinator.TryResolveInventorySlot(m_Slot, out m_IsMainHandSlot, out m_IsHeadSlot, out m_BagIndex))
 			return;
 
 		m_HasResolvedSlot = true;
-		MissionPrepModificationDragContext.BeginPreset(m_Slot.Data, m_IsMainHandSlot, m_BagIndex);
+		InventoryEquipmentEquipHoverContext.ClearAll();
+		MissionPrepModificationDragContext.BeginPreset(m_Slot.Data, m_IsMainHandSlot, m_BagIndex, m_IsHeadSlot);
 		if (m_Coordinator.PresetInventoryPanel != null)
-			InventorySlotUiUtility.RefreshMainHandEquipHighlight(m_Coordinator.PresetInventoryPanel);
+			InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_Coordinator.PresetInventoryPanel);
 		if (ItemModificationUtility.IsModifiableWeapon(m_Slot.Data.Definition))
 			MissionPrepInlineModificationBuilder.ClearRowsFollowingInventorySlot(m_PresetPanel, m_Slot);
 		m_PresetPanel.DetachSlotForDrag(m_Slot);
@@ -140,7 +144,7 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
 		if (m_Coordinator?.PresetInventoryPanel != null)
-			MissionPrepInlineModificationBuilder.RefreshMainHandSlotHighlights(m_Coordinator.PresetInventoryPanel);
+			MissionPrepInlineModificationBuilder.RefreshEquipmentSlotHighlights(m_Coordinator.PresetInventoryPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -155,14 +159,21 @@ public sealed class MissionPrepPresetToAvailableDrag : MonoBehaviour, IBeginDrag
 		{
 			Camera cam = GetDragCamera(eventData);
 			if (m_Coordinator.IsScreenPointOverAvailableEquipmentPanel(eventData.position, cam))
-				m_DropAccepted = m_Coordinator.TryRemovePresetInventorySlot(m_IsMainHandSlot, m_BagIndex);
-			else if (!m_IsMainHandSlot &&
+				m_DropAccepted = m_Coordinator.TryRemovePresetInventorySlot(m_IsMainHandSlot, m_IsHeadSlot, m_BagIndex);
+			else if (!m_IsMainHandSlot && !m_IsHeadSlot &&
 			         m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryMovePresetBagItemToMainHand(m_BagIndex);
+			else if (!m_IsMainHandSlot && !m_IsHeadSlot &&
+			         m_Coordinator.IsScreenPointOverPresetHeadSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryMovePresetBagItemToHead(m_BagIndex);
 			else if (m_IsMainHandSlot &&
 			         m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam) &&
 			         !m_Coordinator.IsScreenPointOverPresetMainHandSlot(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryUnequipPresetMainHandToBag();
+			else if (m_IsHeadSlot &&
+			         m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam) &&
+			         !m_Coordinator.IsScreenPointOverPresetHeadSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryUnequipPresetHeadToBag();
 		}
 
 		m_CanvasGroup.blocksRaycasts = true;

@@ -270,6 +270,22 @@
       "value": "Коробка патронов 5.56x45"
     },
     {
+      "key": "item.helmet.kevlar_1",
+      "value": "Кевларовый шлем Mk.I"
+    },
+    {
+      "key": "item.helmet.kevlar_2",
+      "value": "Кевларовый шлем Mk.II (мод.)"
+    },
+    {
+      "key": "item.helmet.tactical",
+      "value": "Тактический шлем"
+    },
+    {
+      "key": "item.helmet.crew",
+      "value": "Экипажный шлем"
+    },
+    {
       "key": "item.weapon.m4_moda_1",
       "value": "M4 ModA 1"
     },
@@ -802,8 +818,16 @@
       "value": "Лёгкая броня"
     },
     {
+      "key": "mission_prep.equipment.armor.light.description",
+      "value": "Защищает от пуль."
+    },
+    {
       "key": "mission_prep.equipment.armor.heavy",
       "value": "Тяжёлая броня"
+    },
+    {
+      "key": "mission_prep.equipment.armor.heavy.description",
+      "value": "Защищает от пуль и имеет дополнительную защиту от осколков."
     },
     {
       "key": "armor.status.light",

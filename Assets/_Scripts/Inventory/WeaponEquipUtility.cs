@@ -9,6 +9,9 @@ public static class WeaponEquipUtility
 		if (_item.IsEmpty || _item.Definition == null || !_item.Definition.IsEquipment)
 			return false;
 
+		if (_item.Definition.EquipmentKind != EquipmentKind.Weapon)
+			return false;
+
 		if (_item.InstanceState != null &&
 		    _item.InstanceState.WeaponState != null &&
 		    _item.InstanceState.WeaponState.IsTerminallyBroken)

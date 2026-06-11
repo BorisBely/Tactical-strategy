@@ -146,6 +146,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			armor.SetArmorFromPresetIndex(presetState.ArmorVisualIndex);
 
 			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(GenerateRandomCallsign());
+			UnitIndividualTraits.GetOrCreate(instance);
 
 			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
 			if (cell != null)

@@ -8,7 +8,10 @@ public enum MissionPrepModificationDragSourceKind
 	ModificationSlot = 3,
 	PresetMainHandWeapon = 4,
 	PresetBagWeapon = 5,
-	AvailableWeapon = 6
+	AvailableWeapon = 6,
+	PresetBagHelmet = 7,
+	AvailableHelmet = 8,
+	PresetHeadHelmet = 9
 }
 
 public readonly struct MissionPrepModificationDragPayload
@@ -16,6 +19,7 @@ public readonly struct MissionPrepModificationDragPayload
 	public readonly MissionPrepModificationDragSourceKind SourceKind;
 	public readonly InventorySlotRuntimeData Item;
 	public readonly bool IsPresetMainHand;
+	public readonly bool IsPresetHead;
 	public readonly int PresetBagIndex;
 	public readonly ItemModificationSlotDescriptor SourceSlotDescriptor;
 	public readonly bool SourceWeaponIsMainHand;
@@ -30,11 +34,13 @@ public readonly struct MissionPrepModificationDragPayload
 		int _presetBagIndex,
 		ItemModificationSlotDescriptor _sourceSlotDescriptor = default,
 		bool _sourceWeaponIsMainHand = false,
-		int _sourceWeaponBagIndex = -1)
+		int _sourceWeaponBagIndex = -1,
+		bool _isPresetHead = false)
 	{
 		SourceKind = _sourceKind;
 		Item = _item;
 		IsPresetMainHand = _isPresetMainHand;
+		IsPresetHead = _isPresetHead;
 		PresetBagIndex = _presetBagIndex;
 		SourceSlotDescriptor = _sourceSlotDescriptor;
 		SourceWeaponIsMainHand = _sourceWeaponIsMainHand;
@@ -69,13 +75,14 @@ public static class MissionPrepModificationDragContext
 			_presetBagIndex: -1));
 	}
 
-	public static void BeginPreset(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex)
+	public static void BeginPreset(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex, bool _isHead = false)
 	{
 		Begin(new MissionPrepModificationDragPayload(
-			ResolvePresetSourceKind(_item, _isMainHand),
+			ResolvePresetSourceKind(_item, _isMainHand, _isHead),
 			_item,
 			_isMainHand,
-			_bagIndex));
+			_bagIndex,
+			_isPresetHead: _isHead));
 	}
 
 	public static void BeginModificationSlot(
@@ -135,14 +142,25 @@ public static class MissionPrepModificationDragContext
 		if (MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item))
 			return MissionPrepModificationDragSourceKind.AvailableWeapon;
 
+		if (MissionPrepHelmetEquipUtility.CanEquipToHead(_item))
+			return MissionPrepModificationDragSourceKind.AvailableHelmet;
+
 		return MissionPrepModificationDragSourceKind.None;
 	}
 
-	private static MissionPrepModificationDragSourceKind ResolvePresetSourceKind(InventorySlotRuntimeData _item, bool _isMainHand)
+	private static MissionPrepModificationDragSourceKind ResolvePresetSourceKind(
+		InventorySlotRuntimeData _item,
+		bool _isMainHand,
+		bool _isHead)
 	{
 		if (_isMainHand)
 			return MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item)
 				? MissionPrepModificationDragSourceKind.PresetMainHandWeapon
+				: MissionPrepModificationDragSourceKind.None;
+
+		if (_isHead)
+			return MissionPrepHelmetEquipUtility.CanEquipToHead(_item)
+				? MissionPrepModificationDragSourceKind.PresetHeadHelmet
 				: MissionPrepModificationDragSourceKind.None;
 
 		if (ItemModificationUtility.IsModificationItem(_item))
@@ -150,6 +168,9 @@ public static class MissionPrepModificationDragContext
 
 		if (MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item))
 			return MissionPrepModificationDragSourceKind.PresetBagWeapon;
+
+		if (MissionPrepHelmetEquipUtility.CanEquipToHead(_item))
+			return MissionPrepModificationDragSourceKind.PresetBagHelmet;
 
 		return MissionPrepModificationDragSourceKind.None;
 	}
@@ -163,6 +184,7 @@ public static class MissionPrepModificationDragContext
 		{
 			case MissionPrepModificationDragSourceKind.ModificationSlot:
 			case MissionPrepModificationDragSourceKind.PresetMainHandWeapon:
+			case MissionPrepModificationDragSourceKind.PresetHeadHelmet:
 				return true;
 			case MissionPrepModificationDragSourceKind.PresetBag:
 			case MissionPrepModificationDragSourceKind.AvailableCatalog:
@@ -170,9 +192,29 @@ public static class MissionPrepModificationDragContext
 			case MissionPrepModificationDragSourceKind.PresetBagWeapon:
 			case MissionPrepModificationDragSourceKind.AvailableWeapon:
 				return MissionPrepWeaponEquipUtility.CanEquipToMainHand(_payload.Item);
+			case MissionPrepModificationDragSourceKind.PresetBagHelmet:
+			case MissionPrepModificationDragSourceKind.AvailableHelmet:
+				return MissionPrepHelmetEquipUtility.CanEquipToHead(_payload.Item);
 			default:
 				return false;
 		}
+	}
+	#endregion
+}
+
+/// <summary>
+/// Проверки для переноса шлема в слот головы пресета.
+/// </summary>
+public static class MissionPrepHelmetEquipUtility
+{
+	#region Public Methods
+	public static bool CanEquipToHead(InventorySlotRuntimeData _item) =>
+		HelmetEquipUtility.CanEquipToHead(_item);
+
+	public static bool IsHelmetEquipDragSource(MissionPrepModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == MissionPrepModificationDragSourceKind.PresetBagHelmet ||
+		       _sourceKind == MissionPrepModificationDragSourceKind.AvailableHelmet;
 	}
 	#endregion
 }

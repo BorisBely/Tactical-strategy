@@ -20,6 +20,10 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 	[Header("Оружие")]
 	[SerializeField] private ItemDefinition m_WeaponItem;
 
+	[Header("Шлем")]
+	[SerializeField] private ItemDefinition m_HeadItem;
+	[SerializeField] private ItemDefinition[] m_ExtraHeadItemsInBag;
+
 	[Header("Магазины")]
 	[SerializeField] private ItemDefinition m_MagazineItem;
 	[SerializeField] private AmmoDefinition m_AmmoForMagazines;
@@ -131,6 +135,29 @@ public sealed class CharacterInventoryStarterLoadout : MonoBehaviour
 		}
 
 		m_Inventory.RestoreAfterFailedDrop(true, weaponSlot);
+
+		if (m_HeadItem != null)
+		{
+			InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(m_HeadItem);
+			if (HelmetEquipUtility.CanEquipToHead(headSlot))
+				m_Inventory.RestoreAfterFailedDrop(false, true, headSlot);
+			else
+				Debug.LogWarning($"{nameof(CharacterInventoryStarterLoadout)}: Head Item должен быть Equipment/Helmet.", this);
+		}
+
+		if (m_ExtraHeadItemsInBag != null)
+		{
+			for (int i = 0; i < m_ExtraHeadItemsInBag.Length; i++)
+			{
+				ItemDefinition headItem = m_ExtraHeadItemsInBag[i];
+				if (headItem == null)
+					continue;
+
+				InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(headItem);
+				if (HelmetEquipUtility.CanEquipToHead(headSlot))
+					m_Inventory.TryAdd(headSlot);
+			}
+		}
 
 		if (m_AmmoBoxItems != null)
 		{

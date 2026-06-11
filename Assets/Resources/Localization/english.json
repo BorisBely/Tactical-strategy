@@ -114,6 +114,22 @@
       "value": "5.56x45 ammo box"
     },
     {
+      "key": "item.helmet.kevlar_1",
+      "value": "Kevlar Helmet Mk.I"
+    },
+    {
+      "key": "item.helmet.kevlar_2",
+      "value": "Kevlar Helmet Mk.II (mod)"
+    },
+    {
+      "key": "item.helmet.tactical",
+      "value": "Tactical Helmet"
+    },
+    {
+      "key": "item.helmet.crew",
+      "value": "Crew Helmet"
+    },
+    {
       "key": "item.weapon.m4_moda_1",
       "value": "M4 ModA 1"
     },
@@ -646,8 +662,16 @@
       "value": "Light armor"
     },
     {
+      "key": "mission_prep.equipment.armor.light.description",
+      "value": "Protects against bullets."
+    },
+    {
       "key": "mission_prep.equipment.armor.heavy",
       "value": "Heavy armor"
+    },
+    {
+      "key": "mission_prep.equipment.armor.heavy.description",
+      "value": "Protects against bullets and provides additional shrapnel protection."
     },
     {
       "key": "armor.status.light",

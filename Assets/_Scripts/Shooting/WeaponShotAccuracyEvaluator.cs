@@ -28,6 +28,7 @@ public static class WeaponShotAccuracyEvaluator
 		float stanceFactor = GetPostureDispersionMultiplier(_input);
 		float movementFactor = 1f;
 		float skillFactor = _input.CombatStats != null ? _input.CombatStats.GetDispersionMultiplier() : 1f;
+		float individualFactor = _input.IndividualTraits != null ? _input.IndividualTraits.GetDispersionMultiplier() : 1f;
 		float conditionFactor = _input.CombatCondition != null ? _input.CombatCondition.GetDispersionMultiplier() : 1f;
 		float aimProgressForSpread = ResolveAimProgressForSpread(_input);
 		float aimCompletionFactor = WeaponAimModeUtility.GetIncompleteAimSpreadMultiplier(aimProgressForSpread);
@@ -41,6 +42,7 @@ public static class WeaponShotAccuracyEvaluator
 		            stanceFactor *
 		            movementFactor *
 		            skillFactor *
+		            individualFactor *
 		            conditionFactor *
 		            aimCompletionFactor *
 		            autoBurstFactor *
@@ -150,6 +152,7 @@ public struct WeaponShotAccuracyInput
 	public EquippedWeaponTransientState TransientState;
 	public AmmoDefinition AmmoDefinition;
 	public UnitCombatStats CombatStats;
+	public UnitIndividualTraits IndividualTraits;
 	public UnitCombatCondition CombatCondition;
 	public float TargetDistanceMeters;
 	public float BaseSpreadToDegrees;

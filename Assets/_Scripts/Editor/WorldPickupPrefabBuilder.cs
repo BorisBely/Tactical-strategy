@@ -159,7 +159,8 @@ public static class WorldPickupPrefabBuilder
 		Weapon,
 		Magazine,
 		Attachment,
-		AmmoContainer
+		AmmoContainer,
+		Helmet
 	}
 	#endregion
 
@@ -194,6 +195,8 @@ public static class WorldPickupPrefabBuilder
 				visual.transform.localScale = Vector3.one;
 				SetLayerRecursively(visual, _root.layer);
 				DisablePhysicsOnVisual(visual);
+				if (visual.TryGetComponent(out HelmetEquippedVisual helmetVisual))
+					helmetVisual.ApplyDefault();
 			}
 		}
 
@@ -471,6 +474,12 @@ public static class WorldPickupPrefabBuilder
 			return true;
 		}
 
+		if (_item.EquipmentKind == EquipmentKind.Helmet)
+		{
+			_kind = LootBuildKind.Helmet;
+			return true;
+		}
+
 		if (_item.AmmoDefinition != null && _item.DropWorldPrefab != null)
 		{
 			_kind = LootBuildKind.AmmoContainer;
@@ -499,6 +508,9 @@ public static class WorldPickupPrefabBuilder
 	private static string GetLootOutputPath(ItemDefinition _item, LootBuildKind _kind)
 	{
 		string fileName = GetLootPrefabName(_item, _kind) + ".prefab";
+		if (_kind == LootBuildKind.Helmet)
+			return $"{c_WorldLootRoot}/Helmets/{fileName}";
+
 		string subFolder = _kind switch
 		{
 			LootBuildKind.Weapon => "Weapons",
