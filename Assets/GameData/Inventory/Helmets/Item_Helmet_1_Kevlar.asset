@@ -24,6 +24,7 @@ MonoBehaviour:
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 2
   m_VisualProfile: {fileID: 11400000, guid: 9432a12bb8a8e384a9b01f7c223d95cb, type: 2}
+  m_HeadBulletBlockChance: 0.5
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}

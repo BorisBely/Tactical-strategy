@@ -81,9 +81,48 @@ public sealed class UnitHeadEquipment : MonoBehaviour
 
 		ApplyUnitPreferencesToInstance(m_EquippedDefinition, _traits, _appearance);
 	}
+
+	/// <summary>
+	/// Один бросок на попадание пули в голову: шлем может поглотить выстрел без потери прочности.
+	/// </summary>
+	public ArmorMitigationResult TryMitigateHeadBullet(AmmoDefinition _ammo)
+	{
+		ItemDefinition helmet = ResolveEquippedHelmetDefinition();
+		if (_ammo == null || helmet == null)
+			return ArmorMitigationResult.NotProtected;
+
+		float blockChance = HelmetCombatDesign.ResolveBlockChance(helmet, _ammo);
+		if (blockChance <= 0f)
+			return ArmorMitigationResult.NotProtected;
+
+		bool blocked = UnityEngine.Random.value < blockChance;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		string ammoLabel = _ammo.name;
+		string outcome = blocked ? "поглощено" : "пробито";
+		Debug.Log(
+			$"[Шлем] {name} | {helmet.LocalizationKey} | шанс {blockChance:P0} | {outcome} ({ammoLabel})",
+			this);
+#endif
+		return blocked ? ArmorMitigationResult.Blocked : ArmorMitigationResult.Penetrated;
+	}
 	#endregion
 
 	#region Private Methods
+	private ItemDefinition ResolveEquippedHelmetDefinition()
+	{
+		if (m_EquippedDefinition != null)
+			return m_EquippedDefinition;
+
+		if (TryGetComponent(out CharacterInventory inventory))
+		{
+			ItemDefinition fromInventory = inventory.HeadEquipment.Definition;
+			if (fromInventory != null && fromInventory.EquipmentKind == EquipmentKind.Helmet)
+				return fromInventory;
+		}
+
+		return null;
+	}
+
 	private void ClearHeadInternal(bool _notify)
 	{
 		m_EquippedDefinition = null;

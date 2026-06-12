@@ -39,15 +39,28 @@ public static class CombatBalanceSetupEditor
 		if (EnsureComponent<UnitCharacterAppearance>(root, out _))
 			changed = true;
 
+		if (EnsureComponent<UnitCharacterBodyDecorations>(root, out UnitCharacterBodyDecorations bodyDecorations))
+			changed = true;
+
 		if (EnsureComponent<UnitHeadEquipmentDebug>(root, out _))
 			changed = true;
 
 		Transform headAnchor = FindChildByName(root.transform, "Head");
+		Transform chestAnchor = FindChildByName(root.transform, "Spine_03");
 		if (headEquipment != null && headAnchor != null)
 		{
 			SerializedObject headSo = new SerializedObject(headEquipment);
 			headSo.FindProperty("m_HeadAnchor").objectReferenceValue = headAnchor;
 			headSo.ApplyModifiedPropertiesWithoutUndo();
+			changed = true;
+		}
+
+		if (bodyDecorations != null && chestAnchor != null && headAnchor != null)
+		{
+			SerializedObject bodySo = new SerializedObject(bodyDecorations);
+			bodySo.FindProperty("m_ChestAnchor").objectReferenceValue = chestAnchor;
+			bodySo.FindProperty("m_HeadAnchor").objectReferenceValue = headAnchor;
+			bodySo.ApplyModifiedPropertiesWithoutUndo();
 			changed = true;
 		}
 

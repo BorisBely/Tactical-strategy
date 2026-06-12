@@ -5,7 +5,8 @@
 /// - снайперский tier: Penetration от <see cref="SniperPenetrationThreshold"/> и выше, зарезервировано под будущие патроны;
 /// - успешный блок полностью отменяет урон и травму тела, но повреждает броню;
 /// - неудачный блок пропускает полный урон в тело и слегка повреждает броню;
-/// - тяжёлая броня позже будет прикрывать Chest/Neck/Abdomen от Fragment/Explosive.
+/// - тяжёлая броня прикрывает Chest/Abdomen (и Neck от осколков) от Fragment/Explosive;
+/// - голова не защищается телом брони — только шлемом (<see cref="UnitHeadEquipment"/>).
 /// </summary>
 public static class UnitArmorCombatDesign
 {
@@ -16,10 +17,8 @@ public static class UnitArmorCombatDesign
 	public const float FailedBlockArmorDamageMultiplier = 0.5f;
 
 	public const float LightChestBulletBlockChance = 0.55f;
-	public const float LightHeadBulletBlockChance = 0.35f;
 
 	public const float HeavyChestBulletBlockChance = 0.70f;
-	public const float HeavyHeadBulletBlockChance = 0.50f;
 	public const float HeavyAbdomenBulletBlockChance = 0.60f;
 
 	public const float HeavyFragmentExplosiveBlockChance = 0.85f;

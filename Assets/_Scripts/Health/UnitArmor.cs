@@ -182,23 +182,15 @@ public sealed class UnitArmor : MonoBehaviour
 		switch (m_ArmorType)
 		{
 			case UnitArmorType.Light:
-				switch (_bodyPart)
-				{
-					case BodyPartType.Chest:
-						return UnitArmorCombatDesign.LightChestBulletBlockChance;
-					case BodyPartType.Head:
-						return UnitArmorCombatDesign.LightHeadBulletBlockChance;
-					default:
-						return 0f;
-				}
+				return _bodyPart == BodyPartType.Chest
+					? UnitArmorCombatDesign.LightChestBulletBlockChance
+					: 0f;
 
 			case UnitArmorType.Heavy:
 				switch (_bodyPart)
 				{
 					case BodyPartType.Chest:
 						return UnitArmorCombatDesign.HeavyChestBulletBlockChance;
-					case BodyPartType.Head:
-						return UnitArmorCombatDesign.HeavyHeadBulletBlockChance;
 					case BodyPartType.Abdomen:
 						return UnitArmorCombatDesign.HeavyAbdomenBulletBlockChance;
 					default:

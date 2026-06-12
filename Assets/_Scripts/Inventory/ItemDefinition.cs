@@ -45,6 +45,10 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Профиль визуальных вариантов декора (шлем и т.д.).")]
 	[SerializeField] private EquipmentVisualProfileDefinition m_VisualProfile;
 
+	[Header("Шлем (Equipment, Kind = Helmet)")]
+	[Tooltip("Шанс поглощения пули при попадании в голову (0–1). Без HP у шлема.")]
+	[SerializeField, Range(0f, 1f)] private float m_HeadBulletBlockChance;
+
 	[Header("Оружие (Equipment, Kind = Weapon)")]
 	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
 	[SerializeField] private WeaponType m_WeaponType = WeaponType.Primary;
@@ -100,6 +104,18 @@ public class ItemDefinition : ScriptableObject
 	public int InitialAmmoCount => m_InitialAmmoCount;
 	public MagazineDefinition MagazineDefinition => m_MagazineDefinition;
 	public WeaponAttachmentDefinition WeaponAttachmentDefinition => m_WeaponAttachmentDefinition;
+
+	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>
+	public float GetHeadBulletBlockChance()
+	{
+		if (m_EquipmentKind != EquipmentKind.Helmet)
+			return 0f;
+
+		if (m_HeadBulletBlockChance > 0f)
+			return m_HeadBulletBlockChance;
+
+		return HelmetCombatDesign.ResolveDefaultBlockChance(m_LocalizationKey);
+	}
 	#endregion
 
 	#region Public Methods

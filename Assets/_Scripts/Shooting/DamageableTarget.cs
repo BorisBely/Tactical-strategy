@@ -93,18 +93,34 @@ public sealed class DamageableTarget : MonoBehaviour
 		UnitBodyHitZone hitZone = _hitCollider != null
 			? _hitCollider.GetComponent<UnitBodyHitZone>() ?? _hitCollider.GetComponentInParent<UnitBodyHitZone>()
 			: null;
-		if (hitZone != null && _ammo != null && TryGetComponent(out UnitArmor armor))
+		if (hitZone != null && _ammo != null)
 		{
-			ArmorMitigationResult armorMitigation = armor.TryMitigateBullet(hitZone.BodyPart, _ammo);
-			if (armorMitigation.FullyBlocked)
+			if (hitZone.BodyPart == BodyPartType.Head)
 			{
-				_armorFullyBlocked = true;
+				UnitHeadEquipment headEquipment = GetComponent<UnitHeadEquipment>();
+				if (headEquipment != null)
+				{
+					ArmorMitigationResult helmetMitigation = headEquipment.TryMitigateHeadBullet(_ammo);
+					if (helmetMitigation.FullyBlocked)
+					{
+						_armorFullyBlocked = true;
+						return false;
+					}
+				}
+			}
+			else if (TryGetComponent(out UnitArmor armor))
+			{
+				ArmorMitigationResult armorMitigation = armor.TryMitigateBullet(hitZone.BodyPart, _ammo);
+				if (armorMitigation.FullyBlocked)
+				{
+					_armorFullyBlocked = true;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-				Debug.Log(
-					$"[Броня] {name} | попадание в {BodyPartTypeUtility.GetDisplayName(hitZone.BodyPart)} полностью заблокировано — травма не назначается",
-					this);
+					Debug.Log(
+						$"[Броня] {name} | попадание в {BodyPartTypeUtility.GetDisplayName(hitZone.BodyPart)} полностью заблокировано — травма не назначается",
+						this);
 #endif
-				return false;
+					return false;
+				}
 			}
 		}
 

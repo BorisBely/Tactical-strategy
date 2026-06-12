@@ -63,12 +63,15 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 	#region Private Methods
 	private void RefreshDependentEquipmentVisuals()
 	{
-		UnitHeadEquipment headEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
-		if (headEquipment == null || headEquipment.EquippedDefinition == null)
-			return;
-
 		UnitIndividualTraits traits = GetComponentInChildren<UnitIndividualTraits>(true);
-		headEquipment.RefreshEquippedVisual(traits, this);
+
+		UnitHeadEquipment headEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment != null && headEquipment.EquippedDefinition != null)
+			headEquipment.RefreshEquippedVisual(traits, this);
+
+		UnitCharacterBodyDecorations bodyDecorations = GetComponentInChildren<UnitCharacterBodyDecorations>(true);
+		if (bodyDecorations != null)
+			bodyDecorations.RefreshDecorations(traits, this);
 	}
 	#endregion
 }

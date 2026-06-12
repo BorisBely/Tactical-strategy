@@ -82,10 +82,10 @@ public static class HelmetContentBuilder
 		EquipmentVisualProfileCatalog catalog = CreateOrUpdateCatalog(
 			new[] { profileKevlar, profileTactical, profileCrew });
 
-		BuildHelmetEntry(head, "Helmet_1", "Helmet_1_Kevlar", "item.helmet.kevlar_1", profileKevlar);
-		BuildHelmetEntry(head, "Helmet_2", "Helmet_2_Kevlar_Mod", "item.helmet.kevlar_2", profileKevlar);
-		BuildHelmetEntry(head, "Helmet_03", "Helmet_3_Tactical", "item.helmet.tactical", profileTactical);
-		BuildHelmetEntry(head, "Helmet_4", "Helmet_4_Crew", "item.helmet.crew", profileCrew);
+		BuildHelmetEntry(head, "Helmet_1", "Helmet_1_Kevlar", "item.helmet.kevlar_1", profileKevlar, HelmetCombatDesign.Kevlar1BlockChance);
+		BuildHelmetEntry(head, "Helmet_2", "Helmet_2_Kevlar_Mod", "item.helmet.kevlar_2", profileKevlar, HelmetCombatDesign.Kevlar2BlockChance);
+		BuildHelmetEntry(head, "Helmet_03", "Helmet_3_Tactical", "item.helmet.tactical", profileTactical, HelmetCombatDesign.TacticalBlockChance);
+		BuildHelmetEntry(head, "Helmet_4", "Helmet_4_Crew", "item.helmet.crew", profileCrew, HelmetCombatDesign.CrewBlockChance);
 
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
@@ -101,7 +101,8 @@ public static class HelmetContentBuilder
 		string _sceneHelmetName,
 		string _assetSuffix,
 		string _localizationKey,
-		EquipmentVisualProfileDefinition _profile)
+		EquipmentVisualProfileDefinition _profile,
+		float _headBulletBlockChance)
 	{
 		Transform source = _head.Find(_sceneHelmetName);
 		if (source == null)
@@ -123,7 +124,8 @@ public static class HelmetContentBuilder
 			_localizationKey,
 			_profile,
 			equippedRoot,
-			lootPrefab);
+			lootPrefab,
+			_headBulletBlockChance);
 		AssignLootPickupDefinition(lootPrefab, item);
 	}
 
@@ -219,7 +221,8 @@ public static class HelmetContentBuilder
 		string _localizationKey,
 		EquipmentVisualProfileDefinition _profile,
 		GameObject _equippedPrefab,
-		GameObject _lootPrefab)
+		GameObject _lootPrefab,
+		float _headBulletBlockChance)
 	{
 		ItemDefinition item = AssetDatabase.LoadAssetAtPath<ItemDefinition>(_assetPath);
 		if (item == null)
@@ -236,6 +239,7 @@ public static class HelmetContentBuilder
 		so.FindProperty("m_EquippedVisualPrefab").objectReferenceValue = _equippedPrefab;
 		so.FindProperty("m_DropWorldPrefab").objectReferenceValue = _lootPrefab;
 		so.FindProperty("m_VisualProfile").objectReferenceValue = _profile;
+		so.FindProperty("m_HeadBulletBlockChance").floatValue = _headBulletBlockChance;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(item);
 		return item;
