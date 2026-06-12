@@ -110,6 +110,18 @@
       "value": "Item"
     },
     {
+      "key": "item.grenade.frag_01",
+      "value": "Fragmentation grenade"
+    },
+    {
+      "key": "item.grenade.flash_01",
+      "value": "Flashbang"
+    },
+    {
+      "key": "item.grenade.smoke_01",
+      "value": "Smoke grenade"
+    },
+    {
       "key": "item.loot.ammo_box.556",
       "value": "5.56x45 ammo box"
     },

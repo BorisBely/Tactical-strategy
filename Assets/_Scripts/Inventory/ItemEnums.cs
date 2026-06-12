@@ -43,6 +43,17 @@ public enum EquipmentKind
 }
 
 /// <summary>
+/// Тип гранаты для сортировки и выбора визуала на теле юнита.
+/// </summary>
+public enum GrenadeType
+{
+	Unknown = 0,
+	Fragmentation = 1,
+	Flash = 2,
+	Smoke = 3
+}
+
+/// <summary>
 /// Соответствует int-параметру <c>WeaponMode</c> на Animator (см. <c>NavMeshLocomotion</c> и граф локомоции).
 /// </summary>
 public enum LocomotionWeaponMode

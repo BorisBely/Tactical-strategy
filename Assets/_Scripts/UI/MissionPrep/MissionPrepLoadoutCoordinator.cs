@@ -1547,6 +1547,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 				if (weaponRuntime != null)
 					weaponRuntime.RefreshFromEquipment();
 
+				RefreshInventoryBodyDecorations(inventory);
+
 				if (isBoundUnit && _refreshBoundUnitRuntime && _presetIndex == m_EditingPresetCatalogIndex && _saveSnapshotFromRuntime)
 				{
 					m_SharedPresetStore.SavePresetFromRuntime(
@@ -1733,11 +1735,25 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			if (weaponRuntime != null)
 				weaponRuntime.RefreshFromEquipment();
 
+			RefreshInventoryBodyDecorations(inventory);
+
 			if (isAuthoritative)
 				startedAuthoritative = true;
 		}
 
 		return startedAuthoritative;
+	}
+
+	private static void RefreshInventoryBodyDecorations(CharacterInventory _inventory)
+	{
+		if (_inventory == null)
+			return;
+
+		UnitInventoryBodyDecorations decorations = _inventory.GetComponentInParent<UnitInventoryBodyDecorations>(true);
+		if (decorations == null)
+			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
+
+		decorations?.RefreshFromInventory(_inventory);
 	}
 
 	private void SyncBoundUnitInventoryToSnapshot()

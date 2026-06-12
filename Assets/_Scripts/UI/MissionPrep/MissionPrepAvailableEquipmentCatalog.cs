@@ -83,11 +83,11 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 		if (m_IncludeItemsFromPresetCatalog && m_PresetCatalog != null)
 			AppendPresetCatalogItems(_outSlots, seen);
 
-		if (m_Entries == null)
-			return;
-
-		for (int i = 0; i < m_Entries.Length; i++)
-			AppendEntry(_outSlots, seen, m_Entries[i]);
+		if (m_Entries != null)
+		{
+			for (int i = 0; i < m_Entries.Length; i++)
+				AppendEntry(_outSlots, seen, m_Entries[i]);
+		}
 
 		if (m_ItemSet != null)
 			m_ItemSet.AppendUnique(_outSlots, seen);
@@ -128,8 +128,10 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 			return 3;
 		if (_definition.AmmoDefinition != null)
 			return 4;
+		if (_definition.IsGrenade)
+			return 5;
 
-		return 5;
+		return 6;
 	}
 	#endregion
 

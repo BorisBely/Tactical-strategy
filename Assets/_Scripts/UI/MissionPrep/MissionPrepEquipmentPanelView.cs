@@ -47,8 +47,8 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	{
 		EnsurePresetDropdownType();
 		TryResolveArmorDropdownReference();
-		ApplyDropdownTextOnlyMode(m_PresetDropdown);
-		ApplyDropdownTextOnlyMode(m_ArmorDropdown);
+		PrepareDropdownCaption(m_PresetDropdown);
+		PrepareDropdownCaption(m_ArmorDropdown);
 		EnsurePresetCaptionUi();
 		EnsureArmorDropdownDescriptionHover();
 		SyncPresetDropdownReferences();
@@ -68,9 +68,9 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	private void OnEnable()
 	{
 		TryResolveArmorDropdownReference();
+		PrepareDropdownCaption(m_PresetDropdown);
+		PrepareDropdownCaption(m_ArmorDropdown);
 		EnsureArmorDropdownDescriptionHover();
-		ApplyDropdownTextOnlyMode(m_PresetDropdown);
-		ApplyDropdownTextOnlyMode(m_ArmorDropdown);
 
 		LocalizationManager.LanguageChanged += HandleLanguageChanged;
 		if (m_PresetDropdown != null)
@@ -111,6 +111,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	public void SetPresetDropdown(TMP_Dropdown _dropdown)
 	{
 		m_PresetDropdown = _dropdown;
+		PrepareDropdownCaption(m_PresetDropdown);
 	}
 	public void SetVisible(bool _visible)
 	{
@@ -242,6 +243,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 					continue;
 
 				m_ArmorDropdown = dropdowns[d];
+				PrepareDropdownCaption(m_ArmorDropdown);
 				return;
 			}
 		}
@@ -457,6 +459,30 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		UnitArmor armor = unitRoot.GetComponent<UnitArmor>() ?? unitRoot.AddComponent<UnitArmor>();
 		armor.SetArmorFromPresetIndex(armorIndex);
+	}
+
+	private static void PrepareDropdownCaption(TMP_Dropdown _dropdown)
+	{
+		if (_dropdown == null)
+			return;
+
+		ReleaseCaptionFromStaticLocalization(_dropdown.captionText);
+		ApplyDropdownTextOnlyMode(_dropdown);
+	}
+
+	private static void ReleaseCaptionFromStaticLocalization(TMP_Text _captionText)
+	{
+		if (_captionText == null)
+			return;
+
+		LocalizedTextMeshProUGUI localized = _captionText.GetComponent<LocalizedTextMeshProUGUI>();
+		if (localized == null)
+			return;
+
+		if (Application.isPlaying)
+			Destroy(localized);
+		else
+			DestroyImmediate(localized);
 	}
 
 	private static void ApplyDropdownTextOnlyMode(TMP_Dropdown _dropdown)

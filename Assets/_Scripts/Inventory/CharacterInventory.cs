@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -27,6 +28,8 @@ public class CharacterInventory : MonoBehaviour
 	#endregion
 
 	#region Public Properties
+	public event Action<CharacterInventory> InventoryChanged;
+
 	/// <summary>Слот основного оружия (первый на панели при LeadingEquipmentSlotCount ≥ 1).</summary>
 	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
 	public InventorySlotRuntimeData HeadEquipment => m_HeadEquipment;
@@ -58,6 +61,7 @@ public class CharacterInventory : MonoBehaviour
 		EnsureSlotHasInstanceState(ref copy);
 		copy.WorldSource = null;
 		m_BagItems.Add(copy);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -71,6 +75,7 @@ public class CharacterInventory : MonoBehaviour
 
 		_removed = m_BagItems[_index];
 		m_BagItems.RemoveAt(_index);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -80,6 +85,7 @@ public class CharacterInventory : MonoBehaviour
 			return false;
 
 		m_BagItems[_index] = _updated;
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -95,6 +101,7 @@ public class CharacterInventory : MonoBehaviour
 		_removed = m_MainHandEquipment;
 		m_MainHandEquipment = default;
 		ClearUnitEquipmentVisual();
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -110,6 +117,7 @@ public class CharacterInventory : MonoBehaviour
 		_removed = m_HeadEquipment;
 		m_HeadEquipment = default;
 		ClearHeadEquipmentVisual();
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -131,6 +139,7 @@ public class CharacterInventory : MonoBehaviour
 			m_BagItems.Insert(_bagIndex, previousHead);
 
 		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -149,6 +158,7 @@ public class CharacterInventory : MonoBehaviour
 
 		m_HeadEquipment = _item;
 		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -162,6 +172,7 @@ public class CharacterInventory : MonoBehaviour
 		m_HeadEquipment = default;
 		ClearHeadEquipmentVisual();
 		m_BagItems.Add(head);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -183,6 +194,7 @@ public class CharacterInventory : MonoBehaviour
 			m_BagItems.Insert(_bagIndex, previousMain);
 
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -197,6 +209,7 @@ public class CharacterInventory : MonoBehaviour
 
 		m_MainHandEquipment = _item;
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -210,6 +223,7 @@ public class CharacterInventory : MonoBehaviour
 		m_MainHandEquipment = default;
 		ClearUnitEquipmentVisual();
 		m_BagItems.Add(mh);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -220,6 +234,7 @@ public class CharacterInventory : MonoBehaviour
 		m_BagItems.Clear();
 		ClearUnitEquipmentVisual();
 		ClearHeadEquipmentVisual();
+		NotifyInventoryChanged();
 	}
 
 	/// <summary>Синхронизировать панель рюкзака (слоты экипировки + сумка).</summary>
@@ -294,6 +309,7 @@ public class CharacterInventory : MonoBehaviour
 		if (_isMainHandEquipmentSlot)
 		{
 			m_MainHandEquipment = _slot;
+			NotifyInventoryChanged();
 			return true;
 		}
 
@@ -303,6 +319,7 @@ public class CharacterInventory : MonoBehaviour
 				return false;
 
 			m_HeadEquipment = _slot;
+			NotifyInventoryChanged();
 			return true;
 		}
 
@@ -310,6 +327,7 @@ public class CharacterInventory : MonoBehaviour
 			return false;
 
 		m_BagItems[_bagIndex] = _slot;
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -331,6 +349,7 @@ public class CharacterInventory : MonoBehaviour
 		{
 			m_MainHandEquipment = default;
 			ClearUnitEquipmentVisual();
+			NotifyInventoryChanged();
 			return true;
 		}
 
@@ -338,10 +357,12 @@ public class CharacterInventory : MonoBehaviour
 		{
 			m_HeadEquipment = default;
 			ClearHeadEquipmentVisual();
+			NotifyInventoryChanged();
 			return true;
 		}
 
 		m_BagItems.RemoveAt(_bagIndex);
+		NotifyInventoryChanged();
 		return true;
 	}
 
@@ -419,6 +440,7 @@ public class CharacterInventory : MonoBehaviour
 			UnitEquipment equipment = GetComponentInChildren<UnitEquipment>(true);
 			if (equipment != null && _data.Definition != null)
 				equipment.TryEquip(_data.Definition);
+			NotifyInventoryChanged();
 		}
 		else if (_toHead)
 		{
@@ -428,9 +450,15 @@ public class CharacterInventory : MonoBehaviour
 			UnitCharacterAppearance appearance = GetComponentInChildren<UnitCharacterAppearance>(true);
 			if (headEquipment != null && _data.Definition != null)
 				headEquipment.TryEquip(_data.Definition, traits, appearance);
+			NotifyInventoryChanged();
 		}
 		else
 			TryAdd(_data);
+	}
+
+	private void NotifyInventoryChanged()
+	{
+		InventoryChanged?.Invoke(this);
 	}
 	#endregion
 }

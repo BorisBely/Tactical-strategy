@@ -97,8 +97,10 @@ public static class MissionPrepAvailableEquipmentBaker
 			return 3;
 		if (name.Contains("Ammo") || name.Contains("Loot"))
 			return 4;
+		if (_item.IsGrenade || name.Contains("Grenade"))
+			return 5;
 
-		return 5;
+		return 6;
 	}
 }
 #endif

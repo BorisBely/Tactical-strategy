@@ -110,11 +110,13 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 	public void ApplyActivePresetToRuntime(CharacterInventory _inventory)
 	{
 		ResolveStore()?.ApplyPresetToInventory(m_PresetCatalogIndex, _inventory);
+		RefreshInventoryBodyDecorations(_inventory);
 	}
 
 	public void ApplyPresetToRuntime(int _presetIndex, CharacterInventory _inventory)
 	{
 		ResolveStore()?.ApplyPresetToInventory(_presetIndex, _inventory);
+		RefreshInventoryBodyDecorations(_inventory);
 	}
 
 	public void ChangeActivePresetIndex(int _newPresetIndex, CharacterInventory _inventory, int _presetSlotCount)
@@ -190,6 +192,18 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 	private MissionPrepSharedPresetStore ResolveStore()
 	{
 		return MissionPrepSharedPresetStore.GetOrCreate(this);
+	}
+
+	private static void RefreshInventoryBodyDecorations(CharacterInventory _inventory)
+	{
+		if (_inventory == null)
+			return;
+
+		UnitInventoryBodyDecorations decorations = _inventory.GetComponentInParent<UnitInventoryBodyDecorations>(true);
+		if (decorations == null)
+			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
+
+		decorations?.RefreshFromInventory(_inventory);
 	}
 	#endregion
 }

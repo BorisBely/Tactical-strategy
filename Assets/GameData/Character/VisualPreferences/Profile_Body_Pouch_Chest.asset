@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9f8552ae3c6c494da2e6c9c69180df1, type: 3}
+  m_Name: Profile_Body_Pouch_Chest
+  m_EditorClassIdentifier: Assembly-CSharp::EquipmentVisualProfileDefinition
+  m_ProfileId: body_pouch_chest
+  m_PrimaryVariantWeights:
+  - m_VariantIndex: 0
+    m_Weight: 40
+  - m_VariantIndex: 1
+    m_Weight: 30
+  - m_VariantIndex: 2
+    m_Weight: 30
+  m_ChinStrapIndependentChance: 0

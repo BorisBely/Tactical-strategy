@@ -79,7 +79,7 @@ public sealed class UnitCharacterBodyDecorations : MonoBehaviour
 
 	private void ApplyChestDecoration(int _variant)
 	{
-		ClearDecoration(ref m_ChestDecorationInstance);
+		CharacterDecorationSpawnUtility.ClearDecoration(ref m_ChestDecorationInstance);
 
 		CharacterBodyDecorationVariant config = _variant switch
 		{
@@ -91,12 +91,12 @@ public sealed class UnitCharacterBodyDecorations : MonoBehaviour
 		if (config.Prefab == null || m_ChestAnchor == null)
 			return;
 
-		m_ChestDecorationInstance = SpawnDecoration(m_ChestAnchor, config);
+		m_ChestDecorationInstance = CharacterDecorationSpawnUtility.SpawnDecoration(m_ChestAnchor, config);
 	}
 
 	private void ApplyHeadDecoration(int _variant, CharacterGender _gender)
 	{
-		ClearDecoration(ref m_HeadDecorationInstance);
+		CharacterDecorationSpawnUtility.ClearDecoration(ref m_HeadDecorationInstance);
 
 		CharacterBodyDecorationVariant config = _variant switch
 		{
@@ -112,47 +112,7 @@ public sealed class UnitCharacterBodyDecorations : MonoBehaviour
 		if (config.Prefab == null || m_HeadAnchor == null)
 			return;
 
-		m_HeadDecorationInstance = SpawnDecoration(m_HeadAnchor, config);
-	}
-
-	private static GameObject SpawnDecoration(Transform _anchor, CharacterBodyDecorationVariant _config)
-	{
-		GameObject instance = Instantiate(_config.Prefab, _anchor);
-		Transform instanceTransform = instance.transform;
-		instanceTransform.localPosition = _config.LocalPosition;
-		instanceTransform.localRotation = Quaternion.Euler(_config.LocalEulerAngles);
-		instanceTransform.localScale = Vector3.one;
-		StripPickupAndPhysics(instance);
-		return instance;
-	}
-
-	private static void StripPickupAndPhysics(GameObject _root)
-	{
-		_root.layer = _root.transform.parent != null ? _root.transform.parent.gameObject.layer : _root.layer;
-
-		Collider[] colliders = _root.GetComponentsInChildren<Collider>(true);
-		for (int i = 0; i < colliders.Length; i++)
-			colliders[i].enabled = false;
-
-		Rigidbody[] bodies = _root.GetComponentsInChildren<Rigidbody>(true);
-		for (int i = 0; i < bodies.Length; i++)
-		{
-			bodies[i].isKinematic = true;
-			bodies[i].detectCollisions = false;
-		}
-
-		WorldPickupItem[] pickups = _root.GetComponentsInChildren<WorldPickupItem>(true);
-		for (int i = 0; i < pickups.Length; i++)
-			pickups[i].enabled = false;
-	}
-
-	private static void ClearDecoration(ref GameObject _instance)
-	{
-		if (_instance == null)
-			return;
-
-		Destroy(_instance);
-		_instance = null;
+		m_HeadDecorationInstance = CharacterDecorationSpawnUtility.SpawnDecoration(m_HeadAnchor, config);
 	}
 	#endregion
 }

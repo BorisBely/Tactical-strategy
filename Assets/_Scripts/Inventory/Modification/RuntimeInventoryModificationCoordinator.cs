@@ -975,13 +975,28 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		CharacterInventory inventory = ActiveInventory;
 		if (inventory != null)
+		{
+			RefreshInventoryBodyDecorations(inventory);
 			TryRepaintCharacterAndGroundPanels(inventory);
+		}
 		else
 			TryRepaintCharacterAndGroundPanels();
 	}
 	#endregion
 
 	#region Private Methods
+	private static void RefreshInventoryBodyDecorations(CharacterInventory _inventory)
+	{
+		if (_inventory == null)
+			return;
+
+		UnitInventoryBodyDecorations decorations = _inventory.GetComponentInParent<UnitInventoryBodyDecorations>(true);
+		if (decorations == null)
+			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
+
+		decorations?.RefreshFromInventory(_inventory);
+	}
+
 	private bool TryPlaceEjectedModificationOnGround(CharacterInventory _inventory, InventorySlotRuntimeData _item)
 	{
 		EnsureRuntimeReferences();

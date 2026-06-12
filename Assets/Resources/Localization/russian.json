@@ -266,6 +266,18 @@
       "value": "Предмет"
     },
     {
+      "key": "item.grenade.frag_01",
+      "value": "Осколочная граната"
+    },
+    {
+      "key": "item.grenade.flash_01",
+      "value": "Светошумовая граната"
+    },
+    {
+      "key": "item.grenade.smoke_01",
+      "value": "Дымовая граната"
+    },
+    {
       "key": "item.loot.ammo_box.556",
       "value": "Коробка патронов 5.56x45"
     },

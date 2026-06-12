@@ -65,6 +65,12 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Ссылка на данные модуля оружия, если этот предмет является аксессуаром.")]
 	[SerializeField] private WeaponAttachmentDefinition m_WeaponAttachmentDefinition;
 
+	[Header("Grenade (Category = General)")]
+	[Tooltip("Тип гранаты для порядка отображения и выбора прикреплённого визуала.")]
+	[SerializeField] private GrenadeType m_GrenadeType = GrenadeType.Unknown;
+	[Tooltip("Префаб гранаты, который крепится к ячейкам на теле юнита.")]
+	[SerializeField] private GameObject m_AttachedBodyVisualPrefab;
+
 	#endregion
 
 	#region Public Properties
@@ -104,6 +110,9 @@ public class ItemDefinition : ScriptableObject
 	public int InitialAmmoCount => m_InitialAmmoCount;
 	public MagazineDefinition MagazineDefinition => m_MagazineDefinition;
 	public WeaponAttachmentDefinition WeaponAttachmentDefinition => m_WeaponAttachmentDefinition;
+	public GrenadeType GrenadeType => m_GrenadeType;
+	public GameObject AttachedBodyVisualPrefab => m_AttachedBodyVisualPrefab;
+	public bool IsGrenade => m_Category == ItemCategory.General && m_GrenadeType != GrenadeType.Unknown;
 
 	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>
 	public float GetHeadBulletBlockChance()
@@ -138,6 +147,12 @@ public class ItemDefinition : ScriptableObject
 		}
 
 		return m_Description ?? string.Empty;
+	}
+
+	public bool TryGetGrenadeType(out GrenadeType _grenadeType)
+	{
+		_grenadeType = m_GrenadeType;
+		return IsGrenade;
 	}
 	#endregion
 }
