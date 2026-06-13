@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -7,6 +8,10 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class UnitCombatStats : MonoBehaviour
 {
+	#region Events
+	public event Action<UnitCombatRankDefinition> RankPresetChanged;
+	#endregion
+
 	#region Constants
 	private const float c_NeutralSkill = 50f;
 	private const float c_MaxSkill = 100f;
@@ -59,9 +64,13 @@ public sealed class UnitCombatStats : MonoBehaviour
 	#region Public Methods
 	public void ApplyRankPreset(UnitCombatRankDefinition _rankPreset)
 	{
+		bool changed = m_RankPreset != _rankPreset;
 		m_RankPreset = _rankPreset;
 		if (_rankPreset != null)
 			_rankPreset.ApplyTo(this);
+
+		if (changed)
+			RankPresetChanged?.Invoke(m_RankPreset);
 	}
 
 	public void ApplySkills(float _marksmanship, float _weaponHandling, float _recoilControl)

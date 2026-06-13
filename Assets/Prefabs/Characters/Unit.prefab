@@ -108,96 +108,6 @@ Transform:
   - {fileID: 1771416119528363457}
   m_Father: {fileID: 5583257052563532237}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &200191838536635565
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 5592809583919717196}
-  - component: {fileID: 8815856134382393448}
-  - component: {fileID: 20242010062054527}
-  m_Layer: 7
-  m_Name: SM_Chr_Attach_Hair_Male_04
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &5592809583919717196
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 200191838536635565}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5494407725365175687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8815856134382393448
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 200191838536635565}
-  m_Mesh: {fileID: 4300000, guid: ae5099a89bde5114bb6b549fd414f5a8, type: 3}
---- !u!23 &20242010062054527
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 200191838536635565}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 48843a2db7a47754f9c8d6ae390ebf4b, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
-  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &260872872408653625
 GameObject:
   m_ObjectHideFlags: 0
@@ -264,7 +174,6 @@ Transform:
   - {fileID: 1500910695421145299}
   - {fileID: 3792682770863358285}
   - {fileID: 7521226294376510303}
-  - {fileID: 5592809583919717196}
   - {fileID: 2027519409736806733}
   m_Father: {fileID: 1953620407644934714}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -7250,6 +7159,7 @@ GameObject:
   - component: {fileID: 1889259709996966414}
   - component: {fileID: 731400000000000300}
   - component: {fileID: 8978496347737933445}
+  - component: {fileID: 4886287374210874554}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -8436,6 +8346,10 @@ MonoBehaviour:
   m_WeaponHandlingModifier: 0
   m_RecoilControlModifier: 0
   m_EquipmentVisualPreferences: []
+  m_HeadAppearanceRankTable: {fileID: 11400000, guid: f6bb5158b7cc7314483e8f9d868fb633, type: 2}
+  m_HeadHairVariant: 1
+  m_HeadHatVariant: 0
+  m_HeadBeardVariant: 0
 --- !u!114 &731400000000000300
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8553,6 +8467,135 @@ MonoBehaviour:
     m_LocalEulerAngles: {x: 0, y: 0, z: 0}
   m_GrenadeLeftPouchVariant:
     m_Prefab: {fileID: 492871330200000006, guid: 67b12b1ac5d24215819fb15e7ab4d3e2, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+--- !u!114 &4886287374210874554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70a64ae0341e2de4384a83353093de1f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCharacterHeadAppearance
+  m_HeadAnchor: {fileID: 5494407725365175687}
+  m_MaleHairShort04:
+    m_Prefab: {fileID: 7662457357435468712, guid: ae063d63574430a4eaf44af9e8cb3e13, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairLongBack02:
+    m_Prefab: {fileID: 8592150072885545474, guid: dcc10605c9ba56948aaa0b0ad1a233a7, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairRaised03:
+    m_Prefab: {fileID: 5259217388212425374, guid: 7d7d8d0236201a24b92764f3daeff0c2, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairCurly05:
+    m_Prefab: {fileID: 6174060595793517182, guid: f8c8c19f318148d41859ecd01a1e7908, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairMessy06:
+    m_Prefab: {fileID: 1123921085016697158, guid: 53ee4d36de883ad4e8fba482ca62d34d, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairStylish07:
+    m_Prefab: {fileID: 2270467150700104562, guid: ccf7e059ce534074888a1cb762cdce1b, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairShavedSides08:
+    m_Prefab: {fileID: 8377199904689295846, guid: 0ba5f3062c7e46f41999fb29219f4059, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_MaleHairShavedSidesLong10:
+    m_Prefab: {fileID: 5390747731120640593, guid: 7be43cf432e306f4ba0c934f130f675e, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHair01:
+    m_Prefab: {fileID: 7166539528441449343, guid: 3d165bc781127c145a79db34bc714e87, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHair02:
+    m_Prefab: {fileID: 300817769953248383, guid: d05bfc1b249e8804996da3b6d164e6ec, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHair03:
+    m_Prefab: {fileID: 6590497708869809255, guid: 7c2e51cd6c5759143b758add1a41a1b4, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHair04:
+    m_Prefab: {fileID: 1106481875700951944, guid: 72f7962276fe7d648aa7c6d299e22ecd, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHairCap02:
+    m_Prefab: {fileID: 8788359869247592273, guid: a6a5c304fcf096b4d83f362c946164af, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHairCap02Alt:
+    m_Prefab: {fileID: 7877030103349815330, guid: 67cb2077d07eaef4b836c7a755507ab2, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_FemaleHairHelmetShort05:
+    m_Prefab: {fileID: 1787637933482148961, guid: 0adf0c8def5aec540ba95e794e56b479, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Hat02:
+    m_Prefab: {fileID: 4446387433372585085, guid: 1c84bdb633af3c040853e2ee08e99de6, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Hat03:
+    m_Prefab: {fileID: 8540095732296609639, guid: b9bd30c09648d8f4e8ea254ecb3aa3b1, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Hat04:
+    m_Prefab: {fileID: 5274079963808804394, guid: fb805754ff9829d4e844cbb474dc6d96, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Hat05:
+    m_Prefab: {fileID: 3475182658022285009, guid: afd3ef06e067cc44ca658b8d9afac473, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beanie01:
+    m_Prefab: {fileID: 881653632353381425, guid: 15f80d9a3cf547045ad510550f7fffc0, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard01:
+    m_Prefab: {fileID: 1810891094529192768, guid: ac9ec92a53f07ac4ab86752e73fb5a09, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard04Mustache:
+    m_Prefab: {fileID: 4121541048876482291, guid: c1fb0ad5b75a46949993d4b152760a91, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard04:
+    m_Prefab: {fileID: 6390025183258817130, guid: 74cb850af5c9bb04289eb2de778021fa, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard09Mustache:
+    m_Prefab: {fileID: 7359568709349216278, guid: 039584c6cb8f4184fade7cdfa1bc947e, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard09:
+    m_Prefab: {fileID: 9168753569981729235, guid: 1941dceebc2cb1f4aaeeff2fd32ab7d4, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard10:
+    m_Prefab: {fileID: 9179460996732586455, guid: fed008b631a68674ab001197a8e81c63, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard11:
+    m_Prefab: {fileID: 9217079994578276288, guid: 6b2a33b7150c3314485e8cd6d1366995, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Beard12:
+    m_Prefab: {fileID: 3421087382688794940, guid: 1c7465ee22071a848af4e6575c878ad6, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Mustache01:
+    m_Prefab: {fileID: 6683396104533245258, guid: 8d1cbc14f60a4224bbb086ca3f716a12, type: 3}
     m_LocalPosition: {x: 0, y: 0, z: 0}
     m_LocalEulerAngles: {x: 0, y: 0, z: 0}
 --- !u!1 &9207668543881882153

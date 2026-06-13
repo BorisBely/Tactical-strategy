@@ -31,6 +31,12 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 	[Header("Equipment Visual Preferences")]
 	[SerializeField] private UnitEquipmentVisualPreferenceEntry[] m_EquipmentVisualPreferences =
 		Array.Empty<UnitEquipmentVisualPreferenceEntry>();
+
+	[Header("Head Appearance")]
+	[SerializeField] private UnitHeadAppearanceRankTable m_HeadAppearanceRankTable;
+	[SerializeField, Min(0)] private int m_HeadHairVariant = UnitHeadAppearanceVariantIds.MaleHairShort04;
+	[SerializeField, Min(0)] private int m_HeadHatVariant = UnitHeadAppearanceVariantIds.HatNone;
+	[SerializeField, Min(0)] private int m_HeadBeardVariant = UnitHeadAppearanceVariantIds.BeardNone;
 	#endregion
 
 	#region Public Properties
@@ -38,6 +44,9 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 	public float MarksmanshipModifier => m_MarksmanshipModifier;
 	public float WeaponHandlingModifier => m_WeaponHandlingModifier;
 	public float RecoilControlModifier => m_RecoilControlModifier;
+	public int HeadHairVariant => m_HeadHairVariant;
+	public int HeadHatVariant => m_HeadHatVariant;
+	public int HeadBeardVariant => m_HeadBeardVariant;
 	public IReadOnlyList<UnitEquipmentVisualPreferenceEntry> EquipmentVisualPreferences => m_EquipmentVisualPreferences;
 	#endregion
 
@@ -57,6 +66,7 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 		m_WeaponHandlingModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
 		m_RecoilControlModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
 		RollEquipmentVisualPreferences();
+		RollHeadAppearance(ResolveCurrentRank(), ResolveCurrentGender());
 		m_IsInitialized = true;
 	}
 
@@ -138,6 +148,14 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 		m_EquipmentVisualPreferences = expanded;
 	}
 
+	public void RollHeadAppearance(UnitCombatRankDefinition _rank, CharacterGender _gender)
+	{
+		UnitHeadAppearanceRankTable table = ResolveHeadAppearanceRankTable();
+		m_HeadHairVariant = table.RollHair(_rank, _gender);
+		m_HeadHatVariant = table.RollHat(_gender, m_HeadHairVariant);
+		m_HeadBeardVariant = table.RollBeard(_rank, _gender);
+	}
+
 	public static UnitIndividualTraits GetOrCreate(GameObject _unitRoot)
 	{
 		if (_unitRoot == null)
@@ -182,6 +200,27 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 	private static float ClampCombatModifier(float _value)
 	{
 		return Mathf.Clamp(_value, -MaxCombatModifier, MaxCombatModifier);
+	}
+
+	private UnitCombatRankDefinition ResolveCurrentRank()
+	{
+		UnitCombatStats stats = GetComponentInParent<UnitCombatStats>(true);
+		return stats != null ? stats.RankPreset : null;
+	}
+
+	private CharacterGender ResolveCurrentGender()
+	{
+		UnitCharacterAppearance appearance = GetComponentInParent<UnitCharacterAppearance>(true);
+		return appearance != null ? appearance.Gender : CharacterGender.Male;
+	}
+
+	private UnitHeadAppearanceRankTable ResolveHeadAppearanceRankTable()
+	{
+		if (m_HeadAppearanceRankTable != null)
+			return m_HeadAppearanceRankTable;
+
+		m_HeadAppearanceRankTable = UnitHeadAppearanceRankTable.CreateDefaultRuntimeInstance();
+		return m_HeadAppearanceRankTable;
 	}
 	#endregion
 }

@@ -72,6 +72,10 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 		UnitCharacterBodyDecorations bodyDecorations = GetComponentInChildren<UnitCharacterBodyDecorations>(true);
 		if (bodyDecorations != null)
 			bodyDecorations.RefreshDecorations(traits, this);
+
+		UnitCharacterHeadAppearance headAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
+		if (headAppearance != null)
+			headAppearance.RefreshFromTraits(traits, this);
 	}
 	#endregion
 }

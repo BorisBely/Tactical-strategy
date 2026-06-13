@@ -1,0 +1,166 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2755a9dbb80278d438c66e921d5200d8, type: 3}
+  m_Name: HeadAppearanceRankTable
+  m_EditorClassIdentifier: Assembly-CSharp::UnitHeadAppearanceRankTable
+  m_RankWeights:
+  - m_RankAssetName: Rank_Recruit
+    m_MaleHairWeights:
+    - m_VariantIndex: 0
+      m_Weight: 10
+    - m_VariantIndex: 1
+      m_Weight: 90
+    m_MaleBeardWeights:
+    - m_VariantIndex: 0
+      m_Weight: 100
+  - m_RankAssetName: Rank_Soldier
+    m_MaleHairWeights:
+    - m_VariantIndex: 1
+      m_Weight: 100
+    m_MaleBeardWeights:
+    - m_VariantIndex: 0
+      m_Weight: 100
+  - m_RankAssetName: Rank_Veteran
+    m_MaleHairWeights:
+    - m_VariantIndex: 0
+      m_Weight: 8
+    - m_VariantIndex: 1
+      m_Weight: 35
+    - m_VariantIndex: 2
+      m_Weight: 9
+    - m_VariantIndex: 3
+      m_Weight: 10
+    - m_VariantIndex: 4
+      m_Weight: 10
+    - m_VariantIndex: 5
+      m_Weight: 10
+    - m_VariantIndex: 6
+      m_Weight: 7
+    - m_VariantIndex: 7
+      m_Weight: 7
+    - m_VariantIndex: 8
+      m_Weight: 4
+    m_MaleBeardWeights:
+    - m_VariantIndex: 0
+      m_Weight: 90
+    - m_VariantIndex: 9
+      m_Weight: 6
+    - m_VariantIndex: 2
+      m_Weight: 2
+    - m_VariantIndex: 4
+      m_Weight: 2
+  - m_RankAssetName: Rank_Specialist
+    m_MaleHairWeights:
+    - m_VariantIndex: 0
+      m_Weight: 5
+    - m_VariantIndex: 1
+      m_Weight: 20
+    - m_VariantIndex: 2
+      m_Weight: 14
+    - m_VariantIndex: 3
+      m_Weight: 13
+    - m_VariantIndex: 4
+      m_Weight: 13
+    - m_VariantIndex: 5
+      m_Weight: 13
+    - m_VariantIndex: 6
+      m_Weight: 11
+    - m_VariantIndex: 7
+      m_Weight: 11
+    - m_VariantIndex: 8
+      m_Weight: 10
+    m_MaleBeardWeights:
+    - m_VariantIndex: 0
+      m_Weight: 62
+    - m_VariantIndex: 9
+      m_Weight: 10
+    - m_VariantIndex: 2
+      m_Weight: 6
+    - m_VariantIndex: 4
+      m_Weight: 5
+    - m_VariantIndex: 1
+      m_Weight: 5
+    - m_VariantIndex: 3
+      m_Weight: 4
+    - m_VariantIndex: 5
+      m_Weight: 4
+    - m_VariantIndex: 6
+      m_Weight: 2
+    - m_VariantIndex: 7
+      m_Weight: 2
+  - m_RankAssetName: Rank_Elite
+    m_MaleHairWeights:
+    - m_VariantIndex: 0
+      m_Weight: 3
+    - m_VariantIndex: 1
+      m_Weight: 10
+    - m_VariantIndex: 2
+      m_Weight: 16
+    - m_VariantIndex: 3
+      m_Weight: 14
+    - m_VariantIndex: 4
+      m_Weight: 14
+    - m_VariantIndex: 5
+      m_Weight: 14
+    - m_VariantIndex: 6
+      m_Weight: 13
+    - m_VariantIndex: 7
+      m_Weight: 13
+    - m_VariantIndex: 8
+      m_Weight: 13
+    m_MaleBeardWeights:
+    - m_VariantIndex: 0
+      m_Weight: 38
+    - m_VariantIndex: 9
+      m_Weight: 6
+    - m_VariantIndex: 2
+      m_Weight: 6
+    - m_VariantIndex: 4
+      m_Weight: 6
+    - m_VariantIndex: 1
+      m_Weight: 9
+    - m_VariantIndex: 3
+      m_Weight: 9
+    - m_VariantIndex: 5
+      m_Weight: 9
+    - m_VariantIndex: 6
+      m_Weight: 8
+    - m_VariantIndex: 7
+      m_Weight: 6
+    - m_VariantIndex: 8
+      m_Weight: 3
+  m_StandaloneHatWeights:
+  - m_VariantIndex: 0
+    m_Weight: 78
+  - m_VariantIndex: 1
+    m_Weight: 5
+  - m_VariantIndex: 2
+    m_Weight: 5
+  - m_VariantIndex: 3
+    m_Weight: 4
+  - m_VariantIndex: 4
+    m_Weight: 4
+  - m_VariantIndex: 5
+    m_Weight: 4
+  m_FemaleHairWeights:
+  - m_VariantIndex: 0
+    m_Weight: 18
+  - m_VariantIndex: 1
+    m_Weight: 18
+  - m_VariantIndex: 2
+    m_Weight: 18
+  - m_VariantIndex: 3
+    m_Weight: 18
+  - m_VariantIndex: 4
+    m_Weight: 14
+  - m_VariantIndex: 5
+    m_Weight: 14

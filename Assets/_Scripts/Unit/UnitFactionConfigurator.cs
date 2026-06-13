@@ -51,6 +51,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		EnsureIndividualTraits();
 		ApplyLoadout();
 		ApplyArmor(m_RuntimeConfig.ArmorVisualIndex);
+		RefreshHeadAppearance();
 		ApplyRoleComponents(isPlayer);
 
 		if (m_ReadyHands != null)
@@ -126,7 +127,23 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (traits != null && !traits.IsInitialized)
 			traits.RollRandomTraits();
 
+		if (traits != null)
+			traits.RollHeadAppearance(ResolveRankPreset(), m_Appearance != null ? m_Appearance.Gender : CharacterGender.Male);
+
 		m_Traits = traits;
+	}
+
+	private UnitCombatRankDefinition ResolveRankPreset()
+	{
+		UnitCombatStats stats = GetComponent<UnitCombatStats>();
+		return stats != null ? stats.RankPreset : null;
+	}
+
+	private void RefreshHeadAppearance()
+	{
+		UnitCharacterHeadAppearance headAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
+		if (headAppearance != null)
+			headAppearance.RefreshFromTraits(m_Traits, m_Appearance);
 	}
 
 	private void ApplyArmor(int _armorVisualIndex)
