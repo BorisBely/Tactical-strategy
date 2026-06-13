@@ -114,11 +114,6 @@ public sealed class DamageableTarget : MonoBehaviour
 				if (armorMitigation.FullyBlocked)
 				{
 					_armorFullyBlocked = true;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-					Debug.Log(
-						$"[Броня] {name} | попадание в {BodyPartTypeUtility.GetDisplayName(hitZone.BodyPart)} полностью заблокировано — травма не назначается",
-						this);
-#endif
 					return false;
 				}
 			}

@@ -105,6 +105,7 @@ public sealed class UnitBodyHitZone : MonoBehaviour
 	[Header("Legacy HP Combat")]
 	[SerializeField] private CombatBodyZone m_LegacyZone = CombatBodyZone.Torso;
 	[SerializeField, Min(0f)] private float m_DamageMultiplier = 1f;
+	[SerializeField] private bool m_IncludeInVision = true;
 
 	[Header("Condition Effects")]
 	[SerializeField] private bool m_MarksArmsWounded;
@@ -119,6 +120,7 @@ public sealed class UnitBodyHitZone : MonoBehaviour
 		? BodyPartTypeUtility.ToCombatBodyZone(m_BodyPart)
 		: m_LegacyZone;
 	public float DamageMultiplier => m_DamageMultiplier;
+	public bool IncludeInVision => m_IncludeInVision;
 	#endregion
 
 	#region Unity Lifecycle

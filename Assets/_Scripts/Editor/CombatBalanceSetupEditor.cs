@@ -45,6 +45,15 @@ public static class CombatBalanceSetupEditor
 		if (EnsureComponent<UnitHeadEquipmentDebug>(root, out _))
 			changed = true;
 
+		if (EnsureComponent<UnitRagdollController>(root, out _))
+			changed = true;
+
+		if (EnsureComponent<UnitConsciousness>(root, out _))
+			changed = true;
+
+		if (EnsureComponent<UnitConsciousnessRules>(root, out _))
+			changed = true;
+
 		Transform headAnchor = FindChildByName(root.transform, "Head");
 		Transform chestAnchor = FindChildByName(root.transform, "Spine_03");
 		if (headEquipment != null && headAnchor != null)

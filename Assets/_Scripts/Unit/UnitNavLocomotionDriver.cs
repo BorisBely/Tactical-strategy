@@ -50,6 +50,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
@@ -126,7 +127,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	#region Public Properties
 	public bool IsSprintMoveMode => IsSprintActive();
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
-	public bool HasMoveIntent => HasActiveMoveIntent();
+	public bool HasMoveIntent => IsConscious() && IsNavAgentOperational() && HasActiveMoveIntent();
 	/// <summary>Множитель скорости проигрывания клипов (1 = без подстройки). См. <see cref="RtsUnitMember"/>.</summary>
 	public float AnimatorPlaybackSpeedMultiplier { get; private set; } = 1f;
 	#endregion
@@ -137,7 +138,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return false;
 		if (HasActiveMoveIntent() || NavAgentHasIncompletePath())
 			return true;
-		if (m_Agent == null)
+		if (!IsNavAgentOperational())
 			return false;
 
 		Vector3 velocity = m_Agent.velocity;
@@ -177,6 +178,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	{
 		if (m_Agent == null)
 			return false;
+		if (!IsConscious())
+			return false;
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
@@ -201,6 +204,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	{
 		if (m_Agent == null)
 			return false;
+		if (!IsConscious())
+			return false;
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
@@ -211,10 +216,13 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	public void HardStop()
 	{
-		if (m_Agent == null)
-			return;
-
 		m_HasPendingNavOrder = false;
+		if (!IsNavAgentOperational())
+		{
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			return;
+		}
+
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
@@ -233,6 +241,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_Consciousness == null)
+			m_Consciousness = GetComponent<UnitConsciousness>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 
 		m_Agent.updatePosition = true;
@@ -266,6 +276,16 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	{
 		if (m_Agent == null)
 			return;
+		if (!IsConscious())
+		{
+			m_HasPendingNavOrder = false;
+			HardStop();
+			PushAnimator();
+			return;
+		}
+
+		if (!IsNavAgentOperational())
+			return;
 
 		if (m_HasPendingNavOrder && !IsStanceTransitionMovementBlocked())
 			ConsumePendingNavOrder();
@@ -288,6 +308,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	#region Private Methods
 	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _moveTier)
 	{
+		if (!IsConscious())
+			return;
+
 		if (_moveTier == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
 
@@ -427,6 +450,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private bool HasActiveMoveIntent()
 	{
+		if (!IsNavAgentOperational())
+			return false;
+
 		if (m_Agent.isStopped)
 			return false;
 		if (m_Agent.pathPending)
@@ -440,6 +466,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private bool NavAgentHasIncompletePath()
 	{
+		if (!IsNavAgentOperational())
+			return false;
+
 		if (m_Agent.pathPending)
 			return true;
 		if (!m_Agent.hasPath)
@@ -451,6 +480,13 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private Vector3 PlanarLocomotionDirection(out float _planarSpeed, out bool _hasGoalAhead)
 	{
+		if (!IsNavAgentOperational())
+		{
+			_planarSpeed = 0f;
+			_hasGoalAhead = false;
+			return transform.forward;
+		}
+
 		Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
 		_planarSpeed = velocity.magnitude;
 		_hasGoalAhead = HasActiveMoveIntent();
@@ -518,6 +554,16 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private bool IsEngagingVisibleTarget()
 	{
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	private bool IsConscious()
+	{
+		return m_Consciousness == null || m_Consciousness.IsConscious;
+	}
+
+	private bool IsNavAgentOperational()
+	{
+		return m_Agent != null && m_Agent.enabled && m_Agent.isOnNavMesh;
 	}
 
 	private bool ShouldRotateRootTowardVisionTarget()
@@ -688,7 +734,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private void PushAnimator()
 	{
-		if (m_Animator == null)
+		if (m_Animator == null || !m_Animator.enabled)
+			return;
+
+		if (!IsNavAgentOperational())
 			return;
 
 		if (IsStanceTransitionMovementBlocked())

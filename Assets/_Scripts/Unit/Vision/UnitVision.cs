@@ -167,10 +167,18 @@ public sealed class UnitVision : MonoBehaviour
 		ScheduleNextScan(0f);
 	}
 
+	public void RefreshBodyHitZones()
+	{
+		m_BodyHitZones = GetComponentsInChildren<UnitBodyHitZone>(true);
+	}
+
 	/// <summary>Мишень полигона доступна, юнит жив — цель годится для прицеливания и огня.</summary>
 	public bool IsEngageableTarget(Transform _target)
 	{
 		if (_target == null)
+			return false;
+
+		if (!UnitConsciousness.IsTargetableTarget(_target))
 			return false;
 
 		if (_target.TryGetComponent(out ShootingRangeTarget rangeTarget))
@@ -349,6 +357,12 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
 		m_DebugRays.Clear();
+		if (!IsEngageableTarget(m_VisibleTarget))
+		{
+			m_VisibleTarget = null;
+			m_HasVisibleTargetAimPoint = false;
+			m_VisibleTargetAimPointWorld = Vector3.zero;
+		}
 
 		Vector3 origin = GetVisionConeOriginWorld();
 		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
@@ -370,6 +384,9 @@ public sealed class UnitVision : MonoBehaviour
 		{
 			UnitVision other = m_OpponentBuffer[i];
 			if (other == null || other == this || !other.isActiveAndEnabled)
+				continue;
+
+			if (!UnitConsciousness.IsTargetableTarget(other.transform))
 				continue;
 
 			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
@@ -446,11 +463,6 @@ public sealed class UnitVision : MonoBehaviour
 		{
 			VisibleTargetChanged?.Invoke(m_VisibleTarget);
 		}
-	}
-
-	private void RefreshBodyHitZones()
-	{
-		m_BodyHitZones = GetComponentsInChildren<UnitBodyHitZone>(true);
 	}
 
 	private Collider ResolveBodyCollider()
@@ -736,7 +748,7 @@ public sealed class UnitVision : MonoBehaviour
 		for (int z = 0; z < _hitZones.Length; z++)
 		{
 			UnitBodyHitZone zone = _hitZones[z];
-			if (zone == null || !zone.TryGetComponent(out Collider zoneCol) || !zoneCol.enabled)
+			if (zone == null || !zone.IncludeInVision || !zone.TryGetComponent(out Collider zoneCol) || !zoneCol.enabled)
 				continue;
 
 			UnitBodyHitZoneVisionUtility.BuildAimCandidates(zone.BodyPart, zoneCol, m_AimCandidateScratch);

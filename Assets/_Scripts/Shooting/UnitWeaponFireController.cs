@@ -27,6 +27,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
 	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
+	[SerializeField] private UnitConsciousness m_Consciousness;
 
 	[Header("Fire Conditions")]
 	[Tooltip("Запрещать выстрел, если оружие не на ready.")]
@@ -89,6 +90,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting = GetComponent<UnitWeaponHitscanShooting>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_Consciousness == null)
+			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (GetComponent<UnitStanceCombatModifiers>() == null)
 			gameObject.AddComponent<UnitStanceCombatModifiers>();
 	}
@@ -131,6 +134,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	#region Public Methods
 	public void StartFiring()
 	{
+		if (!IsConscious())
+			return;
+
 		m_IsFiringCommandActive = true;
 
 		WeaponFireMode fireMode = ResolveEffectiveFireMode();
@@ -149,6 +155,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	public bool ShouldHoldVirtualTrigger()
 	{
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+			return false;
+
+		if (!IsConscious())
 			return false;
 
 		if (m_WeaponRuntime.CurrentWeaponDefinition == null)
@@ -246,6 +255,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (m_WeaponRuntime == null)
 			return WeaponShotAttemptResult.NoWeapon;
+
+		if (!IsConscious())
+			return WeaponShotAttemptResult.Busy;
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return WeaponShotAttemptResult.NotReady;
@@ -460,6 +472,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private bool HasEngageableVisibleTarget()
 	{
 		return m_Vision != null && m_Vision.GetEngageableVisibleTarget() != null;
+	}
+
+	private bool IsConscious()
+	{
+		return m_Consciousness == null || m_Consciousness.IsConscious;
 	}
 
 	private void TrySyncEngagementTarget()

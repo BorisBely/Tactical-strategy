@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -99,6 +100,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	#region Private Fields
 	private Transform m_ShooterRoot;
+	private readonly HashSet<ProcessedBodyPartHit> m_ProcessedBodyPartHits = new HashSet<ProcessedBodyPartHit>();
 	#endregion
 
 	#region Unity Lifecycle
@@ -341,6 +343,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		RaycastHit? firstSelfHit = null;
 		WeaponShotOutcome lastOutcome = default;
 		bool hadProcessedHit = false;
+		m_ProcessedBodyPartHits.Clear();
 
 		for (int i = 0; i < hits.Length; i++)
 		{
@@ -351,9 +354,13 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				continue;
 			}
 
+			if (ShouldSkipDuplicateBodyPartHit(hit.collider))
+				continue;
+
 			WeaponShotOutcome outcome = ProcessRaycastHit(_origin, dir, hit, _ammo);
 			lastOutcome = outcome;
 			hadProcessedHit = true;
+			RegisterProcessedBodyPartHit(hit.collider, outcome);
 
 			if (!BodyPartTypeUtility.IsLimb(outcome.BodyPart))
 				return outcome;
@@ -459,6 +466,45 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		Transform hitTransform = _collider.transform;
 		return hitTransform == m_ShooterRoot || hitTransform.IsChildOf(m_ShooterRoot);
+	}
+
+	private bool ShouldSkipDuplicateBodyPartHit(Collider _collider)
+	{
+		if (!TryResolveProcessedBodyPartHit(_collider, out ProcessedBodyPartHit processedHit))
+			return false;
+
+		return m_ProcessedBodyPartHits.Contains(processedHit);
+	}
+
+	private void RegisterProcessedBodyPartHit(Collider _collider, WeaponShotOutcome _outcome)
+	{
+		if (_outcome.BodyPart == BodyPartType.Unknown)
+			return;
+
+		DamageableTarget target = _collider != null ? _collider.GetComponentInParent<DamageableTarget>() : null;
+		if (target == null)
+			return;
+
+		m_ProcessedBodyPartHits.Add(new ProcessedBodyPartHit(target, _outcome.BodyPart));
+	}
+
+	private static bool TryResolveProcessedBodyPartHit(Collider _collider, out ProcessedBodyPartHit _hit)
+	{
+		_hit = default;
+		if (_collider == null)
+			return false;
+
+		DamageableTarget target = _collider.GetComponentInParent<DamageableTarget>();
+		if (target == null)
+			return false;
+
+		UnitBodyHitZone hitZone = _collider.GetComponent<UnitBodyHitZone>() ??
+		                          _collider.GetComponentInParent<UnitBodyHitZone>();
+		if (hitZone == null || hitZone.BodyPart == BodyPartType.Unknown)
+			return false;
+
+		_hit = new ProcessedBodyPartHit(target, hitZone.BodyPart);
+		return true;
 	}
 
 	private float ComputeFalloffMultiplier(float _distance, AmmoDefinition _ammo)
@@ -620,6 +666,36 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		public static ProceduralRecoilPatternResult CreateUnchanged(Vector3 _direction)
 		{
 			return new ProceduralRecoilPatternResult(_direction, 0f, 0f, 0f, false);
+		}
+	}
+
+	private readonly struct ProcessedBodyPartHit : System.IEquatable<ProcessedBodyPartHit>
+	{
+		private readonly DamageableTarget m_Target;
+		private readonly BodyPartType m_BodyPart;
+
+		public ProcessedBodyPartHit(DamageableTarget _target, BodyPartType _bodyPart)
+		{
+			m_Target = _target;
+			m_BodyPart = _bodyPart;
+		}
+
+		public bool Equals(ProcessedBodyPartHit _other)
+		{
+			return ReferenceEquals(m_Target, _other.m_Target) && m_BodyPart == _other.m_BodyPart;
+		}
+
+		public override bool Equals(object _obj)
+		{
+			return _obj is ProcessedBodyPartHit other && Equals(other);
+		}
+
+		public override int GetHashCode()
+		{
+			unchecked
+			{
+				return ((m_Target != null ? m_Target.GetInstanceID() : 0) * 397) ^ (int)m_BodyPart;
+			}
 		}
 	}
 }

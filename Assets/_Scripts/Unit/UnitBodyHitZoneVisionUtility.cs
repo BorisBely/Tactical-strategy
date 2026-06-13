@@ -50,7 +50,7 @@ public static class UnitBodyHitZoneVisionUtility
 		for (int i = 0; i < _zones.Count; i++)
 		{
 			UnitBodyHitZone zone = _zones[i];
-			if (zone == null || !zone.TryGetComponent(out Collider col) || !col.enabled)
+			if (zone == null || !zone.IncludeInVision || !zone.TryGetComponent(out Collider col) || !col.enabled)
 				continue;
 
 			if (!hasBounds)
@@ -72,7 +72,7 @@ public static class UnitBodyHitZoneVisionUtility
 		for (int i = 0; i < _zones.Count; i++)
 		{
 			UnitBodyHitZone zone = _zones[i];
-			if (zone == null || zone.BodyPart != _preferredPart || !zone.TryGetComponent(out Collider col) || !col.enabled)
+			if (zone == null || !zone.IncludeInVision || zone.BodyPart != _preferredPart || !zone.TryGetComponent(out Collider col) || !col.enabled)
 				continue;
 
 			return col;
@@ -86,7 +86,7 @@ public static class UnitBodyHitZoneVisionUtility
 		for (int i = 0; i < _zones.Count; i++)
 		{
 			UnitBodyHitZone zone = _zones[i];
-			if (zone != null && zone.TryGetComponent(out Collider col) && col.enabled)
+			if (zone != null && zone.IncludeInVision && zone.TryGetComponent(out Collider col) && col.enabled)
 				return col;
 		}
 

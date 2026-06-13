@@ -44,6 +44,40 @@ public sealed class UnitHealth : MonoBehaviour
 		return InjuryUiEntryUtility.SortByPriority(m_Injuries);
 	}
 
+	public int InjuryCount => m_Injuries != null ? m_Injuries.Count : 0;
+
+	public int MinInjurySortPriority
+	{
+		get
+		{
+			if (!HasInjuries)
+				return int.MaxValue;
+
+			int minPriority = int.MaxValue;
+			for (int i = 0; i < m_Injuries.Count; i++)
+				minPriority = Mathf.Min(minPriority, m_Injuries[i].SortPriority);
+
+			return minPriority;
+		}
+	}
+
+	public bool IsCriticallyWounded => MinInjurySortPriority <= 10;
+
+	public int CountInjuriesWithPriorityAtMost(int _maxPriority)
+	{
+		if (!HasInjuries)
+			return 0;
+
+		int count = 0;
+		for (int i = 0; i < m_Injuries.Count; i++)
+		{
+			if (m_Injuries[i].SortPriority <= _maxPriority)
+				count++;
+		}
+
+		return count;
+	}
+
 	public void ClearInjuries()
 	{
 		if (m_Injuries.Count == 0)

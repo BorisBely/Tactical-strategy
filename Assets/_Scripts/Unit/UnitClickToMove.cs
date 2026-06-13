@@ -62,6 +62,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitTeam m_Team;
+	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
@@ -213,6 +214,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		if (m_Agent == null)
 			return false;
+		if (!IsConscious())
+			return false;
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
@@ -236,6 +239,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _mode)
 	{
 		if (m_Agent == null)
+			return false;
+		if (!IsConscious())
 			return false;
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
@@ -285,6 +290,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
+		if (m_Consciousness == null)
+			m_Consciousness = GetComponent<UnitConsciousness>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 	}
 
@@ -317,6 +324,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		if (m_Agent == null)
 			return;
+		if (!IsConscious())
+		{
+			HardStop();
+			PushAnimator();
+			return;
+		}
 
 		if (m_HasPendingNavOrder && !IsStanceTransitionMovementBlocked())
 			ConsumePendingNavOrder();
@@ -393,6 +406,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		if (!m_EnableDirectInput)
 			return false;
+		if (!IsConscious())
+			return false;
 		if (m_Team == null)
 			return true;
 
@@ -439,6 +454,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _mode)
 	{
 		if (m_Agent == null)
+			return;
+		if (!IsConscious())
 			return;
 
 		if (_mode == MoveTier.Sprint)
@@ -695,6 +712,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool IsEngagingVisibleTarget()
 	{
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	private bool IsConscious()
+	{
+		return m_Consciousness == null || m_Consciousness.IsConscious;
 	}
 
 	/// <summary>

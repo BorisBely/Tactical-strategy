@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,13 +12,18 @@ public static class UnitHitboxPrefabBuilder
 	private const int c_UnitLayer = 7;
 
 	[MenuItem("Polygone/Combat/Build Unit Body Hitboxes")]
+	[Obsolete("Use UnitRagdollPrefabBuilder.Build instead.")]
 	public static void BuildFromMenu()
 	{
 		Build();
 	}
 
+	[Obsolete("Use UnitRagdollPrefabBuilder.Build instead.")]
 	public static void Build()
 	{
+		UnitRagdollPrefabBuilder.Build();
+		return;
+#pragma warning disable CS0162
 		GameObject root = PrefabUtility.LoadPrefabContents(c_UnitPrefabPath);
 		if (root == null)
 		{
@@ -55,6 +61,7 @@ public static class UnitHitboxPrefabBuilder
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
 		Debug.Log("Unit prefab updated with body part hitboxes and SelectionBounds.");
+#pragma warning restore CS0162
 	}
 
 	private static void RemoveExistingHitboxRig(GameObject _root)
@@ -70,7 +77,7 @@ public static class UnitHitboxPrefabBuilder
 		{
 			Transform existing = FindDeepChild(_root.transform, names[i]);
 			if (existing != null)
-				Object.DestroyImmediate(existing.gameObject);
+				UnityEngine.Object.DestroyImmediate(existing.gameObject);
 		}
 	}
 
