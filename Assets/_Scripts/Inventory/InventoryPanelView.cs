@@ -235,6 +235,7 @@ public class InventoryPanelView : MonoBehaviour
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
 		InventorySlotRuntimeData head = _inventory.HeadEquipment;
+		InventorySlotRuntimeData back = _inventory.BackEquipment;
 		IReadOnlyList<InventorySlotRuntimeData> bag = _inventory.BagItems;
 
 		for (int i = 0; i < lead; i++)
@@ -244,6 +245,8 @@ public class InventoryPanelView : MonoBehaviour
 				cell.SetItem(main);
 			else if (i == 1 && !head.IsEmpty)
 				cell.SetItem(head);
+			else if (i == 2 && !back.IsEmpty)
+				cell.SetItem(back);
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -267,6 +270,7 @@ public class InventoryPanelView : MonoBehaviour
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _snapshot.MainHandEquipment;
 		InventorySlotRuntimeData head = _snapshot.HeadEquipment;
+		InventorySlotRuntimeData back = _snapshot.BackEquipment;
 		IReadOnlyList<InventorySlotRuntimeData> bag = _snapshot.BagItems;
 
 		for (int i = 0; i < lead; i++)
@@ -276,6 +280,8 @@ public class InventoryPanelView : MonoBehaviour
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(main));
 			else if (i == 1 && !head.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(head));
+			else if (i == 2 && !back.IsEmpty)
+				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(back));
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -444,6 +450,8 @@ public class InventoryPanelView : MonoBehaviour
 			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(created, m_EquipmentSlotAppearance);
 		else if (_equipmentSlotIndex == 1)
 			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(created, m_EquipmentSlotAppearance);
+		else if (_equipmentSlotIndex == 2)
+			InventorySlotUiUtility.ConfigureBackEquipmentSlot(created, m_EquipmentSlotAppearance);
 
 		return created;
 	}

@@ -11,7 +11,10 @@ public enum RuntimeInventoryModificationDragSourceKind
 	GroundWeapon = 6,
 	CharacterBagHelmet = 7,
 	GroundHelmet = 8,
-	CharacterHeadHelmet = 9
+	CharacterHeadHelmet = 9,
+	CharacterBagBackpack = 10,
+	GroundBackpack = 11,
+	CharacterBackBackpack = 12
 }
 
 public readonly struct RuntimeInventoryModificationDragPayload
@@ -63,6 +66,7 @@ public static class RuntimeInventoryModificationDragContext
 	public static bool HasActiveModificationItem => s_Current.HasItem && ItemModificationUtility.IsModificationItem(s_Current.Item);
 	public static bool HasActiveWeaponEquipDrag => s_Current.HasItem && IsWeaponEquipDragSource(s_Current.SourceKind);
 	public static bool HasActiveHelmetEquipDrag => s_Current.HasItem && IsHelmetEquipDragSource(s_Current.SourceKind);
+	public static bool HasActiveBackpackEquipDrag => s_Current.HasItem && IsBackpackEquipDragSource(s_Current.SourceKind);
 	public static bool WasDropConsumed => s_DropConsumed;
 	#endregion
 
@@ -79,16 +83,23 @@ public static class RuntimeInventoryModificationDragContext
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundHelmet;
 	}
 
+	public static bool IsBackpackEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundBackpack;
+	}
+
 	public static void BeginCharacter(
 		InventorySlotRuntimeData _item,
 		bool _isMainHand,
 		int _bagIndex,
 		InventorySlotView _sourceSlot = null,
-		bool _isHead = false)
+		bool _isHead = false,
+		bool _isBack = false)
 	{
 		SetSourceSlot(_sourceSlot);
 		Begin(new RuntimeInventoryModificationDragPayload(
-			ResolveCharacterSourceKind(_item, _isMainHand, _isHead),
+			ResolveCharacterSourceKind(_item, _isMainHand, _isHead, _isBack),
 			_item,
 			_isMainHand,
 			_bagIndex));
@@ -162,7 +173,8 @@ public static class RuntimeInventoryModificationDragContext
 	private static RuntimeInventoryModificationDragSourceKind ResolveCharacterSourceKind(
 		InventorySlotRuntimeData _item,
 		bool _isMainHand,
-		bool _isHead)
+		bool _isHead,
+		bool _isBack)
 	{
 		if (_isMainHand)
 			return RuntimeInventoryModificationDragSourceKind.None;
@@ -170,6 +182,11 @@ public static class RuntimeInventoryModificationDragContext
 		if (_isHead)
 			return HelmetEquipUtility.CanEquipToHead(_item)
 				? RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet
+				: RuntimeInventoryModificationDragSourceKind.None;
+
+		if (_isBack)
+			return BackpackEquipUtility.CanEquipToBack(_item)
+				? RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack
 				: RuntimeInventoryModificationDragSourceKind.None;
 
 		if (ItemModificationUtility.IsModificationItem(_item))
@@ -180,6 +197,9 @@ public static class RuntimeInventoryModificationDragContext
 
 		if (HelmetEquipUtility.CanEquipToHead(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet;
+
+		if (BackpackEquipUtility.CanEquipToBack(_item))
+			return RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack;
 
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
@@ -195,6 +215,9 @@ public static class RuntimeInventoryModificationDragContext
 		if (HelmetEquipUtility.CanEquipToHead(_item))
 			return RuntimeInventoryModificationDragSourceKind.GroundHelmet;
 
+		if (BackpackEquipUtility.CanEquipToBack(_item))
+			return RuntimeInventoryModificationDragSourceKind.GroundBackpack;
+
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
 
@@ -208,6 +231,7 @@ public static class RuntimeInventoryModificationDragContext
 			case RuntimeInventoryModificationDragSourceKind.ModificationSlot:
 			case RuntimeInventoryModificationDragSourceKind.CharacterMainHand:
 			case RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet:
+			case RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack:
 				return true;
 			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
 			case RuntimeInventoryModificationDragSourceKind.GroundPanel:
@@ -218,6 +242,9 @@ public static class RuntimeInventoryModificationDragContext
 			case RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet:
 			case RuntimeInventoryModificationDragSourceKind.GroundHelmet:
 				return HelmetEquipUtility.CanEquipToHead(_payload.Item);
+			case RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack:
+			case RuntimeInventoryModificationDragSourceKind.GroundBackpack:
+				return BackpackEquipUtility.CanEquipToBack(_payload.Item);
 			default:
 				return false;
 		}

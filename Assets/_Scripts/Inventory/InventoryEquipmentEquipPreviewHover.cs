@@ -34,6 +34,8 @@ public sealed class InventoryEquipmentEquipPreviewHover : MonoBehaviour, IPointe
 			InventoryEquipmentEquipHoverContext.SetHoveredHelmet(data);
 		else if (WeaponEquipUtility.CanEquipToMainHand(data))
 			InventoryEquipmentEquipHoverContext.SetHoveredWeapon(data);
+		else if (BackpackEquipUtility.CanEquipToBack(data))
+			InventoryEquipmentEquipHoverContext.SetHoveredBackpack(data);
 	}
 
 	public void OnPointerExit(PointerEventData eventData)
@@ -47,6 +49,7 @@ public sealed class InventoryEquipmentEquipPreviewHover : MonoBehaviour, IPointe
 		InventorySlotRuntimeData data = m_Slot.Data;
 		InventoryEquipmentEquipHoverContext.ClearHoveredHelmet(data);
 		InventoryEquipmentEquipHoverContext.ClearHoveredWeapon(data);
+		InventoryEquipmentEquipHoverContext.ClearHoveredBackpack(data);
 	}
 	#endregion
 }

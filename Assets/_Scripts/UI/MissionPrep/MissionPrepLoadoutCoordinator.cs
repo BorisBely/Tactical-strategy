@@ -262,6 +262,20 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true);
 	}
 
+	public void SetActivePresetCamouflage(int _camouflageIndex)
+	{
+		EnsureSharedPresetStore();
+		if (m_SharedPresetStore == null)
+			return;
+
+		int clamped = m_PresetCatalog != null
+			? m_PresetCatalog.ClampCamouflageIndex(_camouflageIndex)
+			: UnitCamouflagePatternUtility.ClampIndex(_camouflageIndex);
+
+		m_SharedPresetStore.SetCamouflageForPreset(m_EditingPresetCatalogIndex, clamped);
+		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true);
+	}
+
 	public void NotifyInventoryMutated(bool _saveSnapshotFromRuntime = true)
 	{
 		m_HoveredModificationPreviewCandidate = default;
@@ -412,6 +426,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Снять рюкзак из слота спины пресета в сумку.</summary>
+	public bool TryUnequipPresetBackToBag()
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
+			return false;
+
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryUnequipBackToBag())
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
 	/// <summary>Переместить оружие из сумки пресета в слот экипировки.</summary>
 	public bool TryMovePresetBagItemToMainHand(int _bagIndex)
 	{
@@ -451,6 +482,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		if (!snapshot.TryMoveBagItemToHead(_bagIndex))
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
+	/// <summary>Переместить рюкзак из сумки пресета в слот спины.</summary>
+	public bool TryMovePresetBagItemToBack(int _bagIndex)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed || m_SharedPresetStore == null)
+			return false;
+
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryMoveBagItemToBack(_bagIndex))
 			return false;
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
@@ -513,6 +561,32 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Экипировать копию рюкзака с панели доступного снаряжения в слот спины пресета.</summary>
+	public bool TryEquipAvailableSlotToBack(InventorySlotView _slot)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed ||
+		    _slot == null || !_slot.HasItem || m_SharedPresetStore == null)
+			return false;
+
+		if (!IsAvailableEquipmentSlot(_slot))
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		InventorySlotRuntimeData clone = MissionPrepInventoryCopyUtility.CloneSlot(_slot.Data);
+		if (!MissionPrepBackpackEquipUtility.CanEquipToBack(clone))
+			return false;
+
+		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
+
+		if (!snapshot.TryEquipExternalItemToBack(clone))
+			return false;
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		NotifyInventoryMutated();
+		return true;
+	}
+
 	/// <summary>Drag внутри инвентаря пресета: снятие оружия из слота экипировки в сумку.</summary>
 	public bool TryAcceptPresetInventoryInternalDrag(MissionPrepPresetToAvailableDrag _drag)
 	{
@@ -525,6 +599,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (_drag.IsHeadSlot)
 			return TryUnequipPresetHeadToBag();
 
+		if (_drag.IsBackSlot)
+			return TryUnequipPresetBackToBag();
+
 		return false;
 	}
 
@@ -536,6 +613,15 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public bool TryRemovePresetInventorySlot(bool _isMainHandEquipmentSlot, bool _isHeadEquipmentSlot, int _bagIndex)
 	{
+		return TryRemovePresetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, false, _bagIndex);
+	}
+
+	public bool TryRemovePresetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		bool _isBackEquipmentSlot,
+		int _bagIndex)
+	{
 		if (m_SharedPresetStore == null)
 			return false;
 
@@ -545,6 +631,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			changed = snapshot.TryClearMainHand();
 		else if (_isHeadEquipmentSlot)
 			changed = snapshot.TryClearHead();
+		else if (_isBackEquipmentSlot)
+			changed = snapshot.TryClearBack();
 		else
 			changed = snapshot.TryRemoveBagItemAt(_bagIndex);
 
@@ -595,6 +683,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			headSlot, _screenPosition, _eventCamera);
 	}
 
+	/// <summary>Курсор над ячейкой экипированного рюкзака пресета.</summary>
+	public bool IsScreenPointOverPresetBackSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		InventorySlotView backSlot = InventorySlotUiUtility.GetBackEquipmentSlot(m_PresetInventoryPanel);
+		return InventorySlotUiUtility.IsScreenPointOverBackEquipmentSlot(
+			backSlot, _screenPosition, _eventCamera);
+	}
+
 	/// <summary>Курсор над панелью доступного снаряжения (для fallback при EndDrag).</summary>
 	public bool IsScreenPointOverAvailableEquipmentPanel(Vector2 _screenPosition, Camera _eventCamera)
 	{
@@ -633,14 +729,25 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		out bool _isHeadEquipmentSlot,
 		out int _bagIndex)
 	{
+		return TryResolveInventorySlot(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveInventorySlot(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out bool _isBackEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
 		_isHeadEquipmentSlot = false;
+		_isBackEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || m_PresetInventoryPanel == null || m_SharedPresetStore == null)
 			return false;
 
-		if (!TryResolveInventoryDropTarget(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out _bagIndex))
+		if (!TryResolveInventoryDropTarget(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out _isBackEquipmentSlot, out _bagIndex))
 			return false;
 
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
@@ -649,6 +756,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		if (_isHeadEquipmentSlot)
 			return !snapshot.HeadEquipment.IsEmpty;
+
+		if (_isBackEquipmentSlot)
+			return !snapshot.BackEquipment.IsEmpty;
 
 		return _bagIndex >= 0 && _bagIndex < snapshot.BagCount;
 	}
@@ -668,8 +778,19 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		out bool _isHeadEquipmentSlot,
 		out int _bagIndex)
 	{
+		return TryResolveInventoryDropTarget(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveInventoryDropTarget(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out bool _isBackEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
 		_isHeadEquipmentSlot = false;
+		_isBackEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || m_PresetInventoryPanel == null)
@@ -684,7 +805,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
 			_isHeadEquipmentSlot = slotIndex == 1;
-			return _isMainHandEquipmentSlot || _isHeadEquipmentSlot;
+			_isBackEquipmentSlot = slotIndex == 2;
+			return _isMainHandEquipmentSlot || _isHeadEquipmentSlot || _isBackEquipmentSlot;
 		}
 
 		_bagIndex = slotIndex - lead;
@@ -693,14 +815,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	public bool TryEditingPresetInventoryDoubleClick(InventorySlotView _slot)
 	{
-		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out bool isHead, out int bagIndex) || m_SharedPresetStore == null)
+		if (!TryResolveInventorySlot(_slot, out bool isMainHand, out bool isHead, out bool isBack, out int bagIndex) || m_SharedPresetStore == null)
 			return false;
 
 		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		ItemDefinition weaponDefinition = null;
 		ItemInstanceState weaponInstance = null;
-		if (snapshot.TryGetInventorySlot(isMainHand, isHead, bagIndex, out InventorySlotRuntimeData clickedWeapon))
+		if (snapshot.TryGetInventorySlot(isMainHand, isHead, isBack, bagIndex, out InventorySlotRuntimeData clickedWeapon))
 		{
 			weaponDefinition = clickedWeapon.Definition;
 			weaponInstance = clickedWeapon.InstanceState;
@@ -712,11 +834,18 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			changed = snapshot.TryUnequipMainHandToBag();
 		else if (isHead)
 			changed = snapshot.TryUnequipHeadToBag();
+		else if (isBack)
+			changed = snapshot.TryUnequipBackToBag();
 		else if (bagIndex >= 0 &&
 		         bagIndex < snapshot.BagCount &&
 		         snapshot.TryGetInventorySlot(false, false, bagIndex, out InventorySlotRuntimeData bagItem) &&
 		         MissionPrepHelmetEquipUtility.CanEquipToHead(bagItem))
 			changed = snapshot.TryMoveBagItemToHead(bagIndex);
+		else if (bagIndex >= 0 &&
+		         bagIndex < snapshot.BagCount &&
+		         snapshot.TryGetInventorySlot(false, false, bagIndex, out InventorySlotRuntimeData bagBackpack) &&
+		         MissionPrepBackpackEquipUtility.CanEquipToBack(bagBackpack))
+			changed = snapshot.TryMoveBagItemToBack(bagIndex);
 		else
 			changed = snapshot.TryMoveBagItemToMainHand(bagIndex);
 
@@ -1324,6 +1453,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		EnsureModificationClickHandlers();
 		EnsureMainHandEquipmentSlot();
 		EnsureHeadEquipmentSlot();
+		EnsureBackEquipmentSlot();
 		m_ModificationUiState = preservedModificationUi;
 		m_ExpandedWeaponListIndex = preservedExpandedListIndex;
 		TryRestoreExpandedModificationSelectionAfterRepaint();
@@ -1382,6 +1512,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	{
 		return m_SharedPresetStore != null
 			? m_SharedPresetStore.GetArmorForPreset(m_EditingPresetCatalogIndex)
+			: 0;
+	}
+
+	public int GetActivePresetCamouflageIndex()
+	{
+		return m_SharedPresetStore != null
+			? m_SharedPresetStore.GetCamouflageForPreset(m_EditingPresetCatalogIndex)
 			: 0;
 	}
 
@@ -1564,6 +1701,11 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			visual.ApplyArmorVisual(armorIndex);
 			UnitArmor armor = unit.GetComponent<UnitArmor>() ?? unit.gameObject.AddComponent<UnitArmor>();
 			armor.SetArmorFromPresetIndex(armorIndex);
+
+			int camouflageIndex = m_SharedPresetStore.GetCamouflageForPreset(_presetIndex);
+			UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(unit.gameObject);
+			if (materialAppearance != null)
+				materialAppearance.SetCamouflageIndex(camouflageIndex);
 		}
 	}
 
@@ -1794,6 +1936,16 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		visual.ApplyArmorVisual(armorIndex);
 		UnitArmor armor = unitRoot.GetComponent<UnitArmor>() ?? unitRoot.AddComponent<UnitArmor>();
 		armor.SetArmorFromPresetIndex(armorIndex);
+
+		int camouflageIndex = m_SharedPresetStore != null
+			? m_SharedPresetStore.GetCamouflageForPreset(m_BoundPresetState.PresetCatalogIndex)
+			: 0;
+		if (m_PresetCatalog != null)
+			camouflageIndex = m_PresetCatalog.ClampCamouflageIndex(camouflageIndex);
+
+		UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(unitRoot);
+		if (materialAppearance != null)
+			materialAppearance.SetCamouflageIndex(camouflageIndex);
 	}
 
 	private bool IsAvailableEquipmentSlot(InventorySlotView _slot)
@@ -1934,6 +2086,23 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		headSlot.Bind(this);
 		InventorySlotUiUtility.EnsureDescriptionHover(headSlotView);
+	}
+
+	private void EnsureBackEquipmentSlot()
+	{
+		if (m_PresetInventoryPanel == null || m_PresetInventoryPanel.LeadingEquipmentSlotCount <= 2)
+			return;
+
+		InventorySlotView backSlotView = InventorySlotUiUtility.GetBackEquipmentSlot(m_PresetInventoryPanel);
+		if (backSlotView == null)
+			return;
+
+		MissionPrepBackEquipmentSlotView backSlot = backSlotView.GetComponent<MissionPrepBackEquipmentSlotView>();
+		if (backSlot == null)
+			backSlot = backSlotView.gameObject.AddComponent<MissionPrepBackEquipmentSlotView>();
+
+		backSlot.Bind(this);
+		InventorySlotUiUtility.EnsureDescriptionHover(backSlotView);
 	}
 
 	private void EnsureModificationPreviewHover(InventorySlotView _slot)
@@ -3542,6 +3711,84 @@ public sealed class MissionPrepHeadEquipmentSlotView : MonoBehaviour, IDropHandl
 }
 
 /// <summary>
+/// Слот экипированного рюкзака пресета: подсветка при drag и приём сброса рюкзака.
+/// </summary>
+[DisallowMultipleComponent]
+[RequireComponent(typeof(InventorySlotView))]
+public sealed class MissionPrepBackEquipmentSlotView : MonoBehaviour, IDropHandler, IInventoryEquipmentSlotDropHandler
+{
+	#region Private Fields
+	private MissionPrepLoadoutCoordinator m_Coordinator;
+	private InventorySlotView m_Slot;
+	#endregion
+
+	#region Public Methods
+	public void Bind(MissionPrepLoadoutCoordinator _coordinator)
+	{
+		m_Coordinator = _coordinator;
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
+		if (panel != null)
+			InventorySlotUiUtility.ConfigureBackEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+
+		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
+		RefreshHighlight();
+	}
+
+	public void RefreshHighlight()
+	{
+		if (m_Slot == null)
+			m_Slot = GetComponent<InventorySlotView>();
+
+		InventorySlotUiUtility.ApplyBackEquipmentSlotHighlight(m_Slot, InventorySlotUiUtility.IsBackpackEquipDragActive());
+	}
+	#endregion
+
+	#region Event Handlers
+	public void OnDrop(PointerEventData eventData)
+	{
+		HandleEquipmentSlotDrop(eventData);
+	}
+
+	public void HandleEquipmentSlotDrop(PointerEventData eventData)
+	{
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return;
+
+		if (m_Coordinator == null)
+			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+
+		if (m_Coordinator == null || eventData?.pointerDrag == null)
+			return;
+
+		if (eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag availableDrag) &&
+		    availableDrag.IsDraggingFromAvailable)
+		{
+			if (!m_Coordinator.TryEquipAvailableSlotToBack(availableDrag.SlotView))
+				return;
+
+			availableDrag.NotifyDropAccepted();
+			return;
+		}
+
+		if (!eventData.pointerDrag.TryGetComponent(out MissionPrepPresetToAvailableDrag presetDrag) ||
+		    !presetDrag.IsDraggingFromPreset)
+			return;
+
+		if (!presetDrag.HasResolvedSlot || presetDrag.IsMainHandSlot || presetDrag.IsHeadSlot || presetDrag.IsBackSlot)
+			return;
+
+		if (!m_Coordinator.TryMovePresetBagItemToBack(presetDrag.BagIndex))
+			return;
+
+		presetDrag.NotifyDropAccepted();
+	}
+	#endregion
+}
+
+/// <summary>
 /// Drop-цель для ячейки инвентаря пресета: снятие/экипировка оружия и приём из каталога.
 /// </summary>
 [DisallowMultipleComponent]
@@ -3574,7 +3821,7 @@ public sealed class MissionPrepPresetInventorySlotDropView : MonoBehaviour, IDro
 		if (m_Coordinator == null || m_Slot == null || eventData?.pointerDrag == null)
 			return;
 
-		if (!m_Coordinator.TryResolveInventoryDropTarget(m_Slot, out bool targetIsMainHand, out bool targetIsHead, out _))
+		if (!m_Coordinator.TryResolveInventoryDropTarget(m_Slot, out bool targetIsMainHand, out bool targetIsHead, out bool targetIsBack, out _))
 			return;
 
 		if (eventData.pointerDrag.TryGetComponent(out MissionPrepAvailableToPresetDrag availableDrag) &&
@@ -3588,6 +3835,11 @@ public sealed class MissionPrepPresetInventorySlotDropView : MonoBehaviour, IDro
 			else if (targetIsHead)
 			{
 				if (m_Coordinator.TryEquipAvailableSlotToHead(availableDrag.SlotView))
+					availableDrag.NotifyDropAccepted();
+			}
+			else if (targetIsBack)
+			{
+				if (m_Coordinator.TryEquipAvailableSlotToBack(availableDrag.SlotView))
 					availableDrag.NotifyDropAccepted();
 			}
 			else if (m_Coordinator.TryAcceptAvailableDrag(availableDrag))
@@ -3616,15 +3868,28 @@ public sealed class MissionPrepPresetInventorySlotDropView : MonoBehaviour, IDro
 			return;
 		}
 
-		if (!presetDrag.IsMainHandSlot && !presetDrag.IsHeadSlot && targetIsMainHand)
+		if (presetDrag.IsBackSlot && !targetIsBack)
+		{
+			if (m_Coordinator.TryUnequipPresetBackToBag())
+				presetDrag.NotifyDropAccepted();
+			return;
+		}
+
+		if (!presetDrag.IsMainHandSlot && !presetDrag.IsHeadSlot && !presetDrag.IsBackSlot && targetIsMainHand)
 		{
 			if (m_Coordinator.TryMovePresetBagItemToMainHand(presetDrag.BagIndex))
 				presetDrag.NotifyDropAccepted();
 		}
 
-		if (!presetDrag.IsMainHandSlot && !presetDrag.IsHeadSlot && targetIsHead)
+		if (!presetDrag.IsMainHandSlot && !presetDrag.IsHeadSlot && !presetDrag.IsBackSlot && targetIsHead)
 		{
 			if (m_Coordinator.TryMovePresetBagItemToHead(presetDrag.BagIndex))
+				presetDrag.NotifyDropAccepted();
+		}
+
+		if (!presetDrag.IsMainHandSlot && !presetDrag.IsHeadSlot && !presetDrag.IsBackSlot && targetIsBack)
+		{
+			if (m_Coordinator.TryMovePresetBagItemToBack(presetDrag.BagIndex))
 				presetDrag.NotifyDropAccepted();
 		}
 	}

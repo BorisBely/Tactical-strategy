@@ -773,8 +773,19 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		out bool _isHeadEquipmentSlot,
 		out int _bagIndex)
 	{
+		return TryResolveCharacterSlot(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterSlot(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out bool _isBackEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
 		_isHeadEquipmentSlot = false;
+		_isBackEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || CharacterPanel == null || ActiveInventory == null)
@@ -792,10 +803,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
 			_isHeadEquipmentSlot = slotIndex == 1;
+			_isBackEquipmentSlot = slotIndex == 2;
 			if (_isMainHandEquipmentSlot)
 				return ActiveInventory.HasMainHandEquipment;
 			if (_isHeadEquipmentSlot)
 				return ActiveInventory.HasHeadEquipment;
+			if (_isBackEquipmentSlot)
+				return ActiveInventory.HasBackEquipment;
 			return false;
 		}
 
@@ -818,8 +832,19 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		out bool _isHeadEquipmentSlot,
 		out int _bagIndex)
 	{
+		return TryResolveCharacterDropTarget(_slot, out _isMainHandEquipmentSlot, out _isHeadEquipmentSlot, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterDropTarget(
+		InventorySlotView _slot,
+		out bool _isMainHandEquipmentSlot,
+		out bool _isHeadEquipmentSlot,
+		out bool _isBackEquipmentSlot,
+		out int _bagIndex)
+	{
 		_isMainHandEquipmentSlot = false;
 		_isHeadEquipmentSlot = false;
+		_isBackEquipmentSlot = false;
 		_bagIndex = -1;
 
 		if (_slot == null || CharacterPanel == null)
@@ -837,7 +862,8 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		{
 			_isMainHandEquipmentSlot = slotIndex == 0;
 			_isHeadEquipmentSlot = slotIndex == 1;
-			return _isMainHandEquipmentSlot || _isHeadEquipmentSlot;
+			_isBackEquipmentSlot = slotIndex == 2;
+			return _isMainHandEquipmentSlot || _isHeadEquipmentSlot || _isBackEquipmentSlot;
 		}
 
 		_bagIndex = slotIndex - lead;
@@ -856,6 +882,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		InventorySlotView headSlot = InventorySlotUiUtility.GetHeadEquipmentSlot(CharacterPanel);
 		return InventorySlotUiUtility.IsScreenPointOverHeadEquipmentSlot(
 			headSlot, _screenPosition, _eventCamera);
+	}
+
+	public bool IsScreenPointOverCharacterBackSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		InventorySlotView backSlot = InventorySlotUiUtility.GetBackEquipmentSlot(CharacterPanel);
+		return InventorySlotUiUtility.IsScreenPointOverBackEquipmentSlot(
+			backSlot, _screenPosition, _eventCamera);
 	}
 
 	public bool TryEquipWeaponDragToMainHand()
@@ -919,6 +952,43 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 					RuntimeInventoryModificationDragContext.SourceSlotView),
 			RuntimeInventoryModificationDragSourceKind.GroundHelmet =>
 				selectionManager.TryEquipGroundHelmetToHead(
+					RuntimeInventoryModificationDragContext.SourceSlotView,
+					payload.SlotIndex),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
+	}
+
+	public bool TryEquipBackpackDragToBack()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsBackpackEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack =>
+				selectionManager.TryEquipCharacterBagBackpackToBack(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundBackpack =>
+				selectionManager.TryEquipGroundBackpackToBack(
 					RuntimeInventoryModificationDragContext.SourceSlotView,
 					payload.SlotIndex),
 			_ => false
@@ -1246,6 +1316,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		EnsureMainHandEquipmentSlot();
 		EnsureHeadEquipmentSlot();
+		EnsureBackEquipmentSlot();
 		EnsureGroundPanelComponents();
 	}
 
@@ -1281,6 +1352,23 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			headSlot = headSlotView.gameObject.AddComponent<RuntimeCharacterHeadEquipmentSlotView>();
 
 		headSlot.Bind(this);
+	}
+
+	private void EnsureBackEquipmentSlot()
+	{
+		if (CharacterPanel == null || CharacterPanel.LeadingEquipmentSlotCount <= 2)
+			return;
+
+		InventorySlotView backSlotView = InventorySlotUiUtility.GetBackEquipmentSlot(CharacterPanel);
+		if (backSlotView == null)
+			return;
+
+		RuntimeCharacterBackEquipmentSlotView backSlot =
+			backSlotView.GetComponent<RuntimeCharacterBackEquipmentSlotView>();
+		if (backSlot == null)
+			backSlot = backSlotView.gameObject.AddComponent<RuntimeCharacterBackEquipmentSlotView>();
+
+		backSlot.Bind(this);
 	}
 
 	private void EnsureGroundPanelComponents()

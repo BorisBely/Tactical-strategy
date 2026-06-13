@@ -58,6 +58,7 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 
 		InventorySlotRuntimeData mainHand = default;
 		InventorySlotRuntimeData head = default;
+		InventorySlotRuntimeData back = default;
 		if (_entry.WeaponItem != null)
 		{
 			mainHand = InventorySlotRuntimeData.FromDefinition(_entry.WeaponItem);
@@ -85,6 +86,13 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 				head = headSlot;
 		}
 
+		if (_entry.BackItem != null)
+		{
+			InventorySlotRuntimeData backSlot = InventorySlotRuntimeData.FromDefinition(_entry.BackItem);
+			if (BackpackEquipUtility.CanEquipToBack(backSlot))
+				back = backSlot;
+		}
+
 		if (_entry.ExtraHeadItemsInBag != null)
 		{
 			for (int i = 0; i < _entry.ExtraHeadItemsInBag.Length; i++)
@@ -99,7 +107,7 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			}
 		}
 
-		_snapshot.ReplaceInventory(mainHand, head, bagItems);
+		_snapshot.ReplaceInventory(mainHand, head, back, bagItems);
 	}
 
 	public static bool EntryDefinesInventory(MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
@@ -111,6 +119,9 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			return true;
 
 		if (_entry.HeadItem != null)
+			return true;
+
+		if (_entry.BackItem != null)
 			return true;
 
 		if (_entry.ExtraHeadItemsInBag != null)

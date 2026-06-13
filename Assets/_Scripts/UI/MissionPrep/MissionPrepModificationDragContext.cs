@@ -11,7 +11,10 @@ public enum MissionPrepModificationDragSourceKind
 	AvailableWeapon = 6,
 	PresetBagHelmet = 7,
 	AvailableHelmet = 8,
-	PresetHeadHelmet = 9
+	PresetHeadHelmet = 9,
+	PresetBagBackpack = 10,
+	AvailableBackpack = 11,
+	PresetBackBackpack = 12
 }
 
 public readonly struct MissionPrepModificationDragPayload
@@ -20,6 +23,7 @@ public readonly struct MissionPrepModificationDragPayload
 	public readonly InventorySlotRuntimeData Item;
 	public readonly bool IsPresetMainHand;
 	public readonly bool IsPresetHead;
+	public readonly bool IsPresetBack;
 	public readonly int PresetBagIndex;
 	public readonly ItemModificationSlotDescriptor SourceSlotDescriptor;
 	public readonly bool SourceWeaponIsMainHand;
@@ -35,12 +39,14 @@ public readonly struct MissionPrepModificationDragPayload
 		ItemModificationSlotDescriptor _sourceSlotDescriptor = default,
 		bool _sourceWeaponIsMainHand = false,
 		int _sourceWeaponBagIndex = -1,
-		bool _isPresetHead = false)
+		bool _isPresetHead = false,
+		bool _isPresetBack = false)
 	{
 		SourceKind = _sourceKind;
 		Item = _item;
 		IsPresetMainHand = _isPresetMainHand;
 		IsPresetHead = _isPresetHead;
+		IsPresetBack = _isPresetBack;
 		PresetBagIndex = _presetBagIndex;
 		SourceSlotDescriptor = _sourceSlotDescriptor;
 		SourceWeaponIsMainHand = _sourceWeaponIsMainHand;
@@ -75,14 +81,20 @@ public static class MissionPrepModificationDragContext
 			_presetBagIndex: -1));
 	}
 
-	public static void BeginPreset(InventorySlotRuntimeData _item, bool _isMainHand, int _bagIndex, bool _isHead = false)
+	public static void BeginPreset(
+		InventorySlotRuntimeData _item,
+		bool _isMainHand,
+		int _bagIndex,
+		bool _isHead = false,
+		bool _isBack = false)
 	{
 		Begin(new MissionPrepModificationDragPayload(
-			ResolvePresetSourceKind(_item, _isMainHand, _isHead),
+			ResolvePresetSourceKind(_item, _isMainHand, _isHead, _isBack),
 			_item,
 			_isMainHand,
 			_bagIndex,
-			_isPresetHead: _isHead));
+			_isPresetHead: _isHead,
+			_isPresetBack: _isBack));
 	}
 
 	public static void BeginModificationSlot(
@@ -145,13 +157,17 @@ public static class MissionPrepModificationDragContext
 		if (MissionPrepHelmetEquipUtility.CanEquipToHead(_item))
 			return MissionPrepModificationDragSourceKind.AvailableHelmet;
 
+		if (MissionPrepBackpackEquipUtility.CanEquipToBack(_item))
+			return MissionPrepModificationDragSourceKind.AvailableBackpack;
+
 		return MissionPrepModificationDragSourceKind.None;
 	}
 
 	private static MissionPrepModificationDragSourceKind ResolvePresetSourceKind(
 		InventorySlotRuntimeData _item,
 		bool _isMainHand,
-		bool _isHead)
+		bool _isHead,
+		bool _isBack)
 	{
 		if (_isMainHand)
 			return MissionPrepWeaponEquipUtility.CanEquipToMainHand(_item)
@@ -163,6 +179,11 @@ public static class MissionPrepModificationDragContext
 				? MissionPrepModificationDragSourceKind.PresetHeadHelmet
 				: MissionPrepModificationDragSourceKind.None;
 
+		if (_isBack)
+			return MissionPrepBackpackEquipUtility.CanEquipToBack(_item)
+				? MissionPrepModificationDragSourceKind.PresetBackBackpack
+				: MissionPrepModificationDragSourceKind.None;
+
 		if (ItemModificationUtility.IsModificationItem(_item))
 			return MissionPrepModificationDragSourceKind.PresetBag;
 
@@ -171,6 +192,9 @@ public static class MissionPrepModificationDragContext
 
 		if (MissionPrepHelmetEquipUtility.CanEquipToHead(_item))
 			return MissionPrepModificationDragSourceKind.PresetBagHelmet;
+
+		if (MissionPrepBackpackEquipUtility.CanEquipToBack(_item))
+			return MissionPrepModificationDragSourceKind.PresetBagBackpack;
 
 		return MissionPrepModificationDragSourceKind.None;
 	}
@@ -185,6 +209,7 @@ public static class MissionPrepModificationDragContext
 			case MissionPrepModificationDragSourceKind.ModificationSlot:
 			case MissionPrepModificationDragSourceKind.PresetMainHandWeapon:
 			case MissionPrepModificationDragSourceKind.PresetHeadHelmet:
+			case MissionPrepModificationDragSourceKind.PresetBackBackpack:
 				return true;
 			case MissionPrepModificationDragSourceKind.PresetBag:
 			case MissionPrepModificationDragSourceKind.AvailableCatalog:
@@ -195,6 +220,9 @@ public static class MissionPrepModificationDragContext
 			case MissionPrepModificationDragSourceKind.PresetBagHelmet:
 			case MissionPrepModificationDragSourceKind.AvailableHelmet:
 				return MissionPrepHelmetEquipUtility.CanEquipToHead(_payload.Item);
+			case MissionPrepModificationDragSourceKind.PresetBagBackpack:
+			case MissionPrepModificationDragSourceKind.AvailableBackpack:
+				return MissionPrepBackpackEquipUtility.CanEquipToBack(_payload.Item);
 			default:
 				return false;
 		}
@@ -215,6 +243,23 @@ public static class MissionPrepHelmetEquipUtility
 	{
 		return _sourceKind == MissionPrepModificationDragSourceKind.PresetBagHelmet ||
 		       _sourceKind == MissionPrepModificationDragSourceKind.AvailableHelmet;
+	}
+	#endregion
+}
+
+/// <summary>
+/// Проверки для переноса рюкзака в слот спины пресета.
+/// </summary>
+public static class MissionPrepBackpackEquipUtility
+{
+	#region Public Methods
+	public static bool CanEquipToBack(InventorySlotRuntimeData _item) =>
+		BackpackEquipUtility.CanEquipToBack(_item);
+
+	public static bool IsBackpackEquipDragSource(MissionPrepModificationDragSourceKind _sourceKind)
+	{
+		return _sourceKind == MissionPrepModificationDragSourceKind.PresetBagBackpack ||
+		       _sourceKind == MissionPrepModificationDragSourceKind.AvailableBackpack;
 	}
 	#endregion
 }

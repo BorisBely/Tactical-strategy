@@ -23,6 +23,7 @@ public class CharacterInventory : MonoBehaviour
 	#region Private Fields
 	[SerializeField] private InventorySlotRuntimeData m_MainHandEquipment;
 	[SerializeField] private InventorySlotRuntimeData m_HeadEquipment;
+	[SerializeField] private InventorySlotRuntimeData m_BackEquipment;
 	[FormerlySerializedAs("m_Items")]
 	[SerializeField] private List<InventorySlotRuntimeData> m_BagItems = new List<InventorySlotRuntimeData>();
 	#endregion
@@ -33,14 +34,17 @@ public class CharacterInventory : MonoBehaviour
 	/// <summary>Слот основного оружия (первый на панели при LeadingEquipmentSlotCount ≥ 1).</summary>
 	public InventorySlotRuntimeData MainHandEquipment => m_MainHandEquipment;
 	public InventorySlotRuntimeData HeadEquipment => m_HeadEquipment;
+	public InventorySlotRuntimeData BackEquipment => m_BackEquipment;
 
 	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
 	public int BagCount => m_BagItems.Count;
 	public bool HasMainHandEquipment => !m_MainHandEquipment.IsEmpty;
 	public bool HasHeadEquipment => !m_HeadEquipment.IsEmpty;
+	public bool HasBackEquipment => !m_BackEquipment.IsEmpty;
 
 	/// <summary>Число предметов в сумке + занятые слоты экипировки.</summary>
-	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0) + (HasHeadEquipment ? 1 : 0);
+	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0) + (HasHeadEquipment ? 1 : 0) +
+	                             (HasBackEquipment ? 1 : 0);
 	#endregion
 
 	#region Unity Lifecycle
@@ -121,6 +125,22 @@ public class CharacterInventory : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Снять рюкзак со слота спины. Снимает и визуал с юнита.</summary>
+	public bool TryRemoveBackEquipment(out InventorySlotRuntimeData _removed)
+	{
+		if (m_BackEquipment.IsEmpty)
+		{
+			_removed = default;
+			return false;
+		}
+
+		_removed = m_BackEquipment;
+		m_BackEquipment = default;
+		ClearBackEquipmentVisual();
+		NotifyInventoryChanged();
+		return true;
+	}
+
 	/// <summary>Переместить предмет из сумки в слот головы и обновить модель на юните.</summary>
 	public bool TryMoveBagItemToHead(int _bagIndex, UnitHeadEquipment _headEquipment, UnitIndividualTraits _traits, UnitCharacterAppearance _appearance)
 	{
@@ -172,6 +192,57 @@ public class CharacterInventory : MonoBehaviour
 		m_HeadEquipment = default;
 		ClearHeadEquipmentVisual();
 		m_BagItems.Add(head);
+		NotifyInventoryChanged();
+		return true;
+	}
+
+	/// <summary>Переместить предмет из сумки в слот спины и обновить модель на юните.</summary>
+	public bool TryMoveBagItemToBack(int _bagIndex, UnitBackEquipment _backEquipment)
+	{
+		if (_backEquipment == null || _bagIndex < 0 || _bagIndex >= m_BagItems.Count)
+			return false;
+
+		InventorySlotRuntimeData picked = m_BagItems[_bagIndex];
+		if (!BackpackEquipUtility.CanEquipToBack(picked))
+			return false;
+
+		InventorySlotRuntimeData previousBack = m_BackEquipment;
+		m_BagItems.RemoveAt(_bagIndex);
+		m_BackEquipment = picked;
+
+		if (!previousBack.IsEmpty)
+			m_BagItems.Insert(_bagIndex, previousBack);
+
+		_backEquipment.TryEquip(m_BackEquipment.Definition);
+		NotifyInventoryChanged();
+		return true;
+	}
+
+	/// <summary>Экипировать рюкзак извне (земля); прежний рюкзак уходит в сумку.</summary>
+	public bool TryEquipExternalItemToBack(InventorySlotRuntimeData _item, UnitBackEquipment _backEquipment)
+	{
+		if (_backEquipment == null || !BackpackEquipUtility.CanEquipToBack(_item))
+			return false;
+
+		if (!m_BackEquipment.IsEmpty && !TryUnequipBackToBag())
+			return false;
+
+		m_BackEquipment = _item;
+		_backEquipment.TryEquip(m_BackEquipment.Definition);
+		NotifyInventoryChanged();
+		return true;
+	}
+
+	/// <summary>Снять рюкзак в сумку.</summary>
+	public bool TryUnequipBackToBag()
+	{
+		if (m_BackEquipment.IsEmpty)
+			return false;
+
+		InventorySlotRuntimeData back = m_BackEquipment;
+		m_BackEquipment = default;
+		ClearBackEquipmentVisual();
+		m_BagItems.Add(back);
 		NotifyInventoryChanged();
 		return true;
 	}
@@ -231,9 +302,11 @@ public class CharacterInventory : MonoBehaviour
 	{
 		m_MainHandEquipment = default;
 		m_HeadEquipment = default;
+		m_BackEquipment = default;
 		m_BagItems.Clear();
 		ClearUnitEquipmentVisual();
 		ClearHeadEquipmentVisual();
+		ClearBackEquipmentVisual();
 		NotifyInventoryChanged();
 	}
 
@@ -268,6 +341,16 @@ public class CharacterInventory : MonoBehaviour
 		int _bagIndex,
 		out InventorySlotRuntimeData _slot)
 	{
+		return TryGetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, false, _bagIndex, out _slot);
+	}
+
+	public bool TryGetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		bool _isBackEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _slot)
+	{
 		if (_isMainHandEquipmentSlot)
 		{
 			_slot = m_MainHandEquipment;
@@ -277,6 +360,12 @@ public class CharacterInventory : MonoBehaviour
 		if (_isHeadEquipmentSlot)
 		{
 			_slot = m_HeadEquipment;
+			return !_slot.IsEmpty;
+		}
+
+		if (_isBackEquipmentSlot)
+		{
+			_slot = m_BackEquipment;
 			return !_slot.IsEmpty;
 		}
 
@@ -298,6 +387,16 @@ public class CharacterInventory : MonoBehaviour
 	public bool TrySetInventorySlot(
 		bool _isMainHandEquipmentSlot,
 		bool _isHeadEquipmentSlot,
+		int _bagIndex,
+		InventorySlotRuntimeData _slot)
+	{
+		return TrySetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, false, _bagIndex, _slot);
+	}
+
+	public bool TrySetInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		bool _isBackEquipmentSlot,
 		int _bagIndex,
 		InventorySlotRuntimeData _slot)
 	{
@@ -323,6 +422,16 @@ public class CharacterInventory : MonoBehaviour
 			return true;
 		}
 
+		if (_isBackEquipmentSlot)
+		{
+			if (!BackpackEquipUtility.CanEquipToBack(_slot))
+				return false;
+
+			m_BackEquipment = _slot;
+			NotifyInventoryChanged();
+			return true;
+		}
+
 		if (_bagIndex < 0 || _bagIndex >= m_BagItems.Count)
 			return false;
 
@@ -342,7 +451,17 @@ public class CharacterInventory : MonoBehaviour
 		int _bagIndex,
 		out InventorySlotRuntimeData _removedSlot)
 	{
-		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, _bagIndex, out _removedSlot))
+		return TryRemoveInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, false, _bagIndex, out _removedSlot);
+	}
+
+	public bool TryRemoveInventorySlot(
+		bool _isMainHandEquipmentSlot,
+		bool _isHeadEquipmentSlot,
+		bool _isBackEquipmentSlot,
+		int _bagIndex,
+		out InventorySlotRuntimeData _removedSlot)
+	{
+		if (!TryGetInventorySlot(_isMainHandEquipmentSlot, _isHeadEquipmentSlot, _isBackEquipmentSlot, _bagIndex, out _removedSlot))
 			return false;
 
 		if (_isMainHandEquipmentSlot)
@@ -357,6 +476,14 @@ public class CharacterInventory : MonoBehaviour
 		{
 			m_HeadEquipment = default;
 			ClearHeadEquipmentVisual();
+			NotifyInventoryChanged();
+			return true;
+		}
+
+		if (_isBackEquipmentSlot)
+		{
+			m_BackEquipment = default;
+			ClearBackEquipmentVisual();
 			NotifyInventoryChanged();
 			return true;
 		}
@@ -392,6 +519,7 @@ public class CharacterInventory : MonoBehaviour
 	{
 		EnsureSlotHasInstanceState(ref m_MainHandEquipment);
 		EnsureSlotHasInstanceState(ref m_HeadEquipment);
+		EnsureSlotHasInstanceState(ref m_BackEquipment);
 
 		for (int i = 0; i < m_BagItems.Count; i++)
 		{
@@ -423,6 +551,13 @@ public class CharacterInventory : MonoBehaviour
 			headEquipment.ClearHead();
 	}
 
+	private void ClearBackEquipmentVisual()
+	{
+		UnitBackEquipment backEquipment = GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment != null)
+			backEquipment.ClearBack();
+	}
+
 	/// <summary>Вернуть предмет после неудачного выброса (спавн/панель отклонили перенос).</summary>
 	public void RestoreAfterFailedDrop(bool _toMainHand, InventorySlotRuntimeData _data)
 	{
@@ -430,6 +565,11 @@ public class CharacterInventory : MonoBehaviour
 	}
 
 	public void RestoreAfterFailedDrop(bool _toMainHand, bool _toHead, InventorySlotRuntimeData _data)
+	{
+		RestoreAfterFailedDrop(_toMainHand, _toHead, false, _data);
+	}
+
+	public void RestoreAfterFailedDrop(bool _toMainHand, bool _toHead, bool _toBack, InventorySlotRuntimeData _data)
 	{
 		if (_data.IsEmpty)
 			return;
@@ -450,6 +590,14 @@ public class CharacterInventory : MonoBehaviour
 			UnitCharacterAppearance appearance = GetComponentInChildren<UnitCharacterAppearance>(true);
 			if (headEquipment != null && _data.Definition != null)
 				headEquipment.TryEquip(_data.Definition, traits, appearance);
+			NotifyInventoryChanged();
+		}
+		else if (_toBack)
+		{
+			m_BackEquipment = _data;
+			UnitBackEquipment backEquipment = GetComponentInChildren<UnitBackEquipment>(true);
+			if (backEquipment != null && _data.Definition != null)
+				backEquipment.TryEquip(_data.Definition);
 			NotifyInventoryChanged();
 		}
 		else

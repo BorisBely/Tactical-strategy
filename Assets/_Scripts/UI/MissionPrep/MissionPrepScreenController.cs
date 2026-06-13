@@ -54,6 +54,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		{
 			m_EquipmentPanel.PresetSelected += HandlePresetSelected;
 			m_EquipmentPanel.ArmorVisualSelected += HandleArmorVisualSelected;
+			m_EquipmentPanel.CamouflageVisualSelected += HandleCamouflageVisualSelected;
 			m_EquipmentPanel.CreateNewPresetRequested += HandleCreateNewPresetRequested;
 			m_EquipmentPanel.PresetListChanged += HandlePresetListChanged;
 		}
@@ -78,6 +79,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		{
 			m_EquipmentPanel.PresetSelected -= HandlePresetSelected;
 			m_EquipmentPanel.ArmorVisualSelected -= HandleArmorVisualSelected;
+			m_EquipmentPanel.CamouflageVisualSelected -= HandleCamouflageVisualSelected;
 			m_EquipmentPanel.CreateNewPresetRequested -= HandleCreateNewPresetRequested;
 			m_EquipmentPanel.PresetListChanged -= HandlePresetListChanged;
 		}
@@ -225,6 +227,12 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	}
 
 	private void HandleArmorVisualSelected(MissionPrepUnitPresetState _state, int _armorIndex)
+	{
+		RefreshAllUnitCellPresetLabels();
+		RefreshInventoryPanel();
+	}
+
+	private void HandleCamouflageVisualSelected(MissionPrepUnitPresetState _state, int _camouflageIndex)
 	{
 		RefreshAllUnitCellPresetLabels();
 		RefreshInventoryPanel();

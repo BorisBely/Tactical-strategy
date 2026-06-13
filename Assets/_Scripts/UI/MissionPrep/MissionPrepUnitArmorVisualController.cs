@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Переключает визуал тела (лёгкая / тяжёлая броня) на префабе юнита для экрана предмиссии.
-/// По умолчанию ищет <c>SM_Chr_Soldier_Male_02</c> (лёгкая) и <c>SM_Chr_Soldier_Male_01</c> (тяжёлая).
+/// Переключает визуал тела (лёгкая / тяжёлая броня) на префабе юнита.
+/// Лёгкая: <c>Soldier_*_02</c>, тяжёлая: <c>Soldier_*_01</c> — отдельные пары для мужского и женского меша.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class MissionPrepUnitArmorVisualController : MonoBehaviour
@@ -12,13 +12,17 @@ public sealed class MissionPrepUnitArmorVisualController : MonoBehaviour
 	public const int HeavyArmorIndex = 1;
 	public const int ArmorVariantCount = 2;
 
-	private const string c_LightArmorRootName = "SM_Chr_Soldier_Male_02";
-	private const string c_HeavyArmorRootName = "SM_Chr_Soldier_Male_01";
+	private const string c_MaleLightArmorRootName = "SM_Chr_Soldier_Male_02";
+	private const string c_MaleHeavyArmorRootName = "SM_Chr_Soldier_Male_01";
+	private const string c_FemaleLightArmorRootName = "SM_Chr_Soldier_Female_02";
+	private const string c_FemaleHeavyArmorRootName = "SM_Chr_Soldier_Female_01";
 	#endregion
 
 	#region Serialized Fields
-	[SerializeField] private GameObject m_LightArmorVisualRoot;
-	[SerializeField] private GameObject m_HeavyArmorVisualRoot;
+	[SerializeField] private GameObject m_MaleLightArmorVisualRoot;
+	[SerializeField] private GameObject m_MaleHeavyArmorVisualRoot;
+	[SerializeField] private GameObject m_FemaleLightArmorVisualRoot;
+	[SerializeField] private GameObject m_FemaleHeavyArmorVisualRoot;
 	[SerializeField, Min(0)] private int m_DefaultArmorIndex = LightArmorIndex;
 	#endregion
 
@@ -45,21 +49,32 @@ public sealed class MissionPrepUnitArmorVisualController : MonoBehaviour
 
 	public void ApplyArmorVisual(int _armorIndex)
 	{
+		CharacterGender gender = ResolveGender();
+		ApplyArmorVisual(_armorIndex, gender);
+	}
+
+	public void ApplyArmorVisual(int _armorIndex, CharacterGender _gender)
+	{
 		ResolveVisualRootsIfNeeded();
 
 		int clamped = Mathf.Clamp(_armorIndex, 0, ArmorVariantCount - 1);
 		m_CurrentArmorIndex = clamped;
 
 		bool useLight = clamped == LightArmorIndex;
-		SetBodyVisualActive(m_LightArmorVisualRoot, useLight);
-		SetBodyVisualActive(m_HeavyArmorVisualRoot, !useLight);
+		bool useFemale = _gender == CharacterGender.Female;
+
+		SetBodyVisualActive(m_MaleLightArmorVisualRoot, !useFemale && useLight);
+		SetBodyVisualActive(m_MaleHeavyArmorVisualRoot, !useFemale && !useLight);
+		SetBodyVisualActive(m_FemaleLightArmorVisualRoot, useFemale && useLight);
+		SetBodyVisualActive(m_FemaleHeavyArmorVisualRoot, useFemale && !useLight);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-		if (m_LightArmorVisualRoot == null || m_HeavyArmorVisualRoot == null)
+		if (!HasResolvedPair(_gender))
 		{
 			Debug.LogWarning(
-				$"{nameof(MissionPrepUnitArmorVisualController)} on {name}: не найдены меши брони. " +
-				$"Лёгкая: '{c_LightArmorRootName}', тяжёлая: '{c_HeavyArmorRootName}'.",
+				$"{nameof(MissionPrepUnitArmorVisualController)} on {name}: не найдены меши брони для {_gender}. " +
+				$"Муж.: '{c_MaleLightArmorRootName}' / '{c_MaleHeavyArmorRootName}', " +
+				$"жен.: '{c_FemaleLightArmorRootName}' / '{c_FemaleHeavyArmorRootName}'.",
 				this);
 		}
 #endif
@@ -82,11 +97,36 @@ public sealed class MissionPrepUnitArmorVisualController : MonoBehaviour
 	#region Private Methods
 	private void ResolveVisualRootsIfNeeded()
 	{
-		if (m_LightArmorVisualRoot == null)
-			m_LightArmorVisualRoot = FindChildByName(transform, c_LightArmorRootName);
+		if (m_MaleLightArmorVisualRoot == null)
+			m_MaleLightArmorVisualRoot = FindChildByName(transform, c_MaleLightArmorRootName);
 
-		if (m_HeavyArmorVisualRoot == null)
-			m_HeavyArmorVisualRoot = FindChildByName(transform, c_HeavyArmorRootName);
+		if (m_MaleHeavyArmorVisualRoot == null)
+			m_MaleHeavyArmorVisualRoot = FindChildByName(transform, c_MaleHeavyArmorRootName);
+
+		if (m_FemaleLightArmorVisualRoot == null)
+			m_FemaleLightArmorVisualRoot = FindChildByName(transform, c_FemaleLightArmorRootName);
+
+		if (m_FemaleHeavyArmorVisualRoot == null)
+			m_FemaleHeavyArmorVisualRoot = FindChildByName(transform, c_FemaleHeavyArmorRootName);
+	}
+
+	private CharacterGender ResolveGender()
+	{
+		if (TryGetComponent(out UnitCharacterAppearance appearance) && appearance.IsGenderInitialized)
+			return appearance.Gender;
+
+		UnitCharacterAppearance childAppearance = GetComponentInChildren<UnitCharacterAppearance>(true);
+		return childAppearance != null && childAppearance.IsGenderInitialized
+			? childAppearance.Gender
+			: CharacterGender.Male;
+	}
+
+	private bool HasResolvedPair(CharacterGender _gender)
+	{
+		if (_gender == CharacterGender.Female)
+			return m_FemaleLightArmorVisualRoot != null && m_FemaleHeavyArmorVisualRoot != null;
+
+		return m_MaleLightArmorVisualRoot != null && m_MaleHeavyArmorVisualRoot != null;
 	}
 
 	private static void SetBodyVisualActive(GameObject _bodyRoot, bool _active)

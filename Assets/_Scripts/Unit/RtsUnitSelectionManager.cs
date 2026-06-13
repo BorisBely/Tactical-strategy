@@ -256,7 +256,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		out bool _isMainHand,
 		out int _bagIndex)
 	{
-		return TryResolveCharacterInventorySlot(_slot, _inventory, out _isMainHand, out bool _, out _bagIndex);
+		return TryResolveCharacterInventorySlot(_slot, _inventory, out _isMainHand, out bool _, out bool _, out _bagIndex);
 	}
 
 	public bool TryResolveCharacterInventorySlot(
@@ -266,8 +266,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		out bool _isHead,
 		out int _bagIndex)
 	{
+		return TryResolveCharacterInventorySlot(_slot, _inventory, out _isMainHand, out _isHead, out bool _, out _bagIndex);
+	}
+
+	public bool TryResolveCharacterInventorySlot(
+		InventorySlotView _slot,
+		CharacterInventory _inventory,
+		out bool _isMainHand,
+		out bool _isHead,
+		out bool _isBack,
+		out int _bagIndex)
+	{
 		_isMainHand = false;
 		_isHead = false;
+		_isBack = false;
 		_bagIndex = -1;
 
 		if (m_CharacterInventoryPanel == null || _slot == null || _inventory == null || !_slot.HasItem)
@@ -318,7 +330,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return true;
 			}
 
-			Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но поддерживаются только 0/1.");
+			if (slotIndex == 2)
+			{
+				_isBack = true;
+				if (!_inventory.HasBackEquipment)
+				{
+					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту рюкзака, но Back пуст.");
+					return false;
+				}
+
+				return true;
+			}
+
+			Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но поддерживаются только 0/1/2.");
 			return false;
 		}
 
@@ -353,6 +377,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (slot != null && HelmetEquipUtility.CanEquipToHead(slot.Data) && coordinator != null &&
 		    coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera) &&
 		    coordinator.TryEquipHelmetDragToHead())
+			return true;
+
+		if (slot != null && BackpackEquipUtility.CanEquipToBack(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverCharacterBackSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipBackpackDragToBack())
 			return true;
 
 		return TryAcceptDraggedGroundSlot(_drag, _requireActiveDrag);
@@ -394,11 +423,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return TryAcceptHeadDragToBag(_drag);
 		}
 
+		if (_drag.CapturedFromBackEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+
+			if (coordinator.IsScreenPointOverCharacterBackSlot(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptBackDragToBag(_drag);
+		}
+
 		if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
 			return coordinator.TryEquipWeaponDragToMainHand();
 
 		if (coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera))
 			return coordinator.TryEquipHelmetDragToHead();
+
+		if (coordinator.IsScreenPointOverCharacterBackSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipBackpackDragToBack();
 
 		return false;
 	}
@@ -433,6 +476,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 
 		if (!inventory.TryUnequipHeadToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	/// <summary>Снять экипированный рюкзак в сумку (drag на панель инвентаря, не на землю).</summary>
+	public bool TryAcceptBackDragToBag(InventoryCharacterToGroundDrag _drag)
+	{
+		if (_drag == null || !_drag.CapturedFromBackEquipmentSlot)
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		if (!inventory.TryUnequipBackToBag())
 			return false;
 
 		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
@@ -494,6 +556,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!inventory.TryRemoveHeadEquipment(out data))
 				return false;
 		}
+		else if (_drag.CapturedFromBackEquipmentSlot)
+		{
+			if (!inventory.TryRemoveBackEquipment(out data))
+				return false;
+		}
 		else
 		{
 			int bagIndex = _drag.CapturedBagIndex;
@@ -508,7 +575,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			data,
 			slot,
 			_drag.CapturedFromMainHandEquipmentSlot,
-			_drag.CapturedFromHeadEquipmentSlot);
+			_drag.CapturedFromHeadEquipmentSlot,
+			_drag.CapturedFromBackEquipmentSlot);
 	}
 
 	public bool TryEquipFromCharacterBagDoubleClick(InventorySlotView _slot)
@@ -527,7 +595,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		if (!TryResolveCharacterInventorySlot(_slot, inventory, out bool isMainHand, out bool isHead, out int bagIndex))
+		if (!TryResolveCharacterInventorySlot(_slot, inventory, out bool isMainHand, out bool isHead, out bool isBack, out int bagIndex))
 		{
 			Debug.Log(
 				$"{nameof(RtsUnitSelectionManager)}.{nameof(TryEquipFromCharacterBagDoubleClick)}: не удалось сопоставить слот UI с инвентарём (панель / Content / LeadingEquipmentSlotCount). Слот '{_slot.name}'.");
@@ -555,6 +623,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!inventory.TryUnequipHeadToBag())
 			{
 				Debug.Log($"{nameof(TryEquipFromCharacterBagDoubleClick)}: TryUnequipHeadToBag failed.");
+				return false;
+			}
+
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+			return true;
+		}
+
+		if (isBack)
+		{
+			if (!inventory.TryUnequipBackToBag())
+			{
+				Debug.Log($"{nameof(TryEquipFromCharacterBagDoubleClick)}: TryUnequipBackToBag failed.");
 				return false;
 			}
 
@@ -592,6 +673,32 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			UnitIndividualTraits traits = inventory.GetComponentInChildren<UnitIndividualTraits>(true);
 			UnitCharacterAppearance appearance = inventory.GetComponentInChildren<UnitCharacterAppearance>(true);
 			if (!inventory.TryMoveBagItemToHead(bagIndex, headEquipment, traits, appearance))
+				return false;
+
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+			return true;
+		}
+
+		if (BackpackEquipUtility.CanEquipToBack(data))
+		{
+			if (inventory.HasBackEquipment && inventory.BackEquipment.Definition == data.Definition)
+			{
+				if (!inventory.TryUnequipBackToBag())
+					return false;
+				inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+				RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
+				return true;
+			}
+
+			UnitBackEquipment backEquipment = inventory.GetComponentInChildren<UnitBackEquipment>(true);
+			if (backEquipment == null)
+			{
+				Debug.LogWarning($"{nameof(RtsUnitSelectionManager)}: на юните с {nameof(CharacterInventory)} нет {nameof(UnitBackEquipment)}.", this);
+				return false;
+			}
+
+			if (!inventory.TryMoveBagItemToBack(bagIndex, backEquipment))
 				return false;
 
 			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
@@ -664,6 +771,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UnitCharacterAppearance appearance = inventory.GetComponentInChildren<UnitCharacterAppearance>(true);
 
 		if (!inventory.TryMoveBagItemToHead(_bagIndex, headEquipment, traits, appearance))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	/// <summary>Экипировать рюкзак из сумки в слот спины (drag на слот экипировки).</summary>
+	public bool TryEquipCharacterBagBackpackToBack(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null || _bagIndex < 0 || _bagIndex >= inventory.BagCount)
+			return false;
+
+		UnitBackEquipment backEquipment = inventory.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+			return false;
+
+		if (!inventory.TryMoveBagItemToBack(_bagIndex, backEquipment))
 			return false;
 
 		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
@@ -762,6 +888,50 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>Экипировать рюкзак с панели земли в слот спины.</summary>
+	public bool TryEquipGroundBackpackToBack(InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		if (m_GroundPanel == null)
+			return false;
+
+		InventorySlotView slot = _slotView;
+		if ((slot == null || !slot.HasItem) && _groundSlotIndex >= 0 && _groundSlotIndex < m_GroundPanel.Slots.Count)
+			slot = m_GroundPanel.Slots[_groundSlotIndex];
+
+		if (slot == null || !slot.HasItem || !BackpackEquipUtility.CanEquipToBack(slot.Data))
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		UnitBackEquipment backEquipment = inventory.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+			return false;
+
+		if (!slot.TryTakeItem(out InventorySlotRuntimeData taken))
+			return false;
+
+		InventorySlotRuntimeData forEquip = taken;
+		forEquip.WorldSource = null;
+
+		if (!inventory.TryEquipExternalItemToBack(forEquip, backEquipment))
+		{
+			slot.SetItem(taken);
+			if (taken.WorldSource != null)
+				taken.WorldSource.ApplyInventorySlotData(taken);
+			return false;
+		}
+
+		if (taken.WorldSource != null)
+			taken.WorldSource.OnTransferredToCharacterInventory();
+
+		m_GroundPanel.NotifyGroundSlotItemTakenAway(slot);
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
 	/// <summary>Двойной клик по оружию на панели земли — экипировка в основную руку.</summary>
 	public bool TryEquipFromGroundDoubleClick(InventorySlotView _slot)
 	{
@@ -771,7 +941,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_slot.GetComponentInParent<InventoryPanelView>() != m_GroundPanel)
 			return false;
 
-		if (!TryEquipGroundWeaponToMainHand(_slot) && !TryEquipGroundHelmetToHead(_slot))
+		if (!TryEquipGroundWeaponToMainHand(_slot) && !TryEquipGroundHelmetToHead(_slot) &&
+		    !TryEquipGroundBackpackToBack(_slot))
 			return false;
 
 		RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
@@ -1415,11 +1586,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		InventorySlotRuntimeData _data,
 		InventorySlotView _adoptExistingSlotOrNull,
 		bool _removedFromMainHandSlot,
-		bool _removedFromHeadSlot = false)
+		bool _removedFromHeadSlot = false,
+		bool _removedFromBackSlot = false)
 	{
 		if (!TryBuildGroundSlotData(_inventory, _data, out InventorySlotRuntimeData groundData, out WorldPickupItem spawned))
 		{
-			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
 			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 			return false;
 		}
@@ -1429,7 +1601,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			if (!m_GroundPanel.AdoptDraggedSlot(_adoptExistingSlotOrNull))
 			{
-				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
+				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
 				_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 				if (spawned != null)
 					Destroy(spawned.gameObject);
@@ -1444,7 +1616,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (!placed)
 		{
-			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _data);
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
 			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 			if (spawned != null)
 				Destroy(spawned.gameObject);

@@ -66,6 +66,14 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 			: MissionPrepUnitArmorVisualController.LightArmorIndex;
 	}
 
+	public int GetCamouflageForPreset(int _presetIndex)
+	{
+		MissionPrepSharedPresetStore store = ResolveStore();
+		return store != null
+			? store.GetCamouflageForPreset(_presetIndex)
+			: 0;
+	}
+
 	public void SetArmorOnActivePreset(int _armorIndex)
 	{
 		MissionPrepSharedPresetStore store = ResolveStore();
@@ -75,6 +83,13 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 	public void SetArmorVisualIndex(int _index) => SetArmorOnActivePreset(_index);
 
 	public void SetArmorForActivePreset(int _armorIndex) => SetArmorOnActivePreset(_armorIndex);
+
+	public void SetCamouflageOnActivePreset(int _camouflageIndex)
+	{
+		ResolveStore()?.SetCamouflageForPreset(m_PresetCatalogIndex, _camouflageIndex);
+	}
+
+	public void SetCamouflageForActivePreset(int _camouflageIndex) => SetCamouflageOnActivePreset(_camouflageIndex);
 
 	public void EnsurePresetSnapshots(int _presetCount)
 	{

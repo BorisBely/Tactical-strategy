@@ -18,7 +18,9 @@ public enum EquipmentSlotType
 	/// <summary>Основное оружие.</summary>
 	MainHand = 1,
 	/// <summary>Шлем / голова.</summary>
-	Head = 2
+	Head = 2,
+	/// <summary>Рюкзак / спина.</summary>
+	Back = 3
 }
 
 /// <summary>
@@ -39,7 +41,8 @@ public enum EquipmentKind
 {
 	Weapon = 0,
 	Other = 1,
-	Helmet = 2
+	Helmet = 2,
+	Backpack = 3
 }
 
 /// <summary>

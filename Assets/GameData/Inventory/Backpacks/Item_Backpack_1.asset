@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Backpack_1
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.backpack.1
+  m_Description: 
+  m_Icon: {fileID: 0}
+  m_BasePrice: 100
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 7130429662053524580, guid: 170aae062ea802446abcf7b05b1ec7ae, type: 3}
+  m_EquippedVisualPrefab: {fileID: 2114999290215747139, guid: ec9de389d2df490429b6acf822798086, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 3
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 20
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}

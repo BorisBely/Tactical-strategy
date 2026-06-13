@@ -2,11 +2,15 @@ using UnityEngine;
 
 /// <summary>
 /// Внешний вид тела юнита: пол для gender-specific декора экипировки.
-/// На старте всегда Male; SetGender — для ручной смены позже.
+/// При спавне пол бросается через <see cref="RollInitialGender"/>; SetGender — для ручной смены позже.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class UnitCharacterAppearance : MonoBehaviour
 {
+	#region Constants
+	public const float DefaultFemaleSpawnChance = 0.25f;
+	#endregion
+
 	#region Serialized Fields
 	[SerializeField] private CharacterGender m_Gender = CharacterGender.Male;
 	[SerializeField] private bool m_IsGenderInitialized;
@@ -17,13 +21,6 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 	public bool IsGenderInitialized => m_IsGenderInitialized;
 	#endregion
 
-	#region Unity Lifecycle
-	private void Awake()
-	{
-		EnsureDefaultMale();
-	}
-	#endregion
-
 	#region Public Methods
 	public void EnsureDefaultMale()
 	{
@@ -31,6 +28,20 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 			return;
 
 		InitializeGender(CharacterGender.Male);
+	}
+
+	/// <summary>Случайно выбрать пол при первом спавне. Повторные вызовы игнорируются.</summary>
+	public void RollInitialGender(float _femaleChance = DefaultFemaleSpawnChance)
+	{
+		if (m_IsGenderInitialized)
+			return;
+
+		float clampedChance = Mathf.Clamp01(_femaleChance);
+		CharacterGender rolledGender = UnityEngine.Random.value < clampedChance
+			? CharacterGender.Female
+			: CharacterGender.Male;
+
+		InitializeGender(rolledGender);
 	}
 
 	public void InitializeGender(CharacterGender _gender)
@@ -65,6 +76,9 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 	{
 		UnitIndividualTraits traits = GetComponentInChildren<UnitIndividualTraits>(true);
 
+		if (TryGetComponent(out MissionPrepUnitArmorVisualController armorVisual))
+			armorVisual.ApplyArmorVisual(armorVisual.CurrentArmorIndex, m_Gender);
+
 		UnitHeadEquipment headEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
 		if (headEquipment != null && headEquipment.EquippedDefinition != null)
 			headEquipment.RefreshEquippedVisual(traits, this);
@@ -76,6 +90,10 @@ public sealed class UnitCharacterAppearance : MonoBehaviour
 		UnitCharacterHeadAppearance headAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
 		if (headAppearance != null)
 			headAppearance.RefreshFromTraits(traits, this);
+
+		UnitCharacterMaterialAppearance materialAppearance = GetComponent<UnitCharacterMaterialAppearance>();
+		if (materialAppearance != null)
+			materialAppearance.ApplyCurrentVisual();
 	}
 	#endregion
 }

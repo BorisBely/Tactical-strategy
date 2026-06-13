@@ -15,6 +15,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	#region Events
 	public event Action<MissionPrepUnitPresetState, int> PresetSelected;
 	public event Action<MissionPrepUnitPresetState, int> ArmorVisualSelected;
+	public event Action<MissionPrepUnitPresetState, int> CamouflageVisualSelected;
 	public event Action CreateNewPresetRequested;
 	public event Action PresetListChanged;
 	#endregion
@@ -24,9 +25,10 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	[SerializeField] private MissionPrepLoadoutCoordinator m_LoadoutCoordinator;
 	[SerializeField] private TMP_Dropdown m_PresetDropdown;
 	[SerializeField] private TMP_Dropdown m_ArmorDropdown;
+	[SerializeField] private TMP_Dropdown m_CamouflageDropdown;
 	[SerializeField] private bool m_AppendCreateNewPresetEntry = true;
 
-	[Tooltip("Если Armor Dropdown пуст — ищем другой TMP_Dropdown в соседних секциях UI (UnitPreset и т.д.).")]
+	[Tooltip("Если Armor Dropdown пуст — ищем TMP_Dropdown в UnitPreset (1).")]
 	[SerializeField] private bool m_AutoResolveArmorDropdownInUi = true;
 
 	[Tooltip("Если каталог не задан — число строк-заглушек.")]
@@ -38,8 +40,10 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	private int m_LastCreateNewPresetIndex = -1;
 	private int m_PresetSlotCount;
 	private int m_ArmorOptionCount;
+	private int m_CamouflageOptionCount;
 	private bool m_SuppressPresetDropdownEvent;
 	private bool m_SuppressArmorDropdownEvent;
+	private bool m_SuppressCamouflageDropdownEvent;
 	#endregion
 
 	#region Unity Lifecycle
@@ -47,10 +51,13 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	{
 		EnsurePresetDropdownType();
 		TryResolveArmorDropdownReference();
+		TryResolveCamouflageDropdownReference();
 		PrepareDropdownCaption(m_PresetDropdown);
 		PrepareDropdownCaption(m_ArmorDropdown);
+		PrepareDropdownCaption(m_CamouflageDropdown);
 		EnsurePresetCaptionUi();
 		EnsureArmorDropdownDescriptionHover();
+		EnsureCamouflageDropdownDescriptionHover();
 		SyncPresetDropdownReferences();
 	}
 
@@ -61,6 +68,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		{
 			ApplyDropdownTextOnlyMode(m_PresetDropdown);
 			ApplyDropdownTextOnlyMode(m_ArmorDropdown);
+			ApplyDropdownTextOnlyMode(m_CamouflageDropdown);
 		}
 	}
 #endif
@@ -68,15 +76,20 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	private void OnEnable()
 	{
 		TryResolveArmorDropdownReference();
+		TryResolveCamouflageDropdownReference();
 		PrepareDropdownCaption(m_PresetDropdown);
 		PrepareDropdownCaption(m_ArmorDropdown);
+		PrepareDropdownCaption(m_CamouflageDropdown);
 		EnsureArmorDropdownDescriptionHover();
+		EnsureCamouflageDropdownDescriptionHover();
 
 		LocalizationManager.LanguageChanged += HandleLanguageChanged;
 		if (m_PresetDropdown != null)
 			m_PresetDropdown.onValueChanged.AddListener(HandlePresetDropdownValueChanged);
 		if (m_ArmorDropdown != null)
 			m_ArmorDropdown.onValueChanged.AddListener(HandleArmorDropdownValueChanged);
+		if (m_CamouflageDropdown != null)
+			m_CamouflageDropdown.onValueChanged.AddListener(HandleCamouflageDropdownValueChanged);
 
 		ResolveLoadoutCoordinatorReference();
 		if (m_LoadoutCoordinator != null)
@@ -92,6 +105,8 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			m_PresetDropdown.onValueChanged.RemoveListener(HandlePresetDropdownValueChanged);
 		if (m_ArmorDropdown != null)
 			m_ArmorDropdown.onValueChanged.RemoveListener(HandleArmorDropdownValueChanged);
+		if (m_CamouflageDropdown != null)
+			m_CamouflageDropdown.onValueChanged.RemoveListener(HandleCamouflageDropdownValueChanged);
 	}
 	#endregion
 
@@ -165,6 +180,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	{
 		RebuildPresetDropdownOptions();
 		RebuildArmorDropdownOptions();
+		RebuildCamouflageDropdownOptions();
 
 		int presetIndex = m_LoadoutCoordinator != null
 			? m_LoadoutCoordinator.EditingPresetCatalogIndex
@@ -207,8 +223,30 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			m_SuppressArmorDropdownEvent = false;
 		}
 
+		if (m_CamouflageDropdown != null)
+		{
+			int camouflageIndex = m_LoadoutCoordinator != null
+				? m_LoadoutCoordinator.GetActivePresetCamouflageIndex()
+				: m_BoundPresetState != null
+					? m_BoundPresetState.GetCamouflageForPreset(presetIndex)
+					: 0;
+
+			if (m_PresetCatalog != null)
+				camouflageIndex = m_PresetCatalog.ClampCamouflageIndex(camouflageIndex);
+			else
+				camouflageIndex = Mathf.Clamp(camouflageIndex, 0, Mathf.Max(0, m_CamouflageOptionCount - 1));
+
+			m_SuppressCamouflageDropdownEvent = true;
+			m_CamouflageDropdown.SetValueWithoutNotify(camouflageIndex);
+			m_CamouflageDropdown.RefreshShownValue();
+			m_SuppressCamouflageDropdownEvent = false;
+		}
+
 		if (m_LoadoutCoordinator == null)
+		{
 			ApplyArmorVisualForBoundUnit();
+			ApplyCamouflageVisualForBoundUnit();
+		}
 
 		PresetListChanged?.Invoke();
 	}
@@ -230,23 +268,39 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_ArmorDropdown != null || !m_AutoResolveArmorDropdownInUi || m_PresetDropdown == null)
 			return;
 
-		Transform layoutContent = transform.parent != null ? transform.parent.parent : null;
-		if (layoutContent == null)
+		m_ArmorDropdown = FindSiblingDropdownByRootName("UnitPreset (1)");
+		if (m_ArmorDropdown != null)
+			PrepareDropdownCaption(m_ArmorDropdown);
+	}
+
+	private void TryResolveCamouflageDropdownReference()
+	{
+		if (m_CamouflageDropdown != null)
 			return;
+
+		m_CamouflageDropdown = FindSiblingDropdownByRootName("UnitCamouflage");
+		if (m_CamouflageDropdown != null)
+			PrepareDropdownCaption(m_CamouflageDropdown);
+	}
+
+	private TMP_Dropdown FindSiblingDropdownByRootName(string _rootName)
+	{
+		Transform layoutContent = transform.parent != null ? transform.parent.parent : null;
+		if (layoutContent == null || string.IsNullOrEmpty(_rootName))
+			return null;
 
 		for (int i = 0; i < layoutContent.childCount; i++)
 		{
-			TMP_Dropdown[] dropdowns = layoutContent.GetChild(i).GetComponentsInChildren<TMP_Dropdown>(true);
-			for (int d = 0; d < dropdowns.Length; d++)
-			{
-				if (dropdowns[d] == null || dropdowns[d] == m_PresetDropdown)
-					continue;
+			Transform section = layoutContent.GetChild(i);
+			if (section == null || section.name != _rootName)
+				continue;
 
-				m_ArmorDropdown = dropdowns[d];
-				PrepareDropdownCaption(m_ArmorDropdown);
-				return;
-			}
+			TMP_Dropdown dropdown = section.GetComponentInChildren<TMP_Dropdown>(true);
+			if (dropdown != null && dropdown != m_PresetDropdown)
+				return dropdown;
 		}
+
+		return null;
 	}
 
 	private void RebuildPresetDropdownOptions()
@@ -338,6 +392,38 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		m_SuppressArmorDropdownEvent = false;
 	}
 
+	private void RebuildCamouflageDropdownOptions()
+	{
+		if (m_CamouflageDropdown == null)
+			return;
+
+		m_SuppressCamouflageDropdownEvent = true;
+		m_CamouflageDropdown.ClearOptions();
+
+		List<TMP_Dropdown.OptionData> options = new List<TMP_Dropdown.OptionData>();
+
+		if (m_PresetCatalog != null && m_PresetCatalog.CamouflageOptionCount > 0)
+		{
+			m_CamouflageOptionCount = m_PresetCatalog.CamouflageOptionCount;
+			for (int i = 0; i < m_PresetCatalog.CamouflageOptionCount; i++)
+				options.Add(new TMP_Dropdown.OptionData(m_PresetCatalog.GetCamouflageLabel(i)));
+		}
+		else
+		{
+			m_CamouflageOptionCount = UnitCamouflagePatternUtility.PatternCount;
+			for (int i = 0; i < m_CamouflageOptionCount; i++)
+			{
+				UnitCamouflagePattern pattern = UnitCamouflagePatternUtility.FromIndex(i);
+				options.Add(new TMP_Dropdown.OptionData(UnitCamouflagePatternUtility.GetLocalizedLabel(pattern)));
+			}
+		}
+
+		if (options.Count > 0)
+			m_CamouflageDropdown.AddOptions(options);
+
+		m_SuppressCamouflageDropdownEvent = false;
+	}
+
 	private void HandleLanguageChanged()
 	{
 		RefreshPresetEditingUi();
@@ -393,6 +479,30 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		ArmorVisualSelected?.Invoke(m_BoundPresetState, _index);
 	}
 
+	private void HandleCamouflageDropdownValueChanged(int _index)
+	{
+		if (m_SuppressCamouflageDropdownEvent)
+			return;
+
+		if (_index < 0 || _index >= m_CamouflageOptionCount)
+			return;
+
+		ResolveLoadoutCoordinatorReference();
+
+		if (m_LoadoutCoordinator != null)
+			m_LoadoutCoordinator.SetActivePresetCamouflage(_index);
+		else if (m_BoundPresetState != null)
+		{
+			m_BoundPresetState.SetCamouflageForActivePreset(_index);
+			MissionPrepLoadoutCoordinator.Instance?.PropagatePresetToAllUnitsWithCatalogIndex(
+				m_BoundPresetState.PresetCatalogIndex);
+			ApplyCamouflageVisualForBoundUnit();
+		}
+
+		RefreshPresetEditingUi();
+		CamouflageVisualSelected?.Invoke(m_BoundPresetState, _index);
+	}
+
 	private void ResolveLoadoutCoordinatorReference()
 	{
 		if (m_LoadoutCoordinator != null)
@@ -426,6 +536,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			m_BoundPresetState.SetActivePresetIndex(_presetIndex, presetCount);
 
 		ApplyArmorVisualForBoundUnit();
+		ApplyCamouflageVisualForBoundUnit();
 	}
 
 	private void ApplyActivePresetForBoundUnitWithoutCoordinator()
@@ -439,6 +550,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		m_BoundPresetState.ApplyActivePresetToRuntime(inventory);
 		ApplyArmorVisualForBoundUnit();
+		ApplyCamouflageVisualForBoundUnit();
 	}
 
 	private void ApplyArmorVisualForBoundUnit()
@@ -459,6 +571,22 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 
 		UnitArmor armor = unitRoot.GetComponent<UnitArmor>() ?? unitRoot.AddComponent<UnitArmor>();
 		armor.SetArmorFromPresetIndex(armorIndex);
+	}
+
+	private void ApplyCamouflageVisualForBoundUnit()
+	{
+		if (m_BoundPresetState == null)
+			return;
+
+		GameObject unitRoot = m_BoundPresetState.gameObject;
+		int presetIndex = m_BoundPresetState.PresetCatalogIndex;
+		int camouflageIndex = m_PresetCatalog != null
+			? m_PresetCatalog.ClampCamouflageIndex(m_BoundPresetState.GetCamouflageForPreset(presetIndex))
+			: UnitCamouflagePatternUtility.ClampIndex(m_BoundPresetState.GetCamouflageForPreset(presetIndex));
+
+		UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(unitRoot);
+		if (materialAppearance != null)
+			materialAppearance.SetCamouflageIndex(camouflageIndex);
 	}
 
 	private static void PrepareDropdownCaption(TMP_Dropdown _dropdown)
@@ -547,6 +675,19 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			hover = m_ArmorDropdown.gameObject.AddComponent<MissionPrepArmorDropdownDescriptionHover>();
 
 		hover.Bind(m_ArmorDropdown, m_PresetCatalog);
+	}
+
+	private void EnsureCamouflageDropdownDescriptionHover()
+	{
+		if (m_CamouflageDropdown == null)
+			return;
+
+		MissionPrepCamouflageDropdownDescriptionHover hover =
+			m_CamouflageDropdown.GetComponent<MissionPrepCamouflageDropdownDescriptionHover>();
+		if (hover == null)
+			hover = m_CamouflageDropdown.gameObject.AddComponent<MissionPrepCamouflageDropdownDescriptionHover>();
+
+		hover.Bind(m_CamouflageDropdown, m_PresetCatalog);
 	}
 
 	private void EnsurePresetDropdownType()

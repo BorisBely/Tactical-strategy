@@ -39,7 +39,8 @@ public sealed class InventoryGroundEquipDoubleClick : MonoBehaviour, IPointerCli
 
 		bool canEquipWeapon = WeaponEquipUtility.CanEquipToMainHand(m_Slot.Data);
 		bool canEquipHelmet = HelmetEquipUtility.CanEquipToHead(m_Slot.Data);
-		if (!canEquipWeapon && !canEquipHelmet)
+		bool canEquipBackpack = BackpackEquipUtility.CanEquipToBack(m_Slot.Data);
+		if (!canEquipWeapon && !canEquipHelmet && !canEquipBackpack)
 			return;
 
 		float now = Time.unscaledTime;

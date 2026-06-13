@@ -18,6 +18,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private CharacterInventory m_Inventory;
 	private UnitEquipment m_Equipment;
 	private UnitHeadEquipment m_HeadEquipment;
+	private UnitBackEquipment m_BackEquipment;
 	private UnitIndividualTraits m_Traits;
 	private UnitCharacterAppearance m_Appearance;
 	private UnitWeaponReadyHandsLayer m_ReadyHands;
@@ -48,9 +49,11 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_Team.SetTeam(team);
 
 		ApplyCharacterGender();
+		ApplyCharacterSkinTone();
 		EnsureIndividualTraits();
 		ApplyLoadout();
 		ApplyArmor(m_RuntimeConfig.ArmorVisualIndex);
+		ApplyCamouflage(m_RuntimeConfig.CamouflageVisualIndex);
 		RefreshHeadAppearance();
 		ApplyRoleComponents(isPlayer);
 
@@ -87,6 +90,8 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_HeadEquipment == null)
 			m_HeadEquipment = GetComponentInChildren<UnitHeadEquipment>(true);
+		if (m_BackEquipment == null)
+			m_BackEquipment = GetComponentInChildren<UnitBackEquipment>(true);
 		if (m_Traits == null)
 			m_Traits = GetComponentInChildren<UnitIndividualTraits>(true);
 		if (m_Appearance == null)
@@ -117,7 +122,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (appearance == null)
 			return;
 
-		appearance.EnsureDefaultMale();
+		appearance.RollInitialGender(m_RuntimeConfig.FemaleSpawnChance);
 		m_Appearance = appearance;
 	}
 
@@ -144,6 +149,23 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		UnitCharacterHeadAppearance headAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
 		if (headAppearance != null)
 			headAppearance.RefreshFromTraits(m_Traits, m_Appearance);
+	}
+
+	private void ApplyCharacterSkinTone()
+	{
+		UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(gameObject);
+		if (materialAppearance != null)
+			materialAppearance.RollInitialSkinTone();
+	}
+
+	private void ApplyCamouflage(int _camouflageVisualIndex)
+	{
+		UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(gameObject);
+		if (materialAppearance == null)
+			return;
+
+		int clamped = UnitCamouflagePatternUtility.ClampIndex(_camouflageVisualIndex);
+		materialAppearance.SetCamouflageIndex(clamped);
 	}
 
 	private void ApplyArmor(int _armorVisualIndex)
@@ -210,6 +232,13 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			InventorySlotRuntimeData headSlot = InventorySlotRuntimeData.FromDefinition(loadout.HeadItem);
 			if (HelmetEquipUtility.CanEquipToHead(headSlot))
 				m_Inventory.RestoreAfterFailedDrop(false, true, headSlot);
+		}
+
+		if (loadout.BackItem != null)
+		{
+			InventorySlotRuntimeData backSlot = InventorySlotRuntimeData.FromDefinition(loadout.BackItem);
+			if (BackpackEquipUtility.CanEquipToBack(backSlot))
+				m_Inventory.RestoreAfterFailedDrop(false, false, true, backSlot);
 		}
 
 		for (int i = 0; i < bagSlots.Count; i++)

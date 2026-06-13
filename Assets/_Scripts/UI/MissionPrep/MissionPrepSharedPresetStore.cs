@@ -93,6 +93,20 @@ public sealed class MissionPrepSharedPresetStore : MonoBehaviour
 		m_PresetSnapshots[_presetIndex].SetArmorVisualIndex(_armorIndex);
 	}
 
+	public int GetCamouflageForPreset(int _presetIndex)
+	{
+		if (_presetIndex < 0 || _presetIndex >= m_PresetSnapshots.Count || m_PresetSnapshots[_presetIndex] == null)
+			return 0;
+
+		return m_PresetSnapshots[_presetIndex].CamouflageIndex;
+	}
+
+	public void SetCamouflageForPreset(int _presetIndex, int _camouflageIndex)
+	{
+		EnsureSnapshotExists(_presetIndex);
+		m_PresetSnapshots[_presetIndex].SetCamouflageIndex(_camouflageIndex);
+	}
+
 	public void EnsurePresetSnapshots(int _presetCount)
 	{
 		int count = Mathf.Max(1, _presetCount);

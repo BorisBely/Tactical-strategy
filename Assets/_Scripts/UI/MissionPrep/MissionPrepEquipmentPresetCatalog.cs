@@ -20,6 +20,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		[Header("Стартовый инвентарь")]
 		[SerializeField] private ItemDefinition m_WeaponItem;
 		[SerializeField] private ItemDefinition m_HeadItem;
+		[SerializeField] private ItemDefinition m_BackItem;
 		[SerializeField] private ItemDefinition[] m_ExtraHeadItemsInBag = Array.Empty<ItemDefinition>();
 		[SerializeField] private ItemDefinition m_MagazineItem;
 		[SerializeField] private AmmoDefinition m_AmmoForMagazine;
@@ -37,6 +38,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		public int DefaultArmorVisualIndex => m_DefaultArmorVisualIndex;
 		public ItemDefinition WeaponItem => m_WeaponItem;
 		public ItemDefinition HeadItem => m_HeadItem;
+		public ItemDefinition BackItem => m_BackItem;
 		public ItemDefinition[] ExtraHeadItemsInBag => m_ExtraHeadItemsInBag;
 		public ItemDefinition MagazineItem => m_MagazineItem;
 		public AmmoDefinition AmmoForMagazine => m_AmmoForMagazine;
@@ -79,11 +81,21 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		new PresetEntry("Light armor", "mission_prep.equipment.armor.light"),
 		new PresetEntry("Heavy armor", "mission_prep.equipment.armor.heavy")
 	};
+
+	[Header("Дропдаун камуфляжа")]
+	[SerializeField] private PresetEntry[] m_CamouflageOptions =
+	{
+		new PresetEntry("Desert", "mission_prep.equipment.camouflage.desert"),
+		new PresetEntry("Urban", "mission_prep.equipment.camouflage.urban"),
+		new PresetEntry("Forest", "mission_prep.equipment.camouflage.forest"),
+		new PresetEntry("Jungle", "mission_prep.equipment.camouflage.jungle")
+	};
 	#endregion
 
 	#region Public Properties
 	public int PresetCount => m_Presets != null ? m_Presets.Length : 0;
 	public int ArmorOptionCount => m_ArmorOptions != null ? m_ArmorOptions.Length : 0;
+	public int CamouflageOptionCount => m_CamouflageOptions != null ? m_CamouflageOptions.Length : 0;
 	#endregion
 
 	#region Public Methods
@@ -117,6 +129,22 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 			return 0;
 
 		return Mathf.Clamp(_index, 0, ArmorOptionCount - 1);
+	}
+
+	public string GetCamouflageLabel(int _index)
+	{
+		if (m_CamouflageOptions == null || _index < 0 || _index >= m_CamouflageOptions.Length || m_CamouflageOptions[_index] == null)
+			return string.Empty;
+
+		return m_CamouflageOptions[_index].GetLocalizedLabel();
+	}
+
+	public int ClampCamouflageIndex(int _index)
+	{
+		if (CamouflageOptionCount <= 0)
+			return 0;
+
+		return Mathf.Clamp(_index, 0, CamouflageOptionCount - 1);
 	}
 
 	public PresetEntry GetPresetEntry(int _index)

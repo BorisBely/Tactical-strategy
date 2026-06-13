@@ -8,6 +8,7 @@ public static class InventoryEquipmentEquipHoverContext
 	#region Private Fields
 	private static InventorySlotRuntimeData s_HoveredHelmet;
 	private static InventorySlotRuntimeData s_HoveredWeapon;
+	private static InventorySlotRuntimeData s_HoveredBackpack;
 	#endregion
 
 	#region Events
@@ -20,6 +21,9 @@ public static class InventoryEquipmentEquipHoverContext
 
 	public static bool HasActiveWeaponEquipHover =>
 		!s_HoveredWeapon.IsEmpty && WeaponEquipUtility.CanEquipToMainHand(s_HoveredWeapon);
+
+	public static bool HasActiveBackpackEquipHover =>
+		!s_HoveredBackpack.IsEmpty && BackpackEquipUtility.CanEquipToBack(s_HoveredBackpack);
 	#endregion
 
 	#region Public Methods
@@ -53,6 +57,21 @@ public static class InventoryEquipmentEquipHoverContext
 		Changed?.Invoke();
 	}
 
+	public static void SetHoveredBackpack(InventorySlotRuntimeData _item)
+	{
+		if (_item.IsEmpty || !BackpackEquipUtility.CanEquipToBack(_item))
+		{
+			ClearHoveredBackpack(_item);
+			return;
+		}
+
+		if (!s_HoveredBackpack.IsEmpty && s_HoveredBackpack.Definition == _item.Definition)
+			return;
+
+		s_HoveredBackpack = _item;
+		Changed?.Invoke();
+	}
+
 	public static void ClearHoveredHelmet(InventorySlotRuntimeData _item)
 	{
 		if (s_HoveredHelmet.IsEmpty)
@@ -77,11 +96,24 @@ public static class InventoryEquipmentEquipHoverContext
 		Changed?.Invoke();
 	}
 
+	public static void ClearHoveredBackpack(InventorySlotRuntimeData _item)
+	{
+		if (s_HoveredBackpack.IsEmpty)
+			return;
+
+		if (!_item.IsEmpty && !s_HoveredBackpack.IsEmpty && s_HoveredBackpack.Definition != _item.Definition)
+			return;
+
+		s_HoveredBackpack = default;
+		Changed?.Invoke();
+	}
+
 	public static void ClearAll()
 	{
-		bool hadHover = HasActiveHelmetEquipHover || HasActiveWeaponEquipHover;
+		bool hadHover = HasActiveHelmetEquipHover || HasActiveWeaponEquipHover || HasActiveBackpackEquipHover;
 		s_HoveredHelmet = default;
 		s_HoveredWeapon = default;
+		s_HoveredBackpack = default;
 
 		if (hadHover)
 			Changed?.Invoke();

@@ -107,6 +107,15 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 			if (selectionManager.CharacterInventoryPanel != null)
 				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.CharacterInventoryPanel);
 		}
+		else if (BackpackEquipUtility.CanEquipToBack(m_Slot.Data))
+		{
+			RuntimeInventoryModificationDragContext.BeginGround(
+				m_Slot.Data,
+				m_GroundPanel.GetInventorySlotListIndex(m_Slot),
+				m_Slot);
+			if (selectionManager.CharacterInventoryPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.CharacterInventoryPanel);
+		}
 
 		m_GroundContentParent = transform.parent;
 		m_GroundSiblingIndex = transform.GetSiblingIndex();
@@ -164,6 +173,13 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 			         coordinator.IsScreenPointOverCharacterHeadSlot(eventData.position, eventCamera))
 			{
 				m_DropAccepted = coordinator.TryEquipHelmetDragToHead();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (coordinator != null &&
+			         coordinator.IsScreenPointOverCharacterBackSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipBackpackDragToBack();
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}

@@ -686,6 +686,38 @@
       "value": "Protects against bullets and provides additional shrapnel protection."
     },
     {
+      "key": "mission_prep.equipment.camouflage.desert",
+      "value": "Desert"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.desert.description",
+      "value": "Sandy palette for open desert terrain."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.urban",
+      "value": "Urban"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.urban.description",
+      "value": "Gray palette for city streets and concrete."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.forest",
+      "value": "Forest"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.forest.description",
+      "value": "Green-gray palette for forest terrain."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.jungle",
+      "value": "Jungle"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.jungle.description",
+      "value": "Deep green palette for jungle vegetation."
+    },
+    {
       "key": "armor.status.light",
       "value": "Light armor"
     },
@@ -768,6 +800,14 @@
     {
       "key": "weapon.mod_slot.empty",
       "value": "Empty"
+    },
+    {
+      "key": "item.backpack.1",
+      "value": "Backpack"
+    },
+    {
+      "key": "item.backpack.2",
+      "value": "Small Backpack"
     }
   ]
 }

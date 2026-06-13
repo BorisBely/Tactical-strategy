@@ -49,6 +49,10 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Шанс поглощения пули при попадании в голову (0–1). Без HP у шлема.")]
 	[SerializeField, Range(0f, 1f)] private float m_HeadBulletBlockChance;
 
+	[Header("Рюкзак (Equipment, Kind = Backpack)")]
+	[Tooltip("Заготовка под будущую вместимость рюкзака. Пока не влияет на размер сумки.")]
+	[SerializeField, Min(0)] private int m_BackpackCapacity;
+
 	[Header("Оружие (Equipment, Kind = Weapon)")]
 	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
 	[SerializeField] private WeaponType m_WeaponType = WeaponType.Primary;
@@ -90,6 +94,7 @@ public class ItemDefinition : ScriptableObject
 			return m_EquipmentKind switch
 			{
 				EquipmentKind.Helmet => EquipmentSlotType.Head,
+				EquipmentKind.Backpack => EquipmentSlotType.Back,
 				_ => EquipmentSlotType.MainHand
 			};
 		}
@@ -113,6 +118,7 @@ public class ItemDefinition : ScriptableObject
 	public GrenadeType GrenadeType => m_GrenadeType;
 	public GameObject AttachedBodyVisualPrefab => m_AttachedBodyVisualPrefab;
 	public bool IsGrenade => m_Category == ItemCategory.General && m_GrenadeType != GrenadeType.Unknown;
+	public int BackpackCapacity => m_BackpackCapacity;
 
 	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>
 	public float GetHeadBulletBlockChance()

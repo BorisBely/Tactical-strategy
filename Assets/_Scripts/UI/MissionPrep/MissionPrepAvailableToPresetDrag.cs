@@ -181,6 +181,8 @@ public sealed class MissionPrepAvailableToPresetDrag : MonoBehaviour, IBeginDrag
 				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToMainHand(m_Slot);
 			else if (m_Coordinator.IsScreenPointOverPresetHeadSlot(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToHead(m_Slot);
+			else if (m_Coordinator.IsScreenPointOverPresetBackSlot(eventData.position, cam))
+				m_DropAccepted = m_Coordinator.TryEquipAvailableSlotToBack(m_Slot);
 			else if (m_Coordinator.IsScreenPointOverPresetInventoryPanel(eventData.position, cam))
 				m_DropAccepted = m_Coordinator.TryTransferAvailableSlotToPreset(m_Slot);
 		}

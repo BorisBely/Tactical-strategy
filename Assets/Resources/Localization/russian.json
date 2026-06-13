@@ -842,6 +842,38 @@
       "value": "Защищает от пуль и имеет дополнительную защиту от осколков."
     },
     {
+      "key": "mission_prep.equipment.camouflage.desert",
+      "value": "Пустынный"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.desert.description",
+      "value": "Песчаная палитра для открытой пустыни."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.urban",
+      "value": "Городской"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.urban.description",
+      "value": "Серая палитра для улиц и бетонных кварталов."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.forest",
+      "value": "Лесной"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.forest.description",
+      "value": "Серо-зелёная палитра для лесной местности."
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.jungle",
+      "value": "Джунгли"
+    },
+    {
+      "key": "mission_prep.equipment.camouflage.jungle.description",
+      "value": "Насыщенно-зелёная палитра для джунглей."
+    },
+    {
       "key": "armor.status.light",
       "value": "Лёгкая броня"
     },
@@ -924,6 +956,14 @@
     {
       "key": "weapon.mod_slot.empty",
       "value": "Пусто"
+    },
+    {
+      "key": "item.backpack.1",
+      "value": "Рюкзак"
+    },
+    {
+      "key": "item.backpack.2",
+      "value": "Небольшой рюкзак"
     }
   ]
 }
