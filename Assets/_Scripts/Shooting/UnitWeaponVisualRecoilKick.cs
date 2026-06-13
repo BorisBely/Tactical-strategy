@@ -17,6 +17,7 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
+	[SerializeField] private UnitRagdollController m_RagdollController;
 	[Tooltip("Редко: явная цель kick. Иначе — Visual Recoil Kick Pivot на EquippedWeapon, иначе корень оружия целиком.")]
 	[SerializeField] private Transform m_KickTransformOverride;
 
@@ -62,6 +63,8 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
+		if (m_RagdollController == null)
+			m_RagdollController = GetComponent<UnitRagdollController>();
 	}
 
 	private void OnEnable()
@@ -89,6 +92,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
+			return;
+
 		if (m_KickTarget == null)
 			return;
 

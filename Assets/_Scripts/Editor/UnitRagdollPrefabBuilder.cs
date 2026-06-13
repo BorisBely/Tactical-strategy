@@ -324,6 +324,7 @@ public static class UnitRagdollPrefabBuilder
 		Rigidbody ownBody = _joint.GetComponent<Rigidbody>();
 		float ownMass = ownBody != null ? ownBody.mass : 1f;
 		_joint.connectedMassScale = Mathf.Max(0.5f, ownMass / Mathf.Max(0.01f, _connectedBody.mass));
+		_joint.axis = ResolveTwistAxis(_jointProfile);
 		_joint.swingAxis = ResolveSwingAxis(_jointProfile);
 
 		ResolveJointLimits(_jointProfile, out float lowTwist, out float highTwist, out float swing1, out float swing2);
@@ -335,7 +336,24 @@ public static class UnitRagdollPrefabBuilder
 
 	private static SoftJointLimit CreateLimit(float _limit)
 	{
-		return new SoftJointLimit { limit = _limit };
+		return new SoftJointLimit
+		{
+			limit = _limit,
+			bounciness = 0f,
+			contactDistance = 2f
+		};
+	}
+
+	private static Vector3 ResolveTwistAxis(JointProfile _jointProfile)
+	{
+		switch (_jointProfile)
+		{
+			case JointProfile.Elbow:
+			case JointProfile.Knee:
+				return Vector3.forward;
+			default:
+				return Vector3.right;
+		}
 	}
 
 	private static Vector3 ResolveSwingAxis(JointProfile _jointProfile)
@@ -344,7 +362,7 @@ public static class UnitRagdollPrefabBuilder
 		{
 			case JointProfile.Elbow:
 			case JointProfile.Knee:
-				return Vector3.right;
+				return Vector3.up;
 			default:
 				return Vector3.forward;
 		}
@@ -360,59 +378,59 @@ public static class UnitRagdollPrefabBuilder
 		switch (_jointProfile)
 		{
 			case JointProfile.Spine:
-				_lowTwist = -12f;
-				_highTwist = 12f;
-				_swing1 = 16f;
-				_swing2 = 10f;
+				_lowTwist = -8f;
+				_highTwist = 8f;
+				_swing1 = 10f;
+				_swing2 = 8f;
 				return;
 
 			case JointProfile.Neck:
-				_lowTwist = -8f;
-				_highTwist = 8f;
-				_swing1 = 12f;
-				_swing2 = 8f;
-				return;
-
-			case JointProfile.Head:
-				_lowTwist = -12f;
-				_highTwist = 12f;
-				_swing1 = 16f;
+				_lowTwist = -10f;
+				_highTwist = 10f;
+				_swing1 = 14f;
 				_swing2 = 10f;
 				return;
 
-			case JointProfile.Shoulder:
-				_lowTwist = -45f;
-				_highTwist = 45f;
-				_swing1 = 70f;
-				_swing2 = 45f;
-				return;
-
-			case JointProfile.Elbow:
+			case JointProfile.Head:
 				_lowTwist = -8f;
 				_highTwist = 8f;
-				_swing1 = 55f;
+				_swing1 = 10f;
 				_swing2 = 8f;
 				return;
 
+			case JointProfile.Shoulder:
+				_lowTwist = -35f;
+				_highTwist = 35f;
+				_swing1 = 55f;
+				_swing2 = 35f;
+				return;
+
+			case JointProfile.Elbow:
+				_lowTwist = -5f;
+				_highTwist = 115f;
+				_swing1 = 4f;
+				_swing2 = 4f;
+				return;
+
 			case JointProfile.Hand:
-				_lowTwist = -20f;
-				_highTwist = 20f;
-				_swing1 = 35f;
-				_swing2 = 20f;
+				_lowTwist = -15f;
+				_highTwist = 15f;
+				_swing1 = 20f;
+				_swing2 = 15f;
 				return;
 
 			case JointProfile.HipLeg:
-				_lowTwist = -25f;
-				_highTwist = 25f;
-				_swing1 = 45f;
-				_swing2 = 30f;
+				_lowTwist = -20f;
+				_highTwist = 20f;
+				_swing1 = 40f;
+				_swing2 = 25f;
 				return;
 
 			case JointProfile.Knee:
-				_lowTwist = -6f;
-				_highTwist = 6f;
-				_swing1 = 55f;
-				_swing2 = 6f;
+				_lowTwist = -5f;
+				_highTwist = 125f;
+				_swing1 = 3f;
+				_swing2 = 3f;
 				return;
 
 			default:
@@ -504,6 +522,9 @@ public static class UnitRagdollPrefabBuilder
 		so.FindProperty("m_SleepLinearSpeed").floatValue = 0.12f;
 		so.FindProperty("m_SleepAngularSpeed").floatValue = 0.25f;
 		so.FindProperty("m_MakeKinematicWhenSettled").boolValue = true;
+		so.FindProperty("m_WeaponDropSideOffset").floatValue = 0.18f;
+		so.FindProperty("m_WeaponDropDownOffset").floatValue = 0.05f;
+		so.FindProperty("m_WeaponDropImpulse").floatValue = 0.45f;
 		so.ApplyModifiedPropertiesWithoutUndo();
 	}
 

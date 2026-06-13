@@ -52,6 +52,12 @@ public sealed class UnitRagdollController : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_SleepLinearSpeed = 0.12f;
 	[SerializeField, Min(0f)] private float m_SleepAngularSpeed = 0.25f;
 	[SerializeField] private bool m_MakeKinematicWhenSettled = true;
+
+	[Header("Weapon During Ragdoll")]
+	[SerializeField] private UnitEquipment m_UnitEquipment;
+	[SerializeField, Min(0f)] private float m_WeaponDropSideOffset = 0.18f;
+	[SerializeField, Min(0f)] private float m_WeaponDropDownOffset = 0.05f;
+	[SerializeField, Min(0f)] private float m_WeaponDropImpulse = 0.45f;
 	#endregion
 
 	#region Private Fields
@@ -64,10 +70,19 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private bool m_IsRagdollSettled;
 	private float m_RagdollActivatedAt;
 	private float m_SettleCandidateStartedAt = -1f;
+	private UnitWeaponAiming m_WeaponAiming;
+	private UnitWeaponVisualRecoilKick m_WeaponVisualRecoilKick;
+	private AnimatorHandIk m_HandIk;
+	private bool m_WeaponAimingWasEnabled;
+	private bool m_WeaponVisualRecoilKickWasEnabled;
+	private bool m_HandIkWasEnabled;
+	private bool m_WeaponDetachedOnKnockout;
 	#endregion
 
 	#region Public Properties
 	public bool IsRagdollActive => m_IsRagdollActive;
+	public bool IsRagdollSettled => m_IsRagdollSettled;
+	public bool ShouldBlockWeaponPoseScripts => m_IsRagdollActive;
 	public Transform RootBone => m_RootBone != null ? m_RootBone : transform;
 	#endregion
 
@@ -184,11 +199,14 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 		if (_active)
 		{
+			FreezeWeaponControl();
 			if (_applyImpulseOnActivate)
 				ApplyImpulse(_impulse);
 		}
 		else
 		{
+			RestoreWeaponToHand();
+			m_WeaponDetachedOnKnockout = false;
 			AlignRootToRagdollPose();
 			RestoreInitialPose();
 		}
@@ -226,6 +244,7 @@ public sealed class UnitRagdollController : MonoBehaviour
 			m_NavMeshAgent = GetComponent<NavMeshAgent>();
 		if (m_RootBone == null)
 			m_RootBone = FindChildTransformByName(transform, "Hips") ?? transform;
+		ResolveWeaponControlComponents();
 
 		m_Rigidbodies.Clear();
 		m_CombatColliders.Clear();
@@ -481,6 +500,94 @@ public sealed class UnitRagdollController : MonoBehaviour
 		}
 
 		m_IsRagdollSettled = true;
+	}
+
+	private void FreezeWeaponControl()
+	{
+		ResolveWeaponControlComponents();
+		DropWeaponOnKnockout();
+
+		if (m_WeaponAiming != null)
+		{
+			m_WeaponAimingWasEnabled = m_WeaponAiming.enabled;
+			m_WeaponAiming.enabled = false;
+		}
+
+		if (m_WeaponVisualRecoilKick != null)
+		{
+			m_WeaponVisualRecoilKickWasEnabled = m_WeaponVisualRecoilKick.enabled;
+			m_WeaponVisualRecoilKick.enabled = false;
+		}
+
+		if (m_HandIk != null)
+		{
+			m_HandIkWasEnabled = m_HandIk.enabled;
+			m_HandIk.enabled = false;
+		}
+	}
+
+	private void DropWeaponOnKnockout()
+	{
+		if (m_WeaponDetachedOnKnockout)
+			return;
+
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponent<UnitEquipment>();
+		if (m_UnitEquipment == null || m_UnitEquipment.MainWeaponRoot == null)
+			return;
+
+		Vector3 position;
+		Quaternion rotation;
+		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
+		position = weaponRoot.position;
+		rotation = weaponRoot.rotation;
+
+		Vector3 side = transform.right;
+		side.y = 0f;
+		if (side.sqrMagnitude < 0.0001f)
+			side = transform.right;
+		side.Normalize();
+
+		position += side * m_WeaponDropSideOffset;
+		position += Vector3.down * m_WeaponDropDownOffset;
+
+		Vector3 dropImpulse = side * m_WeaponDropImpulse + Vector3.down * (m_WeaponDropImpulse * 0.35f);
+		if (m_UnitEquipment.TryDetachMainWeaponToWorld(position, rotation, dropImpulse))
+			m_WeaponDetachedOnKnockout = true;
+	}
+
+	private void RestoreWeaponToHand()
+	{
+		ResolveWeaponControlComponents();
+
+		if (m_WeaponDetachedOnKnockout && m_UnitEquipment != null)
+			m_UnitEquipment.RestoreDetachedMainWeaponToHand();
+
+		RestoreWeaponControlComponents();
+	}
+
+	private void ResolveWeaponControlComponents()
+	{
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponent<UnitEquipment>();
+		if (m_WeaponAiming == null)
+			m_WeaponAiming = GetComponent<UnitWeaponAiming>();
+		if (m_WeaponVisualRecoilKick == null)
+			m_WeaponVisualRecoilKick = GetComponent<UnitWeaponVisualRecoilKick>();
+		if (m_HandIk == null)
+			m_HandIk = GetComponentInChildren<AnimatorHandIk>(true);
+	}
+
+	private void RestoreWeaponControlComponents()
+	{
+		if (m_WeaponAiming != null)
+			m_WeaponAiming.enabled = m_WeaponAimingWasEnabled;
+
+		if (m_WeaponVisualRecoilKick != null)
+			m_WeaponVisualRecoilKick.enabled = m_WeaponVisualRecoilKickWasEnabled;
+
+		if (m_HandIk != null)
+			m_HandIk.enabled = m_HandIkWasEnabled;
 	}
 
 	private void IgnoreRagdollSelfCollision()

@@ -28,6 +28,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitRagdollController m_RagdollController;
 
 	[Header("Условия прицела")]
 	[Tooltip("Только при «готов» и видимой цели; иначе AimPitch и слой в ноль.")]
@@ -131,6 +132,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_RagdollController == null)
+			m_RagdollController = GetComponent<UnitRagdollController>();
 
 		ResolveAimLayerIndices();
 	}
@@ -161,6 +164,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private void Update()
 	{
+		if (IsBlockedByRagdoll())
+			return;
+
 		if (m_UnitEquipment == null || m_Animator == null)
 			return;
 
@@ -180,6 +186,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		if (IsBlockedByRagdoll())
+			return;
+
 		if (m_UnitEquipment == null || m_UnitForwardSource == null)
 			return;
 
@@ -209,6 +218,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private bool IsBlockedByRagdoll()
+	{
+		return m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts;
+	}
+
 	private bool ShouldApplyWeaponLocalOnlyForAim()
 	{
 		if (!m_RequireReadyAndTarget)
