@@ -25,6 +25,9 @@ public class InventoryPanelView : MonoBehaviour
 	[Tooltip("Применяется при создании ячейки в RepaintFromCharacterInventory / RepaintFromPresetSnapshot.")]
 	[SerializeField] private InventoryEquipmentSlotAppearance m_EquipmentSlotAppearance = new InventoryEquipmentSlotAppearance();
 
+	[Header("Прокрутка")]
+	[SerializeField, Range(5f, 80f)] private float m_ScrollSensitivity = 25f;
+
 	[Header("Связи Canvas (опционально)")]
 	[Tooltip("Для панели инвентаря персонажа: зона drag-and-drop с «земли». Заполняется на общем Canvas.")]
 	[SerializeField] private InventoryCharacterBagDropZone m_CharacterBagDropZone;
@@ -61,6 +64,7 @@ public class InventoryPanelView : MonoBehaviour
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		ApplyScrollSensitivity();
 		RefreshSlotsFromHierarchy();
 		if (m_CharacterBagDropZone != null)
 			m_CharacterBagDropZone.BindBagPanel(this);
@@ -461,6 +465,14 @@ public class InventoryPanelView : MonoBehaviour
 			InventorySlotUiUtility.ConfigureBackEquipmentSlot(created, m_EquipmentSlotAppearance);
 
 		return created;
+	}
+
+	private void ApplyScrollSensitivity()
+	{
+		if (!TryGetComponent(out ScrollRect scrollRect))
+			return;
+
+		scrollRect.scrollSensitivity = m_ScrollSensitivity;
 	}
 	#endregion
 }

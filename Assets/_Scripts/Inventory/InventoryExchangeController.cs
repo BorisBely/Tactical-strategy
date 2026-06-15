@@ -99,6 +99,7 @@ public sealed class InventoryExchangeController
 			RefreshPartnerPanel();
 		}
 
+		bindings.RefreshExchangePartnerUi();
 		return true;
 	}
 
@@ -182,6 +183,7 @@ public sealed class InventoryExchangeController
 		if (bindings != null)
 		{
 			RestoreGroundTitle(bindings);
+			bindings.HideExchangePartnerUi();
 			if (bindings.IsInventoryOpen)
 				bindings.RefreshGroundPanelForActiveCharacter();
 		}

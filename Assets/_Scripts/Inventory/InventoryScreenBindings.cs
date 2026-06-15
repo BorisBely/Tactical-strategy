@@ -27,6 +27,9 @@ public class InventoryScreenBindings : MonoBehaviour
 	[SerializeField] private HealthStatusSlotView m_HealthStatusSlotPrefab;
 	[Header("Список юнита")]
 	[SerializeField] private InventoryUnitListPresenter m_UnitListPresenter;
+	[Header("Обмен — партнёр")]
+	[SerializeField] private InventoryUnitListPresenter m_ExchangeUnitListPresenter;
+	[SerializeField] private HealthStatusPanelView m_ExchangeHealthStatusPanel;
 	#endregion
 
 	#region Static Access
@@ -39,6 +42,8 @@ public class InventoryScreenBindings : MonoBehaviour
 	private bool m_PendingActiveCharacterPanelRefresh;
 	private UnitHealth m_SubscribedUnitHealth;
 	private UnitArmor m_SubscribedUnitArmor;
+	private UnitHealth m_SubscribedPartnerHealth;
+	private UnitArmor m_SubscribedPartnerArmor;
 	#endregion
 
 	#region Public Properties
@@ -77,6 +82,9 @@ public class InventoryScreenBindings : MonoBehaviour
 			m_HealthStatusPanel.gameObject.SetActive(false);
 		if (m_HealthStatusSlotPrefab != null && m_HealthStatusPanel != null)
 			m_HealthStatusPanel.SetRuntimeSlotPrefab(m_HealthStatusSlotPrefab);
+		if (m_HealthStatusSlotPrefab != null && m_ExchangeHealthStatusPanel != null)
+			m_ExchangeHealthStatusPanel.SetRuntimeSlotPrefab(m_HealthStatusSlotPrefab);
+		HideExchangePartnerUi();
 		EnsureRuntimeModificationCoordinator();
 		SetInventoryTitleVisible(IsInventoryOpen);
 	}
@@ -122,6 +130,8 @@ public class InventoryScreenBindings : MonoBehaviour
 		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
 		UnsubscribeFromActiveUnitHealth();
 		UnsubscribeFromActiveUnitArmor();
+		UnsubscribeFromPartnerUnitHealth();
+		UnsubscribeFromPartnerUnitArmor();
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -167,6 +177,8 @@ public class InventoryScreenBindings : MonoBehaviour
 		}
 
 		RefreshHealthUi();
+		if (IsInventoryOpen)
+			RefreshExchangePartnerUi();
 	}
 
 	public void RefreshActiveCharacterPanel()
@@ -199,6 +211,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		RefreshGroundPanelForActiveCharacter();
 		RefreshInventoryUnitList();
 		RefreshHealthUi();
+		RefreshExchangePartnerUi();
 	}
 
 	/// <summary>Перестроить панель «земля» по <see cref="InventoryPickupZone"/> активного юнита.</summary>
@@ -256,7 +269,34 @@ public class InventoryScreenBindings : MonoBehaviour
 			m_UnitListPresenter?.Clear();
 			if (m_HealthStatusPanel != null)
 				m_HealthStatusPanel.gameObject.SetActive(false);
+			HideExchangePartnerUi();
 		}
+	}
+
+	public void RefreshExchangePartnerUi()
+	{
+		bool exchangeActive = InventoryExchangeController.Instance.IsActive;
+		SetExchangePartnerUiVisible(exchangeActive);
+		if (!exchangeActive)
+		{
+			ClearExchangePartnerUi();
+			return;
+		}
+
+		CharacterInventory partnerInventory = InventoryExchangeController.Instance.PartnerInventory;
+		m_ExchangeUnitListPresenter?.RefreshForInventory(partnerInventory);
+		SubscribeToPartnerUnitHealth();
+		SubscribeToPartnerUnitArmor();
+		RefreshExchangePartnerHealthUi();
+		RefreshExchangePartnerUnitHealthSummary();
+	}
+
+	public void HideExchangePartnerUi()
+	{
+		UnsubscribeFromPartnerUnitHealth();
+		UnsubscribeFromPartnerUnitArmor();
+		SetExchangePartnerUiVisible(false);
+		ClearExchangePartnerUi();
 	}
 
 	public void RefreshHealthUi()
@@ -312,6 +352,61 @@ public class InventoryScreenBindings : MonoBehaviour
 			return;
 
 		m_UnitListPresenter.RefreshStatusSummaryForActiveCell();
+	}
+
+	private void RefreshExchangePartnerUnitHealthSummary()
+	{
+		if (m_ExchangeUnitListPresenter == null)
+			return;
+
+		m_ExchangeUnitListPresenter.RefreshStatusSummaryForActiveCell();
+	}
+
+	private void RefreshExchangePartnerHealthUi()
+	{
+		if (m_ExchangeHealthStatusPanel == null)
+			return;
+
+		m_ExchangeHealthStatusPanel.ClearAllSlots();
+
+		UnitHealth health = ResolvePartnerUnitHealth();
+		bool hasInjuries = health != null && health.HasInjuries;
+		bool showHealthPanel = hasInjuries && InventoryExchangeController.Instance.IsActive && IsInventoryOpen;
+		m_ExchangeHealthStatusPanel.gameObject.SetActive(showHealthPanel);
+
+		if (!showHealthPanel)
+		{
+			m_ExchangeHealthStatusPanel.RebuildContentLayout();
+			return;
+		}
+
+		if (health != null)
+		{
+			IReadOnlyList<InjuryUiEntry> injuries = health.GetSortedInjuryEntries();
+			for (int i = 0; i < injuries.Count; i++)
+				m_ExchangeHealthStatusPanel.TryAdd(injuries[i].ToEntryData());
+		}
+
+		m_ExchangeHealthStatusPanel.RebuildContentLayout();
+	}
+
+	private void ClearExchangePartnerUi()
+	{
+		m_ExchangeUnitListPresenter?.Clear();
+		if (m_ExchangeHealthStatusPanel != null)
+		{
+			m_ExchangeHealthStatusPanel.ClearAllSlots();
+			m_ExchangeHealthStatusPanel.RebuildContentLayout();
+		}
+	}
+
+	private void SetExchangePartnerUiVisible(bool _visible)
+	{
+		if (m_ExchangeUnitListPresenter != null)
+			m_ExchangeUnitListPresenter.gameObject.SetActive(_visible);
+
+		if (!_visible && m_ExchangeHealthStatusPanel != null)
+			m_ExchangeHealthStatusPanel.gameObject.SetActive(false);
 	}
 
 	private void RefreshLocalizedTexts()
@@ -372,6 +467,85 @@ public class InventoryScreenBindings : MonoBehaviour
 	private void HandleActiveUnitArmorChanged()
 	{
 		RefreshInventoryUnitHealthSummary();
+	}
+
+	private void SubscribeToPartnerUnitHealth()
+	{
+		UnitHealth health = ResolvePartnerUnitHealth();
+		if (health == m_SubscribedPartnerHealth)
+			return;
+
+		UnsubscribeFromPartnerUnitHealth();
+		m_SubscribedPartnerHealth = health;
+		if (m_SubscribedPartnerHealth != null)
+			m_SubscribedPartnerHealth.Changed += HandlePartnerUnitHealthChanged;
+	}
+
+	private void UnsubscribeFromPartnerUnitHealth()
+	{
+		if (m_SubscribedPartnerHealth == null)
+			return;
+
+		m_SubscribedPartnerHealth.Changed -= HandlePartnerUnitHealthChanged;
+		m_SubscribedPartnerHealth = null;
+	}
+
+	private void HandlePartnerUnitHealthChanged()
+	{
+		RefreshExchangePartnerHealthUi();
+		RefreshExchangePartnerUnitHealthSummary();
+	}
+
+	private void SubscribeToPartnerUnitArmor()
+	{
+		UnitArmor armor = ResolvePartnerUnitArmor();
+		if (armor == m_SubscribedPartnerArmor)
+			return;
+
+		UnsubscribeFromPartnerUnitArmor();
+		m_SubscribedPartnerArmor = armor;
+		if (m_SubscribedPartnerArmor != null)
+			m_SubscribedPartnerArmor.Changed += HandlePartnerUnitArmorChanged;
+	}
+
+	private void UnsubscribeFromPartnerUnitArmor()
+	{
+		if (m_SubscribedPartnerArmor == null)
+			return;
+
+		m_SubscribedPartnerArmor.Changed -= HandlePartnerUnitArmorChanged;
+		m_SubscribedPartnerArmor = null;
+	}
+
+	private void HandlePartnerUnitArmorChanged()
+	{
+		RefreshExchangePartnerUnitHealthSummary();
+	}
+
+	private UnitHealth ResolvePartnerUnitHealth()
+	{
+		CharacterInventory inventory = InventoryExchangeController.Instance.PartnerInventory;
+		if (inventory == null)
+			return null;
+
+		RtsUnitMember member = inventory.GetComponentInParent<RtsUnitMember>(true);
+		if (member != null && member.TryGetComponent(out UnitHealth health))
+			return health;
+
+		return inventory.GetComponentInParent<UnitHealth>(true);
+	}
+
+	private UnitArmor ResolvePartnerUnitArmor()
+	{
+		CharacterInventory inventory = InventoryExchangeController.Instance.PartnerInventory;
+		if (inventory == null)
+			return null;
+
+		RtsUnitMember member = inventory.GetComponentInParent<RtsUnitMember>(true);
+		if (member != null && member.TryGetComponent(out UnitArmor armor))
+			return armor;
+
+		return inventory.GetComponentInParent<UnitArmor>(true);
 	}
 
 	private UnitHealth ResolveActiveUnitHealth()

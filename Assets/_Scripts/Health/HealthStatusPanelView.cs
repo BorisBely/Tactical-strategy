@@ -9,6 +9,7 @@ public sealed class HealthStatusPanelView : MonoBehaviour
 	[SerializeField] private Transform m_SlotsContainer;
 	[SerializeField] private HealthStatusSlotView m_SlotPrefab;
 	[SerializeField] private bool m_DestroySpawnedSlotsOnClearAll = true;
+	[SerializeField, Range(5f, 80f)] private float m_ScrollSensitivity = 25f;
 	#endregion
 
 	#region Private Fields
@@ -19,6 +20,7 @@ public sealed class HealthStatusPanelView : MonoBehaviour
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		ApplyScrollSensitivity();
 		RefreshSlotsFromHierarchy();
 	}
 	#endregion
@@ -117,6 +119,14 @@ public sealed class HealthStatusPanelView : MonoBehaviour
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
 		return created;
+	}
+
+	private void ApplyScrollSensitivity()
+	{
+		if (!TryGetComponent(out ScrollRect scrollRect))
+			return;
+
+		scrollRect.scrollSensitivity = m_ScrollSensitivity;
 	}
 	#endregion
 }
