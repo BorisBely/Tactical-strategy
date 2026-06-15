@@ -21,6 +21,7 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 	private InventoryPanelView m_GroundPanel;
 	private Transform m_GroundContentParent;
 	private int m_GroundSiblingIndex;
+	private int m_CapturedGroundSlotIndex = -1;
 	private bool m_Dragging;
 	private bool m_DropAccepted;
 	private Vector2 m_DragOffsetLocal;
@@ -31,6 +32,8 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 	public InventorySlotView SlotView => m_Slot;
 	/// <summary>Для координатора: drag начался и ещё не завершён EndDrag.</summary>
 	public bool WasDraggingThisFrame => m_Dragging;
+	/// <summary>Индекс ячейки на панели «земля» / «Найдено» до DetachSlotForDrag.</summary>
+	public int CapturedGroundSlotIndex => m_CapturedGroundSlotIndex;
 	#endregion
 
 	#region Unity Lifecycle
@@ -86,6 +89,8 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		m_RootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
 		if (m_RootCanvas == null)
 			return;
+
+		m_CapturedGroundSlotIndex = m_GroundPanel.GetInventorySlotListIndex(m_Slot);
 
 		if (ItemModificationUtility.IsModificationItem(m_Slot.Data))
 			RuntimeInventoryModificationCoordinator.Instance?.TryBeginModificationDragFromGroundSlot(m_Slot);
@@ -143,6 +148,9 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 		if (coordinator?.CharacterPanel != null)
 			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.CharacterPanel);
+
+		if (InventoryExchangeController.Instance.IsActive && coordinator?.GroundPanel != null)
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.GroundPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -162,6 +170,8 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 
 		if (!wasModificationDropConsumed && !m_DropAccepted && wasDragging)
 		{
+			bool exchangeActive = InventoryExchangeController.Instance.IsActive;
+
 			if (coordinator != null &&
 			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, eventCamera))
 			{
@@ -183,10 +193,39 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}
+			else if (exchangeActive && coordinator != null &&
+			         coordinator.IsScreenPointOverPartnerMainHandSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipWeaponDragToPartnerMainHand();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && coordinator != null &&
+			         coordinator.IsScreenPointOverPartnerHeadSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipHelmetDragToPartnerHead();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && coordinator != null &&
+			         coordinator.IsScreenPointOverPartnerBackSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipBackpackDragToPartnerBack();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
 			else if (!m_DropAccepted && selectionManager != null && coordinator != null &&
 			         coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
 			{
 				m_DropAccepted = selectionManager.TryRouteGroundDragOnCharacterPanel(
+					this, eventData.position, eventCamera, _requireActiveDrag: false);
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (!m_DropAccepted && exchangeActive && selectionManager != null && coordinator != null &&
+			         coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera))
+			{
+				m_DropAccepted = selectionManager.TryRouteGroundDragOnPartnerPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
@@ -217,6 +256,7 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		m_ModDragAttachment = null;
 		m_DropAccepted = false;
 		m_GroundContentParent = null;
+		m_CapturedGroundSlotIndex = -1;
 		RuntimeInventoryModificationDragContext.ResetAfterDrag();
 	}
 	#endregion

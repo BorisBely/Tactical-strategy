@@ -47,6 +47,7 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 		DestroySpawnedInstances();
 		SpawnEntry(m_PlayerSpawn);
 		SpawnEntry(m_EnemySpawn);
+		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
 	}
 	#endregion
 

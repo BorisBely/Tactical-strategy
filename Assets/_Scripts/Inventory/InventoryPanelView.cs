@@ -51,6 +51,13 @@ public class InventoryPanelView : MonoBehaviour
 	public Transform SlotsContainerTransform => m_SlotsContainer;
 	#endregion
 
+	#region Runtime Configuration
+	public void SetLeadingEquipmentSlotCount(int _count)
+	{
+		m_LeadingEquipmentSlotCount = Mathf.Max(0, _count);
+	}
+	#endregion
+
 	#region Unity Lifecycle
 	private void Awake()
 	{

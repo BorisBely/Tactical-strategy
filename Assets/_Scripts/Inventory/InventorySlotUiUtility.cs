@@ -311,6 +311,9 @@ public static class InventorySlotUiUtility
 
 	private static bool IsWeaponEquipDragFromPayload()
 	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsWeaponEquipDragSource(runtimePayload.SourceKind) &&
 		    WeaponEquipUtility.CanEquipToMainHand(runtimePayload.Item))
@@ -323,6 +326,9 @@ public static class InventorySlotUiUtility
 
 	private static bool IsHelmetEquipDragFromPayload()
 	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsHelmetEquipDragSource(runtimePayload.SourceKind) &&
 		    HelmetEquipUtility.CanEquipToHead(runtimePayload.Item))
@@ -335,6 +341,9 @@ public static class InventorySlotUiUtility
 
 	private static bool IsBackpackEquipDragFromPayload()
 	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
+			return false;
+
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsBackpackEquipDragSource(runtimePayload.SourceKind) &&
 		    BackpackEquipUtility.CanEquipToBack(runtimePayload.Item))

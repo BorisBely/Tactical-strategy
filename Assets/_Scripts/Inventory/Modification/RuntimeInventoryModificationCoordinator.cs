@@ -891,6 +891,39 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			backSlot, _screenPosition, _eventCamera);
 	}
 
+	public bool IsScreenPointOverPartnerMainHandSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		if (!InventoryExchangeController.Instance.IsActive || GroundPanel == null ||
+		    GroundPanel.LeadingEquipmentSlotCount <= 0)
+			return false;
+
+		InventorySlotView mainHandSlot = InventorySlotUiUtility.GetMainHandEquipmentSlot(GroundPanel);
+		return InventorySlotUiUtility.IsScreenPointOverMainHandEquipmentSlot(
+			mainHandSlot, _screenPosition, _eventCamera);
+	}
+
+	public bool IsScreenPointOverPartnerHeadSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		if (!InventoryExchangeController.Instance.IsActive || GroundPanel == null ||
+		    GroundPanel.LeadingEquipmentSlotCount <= 1)
+			return false;
+
+		InventorySlotView headSlot = InventorySlotUiUtility.GetHeadEquipmentSlot(GroundPanel);
+		return InventorySlotUiUtility.IsScreenPointOverHeadEquipmentSlot(
+			headSlot, _screenPosition, _eventCamera);
+	}
+
+	public bool IsScreenPointOverPartnerBackSlot(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		if (!InventoryExchangeController.Instance.IsActive || GroundPanel == null ||
+		    GroundPanel.LeadingEquipmentSlotCount <= 2)
+			return false;
+
+		InventorySlotView backSlot = InventorySlotUiUtility.GetBackEquipmentSlot(GroundPanel);
+		return InventorySlotUiUtility.IsScreenPointOverBackEquipmentSlot(
+			backSlot, _screenPosition, _eventCamera);
+	}
+
 	public bool TryEquipWeaponDragToMainHand()
 	{
 		if (RuntimeInventoryModificationDragContext.WasDropConsumed)
@@ -1000,6 +1033,187 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
 		return true;
+	}
+
+	public bool TryEquipWeaponDragToPartnerMainHand()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed || !InventoryExchangeController.Instance.IsActive)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsWeaponEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon =>
+				selectionManager.TryEquipPlayerBagWeaponToPartnerMainHand(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.CharacterMainHand =>
+				selectionManager.TryEquipPlayerMainHandToPartnerMainHand(
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundWeapon =>
+				selectionManager.TryEquipPartnerBagWeaponToPartnerMainHand(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
+	}
+
+	public bool TryEquipHelmetDragToPartnerHead()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed || !InventoryExchangeController.Instance.IsActive)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsHelmetEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet =>
+				selectionManager.TryEquipPlayerBagHelmetToPartnerHead(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet =>
+				selectionManager.TryEquipPlayerHeadToPartnerHead(
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundHelmet =>
+				selectionManager.TryEquipPartnerBagHelmetToPartnerHead(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
+	}
+
+	public bool TryEquipBackpackDragToPartnerBack()
+	{
+		if (RuntimeInventoryModificationDragContext.WasDropConsumed || !InventoryExchangeController.Instance.IsActive)
+			return false;
+
+		RuntimeInventoryModificationDragPayload payload = RuntimeInventoryModificationDragContext.Current;
+		if (!RuntimeInventoryModificationDragContext.IsBackpackEquipDragSource(payload.SourceKind))
+			return false;
+
+		RtsUnitSelectionManager selectionManager = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.SelectionManager
+			: null;
+
+		if (selectionManager == null)
+			return false;
+
+		bool success = payload.SourceKind switch
+		{
+			RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack =>
+				selectionManager.TryEquipPlayerBagBackpackToPartnerBack(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack =>
+				selectionManager.TryEquipPlayerBackToPartnerBack(
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			RuntimeInventoryModificationDragSourceKind.GroundBackpack =>
+				selectionManager.TryEquipPartnerBagBackpackToPartnerBack(
+					payload.SlotIndex,
+					RuntimeInventoryModificationDragContext.SourceSlotView),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		ClearModificationUiSelection();
+		return true;
+	}
+
+	public void EnsurePartnerPanelEquipmentSlots()
+	{
+		if (!InventoryExchangeController.Instance.IsActive || GroundPanel == null)
+			return;
+
+		EnsurePartnerMainHandEquipmentSlot();
+		EnsurePartnerHeadEquipmentSlot();
+		EnsurePartnerBackEquipmentSlot();
+	}
+
+	private void EnsurePartnerMainHandEquipmentSlot()
+	{
+		if (GroundPanel == null || GroundPanel.LeadingEquipmentSlotCount <= 0)
+			return;
+
+		IReadOnlyList<InventorySlotView> slots = GroundPanel.Slots;
+		if (slots.Count == 0 || slots[0] == null)
+			return;
+
+		RuntimePartnerMainHandEquipmentSlotView mainHandSlot =
+			slots[0].GetComponent<RuntimePartnerMainHandEquipmentSlotView>();
+		if (mainHandSlot == null)
+			mainHandSlot = slots[0].gameObject.AddComponent<RuntimePartnerMainHandEquipmentSlotView>();
+
+		mainHandSlot.Bind(this);
+	}
+
+	private void EnsurePartnerHeadEquipmentSlot()
+	{
+		if (GroundPanel == null || GroundPanel.LeadingEquipmentSlotCount <= 1)
+			return;
+
+		InventorySlotView headSlotView = InventorySlotUiUtility.GetHeadEquipmentSlot(GroundPanel);
+		if (headSlotView == null)
+			return;
+
+		RuntimePartnerHeadEquipmentSlotView headSlot =
+			headSlotView.GetComponent<RuntimePartnerHeadEquipmentSlotView>();
+		if (headSlot == null)
+			headSlot = headSlotView.gameObject.AddComponent<RuntimePartnerHeadEquipmentSlotView>();
+
+		headSlot.Bind(this);
+	}
+
+	private void EnsurePartnerBackEquipmentSlot()
+	{
+		if (GroundPanel == null || GroundPanel.LeadingEquipmentSlotCount <= 2)
+			return;
+
+		InventorySlotView backSlotView = InventorySlotUiUtility.GetBackEquipmentSlot(GroundPanel);
+		if (backSlotView == null)
+			return;
+
+		RuntimePartnerBackEquipmentSlotView backSlot =
+			backSlotView.GetComponent<RuntimePartnerBackEquipmentSlotView>();
+		if (backSlot == null)
+			backSlot = backSlotView.gameObject.AddComponent<RuntimePartnerBackEquipmentSlotView>();
+
+		backSlot.Bind(this);
 	}
 
 
@@ -1481,7 +1695,10 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		if (GroundPanel != null)
+		{
 			RuntimeInlineModificationBuilder.RefreshHighlights(GroundPanel);
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(GroundPanel);
+		}
 
 		RefreshModificationCompatibilityHighlights();
 	}
@@ -2184,15 +2401,28 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	private void HandleModificationDragContextChanged()
 	{
-		RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
-		RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(CharacterPanel);
+		RefreshCharacterAndGroundEquipmentHighlights();
 		RefreshModificationCompatibilityHighlights();
 	}
 
 	private void HandleEquipmentEquipHoverChanged()
 	{
+		RefreshCharacterAndGroundEquipmentHighlights();
+	}
+
+	private void RefreshCharacterAndGroundEquipmentHighlights()
+	{
 		if (CharacterPanel != null)
+		{
+			RuntimeInlineModificationBuilder.RefreshHighlights(CharacterPanel);
 			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(CharacterPanel);
+		}
+
+		if (GroundPanel != null)
+		{
+			RuntimeInlineModificationBuilder.RefreshHighlights(GroundPanel);
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(GroundPanel);
+		}
 	}
 
 	private IEnumerator CoRefreshInlineModificationRowsNextFrame()

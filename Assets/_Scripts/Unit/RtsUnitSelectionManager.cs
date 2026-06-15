@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -40,8 +41,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_IsDraggingSelection;
 	private bool m_LeftMouseStartedOverUi;
 	private float m_LastRightClickTime = -1f;
+	private Coroutine m_ExchangeApproachCoroutine;
+	private RtsUnitMember m_PendingExchangePlayerUnit;
+	private RtsUnitMember m_PendingExchangePartnerUnit;
 	private static RtsUnitSelectionManager s_Instance;
 	private static GUIStyle s_RtsHintsGuiStyle;
+	private static GUIStyle s_TransientMessageGuiStyle;
+	private static string s_TransientMessage;
+	private static float s_TransientMessageUntilUnscaledTime = -1f;
 	#endregion
 
 	#region Public Properties
@@ -49,6 +56,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public int SelectedUnitCount => m_SelectedUnits != null ? m_SelectedUnits.Count : 0;
 	public InventoryPanelView GroundPanel => m_GroundPanel;
 	public InventoryPanelView CharacterInventoryPanel => m_CharacterInventoryPanel;
+	public bool IsExchangeActive => InventoryExchangeController.Instance.IsActive;
+	public bool HasPendingExchangeApproach =>
+		m_PendingExchangePlayerUnit != null && m_PendingExchangePartnerUnit != null;
 	#endregion
 
 	#region Public Methods
@@ -86,16 +96,33 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		if (FallenUnitInteractionMenuController.Instance != null)
+			FallenUnitInteractionMenuController.Instance.ActionClicked -= HandleFallenUnitMenuAction;
+
 		if (s_Instance == this)
 			s_Instance = null;
 	}
 
 	private void Start()
 	{
+		FallenUnitInteractionMenuController.Instance.ActionClicked += HandleFallenUnitMenuAction;
+
 		if (m_SelectFirstPlayerUnitOnStart)
+		{
 			TrySelectFirstPlayerUnit();
+			StartCoroutine(CoEnsurePlayerUnitSelectedAfterSpawn());
+		}
 		else
 			SyncActiveInventoryToSelection();
+	}
+
+	/// <summary>Повторный выбор после спавна юнитов (если <see cref="Start"/> отработал раньше спавнера).</summary>
+	public void EnsurePlayerUnitSelected()
+	{
+		if (SelectedUnitCount > 0)
+			return;
+
+		TrySelectFirstPlayerUnit();
 	}
 
 	private void Update()
@@ -118,6 +145,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		DrawRtsControlHintsIfAnySelection();
+		DrawTransientMessageIfAny();
 	}
 	#endregion
 
@@ -277,84 +305,84 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		out bool _isBack,
 		out int _bagIndex)
 	{
+		return TryResolveInventorySlotOnPanel(
+			_slot,
+			m_CharacterInventoryPanel,
+			_inventory,
+			out _isMainHand,
+			out _isHead,
+			out _isBack,
+			out _bagIndex);
+	}
+
+	public bool TryResolvePartnerInventorySlot(
+		InventorySlotView _slot,
+		CharacterInventory _inventory,
+		out bool _isMainHand,
+		out bool _isHead,
+		out bool _isBack,
+		out int _bagIndex)
+	{
+		return TryResolveInventorySlotOnPanel(
+			_slot,
+			m_GroundPanel,
+			_inventory,
+			out _isMainHand,
+			out _isHead,
+			out _isBack,
+			out _bagIndex);
+	}
+
+	public bool TryResolveInventorySlotOnPanel(
+		InventorySlotView _slot,
+		InventoryPanelView _panel,
+		CharacterInventory _inventory,
+		out bool _isMainHand,
+		out bool _isHead,
+		out bool _isBack,
+		out int _bagIndex)
+	{
 		_isMainHand = false;
 		_isHead = false;
 		_isBack = false;
 		_bagIndex = -1;
 
-		if (m_CharacterInventoryPanel == null || _slot == null || _inventory == null || !_slot.HasItem)
-		{
-			Debug.Log(
-				$"{nameof(TryResolveCharacterInventorySlot)}: fail panel={m_CharacterInventoryPanel != null}, slot={_slot != null}, inv={_inventory != null}, HasItem={_slot != null && _slot.HasItem}");
+		if (_panel == null || _slot == null || _inventory == null || !_slot.HasItem)
 			return false;
-		}
 
-		if (!IsSlotOnPanel(_slot, m_CharacterInventoryPanel))
-		{
-			Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: слот '{_slot.name}' не на CharacterInventoryPanel.");
+		if (!IsSlotOnPanel(_slot, _panel))
 			return false;
-		}
 
-		int slotIndex = m_CharacterInventoryPanel.GetInventorySlotListIndex(_slot);
+		int slotIndex = _panel.GetInventorySlotListIndex(_slot);
 		if (slotIndex < 0)
-		{
-			Debug.Log(
-				$"{nameof(TryResolveCharacterInventorySlot)}: GetInventorySlotListIndex < 0 (слот не найден среди InventorySlotView).");
 			return false;
-		}
 
-		int lead = m_CharacterInventoryPanel.LeadingEquipmentSlotCount;
+		int lead = _panel.LeadingEquipmentSlotCount;
 		if (slotIndex < lead)
 		{
 			if (slotIndex == 0)
 			{
 				_isMainHand = true;
-				if (!_inventory.HasMainHandEquipment)
-				{
-					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту оружия, но MainHand пуст.");
-					return false;
-				}
-
-				return true;
+				return _inventory.HasMainHandEquipment;
 			}
 
 			if (slotIndex == 1)
 			{
 				_isHead = true;
-				if (!_inventory.HasHeadEquipment)
-				{
-					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту шлема, но Head пуст.");
-					return false;
-				}
-
-				return true;
+				return _inventory.HasHeadEquipment;
 			}
 
 			if (slotIndex == 2)
 			{
 				_isBack = true;
-				if (!_inventory.HasBackEquipment)
-				{
-					Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: клик по слоту рюкзака, но Back пуст.");
-					return false;
-				}
-
-				return true;
+				return _inventory.HasBackEquipment;
 			}
 
-			Debug.Log($"{nameof(TryResolveCharacterInventorySlot)}: slotIndex={slotIndex} < lead={lead}, но поддерживаются только 0/1/2.");
 			return false;
 		}
 
 		_bagIndex = slotIndex - lead;
-		if (_bagIndex < 0 || _bagIndex >= _inventory.BagCount)
-		{
-			Debug.Log(
-				$"{nameof(TryResolveCharacterInventorySlot)}: несовпадение UI и данных: slotIndex={slotIndex}, lead={lead}, bagIndex={_bagIndex}, BagCount={_inventory.BagCount}. Проверь Repaint и LeadingEquipmentSlotCount.");
-			return false;
-		}
-
-		return true;
+		return _bagIndex >= 0 && _bagIndex < _inventory.BagCount;
 	}
 
 	/// <summary>С земли на панель персонажа: сначала экипировка (слот оружия), иначе — в сумку.</summary>
@@ -508,6 +536,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
 			return false;
 
+		if (IsExchangeActive)
+			return TryAcceptPartnerDragToPlayerBag(_drag, _requireActiveDrag);
+
 		CharacterInventory inventory = GetActiveInventory();
 		InventorySlotView slot = _drag.SlotView;
 		if (inventory == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
@@ -569,6 +600,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!inventory.TryRemoveBagAt(bagIndex, out data))
 				return false;
 		}
+
+		if (IsExchangeActive)
+			return TryCompleteCharacterToPartnerTransfer(
+				inventory,
+				data,
+				slot,
+				_drag.CapturedFromMainHandEquipmentSlot,
+				_drag.CapturedFromHeadEquipmentSlot,
+				_drag.CapturedFromBackEquipmentSlot);
 
 		return TryCompleteCharacterToGroundTransfer(
 			inventory,
@@ -814,6 +854,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (inventory == null || m_CharacterInventoryPanel == null)
 			return false;
 
+		if (IsExchangeActive)
+			return TryEquipPartnerItemToPlayerMainHand(slot, _slotView, _groundSlotIndex);
+
 		UnitEquipment equipment = inventory.GetComponentInChildren<UnitEquipment>(true);
 		if (equipment == null)
 			return false;
@@ -857,6 +900,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		CharacterInventory inventory = GetActiveInventory();
 		if (inventory == null || m_CharacterInventoryPanel == null)
 			return false;
+
+		if (IsExchangeActive)
+			return TryEquipPartnerItemToPlayerHead(slot, _slotView, _groundSlotIndex);
 
 		UnitHeadEquipment headEquipment = inventory.GetComponentInChildren<UnitHeadEquipment>(true);
 		if (headEquipment == null)
@@ -905,6 +951,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (inventory == null || m_CharacterInventoryPanel == null)
 			return false;
 
+		if (IsExchangeActive)
+			return TryEquipPartnerItemToPlayerBack(slot, _slotView, _groundSlotIndex);
+
 		UnitBackEquipment backEquipment = inventory.GetComponentInChildren<UnitBackEquipment>(true);
 		if (backEquipment == null)
 			return false;
@@ -948,9 +997,422 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		RuntimeInventoryModificationCoordinator.Instance?.ClearModificationUiSelection();
 		return true;
 	}
+
+	/// <summary>С панели партнёра на панель персонажа: экипировка или сумка.</summary>
+	public bool TryRouteGroundDragOnPartnerPanel(
+		InventoryGroundToCharacterDrag _drag,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		bool _requireActiveDrag = true)
+	{
+		if (!IsExchangeActive || _drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		InventorySlotView slot = _drag.SlotView;
+
+		if (slot != null && WeaponEquipUtility.CanEquipToMainHand(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverPartnerMainHandSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipWeaponDragToPartnerMainHand())
+			return true;
+
+		if (slot != null && HelmetEquipUtility.CanEquipToHead(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverPartnerHeadSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipHelmetDragToPartnerHead())
+			return true;
+
+		if (slot != null && BackpackEquipUtility.CanEquipToBack(slot.Data) && coordinator != null &&
+		    coordinator.IsScreenPointOverPartnerBackSlot(_screenPosition, _eventCamera) &&
+		    coordinator.TryEquipBackpackDragToPartnerBack())
+			return true;
+
+		return TryAcceptPartnerEquipmentDragToPartnerBag(_drag, _requireActiveDrag);
+	}
+
+	/// <summary>С панели персонажа на панель партнёра: экипировка или сумка.</summary>
+	public bool TryRouteCharacterDragOnPartnerPanel(
+		InventoryCharacterToGroundDrag _drag,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		bool _requireActiveDrag = true)
+	{
+		if (!IsExchangeActive || _drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (coordinator == null)
+			return false;
+
+		if (_drag.CapturedFromMainHandEquipmentSlot)
+		{
+			if (coordinator.IsScreenPointOverPartnerMainHandSlot(_screenPosition, _eventCamera))
+				return coordinator.TryEquipWeaponDragToPartnerMainHand();
+
+			if (!coordinator.IsScreenPointOverGroundPanel(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptPlayerMainHandDragToPartnerBag(_drag);
+		}
+
+		if (_drag.CapturedFromHeadEquipmentSlot)
+		{
+			if (coordinator.IsScreenPointOverPartnerHeadSlot(_screenPosition, _eventCamera))
+				return coordinator.TryEquipHelmetDragToPartnerHead();
+
+			if (!coordinator.IsScreenPointOverGroundPanel(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptPlayerHeadDragToPartnerBag(_drag);
+		}
+
+		if (_drag.CapturedFromBackEquipmentSlot)
+		{
+			if (coordinator.IsScreenPointOverPartnerBackSlot(_screenPosition, _eventCamera))
+				return coordinator.TryEquipBackpackDragToPartnerBack();
+
+			if (!coordinator.IsScreenPointOverGroundPanel(_screenPosition, _eventCamera))
+				return false;
+
+			return TryAcceptPlayerBackDragToPartnerBag(_drag);
+		}
+
+		if (coordinator.IsScreenPointOverPartnerMainHandSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipWeaponDragToPartnerMainHand();
+
+		if (coordinator.IsScreenPointOverPartnerHeadSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipHelmetDragToPartnerHead();
+
+		if (coordinator.IsScreenPointOverPartnerBackSlot(_screenPosition, _eventCamera))
+			return coordinator.TryEquipBackpackDragToPartnerBack();
+
+		return TryAcceptDraggedCharacterSlot(_drag);
+	}
+
+	public bool TryEquipPlayerBagWeaponToPartnerMainHand(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || m_GroundPanel == null || _bagIndex < 0 || _bagIndex >= player.BagCount)
+			return false;
+
+		UnitEquipment equipment = partner.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+			return false;
+
+		if (!player.TryRemoveBagAt(_bagIndex, out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToMainHand(picked, equipment))
+		{
+			player.TryAdd(picked);
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPlayerBagHelmetToPartnerHead(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || m_GroundPanel == null || _bagIndex < 0 || _bagIndex >= player.BagCount)
+			return false;
+
+		UnitHeadEquipment headEquipment = partner.GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment == null)
+			return false;
+
+		UnitIndividualTraits traits = partner.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = partner.GetComponentInChildren<UnitCharacterAppearance>(true);
+
+		if (!player.TryRemoveBagAt(_bagIndex, out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToHead(picked, headEquipment, traits, appearance))
+		{
+			player.TryAdd(picked);
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPlayerBagBackpackToPartnerBack(int _bagIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || m_GroundPanel == null || _bagIndex < 0 || _bagIndex >= player.BagCount)
+			return false;
+
+		UnitBackEquipment backEquipment = partner.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+			return false;
+
+		if (!player.TryRemoveBagAt(_bagIndex, out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToBack(picked, backEquipment))
+		{
+			player.TryAdd(picked);
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPlayerMainHandToPartnerMainHand(InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || !player.HasMainHandEquipment)
+			return false;
+
+		UnitEquipment equipment = partner.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+			return false;
+
+		if (!player.TryRemoveMainHandEquipment(out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToMainHand(picked, equipment))
+		{
+			player.TryEquipExternalItemToMainHand(picked, player.GetComponentInChildren<UnitEquipment>(true));
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPlayerHeadToPartnerHead(InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || !player.HasHeadEquipment)
+			return false;
+
+		UnitHeadEquipment headEquipment = partner.GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment == null)
+			return false;
+
+		UnitIndividualTraits traits = partner.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = partner.GetComponentInChildren<UnitCharacterAppearance>(true);
+
+		if (!player.TryRemoveHeadEquipment(out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToHead(picked, headEquipment, traits, appearance))
+		{
+			player.TryEquipExternalItemToHead(
+				picked,
+				player.GetComponentInChildren<UnitHeadEquipment>(true),
+				player.GetComponentInChildren<UnitIndividualTraits>(true),
+				player.GetComponentInChildren<UnitCharacterAppearance>(true));
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPlayerBackToPartnerBack(InventorySlotView _slotView)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null || !player.HasBackEquipment)
+			return false;
+
+		UnitBackEquipment backEquipment = partner.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+			return false;
+
+		if (!player.TryRemoveBackEquipment(out InventorySlotRuntimeData picked))
+			return false;
+
+		picked.WorldSource = null;
+		if (!partner.TryEquipExternalItemToBack(picked, backEquipment))
+		{
+			player.TryEquipExternalItemToBack(picked, player.GetComponentInChildren<UnitBackEquipment>(true));
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPartnerBagWeaponToPartnerMainHand(int _groundSlotIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory partner = GetPartnerInventory();
+		if (partner == null || m_GroundPanel == null)
+			return false;
+
+		if (!TryGetPartnerBagIndexFromGroundSlotIndex(_groundSlotIndex, out int bagIndex))
+			return false;
+
+		UnitEquipment equipment = partner.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+			return false;
+
+		if (!partner.TryMoveBagItemToMainHand(bagIndex, equipment))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPartnerBagHelmetToPartnerHead(int _groundSlotIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory partner = GetPartnerInventory();
+		if (partner == null || m_GroundPanel == null)
+			return false;
+
+		if (!TryGetPartnerBagIndexFromGroundSlotIndex(_groundSlotIndex, out int bagIndex))
+			return false;
+
+		UnitHeadEquipment headEquipment = partner.GetComponentInChildren<UnitHeadEquipment>(true);
+		if (headEquipment == null)
+			return false;
+
+		UnitIndividualTraits traits = partner.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = partner.GetComponentInChildren<UnitCharacterAppearance>(true);
+
+		if (!partner.TryMoveBagItemToHead(bagIndex, headEquipment, traits, appearance))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	public bool TryEquipPartnerBagBackpackToPartnerBack(int _groundSlotIndex, InventorySlotView _slotView)
+	{
+		CharacterInventory partner = GetPartnerInventory();
+		if (partner == null || m_GroundPanel == null)
+			return false;
+
+		if (!TryGetPartnerBagIndexFromGroundSlotIndex(_groundSlotIndex, out int bagIndex))
+			return false;
+
+		UnitBackEquipment backEquipment = partner.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+			return false;
+
+		if (!partner.TryMoveBagItemToBack(bagIndex, backEquipment))
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
 	#endregion
 
 	#region Private Methods
+	private void HandleFallenUnitMenuAction(FallenUnitInteractionMenuAction _action, RtsUnitMember _targetUnit)
+	{
+		if (_action != FallenUnitInteractionMenuAction.Exchange)
+			return;
+
+		if (_targetUnit == null)
+			return;
+
+		if (!TryGetControllablePlayerUnit(out RtsUnitMember playerUnit))
+			return;
+
+		if (m_ExchangeApproachCoroutine != null)
+			StopCoroutine(m_ExchangeApproachCoroutine);
+
+		m_PendingExchangePlayerUnit = playerUnit;
+		m_PendingExchangePartnerUnit = _targetUnit;
+		m_ExchangeApproachCoroutine = StartCoroutine(CoApproachAndBeginExchange(playerUnit, _targetUnit));
+	}
+
+	private void ClearPendingExchangeApproach()
+	{
+		m_PendingExchangePlayerUnit = null;
+		m_PendingExchangePartnerUnit = null;
+	}
+
+	private IEnumerator CoApproachAndBeginExchange(RtsUnitMember _playerUnit, RtsUnitMember _partnerUnit)
+	{
+		const float c_ArriveDistance = 1f;
+		const float c_MaxApproachSeconds = 45f;
+
+		if (_playerUnit == null || _partnerUnit == null)
+		{
+			m_ExchangeApproachCoroutine = null;
+			ClearPendingExchangeApproach();
+			yield break;
+		}
+
+		float distance = Vector3.Distance(_playerUnit.transform.position, _partnerUnit.transform.position);
+		if (distance > c_ArriveDistance)
+		{
+			Vector3 approachPoint = ComputeExchangeApproachPoint(_playerUnit, _partnerUnit, c_ArriveDistance * 0.85f);
+			_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+
+			float elapsed = 0f;
+			while (elapsed < c_MaxApproachSeconds)
+			{
+				if (_playerUnit == null || _partnerUnit == null)
+				{
+					m_ExchangeApproachCoroutine = null;
+					ClearPendingExchangeApproach();
+					yield break;
+				}
+
+				distance = Vector3.Distance(_playerUnit.transform.position, _partnerUnit.transform.position);
+				if (distance <= c_ArriveDistance)
+					break;
+
+				elapsed += Time.deltaTime;
+				yield return null;
+			}
+		}
+
+		_playerUnit.HardStop();
+
+		distance = Vector3.Distance(_playerUnit.transform.position, _partnerUnit.transform.position);
+		if (distance <= c_ArriveDistance)
+			InventoryExchangeController.Instance.TryBeginExchange(_partnerUnit, _playerUnit);
+
+		m_ExchangeApproachCoroutine = null;
+		ClearPendingExchangeApproach();
+	}
+
+	private static Vector3 ComputeExchangeApproachPoint(
+		RtsUnitMember _playerUnit,
+		RtsUnitMember _partnerUnit,
+		float _standoffMeters)
+	{
+		Vector3 partnerPosition = _partnerUnit.transform.position;
+		Vector3 toPartner = partnerPosition - _playerUnit.transform.position;
+		toPartner.y = 0f;
+
+		if (toPartner.sqrMagnitude < 0.04f)
+			toPartner = _partnerUnit.transform.forward;
+
+		toPartner.Normalize();
+		return partnerPosition - toPartner * _standoffMeters;
+	}
+
 	private static void DestroyDetachedDragSlotIfNeeded(InventorySlotView _slotView, InventoryPanelView _panel)
 	{
 		if (_slotView == null || !Application.isPlaying)
@@ -967,7 +1429,376 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private CharacterInventory GetActiveInventory()
 	{
-		return m_InventoryBindings != null ? m_InventoryBindings.ActiveCharacterInventory : null;
+		if (m_InventoryBindings != null)
+		{
+			CharacterInventory inventory = m_InventoryBindings.GetActiveCharacterInventoryForUi();
+			if (inventory != null)
+				return inventory;
+		}
+
+		return TryGetActiveCharacterInventoryForUi();
+	}
+
+	private CharacterInventory GetPartnerInventory()
+	{
+		return InventoryExchangeController.Instance.PartnerInventory;
+	}
+
+	private void RepaintExchangePanels()
+	{
+		InventoryExchangeController.Instance.RepaintBothExchangePanels();
+	}
+
+	private static bool TryRemoveFromInventorySlot(
+		CharacterInventory _inventory,
+		bool _isMainHand,
+		bool _isHead,
+		bool _isBack,
+		int _bagIndex,
+		out InventorySlotRuntimeData _removed)
+	{
+		if (_isMainHand)
+			return _inventory.TryRemoveMainHandEquipment(out _removed);
+
+		if (_isHead)
+			return _inventory.TryRemoveHeadEquipment(out _removed);
+
+		if (_isBack)
+			return _inventory.TryRemoveBackEquipment(out _removed);
+
+		return _inventory.TryRemoveBagAt(_bagIndex, out _removed);
+	}
+
+	private static void TryRestoreToInventorySlot(
+		CharacterInventory _inventory,
+		bool _isMainHand,
+		bool _isHead,
+		bool _isBack,
+		InventorySlotRuntimeData _data)
+	{
+		_inventory.RestoreAfterFailedDrop(_isMainHand, _isHead, _isBack, _data);
+	}
+
+	private bool TryRemovePartnerItemByGroundSlotIndex(
+		int _groundSlotIndex,
+		InventorySlotView _slotOrNull,
+		CharacterInventory _partner,
+		out InventorySlotRuntimeData _removed,
+		out bool _isMainHand,
+		out bool _isHead,
+		out bool _isBack)
+	{
+		_isMainHand = false;
+		_isHead = false;
+		_isBack = false;
+		_removed = default;
+
+		if (_partner == null || m_GroundPanel == null)
+			return false;
+
+		if (_groundSlotIndex >= 0)
+		{
+			int lead = m_GroundPanel.LeadingEquipmentSlotCount;
+			if (_groundSlotIndex < lead)
+			{
+				if (_groundSlotIndex == 0)
+				{
+					_isMainHand = true;
+					return TryRemoveFromInventorySlot(_partner, true, false, false, -1, out _removed);
+				}
+
+				if (_groundSlotIndex == 1)
+				{
+					_isHead = true;
+					return TryRemoveFromInventorySlot(_partner, false, true, false, -1, out _removed);
+				}
+
+				if (_groundSlotIndex == 2)
+				{
+					_isBack = true;
+					return TryRemoveFromInventorySlot(_partner, false, false, true, -1, out _removed);
+				}
+
+				return false;
+			}
+
+			int bagIndex = _groundSlotIndex - lead;
+			return TryRemoveFromInventorySlot(_partner, false, false, false, bagIndex, out _removed);
+		}
+
+		if (_slotOrNull == null ||
+		    !TryResolvePartnerInventorySlot(_slotOrNull, _partner, out _isMainHand, out _isHead, out _isBack, out int resolvedBagIndex))
+			return false;
+
+		return TryRemoveFromInventorySlot(_partner, _isMainHand, _isHead, _isBack, resolvedBagIndex, out _removed);
+	}
+
+	private bool TryGetPartnerBagIndexFromGroundSlotIndex(int _groundSlotIndex, out int _bagIndex)
+	{
+		_bagIndex = -1;
+		if (m_GroundPanel == null || _groundSlotIndex < 0)
+			return false;
+
+		int lead = m_GroundPanel.LeadingEquipmentSlotCount;
+		if (_groundSlotIndex < lead)
+			return false;
+
+		_bagIndex = _groundSlotIndex - lead;
+		return true;
+	}
+
+	private bool TryAcceptPartnerDragToPlayerBag(InventoryGroundToCharacterDrag _drag, bool _requireActiveDrag)
+	{
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		InventorySlotView slot = _drag.SlotView;
+		if (player == null || partner == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
+			return false;
+
+		int groundSlotIndex = _drag.CapturedGroundSlotIndex;
+		if (!TryRemovePartnerItemByGroundSlotIndex(
+			    groundSlotIndex,
+			    slot,
+			    partner,
+			    out InventorySlotRuntimeData data,
+			    out bool isMainHand,
+			    out bool isHead,
+			    out bool isBack))
+			return false;
+
+		InventorySlotRuntimeData forInventory = data;
+		forInventory.WorldSource = null;
+
+		if (!player.TryAdd(forInventory))
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, data);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryEquipPartnerItemToPlayerMainHand(InventorySlotView _slot, InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null)
+			return false;
+
+		if (!TryRemovePartnerItemByGroundSlotIndex(
+			    _groundSlotIndex,
+			    _slot,
+			    partner,
+			    out InventorySlotRuntimeData taken,
+			    out bool isMainHand,
+			    out bool isHead,
+			    out bool isBack))
+			return false;
+
+		UnitEquipment equipment = player.GetComponentInChildren<UnitEquipment>(true);
+		if (equipment == null)
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		taken.WorldSource = null;
+		if (!player.TryEquipExternalItemToMainHand(taken, equipment))
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	private bool TryEquipPartnerItemToPlayerHead(InventorySlotView _slot, InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null)
+			return false;
+
+		if (!TryRemovePartnerItemByGroundSlotIndex(
+			    _groundSlotIndex,
+			    _slot,
+			    partner,
+			    out InventorySlotRuntimeData taken,
+			    out bool isMainHand,
+			    out bool isHead,
+			    out bool isBack))
+			return false;
+
+		UnitHeadEquipment headEquipment = player.GetComponentInChildren<UnitHeadEquipment>(true);
+		UnitIndividualTraits traits = player.GetComponentInChildren<UnitIndividualTraits>(true);
+		UnitCharacterAppearance appearance = player.GetComponentInChildren<UnitCharacterAppearance>(true);
+		if (headEquipment == null)
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		taken.WorldSource = null;
+		if (!player.TryEquipExternalItemToHead(taken, headEquipment, traits, appearance))
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	private bool TryEquipPartnerItemToPlayerBack(InventorySlotView _slot, InventorySlotView _slotView, int _groundSlotIndex = -1)
+	{
+		CharacterInventory player = GetActiveInventory();
+		CharacterInventory partner = GetPartnerInventory();
+		if (player == null || partner == null)
+			return false;
+
+		if (!TryRemovePartnerItemByGroundSlotIndex(
+			    _groundSlotIndex,
+			    _slot,
+			    partner,
+			    out InventorySlotRuntimeData taken,
+			    out bool isMainHand,
+			    out bool isHead,
+			    out bool isBack))
+			return false;
+
+		UnitBackEquipment backEquipment = player.GetComponentInChildren<UnitBackEquipment>(true);
+		if (backEquipment == null)
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		taken.WorldSource = null;
+		if (!player.TryEquipExternalItemToBack(taken, backEquipment))
+		{
+			TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, taken);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_slotView, m_GroundPanel);
+		RepaintExchangePanels();
+		return true;
+	}
+
+	private bool TryCompleteCharacterToPartnerTransfer(
+		CharacterInventory _playerInventory,
+		InventorySlotRuntimeData _data,
+		InventorySlotView _adoptExistingSlotOrNull,
+		bool _removedFromMainHandSlot,
+		bool _removedFromHeadSlot = false,
+		bool _removedFromBackSlot = false)
+	{
+		CharacterInventory partner = GetPartnerInventory();
+		if (partner == null || m_GroundPanel == null)
+		{
+			_playerInventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			_playerInventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return false;
+		}
+
+		InventorySlotRuntimeData forPartner = _data;
+		forPartner.WorldSource = null;
+
+		if (!partner.TryAdd(forPartner))
+		{
+			_playerInventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			_playerInventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryAcceptPartnerEquipmentDragToPartnerBag(InventoryGroundToCharacterDrag _drag, bool _requireActiveDrag)
+	{
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		CharacterInventory partner = GetPartnerInventory();
+		InventorySlotView slot = _drag.SlotView;
+		if (partner == null || m_GroundPanel == null || slot == null || !slot.HasItem)
+			return false;
+
+		int groundSlotIndex = _drag.CapturedGroundSlotIndex;
+		int lead = m_GroundPanel.LeadingEquipmentSlotCount;
+		if (groundSlotIndex < 0 || groundSlotIndex >= lead)
+			return false;
+
+		bool success = groundSlotIndex switch
+		{
+			0 => partner.TryUnequipMainHandToBag(),
+			1 => partner.TryUnequipHeadToBag(),
+			2 => partner.TryUnequipBackToBag(),
+			_ => false
+		};
+
+		if (!success)
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryAcceptPlayerMainHandDragToPartnerBag(InventoryCharacterToGroundDrag _drag)
+	{
+		CharacterInventory player = GetActiveInventory();
+		if (player == null || !player.TryUnequipMainHandToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryAcceptPlayerHeadDragToPartnerBag(InventoryCharacterToGroundDrag _drag)
+	{
+		CharacterInventory player = GetActiveInventory();
+		if (player == null || !player.TryUnequipHeadToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryAcceptPlayerBackDragToPartnerBag(InventoryCharacterToGroundDrag _drag)
+	{
+		CharacterInventory player = GetActiveInventory();
+		if (player == null || !player.TryUnequipBackToBag())
+			return false;
+
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
 	}
 
 	private void HandleLeftMouseSelection()
@@ -1027,7 +1858,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void HandleSingleClickSelection(bool _ctrlPressed)
 	{
-		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		FallenUnitInteractionMenuController menu = FallenUnitInteractionMenuController.Instance;
+		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
+			return;
+
+		FallenUnitInteractionMenuController.Instance?.HideImmediate();
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
 		if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
 		{
 			if (!_ctrlPressed)
@@ -1036,8 +1874,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		RtsUnitMember unit = hit.collider.GetComponentInParent<RtsUnitMember>();
+		RtsUnitMember fallenTarget = ResolveFallenUnitFromRay(ray, hit);
 		if (unit == null || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
 		{
+			if (fallenTarget != null)
+				return;
+
 			if (!_ctrlPressed)
 				ClearSelection();
 			return;
@@ -1047,6 +1889,135 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			ToggleUnitSelection(unit);
 		else
 			SetSelection(new List<RtsUnitMember> { unit });
+	}
+
+	private bool TryShowFallenUnitInteractionMenu(Ray _ray, RaycastHit _primaryHit, Vector2 _screenPosition)
+	{
+		if (!TryGetControllablePlayerUnit(out RtsUnitMember controllerUnit))
+			return false;
+
+		RtsUnitMember targetUnit = ResolveFallenUnitFromRay(_ray, _primaryHit);
+		if (targetUnit == null || targetUnit == controllerUnit)
+			return false;
+
+		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(targetUnit))
+			return false;
+
+		FallenUnitInteractionMenuController.Instance.ShowForUnit(targetUnit, _screenPosition);
+		return true;
+	}
+
+	private RtsUnitMember ResolveFallenUnitFromRay(Ray _ray, RaycastHit _primaryHit)
+	{
+		RtsUnitMember primary = ResolveFallenUnitFromHit(_primaryHit);
+		if (primary != null)
+			return primary;
+
+		RaycastHit[] hits = Physics.RaycastAll(_ray, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide);
+		System.Array.Sort(hits, (_a, _b) => _a.distance.CompareTo(_b.distance));
+		for (int i = 0; i < hits.Length; i++)
+		{
+			RtsUnitMember fallen = ResolveFallenUnitFromHit(hits[i]);
+			if (fallen != null)
+				return fallen;
+		}
+
+		return null;
+	}
+
+	private bool TryGetControllablePlayerUnit(out RtsUnitMember _unit)
+	{
+		_unit = null;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			if (TryGetControllablePlayerUnit(m_SelectedUnits[i], out _unit))
+				return true;
+		}
+
+		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
+		for (int i = 0; i < instances.Count; i++)
+		{
+			RtsUnitMember candidate = instances[i];
+			if (candidate == null || !candidate.IsSelected)
+				continue;
+
+			if (TryGetControllablePlayerUnit(candidate, out _unit))
+				return true;
+		}
+
+		return TryGetControllablePlayerUnit(FindSoloConsciousPlayerUnit(), out _unit);
+	}
+
+	private static RtsUnitMember ResolveFallenUnitFromHit(RaycastHit _hit)
+	{
+		if (_hit.collider == null)
+			return null;
+
+		UnitConsciousness consciousness = _hit.collider.GetComponentInParent<UnitConsciousness>();
+		if (consciousness != null && !consciousness.IsConscious)
+		{
+			if (consciousness.TryGetComponent(out RtsUnitMember member))
+				return member;
+
+			return consciousness.GetComponentInChildren<RtsUnitMember>(true);
+		}
+
+		RtsUnitMember fromMember = _hit.collider.GetComponentInParent<RtsUnitMember>();
+		return IsFallenUnit(fromMember) ? fromMember : null;
+	}
+
+	private static bool TryGetControllablePlayerUnit(RtsUnitMember _unit, out RtsUnitMember _controllable)
+	{
+		_controllable = null;
+		if (_unit == null || !_unit.isActiveAndEnabled || !_unit.IsPlayerSelectable)
+			return false;
+		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
+			return false;
+
+		UnitConsciousness consciousness = _unit.GetComponentInChildren<UnitConsciousness>(true);
+		if (consciousness != null && !consciousness.IsConscious)
+			return false;
+
+		_controllable = _unit;
+		return true;
+	}
+
+	private static RtsUnitMember FindSoloConsciousPlayerUnit()
+	{
+		RtsUnitMember found = null;
+		int count = 0;
+		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
+		for (int i = 0; i < instances.Count; i++)
+		{
+			if (!TryGetControllablePlayerUnit(instances[i], out RtsUnitMember controllable))
+				continue;
+
+			count++;
+			found = controllable;
+			if (count > 1)
+				return null;
+		}
+
+		return found;
+	}
+
+	private IEnumerator CoEnsurePlayerUnitSelectedAfterSpawn()
+	{
+		for (int frame = 0; frame < 5 && SelectedUnitCount == 0; frame++)
+		{
+			yield return null;
+			TrySelectFirstPlayerUnit();
+		}
+	}
+
+	private static bool IsFallenUnit(RtsUnitMember _unit)
+	{
+		if (_unit == null)
+			return false;
+
+		UnitConsciousness consciousness = _unit.GetComponent<UnitConsciousness>();
+		return consciousness != null && !consciousness.IsConscious;
 	}
 
 	private void HandleBoxSelection(bool _ctrlPressed)
@@ -1091,7 +2062,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (IsPointerOverUi())
 			return;
 
-		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
+		if (TryRaycastAnyUnit(ray, out RaycastHit unitHit))
+		{
+			if (TryShowFallenUnitInteractionMenu(ray, unitHit, mousePosition))
+				return;
+
+			return;
+		}
+
+		FallenUnitInteractionMenuController.Instance?.HideImmediate();
+
 		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
 			return;
 
@@ -1104,6 +2086,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			: UnitClickToMove.MoveTier.Walk;
 
 		IssueScatteredMoveOrder(hit.point, moveTier);
+	}
+
+	private bool TryRaycastAnyUnit(Ray _ray, out RaycastHit _hit)
+	{
+		return Physics.Raycast(_ray, out _hit, 2000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide) &&
+		       _hit.collider != null &&
+		       _hit.collider.GetComponentInParent<RtsUnitMember>() != null;
 	}
 
 	private void HandleKeyboardCommands()
@@ -1434,6 +2423,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	public CharacterInventory TryGetActiveCharacterInventoryForUi()
 	{
+		InventoryExchangeController exchange = InventoryExchangeController.Instance;
+		if (exchange.IsActive && exchange.PlayerInventory != null)
+			return exchange.PlayerInventory;
+
+		if (m_PendingExchangePlayerUnit != null)
+		{
+			CharacterInventory pendingInventory = m_PendingExchangePlayerUnit.CharacterInventory;
+			if (pendingInventory != null)
+				return pendingInventory;
+
+			if (m_PendingExchangePlayerUnit.TryGetComponent(out pendingInventory))
+				return pendingInventory;
+
+			return m_PendingExchangePlayerUnit.GetComponentInChildren<CharacterInventory>(true);
+		}
+
 		for (int i = m_SelectedUnits.Count - 1; i >= 0; i--)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
@@ -1465,20 +2470,50 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private bool TryQuickTransferGroundToCharacterInternal(CharacterInventory _inventory, InventorySlotView _slot)
 	{
-		if (!_slot.TryTakeItem(out InventorySlotRuntimeData data))
+		if (IsExchangeActive)
+		{
+			CharacterInventory partner = GetPartnerInventory();
+			if (partner == null)
+				return false;
+
+			if (!TryRemovePartnerItemByGroundSlotIndex(
+				    -1,
+				    _slot,
+				    partner,
+				    out InventorySlotRuntimeData data,
+				    out bool isMainHand,
+				    out bool isHead,
+				    out bool isBack))
+				return false;
+
+			InventorySlotRuntimeData forPlayer = data;
+			forPlayer.WorldSource = null;
+
+			if (!_inventory.TryAdd(forPlayer))
+			{
+				TryRestoreToInventorySlot(partner, isMainHand, isHead, isBack, data);
+				RepaintExchangePanels();
+				return false;
+			}
+
+			RepaintExchangePanels();
+			return true;
+		}
+
+		if (!_slot.TryTakeItem(out InventorySlotRuntimeData dataNormal))
 			return false;
 
-		InventorySlotRuntimeData forInventory = data;
+		InventorySlotRuntimeData forInventory = dataNormal;
 		forInventory.WorldSource = null;
 
 		if (!_inventory.TryAdd(forInventory))
 		{
-			_slot.SetItem(data);
+			_slot.SetItem(dataNormal);
 			return false;
 		}
 
-		if (data.WorldSource != null)
-			data.WorldSource.OnTransferredToCharacterInventory();
+		if (dataNormal.WorldSource != null)
+			dataNormal.WorldSource.OnTransferredToCharacterInventory();
 
 		m_GroundPanel.NotifyGroundSlotItemTakenAway(_slot);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
@@ -1506,6 +2541,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (!_inventory.TryRemoveBagAt(bagIndex, out data))
 				return false;
 		}
+
+		if (IsExchangeActive)
+			return TryCompleteCharacterToPartnerTransfer(_inventory, data, null, isMainHand, isHead);
 
 		return TryCompleteCharacterToGroundTransfer(_inventory, data, null, isMainHand, isHead);
 	}
@@ -1717,6 +2755,38 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		float width = Mathf.Min(820f, Screen.width - pad * 2f);
 		GUI.Box(new Rect(pad, Screen.height - height - pad, width, height), c_HintText, s_RtsHintsGuiStyle);
+	}
+
+	private static void ShowTransientMessage(string _message, float _durationSeconds = 3f)
+	{
+		if (string.IsNullOrWhiteSpace(_message))
+			return;
+
+		s_TransientMessage = _message;
+		s_TransientMessageUntilUnscaledTime = Time.unscaledTime + Mathf.Max(0.5f, _durationSeconds);
+	}
+
+	private static void DrawTransientMessageIfAny()
+	{
+		if (string.IsNullOrEmpty(s_TransientMessage) || Time.unscaledTime > s_TransientMessageUntilUnscaledTime)
+			return;
+
+		if (s_TransientMessageGuiStyle == null)
+		{
+			s_TransientMessageGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 15,
+				alignment = TextAnchor.MiddleCenter,
+				wordWrap = true
+			};
+			s_TransientMessageGuiStyle.normal.textColor = new Color(1f, 0.92f, 0.55f, 1f);
+		}
+
+		const float pad = 12f;
+		const float height = 42f;
+		float width = Mathf.Min(560f, Screen.width - pad * 2f);
+		float y = Screen.height * 0.22f;
+		GUI.Box(new Rect((Screen.width - width) * 0.5f, y, width, height), s_TransientMessage, s_TransientMessageGuiStyle);
 	}
 
 	private static Rect GetSelectionRect(Vector2 _start, Vector2 _end)

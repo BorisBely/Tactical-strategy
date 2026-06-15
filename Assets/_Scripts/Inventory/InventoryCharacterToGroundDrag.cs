@@ -122,6 +122,8 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 				_bagIndex: -1,
 				_sourceSlot: m_Slot,
 				_isHead: true);
+			if (InventoryExchangeController.Instance.IsActive && selectionManager.GroundPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.GroundPanel);
 		}
 		else if (m_CapturedFromBackEquipmentSlot)
 		{
@@ -132,6 +134,18 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 				_sourceSlot: m_Slot,
 				_isHead: false,
 				_isBack: true);
+			if (InventoryExchangeController.Instance.IsActive && selectionManager.GroundPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.GroundPanel);
+		}
+		else if (m_CapturedFromMainHandEquipmentSlot)
+		{
+			RuntimeInventoryModificationDragContext.BeginCharacter(
+				m_Slot.Data,
+				_isMainHand: true,
+				_bagIndex: -1,
+				_sourceSlot: m_Slot);
+			if (InventoryExchangeController.Instance.IsActive && selectionManager.GroundPanel != null)
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.GroundPanel);
 		}
 
 		m_CharacterContentParent = transform.parent;
@@ -160,6 +174,9 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 		if (coordinator?.CharacterPanel != null)
 			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.CharacterPanel);
+
+		if (InventoryExchangeController.Instance.IsActive && coordinator?.GroundPanel != null)
+			RuntimeInlineModificationBuilder.RefreshEquipmentSlotHighlights(coordinator.GroundPanel);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
@@ -179,10 +196,41 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 
 		if (!wasModificationDropConsumed && !m_DropAccepted && wasDragging)
 		{
-			if (selectionManager != null && coordinator != null &&
-			    coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
+			bool exchangeActive = InventoryExchangeController.Instance.IsActive;
+
+			if (exchangeActive && coordinator != null &&
+			    coordinator.IsScreenPointOverPartnerMainHandSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipWeaponDragToPartnerMainHand();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && coordinator != null &&
+			         coordinator.IsScreenPointOverPartnerHeadSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipHelmetDragToPartnerHead();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && coordinator != null &&
+			         coordinator.IsScreenPointOverPartnerBackSlot(eventData.position, eventCamera))
+			{
+				m_DropAccepted = coordinator.TryEquipBackpackDragToPartnerBack();
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (selectionManager != null && coordinator != null &&
+			         coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
 			{
 				m_DropAccepted = selectionManager.TryRouteCharacterDragOnCharacterPanel(
+					this, eventData.position, eventCamera, _requireActiveDrag: false);
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && selectionManager != null && coordinator != null &&
+			         coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera))
+			{
+				m_DropAccepted = selectionManager.TryRouteCharacterDragOnPartnerPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();

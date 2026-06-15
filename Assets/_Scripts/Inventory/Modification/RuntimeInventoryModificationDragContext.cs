@@ -74,18 +74,21 @@ public static class RuntimeInventoryModificationDragContext
 	public static bool IsWeaponEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterMainHand ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundWeapon;
 	}
 
 	public static bool IsHelmetEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundHelmet;
 	}
 
 	public static bool IsBackpackEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundBackpack;
 	}
 
@@ -177,7 +180,9 @@ public static class RuntimeInventoryModificationDragContext
 		bool _isBack)
 	{
 		if (_isMainHand)
-			return RuntimeInventoryModificationDragSourceKind.None;
+			return WeaponEquipUtility.CanEquipToMainHand(_item)
+				? RuntimeInventoryModificationDragSourceKind.CharacterMainHand
+				: RuntimeInventoryModificationDragSourceKind.None;
 
 		if (_isHead)
 			return HelmetEquipUtility.CanEquipToHead(_item)

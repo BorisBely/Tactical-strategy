@@ -54,6 +54,14 @@ public class InventoryScreenBindings : MonoBehaviour
 		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
 	#endregion
 
+	#region Exchange UI
+	public void SetGroundPanelTitle(string _title)
+	{
+		if (m_GroundItemsTitleText != null)
+			m_GroundItemsTitleText.text = _title;
+	}
+	#endregion
+
 	#region Unity Lifecycle
 	private void Awake()
 	{
@@ -132,6 +140,13 @@ public class InventoryScreenBindings : MonoBehaviour
 	/// <summary>При смене выбранного юнита: подставить его инвентарь и перерисовать UI.</summary>
 	public void SetActiveCharacterInventory(CharacterInventory _inventory)
 	{
+		if (_inventory == null)
+		{
+			CharacterInventory pinnedInventory = ResolvePinnedCharacterInventory();
+			if (pinnedInventory != null)
+				_inventory = pinnedInventory;
+		}
+
 		m_ActiveCharacterInventory = _inventory;
 		SubscribeToActiveUnitHealth();
 		SubscribeToActiveUnitArmor();
@@ -189,6 +204,12 @@ public class InventoryScreenBindings : MonoBehaviour
 	/// <summary>Перестроить панель «земля» по <see cref="InventoryPickupZone"/> активного юнита.</summary>
 	public void RefreshGroundPanelForActiveCharacter()
 	{
+		if (InventoryExchangeController.Instance.IsActive)
+		{
+			InventoryExchangeController.Instance.RefreshPartnerPanel();
+			return;
+		}
+
 		InventoryPickupZone zone = FindPickupZoneOnActiveCharacter();
 		if (zone != null)
 			zone.RepopulateGroundPanelFromCurrentOverlaps();
@@ -221,6 +242,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 		if (!_open)
 		{
+			InventoryExchangeController.Instance.EndExchangeIfActive();
 			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
 			HealthStatusTooltip.Instance.HideImmediate();
 		}
@@ -390,9 +412,26 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		RtsUnitSelectionManager selectionManager = SelectionManager;
 		if (selectionManager != null)
-			return selectionManager.TryGetActiveCharacterInventoryForUi();
+		{
+			CharacterInventory fromSelection = selectionManager.TryGetActiveCharacterInventoryForUi();
+			if (fromSelection != null)
+				return fromSelection;
+		}
 
 		return m_ActiveCharacterInventory;
+	}
+
+	private CharacterInventory ResolvePinnedCharacterInventory()
+	{
+		InventoryExchangeController exchange = InventoryExchangeController.Instance;
+		if (exchange.IsActive && exchange.PlayerInventory != null)
+			return exchange.PlayerInventory;
+
+		RtsUnitSelectionManager selectionManager = SelectionManager;
+		if (selectionManager != null && selectionManager.HasPendingExchangeApproach)
+			return selectionManager.TryGetActiveCharacterInventoryForUi();
+
+		return null;
 	}
 
 	private void SetInventoryTitleVisible(bool _visible)
