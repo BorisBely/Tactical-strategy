@@ -14,7 +14,6 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 	{
 		"health.injury.neck_bleeding",
 		"health.injury.lung_damage",
-		"health.injury.concussion",
 		"health.injury.internal_bleeding"
 	};
 	#endregion
@@ -30,8 +29,8 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 	[SerializeField] private int m_SeriousSortPriorityThreshold = 25;
 	[SerializeField, Min(2)] private int m_SeriousInjuryCountForKnockout = 2;
 	[SerializeField, Min(2)] private int m_TotalInjuryCountForKnockout = 3;
-	[SerializeField, Min(0f)] private float m_DelayedKnockoutMinSeconds = 1f;
-	[SerializeField, Min(0f)] private float m_DelayedKnockoutMaxSeconds = 3f;
+	[SerializeField, Min(0f)] private float m_DelayedKnockoutMinSeconds = 8f;
+	[SerializeField, Min(0f)] private float m_DelayedKnockoutMaxSeconds = 20f;
 
 	[Header("Fall Impulse")]
 	[SerializeField, Min(0f)] private float m_HitImpulse = 1.2f;

@@ -299,6 +299,12 @@ public class InventoryScreenBindings : MonoBehaviour
 		ClearExchangePartnerUi();
 	}
 
+	public void RefreshHealthVitalsSummary()
+	{
+		RefreshInventoryUnitHealthSummary();
+		RefreshExchangePartnerUnitHealthSummary();
+	}
+
 	public void RefreshHealthUi()
 	{
 		RefreshInventoryUnitHealthSummary();
@@ -321,12 +327,22 @@ public class InventoryScreenBindings : MonoBehaviour
 
 		if (health != null)
 		{
-			IReadOnlyList<InjuryUiEntry> injuries = health.GetSortedInjuryEntries();
+			IReadOnlyList<InjuryIndexedEntry> injuries = health.GetSortedIndexedInjuryEntries();
 			for (int i = 0; i < injuries.Count; i++)
-				m_HealthStatusPanel.TryAdd(injuries[i].ToEntryData());
+				m_HealthStatusPanel.TryAdd(injuries[i].Entry.ToEntryData(injuries[i].Index));
 		}
 
 		m_HealthStatusPanel.RebuildContentLayout();
+		ApplyHealProgressToHealthPanels();
+	}
+
+	public void ApplyHealProgressToHealthPanels()
+	{
+		if (m_HealthStatusPanel != null)
+			m_HealthStatusPanel.ApplyHealProgressForUnit(ResolveActiveUnitHealth());
+
+		if (m_ExchangeHealthStatusPanel != null)
+			m_ExchangeHealthStatusPanel.ApplyHealProgressForUnit(ResolvePartnerUnitHealth());
 	}
 
 	private void HandleLanguageChanged()
@@ -382,12 +398,13 @@ public class InventoryScreenBindings : MonoBehaviour
 
 		if (health != null)
 		{
-			IReadOnlyList<InjuryUiEntry> injuries = health.GetSortedInjuryEntries();
+			IReadOnlyList<InjuryIndexedEntry> injuries = health.GetSortedIndexedInjuryEntries();
 			for (int i = 0; i < injuries.Count; i++)
-				m_ExchangeHealthStatusPanel.TryAdd(injuries[i].ToEntryData());
+				m_ExchangeHealthStatusPanel.TryAdd(injuries[i].Entry.ToEntryData(injuries[i].Index));
 		}
 
 		m_ExchangeHealthStatusPanel.RebuildContentLayout();
+		ApplyHealProgressToHealthPanels();
 	}
 
 	private void ClearExchangePartnerUi()
@@ -426,7 +443,10 @@ public class InventoryScreenBindings : MonoBehaviour
 		UnsubscribeFromActiveUnitHealth();
 		m_SubscribedUnitHealth = health;
 		if (m_SubscribedUnitHealth != null)
+		{
 			m_SubscribedUnitHealth.Changed += HandleActiveUnitHealthChanged;
+			m_SubscribedUnitHealth.VitalsChanged += HandleActiveUnitHealthVitalsChanged;
+		}
 	}
 
 	private void UnsubscribeFromActiveUnitHealth()
@@ -435,12 +455,18 @@ public class InventoryScreenBindings : MonoBehaviour
 			return;
 
 		m_SubscribedUnitHealth.Changed -= HandleActiveUnitHealthChanged;
+		m_SubscribedUnitHealth.VitalsChanged -= HandleActiveUnitHealthVitalsChanged;
 		m_SubscribedUnitHealth = null;
 	}
 
 	private void HandleActiveUnitHealthChanged()
 	{
 		RefreshHealthUi();
+	}
+
+	private void HandleActiveUnitHealthVitalsChanged()
+	{
+		RefreshHealthVitalsSummary();
 	}
 
 	private void SubscribeToActiveUnitArmor()
@@ -478,7 +504,10 @@ public class InventoryScreenBindings : MonoBehaviour
 		UnsubscribeFromPartnerUnitHealth();
 		m_SubscribedPartnerHealth = health;
 		if (m_SubscribedPartnerHealth != null)
+		{
 			m_SubscribedPartnerHealth.Changed += HandlePartnerUnitHealthChanged;
+			m_SubscribedPartnerHealth.VitalsChanged += HandlePartnerUnitHealthVitalsChanged;
+		}
 	}
 
 	private void UnsubscribeFromPartnerUnitHealth()
@@ -487,12 +516,18 @@ public class InventoryScreenBindings : MonoBehaviour
 			return;
 
 		m_SubscribedPartnerHealth.Changed -= HandlePartnerUnitHealthChanged;
+		m_SubscribedPartnerHealth.VitalsChanged -= HandlePartnerUnitHealthVitalsChanged;
 		m_SubscribedPartnerHealth = null;
 	}
 
 	private void HandlePartnerUnitHealthChanged()
 	{
 		RefreshExchangePartnerHealthUi();
+		RefreshExchangePartnerUnitHealthSummary();
+	}
+
+	private void HandlePartnerUnitHealthVitalsChanged()
+	{
 		RefreshExchangePartnerUnitHealthSummary();
 	}
 
@@ -598,10 +633,11 @@ public class InventoryScreenBindings : MonoBehaviour
 	private CharacterInventory ResolvePinnedCharacterInventory()
 	{
 		InventoryExchangeController exchange = InventoryExchangeController.Instance;
-		if (exchange.IsActive && exchange.PlayerInventory != null)
+		RtsUnitSelectionManager selectionManager = SelectionManager;
+		if (exchange.IsActive && exchange.PlayerInventory != null &&
+		    selectionManager != null && selectionManager.ShouldPinActiveExchangeInventory)
 			return exchange.PlayerInventory;
 
-		RtsUnitSelectionManager selectionManager = SelectionManager;
 		if (selectionManager != null && selectionManager.HasPendingExchangeApproach)
 			return selectionManager.TryGetActiveCharacterInventoryForUi();
 

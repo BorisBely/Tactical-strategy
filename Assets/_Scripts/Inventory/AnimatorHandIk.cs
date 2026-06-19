@@ -16,6 +16,8 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoading;
 	[Tooltip("Пока идёт перезарядка оружия (R), IK левой руки отключается.")]
 	[SerializeField] private UnitWeaponReloadController m_WeaponReload;
+	[Tooltip("Пока идёт самостабилизация IFAK, IK левой руки отключается.")]
+	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandPositionWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandRotationWeight = 1f;
 	[Header("Локоть (подсказка IK)")]
@@ -43,6 +45,8 @@ public class AnimatorHandIk : MonoBehaviour
 			m_MagazineLoading = GetComponentInParent<UnitMagazineLoadingController>();
 		if (m_WeaponReload == null)
 			m_WeaponReload = GetComponentInParent<UnitWeaponReloadController>();
+		if (m_SelfStabilization == null)
+			m_SelfStabilization = GetComponentInParent<UnitSelfStabilizationController>();
 	}
 
 	private void OnDrawGizmosSelected()
@@ -105,6 +109,8 @@ public class AnimatorHandIk : MonoBehaviour
 			return true;
 		if (m_WeaponReload != null && m_WeaponReload.IsReloadBusy)
 			return true;
+		if (m_SelfStabilization != null && m_SelfStabilization.IsHealPresentationActive)
+			return true;
 		return false;
 	}
 
@@ -141,6 +147,10 @@ public class AnimatorHandIk : MonoBehaviour
 	private Transform ResolveLiveLeftHandIkTarget()
 	{
 		if (m_UnitEquipment == null)
+			return null;
+
+		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
+		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
 			return null;
 
 		ItemDefinition equipped = m_UnitEquipment.EquippedDefinition;

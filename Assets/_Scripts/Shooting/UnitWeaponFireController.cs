@@ -171,7 +171,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return false;
 
-		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+		if (m_BusyState != null &&
+		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)))
 			return false;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
@@ -262,7 +264,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return WeaponShotAttemptResult.NotReady;
 
-		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.Reload))
+		if (m_BusyState != null &&
+		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)))
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)

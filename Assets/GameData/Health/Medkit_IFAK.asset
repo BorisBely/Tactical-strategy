@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd51897de4d6d9340976ceddd30ed4f6, type: 3}
+  m_Name: Medkit_IFAK
+  m_EditorClassIdentifier: Assembly-CSharp::MedkitDefinition
+  m_MaxResourcePoints: 300
+  m_InjuryCostOverrides:
+  - InjuryStatusLocalizationKey: health.injury.neck_bleeding
+    ResourceCost: 120
+  - InjuryStatusLocalizationKey: health.injury.internal_bleeding
+    ResourceCost: 95
+  - InjuryStatusLocalizationKey: health.injury.lung_damage
+    ResourceCost: 85
+  - InjuryStatusLocalizationKey: health.injury.leg_fracture
+    ResourceCost: 70
+  - InjuryStatusLocalizationKey: health.injury.right_leg_fracture
+    ResourceCost: 70
+  - InjuryStatusLocalizationKey: health.injury.chest_bleeding
+    ResourceCost: 65
+  - InjuryStatusLocalizationKey: health.injury.concussion
+    ResourceCost: 55
+  - InjuryStatusLocalizationKey: health.injury.left_leg_bleeding
+    ResourceCost: 40
+  - InjuryStatusLocalizationKey: health.injury.right_leg_bleeding
+    ResourceCost: 40
+  - InjuryStatusLocalizationKey: health.injury.arm_bleeding
+    ResourceCost: 35
+  - InjuryStatusLocalizationKey: health.injury.left_arm_bleeding
+    ResourceCost: 35
+  - InjuryStatusLocalizationKey: health.injury.head_wound
+    ResourceCost: 45
+  - InjuryStatusLocalizationKey: health.injury.generic_wound
+    ResourceCost: 25
+  m_SeverityFallbackCosts:
+  - MaxSortPriority: 10
+    ResourceCost: 110
+  - MaxSortPriority: 20
+    ResourceCost: 80
+  - MaxSortPriority: 30
+    ResourceCost: 55
+  - MaxSortPriority: 40
+    ResourceCost: 35
+  - MaxSortPriority: 999
+    ResourceCost: 25

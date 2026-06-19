@@ -41,6 +41,9 @@ public class InventoryPickupZone : MonoBehaviour
 	/// <summary>Очистить панель «земля» и снова заполнить по объектам, сейчас пересекающим эту зону (вызывать при открытии инвентаря).</summary>
 	public void RepopulateGroundPanelFromCurrentOverlaps()
 	{
+		if (InventoryExchangeController.Instance.IsActive)
+			return;
+
 		InventoryPanelView groundPanel = InventoryScreenBindings.Instance != null
 			? InventoryScreenBindings.Instance.GroundPanel
 			: null;
@@ -117,6 +120,9 @@ public class InventoryPickupZone : MonoBehaviour
 		if (count > 1)
 			return;
 
+		if (InventoryExchangeController.Instance.IsActive)
+			return;
+
 		if (InventoryScreenBindings.Instance == null)
 		{
 			Debug.LogWarning(
@@ -178,6 +184,9 @@ public class InventoryPickupZone : MonoBehaviour
 		}
 
 		m_OverlapRefCount.Remove(pickup);
+
+		if (InventoryExchangeController.Instance.IsActive)
+			return;
 
 		InventoryPanelView groundPanel = InventoryScreenBindings.Instance != null
 			? InventoryScreenBindings.Instance.GroundPanel

@@ -197,6 +197,12 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		if (!wasModificationDropConsumed && !m_DropAccepted && wasDragging)
 		{
 			bool exchangeActive = InventoryExchangeController.Instance.IsActive;
+			bool outsideBoth = coordinator != null &&
+				coordinator.IsScreenPointOutsideBothInventoryPanels(eventData.position, eventCamera);
+			bool overCharacterRaycast = coordinator != null &&
+				coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera);
+			bool overGroundRaycast = coordinator != null &&
+				coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera);
 
 			if (exchangeActive && coordinator != null &&
 			    coordinator.IsScreenPointOverPartnerMainHandSlot(eventData.position, eventCamera))
@@ -219,19 +225,23 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}
-			else if (selectionManager != null && coordinator != null &&
-			         coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
+			else if (selectionManager != null && coordinator != null && overCharacterRaycast)
 			{
 				m_DropAccepted = selectionManager.TryRouteCharacterDragOnCharacterPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}
-			else if (exchangeActive && selectionManager != null && coordinator != null &&
-			         coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera))
+			else if (exchangeActive && selectionManager != null && coordinator != null && overGroundRaycast)
 			{
 				m_DropAccepted = selectionManager.TryRouteCharacterDragOnPartnerPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (selectionManager != null && coordinator != null && outsideBoth)
+			{
+				m_DropAccepted = selectionManager.TryDropCharacterDragOutsidePanels(this);
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}

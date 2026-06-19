@@ -18,6 +18,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[SerializeField] private UnitSelfStabilizationController m_SelfStabilizationController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private Animator m_Animator;
@@ -63,6 +64,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_SelfStabilizationController == null)
+			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_UnitEquipment == null)
@@ -116,6 +119,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
+			if (selfStabilization != null &&
+			    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
+				return;
+
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				m_MagazineLoadingController?.StopLoading();
 
@@ -166,6 +174,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
+			selfStabilization?.StopSelfStabilization();
+
 			m_MagazineLoadingController?.StopLoading();
 			m_WeaponReloadController?.StopReload();
 			m_FireController?.StopFiring();
@@ -344,6 +355,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private UnitSelfStabilizationController ResolveSelfStabilizationController()
+	{
+		if (m_SelfStabilizationController == null)
+			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
+
+		return m_SelfStabilizationController;
+	}
+
 	private void ScheduleRtsCommand(Action _command)
 	{
 		if (_command == null)

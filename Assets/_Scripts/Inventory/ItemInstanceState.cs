@@ -11,12 +11,14 @@ public sealed class ItemInstanceState
 	[SerializeField] private WeaponRuntimeState m_WeaponState;
 	[SerializeField] private MagazineRuntimeState m_MagazineState;
 	[SerializeField] private AmmoContainerRuntimeState m_AmmoContainerState;
+	[SerializeField] private MedkitRuntimeState m_MedkitState;
 	#endregion
 
 	#region Public Properties
 	public WeaponRuntimeState WeaponState => m_WeaponState;
 	public MagazineRuntimeState MagazineState => m_MagazineState;
 	public AmmoContainerRuntimeState AmmoContainerState => m_AmmoContainerState;
+	public MedkitRuntimeState MedkitState => m_MedkitState;
 	#endregion
 
 	#region Public Methods
@@ -32,11 +34,12 @@ public sealed class ItemInstanceState
 		m_WeaponState = null;
 		m_MagazineState = null;
 		m_AmmoContainerState = null;
+		m_MedkitState = null;
 
 		if (_definition == null)
 			return;
 
-		// Сначала магазин/патроны: на одном ItemDefinition не должны одновременно жить WeaponRuntimeState и «магазин как предмет»,
+		// Сначала магазин/патроны/аптечка: на одном ItemDefinition не должны одновременно жить WeaponRuntimeState и «магазин как предмет»,
 		// иначе Unity упрётся в глубину сериализации (оружие → слот магазина → ItemInstanceState → снова оружие…).
 		if (_definition.MagazineDefinition != null)
 		{
@@ -49,6 +52,13 @@ public sealed class ItemInstanceState
 		{
 			m_AmmoContainerState = new AmmoContainerRuntimeState();
 			m_AmmoContainerState.Configure(_definition.AmmoDefinition, _definition.InitialAmmoCount);
+			return;
+		}
+
+		if (_definition.MedkitDefinition != null)
+		{
+			m_MedkitState = new MedkitRuntimeState();
+			m_MedkitState.Configure(_definition.MedkitDefinition);
 			return;
 		}
 

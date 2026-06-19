@@ -30,6 +30,9 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private UnitVision m_Vision;
 	private DamageableTarget m_DamageableTarget;
 	private UnitWeaponRuntime m_WeaponRuntime;
+	private UnitHealth m_UnitHealth;
+	private UnitSelfStabilizationController m_SelfStabilizationController;
+	private UnitHealthDeteriorationController m_HealthDeteriorationController;
 	#endregion
 
 	#region Public Methods
@@ -41,6 +44,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	public void ApplyConfiguration()
 	{
 		CacheComponents();
+		EnsureHealthRuntimeControllers();
 
 		UnitTeamId team = m_RuntimeConfig.Team;
 		bool isPlayer = team == UnitTeamId.Player;
@@ -114,6 +118,23 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_DamageableTarget = GetComponent<DamageableTarget>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_UnitHealth == null)
+			m_UnitHealth = GetComponent<UnitHealth>();
+		if (m_SelfStabilizationController == null)
+			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
+		if (m_HealthDeteriorationController == null)
+			m_HealthDeteriorationController = GetComponent<UnitHealthDeteriorationController>();
+	}
+
+	private void EnsureHealthRuntimeControllers()
+	{
+		if (m_UnitHealth == null)
+			return;
+
+		if (m_SelfStabilizationController == null)
+			m_SelfStabilizationController = gameObject.AddComponent<UnitSelfStabilizationController>();
+		if (m_HealthDeteriorationController == null)
+			m_HealthDeteriorationController = gameObject.AddComponent<UnitHealthDeteriorationController>();
 	}
 
 	private void ApplyCharacterGender()

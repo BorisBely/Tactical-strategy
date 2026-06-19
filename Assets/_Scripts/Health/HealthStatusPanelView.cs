@@ -100,6 +100,16 @@ public sealed class HealthStatusPanelView : MonoBehaviour
 		if (m_SlotsContainer is RectTransform rt)
 			LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
 	}
+
+	public void ApplyHealProgressForUnit(UnitHealth _health)
+	{
+		EnsureSlotsCached();
+		for (int i = 0; i < m_Slots.Count; i++)
+		{
+			if (m_Slots[i] != null)
+				HealthStatusHealProgressBridge.ApplyToSlot(m_Slots[i], _health);
+		}
+	}
 	#endregion
 
 	#region Private Methods

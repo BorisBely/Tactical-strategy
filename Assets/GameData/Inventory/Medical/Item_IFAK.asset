@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_IFAK
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.medkit.ifak
+  m_Description: Individual First Aid Kit. Stabilizes wounds by spending medical
+    resource; heavier injuries cost more.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 220
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 578205961267695512, guid: 10bb9d1d61cf4054bad55d1b8101ef10, type: 3}
+  m_EquippedVisualPrefab: {fileID: 8774004039058524131, guid: 3f9c4fd27ae63534294961ad1644afaf, type: 3}
+  m_RightHandLocalPosition: {x: -0.045, y: 0.028, z: 0.072}
+  m_RightHandLocalEulerAngles: {x: -68, y: 198, z: 286}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 11400000, guid: 60eac925514457c4eba767145f2a384a, type: 2}

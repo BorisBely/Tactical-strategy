@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 public sealed class HealthStatusSlotView : MonoBehaviour
@@ -7,14 +8,23 @@ public sealed class HealthStatusSlotView : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private TMP_Text m_StatusText;
 	[SerializeField] private TMP_Text m_ConditionText;
+	[SerializeField] private Image m_HealProgressImage;
 	[SerializeField] private GameObject m_OccupiedRoot;
 	[SerializeField] private GameObject m_EmptyRoot;
+	[SerializeField] private Color m_ActiveInjuryColor = new Color(1f, 0.35f, 0.35f, 1f);
+	[SerializeField] private Color m_StabilizedInjuryColor = new Color(0.35f, 0.95f, 0.45f, 1f);
+	[SerializeField] private Color m_HealProgressColor = new Color(0.2f, 0.82f, 0.35f, 0.95f);
+	[SerializeField] private Color m_EmptyTextColor = Color.white;
 	#endregion
 
 	#region Private Fields
 	private HealthStatusEntryData m_Data;
 	private bool m_HasEntry;
 	private bool m_RuntimeSpawned;
+	private RectTransform m_HealProgressRect;
+	private Vector2 m_HealProgressAnchorMin;
+	private Vector2 m_HealProgressAnchorMax;
+	private Vector2 m_HealProgressSizeDelta;
 	#endregion
 
 	#region Public Properties
@@ -68,7 +78,26 @@ public sealed class HealthStatusSlotView : MonoBehaviour
 	{
 		m_Data = default;
 		m_HasEntry = false;
+		SetHealProgressVisible(false);
 		RefreshVisuals();
+	}
+
+	public void SetHealProgressVisible(bool _visible)
+	{
+		if (m_HealProgressImage == null)
+			return;
+
+		m_HealProgressImage.gameObject.SetActive(_visible);
+		if (!_visible)
+			ApplyHealProgressRect01(0f);
+	}
+
+	public void SetHealProgress01(float _progress01)
+	{
+		if (m_HealProgressImage == null)
+			return;
+
+		ApplyHealProgressRect01(_progress01);
 	}
 	#endregion
 
@@ -83,17 +112,63 @@ public sealed class HealthStatusSlotView : MonoBehaviour
 			if (m_ConditionText == null && texts.Length > 1)
 				m_ConditionText = texts[1];
 		}
+
+		if (m_HealProgressImage == null)
+		{
+			Transform progressTransform = transform.Find("HealthCellImage");
+			if (progressTransform != null)
+				m_HealProgressImage = progressTransform.GetComponent<Image>();
+		}
+
+		ConfigureHealProgressImage();
+	}
+
+	private void ConfigureHealProgressImage()
+	{
+		if (m_HealProgressImage == null)
+			return;
+
+		InventorySlotUiUtility.EnsureImageCanRenderSolidColor(m_HealProgressImage);
+
+		m_HealProgressImage.color = m_HealProgressColor;
+		m_HealProgressImage.raycastTarget = false;
+		m_HealProgressImage.type = Image.Type.Simple;
+		m_HealProgressImage.preserveAspect = false;
+
+		m_HealProgressRect = m_HealProgressImage.rectTransform;
+		m_HealProgressAnchorMin = m_HealProgressRect.anchorMin;
+		m_HealProgressAnchorMax = m_HealProgressRect.anchorMax;
+		m_HealProgressSizeDelta = m_HealProgressRect.sizeDelta;
+		m_HealProgressRect.pivot = new Vector2(0f, m_HealProgressRect.pivot.y);
+
+		ApplyHealProgressRect01(0f);
+		m_HealProgressImage.gameObject.SetActive(false);
+	}
+
+	private void ApplyHealProgressRect01(float _progress01)
+	{
+		if (m_HealProgressRect == null)
+			return;
+
+		float progress = Mathf.Clamp01(_progress01);
+		m_HealProgressRect.anchorMin = m_HealProgressAnchorMin;
+		m_HealProgressRect.anchorMax = new Vector2(progress, m_HealProgressAnchorMax.y);
+		m_HealProgressRect.sizeDelta = new Vector2(0f, m_HealProgressSizeDelta.y);
 	}
 
 	private void RefreshVisuals()
 	{
 		if (m_StatusText != null)
+		{
 			m_StatusText.text = m_HasEntry ? m_Data.GetLocalizedStatusText() : string.Empty;
+			m_StatusText.color = ResolveTextColor();
+		}
 
 		if (m_ConditionText != null)
 		{
 			string conditionText = m_HasEntry ? m_Data.GetLocalizedConditionText() : string.Empty;
 			m_ConditionText.text = conditionText;
+			m_ConditionText.color = ResolveTextColor();
 			m_ConditionText.gameObject.SetActive(!string.IsNullOrWhiteSpace(conditionText));
 		}
 
@@ -101,6 +176,16 @@ public sealed class HealthStatusSlotView : MonoBehaviour
 			m_OccupiedRoot.SetActive(m_HasEntry);
 		if (m_EmptyRoot != null)
 			m_EmptyRoot.SetActive(!m_HasEntry);
+	}
+
+	private Color ResolveTextColor()
+	{
+		if (!m_HasEntry)
+			return m_EmptyTextColor;
+
+		return m_Data.IsStabilized
+			? m_StabilizedInjuryColor
+			: m_ActiveInjuryColor;
 	}
 
 	private void HandleLanguageChanged()
@@ -125,6 +210,9 @@ public struct HealthStatusEntryData
 	public string[] DebuffLocalizationKeys;
 	public string DebuffsDisplayText;
 	public int SortPriority;
+	public int InjuryIndex;
+	public bool IsStabilized;
+	public float AccumulatedLethalPressure;
 
 	public bool IsEmpty => string.IsNullOrWhiteSpace(StatusDisplayName) && string.IsNullOrWhiteSpace(StatusLocalizationKey);
 

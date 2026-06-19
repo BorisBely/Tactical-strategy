@@ -50,6 +50,50 @@
       "value": "Критическое состояние"
     },
     {
+      "key": "health.status.dead",
+      "value": "Погиб"
+    },
+    {
+      "key": "health.survival.stable",
+      "value": "стабилен"
+    },
+    {
+      "key": "health.survival.imminent",
+      "value": "смерть неизбежна"
+    },
+    {
+      "key": "health.survival.less_than_1_min",
+      "value": "меньше 1 минуты"
+    },
+    {
+      "key": "health.survival.less_than_5_min",
+      "value": "меньше 5 минут"
+    },
+    {
+      "key": "health.survival.less_than_10_min",
+      "value": "меньше 10 минут"
+    },
+    {
+      "key": "health.survival.less_than_15_min",
+      "value": "меньше 15 минут"
+    },
+    {
+      "key": "health.survival.less_than_30_min",
+      "value": "меньше 30 минут"
+    },
+    {
+      "key": "health.survival.less_than_60_min",
+      "value": "меньше 1 часа"
+    },
+    {
+      "key": "health.survival.more_than_60_min",
+      "value": "более 1 часа"
+    },
+    {
+      "key": "health.condition.stabilized",
+      "value": "Стабилизировано"
+    },
+    {
       "key": "health.body_part.head",
       "value": "Голова"
     },
@@ -276,6 +320,14 @@
     {
       "key": "item.grenade.smoke_01",
       "value": "Дымовая граната"
+    },
+    {
+      "key": "item.medkit.ifak",
+      "value": "IFAK"
+    },
+    {
+      "key": "item.medkit.ifak.desc",
+      "value": "Индивидуальная аптечка первой помощи. Стабилизирует раны, расходуя медицинский ресурс; чем тяжелее травма, тем больше расход."
     },
     {
       "key": "item.loot.ammo_box.556",

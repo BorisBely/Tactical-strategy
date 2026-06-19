@@ -75,6 +75,10 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Префаб гранаты, который крепится к ячейкам на теле юнита.")]
 	[SerializeField] private GameObject m_AttachedBodyVisualPrefab;
 
+	[Header("Medkit (Category = General)")]
+	[Tooltip("Данные аптечки: ёмкость ресурса и стоимость стабилизации по травмам.")]
+	[SerializeField] private MedkitDefinition m_MedkitDefinition;
+
 	#endregion
 
 	#region Public Properties
@@ -118,6 +122,8 @@ public class ItemDefinition : ScriptableObject
 	public GrenadeType GrenadeType => m_GrenadeType;
 	public GameObject AttachedBodyVisualPrefab => m_AttachedBodyVisualPrefab;
 	public bool IsGrenade => m_Category == ItemCategory.General && m_GrenadeType != GrenadeType.Unknown;
+	public MedkitDefinition MedkitDefinition => m_MedkitDefinition;
+	public bool IsMedkit => m_MedkitDefinition != null;
 	public int BackpackCapacity => m_BackpackCapacity;
 
 	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>

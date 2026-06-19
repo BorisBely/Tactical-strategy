@@ -159,9 +159,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private MoveTier m_PendingNavMode;
 	private float m_TargetAgentSpeed;
 
-	// Single vs double right-click debounce:
-	// we delay processing single click until the double-click window elapses,
-	// otherwise the unit briefly reacts to walk (slowdown) and only then upgrades to run.
+	// Single vs double right-click debounce (ПКМ и RTS-команда «шаг»):
+	// одиночный клик откладывается, пока юнит уже бежит/спринтует — чтобы не сбрасывать скорость до двойного ПКМ.
 	private bool m_HasPendingRightClick;
 	private float m_PendingRightClickTime = -1f;
 	private Vector3 m_PendingRightClickDestination;
@@ -245,6 +244,23 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
+
+		if (_mode != MoveTier.Walk)
+		{
+			m_HasPendingRightClick = false;
+			m_PendingRightClickTime = -1f;
+			IssueNavOrderInternal(hit.position, _mode);
+			return true;
+		}
+
+		// RTS / внешний одиночный клик во время бега/спринта: отложить шаг, чтобы успеть распознать двойной ПКМ.
+		if (m_Mode != MoveTier.Walk)
+		{
+			m_HasPendingRightClick = true;
+			m_PendingRightClickTime = Time.time;
+			m_PendingRightClickDestination = hit.position;
+			return true;
+		}
 
 		IssueNavOrderInternal(hit.position, _mode);
 		return true;
@@ -376,12 +392,15 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (CanUseDirectInput() &&
 		    m_HardStopEnabled && Keyboard.current != null &&
-		    Keyboard.current[m_HardStopKey].wasPressedThisFrame &&
-		    IsMovingOnNavMesh())
-			HardStop();
+		    Keyboard.current[m_HardStopKey].wasPressedThisFrame)
+		{
+			if (TryGetComponent(out UnitSelfStabilizationController selfStabilization))
+				selfStabilization.StopSelfStabilization();
 
-		if (CanUseDirectInput())
-			TickPendingSingleRightClick();
+			HardStop();
+		}
+
+		TickPendingSingleRightClick();
 
 		if (CanUseDirectInput() && m_RayCamera != null)
 			TryRightClick();

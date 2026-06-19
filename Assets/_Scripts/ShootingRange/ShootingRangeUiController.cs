@@ -3,6 +3,13 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+public enum PlayerDebugInjuryType
+{
+	ArmBleeding,
+	LegFracture,
+	LungDamage
+}
+
 /// <summary>
 /// UI полигона: сброс мишеней и включение/выключение по одной и всех сразу.
 /// </summary>
@@ -37,6 +44,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	#region Private Fields
 	private readonly List<TargetRowUi> m_Rows = new List<TargetRowUi>(16);
 	private readonly List<Button> m_QuickResetButtons = new List<Button>(10);
+	private readonly List<Button> m_InjuryDebugButtons = new List<Button>(4);
 	private bool m_Built;
 	#endregion
 
@@ -121,6 +129,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			CreateGlobalButtonsRow(m_PanelRoot);
 			CreateQuickResetButtonsGrid(m_PanelRoot);
 			CreateRankButtonRow(m_PanelRoot);
+			CreateInjuryDebugButtonsGrid(m_PanelRoot);
 			m_TargetListRoot = CreateScrollList(m_PanelRoot);
 		}
 
@@ -328,6 +337,16 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		Debug.LogWarning("[Полигон] Не удалось сменить ранг: не найден UnitCombatStats у активного игрока или не задан Rank Cycle Order.", m_Manager);
 	}
 
+	private void HandleAddPlayerInjury(PlayerDebugInjuryType _injuryType)
+	{
+		m_Manager?.TryAddPlayerDebugInjury(_injuryType);
+	}
+
+	private void HandleClearPlayerInjuries()
+	{
+		m_Manager?.TryClearPlayerInjuries();
+	}
+
 	private void RefreshRankButtonLabel()
 	{
 		if (m_CycleRankButton == null || m_Manager == null)
@@ -381,6 +400,60 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		rowElement.preferredHeight = 32f;
 
 		m_CycleRankButton = CreateButton(rowGo.transform, "Rank: —", 0f);
+	}
+
+	private void CreateInjuryDebugButtonsGrid(Transform _parent)
+	{
+		UnwireInjuryDebugButtons();
+
+		CreateText(_parent, "Debug Injuries", 0f, TextAlignmentOptions.Center, 14f);
+
+		GameObject rowGo = new GameObject("InjuryDebugButtons", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
+		rowGo.transform.SetParent(_parent, false);
+
+		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
+		rowElement.minHeight = 64f;
+		rowElement.preferredHeight = 64f;
+
+		GridLayoutGroup grid = rowGo.GetComponent<GridLayoutGroup>();
+		grid.cellSize = new Vector2(150f, 28f);
+		grid.spacing = new Vector2(4f, 4f);
+		grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+		grid.constraintCount = 2;
+		grid.childAlignment = TextAnchor.UpperCenter;
+
+		AddInjuryDebugButton(rowGo.transform, "Arm Bleeding", PlayerDebugInjuryType.ArmBleeding);
+		AddInjuryDebugButton(rowGo.transform, "Leg Fracture", PlayerDebugInjuryType.LegFracture);
+		AddInjuryDebugButton(rowGo.transform, "Lung Damage", PlayerDebugInjuryType.LungDamage);
+		AddInjuryDebugButton(rowGo.transform, "Clear Injuries", null);
+	}
+
+	private void AddInjuryDebugButton(Transform _parent, string _label, PlayerDebugInjuryType? _injuryType)
+	{
+		Button button = CreateButton(_parent, _label, 0f);
+		if (_injuryType.HasValue)
+		{
+			PlayerDebugInjuryType injuryType = _injuryType.Value;
+			button.onClick.AddListener(() => HandleAddPlayerInjury(injuryType));
+		}
+		else
+		{
+			button.onClick.AddListener(HandleClearPlayerInjuries);
+		}
+
+		m_InjuryDebugButtons.Add(button);
+	}
+
+	private void UnwireInjuryDebugButtons()
+	{
+		for (int i = 0; i < m_InjuryDebugButtons.Count; i++)
+		{
+			Button button = m_InjuryDebugButtons[i];
+			if (button != null)
+				button.onClick.RemoveAllListeners();
+		}
+
+		m_InjuryDebugButtons.Clear();
 	}
 
 	private void CreateGlobalButtonsRow(Transform _parent)

@@ -160,7 +160,8 @@ public static class WorldPickupPrefabBuilder
 		Magazine,
 		Attachment,
 		AmmoContainer,
-		Helmet
+		Helmet,
+		Medkit
 	}
 	#endregion
 
@@ -480,6 +481,12 @@ public static class WorldPickupPrefabBuilder
 			return true;
 		}
 
+		if (_item.MedkitDefinition != null)
+		{
+			_kind = LootBuildKind.Medkit;
+			return true;
+		}
+
 		if (_item.AmmoDefinition != null && _item.DropWorldPrefab != null)
 		{
 			_kind = LootBuildKind.AmmoContainer;
@@ -510,6 +517,9 @@ public static class WorldPickupPrefabBuilder
 		string fileName = GetLootPrefabName(_item, _kind) + ".prefab";
 		if (_kind == LootBuildKind.Helmet)
 			return $"{c_WorldLootRoot}/Helmets/{fileName}";
+
+		if (_kind == LootBuildKind.Medkit)
+			return $"{c_WorldLootRoot}/Medical/{fileName}";
 
 		string subFolder = _kind switch
 		{

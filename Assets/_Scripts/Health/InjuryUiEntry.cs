@@ -14,11 +14,14 @@ public struct InjuryUiEntry
 	public string[] DebuffLocalizationKeys;
 	public string DebuffsDisplayText;
 	public int SortPriority;
+	public bool IsStabilized;
+	public float AccumulatedLethalPressure;
 
-	public HealthStatusEntryData ToEntryData()
+	public HealthStatusEntryData ToEntryData(int _injuryIndex = -1)
 	{
 		return new HealthStatusEntryData
 		{
+			InjuryIndex = _injuryIndex,
 			StatusDisplayName = StatusDisplayName,
 			StatusLocalizationKey = StatusLocalizationKey,
 			ConditionDisplayName = ConditionDisplayName,
@@ -27,7 +30,9 @@ public struct InjuryUiEntry
 			DescriptionLocalizationKey = DescriptionLocalizationKey,
 			DebuffLocalizationKeys = DebuffLocalizationKeys,
 			DebuffsDisplayText = DebuffsDisplayText,
-			SortPriority = SortPriority
+			SortPriority = SortPriority,
+			IsStabilized = IsStabilized,
+			AccumulatedLethalPressure = AccumulatedLethalPressure
 		};
 	}
 

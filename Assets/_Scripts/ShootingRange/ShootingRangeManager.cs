@@ -185,6 +185,46 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		return UnitCombatRankCycle.ResolveRankLabel(combatStats.RankPreset);
 	}
 
+	public bool TryAddPlayerDebugInjury(PlayerDebugInjuryType _injuryType)
+	{
+		if (!TryFindPlayerUnitHealth(out UnitHealth health))
+		{
+			Debug.LogWarning("[Полигон] Не удалось добавить травму: не найден UnitHealth у активного игрока.", this);
+			return false;
+		}
+
+		switch (_injuryType)
+		{
+			case PlayerDebugInjuryType.ArmBleeding:
+				health.AddDebugInjuryArmBleeding();
+				break;
+			case PlayerDebugInjuryType.LegFracture:
+				health.AddDebugInjuryLegFracture();
+				break;
+			case PlayerDebugInjuryType.LungDamage:
+				health.AddDebugInjuryLungDamage();
+				break;
+			default:
+				return false;
+		}
+
+		Debug.Log($"[Полигон] Добавлена debug-травма {_injuryType} | юнит: {health.gameObject.name}", this);
+		return true;
+	}
+
+	public bool TryClearPlayerInjuries()
+	{
+		if (!TryFindPlayerUnitHealth(out UnitHealth health))
+		{
+			Debug.LogWarning("[Полигон] Не удалось очистить травмы: не найден UnitHealth у активного игрока.", this);
+			return false;
+		}
+
+		health.ClearInjuries();
+		Debug.Log($"[Полигон] Травмы очищены | юнит: {health.gameObject.name}", this);
+		return true;
+	}
+
 	public void ApplyPlayerVisionRange()
 	{
 #if UNITY_2023_1_OR_NEWER
@@ -303,6 +343,19 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	private bool TryFindPlayerUnitCombatStats(out UnitCombatStats _combatStats)
 	{
 		return UnitCombatStatsLookup.TryGetActivePlayerCombatStats(out _combatStats);
+	}
+
+	private bool TryFindPlayerUnitHealth(out UnitHealth _health)
+	{
+		_health = null;
+		if (!TryFindPlayerUnitCombatStats(out UnitCombatStats combatStats))
+			return false;
+
+		_health = combatStats.GetComponent<UnitHealth>();
+		if (_health == null)
+			_health = combatStats.GetComponentInParent<UnitHealth>();
+
+		return _health != null;
 	}
 
 	private void RequestVisionRescanForPlayers()

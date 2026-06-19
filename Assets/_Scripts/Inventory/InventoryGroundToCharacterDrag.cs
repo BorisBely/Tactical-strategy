@@ -171,6 +171,12 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		if (!wasModificationDropConsumed && !m_DropAccepted && wasDragging)
 		{
 			bool exchangeActive = InventoryExchangeController.Instance.IsActive;
+			bool outsideBoth = coordinator != null &&
+				coordinator.IsScreenPointOutsideBothInventoryPanels(eventData.position, eventCamera);
+			bool overCharacterRaycast = coordinator != null &&
+				coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera);
+			bool overGroundRaycast = coordinator != null &&
+				coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera);
 
 			if (coordinator != null &&
 			    coordinator.IsScreenPointOverCharacterMainHandSlot(eventData.position, eventCamera))
@@ -214,8 +220,7 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}
-			else if (!m_DropAccepted && selectionManager != null && coordinator != null &&
-			         coordinator.IsScreenPointOverCharacterPanel(eventData.position, eventCamera))
+			else if (!m_DropAccepted && selectionManager != null && coordinator != null && overCharacterRaycast)
 			{
 				m_DropAccepted = selectionManager.TryRouteGroundDragOnCharacterPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
@@ -223,10 +228,16 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 					DestroyDraggedSlotVisual();
 			}
 			else if (!m_DropAccepted && exchangeActive && selectionManager != null && coordinator != null &&
-			         coordinator.IsScreenPointOverGroundPanel(eventData.position, eventCamera))
+			         overGroundRaycast)
 			{
 				m_DropAccepted = selectionManager.TryRouteGroundDragOnPartnerPanel(
 					this, eventData.position, eventCamera, _requireActiveDrag: false);
+				if (m_DropAccepted)
+					DestroyDraggedSlotVisual();
+			}
+			else if (exchangeActive && selectionManager != null && coordinator != null && outsideBoth)
+			{
+				m_DropAccepted = selectionManager.TryDropPartnerDragOutsidePanels(this);
 				if (m_DropAccepted)
 					DestroyDraggedSlotVisual();
 			}

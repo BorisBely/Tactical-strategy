@@ -15,6 +15,7 @@ public sealed class UnitBusyState : MonoBehaviour
 		None = 0,
 		StanceTransition = 1 << 0,
 		Reload = 1 << 1,
+		SelfStabilization = 1 << 4,
 		// Future: Melee = 1 << 2,
 		// Future: Throw = 1 << 3,
 	}
@@ -39,7 +40,6 @@ public sealed class UnitBusyState : MonoBehaviour
 		if (_reason == BusyReason.None)
 			return;
 
-		BusyReason before = m_Reasons;
 		if (_active)
 			m_Reasons |= _reason;
 		else

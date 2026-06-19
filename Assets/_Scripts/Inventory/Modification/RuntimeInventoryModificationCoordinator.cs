@@ -695,6 +695,15 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		return RuntimeModificationPanelUtility.IsScreenPointOverPanel(GroundPanel, _screenPosition);
 	}
 
+	public bool IsScreenPointOutsideBothInventoryPanels(Vector2 _screenPosition, Camera _eventCamera)
+	{
+		bool overCharacter = RuntimeModificationPanelUtility.IsScreenPointInsidePanelBounds(
+			CharacterPanel, _screenPosition, _eventCamera);
+		bool overGround = RuntimeModificationPanelUtility.IsScreenPointInsidePanelBounds(
+			GroundPanel, _screenPosition, _eventCamera);
+		return !overCharacter && !overGround;
+	}
+
 	public void OnGroundPanelRepopulated()
 	{
 		EnsureGroundPanelUiHooks();

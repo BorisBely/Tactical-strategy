@@ -38,6 +38,62 @@
       "value": "Stable"
     },
     {
+      "key": "health.status.wounded",
+      "value": "Wounded"
+    },
+    {
+      "key": "health.status.seriously_wounded",
+      "value": "Seriously wounded"
+    },
+    {
+      "key": "health.status.critical",
+      "value": "Critical condition"
+    },
+    {
+      "key": "health.status.dead",
+      "value": "Dead"
+    },
+    {
+      "key": "health.survival.stable",
+      "value": "stable"
+    },
+    {
+      "key": "health.survival.imminent",
+      "value": "death imminent"
+    },
+    {
+      "key": "health.survival.less_than_1_min",
+      "value": "less than 1 minute"
+    },
+    {
+      "key": "health.survival.less_than_5_min",
+      "value": "less than 5 minutes"
+    },
+    {
+      "key": "health.survival.less_than_10_min",
+      "value": "less than 10 minutes"
+    },
+    {
+      "key": "health.survival.less_than_15_min",
+      "value": "less than 15 minutes"
+    },
+    {
+      "key": "health.survival.less_than_30_min",
+      "value": "less than 30 minutes"
+    },
+    {
+      "key": "health.survival.less_than_60_min",
+      "value": "less than 1 hour"
+    },
+    {
+      "key": "health.survival.more_than_60_min",
+      "value": "more than 1 hour"
+    },
+    {
+      "key": "health.condition.stabilized",
+      "value": "Stabilized"
+    },
+    {
       "key": "health.body_part.head",
       "value": "Head"
     },
@@ -120,6 +176,14 @@
     {
       "key": "item.grenade.smoke_01",
       "value": "Smoke grenade"
+    },
+    {
+      "key": "item.medkit.ifak",
+      "value": "IFAK"
+    },
+    {
+      "key": "item.medkit.ifak.desc",
+      "value": "Individual First Aid Kit. Stabilizes wounds by spending medical resource; heavier injuries cost more."
     },
     {
       "key": "item.loot.ammo_box.556",

@@ -160,6 +160,10 @@ public class InventorySlotView : MonoBehaviour
 			AmmoContainerRuntimeState ammoContainerState = _data.InstanceState.AmmoContainerState;
 			if (ammoContainerState != null && ammoContainerState.AmmoDefinition != null)
 				return $"{baseLabel} x{ammoContainerState.CurrentAmmoCount}";
+
+			MedkitRuntimeState medkitState = _data.InstanceState.MedkitState;
+			if (medkitState != null && medkitState.Definition != null)
+				return $"{baseLabel} [{medkitState.CurrentResourcePoints}/{medkitState.MaxResourcePoints}]";
 		}
 
 		return baseLabel;

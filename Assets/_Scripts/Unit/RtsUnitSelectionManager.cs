@@ -54,6 +54,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	#region Public Properties
 	public static RtsUnitSelectionManager Instance => s_Instance;
 	public int SelectedUnitCount => m_SelectedUnits != null ? m_SelectedUnits.Count : 0;
+	public bool ShouldPinActiveExchangeInventory =>
+		InventoryExchangeController.Instance.IsActive && SelectedUnitCount > 0;
 	public InventoryPanelView GroundPanel => m_GroundPanel;
 	public InventoryPanelView CharacterInventoryPanel => m_CharacterInventoryPanel;
 	public bool IsExchangeActive => InventoryExchangeController.Instance.IsActive;
@@ -617,6 +619,76 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			_drag.CapturedFromMainHandEquipmentSlot,
 			_drag.CapturedFromHeadEquipmentSlot,
 			_drag.CapturedFromBackEquipmentSlot);
+	}
+
+	/// <summary>Выброс из панели персонажа за пределы окон инвентаря (в мир / на «землю»).</summary>
+	public bool TryDropCharacterDragOutsidePanels(InventoryCharacterToGroundDrag _drag)
+	{
+		if (_drag == null)
+			return false;
+
+		CharacterInventory inventory = GetActiveInventory();
+		InventorySlotView slot = _drag.SlotView;
+		if (inventory == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
+			return false;
+
+		InventorySlotRuntimeData data;
+		if (_drag.CapturedFromMainHandEquipmentSlot)
+		{
+			if (!inventory.TryRemoveMainHandEquipment(out data))
+				return false;
+		}
+		else if (_drag.CapturedFromHeadEquipmentSlot)
+		{
+			if (!inventory.TryRemoveHeadEquipment(out data))
+				return false;
+		}
+		else if (_drag.CapturedFromBackEquipmentSlot)
+		{
+			if (!inventory.TryRemoveBackEquipment(out data))
+				return false;
+		}
+		else
+		{
+			int bagIndex = _drag.CapturedBagIndex;
+			if (bagIndex < 0 || bagIndex >= inventory.BagCount)
+				return false;
+
+			if (!inventory.TryRemoveBagAt(bagIndex, out data))
+				return false;
+		}
+
+		return TryCompleteCharacterToWorldDrop(
+			inventory,
+			data,
+			slot,
+			_drag.CapturedFromMainHandEquipmentSlot,
+			_drag.CapturedFromHeadEquipmentSlot,
+			_drag.CapturedFromBackEquipmentSlot);
+	}
+
+	/// <summary>Выброс предмета партнёра за пределы окон инвентаря во время обмена.</summary>
+	public bool TryDropPartnerDragOutsidePanels(InventoryGroundToCharacterDrag _drag)
+	{
+		if (!IsExchangeActive || _drag == null)
+			return false;
+
+		CharacterInventory partner = GetPartnerInventory();
+		InventorySlotView slot = _drag.SlotView;
+		if (partner == null || m_GroundPanel == null || slot == null || !slot.HasItem)
+			return false;
+
+		if (!TryRemovePartnerItemByGroundSlotIndex(
+			    _drag.CapturedGroundSlotIndex,
+			    slot,
+			    partner,
+			    out InventorySlotRuntimeData data,
+			    out bool isMainHand,
+			    out bool isHead,
+			    out bool isBack))
+			return false;
+
+		return TryCompletePartnerToWorldDrop(partner, data, slot, isMainHand, isHead, isBack);
 	}
 
 	public bool TryEquipFromCharacterBagDoubleClick(InventorySlotView _slot)
@@ -2424,7 +2496,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public CharacterInventory TryGetActiveCharacterInventoryForUi()
 	{
 		InventoryExchangeController exchange = InventoryExchangeController.Instance;
-		if (exchange.IsActive && exchange.PlayerInventory != null)
+		if (exchange.IsActive && exchange.PlayerInventory != null && ShouldPinActiveExchangeInventory)
 			return exchange.PlayerInventory;
 
 		if (m_PendingExchangePlayerUnit != null)
@@ -2663,6 +2735,73 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		FinalizeGroundPanelPlacement(spawned);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryCompleteCharacterToWorldDrop(
+		CharacterInventory _inventory,
+		InventorySlotRuntimeData _data,
+		InventorySlotView _adoptExistingSlotOrNull,
+		bool _removedFromMainHandSlot,
+		bool _removedFromHeadSlot = false,
+		bool _removedFromBackSlot = false)
+	{
+		if (!IsExchangeActive)
+		{
+			return TryCompleteCharacterToGroundTransfer(
+				_inventory,
+				_data,
+				_adoptExistingSlotOrNull,
+				_removedFromMainHandSlot,
+				_removedFromHeadSlot,
+				_removedFromBackSlot);
+		}
+
+		if (!TryBuildGroundSlotData(_inventory, _data, out _, out WorldPickupItem spawned))
+		{
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return false;
+		}
+
+		if (spawned == null)
+		{
+			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_CharacterInventoryPanel);
+		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryCompletePartnerToWorldDrop(
+		CharacterInventory _partnerInventory,
+		InventorySlotRuntimeData _data,
+		InventorySlotView _adoptExistingSlotOrNull,
+		bool _removedFromMainHandSlot,
+		bool _removedFromHeadSlot = false,
+		bool _removedFromBackSlot = false)
+	{
+		if (!TryBuildGroundSlotData(_partnerInventory, _data, out _, out WorldPickupItem spawned))
+		{
+			TryRestoreToInventorySlot(_partnerInventory, _removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		if (spawned == null)
+		{
+			TryRestoreToInventorySlot(_partnerInventory, _removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_GroundPanel);
+		RepaintExchangePanels();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
 	}

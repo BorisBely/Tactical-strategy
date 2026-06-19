@@ -34,4 +34,18 @@ public static class RuntimeModificationPanelUtility
 
 		return false;
 	}
+
+	public static bool IsScreenPointInsidePanelBounds(
+		InventoryPanelView _panel,
+		Vector2 _screenPosition,
+		Camera _eventCamera)
+	{
+		if (_panel == null)
+			return false;
+
+		if (!_panel.TryGetComponent(out RectTransform panelRect))
+			return false;
+
+		return RectTransformUtility.RectangleContainsScreenPoint(panelRect, _screenPosition, _eventCamera);
+	}
 }
