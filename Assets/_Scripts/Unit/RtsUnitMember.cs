@@ -19,6 +19,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilizationController;
+	[SerializeField] private UnitFallenDragController m_FallenDragController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private Animator m_Animator;
@@ -66,6 +67,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_SelfStabilizationController == null)
 			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
+		if (m_FallenDragController == null)
+			m_FallenDragController = GetComponent<UnitFallenDragController>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_UnitEquipment == null)
@@ -124,6 +127,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 			    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
 				return;
 
+			if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+				_moveTier = UnitClickToMove.MoveTier.Walk;
+
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				m_MagazineLoadingController?.StopLoading();
 
@@ -174,6 +180,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+			{
+				m_FallenDragController.RequestReleaseDrag();
+				return;
+			}
+
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
 			selfStabilization?.StopSelfStabilization();
 

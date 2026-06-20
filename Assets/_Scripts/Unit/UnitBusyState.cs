@@ -16,6 +16,7 @@ public sealed class UnitBusyState : MonoBehaviour
 		StanceTransition = 1 << 0,
 		Reload = 1 << 1,
 		SelfStabilization = 1 << 4,
+		DraggingFallen = 1 << 5,
 		// Future: Melee = 1 << 2,
 		// Future: Throw = 1 << 3,
 	}

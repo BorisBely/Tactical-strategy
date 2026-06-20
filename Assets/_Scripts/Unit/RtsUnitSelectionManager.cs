@@ -1399,21 +1399,76 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	#region Private Methods
 	private void HandleFallenUnitMenuAction(FallenUnitInteractionMenuAction _action, RtsUnitMember _targetUnit)
 	{
-		if (_action != FallenUnitInteractionMenuAction.Exchange)
-			return;
-
 		if (_targetUnit == null)
 			return;
 
-		if (!TryGetControllablePlayerUnit(out RtsUnitMember playerUnit))
+		if (_action == FallenUnitInteractionMenuAction.FirstAid)
+		{
+			UnitSelfStabilizationController selfStabilization = _targetUnit.GetComponent<UnitSelfStabilizationController>();
+			selfStabilization?.RequestSelfStabilization();
+			return;
+		}
+
+		if (_action == FallenUnitInteractionMenuAction.ReleaseDrag)
+		{
+			if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember playerUnit))
+				return;
+
+			playerUnit.GetComponent<UnitFallenDragController>()?.RequestReleaseDrag();
+			return;
+		}
+
+		if (_action == FallenUnitInteractionMenuAction.DragAway)
+		{
+			Debug.Log($"[RtsUnitSelection] DragAway clicked. target='{(_targetUnit != null ? _targetUnit.name : "null")}' instanceId={(_targetUnit != null ? _targetUnit.GetInstanceID() : 0)}, selectedCount={SelectedUnitCount}");
+
+			if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] DragAway rejected: need exactly one controllable player unit (selectedCount={SelectedUnitCount}).");
+				return;
+			}
+
+			if (_targetUnit == null)
+			{
+				Debug.LogWarning("[RtsUnitSelection] DragAway rejected: menu target is null.");
+				return;
+			}
+
+			if (ReferenceEquals(_targetUnit, playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] DragAway rejected: menu target is the same unit as dragger (instanceId={playerUnit.GetInstanceID()}).");
+				return;
+			}
+
+			UnitFallenStateUtility.TryDescribeFallenState(_targetUnit, out string fallenState);
+			Debug.Log($"[RtsUnitSelection] DragAway target state: {fallenState}", _targetUnit);
+
+			UnitFallenDragController dragController = playerUnit.GetComponent<UnitFallenDragController>();
+			if (dragController == null)
+			{
+				Debug.LogError($"[RtsUnitSelection] DragAway failed: '{playerUnit.name}' has no {nameof(UnitFallenDragController)}.", playerUnit);
+				return;
+			}
+
+			Debug.Log(
+				$"[RtsUnitSelection] DragAway -> RequestBeginDrag dragger='{playerUnit.name}' id={playerUnit.GetInstanceID()}, victim='{_targetUnit.name}' id={_targetUnit.GetInstanceID()}",
+				playerUnit);
+			dragController.RequestBeginDrag(_targetUnit);
+			return;
+		}
+
+		if (_action != FallenUnitInteractionMenuAction.Exchange)
+			return;
+
+		if (!TryGetControllablePlayerUnit(out RtsUnitMember exchangePlayerUnit))
 			return;
 
 		if (m_ExchangeApproachCoroutine != null)
 			StopCoroutine(m_ExchangeApproachCoroutine);
 
-		m_PendingExchangePlayerUnit = playerUnit;
+		m_PendingExchangePlayerUnit = exchangePlayerUnit;
 		m_PendingExchangePartnerUnit = _targetUnit;
-		m_ExchangeApproachCoroutine = StartCoroutine(CoApproachAndBeginExchange(playerUnit, _targetUnit));
+		m_ExchangeApproachCoroutine = StartCoroutine(CoApproachAndBeginExchange(exchangePlayerUnit, _targetUnit));
 	}
 
 	private void ClearPendingExchangeApproach()
@@ -1935,11 +1990,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
 			return;
 
-		FallenUnitInteractionMenuController.Instance?.HideImmediate();
-
 		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
 		if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
 		{
+			FallenUnitInteractionMenuController.Instance?.HideImmediate();
 			if (!_ctrlPressed)
 				ClearSelection();
 			return;
@@ -1952,10 +2006,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (fallenTarget != null)
 				return;
 
+			FallenUnitInteractionMenuController.Instance?.HideImmediate();
 			if (!_ctrlPressed)
 				ClearSelection();
 			return;
 		}
+
+		FallenUnitInteractionMenuController.Instance?.HideImmediate();
 
 		if (_ctrlPressed)
 			ToggleUnitSelection(unit);
@@ -1963,9 +2020,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			SetSelection(new List<RtsUnitMember> { unit });
 	}
 
+	private bool TryShowSelectedUnitFirstAidMenu(RtsUnitMember _unit, Vector2 _screenPosition)
+	{
+		if (_unit == null || m_SelectedUnits.Count != 1 || m_SelectedUnits[0] != _unit)
+			return false;
+
+		if (!TryGetControllablePlayerUnit(_unit, out RtsUnitMember controllable))
+			return false;
+
+		UnitHealth health = controllable.GetComponent<UnitHealth>();
+		if (health == null || health.IsDead || !health.HasUnstabilizedInjuries)
+			return false;
+
+		UnitSelfStabilizationController selfStabilization = controllable.GetComponent<UnitSelfStabilizationController>();
+		if (selfStabilization == null || !selfStabilization.CanRequestSelfStabilization())
+			return false;
+
+		FallenUnitInteractionMenuController.Instance.ShowFirstAidForUnit(controllable, _screenPosition);
+		return true;
+	}
+
 	private bool TryShowFallenUnitInteractionMenu(Ray _ray, RaycastHit _primaryHit, Vector2 _screenPosition)
 	{
-		if (!TryGetControllablePlayerUnit(out RtsUnitMember controllerUnit))
+		if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember controllerUnit))
 			return false;
 
 		RtsUnitMember targetUnit = ResolveFallenUnitFromRay(_ray, _primaryHit);
@@ -1977,6 +2054,38 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		FallenUnitInteractionMenuController.Instance.ShowForUnit(targetUnit, _screenPosition);
 		return true;
+	}
+
+	private bool TryShowDragReleaseMenu(RaycastHit _unitHit, Vector2 _screenPosition)
+	{
+		if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember playerUnit))
+			return false;
+
+		UnitFallenDragController dragController = playerUnit.GetComponent<UnitFallenDragController>();
+		if (dragController == null || !dragController.IsDragging)
+			return false;
+
+		RtsUnitMember clickedUnit = _unitHit.collider.GetComponentInParent<RtsUnitMember>();
+		if (clickedUnit == null)
+			return false;
+
+		RtsUnitMember draggedVictim = dragController.DraggedVictim;
+		if (clickedUnit != playerUnit && clickedUnit != draggedVictim)
+			return false;
+
+		FallenUnitInteractionMenuController.Instance.ShowReleaseForDraggingUnit(
+			draggedVictim != null ? draggedVictim : playerUnit,
+			_screenPosition);
+		return true;
+	}
+
+	private bool TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember _unit)
+	{
+		_unit = null;
+		if (SelectedUnitCount != 1)
+			return false;
+
+		return TryGetControllablePlayerUnit(m_SelectedUnits[0], out _unit);
 	}
 
 	private RtsUnitMember ResolveFallenUnitFromRay(Ray _ray, RaycastHit _primaryHit)
@@ -2029,14 +2138,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UnitConsciousness consciousness = _hit.collider.GetComponentInParent<UnitConsciousness>();
 		if (consciousness != null && !consciousness.IsConscious)
 		{
-			if (consciousness.TryGetComponent(out RtsUnitMember member))
+			RtsUnitMember member = consciousness.GetComponentInChildren<RtsUnitMember>(true);
+			if (member != null)
 				return member;
-
-			return consciousness.GetComponentInChildren<RtsUnitMember>(true);
 		}
 
 		RtsUnitMember fromMember = _hit.collider.GetComponentInParent<RtsUnitMember>();
-		return IsFallenUnit(fromMember) ? fromMember : null;
+		if (fromMember != null && IsFallenUnit(fromMember))
+			return fromMember;
+
+		UnitRagdollController ragdoll = _hit.collider.GetComponentInParent<UnitRagdollController>();
+		if (ragdoll != null && ragdoll.IsRagdollActive)
+		{
+			RtsUnitMember ragdollMember = ragdoll.GetComponentInChildren<RtsUnitMember>(true);
+			if (ragdollMember != null)
+				return ragdollMember;
+		}
+
+		return null;
 	}
 
 	private static bool TryGetControllablePlayerUnit(RtsUnitMember _unit, out RtsUnitMember _controllable)
@@ -2085,11 +2204,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private static bool IsFallenUnit(RtsUnitMember _unit)
 	{
-		if (_unit == null)
-			return false;
-
-		UnitConsciousness consciousness = _unit.GetComponent<UnitConsciousness>();
-		return consciousness != null && !consciousness.IsConscious;
+		return UnitFallenStateUtility.IsFallenOrDead(_unit);
 	}
 
 	private void HandleBoxSelection(bool _ctrlPressed)
@@ -2135,10 +2250,21 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		FallenUnitInteractionMenuController menu = FallenUnitInteractionMenuController.Instance;
+		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
+			return;
+
 		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
 		if (TryRaycastAnyUnit(ray, out RaycastHit unitHit))
 		{
+			if (TryShowDragReleaseMenu(unitHit, mousePosition))
+				return;
+
 			if (TryShowFallenUnitInteractionMenu(ray, unitHit, mousePosition))
+				return;
+
+			RtsUnitMember clickedUnit = unitHit.collider.GetComponentInParent<RtsUnitMember>();
+			if (TryShowSelectedUnitFirstAidMenu(clickedUnit, mousePosition))
 				return;
 
 			return;

@@ -54,6 +54,18 @@
       "value": "Погиб"
     },
     {
+      "key": "unit.menu.first_aid",
+      "value": "Первая помощь"
+    },
+    {
+      "key": "unit.menu.drag_away",
+      "value": "Оттащить"
+    },
+    {
+      "key": "unit.menu.release",
+      "value": "Отпустить"
+    },
+    {
       "key": "health.survival.stable",
       "value": "стабилен"
     },

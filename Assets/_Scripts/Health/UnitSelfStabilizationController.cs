@@ -150,6 +150,9 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 			m_LastKnownInjuryCount = m_Health.InjuryCount;
 		}
 
+		if (m_Consciousness != null)
+			m_Consciousness.ConsciousnessChanged += HandleConsciousnessChanged;
+
 
 
 		m_SmoothedLayerWeight = m_IsSelfHealing || m_HealPresentationActive ? 1f : 0f;
@@ -170,6 +173,9 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 			m_Health.Changed -= HandleHealthChanged;
 
+		if (m_Consciousness != null)
+			m_Consciousness.ConsciousnessChanged -= HandleConsciousnessChanged;
+
 
 
 		StopSelfStabilization(true, false);
@@ -183,6 +189,12 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 	{
 
 		SyncLayerWeight();
+
+		if (m_HealPresentationActive && !CanContinueCurrentTreatment())
+		{
+			StopSelfStabilizationWithoutUserCancel();
+			return;
+		}
 
 		UpdateHealProgressInHealthCell();
 
@@ -217,6 +229,28 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 	{
 
 		StopSelfStabilization(true, false);
+
+	}
+
+
+
+	public bool CanRequestSelfStabilization()
+
+	{
+
+		return CanStartSelfStabilization(out _, out _, out _);
+
+	}
+
+
+
+	public bool RequestSelfStabilization()
+
+	{
+
+		m_SuppressAutoSelfStabilization = false;
+
+		return TryBeginSelfStabilization();
 
 	}
 
@@ -336,6 +370,12 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 			return;
 
+		if (m_Health != null && m_Health.IsDead)
+		{
+			StopSelfStabilizationWithoutUserCancel();
+			return;
+		}
+
 
 
 		if (m_Health != null && m_Health.InjuryCount > m_LastKnownInjuryCount)
@@ -350,6 +390,29 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 		TryBeginSelfStabilization();
 
+	}
+
+	private void HandleConsciousnessChanged(bool _isConscious)
+	{
+		if (!_isConscious)
+			StopSelfStabilizationWithoutUserCancel();
+	}
+
+	private bool CanContinueCurrentTreatment()
+	{
+		if (!isActiveAndEnabled)
+			return false;
+
+		if (m_StopRequested)
+			return false;
+
+		if (m_Health == null || m_Health.IsDead)
+			return false;
+
+		if (m_Consciousness != null && !m_Consciousness.IsConscious)
+			return false;
+
+		return true;
 	}
 
 
@@ -568,6 +631,10 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 		{
 
+			if (!CanContinueCurrentTreatment())
+
+				break;
+
 			yield return TreatSingleInjuryRoutine(
 
 				injuryIndex,
@@ -584,13 +651,15 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 			sessionStarted = true;
 
-			treatedAny = true;
+			if (!m_StopRequested && CanContinueCurrentTreatment())
+
+				treatedAny = true;
 
 		}
 
 
 
-		if (treatedAny && !m_StopRequested)
+		if (treatedAny && !m_StopRequested && CanContinueCurrentTreatment())
 
 		{
 
@@ -664,6 +733,10 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 			yield return WaitForMedkitState(s_StateHeal, healStartTimeoutSeconds);
 
+			if (!CanContinueCurrentTreatment())
+
+				yield break;
+
 		}
 
 
@@ -684,13 +757,17 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 		{
 
+			if (!CanContinueCurrentTreatment())
+
+				yield break;
+
 			yield return null;
 
 		}
 
 
 
-		if (!m_StopRequested && m_Health.TryGetInjury(_injuryIndex, out InjuryUiEntry injury))
+		if (!m_StopRequested && CanContinueCurrentTreatment() && m_Health.TryGetInjury(_injuryIndex, out InjuryUiEntry injury))
 
 		{
 
@@ -754,6 +831,12 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 	{
 		if (!m_HealPresentationActive || m_Health == null || m_DebugCurrentInjuryIndex < 0)
 			return;
+
+		if (!CanContinueCurrentTreatment())
+		{
+			HealthStatusHealProgressBridge.Clear(m_Health);
+			return;
+		}
 
 		HealthStatusHealProgressBridge.Report(
 			m_Health,
@@ -950,6 +1033,12 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 		m_DebugCompletedHealCycles = 0;
 
 		m_DebugSmoothedInjuryProgress01 = 0f;
+
+		m_CurrentInjuryProgressStartTime = 0f;
+
+		m_CurrentInjuryProgressTotalDuration = 0f;
+
+		m_DebugCurrentInjuryProgressTotalDuration = 0f;
 
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.SelfStabilization, false);
 

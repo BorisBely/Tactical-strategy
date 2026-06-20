@@ -10,6 +10,7 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private UnitFallenDragController m_FallenDragController;
 
 	[Header("Standing Still")]
 	[SerializeField, Min(0.01f)] private float m_StandingSpreadMultiplier = 1f;
@@ -30,6 +31,11 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_WalkCrouchSpreadMultiplier = 1.12f;
 	[SerializeField, Min(0.01f)] private float m_WalkCrouchAimTimeMultiplier = 1.3f;
 	[SerializeField, Min(0.01f)] private float m_WalkCrouchRecoilMultiplier = 1.1f;
+
+	[Header("Dragging Fallen")]
+	[SerializeField, Min(0.01f)] private float m_DraggingFallenSpreadMultiplier = 1.04f;
+	[SerializeField, Min(0.01f)] private float m_DraggingFallenAimTimeMultiplier = 1.1f;
+	[SerializeField, Min(0.01f)] private float m_DraggingFallenRecoilMultiplier = 1.05f;
 	#endregion
 
 	#region Unity Lifecycle
@@ -41,6 +47,8 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
 			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_FallenDragController == null)
+			m_FallenDragController = GetComponent<UnitFallenDragController>();
 	}
 	#endregion
 
@@ -78,6 +86,14 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 	#region Private Methods
 	private void ResolveCurrentPostureMultipliers(out float _spread, out float _aimTime, out float _recoil)
 	{
+		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+		{
+			_spread = m_DraggingFallenSpreadMultiplier;
+			_aimTime = m_DraggingFallenAimTimeMultiplier;
+			_recoil = m_DraggingFallenRecoilMultiplier;
+			return;
+		}
+
 		bool moving = IsMoving();
 		LocomotionStance stance = m_Stance != null ? m_Stance.CurrentStance : LocomotionStance.Standing;
 
@@ -121,6 +137,9 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 	{
 		if (_isSprinting)
 			return "спринт";
+
+		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+			return "тащит";
 
 		bool moving = IsMoving();
 		LocomotionStance stance = m_Stance != null ? m_Stance.CurrentStance : LocomotionStance.Standing;

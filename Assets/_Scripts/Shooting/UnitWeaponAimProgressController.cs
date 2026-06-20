@@ -24,6 +24,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private UnitFallenDragController m_FallenDragController;
 
 	[Header("Aim Conditions")]
 	[Tooltip("Если true, AimProgress растёт только когда оружие в ready.")]
@@ -87,6 +88,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
 			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_FallenDragController == null)
+			m_FallenDragController = GetComponent<UnitFallenDragController>();
 	}
 
 	private void OnEnable()
@@ -187,6 +190,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private bool IsMoving()
 	{
+		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+			return false;
+
 		if (m_LocomotionDriver != null)
 			return m_LocomotionDriver.HasMoveIntent;
 		return m_ClickToMove != null && m_ClickToMove.HasMoveIntent;

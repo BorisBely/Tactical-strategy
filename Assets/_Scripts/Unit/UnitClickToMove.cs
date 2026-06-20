@@ -63,6 +63,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitConsciousness m_Consciousness;
+	[SerializeField] private UnitFallenDragController m_DragController;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
@@ -308,6 +309,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Team = GetComponent<UnitTeam>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
+		if (m_DragController == null)
+			m_DragController = GetComponent<UnitFallenDragController>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 	}
 
@@ -438,8 +441,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_HasPendingNavOrder = false;
 		m_HasPendingRightClick = false;
 		m_PendingRightClickTime = -1f;
-		m_Agent.isStopped = true;
-		m_Agent.ResetPath();
+
+		if (m_Agent != null && m_Agent.enabled && m_Agent.isOnNavMesh)
+		{
+			m_Agent.isStopped = true;
+			m_Agent.ResetPath();
+		}
+
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 	}
 
@@ -476,6 +484,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		if (!IsConscious())
 			return;
+
+		if (IsBackwardDragLocomotionActive())
+			_mode = MoveTier.Walk;
 
 		if (_mode == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
@@ -718,6 +729,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			}
 			else
 				return;
+
+			if (IsBackwardDragLocomotionActive())
+				dir = -dir;
 		}
 
 		if (dir.sqrMagnitude < 1e-6f)
@@ -738,11 +752,18 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return m_Consciousness == null || m_Consciousness.IsConscious;
 	}
 
+	private bool IsBackwardDragLocomotionActive()
+	{
+		return m_DragController != null && m_DragController.IsBackwardDragLocomotion;
+	}
+
 	/// <summary>
 	/// Разворот на <see cref="UnitVision.VisibleTarget"/>: только оружие + «готов», без спринта.
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
+		if (IsBackwardDragLocomotionActive())
+			return false;
 		if (IsSprintActive())
 			return false;
 		if (m_BlockEngageFacingDuringReload)
@@ -1012,28 +1033,37 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (targetDir.sqrMagnitude > 1e-6f)
 			targetDir.Normalize();
 
-		float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
-			? m_DirectionSmoothTimeMoveStart
-			: m_DirectionSmoothTime;
-
-		bool engageMove = IsEngagingVisibleTarget() && moving;
-		float dirSmoothUse = engageMove && m_EngageDirectionSmoothTime > 0.0001f
-			? m_EngageDirectionSmoothTime
-			: dirSmooth;
-		if (engageMove && m_EngageDirectionSmoothTime <= 0.0001f)
+		if (IsBackwardDragLocomotionActive() && moving)
 		{
+			targetDir = new Vector2(0f, -1f);
 			m_SmoothDir = targetDir;
 			m_SmoothDirVel = Vector2.zero;
 		}
 		else
 		{
-			m_SmoothDir = Vector2.SmoothDamp(
-				m_SmoothDir,
-				moving ? targetDir : Vector2.zero,
-				ref m_SmoothDirVel,
-				dirSmoothUse,
-				Mathf.Infinity,
-				Time.deltaTime);
+			float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
+				? m_DirectionSmoothTimeMoveStart
+				: m_DirectionSmoothTime;
+
+			bool engageMove = IsEngagingVisibleTarget() && moving;
+			float dirSmoothUse = engageMove && m_EngageDirectionSmoothTime > 0.0001f
+				? m_EngageDirectionSmoothTime
+				: dirSmooth;
+			if (engageMove && m_EngageDirectionSmoothTime <= 0.0001f)
+			{
+				m_SmoothDir = targetDir;
+				m_SmoothDirVel = Vector2.zero;
+			}
+			else
+			{
+				m_SmoothDir = Vector2.SmoothDamp(
+					m_SmoothDir,
+					moving ? targetDir : Vector2.zero,
+					ref m_SmoothDirVel,
+					dirSmoothUse,
+					Mathf.Infinity,
+					Time.deltaTime);
+			}
 		}
 
 		float navSpeedOut = m_SmoothSpeed01;

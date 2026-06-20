@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,12 +19,12 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	private const float c_MenuMinWidth = 188f;
 	private const float c_ScreenEdgePadding = 8f;
 	private static readonly Vector2 s_CursorOffset = new Vector2(6f, -6f);
-	private static readonly string[] s_ItemLabels =
+	private static readonly (string Label, FallenUnitInteractionMenuAction Action)[] s_FallenMenuItems =
 	{
-		"Обмен",
-		"Стабилизировать",
-		"Оттащить",
-		"Поднять"
+		("Обмен", FallenUnitInteractionMenuAction.Exchange),
+		("Стабилизировать", FallenUnitInteractionMenuAction.Stabilize),
+		(null, FallenUnitInteractionMenuAction.DragAway),
+		("Поднять", FallenUnitInteractionMenuAction.Lift)
 	};
 	#endregion
 
@@ -102,13 +103,58 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	#region Public Methods
 	public void ShowForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
 	{
-		if (_targetUnit == null)
+		ShowMenu(_targetUnit, _screenPosition, BuildFallenMenuItems());
+	}
+
+	public void ShowReleaseForDraggingUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
+	{
+		string label = LocalizationManager.Get("unit.menu.release", "Отпустить");
+		ShowMenu(
+			_targetUnit,
+			_screenPosition,
+			new[] { (label, FallenUnitInteractionMenuAction.ReleaseDrag) });
+	}
+
+	private static (string Label, FallenUnitInteractionMenuAction Action)[] BuildFallenMenuItems()
+	{
+		var items = new (string Label, FallenUnitInteractionMenuAction Action)[s_FallenMenuItems.Length];
+		for (int i = 0; i < s_FallenMenuItems.Length; i++)
+		{
+			(string label, FallenUnitInteractionMenuAction action) source = s_FallenMenuItems[i];
+			if (source.action == FallenUnitInteractionMenuAction.DragAway)
+			{
+				items[i] = (LocalizationManager.Get("unit.menu.drag_away", "Оттащить"), source.action);
+				continue;
+			}
+
+			items[i] = (source.label, source.action);
+		}
+
+		return items;
+	}
+
+	public void ShowFirstAidForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
+	{
+		string label = LocalizationManager.Get("unit.menu.first_aid", "Первая помощь");
+		ShowMenu(
+			_targetUnit,
+			_screenPosition,
+			new[] { (label, FallenUnitInteractionMenuAction.FirstAid) });
+	}
+
+	private void ShowMenu(
+		RtsUnitMember _targetUnit,
+		Vector2 _screenPosition,
+		IReadOnlyList<(string Label, FallenUnitInteractionMenuAction Action)> _items)
+	{
+		if (_targetUnit == null || _items == null || _items.Count == 0)
 		{
 			HideImmediate();
 			return;
 		}
 
 		EnsureUi();
+		RebuildMenuItems(_items);
 		m_TargetUnit = _targetUnit;
 		m_IsVisible = true;
 		m_CanvasGroup.alpha = 1f;
@@ -168,7 +214,6 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 		m_Root.anchorMin = Vector2.zero;
 		m_Root.anchorMax = Vector2.zero;
 		m_Root.pivot = new Vector2(0f, 1f);
-		m_Root.sizeDelta = new Vector2(c_MenuMinWidth, s_ItemLabels.Length * c_ItemHeight + 12f);
 
 		m_CanvasGroup = rootObject.AddComponent<CanvasGroup>();
 		m_CanvasGroup.alpha = 0f;
@@ -191,11 +236,23 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 		fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
 		fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-		for (int i = 0; i < s_ItemLabels.Length; i++)
-			CreateMenuItem(rootObject.transform, s_ItemLabels[i], (FallenUnitInteractionMenuAction)i);
-
 		m_UiBuilt = true;
 		rootObject.SetActive(false);
+	}
+
+	private void RebuildMenuItems(IReadOnlyList<(string Label, FallenUnitInteractionMenuAction Action)> _items)
+	{
+		if (m_Root == null)
+			return;
+
+		for (int i = m_Root.childCount - 1; i >= 0; i--)
+			Destroy(m_Root.GetChild(i).gameObject);
+
+		for (int i = 0; i < _items.Count; i++)
+			CreateMenuItem(m_Root, _items[i].Label, _items[i].Action);
+
+		m_Root.sizeDelta = new Vector2(c_MenuMinWidth, _items.Count * c_ItemHeight + 12f);
+		LayoutRebuilder.ForceRebuildLayoutImmediate(m_Root);
 	}
 
 	private void EnsureHostCanvasBinding()
@@ -351,6 +408,9 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	private void HandleItemClicked(FallenUnitInteractionMenuAction _action)
 	{
 		RtsUnitMember targetUnit = m_TargetUnit;
+		if (_action == FallenUnitInteractionMenuAction.DragAway)
+			Debug.Log($"[FallenUnitMenu] Оттащить clicked. target='{(targetUnit != null ? targetUnit.name : "null")}'", targetUnit);
+
 		HideImmediate();
 		ActionClicked?.Invoke(_action, targetUnit);
 	}
@@ -436,5 +496,7 @@ public enum FallenUnitInteractionMenuAction
 	Exchange = 0,
 	Stabilize = 1,
 	DragAway = 2,
-	Lift = 3
+	Lift = 3,
+	FirstAid = 4,
+	ReleaseDrag = 5
 }

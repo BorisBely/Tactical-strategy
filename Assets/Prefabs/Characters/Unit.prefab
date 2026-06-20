@@ -8223,6 +8223,8 @@ GameObject:
   - component: {fileID: 8893568136447935561}
   - component: {fileID: 7912499842099294812}
   - component: {fileID: 7912499842099294813}
+  - component: {fileID: 7912499842099294814}
+  - component: {fileID: 7912499842099294815}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -8383,6 +8385,7 @@ MonoBehaviour:
   m_FireController: {fileID: 0}
   m_Team: {fileID: 0}
   m_Consciousness: {fileID: 0}
+  m_DragController: {fileID: 0}
   m_GroundMask:
     serializedVersion: 2
     m_Bits: 64
@@ -8444,6 +8447,8 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_MagazineLoadingController: {fileID: 2625859228613252192}
   m_WeaponReloadController: {fileID: 4859917004016156609}
+  m_SelfStabilizationController: {fileID: 0}
+  m_FallenDragController: {fileID: 0}
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_UnitEquipment: {fileID: 5322687323565292150}
   m_Animator: {fileID: 5771954729034314130}
@@ -8473,6 +8478,7 @@ MonoBehaviour:
   m_ReadyHands: {fileID: 1703047740406568110}
   m_FireController: {fileID: 8854059317223957988}
   m_Consciousness: {fileID: 0}
+  m_DragController: {fileID: 0}
   m_NavMeshSampleRadius: 2
   m_StoppingDistance: 0.15
   m_AgentAcceleration: 40
@@ -8585,6 +8591,9 @@ MonoBehaviour:
       m_AmmoContainerState:
         m_AmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
+      m_MedkitState:
+        m_Definition: {fileID: 0}
+        m_CurrentResourcePoints: 0
     WorldSource: {fileID: 0}
   m_HeadEquipment:
     DisplayName: 
@@ -8615,6 +8624,9 @@ MonoBehaviour:
       m_AmmoContainerState:
         m_AmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
+      m_MedkitState:
+        m_Definition: {fileID: 0}
+        m_CurrentResourcePoints: 0
     WorldSource: {fileID: 0}
   m_BackEquipment:
     DisplayName: 
@@ -8645,6 +8657,9 @@ MonoBehaviour:
       m_AmmoContainerState:
         m_AmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
+      m_MedkitState:
+        m_Definition: {fileID: 0}
+        m_CurrentResourcePoints: 0
     WorldSource: {fileID: 0}
   m_BagItems: []
 --- !u!114 &5322687323565292150
@@ -8762,6 +8777,7 @@ MonoBehaviour:
   m_ReloadController: {fileID: 4859917004016156609}
   m_MagazineLoadingController: {fileID: 0}
   m_FireController: {fileID: 0}
+  m_RagdollController: {fileID: 0}
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
   m_PitchSmoothTime: 0.08
@@ -9034,6 +9050,7 @@ MonoBehaviour:
   m_StanceCombatModifiers: {fileID: 0}
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
+  m_FallenDragController: {fileID: 0}
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
   m_BlockDuringStanceTransition: 1
@@ -9100,6 +9117,7 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_FireController: {fileID: 8854059317223957988}
   m_RecoilController: {fileID: 2745828861811900171}
+  m_RagdollController: {fileID: 0}
   m_KickTransformOverride: {fileID: 0}
   m_PitchDegreesPerPenaltyUnit: 2.1
   m_YawJitterFraction: 0.28
@@ -9214,6 +9232,8 @@ MonoBehaviour:
   m_UnitEquipment: {fileID: 5322687323565292150}
   m_MagazineLoading: {fileID: 0}
   m_WeaponReload: {fileID: 0}
+  m_SelfStabilization: {fileID: 0}
+  m_BusyState: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
   m_UseLeftElbowHint: 0
@@ -9384,6 +9404,7 @@ MonoBehaviour:
   m_OverallStatusLocalizationKey: health.status.ok
   m_OverallStatusDisplayName: "\u0412 \u043D\u043E\u0440\u043C\u0435"
   m_Injuries: []
+  m_IsDead: 0
 --- !u!114 &731400000000000100
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9739,12 +9760,18 @@ MonoBehaviour:
   m_RagdollLinearDamping: 0.35
   m_RagdollAngularDamping: 4.5
   m_MaxRagdollAngularSpeed: 2.5
+  m_DragLinearDampingMultiplier: 2
+  m_DragAngularDampingMultiplier: 1.6
   m_AngularDecayPerSecond: 10
   m_SettleDelay: 0.7
   m_SettleRequiredSeconds: 0.35
   m_SleepLinearSpeed: 0.12
   m_SleepAngularSpeed: 0.25
   m_MakeKinematicWhenSettled: 1
+  m_UnitEquipment: {fileID: 0}
+  m_WeaponDropSideOffset: 0.18
+  m_WeaponDropDownOffset: 0.05
+  m_WeaponDropImpulse: 0.45
 --- !u!114 &7912499842099294812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9782,6 +9809,67 @@ MonoBehaviour:
   m_HitImpulse: 1.2
   m_HitUpImpulse: 0
   m_LogConsciousness: 1
+--- !u!114 &7912499842099294814
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7f3c2e1b9044d5a8e6f1234567890ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitFallenDragController
+  m_RtsMember: {fileID: 3503617795371132269}
+  m_BusyState: {fileID: 0}
+  m_Stance: {fileID: 3741241907743255212}
+  m_ReadyHands: {fileID: 1703047740406568110}
+  m_UnitEquipment: {fileID: 5322687323565292150}
+  m_ClickToMove: {fileID: 4256334534260426623}
+  m_LocomotionDriver: {fileID: 6826918016596314260}
+  m_Consciousness: {fileID: 7912499842099294812}
+  m_Health: {fileID: 0}
+  m_SelfStabilization: {fileID: 0}
+  m_ReloadController: {fileID: 4859917004016156609}
+  m_LeftHandIk: {fileID: 0}
+  m_Animator: {fileID: 5771954729034314130}
+  m_LeftHandAnchor: {fileID: 0}
+  m_LayerWeightFadeSeconds: 0.2
+  m_VictimGripLocalOffsetInHand: {x: 0, y: -0.04, z: 0.08}
+  m_VictimGripLocalRotationOffsetInHand: {x: 180, y: 0, z: 0}
+  m_AttachAnimatorSettleFrames: 2
+  m_LogFallenDrag: 1
+  m_DebugLastFailureReason: 
+--- !u!114 &7912499842099294815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7f3c2e1b9044d5a8e6f1234567890ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitFallenDragVictimFollower
+  m_RagdollController: {fileID: 0}
+  m_GripAnchorOverride: {fileID: 0}
+  m_MaxGripFollowSpeed: 14
+  m_GripPositionSmoothTime: 0.07
+  m_GripRotationFollow: 0.12
+  m_GripRotationSmoothTime: 0.1
+  m_FloorSkinMeters: 0.06
+  m_FloorProbeUpMeters: 0.25
+  m_FloorProbeDownMeters: 0.6
+  m_FloorPushStrength: 10
+  m_MaxDownwardSpeed: 1.8
+  m_FloorPushMinPenetration: 0.02
+  m_GroundLayers:
+    serializedVersion: 2
+    m_Bits: 2035
+  m_SnapToGroundOnRelease: 1
+  m_RootSyncIntervalSeconds: 0.35
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

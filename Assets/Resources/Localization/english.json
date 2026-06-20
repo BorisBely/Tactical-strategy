@@ -54,6 +54,18 @@
       "value": "Dead"
     },
     {
+      "key": "unit.menu.first_aid",
+      "value": "First Aid"
+    },
+    {
+      "key": "unit.menu.drag_away",
+      "value": "Drag Away"
+    },
+    {
+      "key": "unit.menu.release",
+      "value": "Release"
+    },
+    {
       "key": "health.survival.stable",
       "value": "stable"
     },

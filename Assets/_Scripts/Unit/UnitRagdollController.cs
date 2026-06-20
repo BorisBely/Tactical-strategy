@@ -24,6 +24,24 @@ public sealed class UnitRagdollController : MonoBehaviour
 		public Vector3 LocalPosition;
 		public Quaternion LocalRotation;
 	}
+
+	private struct JointDragState
+	{
+		public Joint Joint;
+		public Rigidbody ConnectedBody;
+	}
+
+	private struct CollisionDetectionRestore
+	{
+		public Rigidbody Body;
+		public CollisionDetectionMode Mode;
+	}
+
+	private struct RigidbodyInterpolationRestore
+	{
+		public Rigidbody Body;
+		public RigidbodyInterpolation Interpolation;
+	}
 	#endregion
 
 	#region Serialized Fields
@@ -46,6 +64,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_RagdollLinearDamping = 0.35f;
 	[SerializeField, Min(0f)] private float m_RagdollAngularDamping = 4.5f;
 	[SerializeField, Min(0.1f)] private float m_MaxRagdollAngularSpeed = 2.5f;
+	[SerializeField, Min(1f)] private float m_DragLinearDampingMultiplier = 2f;
+	[SerializeField, Min(1f)] private float m_DragAngularDampingMultiplier = 1.6f;
 	[SerializeField, Min(0f)] private float m_AngularDecayPerSecond = 10f;
 	[SerializeField, Min(0f)] private float m_SettleDelay = 0.7f;
 	[SerializeField, Min(0f)] private float m_SettleRequiredSeconds = 0.35f;
@@ -65,9 +85,13 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private readonly List<Collider> m_CombatColliders = new List<Collider>(24);
 	private readonly List<Collider> m_RagdollColliders = new List<Collider>(24);
 	private readonly List<BonePose> m_InitialPoses = new List<BonePose>(64);
+	private readonly List<JointDragState> m_DisabledJointsForDrag = new List<JointDragState>(24);
+	private readonly List<CollisionDetectionRestore> m_CollisionDetectionRestore = new List<CollisionDetectionRestore>(24);
+	private readonly List<RigidbodyInterpolationRestore> m_InterpolationRestore = new List<RigidbodyInterpolationRestore>(24);
 	private bool m_IsRagdollActive;
 	private bool m_HasCached;
 	private bool m_IsRagdollSettled;
+	private bool m_SuppressAutoSettle;
 	private float m_RagdollActivatedAt;
 	private float m_SettleCandidateStartedAt = -1f;
 	private UnitWeaponAiming m_WeaponAiming;
@@ -96,7 +120,7 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 	private void FixedUpdate()
 	{
-		if (!m_IsRagdollActive || m_IsRagdollSettled)
+		if (!m_IsRagdollActive || m_IsRagdollSettled || m_SuppressAutoSettle)
 			return;
 
 		DecayRagdollAngularVelocity();
@@ -230,6 +254,248 @@ public sealed class UnitRagdollController : MonoBehaviour
 		CacheReferences();
 		CacheInitialPoses();
 	}
+
+	/// <summary>Подтянуть корень юнита к текущей позе ragdoll (hips). Полезно при перетаскивании.</summary>
+	public void SyncRootTransformToRootBone()
+	{
+		AlignRootToRagdollPosePreservingCurrentPose();
+	}
+
+	/// <summary>Разбудить ragdoll-физику (например перед волочением). Не выключает ragdoll.</summary>
+	public void WakeRagdollPhysics()
+	{
+		WakeRagdollPhysicsExcept(null);
+	}
+
+	/// <summary>
+	/// Разбудить ragdoll, кроме точки хвата: grip остаётся kinematic (ведётся за рукой), остальное dynamic.
+	/// </summary>
+	public void WakeRagdollPhysicsExcept(Rigidbody _gripBody)
+	{
+		CacheReferences();
+		m_IsRagdollSettled = false;
+		m_SettleCandidateStartedAt = -1f;
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null)
+				continue;
+
+			if (body == _gripBody)
+			{
+				if (!body.isKinematic)
+				{
+					body.linearVelocity = Vector3.zero;
+					body.angularVelocity = Vector3.zero;
+				}
+
+				body.isKinematic = true;
+				body.useGravity = false;
+				continue;
+			}
+
+			body.isKinematic = false;
+			body.useGravity = true;
+			body.linearDamping = m_RagdollLinearDamping;
+			body.angularDamping = m_RagdollAngularDamping;
+			body.maxAngularVelocity = m_MaxRagdollAngularSpeed;
+			body.WakeUp();
+		}
+	}
+
+	/// <summary>Заморозить все тела ragdoll (kinematic) перед parent-креплением к руке.</summary>
+	public void FreezeAllRagdollBodiesForDrag()
+	{
+		CacheReferences();
+		SetDragControlled(true);
+		m_IsRagdollSettled = false;
+		m_SettleCandidateStartedAt = -1f;
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null)
+				continue;
+
+			if (!body.isKinematic)
+			{
+				body.linearVelocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+			}
+
+			body.isKinematic = true;
+			body.useGravity = false;
+		}
+	}
+
+	/// <summary>Kinematic freeze + отключение joints + sync RB к трансформам (без растягивания при drag).</summary>
+	public void PrepareRagdollRigidPoseForDrag()
+	{
+		CacheReferences();
+		SyncTransformsFromRigidbodies();
+		FreezeAllRagdollBodiesForDrag();
+		DisableJointsForDrag();
+		SyncKinematicRigidbodiesFromTransforms();
+	}
+
+	/// <summary>Синхронизировать transform костей из RB (важно после settled ragdoll).</summary>
+	public void SyncTransformsFromRigidbodies()
+	{
+		CacheReferences();
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null)
+				continue;
+
+			body.transform.SetPositionAndRotation(body.position, body.rotation);
+		}
+
+		Physics.SyncTransforms();
+	}
+
+	/// <summary>Синхронизировать kinematic RB с текущими world-позами костей.</summary>
+	public void SyncKinematicRigidbodiesFromTransforms()
+	{
+		CacheReferences();
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null || !body.isKinematic)
+				continue;
+
+			body.position = body.transform.position;
+			body.rotation = body.transform.rotation;
+		}
+
+		Physics.SyncTransforms();
+	}
+
+	/// <summary>Вернуть dynamic ragdoll после отпускания (ragdoll остаётся активным).</summary>
+	public void RestoreDynamicRagdollAfterDrag()
+	{
+		if (!m_IsRagdollActive)
+		{
+			SetDragControlled(false);
+			return;
+		}
+
+		CacheReferences();
+		SetDragControlled(false);
+		m_IsRagdollSettled = false;
+		m_SettleCandidateStartedAt = -1f;
+		m_RagdollActivatedAt = Time.time;
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null)
+				continue;
+
+			body.isKinematic = false;
+			body.useGravity = true;
+			body.linearDamping = m_RagdollLinearDamping;
+			body.angularDamping = m_RagdollAngularDamping;
+			body.maxAngularVelocity = m_MaxRagdollAngularSpeed;
+			body.WakeUp();
+		}
+	}
+
+	/// <summary>Восстановить joints и dynamic ragdoll после drag.</summary>
+	public void RestoreRagdollAfterDrag()
+	{
+		RestoreRagdollJointsAfterDrag();
+		RestoreDynamicRagdollAfterDrag();
+		RestoreCollisionDetectionAfterDrag();
+		Physics.SyncTransforms();
+	}
+
+	/// <summary>Hybrid drag: grip + stable upper kinematic, указанные limbs/lower torso dynamic, остальное kinematic.</summary>
+	public void PrepareRagdollPartitionedDrag(
+		Rigidbody _gripBody,
+		ICollection<Rigidbody> _kinematicStableBodies,
+		ICollection<Rigidbody> _dynamicBodies)
+	{
+		RestoreRagdollJointsAfterDrag();
+		SyncTransformsFromRigidbodies();
+		SetDragControlled(true);
+		CacheReferences();
+		m_IsRagdollSettled = false;
+		m_SettleCandidateStartedAt = -1f;
+
+		var kinematicSet = new HashSet<Rigidbody>(_kinematicStableBodies);
+		var dynamicSet = new HashSet<Rigidbody>(_dynamicBodies);
+		if (_gripBody != null)
+			kinematicSet.Add(_gripBody);
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null)
+				continue;
+
+			if (dynamicSet.Contains(body))
+			{
+				body.linearVelocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+				body.isKinematic = false;
+				body.useGravity = true;
+				body.linearDamping = m_RagdollLinearDamping * m_DragLinearDampingMultiplier;
+				body.angularDamping = m_RagdollAngularDamping * m_DragAngularDampingMultiplier;
+				body.maxAngularVelocity = m_MaxRagdollAngularSpeed;
+				body.WakeUp();
+				continue;
+			}
+
+			if (!body.isKinematic)
+			{
+				body.linearVelocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+			}
+
+			body.isKinematic = true;
+			body.useGravity = false;
+		}
+
+		ApplyContinuousCollisionForDynamicBodies(_gripBody);
+		ApplyDragStabilization(_gripBody);
+		DisableJointsBetweenKinematicDragBodies(kinematicSet);
+	}
+
+	/// <summary>Hybrid drag: grip kinematic, остальное dynamic, joints включены.</summary>
+	public void PrepareRagdollHybridDrag(Rigidbody _gripBody)
+	{
+		RestoreRagdollJointsAfterDrag();
+		SyncTransformsFromRigidbodies();
+		SetDragControlled(true);
+		WakeRagdollPhysicsExcept(_gripBody);
+		ApplyContinuousCollisionForDynamicBodies(_gripBody);
+		ApplyDragStabilization(_gripBody);
+	}
+
+	/// <summary>Завершить hybrid drag — все тела снова dynamic.</summary>
+	public void RestoreAfterHybridDrag()
+	{
+		RestoreRagdollJointsAfterDrag();
+		RestoreDragStabilization();
+		RestoreCollisionDetectionAfterDrag();
+		RestoreDynamicRagdollAfterDrag();
+		Physics.SyncTransforms();
+	}
+
+	/// <summary>Блокирует перевод ragdoll в sleep/kinematic settle, пока юнита тащат.</summary>
+	public void SetDragControlled(bool _active)
+	{
+		m_SuppressAutoSettle = _active;
+		if (_active)
+		{
+			m_IsRagdollSettled = false;
+			m_SettleCandidateStartedAt = -1f;
+		}
+	}
 	#endregion
 
 	#region Private Methods
@@ -320,6 +586,37 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 		if (m_NavMeshAgent != null && m_NavMeshAgent.enabled && m_NavMeshAgent.isOnNavMesh)
 			m_NavMeshAgent.Warp(targetRootPosition);
+	}
+
+	private void AlignRootToRagdollPosePreservingCurrentPose()
+	{
+		if (m_RootBone == null)
+			return;
+
+		Transform[] bones = m_RootBone.GetComponentsInChildren<Transform>(true);
+		Vector3[] positions = new Vector3[bones.Length];
+		Quaternion[] rotations = new Quaternion[bones.Length];
+
+		for (int i = 0; i < bones.Length; i++)
+		{
+			Transform bone = bones[i];
+			if (bone == null)
+				continue;
+
+			positions[i] = bone.position;
+			rotations[i] = bone.rotation;
+		}
+
+		AlignRootToRagdollPose();
+
+		for (int i = 0; i < bones.Length; i++)
+		{
+			Transform bone = bones[i];
+			if (bone == null)
+				continue;
+
+			bone.SetPositionAndRotation(positions[i], rotations[i]);
+		}
 	}
 
 	private Vector3 GetInitialLocalPosition(Transform _bone)
@@ -432,12 +729,29 @@ public sealed class UnitRagdollController : MonoBehaviour
 			if (body == null || body.isKinematic)
 				continue;
 
+			if (!IsFiniteVector3(body.angularVelocity))
+			{
+				body.angularVelocity = Vector3.zero;
+				continue;
+			}
+
 			Vector3 angularVelocity = body.angularVelocity * decay;
+			if (!IsFiniteVector3(angularVelocity))
+			{
+				body.angularVelocity = Vector3.zero;
+				continue;
+			}
+
 			if (angularVelocity.sqrMagnitude > maxSpeedSqr)
 				angularVelocity = Vector3.ClampMagnitude(angularVelocity, m_MaxRagdollAngularSpeed);
 
 			body.angularVelocity = angularVelocity;
 		}
+	}
+
+	private static bool IsFiniteVector3(Vector3 _value)
+	{
+		return float.IsFinite(_value.x) && float.IsFinite(_value.y) && float.IsFinite(_value.z);
 	}
 
 	private void UpdateRagdollSettling()
@@ -626,6 +940,126 @@ public sealed class UnitRagdollController : MonoBehaviour
 		UnitVision vision = GetComponent<UnitVision>();
 		if (vision != null)
 			vision.RefreshBodyHitZones();
+	}
+
+	private void DisableJointsForDrag()
+	{
+		m_DisabledJointsForDrag.Clear();
+		Joint[] joints = GetComponentsInChildren<Joint>(true);
+		for (int i = 0; i < joints.Length; i++)
+		{
+			Joint joint = joints[i];
+			if (joint == null)
+				continue;
+
+			m_DisabledJointsForDrag.Add(new JointDragState
+			{
+				Joint = joint,
+				ConnectedBody = joint.connectedBody
+			});
+			joint.connectedBody = null;
+		}
+	}
+
+	private void DisableJointsBetweenKinematicDragBodies(HashSet<Rigidbody> _kinematicBodies)
+	{
+		Joint[] joints = GetComponentsInChildren<Joint>(true);
+		for (int i = 0; i < joints.Length; i++)
+		{
+			Joint joint = joints[i];
+			if (joint == null || joint.connectedBody == null)
+				continue;
+
+			if (!joint.TryGetComponent(out Rigidbody ownBody))
+				continue;
+
+			if (!_kinematicBodies.Contains(ownBody) || !_kinematicBodies.Contains(joint.connectedBody))
+				continue;
+
+			m_DisabledJointsForDrag.Add(new JointDragState
+			{
+				Joint = joint,
+				ConnectedBody = joint.connectedBody
+			});
+			joint.connectedBody = null;
+		}
+	}
+
+	private void RestoreRagdollJointsAfterDrag()
+	{
+		for (int i = 0; i < m_DisabledJointsForDrag.Count; i++)
+		{
+			JointDragState state = m_DisabledJointsForDrag[i];
+			if (state.Joint != null)
+				state.Joint.connectedBody = state.ConnectedBody;
+		}
+
+		m_DisabledJointsForDrag.Clear();
+	}
+
+	private void ApplyContinuousCollisionForDynamicBodies(Rigidbody _gripBody)
+	{
+		m_CollisionDetectionRestore.Clear();
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null || body.isKinematic || body == _gripBody)
+				continue;
+
+			m_CollisionDetectionRestore.Add(new CollisionDetectionRestore
+			{
+				Body = body,
+				Mode = body.collisionDetectionMode
+			});
+			body.collisionDetectionMode = CollisionDetectionMode.Continuous;
+		}
+	}
+
+	private void RestoreCollisionDetectionAfterDrag()
+	{
+		for (int i = 0; i < m_CollisionDetectionRestore.Count; i++)
+		{
+			CollisionDetectionRestore entry = m_CollisionDetectionRestore[i];
+			if (entry.Body != null)
+				entry.Body.collisionDetectionMode = entry.Mode;
+		}
+
+		m_CollisionDetectionRestore.Clear();
+	}
+
+	private void ApplyDragStabilization(Rigidbody _gripBody)
+	{
+		m_InterpolationRestore.Clear();
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null || body.isKinematic || body == _gripBody)
+				continue;
+
+			m_InterpolationRestore.Add(new RigidbodyInterpolationRestore
+			{
+				Body = body,
+				Interpolation = body.interpolation
+			});
+
+			body.interpolation = RigidbodyInterpolation.Interpolate;
+			body.linearDamping = m_RagdollLinearDamping * m_DragLinearDampingMultiplier;
+			body.angularDamping = m_RagdollAngularDamping * m_DragAngularDampingMultiplier;
+		}
+	}
+
+	private void RestoreDragStabilization()
+	{
+		for (int i = 0; i < m_InterpolationRestore.Count; i++)
+		{
+			RigidbodyInterpolationRestore entry = m_InterpolationRestore[i];
+			if (entry.Body != null)
+				entry.Body.interpolation = entry.Interpolation;
+		}
+
+		m_InterpolationRestore.Clear();
 	}
 
 	private static Transform FindChildTransformByName(Transform _root, string _name)
