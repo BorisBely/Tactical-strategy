@@ -27,6 +27,10 @@ public sealed class UnitCombatStats : MonoBehaviour
 	[SerializeField, Range(0f, c_MaxSkill)] private float m_WeaponHandling = c_NeutralSkill;
 	[SerializeField, Range(0f, c_MaxSkill)] private float m_RecoilControl = c_NeutralSkill;
 
+	[Header("Reaction")]
+	[Tooltip("Задержка реакции при обнаружении цели (сек).")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
+
 	[Header("Skill Ranges")]
 	[Tooltip("Множитель разброса при Marksmanship = 0.")]
 	[SerializeField, Min(0.01f)] private float m_WorstMarksmanshipDispersionMultiplier = 1.25f;
@@ -51,6 +55,7 @@ public sealed class UnitCombatStats : MonoBehaviour
 	public float Marksmanship => m_Marksmanship;
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
+	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
 	#endregion
 
 	#region Unity Lifecycle
@@ -78,6 +83,16 @@ public sealed class UnitCombatStats : MonoBehaviour
 		m_Marksmanship = Mathf.Clamp(_marksmanship, 0f, c_MaxSkill);
 		m_WeaponHandling = Mathf.Clamp(_weaponHandling, 0f, c_MaxSkill);
 		m_RecoilControl = Mathf.Clamp(_recoilControl, 0f, c_MaxSkill);
+	}
+
+	public void SetReactionTime(float _seconds)
+	{
+		m_ReactionTimeSeconds = Mathf.Clamp(_seconds, 0.05f, 1.5f);
+	}
+
+	public float GetReactionDelaySeconds()
+	{
+		return m_ReactionTimeSeconds;
 	}
 
 	public float GetDispersionMultiplier()

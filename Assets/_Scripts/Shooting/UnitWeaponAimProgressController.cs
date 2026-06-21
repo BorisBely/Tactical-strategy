@@ -44,6 +44,12 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[Tooltip("После успешного выстрела сбрасывает прицел — следующий выстрел ждёт полного повторного наведения.")]
 	[SerializeField] private bool m_ResetAimProgressAfterShot = true;
 
+	[Header("Target Switch Aim Carryover")]
+	[Tooltip("При смене цели — доля сохранения прицела при угле 0° между старой и новой точкой прицеливания.")]
+	[SerializeField, Range(0f, 1f)] private float m_AimCarryoverMax = 0.8f;
+	[Tooltip("При каком угле между старой и новой целью carryover падает до 0 (градусы).")]
+	[SerializeField, Range(1f, 90f)] private float m_AimCarryoverHalfAngleDegrees = 25f;
+
 	[Header("Debug")]
 	[SerializeField, Min(0.01f)] private float m_DebugCurrentAimTimeSeconds = 0.25f;
 	[SerializeField] private bool m_DebugCanAccumulateAim;
@@ -57,6 +63,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	#region Private Fields
 	private Transform m_LastVisibleTarget;
+	private Vector3 m_LastValidAimPointWorld;
 	#endregion
 
 	#region Unity Lifecycle
@@ -100,6 +107,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_FireController.ShotFired += HandleShotFired;
 
 		m_LastVisibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		m_LastValidAimPointWorld = m_LastVisibleTarget != null && m_Vision != null
+			? m_Vision.GetVisibleTargetAimPointWorld()
+			: Vector3.zero;
 	}
 
 	private void OnDisable()
@@ -230,8 +240,24 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	private void TrySyncEngagementTarget()
 	{
 		Transform engageableTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+
+		Vector3 oldAimPoint = m_LastValidAimPointWorld;
+		if (engageableTarget != null)
+		{
+			Vector3 currentAimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+			if (currentAimPoint != Vector3.zero)
+				m_LastValidAimPointWorld = currentAimPoint;
+		}
+
 		if (engageableTarget == m_LastVisibleTarget)
 			return;
+
+		if (m_LastVisibleTarget != null && engageableTarget == null && m_Vision.VisibleTarget != null)
+		{
+			m_LastVisibleTarget = null;
+			m_Vision.RequestImmediateScan();
+			return;
+		}
 
 		Transform previousTarget = m_LastVisibleTarget;
 		m_LastVisibleTarget = engageableTarget;
@@ -240,8 +266,28 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget) &&
 			m_WeaponRuntime != null)
 		{
-			m_WeaponRuntime.SetAimProgress(0f);
+			float carryover = CalculateAimCarryover(oldAimPoint);
+			float currentAim = m_WeaponRuntime.TransientState.AimProgress01;
+			m_WeaponRuntime.SetAimProgress(currentAim * carryover);
 		}
+	}
+
+	private float CalculateAimCarryover(Vector3 _oldAimPointWorld)
+	{
+		if (m_Vision == null || _oldAimPointWorld == Vector3.zero)
+			return 0f;
+
+		Vector3 newAimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (newAimPoint == Vector3.zero)
+			return 0f;
+
+		Vector3 origin = transform.position;
+		Vector3 oldDir = (_oldAimPointWorld - origin).normalized;
+		Vector3 newDir = (newAimPoint - origin).normalized;
+
+		float angle = Vector3.Angle(oldDir, newDir);
+		float factor = 1f - Mathf.Clamp01(angle / m_AimCarryoverHalfAngleDegrees);
+		return Mathf.Clamp01(factor * m_AimCarryoverMax);
 	}
 	#endregion
 }

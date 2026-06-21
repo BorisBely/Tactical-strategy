@@ -37,6 +37,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[Tooltip("QueryTriggerInteraction для Raycast.")]
 	[SerializeField] private QueryTriggerInteraction m_TriggerInteraction = QueryTriggerInteraction.Ignore;
 
+	[Header("Target Leading")]
+	[Tooltip("Доля упреждения по скорости цели (0 = без упреждения, 1 = полное физическое).")]
+	[SerializeField, Range(0f, 1.5f)] private float m_TargetLeadFactor = 1f;
+
 	[Header("Spread (множители к WeaponDefinition.BaseShotDispersion)")]
 	[Tooltip("Градусы половины конуса: BaseShotDispersion, патрон, модуль прицела, отдача, умножить на этот коэффициент.")]
 	[SerializeField, Min(0.001f)] private float m_BaseSpreadToDegrees = 0.35f;
@@ -168,7 +172,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		Transform barrel = weapon.BarrelTransform;
 		Vector3 origin = barrel.position + barrel.forward * m_BarrelRayStartOffset;
-		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel);
+		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel, _ammo);
 		WeaponShotAccuracyContext accuracyContext = BuildAccuracyContext(_ammo);
 		ProceduralRecoilPatternResult patternResult = ApplyProceduralRecoilPattern(baseDirection, accuracyContext);
 		Vector3 patternedDirection = patternResult.Direction;
@@ -545,7 +549,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return Vector3.Distance(barrel.position, targetPoint);
 	}
 
-	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _barrel)
+	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _barrel, AmmoDefinition _ammo)
 	{
 		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
@@ -554,6 +558,23 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
+
+		// Упреждение по скорости цели
+		if (m_TargetLeadFactor > 0.0001f && m_Vision != null)
+		{
+			Vector3 targetVelocity = m_Vision.GetVisibleTargetVelocity();
+			if (targetVelocity.sqrMagnitude > 0.0001f)
+			{
+				float distance = Vector3.Distance(_origin, targetPoint);
+				float ammoVelocity = _ammo != null ? _ammo.Velocity : 400f;
+				if (ammoVelocity > 0.1f)
+				{
+					float timeOfFlight = distance / ammoVelocity;
+					Vector3 leadOffset = targetVelocity * (timeOfFlight * m_TargetLeadFactor);
+					targetPoint += leadOffset;
+				}
+			}
+		}
 
 		Vector3 toTarget = targetPoint - _origin;
 		return toTarget.sqrMagnitude > 1e-6f ? toTarget.normalized : _barrel.forward;

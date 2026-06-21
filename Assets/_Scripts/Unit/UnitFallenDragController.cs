@@ -357,10 +357,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 		if (m_Stance != null)
 			m_Stance.RequestStance(LocomotionStance.Crouch);
 
-		if (IsWeaponEquipped())
-			m_ReadyHands?.SetReadyWanted(true, _forceWalkIfNeeded: true);
-
-		LogDrag($"BeginDragPresentation: crouch requested, weaponReady={IsWeaponEquipped()}, dragLayerIndex={m_DragLeftHandLayerIndex}");
+		LogDrag($"BeginDragPresentation: crouch requested, dragLayerIndex={m_DragLeftHandLayerIndex}");
 		StartCoroutine(CoWaitForStanceAndAttach());
 	}
 

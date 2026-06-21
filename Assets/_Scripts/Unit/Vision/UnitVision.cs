@@ -40,6 +40,12 @@ public sealed class UnitVision : MonoBehaviour
 	[Tooltip("При повороте прицела сильнее этого угла (град.) — внеочередной скан, чтобы быстрее переключать мишени на полигоне.")]
 	[SerializeField, Range(0.5f, 15f)] private float m_ImmediateRescanAngleDegrees = 2.5f;
 
+	[Header("Экстраполяция точки прицела")]
+	[Tooltip("Сглаживание оценки скорости цели по дельте между сканами (сек).")]
+	[SerializeField, Min(0f)] private float m_AimPointVelocitySmoothTime = 0.15f;
+	[Tooltip("Максимальное время экстраполяции точки прицела вперёд (сек). Ограничивает увод при долгом отсутствии скана.")]
+	[SerializeField, Min(0.01f)] private float m_AimPointMaxProjectionSeconds = 0.5f;
+
 	[Header("Физика")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
 	[SerializeField] private QueryTriggerInteraction m_QueryTriggerInteraction = QueryTriggerInteraction.Ignore;
@@ -88,6 +94,11 @@ public sealed class UnitVision : MonoBehaviour
 	private ItemDefinition m_CachedSightWeaponDef;
 	private bool m_WasUsingSightForward;
 	private Vector3 m_LastScanForwardXZ;
+	private Vector3 m_PreviousAimPointForVelocity;
+	private Vector3 m_TargetVelocityEstimate;
+	private float m_LastAimPointUpdateTime;
+	private Transform m_VelocityTrackedTarget;
+	private Vector3 m_LastVelocityRaw;
 	#endregion
 
 	#region Public Properties
@@ -129,28 +140,39 @@ public sealed class UnitVision : MonoBehaviour
 
 	/// <summary>
 	/// Точка, к которой разворачиваемся/целимся по видимой цели: лучший видимый aim point среди хитбоксов цели.
+	/// При наличии оценки скорости — экстраполируется вперёд на время с последнего скана.
 	/// </summary>
 	public Vector3 GetVisibleTargetAimPointWorld()
 	{
 		if (!IsEngageableTarget(m_VisibleTarget))
 			return Vector3.zero;
 
+		Vector3 basePoint;
 		if (m_HasVisibleTargetAimPoint)
-			return m_VisibleTargetAimPointWorld;
-
-		if (m_VisibleTarget.TryGetComponent(out ShootingRangeTarget rangeTarget))
-			return rangeTarget.GetAimPointWorld();
-
-		if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision))
+			basePoint = m_VisibleTargetAimPointWorld;
+		else if (m_VisibleTarget.TryGetComponent(out ShootingRangeTarget rangeTarget))
+			basePoint = rangeTarget.GetAimPointWorld();
+		else if (m_VisibleTarget.TryGetComponent(out UnitVision targetVision))
 		{
 			if (UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(targetVision.m_BodyHitZones, out Bounds combined))
-				return combined.center;
+				basePoint = combined.center;
+			else if (targetVision.BodyCollider != null)
+				basePoint = targetVision.BodyCollider.bounds.center;
+			else
+				basePoint = m_VisibleTarget.position;
+		}
+		else
+			basePoint = m_VisibleTarget.position;
 
-			if (targetVision.BodyCollider != null)
-				return targetVision.BodyCollider.bounds.center;
+		// Экстраполируем точку прицела по скорости цели
+		if (m_VelocityTrackedTarget == m_VisibleTarget && m_TargetVelocityEstimate.sqrMagnitude > 0.0001f)
+		{
+			float dt = Mathf.Min(Time.time - m_LastAimPointUpdateTime, m_AimPointMaxProjectionSeconds);
+			if (dt > 0.001f)
+				basePoint += m_TargetVelocityEstimate * dt;
 		}
 
-		return m_VisibleTarget.position;
+		return basePoint;
 	}
 
 	public void SetVisionRange(float _range)
@@ -187,6 +209,72 @@ public sealed class UnitVision : MonoBehaviour
 		if (_target.TryGetComponent(out DamageableTarget damageable))
 			return damageable.IsAlive;
 
+		return true;
+	}
+
+	/// <summary>Оценка скорости видимой цели (world-space, сглаженная).</summary>
+	public Vector3 GetVisibleTargetVelocity()
+	{
+		if (m_VelocityTrackedTarget == m_VisibleTarget && m_VisibleTarget != null)
+			return m_TargetVelocityEstimate;
+		return Vector3.zero;
+	}
+
+	/// <summary>Есть ли прямая видимость до текущей visible цели (быстрый одиночный рейкаст).</summary>
+	public bool HasLineOfSightToCurrentTarget()
+	{
+		return !TryGetLosBlocker(out _);
+	}
+
+	/// <summary>Возвращает true если LOS перекрыт, и имя объекта-блокиратора.</summary>
+	public bool TryGetLosBlocker(out string _blockerName)
+	{
+		_blockerName = null;
+
+		if (m_VisibleTarget == null || !m_HasVisibleTargetAimPoint)
+		{
+			_blockerName = "no target or aim point";
+			return true;
+		}
+
+		Vector3 origin = GetVisionConeOriginWorld();
+		Vector3 aimPoint = m_VisibleTargetAimPointWorld;
+		Vector3 dir = (aimPoint - origin);
+
+		float dist = dir.magnitude;
+		if (dist < 0.02f)
+			return false;
+
+		dir /= dist;
+		float castDist = Mathf.Min(dist + 0.1f, m_VisionRange);
+		Vector3 rayOrigin = origin + dir * 0.08f;
+
+		int hitCount = Physics.RaycastNonAlloc(
+			rayOrigin,
+			dir,
+			m_Hits,
+			castDist - 0.08f,
+			m_LayerMask,
+			m_QueryTriggerInteraction);
+
+		for (int h = 0; h < hitCount; h++)
+		{
+			RaycastHit hit = m_Hits[h];
+			Collider hc = hit.collider;
+			if (hc == null)
+				continue;
+
+			if (hc.transform.IsChildOf(transform))
+				continue;
+
+			if (hc.transform == m_VisibleTarget || hc.transform.IsChildOf(m_VisibleTarget))
+				return false;
+
+			_blockerName = hc.name;
+			return true;
+		}
+
+		_blockerName = "nothing hit";
 		return true;
 	}
 
@@ -283,6 +371,11 @@ public sealed class UnitVision : MonoBehaviour
 		m_WasUsingSightForward = false;
 		m_CachedSightWeaponDef = null;
 		m_CachedSightFromWeapon = null;
+		m_VelocityTrackedTarget = null;
+		m_TargetVelocityEstimate = Vector3.zero;
+		m_LastVelocityRaw = Vector3.zero;
+		m_PreviousAimPointForVelocity = Vector3.zero;
+		m_LastAimPointUpdateTime = 0f;
 		ScheduleNextScan(0f);
 		if (m_Registry != null)
 			m_Registry.Register(this);
@@ -463,6 +556,47 @@ public sealed class UnitVision : MonoBehaviour
 		{
 			VisibleTargetChanged?.Invoke(m_VisibleTarget);
 		}
+
+		UpdateTargetVelocityEstimate(newTarget, bestAimPoint, hasBestAimPoint);
+	}
+
+	private void UpdateTargetVelocityEstimate(Transform _newTarget, Vector3 _newAimPoint, bool _hasValidAimPoint)
+	{
+		float now = Time.time;
+
+		if (_newTarget != m_VelocityTrackedTarget)
+		{
+			m_VelocityTrackedTarget = _newTarget;
+			m_PreviousAimPointForVelocity = _hasValidAimPoint ? _newAimPoint : Vector3.zero;
+			m_TargetVelocityEstimate = Vector3.zero;
+			m_LastVelocityRaw = Vector3.zero;
+			m_LastAimPointUpdateTime = now;
+			return;
+		}
+
+		if (!_hasValidAimPoint || _newAimPoint == Vector3.zero)
+			return;
+
+		float dt = now - m_LastAimPointUpdateTime;
+		m_LastAimPointUpdateTime = now;
+
+		if (dt > 0.001f && m_PreviousAimPointForVelocity != Vector3.zero)
+		{
+			Vector3 rawVelocity = (_newAimPoint - m_PreviousAimPointForVelocity) / dt;
+
+			if (m_AimPointVelocitySmoothTime <= 0.0001f)
+			{
+				m_TargetVelocityEstimate = rawVelocity;
+			}
+			else
+			{
+				float t = 1f - Mathf.Exp(-dt / m_AimPointVelocitySmoothTime);
+				m_LastVelocityRaw = rawVelocity;
+				m_TargetVelocityEstimate = Vector3.Lerp(m_TargetVelocityEstimate, rawVelocity, t);
+			}
+		}
+
+		m_PreviousAimPointForVelocity = _newAimPoint;
 	}
 
 	private Collider ResolveBodyCollider()

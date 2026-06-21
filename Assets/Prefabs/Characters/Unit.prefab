@@ -4382,7 +4382,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1953620407644934714}
   - component: {fileID: 6584173494422485148}
-  - component: {fileID: 9923000000000000303}
+  - component: {fileID: 8923000000000000303}
   m_Layer: 7
   m_Name: Neck
   m_TagString: Untagged
@@ -4426,7 +4426,7 @@ MonoBehaviour:
   m_MarksLegsWounded: 0
   m_MarksHeavyPain: 1
   m_MinDamageForConditionEffect: 1
---- !u!136 &9923000000000000303
+--- !u!136 &8923000000000000303
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

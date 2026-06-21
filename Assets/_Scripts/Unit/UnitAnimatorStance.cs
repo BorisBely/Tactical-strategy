@@ -73,6 +73,9 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	/// <summary>Встать из приседа/лёжа без ожидания C/Z (например, заказ бега/спринта).</summary>
 	public void ForceStanding()
 	{
+		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.DraggingFallen))
+			return;
+
 		StopReadyBeforeProneHack();
 		m_PendingProne = false;
 		m_PendingStandFromProne = false;
@@ -106,6 +109,10 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	public void RequestStance(LocomotionStance _targetStance)
 	{
 		if (_targetStance == LocomotionStance.Prone && !LocomotionProneFeature.Enabled)
+			return;
+
+		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.DraggingFallen)
+		    && _targetStance != LocomotionStance.Crouch)
 			return;
 
 		if (_targetStance == LocomotionStance.Standing)

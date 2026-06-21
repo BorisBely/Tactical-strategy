@@ -13,6 +13,8 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	[SerializeField, Range(0f, 100f)] private float m_Marksmanship = 50f;
 	[SerializeField, Range(0f, 100f)] private float m_WeaponHandling = 50f;
 	[SerializeField, Range(0f, 100f)] private float m_RecoilControl = 50f;
+	[Tooltip("Задержка реакции при обнаружении цели (сек). Опытные бойцы реагируют быстрее.")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
 	#endregion
 
 	#region Public Properties
@@ -21,6 +23,7 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	public float Marksmanship => m_Marksmanship;
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
+	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
 	#endregion
 
 	#region Public Methods
@@ -38,6 +41,7 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 			return;
 
 		_stats.ApplySkills(m_Marksmanship, m_WeaponHandling, m_RecoilControl);
+		_stats.SetReactionTime(m_ReactionTimeSeconds);
 	}
 	#endregion
 }

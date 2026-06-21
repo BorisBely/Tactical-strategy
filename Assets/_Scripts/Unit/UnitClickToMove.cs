@@ -36,6 +36,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private static readonly int s_LocomotionTier = Animator.StringToHash(ParamLocomotionTier);
 	private static readonly int s_LocomotionTierBlend = Animator.StringToHash(ParamLocomotionTierBlend);
 	private static readonly int s_WeaponMode = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponMode);
+	private static readonly int s_IsDraggingNotReady = Animator.StringToHash("IsDraggingNotReady");
 
 	/// <summary>Слой 0, безоружная ветка: вставание из лёжа и укладка в лёжа (стоя или из приседа).</summary>
 	private static readonly string[] s_UnarmedStanceBlockingStateNames =
@@ -762,8 +763,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (IsBackwardDragLocomotionActive())
-			return false;
 		if (IsSprintActive())
 			return false;
 		if (m_BlockEngageFacingDuringReload)
@@ -1033,37 +1032,37 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (targetDir.sqrMagnitude > 1e-6f)
 			targetDir.Normalize();
 
-		if (IsBackwardDragLocomotionActive() && moving)
+		if (IsBackwardDragLocomotionActive() && moving && !IsEngagingVisibleTarget())
 		{
-			targetDir = new Vector2(0f, -1f);
+			targetDir = new Vector2(0f, 1f);
 			m_SmoothDir = targetDir;
 			m_SmoothDirVel = Vector2.zero;
 		}
 		else
 		{
-			float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
-				? m_DirectionSmoothTimeMoveStart
-				: m_DirectionSmoothTime;
+		float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
+			? m_DirectionSmoothTimeMoveStart
+			: m_DirectionSmoothTime;
 
-			bool engageMove = IsEngagingVisibleTarget() && moving;
-			float dirSmoothUse = engageMove && m_EngageDirectionSmoothTime > 0.0001f
-				? m_EngageDirectionSmoothTime
-				: dirSmooth;
-			if (engageMove && m_EngageDirectionSmoothTime <= 0.0001f)
-			{
-				m_SmoothDir = targetDir;
-				m_SmoothDirVel = Vector2.zero;
-			}
-			else
-			{
-				m_SmoothDir = Vector2.SmoothDamp(
-					m_SmoothDir,
-					moving ? targetDir : Vector2.zero,
-					ref m_SmoothDirVel,
-					dirSmoothUse,
-					Mathf.Infinity,
-					Time.deltaTime);
-			}
+		bool engageMove = IsEngagingVisibleTarget() && moving;
+		float dirSmoothUse = engageMove && m_EngageDirectionSmoothTime > 0.0001f
+			? m_EngageDirectionSmoothTime
+			: dirSmooth;
+		if (engageMove && m_EngageDirectionSmoothTime <= 0.0001f)
+		{
+			m_SmoothDir = targetDir;
+			m_SmoothDirVel = Vector2.zero;
+		}
+		else
+		{
+			m_SmoothDir = Vector2.SmoothDamp(
+				m_SmoothDir,
+				moving ? targetDir : Vector2.zero,
+				ref m_SmoothDirVel,
+				dirSmoothUse,
+				Mathf.Infinity,
+				Time.deltaTime);
+		}
 		}
 
 		float navSpeedOut = m_SmoothSpeed01;
@@ -1080,7 +1079,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
 		SetAnimatorLocomotionTier(tier);
-		ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
+		if (IsBackwardDragLocomotionActive() && moving && !IsEngagingVisibleTarget())
+		{
+			bool notReady = m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady();
+			m_Animator.SetBool(s_IsDraggingNotReady, notReady);
+
+			m_Animator.SetFloat(s_NavForward, -Mathf.Abs(m_SmoothDir.y));
+			m_Animator.speed = 1f;
+			AnimatorPlaybackSpeedMultiplier = 1f;
+		}
+		else
+		{
+			m_Animator.SetBool(s_IsDraggingNotReady, false);
+			ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
+		}
 	}
 
 	private void ApplyAnimatorPlaybackSpeedOutputs(float _navSpeedOut, float _planarSpeed)
@@ -1110,7 +1122,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Animator == null || m_CachedRtsMember != null)
 			return;
 
-		m_Animator.speed = _multiplier;
+		m_Animator.speed = Mathf.Max(0f, _multiplier);
 	}
 
 	public enum MoveTier

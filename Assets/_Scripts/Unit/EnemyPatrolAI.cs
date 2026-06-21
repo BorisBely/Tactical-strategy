@@ -11,6 +11,11 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitCombatStats m_CombatStats;
+
+	[Header("Reaction")]
+	[Tooltip("Множитель задержки реакции (1 = как в ранге, >1 = медленнее).")]
+	[SerializeField, Min(0.1f)] private float m_ReactionDelayMultiplier = 1f;
 
 	[Header("Patrol")]
 	[SerializeField] private Transform[] m_PatrolPoints;
@@ -21,6 +26,8 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 
 	private int m_CurrentPatrolIndex;
 	private bool m_HasIssuedCurrentPatrolOrder;
+	private float m_ReactionTimer;
+	private bool m_ReactionInProgress;
 	#endregion
 
 	#region Unity Lifecycle
@@ -32,12 +39,16 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
 	}
 
 	private void OnEnable()
 	{
 		SelectInitialPatrolIndex();
 		m_HasIssuedCurrentPatrolOrder = false;
+		m_ReactionTimer = 0f;
+		m_ReactionInProgress = false;
 	}
 
 	private void Update()
@@ -53,11 +64,35 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 		if (m_ReadyHands == null)
 			return;
 
-		bool wantsReady = m_Vision != null && m_Vision.VisibleTarget != null;
-		if (m_ReadyHands.WantsReady == wantsReady)
-			return;
+		bool seesTarget = m_Vision != null && m_Vision.VisibleTarget != null;
 
-		m_ReadyHands.SetReadyWanted(wantsReady);
+		if (seesTarget && !m_ReadyHands.WantsReady && !m_ReactionInProgress)
+		{
+			float baseDelay = m_CombatStats != null ? m_CombatStats.GetReactionDelaySeconds() : 0.35f;
+			m_ReactionTimer = baseDelay * m_ReactionDelayMultiplier;
+			m_ReactionInProgress = true;
+			return;
+		}
+
+		if (!seesTarget)
+		{
+			m_ReactionInProgress = false;
+			m_ReactionTimer = 0f;
+			if (m_ReadyHands.WantsReady)
+				m_ReadyHands.SetReadyWanted(false);
+			return;
+		}
+
+		if (m_ReactionInProgress)
+		{
+			m_ReactionTimer -= Time.deltaTime;
+			if (m_ReactionTimer > 0f)
+				return;
+
+			m_ReactionInProgress = false;
+			m_ReactionTimer = 0f;
+			m_ReadyHands.SetReadyWanted(true);
+		}
 	}
 
 	private void UpdatePatrol()

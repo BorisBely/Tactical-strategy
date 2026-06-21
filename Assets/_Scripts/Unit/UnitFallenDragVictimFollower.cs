@@ -41,6 +41,9 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	[Header("Release")]
 	[SerializeField] private bool m_SnapToGroundOnRelease = true;
 	[SerializeField, Min(0.05f)] private float m_RootSyncIntervalSeconds = 0.35f;
+
+	[Header("Debug")]
+	[SerializeField] private bool m_LogDragFollow;
 	#endregion
 
 	#region Private Fields
@@ -137,6 +140,8 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		if (_dragger == null || _leftHand == null)
 			return;
 
+		LogFollow($"BeginFollow: dragger='{_dragger.name}' victim='{name}' leftHand='{_leftHand.name}'");
+
 		if (m_RagdollController == null)
 			m_RagdollController = GetComponent<UnitRagdollController>();
 
@@ -159,8 +164,10 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		m_RagdollController?.SyncKinematicRigidbodiesFromTransforms();
 
 		m_GripLocalRotationInHand = Quaternion.Inverse(_leftHand.rotation) * m_GripBody.rotation;
-		BuildDragBodyLists();
-		m_RagdollController?.PrepareRagdollPartitionedDrag(m_GripBody, m_KinematicStableBodies, m_DynamicDragBodies);
+		m_StableUpperPoses.Clear();
+		m_KinematicStableBodies.Clear();
+		m_DynamicDragBodies.Clear();
+		m_RagdollController?.PrepareRagdollHybridDrag(m_GripBody);
 
 		CacheHandGripTarget(_leftHand);
 		m_IsHybridDragActive = true;
@@ -278,20 +285,32 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	private Rigidbody ResolveGripRigidbody()
 	{
 		if (m_GripAnchorOverride != null && m_GripAnchorOverride.TryGetComponent(out Rigidbody overrideBody))
+		{
+			LogFollow($"ResolveGripRigidbody: using override anchor '{m_GripAnchorOverride.name}'");
 			return overrideBody;
+		}
 
-		Rigidbody spine03 = FindRigidbodyOnBone("Spine_03");
-		if (spine03 != null)
-			return spine03;
+		// Порядок поиска: Spine_03 → Spine_02 → Spine_01 → Hips
+		string[] preferredBones = { "Spine_03", "Spine_02", "Spine_01", "Hips" };
+		for (int i = 0; i < preferredBones.Length; i++)
+		{
+			Rigidbody body = FindRigidbodyOnBone(preferredBones[i]);
+			if (body != null)
+			{
+				LogFollow($"ResolveGripRigidbody: found '{preferredBones[i]}' on victim '{name}'");
+				return body;
+			}
+		}
 
-		Rigidbody spine02 = FindRigidbodyOnBone("Spine_02");
-		if (spine02 != null)
-			return spine02;
-
+		LogFollowWarning($"ResolveGripRigidbody: no preferred bone with Rigidbody found on '{name}', falling back to root.");
 		if (m_RagdollController != null && m_RagdollController.RootBone != null &&
-		    m_RagdollController.RootBone.TryGetComponent(out Rigidbody rootBody))
+			m_RagdollController.RootBone.TryGetComponent(out Rigidbody rootBody))
+		{
+			LogFollow($"ResolveGripRigidbody: using RootBone '{m_RagdollController.RootBone.name}' as grip");
 			return rootBody;
+		}
 
+		LogFollowWarning($"ResolveGripRigidbody: FAILED to resolve any grip Rigidbody on '{name}'!");
 		return null;
 	}
 
@@ -368,8 +387,6 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 			Quaternion nextRotation = Quaternion.Slerp(m_GripBody.rotation, m_CachedGripRotation, rotationFactor);
 			m_GripBody.MoveRotation(nextRotation);
 		}
-
-		ApplyStableUpperPosesFromGrip();
 	}
 
 	private void ApplyStableUpperPosesFromGrip()
@@ -395,10 +412,11 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 
 	private void SanitizeDynamicDragBodies()
 	{
-		for (int i = 0; i < m_DynamicDragBodies.Count; i++)
+		Rigidbody[] bodies = GetComponentsInChildren<Rigidbody>(true);
+		for (int i = 0; i < bodies.Length; i++)
 		{
-			Rigidbody body = m_DynamicDragBodies[i];
-			if (body == null || body.isKinematic)
+			Rigidbody body = bodies[i];
+			if (body == null || body.isKinematic || body == m_GripBody)
 				continue;
 
 			if (!IsFiniteVector3(body.position) || !IsFiniteVector3(body.linearVelocity) ||
@@ -439,9 +457,6 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		{
 			Rigidbody body = bodies[i];
 			if (body == null || body.isKinematic)
-				continue;
-
-			if (!IsDynamicLimbOrLowerTorsoBone(body.name))
 				continue;
 
 			Vector3 position = body.position;
@@ -531,6 +546,20 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		}
 
 		return null;
+	}
+
+	private void LogFollow(string _msg)
+	{
+		if (!m_LogDragFollow)
+			return;
+		Debug.Log($"[DragFollower:{name}] {_msg}", this);
+	}
+
+	private void LogFollowWarning(string _msg)
+	{
+		if (!m_LogDragFollow)
+			return;
+		Debug.LogWarning($"[DragFollower:{name}] {_msg}", this);
 	}
 	#endregion
 }
