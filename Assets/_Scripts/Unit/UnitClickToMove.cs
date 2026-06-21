@@ -65,6 +65,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitFallenDragController m_DragController;
+	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
+	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
@@ -312,6 +314,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_DragController == null)
 			m_DragController = GetComponent<UnitFallenDragController>();
+		if (m_SelfStabilization == null)
+			m_SelfStabilization = GetComponent<UnitSelfStabilizationController>();
+		if (m_StabilizeOther == null)
+			m_StabilizeOther = GetComponent<UnitStabilizeOtherController>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 	}
 
@@ -401,6 +407,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			if (TryGetComponent(out UnitSelfStabilizationController selfStabilization))
 				selfStabilization.StopSelfStabilization();
 
+			if (TryGetComponent(out UnitStabilizeOtherController stabilizeOther))
+				stabilizeOther.StopStabilizeOther();
+
 			HardStop();
 		}
 
@@ -484,6 +493,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Agent == null)
 			return;
 		if (!IsConscious())
+			return;
+		if (IsHealingBlocked())
 			return;
 
 		if (IsBackwardDragLocomotionActive())
@@ -756,6 +767,17 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool IsBackwardDragLocomotionActive()
 	{
 		return m_DragController != null && m_DragController.IsBackwardDragLocomotion;
+	}
+
+	private bool IsHealingBlocked()
+	{
+		if (m_SelfStabilization != null &&
+		    (m_SelfStabilization.IsSelfHealing || m_SelfStabilization.IsHealPresentationActive))
+			return true;
+		if (m_StabilizeOther != null &&
+		    (m_StabilizeOther.IsStabilizingOther || m_StabilizeOther.IsHealPresentationActive))
+			return true;
+		return false;
 	}
 
 	/// <summary>

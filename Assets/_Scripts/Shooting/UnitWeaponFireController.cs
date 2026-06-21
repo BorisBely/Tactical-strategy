@@ -201,9 +201,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (m_BusyState != null &&
 		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)))
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
 		{
-			blockReason = $"Busy: reload={m_BusyState.HasReason(UnitBusyState.BusyReason.Reload)} stabilize={m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)}";
+			blockReason = $"Busy: reload={m_BusyState.HasReason(UnitBusyState.BusyReason.Reload)} stabilize={m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)} stabilizeOther={m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)}";
 			LogFireBlock(blockReason);
 			return false;
 		}
@@ -372,7 +373,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (m_BusyState != null &&
 		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)))
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)

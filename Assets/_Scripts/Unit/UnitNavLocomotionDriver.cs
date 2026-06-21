@@ -52,6 +52,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitFallenDragController m_DragController;
+	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
+	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
@@ -181,6 +183,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return false;
 		if (!IsConscious())
 			return false;
+		if (IsHealingBlocked())
+			return false;
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 			return false;
@@ -246,6 +250,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_DragController == null)
 			m_DragController = GetComponent<UnitFallenDragController>();
+		if (m_SelfStabilization == null)
+			m_SelfStabilization = GetComponent<UnitSelfStabilizationController>();
+		if (m_StabilizeOther == null)
+			m_StabilizeOther = GetComponent<UnitStabilizeOtherController>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
 
 		m_Agent.updatePosition = true;
@@ -312,6 +320,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _moveTier)
 	{
 		if (!IsConscious())
+			return;
+		if (IsHealingBlocked())
 			return;
 
 		if (IsBackwardDragLocomotionActive())
@@ -573,6 +583,17 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private bool IsBackwardDragLocomotionActive()
 	{
 		return m_DragController != null && m_DragController.IsBackwardDragLocomotion;
+	}
+
+	private bool IsHealingBlocked()
+	{
+		if (m_SelfStabilization != null &&
+		    (m_SelfStabilization.IsSelfHealing || m_SelfStabilization.IsHealPresentationActive))
+			return true;
+		if (m_StabilizeOther != null &&
+		    (m_StabilizeOther.IsStabilizingOther || m_StabilizeOther.IsHealPresentationActive))
+			return true;
+		return false;
 	}
 
 	private bool IsNavAgentOperational()

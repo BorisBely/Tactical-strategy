@@ -260,6 +260,10 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 	{
 
+		if (!m_HealPresentationActive)
+
+			return;
+
 		if (m_LeftHandMedkitVisualInstance == null)
 
 			AttachMedkitVisualToLeftHand();
@@ -271,6 +275,10 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 	public void AnimationEvent_SelfHealHideMedkitFromHand()
 
 	{
+
+		if (!m_HealPresentationActive)
+
+			return;
 
 		ClearLeftHandMedkitVisual();
 

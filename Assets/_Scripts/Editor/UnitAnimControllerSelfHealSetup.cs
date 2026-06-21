@@ -5,7 +5,8 @@ using UnityEditor.Animations;
 using UnityEngine;
 
 /// <summary>
-/// Настраивает слой рук для самостабилизации IFAK и базовые animation events на heal-клипах.
+/// Настраивает слой рук Medkit_Hands для самостабилизации IFAK и стабилизации другого юнита.
+/// Оба сценария используют healStart/healEnd, различаются циклом: heal (self) / heal2 (other).
 /// </summary>
 [InitializeOnLoad]
 public static class UnitAnimControllerSelfHealSetup
@@ -15,15 +16,20 @@ public static class UnitAnimControllerSelfHealSetup
 	private const string c_MedkitLayerName = UnitSelfStabilizationController.MedkitHandsLayerName;
 	private const string c_SourceMaskLayerName = UnitMagazineLoadingController.MagazineLoadingHandsLayerName;
 	private const string c_ParamIsSelfHealing = UnitSelfStabilizationController.ParamIsSelfHealing;
+	private const string c_ParamIsStabilizingOther = UnitStabilizeOtherController.ParamIsStabilizingOther;
 
 	private const string c_ClipHealStart = "Assets/healStart.anim";
 	private const string c_ClipHeal = "Assets/heal.anim";
+	private const string c_ClipHeal2 = "Assets/heal2.anim";
 	private const string c_ClipHealEnd = "Assets/healEnd.anim";
 
 	private const string c_StateEmpty = "SelfHeal_Empty";
 	private const string c_StateStart = "healStart";
 	private const string c_StateLoop = "heal";
+	private const string c_StateLoopOther = "heal2";
 	private const string c_StateEnd = "healEnd";
+
+	private const string c_LegacyLayerName = "HealOther_Hands";
 	#endregion
 
 	#region Bootstrap
@@ -45,18 +51,27 @@ public static class UnitAnimControllerSelfHealSetup
 		}
 
 		Undo.RecordObject(controller, "Setup Self Heal Layer");
+
+		RemoveLegacyHealOtherLayer(controller);
+
 		EnsureParameter(controller, c_ParamIsSelfHealing, AnimatorControllerParameterType.Bool);
+		EnsureParameter(controller, c_ParamIsStabilizingOther, AnimatorControllerParameterType.Bool);
 
 		AnimationClip healStart = LoadClip(c_ClipHealStart);
 		AnimationClip heal = LoadClip(c_ClipHeal);
+		AnimationClip heal2 = LoadClip(c_ClipHeal2);
 		AnimationClip healEnd = LoadClip(c_ClipHealEnd);
-		if (healStart == null || heal == null || healEnd == null)
+		if (healStart == null || heal == null || heal2 == null || healEnd == null)
 			return;
 
 		EnsureEvents(healStart, "AnimationEvent_SelfHealShowMedkitInHand", 0.05f);
+		EnsureEvents(healStart, "AnimationEvent_StabilizeOtherShowMedkitInHand", 0.08f);
 		EnsureEvents(heal, "AnimationEvent_SelfHealCycleCompleted", Mathf.Max(0.01f, heal.length - 0.05f));
+		EnsureEvents(heal2, "AnimationEvent_StabilizeOtherCycleCompleted", Mathf.Max(0.01f, heal2.length - 0.05f));
 		EnsureEvents(healEnd, "AnimationEvent_SelfHealHideMedkitFromHand", Mathf.Max(0.01f, healEnd.length - 0.05f));
+		EnsureEvents(healEnd, "AnimationEvent_StabilizeOtherHideMedkitFromHand", Mathf.Max(0.01f, healEnd.length - 0.03f));
 		SetLoopTime(heal, true);
+		SetLoopTime(heal2, true);
 		SetLoopTime(healStart, false);
 		SetLoopTime(healEnd, false);
 
@@ -66,6 +81,7 @@ public static class UnitAnimControllerSelfHealSetup
 		AnimatorState empty = EnsureMotionState(stateMachine, c_StateEmpty, null);
 		AnimatorState start = EnsureMotionState(stateMachine, c_StateStart, healStart);
 		AnimatorState loop = EnsureMotionState(stateMachine, c_StateLoop, heal);
+		AnimatorState loopOther = EnsureMotionState(stateMachine, c_StateLoopOther, heal2);
 		AnimatorState end = EnsureMotionState(stateMachine, c_StateEnd, healEnd);
 
 		stateMachine.defaultState = empty;
@@ -73,30 +89,53 @@ public static class UnitAnimControllerSelfHealSetup
 		RemoveTransitions(empty);
 		RemoveTransitions(start);
 		RemoveTransitions(loop);
+		RemoveTransitions(loopOther);
 		RemoveTransitions(end);
 
-		AnimatorStateTransition enter = empty.AddTransition(start);
-		ConfigureTransition(enter, 0.05f, false, 0f);
-		enter.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsSelfHealing);
+		// Entry: SelfHeal_Empty → healStart (self-heal)
+		AnimatorStateTransition enterSelf = empty.AddTransition(start);
+		ConfigureTransition(enterSelf, 0.05f, false, 0f);
+		enterSelf.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsSelfHealing);
 
+		// Entry: SelfHeal_Empty → healStart (stabilize-other)
+		AnimatorStateTransition enterOther = empty.AddTransition(start);
+		ConfigureTransition(enterOther, 0.05f, false, 0f);
+		enterOther.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsStabilizingOther);
+
+		// healStart → heal (self-heal loop)
 		AnimatorStateTransition startToLoop = start.AddTransition(loop);
 		ConfigureTransition(startToLoop, 0.08f, true, 0.95f);
+		startToLoop.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsSelfHealing);
 
+		// healStart → heal2 (stabilize-other loop)
+		AnimatorStateTransition startToLoopOther = start.AddTransition(loopOther);
+		ConfigureTransition(startToLoopOther, 0.08f, true, 0.95f);
+		startToLoopOther.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsStabilizingOther);
+
+		// healStart → healEnd (abort: both params false)
 		AnimatorStateTransition startAbortToEnd = start.AddTransition(end);
 		ConfigureTransition(startAbortToEnd, 0.05f, false, 0f);
 		startAbortToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsSelfHealing);
+		startAbortToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsStabilizingOther);
 
+		// heal → healEnd (self-heal done)
 		AnimatorStateTransition loopToEnd = loop.AddTransition(end);
 		ConfigureTransition(loopToEnd, 0.08f, false, 0f);
 		loopToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsSelfHealing);
 
+		// heal2 → healEnd (stabilize-other done)
+		AnimatorStateTransition loopOtherToEnd = loopOther.AddTransition(end);
+		ConfigureTransition(loopOtherToEnd, 0.08f, false, 0f);
+		loopOtherToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsStabilizingOther);
+
+		// healEnd → SelfHeal_Empty
 		AnimatorStateTransition endToEmpty = end.AddTransition(empty);
 		ConfigureTransition(endToEmpty, 0.08f, true, 0.95f);
 
 		EditorUtility.SetDirty(controller);
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
-		Debug.Log("[UnitAnimControllerSelfHealSetup] Medkit_Hands layer configured.");
+		Debug.Log("[UnitAnimControllerSelfHealSetup] Medkit_Hands layer configured (self-heal + stabilize-other).");
 	}
 	#endregion
 
@@ -115,17 +154,17 @@ public static class UnitAnimControllerSelfHealSetup
 		if (FindLayerIndex(_controller, c_MedkitLayerName) < 0)
 			return true;
 
-		bool hasParameter = false;
+		bool hasSelfHealParam = false;
+		bool hasStabilizeOtherParam = false;
 		for (int i = 0; i < _controller.parameters.Length; i++)
 		{
 			if (_controller.parameters[i].name == c_ParamIsSelfHealing)
-			{
-				hasParameter = true;
-				break;
-			}
+				hasSelfHealParam = true;
+			if (_controller.parameters[i].name == c_ParamIsStabilizingOther)
+				hasStabilizeOtherParam = true;
 		}
 
-		if (!hasParameter)
+		if (!hasSelfHealParam || !hasStabilizeOtherParam)
 			return true;
 
 		if (UsesLegacyAnyStateSelfHealEntry(_controller))
@@ -133,10 +172,14 @@ public static class UnitAnimControllerSelfHealSetup
 
 		AnimationClip healStart = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipHealStart);
 		AnimationClip heal = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipHeal);
+		AnimationClip heal2 = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipHeal2);
 		AnimationClip healEnd = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipHealEnd);
 		return !HasEvent(healStart, "AnimationEvent_SelfHealShowMedkitInHand") ||
+		       !HasEvent(healStart, "AnimationEvent_StabilizeOtherShowMedkitInHand") ||
 		       !HasEvent(heal, "AnimationEvent_SelfHealCycleCompleted") ||
-		       !HasEvent(healEnd, "AnimationEvent_SelfHealHideMedkitFromHand");
+		       !HasEvent(heal2, "AnimationEvent_StabilizeOtherCycleCompleted") ||
+		       !HasEvent(healEnd, "AnimationEvent_SelfHealHideMedkitFromHand") ||
+		       !HasEvent(healEnd, "AnimationEvent_StabilizeOtherHideMedkitFromHand");
 	}
 
 	private static bool UsesLegacyAnyStateSelfHealEntry(AnimatorController _controller)
@@ -158,6 +201,16 @@ public static class UnitAnimControllerSelfHealSetup
 		}
 
 		return false;
+	}
+
+	private static void RemoveLegacyHealOtherLayer(AnimatorController _controller)
+	{
+		int index = FindLayerIndex(_controller, c_LegacyLayerName);
+		if (index >= 0)
+		{
+			_controller.RemoveLayer(index);
+			Debug.Log($"[UnitAnimControllerSelfHealSetup] Removed legacy layer '{c_LegacyLayerName}'.");
+		}
 	}
 
 	private static int EnsureLayer(AnimatorController _controller)

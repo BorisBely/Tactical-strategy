@@ -18,6 +18,8 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_WeaponReload;
 	[Tooltip("Пока идёт самостабилизация IFAK, IK левой руки отключается.")]
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
+	[Tooltip("Пока идёт стабилизация другого юнита, IK левой руки отключается.")]
+	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[Tooltip("Пока юнит тащит сражённого, IK левой руки отключается (рука уходит на drag-слой).")]
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandPositionWeight = 1f;
@@ -49,6 +51,8 @@ public class AnimatorHandIk : MonoBehaviour
 			m_WeaponReload = GetComponentInParent<UnitWeaponReloadController>();
 		if (m_SelfStabilization == null)
 			m_SelfStabilization = GetComponentInParent<UnitSelfStabilizationController>();
+		if (m_StabilizeOther == null)
+			m_StabilizeOther = GetComponentInParent<UnitStabilizeOtherController>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponentInParent<UnitBusyState>();
 	}
@@ -120,6 +124,8 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_WeaponReload != null && m_WeaponReload.IsReloadBusy)
 			return true;
 		if (m_SelfStabilization != null && m_SelfStabilization.IsHealPresentationActive)
+			return true;
+		if (m_StabilizeOther != null && m_StabilizeOther.IsHealPresentationActive)
 			return true;
 		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.DraggingFallen))
 			return true;

@@ -19,6 +19,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilizationController;
+	[SerializeField] private UnitStabilizeOtherController m_StabilizeOtherController;
 	[SerializeField] private UnitFallenDragController m_FallenDragController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
@@ -127,6 +128,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 			    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
 				return;
 
+			UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
+			if (stabilizeOther != null &&
+			    (stabilizeOther.IsStabilizingOther || stabilizeOther.IsHealPresentationActive))
+				return;
+
 			if (m_FallenDragController != null && m_FallenDragController.IsDragging)
 				_moveTier = UnitClickToMove.MoveTier.Walk;
 
@@ -188,6 +194,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
 			selfStabilization?.StopSelfStabilization();
+
+			UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
+			stabilizeOther?.StopStabilizeOther();
 
 			m_MagazineLoadingController?.StopLoading();
 			m_WeaponReloadController?.StopReload();
@@ -373,6 +382,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
 
 		return m_SelfStabilizationController;
+	}
+
+	private UnitStabilizeOtherController ResolveStabilizeOtherController()
+	{
+		if (m_StabilizeOtherController == null)
+			m_StabilizeOtherController = GetComponent<UnitStabilizeOtherController>();
+
+		return m_StabilizeOtherController;
 	}
 
 	private void ScheduleRtsCommand(Action _command)

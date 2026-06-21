@@ -1457,6 +1457,42 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (_action == FallenUnitInteractionMenuAction.Stabilize)
+		{
+			Debug.Log($"[RtsUnitSelection] Stabilize clicked. target='{(_targetUnit != null ? _targetUnit.name : "null")}'");
+
+			if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] Stabilize rejected: need exactly one controllable player unit.");
+				return;
+			}
+
+			if (_targetUnit == null)
+			{
+				Debug.LogWarning("[RtsUnitSelection] Stabilize rejected: menu target is null.");
+				return;
+			}
+
+			if (ReferenceEquals(_targetUnit, playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] Stabilize rejected: menu target is the same unit as helper.");
+				return;
+			}
+
+			UnitStabilizeOtherController stabilizeController = playerUnit.GetComponent<UnitStabilizeOtherController>();
+			if (stabilizeController == null)
+			{
+				Debug.LogError($"[RtsUnitSelection] Stabilize failed: '{playerUnit.name}' has no {nameof(UnitStabilizeOtherController)}.", playerUnit);
+				return;
+			}
+
+			Debug.Log(
+				$"[RtsUnitSelection] Stabilize -> RequestStabilizeOther helper='{playerUnit.name}', victim='{_targetUnit.name}'",
+				playerUnit);
+			stabilizeController.RequestStabilizeOther(_targetUnit);
+			return;
+		}
+
 		if (_action != FallenUnitInteractionMenuAction.Exchange)
 			return;
 
