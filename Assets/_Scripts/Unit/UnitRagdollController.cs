@@ -52,32 +52,50 @@ public sealed class UnitRagdollController : MonoBehaviour
 	[SerializeField] private bool m_KeepCombatCollidersEnabled = true;
 
 	[Header("Fall Impulse")]
-	[SerializeField, Min(0f)] private float m_DefaultImpulse = 1.6f;
-	[SerializeField, Min(0f)] private float m_DefaultUpImpulse = 0f;
-	[SerializeField, Min(0f)] private float m_HitBoneImpulseMultiplier = 0.8f;
-	[SerializeField, Min(0f)] private float m_RootFollowThroughMultiplier = 0.25f;
-	[SerializeField, Range(0f, 1f)] private float m_RandomImpulseVariance = 0.2f;
-	[SerializeField, Min(0f)] private float m_RandomSideImpulse = 0.15f;
+	[SerializeField, Min(0f)] private float m_DefaultImpulse = 5f;
+	[SerializeField, Min(0f)] private float m_DefaultUpImpulse = 0.5f;
+	[SerializeField, Min(0f)] private float m_HitBoneImpulseMultiplier = 1f;
+	[SerializeField, Min(0f)] private float m_RootFollowThroughMultiplier = 0.5f;
+	[SerializeField, Range(0f, 1f)] private float m_RandomImpulseVariance = 0.3f;
+	[SerializeField, Min(0f)] private float m_RandomSideImpulse = 0.3f;
 
 	[Header("Ragdoll Stability")]
 	[SerializeField] private bool m_IgnoreSelfCollision = true;
-	[SerializeField, Min(0f)] private float m_RagdollLinearDamping = 0.35f;
-	[SerializeField, Min(0f)] private float m_RagdollAngularDamping = 4.5f;
-	[SerializeField, Min(0.1f)] private float m_MaxRagdollAngularSpeed = 2.5f;
+	[SerializeField, Min(0f)] private float m_RagdollLinearDamping = 0.05f;
+	[SerializeField, Min(0f)] private float m_RagdollAngularDamping = 0.1f;
+	[SerializeField, Min(0.1f)] private float m_MaxRagdollAngularSpeed = 5f;
 	[SerializeField, Min(1f)] private float m_DragLinearDampingMultiplier = 2f;
 	[SerializeField, Min(1f)] private float m_DragAngularDampingMultiplier = 1.6f;
 	[SerializeField, Min(0f)] private float m_AngularDecayPerSecond = 10f;
 	[SerializeField, Min(0f)] private float m_SettleDelay = 0.7f;
 	[SerializeField, Min(0f)] private float m_SettleRequiredSeconds = 0.35f;
-	[SerializeField, Min(0f)] private float m_SleepLinearSpeed = 0.12f;
-	[SerializeField, Min(0f)] private float m_SleepAngularSpeed = 0.25f;
+	[SerializeField, Min(0f)] private float m_SleepLinearSpeed = 0.05f;
+	[SerializeField, Min(0f)] private float m_SleepAngularSpeed = 0.1f;
 	[SerializeField] private bool m_MakeKinematicWhenSettled = true;
 
 	[Header("Weapon During Ragdoll")]
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField, Min(0f)] private float m_WeaponDropSideOffset = 0.18f;
 	[SerializeField, Min(0f)] private float m_WeaponDropDownOffset = 0.05f;
-	[SerializeField, Min(0f)] private float m_WeaponDropImpulse = 0.45f;
+	[SerializeField, Min(0f)] private float m_WeaponDropImpulse = 0.8f;
+
+	[Header("Transition Blend")]
+	[SerializeField, Min(0f)] private float m_TransitionBlendDuration = 0.4f;
+	[SerializeField, Min(0f)] private float m_TransitionLinearDamping = 0.8f;
+	[SerializeField, Min(0f)] private float m_TransitionAngularDamping = 3f;
+	[SerializeField, Min(0f)] private float m_MaxAnimationVelocity = 10f;
+
+	[Header("Fall Torque")]
+	[SerializeField, Min(0f)] private float m_FallTorqueMultiplier = 0.3f;
+	[SerializeField, Min(0f)] private float m_HitBodyTorqueMultiplier = 0.5f;
+
+	[Header("Soft Settle")]
+	[SerializeField, Min(0f)] private float m_SoftSettleDuration = 0.6f;
+	[SerializeField, Min(0f)] private float m_SoftSettleLinearDamping = 50f;
+	[SerializeField, Min(0f)] private float m_SoftSettleAngularDamping = 200f;
+
+	[Header("Debug")]
+	[SerializeField] private bool m_LogImpulse;
 	#endregion
 
 	#region Private Fields
@@ -94,6 +112,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private bool m_SuppressAutoSettle;
 	private float m_RagdollActivatedAt;
 	private float m_SettleCandidateStartedAt = -1f;
+	private float m_TransitionBlendStartedAt = -1f;
+	private float m_SoftSettleStartedAt = -1f;
 	private UnitWeaponAiming m_WeaponAiming;
 	private UnitWeaponVisualRecoilKick m_WeaponVisualRecoilKick;
 	private AnimatorHandIk m_HandIk;
@@ -101,6 +121,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private bool m_WeaponVisualRecoilKickWasEnabled;
 	private bool m_HandIkWasEnabled;
 	private bool m_WeaponDetachedOnKnockout;
+	private Vector3[] m_BonePositionsPrevious;
+	private bool m_HasBonePreviousPositions;
 	#endregion
 
 	#region Public Properties
@@ -123,8 +145,20 @@ public sealed class UnitRagdollController : MonoBehaviour
 		if (!m_IsRagdollActive || m_IsRagdollSettled || m_SuppressAutoSettle)
 			return;
 
+		UpdateTransitionBlend();
+		UpdateSoftSettle();
+
+		if (m_TransitionBlendStartedAt >= 0f || m_SoftSettleStartedAt >= 0f)
+			return;
+
 		DecayRagdollAngularVelocity();
 		UpdateRagdollSettling();
+	}
+
+	private void LateUpdate()
+	{
+		if (!m_IsRagdollActive && m_HasCached)
+			CaptureBonePositions();
 	}
 	#endregion
 
@@ -164,8 +198,20 @@ public sealed class UnitRagdollController : MonoBehaviour
 		m_IsRagdollActive = _active;
 		m_IsRagdollSettled = false;
 		m_SettleCandidateStartedAt = -1f;
+		m_TransitionBlendStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
 		if (_active)
+		{
 			m_RagdollActivatedAt = Time.time;
+			m_TransitionBlendStartedAt = Time.time;
+			if (m_LogImpulse)
+				Debug.Log($"[Ragdoll] {name} | АКТИВАЦИЯ | time={Time.time:F2}", this);
+		}
+
+		float animDt = Time.deltaTime;
+		Vector3 navVelocity = m_NavMeshAgent != null && m_NavMeshAgent.enabled && m_NavMeshAgent.isOnNavMesh
+			? m_NavMeshAgent.velocity
+			: Vector3.zero;
 
 		if (m_Animator != null)
 			m_Animator.enabled = !_active;
@@ -197,11 +243,24 @@ public sealed class UnitRagdollController : MonoBehaviour
 			{
 				body.isKinematic = false;
 				body.useGravity = true;
-				body.linearDamping = m_RagdollLinearDamping;
-				body.angularDamping = m_RagdollAngularDamping;
+				body.linearDamping = m_TransitionBlendDuration > 0f ? m_TransitionLinearDamping : m_RagdollLinearDamping;
+				body.angularDamping = m_TransitionBlendDuration > 0f ? m_TransitionAngularDamping : m_RagdollAngularDamping;
 				body.maxAngularVelocity = m_MaxRagdollAngularSpeed;
 				body.sleepThreshold = 0.08f;
-				body.linearVelocity = Vector3.zero;
+
+				Vector3 animVelocity = Vector3.zero;
+				if (m_HasBonePreviousPositions && m_BonePositionsPrevious != null && i < m_BonePositionsPrevious.Length)
+				{
+					animVelocity = (body.position - m_BonePositionsPrevious[i]) / animDt;
+					if (animVelocity.sqrMagnitude > m_MaxAnimationVelocity * m_MaxAnimationVelocity)
+						animVelocity = animVelocity.normalized * m_MaxAnimationVelocity;
+				}
+				else if (navVelocity.sqrMagnitude > 0.0001f)
+				{
+					animVelocity = navVelocity;
+				}
+
+				body.linearVelocity = animVelocity;
 				body.angularVelocity = Vector3.zero;
 				body.WakeUp();
 			}
@@ -275,6 +334,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		CacheReferences();
 		m_IsRagdollSettled = false;
 		m_SettleCandidateStartedAt = -1f;
+		m_TransitionBlendStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
 
 		for (int i = 0; i < m_Rigidbodies.Count; i++)
 		{
@@ -311,6 +372,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		SetDragControlled(true);
 		m_IsRagdollSettled = false;
 		m_SettleCandidateStartedAt = -1f;
+		m_TransitionBlendStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
 
 		for (int i = 0; i < m_Rigidbodies.Count; i++)
 		{
@@ -387,6 +450,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		SetDragControlled(false);
 		m_IsRagdollSettled = false;
 		m_SettleCandidateStartedAt = -1f;
+		m_TransitionBlendStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
 		m_RagdollActivatedAt = Time.time;
 
 		for (int i = 0; i < m_Rigidbodies.Count; i++)
@@ -425,6 +490,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		CacheReferences();
 		m_IsRagdollSettled = false;
 		m_SettleCandidateStartedAt = -1f;
+		m_TransitionBlendStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
 
 		var kinematicSet = new HashSet<Rigidbody>(_kinematicStableBodies);
 		var dynamicSet = new HashSet<Rigidbody>(_dynamicBodies);
@@ -494,6 +561,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		{
 			m_IsRagdollSettled = false;
 			m_SettleCandidateStartedAt = -1f;
+			m_TransitionBlendStartedAt = -1f;
+			m_SoftSettleStartedAt = -1f;
 		}
 	}
 	#endregion
@@ -643,7 +712,25 @@ public sealed class UnitRagdollController : MonoBehaviour
 			rootBody = m_Rigidbodies[0];
 
 		if (rootBody != null && !rootBody.isKinematic)
+		{
 			rootBody.AddForce(impulse, ForceMode.Impulse);
+
+			Vector3 horizontalImpulse = impulse;
+			horizontalImpulse.y = 0f;
+			Vector3 torqueAxis = horizontalImpulse.sqrMagnitude > 0.0001f
+				? Vector3.Cross(horizontalImpulse.normalized, Vector3.up).normalized
+				: transform.right;
+			Vector3 torque = torqueAxis * impulse.magnitude * m_FallTorqueMultiplier;
+			rootBody.AddTorque(torque, ForceMode.Impulse);
+
+			if (m_LogImpulse)
+			{
+				Debug.Log(
+					$"[Ragdoll] {name} | ApplyImpulse (без хит-инфо)\n" +
+					$"  impulse={impulse:F3} torque={torque:F3}",
+					this);
+			}
+		}
 	}
 
 	private void ApplyHitImpulse(DamageHitInfo _hitInfo, RagdollFallProfile _fallProfile)
@@ -656,11 +743,40 @@ public sealed class UnitRagdollController : MonoBehaviour
 		Rigidbody hitBody = ResolveHitRigidbody(_hitInfo.HitCollider);
 		Rigidbody rootBody = m_RootBone != null ? m_RootBone.GetComponent<Rigidbody>() : null;
 
+		Vector3 horizontalImpulse = impulse;
+		horizontalImpulse.y = 0f;
+		Vector3 torqueAxis = horizontalImpulse.sqrMagnitude > 0.0001f
+			? Vector3.Cross(horizontalImpulse.normalized, Vector3.up).normalized
+			: transform.right;
+
+		Vector3 hitForce = impulse * m_HitBoneImpulseMultiplier;
+		Vector3 hitTorque = torqueAxis * impulse.magnitude * m_HitBodyTorqueMultiplier;
+		Vector3 rootForce = impulse * m_RootFollowThroughMultiplier;
+		Vector3 rootTorque = torqueAxis * impulse.magnitude * m_FallTorqueMultiplier;
+
+		if (m_LogImpulse)
+		{
+			Debug.Log(
+				$"[Ragdoll] {name} | профиль={_fallProfile} | часть тела={_hitInfo.BodyPart}\n" +
+				$"  входящее направление={incomingDirection:F3} (magnitude={_hitInfo.IncomingDirection.magnitude:F2})\n" +
+				$"  импульс={impulse:F3} (|impulse|={impulse.magnitude:F2})\n" +
+				$"  горизонтальная доля={horizontalImpulse.magnitude / impulse.magnitude:P0}\n" +
+				$"  hitBody={hitBody?.name ?? "null"} hitForce={hitForce:F3} hitTorque={hitTorque:F3}\n" +
+				$"  rootBody={rootBody?.name ?? "null"} rootForce={rootForce:F3} rootTorque={rootTorque:F3}",
+				this);
+		}
+
 		if (hitBody != null && !hitBody.isKinematic)
-			hitBody.AddForce(impulse * m_HitBoneImpulseMultiplier, ForceMode.Impulse);
+		{
+			hitBody.AddForce(hitForce, ForceMode.Impulse);
+			hitBody.AddTorque(hitTorque, ForceMode.Impulse);
+		}
 
 		if (rootBody != null && !rootBody.isKinematic && rootBody != hitBody)
-			rootBody.AddForce(impulse * m_RootFollowThroughMultiplier, ForceMode.Impulse);
+		{
+			rootBody.AddForce(rootForce, ForceMode.Impulse);
+			rootBody.AddTorque(rootTorque, ForceMode.Impulse);
+		}
 	}
 
 	private Vector3 BuildProfileImpulse(Vector3 _incomingDirection, BodyPartType _bodyPart, RagdollFallProfile _fallProfile)
@@ -670,27 +786,29 @@ public sealed class UnitRagdollController : MonoBehaviour
 		if (side.sqrMagnitude < 0.0001f)
 			side = transform.right;
 		side.Normalize();
-		side *= UnityEngine.Random.Range(-m_RandomSideImpulse, m_RandomSideImpulse);
+		side *= UnityEngine.Random.Range(-1f, 1f);
 
-		Vector3 impulse;
+		float incomingWeight, downWeight, sideWeight;
 		switch (_fallProfile)
 		{
 			case RagdollFallProfile.ForwardCollapse:
-				impulse = transform.forward * 0.45f + Vector3.down * 0.8f + side;
+				incomingWeight = 0.85f; downWeight = 0.3f; sideWeight = 0.1f;
 				break;
 			case RagdollFallProfile.BackwardKnockback:
-				impulse = _incomingDirection * 0.5f + Vector3.down * 0.75f + side * 0.15f;
+				incomingWeight = 0.9f; downWeight = 0.2f; sideWeight = 0.05f;
 				break;
 			case RagdollFallProfile.SideSpin:
-				impulse = _incomingDirection * 0.35f + side * 0.45f + Vector3.down * 0.8f;
+				incomingWeight = 0.6f; downWeight = 0.4f; sideWeight = 0.7f;
 				break;
 			case RagdollFallProfile.LegBuckle:
-				impulse = _incomingDirection * 0.25f + Vector3.down * 0.9f + side * 0.2f;
+				incomingWeight = 0.5f; downWeight = 0.7f; sideWeight = 0.1f;
 				break;
 			default:
-				impulse = _incomingDirection * 0.25f + Vector3.down * 0.9f + side * 0.15f;
+				incomingWeight = 0.75f; downWeight = 0.45f; sideWeight = 0.1f;
 				break;
 		}
+
+		Vector3 impulse = _incomingDirection * incomingWeight + Vector3.down * downWeight + side * m_RandomSideImpulse * sideWeight;
 
 		float bodyPartScale = _bodyPart == BodyPartType.Head || _bodyPart == BodyPartType.Neck
 			? 1.1f
@@ -756,7 +874,7 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 	private void UpdateRagdollSettling()
 	{
-		if (m_IsRagdollSettled || Time.time - m_RagdollActivatedAt < m_SettleDelay)
+		if (m_IsRagdollSettled || m_SoftSettleStartedAt >= 0f || Time.time - m_RagdollActivatedAt < m_SettleDelay)
 			return;
 
 		if (!IsRagdollSlowEnoughToSleep())
@@ -772,7 +890,7 @@ public sealed class UnitRagdollController : MonoBehaviour
 		}
 
 		if (Time.time - m_SettleCandidateStartedAt >= m_SettleRequiredSeconds)
-			SleepRagdollBodies();
+			StartSoftSettle();
 	}
 
 	private bool IsRagdollSlowEnoughToSleep()
@@ -794,7 +912,39 @@ public sealed class UnitRagdollController : MonoBehaviour
 		return true;
 	}
 
-	private void SleepRagdollBodies()
+	private void StartSoftSettle()
+	{
+		m_SoftSettleStartedAt = Time.time;
+	}
+
+	private void UpdateSoftSettle()
+	{
+		if (m_SoftSettleStartedAt < 0f)
+			return;
+
+		float elapsed = Time.time - m_SoftSettleStartedAt;
+		if (elapsed >= m_SoftSettleDuration)
+		{
+			m_SoftSettleStartedAt = -1f;
+			FinishSoftSettle();
+			return;
+		}
+
+		float t = elapsed / m_SoftSettleDuration;
+		float linear = Mathf.Lerp(m_RagdollLinearDamping, m_SoftSettleLinearDamping, t);
+		float angular = Mathf.Lerp(m_RagdollAngularDamping, m_SoftSettleAngularDamping, t);
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null || body.isKinematic)
+				continue;
+			body.linearDamping = linear;
+			body.angularDamping = angular;
+		}
+	}
+
+	private void FinishSoftSettle()
 	{
 		for (int i = 0; i < m_Rigidbodies.Count; i++)
 		{
@@ -804,6 +954,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 			body.linearVelocity = Vector3.zero;
 			body.angularVelocity = Vector3.zero;
+			body.linearDamping = m_RagdollLinearDamping;
+			body.angularDamping = m_RagdollAngularDamping;
 			if (m_MakeKinematicWhenSettled)
 			{
 				body.useGravity = false;
@@ -814,6 +966,56 @@ public sealed class UnitRagdollController : MonoBehaviour
 		}
 
 		m_IsRagdollSettled = true;
+	}
+
+	private void UpdateTransitionBlend()
+	{
+		if (m_TransitionBlendStartedAt < 0f)
+			return;
+
+		float elapsed = Time.time - m_TransitionBlendStartedAt;
+		if (elapsed >= m_TransitionBlendDuration)
+		{
+			m_TransitionBlendStartedAt = -1f;
+			for (int i = 0; i < m_Rigidbodies.Count; i++)
+			{
+				Rigidbody body = m_Rigidbodies[i];
+				if (body == null || body.isKinematic)
+					continue;
+				body.linearDamping = m_RagdollLinearDamping;
+				body.angularDamping = m_RagdollAngularDamping;
+			}
+
+			return;
+		}
+
+		float t = elapsed / m_TransitionBlendDuration;
+		float linear = Mathf.Lerp(m_TransitionLinearDamping, m_RagdollLinearDamping, t);
+		float angular = Mathf.Lerp(m_TransitionAngularDamping, m_RagdollAngularDamping, t);
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body == null || body.isKinematic)
+				continue;
+			body.linearDamping = linear;
+			body.angularDamping = angular;
+		}
+	}
+
+	private void CaptureBonePositions()
+	{
+		if (m_BonePositionsPrevious == null || m_BonePositionsPrevious.Length != m_Rigidbodies.Count)
+			m_BonePositionsPrevious = new Vector3[m_Rigidbodies.Count];
+
+		for (int i = 0; i < m_Rigidbodies.Count; i++)
+		{
+			Rigidbody body = m_Rigidbodies[i];
+			if (body != null)
+				m_BonePositionsPrevious[i] = body.position;
+		}
+
+		m_HasBonePreviousPositions = true;
 	}
 
 	private void FreezeWeaponControl()

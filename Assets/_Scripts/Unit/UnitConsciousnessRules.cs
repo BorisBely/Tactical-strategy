@@ -14,7 +14,9 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 	{
 		"health.injury.neck_bleeding",
 		"health.injury.lung_damage",
-		"health.injury.internal_bleeding"
+		"health.injury.internal_bleeding",
+		"health.injury.head_wound",
+		"health.injury.concussion"
 	};
 	#endregion
 
@@ -23,7 +25,7 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 	[SerializeField] private UnitHealth m_UnitHealth;
 
 	[Header("Instant Knockout")]
-	[SerializeField] private int m_CriticalSortPriorityThreshold = 10;
+	[SerializeField] private int m_CriticalSortPriorityThreshold = 15;
 
 	[Header("Delayed Knockout")]
 	[SerializeField] private int m_SeriousSortPriorityThreshold = 25;
@@ -72,7 +74,7 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 			return;
 		}
 
-		UnitRagdollController.RagdollFallProfile fallProfile = ResolveFallProfile(_hitInfo.BodyPart, _newInjury);
+		UnitRagdollController.RagdollFallProfile fallProfile = ResolveFallProfile(_hitInfo.BodyPart, _newInjury, _hitInfo.IncomingDirection);
 		int seriousCount = m_UnitHealth.CountInjuriesWithPriorityAtMost(m_SeriousSortPriorityThreshold);
 
 		if (ShouldKnockoutInstantly(_newInjury))
@@ -190,43 +192,42 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 		return direction.normalized * m_HitImpulse + Vector3.up * m_HitUpImpulse;
 	}
 
-	private UnitRagdollController.RagdollFallProfile ResolveFallProfile(BodyPartType _bodyPart, InjuryUiEntry _injury)
+	private UnitRagdollController.RagdollFallProfile ResolveFallProfile(BodyPartType _bodyPart, InjuryUiEntry _injury, Vector3 _hitDirection)
 	{
-		switch (_bodyPart)
+		float forwardness = _hitDirection.sqrMagnitude > 0.0001f
+			? Vector3.Dot(_hitDirection.normalized, transform.forward)
+			: 0f;
+
+		if (m_LogConsciousness)
 		{
-			case BodyPartType.Head:
-			case BodyPartType.Neck:
-				return Random.value < 0.65f
-					? UnitRagdollController.RagdollFallProfile.BackwardKnockback
-					: UnitRagdollController.RagdollFallProfile.HeavyDrop;
-
-			case BodyPartType.Chest:
-				if (_injury.StatusLocalizationKey == "health.injury.lung_damage")
-					return Random.value < 0.55f
-						? UnitRagdollController.RagdollFallProfile.HeavyDrop
-						: UnitRagdollController.RagdollFallProfile.BackwardKnockback;
-				return Random.value < 0.5f
-					? UnitRagdollController.RagdollFallProfile.BackwardKnockback
-					: UnitRagdollController.RagdollFallProfile.HeavyDrop;
-
-			case BodyPartType.Abdomen:
-				return Random.value < 0.7f
-					? UnitRagdollController.RagdollFallProfile.HeavyDrop
-					: UnitRagdollController.RagdollFallProfile.ForwardCollapse;
-
-			case BodyPartType.LeftLeg:
-			case BodyPartType.RightLeg:
-				return UnitRagdollController.RagdollFallProfile.LegBuckle;
-
-			case BodyPartType.LeftArm:
-			case BodyPartType.RightArm:
-				return Random.value < 0.5f
-					? UnitRagdollController.RagdollFallProfile.HeavyDrop
-					: UnitRagdollController.RagdollFallProfile.ForwardCollapse;
-
-			default:
-				return UnitRagdollController.RagdollFallProfile.HeavyDrop;
+			Debug.Log(
+				$"[Сознание] {name} | выбор профиля: bodyPart={_bodyPart} | " +
+				$"hitDir={_hitDirection.normalized:F2} | forwardness={forwardness:F2} | " +
+				$"injury={_injury.StatusLocalizationKey}",
+				this);
 		}
+
+		if (_bodyPart == BodyPartType.LeftLeg || _bodyPart == BodyPartType.RightLeg)
+			return UnitRagdollController.RagdollFallProfile.LegBuckle;
+
+		if (_bodyPart == BodyPartType.Head || _bodyPart == BodyPartType.Neck)
+		{
+			if (forwardness > 0.3f)
+				return UnitRagdollController.RagdollFallProfile.BackwardKnockback;
+			if (forwardness < -0.3f)
+				return UnitRagdollController.RagdollFallProfile.ForwardCollapse;
+			return Mathf.Abs(forwardness) < 0.3f
+				? UnitRagdollController.RagdollFallProfile.SideSpin
+				: UnitRagdollController.RagdollFallProfile.HeavyDrop;
+		}
+
+		if (Mathf.Abs(forwardness) < 0.3f)
+			return UnitRagdollController.RagdollFallProfile.SideSpin;
+
+		if (forwardness > 0f)
+			return UnitRagdollController.RagdollFallProfile.BackwardKnockback;
+
+		return UnitRagdollController.RagdollFallProfile.ForwardCollapse;
 	}
 
 	private void Log(string _message)
