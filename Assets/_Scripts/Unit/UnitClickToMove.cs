@@ -410,6 +410,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			if (TryGetComponent(out UnitStabilizeOtherController stabilizeOther))
 				stabilizeOther.StopStabilizeOther();
 
+			if (TryGetComponent(out UnitFiremanCarryController firemanCarry))
+				firemanCarry.RequestRelease();
+
 			HardStop();
 		}
 

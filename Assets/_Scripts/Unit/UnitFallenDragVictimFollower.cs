@@ -60,6 +60,14 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	private bool m_EndFollowRequested;
 	private float m_NextRootSyncTime;
 
+	private bool m_UseExplicitOffsets;
+	private Vector3 m_ExplicitGripPositionOffset;
+	private Vector3 m_ExplicitGripRotationEuler;
+
+	private bool m_UseOverrideSmoothTimes;
+	private float m_OverridePositionSmoothTime;
+	private float m_OverrideRotationSmoothTime;
+
 	private Vector3 m_CachedGripTarget;
 	private Quaternion m_CachedGripRotation;
 	private Vector3 m_GripPositionSmoothVelocity;
@@ -68,6 +76,7 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	#region Public Properties
 	public bool IsBeingDragged => m_CurrentDragger != null;
 	public bool IsHybridDragActive => m_IsHybridDragActive;
+	public bool IsBeingCarried => m_IsHybridDragActive;
 	public UnitFallenDragController CurrentDragger => m_CurrentDragger;
 	#endregion
 
@@ -174,6 +183,62 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		RefreshDragPreviewImmediate();
 	}
 
+	public void BeginFollow(Transform _anchor, Vector3 _gripPositionOffset, Vector3 _gripRotationEulerOffset,
+		float _positionSmoothTime = -1f, float _rotationSmoothTime = -1f)
+	{
+		if (_anchor == null)
+			return;
+
+		LogFollow($"BeginFollow(explicit): anchor='{_anchor.name}' victim='{name}' posOffset={_gripPositionOffset} rotOffset={_gripRotationEulerOffset}");
+
+		if (m_RagdollController == null)
+			m_RagdollController = GetComponent<UnitRagdollController>();
+
+		m_GripBody = ResolveGripRigidbody();
+		m_GripReference = m_GripBody != null ? m_GripBody.transform : ResolveGripReferenceTransform();
+		if (m_GripBody == null || m_GripReference == null)
+		{
+			Debug.LogWarning($"[UnitFallenDragVictimFollower] BeginFollow(explicit) failed: no grip rigidbody on '{name}'.", this);
+			return;
+		}
+
+		m_EndFollowRequested = false;
+		m_CurrentDragger = null;
+		m_HandAnchor = _anchor;
+		m_UseExplicitOffsets = true;
+		m_ExplicitGripPositionOffset = _gripPositionOffset;
+		m_ExplicitGripRotationEuler = _gripRotationEulerOffset;
+		if (_positionSmoothTime > 0f || _rotationSmoothTime > 0f)
+		{
+			m_UseOverrideSmoothTimes = true;
+			m_OverridePositionSmoothTime = _positionSmoothTime > 0f ? _positionSmoothTime : m_GripPositionSmoothTime;
+			m_OverrideRotationSmoothTime = _rotationSmoothTime > 0f ? _rotationSmoothTime : m_GripRotationSmoothTime;
+		}
+		else
+		{
+			m_UseOverrideSmoothTimes = false;
+		}
+		m_NextRootSyncTime = Time.time;
+		m_GripPositionSmoothVelocity = Vector3.zero;
+
+		m_RagdollController?.SyncTransformsFromRigidbodies();
+		AlignRagdollRigidlyToGrip(_anchor, m_GripReference, ResolveLiveGripPositionOffset());
+
+		Quaternion desiredRotation = _anchor.rotation * Quaternion.Euler(_gripRotationEulerOffset);
+		m_GripBody.MoveRotation(desiredRotation);
+		m_GripLocalRotationInHand = Quaternion.identity;
+
+		m_RagdollController?.SyncKinematicRigidbodiesFromTransforms();
+		m_StableUpperPoses.Clear();
+		m_KinematicStableBodies.Clear();
+		m_DynamicDragBodies.Clear();
+		m_RagdollController?.PrepareRagdollHybridDrag(m_GripBody);
+
+		CacheHandGripTarget(_anchor);
+		m_IsHybridDragActive = true;
+		RefreshDragPreviewImmediate();
+	}
+
 	public void EndFollow()
 	{
 		if (m_EndFollowRequested || (!IsBeingDragged && !m_IsHybridDragActive))
@@ -190,6 +255,10 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		m_GripBody = null;
 		m_GripLocalRotationInHand = Quaternion.identity;
 		m_GripPositionSmoothVelocity = Vector3.zero;
+		m_UseExplicitOffsets = false;
+		m_ExplicitGripPositionOffset = Vector3.zero;
+		m_ExplicitGripRotationEuler = Vector3.zero;
+		m_UseOverrideSmoothTimes = false;
 		m_StableUpperPoses.Clear();
 		m_KinematicStableBodies.Clear();
 		m_DynamicDragBodies.Clear();
@@ -216,6 +285,12 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		ApplyDragPose(true);
 		m_RagdollController?.SyncRootTransformToRootBone();
 		Physics.SyncTransforms();
+	}
+
+	public void UpdateExplicitOffsets(Vector3 _positionOffset, Vector3 _rotationEulerOffset)
+	{
+		m_ExplicitGripPositionOffset = _positionOffset;
+		m_ExplicitGripRotationEuler = _rotationEulerOffset;
 	}
 	#endregion
 
@@ -326,6 +401,9 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 
 	private Vector3 ResolveLiveGripPositionOffset()
 	{
+		if (m_UseExplicitOffsets)
+			return m_ExplicitGripPositionOffset;
+
 		return m_CurrentDragger != null
 			? m_CurrentDragger.VictimGripLocalOffsetInHand
 			: Vector3.zero;
@@ -333,6 +411,9 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 
 	private Vector3 ResolveLiveGripRotationOffset()
 	{
+		if (m_UseExplicitOffsets)
+			return m_ExplicitGripRotationEuler;
+
 		return m_CurrentDragger != null
 			? m_CurrentDragger.VictimGripLocalRotationOffsetInHand
 			: Vector3.zero;
@@ -354,7 +435,10 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 
 	private Quaternion ComputeGripTargetRotation(Transform _hand)
 	{
-		Quaternion handSpaceOffset = Quaternion.Euler(ResolveLiveGripRotationOffset());
+		Vector3 offset = ResolveLiveGripRotationOffset();
+		Quaternion handSpaceOffset = Quaternion.AngleAxis(offset.y, _hand.up)
+		                           * Quaternion.AngleAxis(offset.x, _hand.right)
+		                           * Quaternion.AngleAxis(offset.z, _hand.forward);
 		return _hand.rotation * handSpaceOffset * m_GripLocalRotationInHand;
 	}
 
@@ -373,16 +457,19 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		}
 		else
 		{
+			float posSmooth = m_UseOverrideSmoothTimes ? m_OverridePositionSmoothTime : m_GripPositionSmoothTime;
+			float rotSmooth = m_UseOverrideSmoothTimes ? m_OverrideRotationSmoothTime : m_GripRotationSmoothTime;
+
 			Vector3 nextPosition = Vector3.SmoothDamp(
 				m_GripBody.position,
 				m_CachedGripTarget,
 				ref m_GripPositionSmoothVelocity,
-				m_GripPositionSmoothTime,
+				posSmooth,
 				m_MaxGripFollowSpeed,
 				Time.fixedDeltaTime);
 			m_GripBody.MovePosition(nextPosition);
 
-			float rotationSmooth = Mathf.Max(0.001f, m_GripRotationSmoothTime);
+			float rotationSmooth = Mathf.Max(0.001f, rotSmooth);
 			float rotationFactor = 1f - Mathf.Exp(-Time.fixedDeltaTime / rotationSmooth);
 			Quaternion nextRotation = Quaternion.Slerp(m_GripBody.rotation, m_CachedGripRotation, rotationFactor);
 			m_GripBody.MoveRotation(nextRotation);

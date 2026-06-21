@@ -1493,6 +1493,42 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (_action == FallenUnitInteractionMenuAction.Lift)
+		{
+			Debug.Log($"[RtsUnitSelection] Lift clicked. target='{(_targetUnit != null ? _targetUnit.name : "null")}'");
+
+			if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] Lift rejected: need exactly one controllable player unit.");
+				return;
+			}
+
+			if (_targetUnit == null)
+			{
+				Debug.LogWarning("[RtsUnitSelection] Lift rejected: menu target is null.");
+				return;
+			}
+
+			if (ReferenceEquals(_targetUnit, playerUnit))
+			{
+				Debug.LogWarning($"[RtsUnitSelection] Lift rejected: menu target is the same unit.");
+				return;
+			}
+
+			UnitFiremanCarryController carryController = playerUnit.GetComponent<UnitFiremanCarryController>();
+			if (carryController == null)
+			{
+				Debug.LogError($"[RtsUnitSelection] Lift failed: '{playerUnit.name}' has no {nameof(UnitFiremanCarryController)}.", playerUnit);
+				return;
+			}
+
+			Debug.Log(
+				$"[RtsUnitSelection] Lift -> RequestLift carrier='{playerUnit.name}', victim='{_targetUnit.name}'",
+				playerUnit);
+			carryController.RequestLift(_targetUnit);
+			return;
+		}
+
 		if (_action != FallenUnitInteractionMenuAction.Exchange)
 			return;
 

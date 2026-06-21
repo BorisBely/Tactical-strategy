@@ -31,6 +31,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 	[SerializeField] private UnitHealth m_Health;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
+	[SerializeField] private UnitFiremanCarryController m_FiremanCarry;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private AnimatorHandIk m_LeftHandIk;
 	[SerializeField] private Animator m_Animator;
@@ -181,6 +182,8 @@ public sealed class UnitFallenDragController : MonoBehaviour
 			m_SelfStabilization = GetComponent<UnitSelfStabilizationController>();
 		if (m_StabilizeOther == null)
 			m_StabilizeOther = GetComponent<UnitStabilizeOtherController>();
+		if (m_FiremanCarry == null)
+			m_FiremanCarry = GetComponent<UnitFiremanCarryController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_Animator == null)
@@ -526,6 +529,10 @@ public sealed class UnitFallenDragController : MonoBehaviour
 		if (m_StabilizeOther != null &&
 		    (m_StabilizeOther.IsStabilizingOther || m_StabilizeOther.IsHealPresentationActive))
 			return FailValidation("dragger is stabilizing another unit", out _failureReason);
+
+		if (m_FiremanCarry != null &&
+		    (m_FiremanCarry.IsCarryingFallen || m_FiremanCarry.IsCarryPresentationActive))
+			return FailValidation("dragger is carrying a unit", out _failureReason);
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 			return FailValidation("dragger is reloading", out _failureReason);

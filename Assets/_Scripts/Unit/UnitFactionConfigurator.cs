@@ -33,6 +33,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private UnitHealth m_UnitHealth;
 	private UnitSelfStabilizationController m_SelfStabilizationController;
 	private UnitStabilizeOtherController m_StabilizeOtherController;
+	private UnitFiremanCarryController m_FiremanCarryController;
 	private UnitHealthDeteriorationController m_HealthDeteriorationController;
 	#endregion
 
@@ -125,6 +126,8 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
 		if (m_StabilizeOtherController == null)
 			m_StabilizeOtherController = GetComponent<UnitStabilizeOtherController>();
+		if (m_FiremanCarryController == null)
+			m_FiremanCarryController = GetComponent<UnitFiremanCarryController>();
 		if (m_HealthDeteriorationController == null)
 			m_HealthDeteriorationController = GetComponent<UnitHealthDeteriorationController>();
 	}
@@ -138,6 +141,8 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_SelfStabilizationController = gameObject.AddComponent<UnitSelfStabilizationController>();
 		if (m_StabilizeOtherController == null)
 			m_StabilizeOtherController = gameObject.AddComponent<UnitStabilizeOtherController>();
+		if (m_FiremanCarryController == null)
+			m_FiremanCarryController = gameObject.AddComponent<UnitFiremanCarryController>();
 		if (m_HealthDeteriorationController == null)
 			m_HealthDeteriorationController = gameObject.AddComponent<UnitHealthDeteriorationController>();
 	}

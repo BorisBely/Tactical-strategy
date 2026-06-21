@@ -20,6 +20,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilizationController;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOtherController;
+	[SerializeField] private UnitFiremanCarryController m_FiremanCarryController;
 	[SerializeField] private UnitFallenDragController m_FallenDragController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
@@ -197,6 +198,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
 			stabilizeOther?.StopStabilizeOther();
+
+			UnitFiremanCarryController firemanCarry = ResolveFiremanCarryController();
+			firemanCarry?.RequestRelease();
 
 			m_MagazineLoadingController?.StopLoading();
 			m_WeaponReloadController?.StopReload();
@@ -390,6 +394,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_StabilizeOtherController = GetComponent<UnitStabilizeOtherController>();
 
 		return m_StabilizeOtherController;
+	}
+
+	private UnitFiremanCarryController ResolveFiremanCarryController()
+	{
+		if (m_FiremanCarryController == null)
+			m_FiremanCarryController = GetComponent<UnitFiremanCarryController>();
+
+		return m_FiremanCarryController;
 	}
 
 	private void ScheduleRtsCommand(Action _command)

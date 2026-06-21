@@ -17,17 +17,26 @@ public static class UnitAnimControllerSelfHealSetup
 	private const string c_SourceMaskLayerName = UnitMagazineLoadingController.MagazineLoadingHandsLayerName;
 	private const string c_ParamIsSelfHealing = UnitSelfStabilizationController.ParamIsSelfHealing;
 	private const string c_ParamIsStabilizingOther = UnitStabilizeOtherController.ParamIsStabilizingOther;
+	private const string c_ParamIsCarryingFallen = UnitFiremanCarryController.ParamIsCarryingFallen;
 
 	private const string c_ClipHealStart = "Assets/healStart.anim";
 	private const string c_ClipHeal = "Assets/heal.anim";
 	private const string c_ClipHeal2 = "Assets/heal2.anim";
 	private const string c_ClipHealEnd = "Assets/healEnd.anim";
+	private const string c_ClipFiremanCarry2 = "Assets/Fireman'sCarry2.anim";
+
+	private const string c_ParamIsBeingCarried = UnitFiremanCarryController.ParamIsBeingCarried;
+	private const string c_CarriedPoseLayerName = UnitFiremanCarryController.CarriedPoseLayerName;
+	private const string c_ClipFiremanCarry1 = "Assets/Fireman'sCarry1.anim";
+	private const string c_StateCarriedEmpty = "Carried_Empty";
+	private const string c_StateCarriedPose = "Fireman'sCarry1";
 
 	private const string c_StateEmpty = "SelfHeal_Empty";
 	private const string c_StateStart = "healStart";
 	private const string c_StateLoop = "heal";
 	private const string c_StateLoopOther = "heal2";
 	private const string c_StateEnd = "healEnd";
+	private const string c_StateCarry = "Fireman'sCarry2";
 
 	private const string c_LegacyLayerName = "HealOther_Hands";
 	#endregion
@@ -56,12 +65,14 @@ public static class UnitAnimControllerSelfHealSetup
 
 		EnsureParameter(controller, c_ParamIsSelfHealing, AnimatorControllerParameterType.Bool);
 		EnsureParameter(controller, c_ParamIsStabilizingOther, AnimatorControllerParameterType.Bool);
+		EnsureParameter(controller, c_ParamIsCarryingFallen, AnimatorControllerParameterType.Bool);
 
 		AnimationClip healStart = LoadClip(c_ClipHealStart);
 		AnimationClip heal = LoadClip(c_ClipHeal);
 		AnimationClip heal2 = LoadClip(c_ClipHeal2);
 		AnimationClip healEnd = LoadClip(c_ClipHealEnd);
-		if (healStart == null || heal == null || heal2 == null || healEnd == null)
+		AnimationClip firemanCarry2 = LoadClip(c_ClipFiremanCarry2);
+		if (healStart == null || heal == null || heal2 == null || healEnd == null || firemanCarry2 == null)
 			return;
 
 		EnsureEvents(healStart, "AnimationEvent_SelfHealShowMedkitInHand", 0.05f);
@@ -72,6 +83,7 @@ public static class UnitAnimControllerSelfHealSetup
 		EnsureEvents(healEnd, "AnimationEvent_StabilizeOtherHideMedkitFromHand", Mathf.Max(0.01f, healEnd.length - 0.03f));
 		SetLoopTime(heal, true);
 		SetLoopTime(heal2, true);
+		SetLoopTime(firemanCarry2, true);
 		SetLoopTime(healStart, false);
 		SetLoopTime(healEnd, false);
 
@@ -83,6 +95,7 @@ public static class UnitAnimControllerSelfHealSetup
 		AnimatorState loop = EnsureMotionState(stateMachine, c_StateLoop, heal);
 		AnimatorState loopOther = EnsureMotionState(stateMachine, c_StateLoopOther, heal2);
 		AnimatorState end = EnsureMotionState(stateMachine, c_StateEnd, healEnd);
+		AnimatorState carry = EnsureMotionState(stateMachine, c_StateCarry, firemanCarry2);
 
 		stateMachine.defaultState = empty;
 		RemoveTransitions(stateMachine);
@@ -91,6 +104,7 @@ public static class UnitAnimControllerSelfHealSetup
 		RemoveTransitions(loop);
 		RemoveTransitions(loopOther);
 		RemoveTransitions(end);
+		RemoveTransitions(carry);
 
 		// Entry: SelfHeal_Empty → healStart (self-heal)
 		AnimatorStateTransition enterSelf = empty.AddTransition(start);
@@ -101,6 +115,11 @@ public static class UnitAnimControllerSelfHealSetup
 		AnimatorStateTransition enterOther = empty.AddTransition(start);
 		ConfigureTransition(enterOther, 0.05f, false, 0f);
 		enterOther.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsStabilizingOther);
+
+		// Entry: SelfHeal_Empty → Fireman'sCarry2 (carry fallen)
+		AnimatorStateTransition enterCarry = empty.AddTransition(carry);
+		ConfigureTransition(enterCarry, 0.08f, false, 0f);
+		enterCarry.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsCarryingFallen);
 
 		// healStart → heal (self-heal loop)
 		AnimatorStateTransition startToLoop = start.AddTransition(loop);
@@ -128,6 +147,11 @@ public static class UnitAnimControllerSelfHealSetup
 		ConfigureTransition(loopOtherToEnd, 0.08f, false, 0f);
 		loopOtherToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsStabilizingOther);
 
+		// Fireman'sCarry2 → SelfHeal_Empty (release)
+		AnimatorStateTransition carryToEmpty = carry.AddTransition(empty);
+		ConfigureTransition(carryToEmpty, 0.08f, false, 0f);
+		carryToEmpty.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsCarryingFallen);
+
 		// healEnd → SelfHeal_Empty
 		AnimatorStateTransition endToEmpty = end.AddTransition(empty);
 		ConfigureTransition(endToEmpty, 0.08f, true, 0.95f);
@@ -135,7 +159,52 @@ public static class UnitAnimControllerSelfHealSetup
 		EditorUtility.SetDirty(controller);
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
-		Debug.Log("[UnitAnimControllerSelfHealSetup] Medkit_Hands layer configured (self-heal + stabilize-other).");
+		Debug.Log("[UnitAnimControllerSelfHealSetup] Medkit_Hands layer configured (self-heal + stabilize-other + carry).");
+	}
+
+	[MenuItem("Polygone/Animation/Setup Carried Pose Layer")]
+	public static void SetupCarriedPoseLayer()
+	{
+		AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(c_ControllerPath);
+		if (controller == null)
+		{
+			Debug.LogError($"Не найден Animator Controller: {c_ControllerPath}");
+			return;
+		}
+
+		Undo.RecordObject(controller, "Setup Carried Pose Layer");
+
+		EnsureParameter(controller, c_ParamIsBeingCarried, AnimatorControllerParameterType.Bool);
+
+		AnimationClip firemanCarry1 = LoadClip(c_ClipFiremanCarry1);
+		if (firemanCarry1 == null)
+			return;
+
+		SetLoopTime(firemanCarry1, true);
+
+		int layerIndex = EnsureCarriedPoseLayer(controller);
+		AnimatorControllerLayer layer = controller.layers[layerIndex];
+		AnimatorStateMachine stateMachine = layer.stateMachine;
+		AnimatorState empty = EnsureMotionState(stateMachine, c_StateCarriedEmpty, null);
+		AnimatorState pose = EnsureMotionState(stateMachine, c_StateCarriedPose, firemanCarry1);
+
+		stateMachine.defaultState = empty;
+		RemoveTransitions(stateMachine);
+		RemoveTransitions(empty);
+		RemoveTransitions(pose);
+
+		AnimatorStateTransition enter = empty.AddTransition(pose);
+		ConfigureTransition(enter, 0.08f, false, 0f);
+		enter.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsBeingCarried);
+
+		AnimatorStateTransition exit = pose.AddTransition(empty);
+		ConfigureTransition(exit, 0.08f, false, 0f);
+		exit.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsBeingCarried);
+
+		EditorUtility.SetDirty(controller);
+		AssetDatabase.SaveAssets();
+		AssetDatabase.Refresh();
+		Debug.Log("[UnitAnimControllerSelfHealSetup] Carried_Pose layer configured.");
 	}
 	#endregion
 
@@ -143,10 +212,14 @@ public static class UnitAnimControllerSelfHealSetup
 	private static void TryAutoSetupSelfHealLayer()
 	{
 		AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(c_ControllerPath);
-		if (controller == null || !NeedsSetup(controller))
+		if (controller == null)
 			return;
 
-		SetupSelfHealLayer();
+		if (NeedsSetup(controller))
+			SetupSelfHealLayer();
+
+		if (NeedsCarriedPoseSetup(controller))
+			SetupCarriedPoseLayer();
 	}
 
 	private static bool NeedsSetup(AnimatorController _controller)
@@ -156,15 +229,18 @@ public static class UnitAnimControllerSelfHealSetup
 
 		bool hasSelfHealParam = false;
 		bool hasStabilizeOtherParam = false;
+		bool hasCarryingFallenParam = false;
 		for (int i = 0; i < _controller.parameters.Length; i++)
 		{
 			if (_controller.parameters[i].name == c_ParamIsSelfHealing)
 				hasSelfHealParam = true;
 			if (_controller.parameters[i].name == c_ParamIsStabilizingOther)
 				hasStabilizeOtherParam = true;
+			if (_controller.parameters[i].name == c_ParamIsCarryingFallen)
+				hasCarryingFallenParam = true;
 		}
 
-		if (!hasSelfHealParam || !hasStabilizeOtherParam)
+		if (!hasSelfHealParam || !hasStabilizeOtherParam || !hasCarryingFallenParam)
 			return true;
 
 		if (UsesLegacyAnyStateSelfHealEntry(_controller))
@@ -180,6 +256,24 @@ public static class UnitAnimControllerSelfHealSetup
 		       !HasEvent(heal2, "AnimationEvent_StabilizeOtherCycleCompleted") ||
 		       !HasEvent(healEnd, "AnimationEvent_SelfHealHideMedkitFromHand") ||
 		       !HasEvent(healEnd, "AnimationEvent_StabilizeOtherHideMedkitFromHand");
+	}
+
+	private static bool NeedsCarriedPoseSetup(AnimatorController _controller)
+	{
+		if (FindLayerIndex(_controller, c_CarriedPoseLayerName) < 0)
+			return true;
+
+		bool hasParam = false;
+		for (int i = 0; i < _controller.parameters.Length; i++)
+		{
+			if (_controller.parameters[i].name == c_ParamIsBeingCarried)
+			{
+				hasParam = true;
+				break;
+			}
+		}
+
+		return !hasParam;
 	}
 
 	private static bool UsesLegacyAnyStateSelfHealEntry(AnimatorController _controller)
@@ -253,6 +347,33 @@ public static class UnitAnimControllerSelfHealSetup
 		}
 
 		return -1;
+	}
+
+	private static int EnsureCarriedPoseLayer(AnimatorController _controller)
+	{
+		int existing = FindLayerIndex(_controller, c_CarriedPoseLayerName);
+		if (existing < 0)
+		{
+			_controller.AddLayer(c_CarriedPoseLayerName);
+			existing = FindLayerIndex(_controller, c_CarriedPoseLayerName);
+		}
+
+		AnimatorControllerLayer[] layers = _controller.layers;
+		AnimatorControllerLayer layer = layers[existing];
+		layer.name = c_CarriedPoseLayerName;
+		layer.defaultWeight = 0f;
+		layer.blendingMode = AnimatorLayerBlendingMode.Override;
+		layer.avatarMask = null;
+
+		if (layer.stateMachine == null)
+		{
+			layer.stateMachine = new AnimatorStateMachine { name = c_CarriedPoseLayerName };
+			AssetDatabase.AddObjectToAsset(layer.stateMachine, _controller);
+		}
+
+		layers[existing] = layer;
+		_controller.layers = layers;
+		return existing;
 	}
 
 	private static AnimatorState EnsureMotionState(AnimatorStateMachine _stateMachine, string _stateName, Motion _motion)
