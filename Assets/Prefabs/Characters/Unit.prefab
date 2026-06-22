@@ -7909,6 +7909,8 @@ MonoBehaviour:
   m_Team: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_DragController: {fileID: 0}
+  m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
   m_GroundMask:
     serializedVersion: 2
     m_Bits: 64
@@ -7971,6 +7973,8 @@ MonoBehaviour:
   m_MagazineLoadingController: {fileID: 2625859228613252192}
   m_WeaponReloadController: {fileID: 4859917004016156609}
   m_SelfStabilizationController: {fileID: 0}
+  m_StabilizeOtherController: {fileID: 0}
+  m_FiremanCarryController: {fileID: 0}
   m_FallenDragController: {fileID: 0}
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_UnitEquipment: {fileID: 5322687323565292150}
@@ -8002,6 +8006,8 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_Consciousness: {fileID: 0}
   m_DragController: {fileID: 0}
+  m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
   m_NavMeshSampleRadius: 2
   m_StoppingDistance: 0.15
   m_AgentAcceleration: 40
@@ -8219,6 +8225,7 @@ MonoBehaviour:
   m_WeaponReloadController: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
   m_LeftHandIk: {fileID: 2876543210987654320}
+  m_BusyState: {fileID: 0}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
 --- !u!114 &3806570450536705422
@@ -8262,6 +8269,8 @@ MonoBehaviour:
   m_ScanIntervalMin: 0.25
   m_ScanIntervalMax: 0.45
   m_ImmediateRescanAngleDegrees: 2.5
+  m_AimPointVelocitySmoothTime: 0.15
+  m_AimPointMaxProjectionSeconds: 0.5
   m_LayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8458,6 +8467,7 @@ MonoBehaviour:
   m_MaxDistance: 500
   m_BarrelRayStartOffset: 0.08
   m_TriggerInteraction: 1
+  m_TargetLeadFactor: 1
   m_BaseSpreadToDegrees: 0.35
   m_RecoilSpreadScale: 0.22
   m_MinHalfAngleDegrees: 0.04
@@ -8529,6 +8539,7 @@ MonoBehaviour:
   m_DebugEffectiveFireMode: 0
   m_DebugCurrentAimProgress: 0
   m_DebugLastBarrelAimErrorDegrees: 0
+  m_LogFireBlockReasons: 0
 --- !u!114 &731300000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8580,6 +8591,8 @@ MonoBehaviour:
   m_BlockDuringReloadOrBoltCycle: 1
   m_AimLossSpeedMultiplier: 1.65
   m_ResetAimProgressAfterShot: 1
+  m_AimCarryoverMax: 0.8
+  m_AimCarryoverHalfAngleDegrees: 25
   m_DebugCurrentAimTimeSeconds: 0.25
   m_DebugCanAccumulateAim: 0
   m_DebugCurrentTarget: {fileID: 0}
@@ -8756,6 +8769,7 @@ MonoBehaviour:
   m_MagazineLoading: {fileID: 0}
   m_WeaponReload: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
   m_BusyState: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
@@ -8818,6 +8832,7 @@ MonoBehaviour:
   m_Marksmanship: 50
   m_WeaponHandling: 50
   m_RecoilControl: 50
+  m_ReactionTimeSeconds: 0.35
   m_WorstMarksmanshipDispersionMultiplier: 1.25
   m_BestMarksmanshipDispersionMultiplier: 0.75
   m_WorstHandlingAimTimeMultiplier: 1.25
@@ -9304,6 +9319,7 @@ MonoBehaviour:
   m_SoftSettleDuration: 0.6
   m_SoftSettleLinearDamping: 50
   m_SoftSettleAngularDamping: 200
+  m_LogImpulse: 0
 --- !u!114 &7912499842099294812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9363,13 +9379,15 @@ MonoBehaviour:
   m_Consciousness: {fileID: 7912499842099294812}
   m_Health: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
+  m_FiremanCarry: {fileID: 0}
   m_ReloadController: {fileID: 4859917004016156609}
   m_LeftHandIk: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_LeftHandAnchor: {fileID: 0}
   m_LayerWeightFadeSeconds: 0.2
-  m_VictimGripLocalOffsetInHand: {x: 0, y: -0.04, z: 0.08}
-  m_VictimGripLocalRotationOffsetInHand: {x: 180, y: 0, z: 0}
+  m_VictimGripLocalOffsetInHand: {x: -0.42, y: 0.44, z: 0.09}
+  m_VictimGripLocalRotationOffsetInHand: {x: 124.3, y: 43.8, z: -173}
   m_AttachAnimatorSettleFrames: 2
   m_LogFallenDrag: 1
   m_DebugLastFailureReason: 
@@ -9403,6 +9421,7 @@ MonoBehaviour:
     m_Bits: 2035
   m_SnapToGroundOnRelease: 1
   m_RootSyncIntervalSeconds: 0.35
+  m_LogDragFollow: 0
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

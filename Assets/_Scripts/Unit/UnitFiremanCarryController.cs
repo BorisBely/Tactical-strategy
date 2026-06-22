@@ -60,6 +60,8 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
@@ -80,11 +82,11 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	[Tooltip("Оффсет жертвы относительно Spine несущего (localPosition).")]
 
-	[SerializeField] private Vector3 m_CarryLocalPosition = new Vector3(-0.6f, 0.14f, -0.16f);
+	[SerializeField] private Vector3 m_CarryGripLocalOffset = new Vector3(0.29f, -0.26f, -0.17f);
 
 	[Tooltip("Поворот жертвы относительно Spine несущего (localEulerAngles).")]
 
-	[SerializeField] private Vector3 m_CarryLocalRotation = new Vector3(325.2f, 86f, -115.7f);
+	[SerializeField] private Vector3 m_CarryGripRotationOffset = new Vector3(60.6f, -89.1f, 3.86f);
 
 
 
@@ -129,6 +131,8 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 	private Animator m_VictimAnimator;
 
 	private UnitRagdollController m_VictimRagdoll;
+
+	private int m_CarriedPoseLayerIndex = -1;
 
 	#endregion
 
@@ -226,9 +230,9 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
-		m_CarriedVictim.transform.localPosition = m_CarryLocalPosition;
+		m_CarriedVictim.transform.localPosition = m_CarryGripLocalOffset;
 
-		m_CarriedVictim.transform.localRotation = Quaternion.Euler(m_CarryLocalRotation);
+		m_CarriedVictim.transform.localRotation = Quaternion.Euler(m_CarryGripRotationOffset);
 
 	}
 
@@ -254,7 +258,15 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	{
 
-		Log($"RequestLift called. carrier='{name}', victim='{FormatUnit(_victim)}'");
+		if (m_SessionCoroutine != null && m_CarriedVictim == null)
+
+		{
+
+
+
+			return;
+
+		}
 
 
 
@@ -276,17 +288,13 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		{
 
-			Log("RequestLift: restarting pending carry session.");
+		StopCoroutine(m_SessionCoroutine);
 
-			StopCoroutine(m_SessionCoroutine);
-
-			m_SessionCoroutine = null;
+		m_SessionCoroutine = null;
 
 		}
 
 
-
-		Log($"Starting carry session coroutine toward victim='{FormatUnit(_victim)}'");
 
 		m_SessionCoroutine = StartCoroutine(CoFiremanCarrySession(_victim));
 
@@ -398,13 +406,13 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
+		UnitFallenStateUtility.TryDescribeFallenState(_victim, out string fallenDesc);
+
 		if (!UnitFallenStateUtility.IsFallenOrDead(_victim))
 
 		{
 
-			UnitFallenStateUtility.TryDescribeFallenState(_victim, out string state);
-
-			return Fail($"victim is not fallen or dead ({state})", out _failureReason);
+			return Fail($"victim is not fallen or dead ({fallenDesc})", out _failureReason);
 
 		}
 
@@ -462,9 +470,7 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
-		float distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
-
-		Log($"CoApproachVictim: initial distance={distance:F2}m (arrive<={c_ApproachArriveDistance:F2}m)");
+		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 
 		if (distance > c_ApproachArriveDistance)
 
@@ -472,13 +478,13 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 			Vector3 approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
 
-			Log($"CoApproachVictim: issuing move order to {approachPoint}");
-
 			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
 
 
 
 			float elapsed = 0f;
+
+			float nextRetargetTime = 0.5f;
 
 			while (elapsed < c_MaxApproachSeconds)
 
@@ -496,7 +502,21 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
-				distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
+				if (elapsed >= nextRetargetTime)
+
+				{
+
+					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
+
+					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+
+					nextRetargetTime += 0.5f;
+
+				}
+
+
+
+				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 
 				if (distance <= c_ApproachArriveDistance)
 
@@ -512,7 +532,15 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
-			Log($"CoApproachVictim finished waiting after {elapsed:F1}s, distance={distance:F2}m");
+			if (distance > c_ApproachArriveDistance)
+
+				LogWarning($"CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
+
+
+
+			if (distance > c_ApproachArriveDistance)
+
+				LogWarning($"CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
 
 		}
 
@@ -552,6 +580,20 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	}
 
+
+
+	private static float HorizontalDistance(Vector3 _a, Vector3 _b)
+
+	{
+
+		float dx = _a.x - _b.x;
+
+		float dz = _a.z - _b.z;
+
+		return Mathf.Sqrt(dx * dx + dz * dz);
+
+	}
+
 	#endregion
 
 
@@ -575,8 +617,6 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 		}
 
 
-
-		Log($"CoFiremanCarrySession: approaching victim='{FormatUnit(_victim)}'");
 
 		yield return CoApproachVictim(_victim);
 
@@ -607,10 +647,6 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 			yield break;
 
 		}
-
-
-
-		Log($"CoFiremanCarrySession: approach complete, picking up victim='{FormatUnit(_victim)}'");
 
 
 
@@ -688,7 +724,19 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		m_LocomotionDriver?.HardStop();
 
-		m_UnitEquipment?.SetMainWeaponVisualActive(false);
+		m_ReadyHands?.SetReadyWanted(false);
+
+		if (m_Animator != null)
+
+		{
+
+			AnimatorHandIk ik = m_Animator.GetComponent<AnimatorHandIk>();
+
+			if (ik != null)
+
+				ik.enabled = false;
+
+		}
 
 	}
 
@@ -710,11 +758,39 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		{
 
+			m_VictimAnimator.applyRootMotion = false;
+
 			m_VictimAnimator.enabled = true;
 
 			m_VictimAnimator.SetBool(s_IsBeingCarried, true);
 
+
+
+			int carriedPoseLayerIndex = m_VictimAnimator.GetLayerIndex(CarriedPoseLayerName);
+
+			m_CarriedPoseLayerIndex = carriedPoseLayerIndex;
+
+			if (carriedPoseLayerIndex >= 0)
+
+				m_VictimAnimator.SetLayerWeight(carriedPoseLayerIndex, 1f);
+
 		}
+
+		else
+
+		{
+
+			LogWarning("AttachVictim: NO Animator found on victim!");
+
+		}
+
+
+
+		UnityEngine.AI.NavMeshAgent victimAgent = _victim.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+		if (victimAgent != null)
+
+			victimAgent.enabled = false;
 
 
 
@@ -722,13 +798,11 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		_victim.transform.SetParent(m_ShoulderAnchor, true);
 
-		_victim.transform.localPosition = m_CarryLocalPosition;
+		_victim.transform.localPosition = m_CarryGripLocalOffset;
 
-		_victim.transform.localRotation = Quaternion.Euler(m_CarryLocalRotation);
+		_victim.transform.localRotation = Quaternion.Euler(m_CarryGripRotationOffset);
 
 
-
-		Log($"AttachVictim: victim='{_victim.name}' parented to '{m_ShoulderAnchor.name}', localPos={m_CarryLocalPosition}, localRot={m_CarryLocalRotation}");
 
 	}
 
@@ -740,15 +814,23 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		if (m_CarriedVictim == null)
 
+		{
+
+
+
 			return;
 
-
+		}
 
 		if (m_VictimAnimator != null)
 
 		{
 
 			m_VictimAnimator.SetBool(s_IsBeingCarried, false);
+
+			if (m_CarriedPoseLayerIndex >= 0)
+
+				m_VictimAnimator.SetLayerWeight(m_CarriedPoseLayerIndex, 0f);
 
 		}
 
@@ -766,6 +848,8 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		m_VictimAnimator = null;
 
+		m_CarriedPoseLayerIndex = -1;
+
 	}
 
 
@@ -774,7 +858,19 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	{
 
-		Log("ReleaseCarryImmediate");
+
+
+		if (m_SessionCoroutine != null)
+
+		{
+
+			StopCoroutine(m_SessionCoroutine);
+
+			m_SessionCoroutine = null;
+
+		}
+
+
 
 		DetachVictim();
 
@@ -802,7 +898,17 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		m_LocomotionDriver?.HardStop();
 
-		m_UnitEquipment?.SetMainWeaponVisualActive(true);
+		if (m_Animator != null)
+
+		{
+
+			AnimatorHandIk ik = m_Animator.GetComponent<AnimatorHandIk>();
+
+			if (ik != null)
+
+				ik.enabled = true;
+
+		}
 
 	}
 
@@ -834,7 +940,7 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		if (!_isConscious)
 
-			ReleaseCarryImmediate();
+			RequestRelease();
 
 	}
 
@@ -896,6 +1002,14 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		float targetWeight = m_PresentationActive ? 1f : 0f;
 
+		if (!m_PresentationActive && m_BusyState != null &&
+
+		    (m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
+
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
+
+			targetWeight = 1f;
+
 		float fadeSeconds = Mathf.Max(0.02f, m_LayerWeightFadeSeconds);
 
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, Time.deltaTime / fadeSeconds);
@@ -919,6 +1033,16 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 			ResolveMedkitHandsLayerIndex();
 
 		if (m_MedkitHandsLayerIndex < 0)
+
+			return;
+
+
+
+		if (_weight <= 0f && m_BusyState != null &&
+
+		    (m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
+
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
 
 			return;
 
@@ -959,6 +1083,10 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 		if (m_UnitEquipment == null)
 
 			m_UnitEquipment = GetComponent<UnitEquipment>();
+
+		if (m_ReadyHands == null)
+
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 
 		if (m_ClickToMove == null)
 

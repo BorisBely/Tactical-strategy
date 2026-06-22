@@ -22,6 +22,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitAnimatorWeaponMode m_AnimatorWeaponMode;
 	[Tooltip("IK левой руки на объекте Animator; при переходе в «готов» проверяется, что зарядка магазина не блокирует IK.")]
 	[SerializeField] private AnimatorHandIk m_LeftHandIk;
+	[SerializeField] private UnitBusyState m_BusyState;
 
 	[Header("Ввод")]
 	[SerializeField] private bool m_EnableKeyboardInput = true;
@@ -170,6 +171,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_AnimatorWeaponMode == null)
 			m_AnimatorWeaponMode = GetComponent<UnitAnimatorWeaponMode>();
+		if (m_BusyState == null)
+			m_BusyState = GetComponent<UnitBusyState>();
 
 		if (m_Animator != null && m_LeftHandIk == null)
 			m_LeftHandIk = m_Animator.GetComponent<AnimatorHandIk>();
@@ -207,6 +210,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		bool isSprinting = IsSprintingNow();
 		bool nextReady = !m_UserWantsReady;
+
+		if (nextReady && m_BusyState != null &&
+		    m_BusyState.HasReason(UnitBusyState.BusyReason.CarryingFallen))
+			return;
 
 		if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return;

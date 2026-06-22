@@ -40,9 +40,9 @@ public sealed class UnitFallenDragController : MonoBehaviour
 	[Header("Presentation")]
 	[SerializeField, Min(0.02f)] private float m_LayerWeightFadeSeconds = 0.2f;
 	[Tooltip("Локальный offset точки хвата жертвы относительно левой кисти тащущего (в пространстве кисти).")]
-	[SerializeField] private Vector3 m_VictimGripLocalOffsetInHand = new Vector3(0f, -0.04f, 0.08f);
+	[SerializeField] private Vector3 m_VictimGripLocalOffsetInHand = new Vector3(-0.42f, 0.44f, 0.09f);
 	[Tooltip("Доп. поворот Spine_03 в локальных Euler-градусах кисти (X=pitch, Y=yaw, Z=roll).")]
-	[SerializeField] private Vector3 m_VictimGripLocalRotationOffsetInHand;
+	[SerializeField] private Vector3 m_VictimGripLocalRotationOffsetInHand = new Vector3(124.3f, 43.8f, -173f);
 	[SerializeField, Min(0)] private int m_AttachAnimatorSettleFrames = 2;
 
 	[Header("Debug")]
@@ -298,7 +298,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 			yield break;
 		}
 
-		float distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
+		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 		LogDrag($"CoApproachVictim: initial distance={distance:F2}m (arrive<={c_ApproachArriveDistance:F2}m)");
 		if (distance > c_ApproachArriveDistance)
 		{
@@ -307,6 +307,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
 
 			float elapsed = 0f;
+			float nextRetargetTime = 0.5f;
 			while (elapsed < c_MaxApproachSeconds)
 			{
 				if (_victim == null || m_RtsMember == null)
@@ -315,7 +316,14 @@ public sealed class UnitFallenDragController : MonoBehaviour
 					yield break;
 				}
 
-				distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
+				if (elapsed >= nextRetargetTime)
+				{
+					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
+					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+					nextRetargetTime += 0.5f;
+				}
+
+				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 				if (distance <= c_ApproachArriveDistance)
 					break;
 
@@ -342,6 +350,13 @@ public sealed class UnitFallenDragController : MonoBehaviour
 
 		toVictim.Normalize();
 		return victimPosition - toVictim * _standoffMeters;
+	}
+
+	private static float HorizontalDistance(Vector3 _a, Vector3 _b)
+	{
+		float dx = _a.x - _b.x;
+		float dz = _a.z - _b.z;
+		return Mathf.Sqrt(dx * dx + dz * dz);
 	}
 
 	private void BeginDragPresentation(RtsUnitMember _victim)
@@ -412,6 +427,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 
 		SubscribeVictimEvents();
 		m_VictimFollower.BeginFollow(this, m_LeftHandAnchor);
+		m_VictimFollower.SetOverrideSmoothTimes(0.02f, 0.04f);
 		LogDrag($"CoWaitForStanceAndAttach: victim attached, IsDraggingFallen={m_IsDraggingFallen}, layerWeight=1, gripOffset={m_VictimGripLocalOffsetInHand}, gripRotOffset={m_VictimGripLocalRotationOffsetInHand}");
 	}
 

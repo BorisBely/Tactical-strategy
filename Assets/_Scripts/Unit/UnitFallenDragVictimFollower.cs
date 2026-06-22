@@ -64,6 +64,8 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	private Vector3 m_ExplicitGripPositionOffset;
 	private Vector3 m_ExplicitGripRotationEuler;
 
+	private Quaternion m_BakedHandSpaceOffset = Quaternion.identity;
+
 	private bool m_UseOverrideSmoothTimes;
 	private float m_OverridePositionSmoothTime;
 	private float m_OverrideRotationSmoothTime;
@@ -172,6 +174,10 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		AlignRagdollRigidlyToGrip(_leftHand, m_GripReference, ResolveLiveGripPositionOffset());
 		m_RagdollController?.SyncKinematicRigidbodiesFromTransforms();
 
+		m_BakedHandSpaceOffset = Quaternion.AngleAxis(ResolveLiveGripRotationOffset().y, _leftHand.up)
+		                       * Quaternion.AngleAxis(ResolveLiveGripRotationOffset().x, _leftHand.right)
+		                       * Quaternion.AngleAxis(ResolveLiveGripRotationOffset().z, _leftHand.forward);
+
 		m_GripLocalRotationInHand = Quaternion.Inverse(_leftHand.rotation) * m_GripBody.rotation;
 		m_StableUpperPoses.Clear();
 		m_KinematicStableBodies.Clear();
@@ -228,6 +234,10 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		m_GripBody.MoveRotation(desiredRotation);
 		m_GripLocalRotationInHand = Quaternion.identity;
 
+		m_BakedHandSpaceOffset = Quaternion.AngleAxis(_gripRotationEulerOffset.y, _anchor.up)
+		                       * Quaternion.AngleAxis(_gripRotationEulerOffset.x, _anchor.right)
+		                       * Quaternion.AngleAxis(_gripRotationEulerOffset.z, _anchor.forward);
+
 		m_RagdollController?.SyncKinematicRigidbodiesFromTransforms();
 		m_StableUpperPoses.Clear();
 		m_KinematicStableBodies.Clear();
@@ -258,6 +268,7 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 		m_UseExplicitOffsets = false;
 		m_ExplicitGripPositionOffset = Vector3.zero;
 		m_ExplicitGripRotationEuler = Vector3.zero;
+		m_BakedHandSpaceOffset = Quaternion.identity;
 		m_UseOverrideSmoothTimes = false;
 		m_StableUpperPoses.Clear();
 		m_KinematicStableBodies.Clear();
@@ -291,6 +302,20 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 	{
 		m_ExplicitGripPositionOffset = _positionOffset;
 		m_ExplicitGripRotationEuler = _rotationEulerOffset;
+
+		if (m_HandAnchor != null)
+		{
+			m_BakedHandSpaceOffset = Quaternion.AngleAxis(_rotationEulerOffset.y, m_HandAnchor.up)
+			                       * Quaternion.AngleAxis(_rotationEulerOffset.x, m_HandAnchor.right)
+			                       * Quaternion.AngleAxis(_rotationEulerOffset.z, m_HandAnchor.forward);
+		}
+	}
+
+	public void SetOverrideSmoothTimes(float _positionSmoothTime, float _rotationSmoothTime)
+	{
+		m_UseOverrideSmoothTimes = true;
+		m_OverridePositionSmoothTime = _positionSmoothTime;
+		m_OverrideRotationSmoothTime = _rotationSmoothTime;
 	}
 	#endregion
 
@@ -435,11 +460,7 @@ public sealed class UnitFallenDragVictimFollower : MonoBehaviour
 
 	private Quaternion ComputeGripTargetRotation(Transform _hand)
 	{
-		Vector3 offset = ResolveLiveGripRotationOffset();
-		Quaternion handSpaceOffset = Quaternion.AngleAxis(offset.y, _hand.up)
-		                           * Quaternion.AngleAxis(offset.x, _hand.right)
-		                           * Quaternion.AngleAxis(offset.z, _hand.forward);
-		return _hand.rotation * handSpaceOffset * m_GripLocalRotationInHand;
+		return _hand.rotation * m_BakedHandSpaceOffset * m_GripLocalRotationInHand;
 	}
 
 	private void ApplyDragPose(bool _instant)

@@ -51,7 +51,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
-	[SerializeField] private UnitFallenDragController m_DragController;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
@@ -248,8 +247,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
-		if (m_DragController == null)
-			m_DragController = GetComponent<UnitFallenDragController>();
 		if (m_SelfStabilization == null)
 			m_SelfStabilization = GetComponent<UnitSelfStabilizationController>();
 		if (m_StabilizeOther == null)
@@ -323,9 +320,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return;
 		if (IsHealingBlocked())
 			return;
-
-		if (IsBackwardDragLocomotionActive())
-			_moveTier = MoveTier.Walk;
 
 		if (_moveTier == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
@@ -563,8 +557,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		else
 			return;
 
-		if (IsBackwardDragLocomotionActive())
-			direction = -direction;
+
 
 		Quaternion targetRotation = Quaternion.LookRotation(direction, Vector3.up);
 		transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, m_RotateSpeed * Time.deltaTime);
@@ -578,11 +571,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private bool IsConscious()
 	{
 		return m_Consciousness == null || m_Consciousness.IsConscious;
-	}
-
-	private bool IsBackwardDragLocomotionActive()
-	{
-		return m_DragController != null && m_DragController.IsBackwardDragLocomotion;
 	}
 
 	private bool IsHealingBlocked()
@@ -603,8 +591,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (IsBackwardDragLocomotionActive())
-			return false;
 		if (IsSprintActive())
 			return false;
 		if (m_ReadyHands == null)
@@ -867,15 +853,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (targetDir.sqrMagnitude > 1e-6f)
 			targetDir.Normalize();
 
-		if (IsBackwardDragLocomotionActive() && moving)
-		{
-			targetDir = new Vector2(0f, -1f);
-			m_SmoothDir = targetDir;
-			m_SmoothDirVel = Vector2.zero;
-		}
-		else
-		{
-			float directionSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
+		float directionSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
 				? m_DirectionSmoothTimeMoveStart
 				: m_DirectionSmoothTime;
 
@@ -898,7 +876,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 					Mathf.Infinity,
 					Time.deltaTime);
 			}
-		}
 
 		float navSpeedOut = m_SmoothSpeed01;
 		if (m_PostStandLowNavSpeedUntil > Time.time && HasActiveMoveIntent())

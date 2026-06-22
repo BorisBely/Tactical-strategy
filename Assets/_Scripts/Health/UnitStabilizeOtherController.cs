@@ -248,10 +248,6 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 	{
 
-		Debug.Log($"[UnitStabilizeOther:{name}] RequestStabilizeOther called. target='{FormatUnit(_victim)}'");
-
-
-
 		bool hasPendingSession = m_StabilizeOtherCoroutine != null;
 
 		if (!TryValidateTarget(_victim, _allowActiveSession: hasPendingSession, out _, out _, out _, out string failureReason))
@@ -270,11 +266,9 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 		{
 
-			Debug.Log($"[UnitStabilizeOther:{name}] RequestStabilizeOther: restarting pending session.");
+		StopCoroutine(m_StabilizeOtherCoroutine);
 
-			StopCoroutine(m_StabilizeOtherCoroutine);
-
-			m_StabilizeOtherCoroutine = null;
+		m_StabilizeOtherCoroutine = null;
 
 		}
 
@@ -702,9 +696,7 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 
 
-		float distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
-
-		Debug.Log($"[UnitStabilizeOther:{name}] CoApproachVictim: initial distance={distance:F2}m (arrive<={c_ApproachArriveDistance:F2}m)");
+		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 
 		if (distance > c_ApproachArriveDistance)
 
@@ -712,13 +704,13 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 			Vector3 approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
 
-			Debug.Log($"[UnitStabilizeOther:{name}] CoApproachVictim: issuing move order to {approachPoint}");
-
 			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
 
 
 
 			float elapsed = 0f;
+
+			float nextRetargetTime = 0.5f;
 
 			while (elapsed < c_MaxApproachSeconds)
 
@@ -728,15 +720,27 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 				{
 
-					Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim interrupted: victim or helper destroyed during approach.");
-
 					yield break;
 
 				}
 
 
 
-				distance = Vector3.Distance(m_RtsMember.transform.position, _victim.transform.position);
+				if (elapsed >= nextRetargetTime)
+
+				{
+
+					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
+
+					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+
+					nextRetargetTime += 0.5f;
+
+				}
+
+
+
+				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
 
 				if (distance <= c_ApproachArriveDistance)
 
@@ -752,7 +756,9 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 
 
-			Debug.Log($"[UnitStabilizeOther:{name}] CoApproachVictim finished waiting after {elapsed:F1}s, distance={distance:F2}m");
+			if (distance > c_ApproachArriveDistance)
+
+				Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
 
 		}
 
@@ -792,6 +798,18 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 	}
 
+	private static float HorizontalDistance(Vector3 _a, Vector3 _b)
+
+	{
+
+		float dx = _a.x - _b.x;
+
+		float dz = _a.z - _b.z;
+
+		return Mathf.Sqrt(dx * dx + dz * dz);
+
+	}
+
 	#endregion
 
 
@@ -815,8 +833,6 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 		}
 
 
-
-		Debug.Log($"[UnitStabilizeOther:{name}] CoStabilizeOtherSession: approaching victim='{FormatUnit(_victim)}'");
 
 		yield return CoApproachVictim(_victim);
 
@@ -847,10 +863,6 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 			yield break;
 
 		}
-
-
-
-		Debug.Log($"[UnitStabilizeOther:{name}] CoStabilizeOtherSession: approach complete, starting stabilization for victim='{FormatUnit(_victim)}'");
 
 
 
@@ -1675,6 +1687,10 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 			: -1;
 
+		if (m_HealOtherHandsLayerIndex < 0 && m_Animator != null)
+
+			Debug.LogWarning($"[UnitStabilizeOther:{name}] Animator layer '{HealOtherHandsLayerName}' not found! Run 'Polygone/Animation/Setup Self Heal Layer' in the editor.", this);
+
 	}
 
 
@@ -1699,6 +1715,12 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 		float targetWeight = m_HealPresentationActive ? 1f : 0f;
 
+		if (!m_HealPresentationActive && m_BusyState != null &&
+
+		    m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization))
+
+			targetWeight = 1f;
+
 		float fadeSeconds = Mathf.Max(0.02f, m_LayerWeightFadeSeconds);
 
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, Time.deltaTime / fadeSeconds);
@@ -1722,6 +1744,14 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 			ResolveHealOtherHandsLayerIndex();
 
 		if (m_HealOtherHandsLayerIndex < 0)
+
+			return;
+
+
+
+		if (_weight <= 0f && m_BusyState != null &&
+
+		    m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization))
 
 			return;
 

@@ -23,7 +23,6 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	{
 		("Обмен", FallenUnitInteractionMenuAction.Exchange),
 		("Стабилизировать", FallenUnitInteractionMenuAction.Stabilize),
-		(null, FallenUnitInteractionMenuAction.DragAway),
 		("Поднять", FallenUnitInteractionMenuAction.Lift)
 	};
 	#endregion
@@ -103,34 +102,16 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	#region Public Methods
 	public void ShowForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
 	{
-		ShowMenu(_targetUnit, _screenPosition, BuildFallenMenuItems());
+		ShowMenu(_targetUnit, _screenPosition, s_FallenMenuItems);
 	}
 
-	public void ShowReleaseForDraggingUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
+	public void ShowReleaseForCarryingUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
 	{
 		string label = LocalizationManager.Get("unit.menu.release", "Отпустить");
 		ShowMenu(
 			_targetUnit,
 			_screenPosition,
-			new[] { (label, FallenUnitInteractionMenuAction.ReleaseDrag) });
-	}
-
-	private static (string Label, FallenUnitInteractionMenuAction Action)[] BuildFallenMenuItems()
-	{
-		var items = new (string Label, FallenUnitInteractionMenuAction Action)[s_FallenMenuItems.Length];
-		for (int i = 0; i < s_FallenMenuItems.Length; i++)
-		{
-			(string label, FallenUnitInteractionMenuAction action) source = s_FallenMenuItems[i];
-			if (source.action == FallenUnitInteractionMenuAction.DragAway)
-			{
-				items[i] = (LocalizationManager.Get("unit.menu.drag_away", "Оттащить"), source.action);
-				continue;
-			}
-
-			items[i] = (source.label, source.action);
-		}
-
-		return items;
+			new[] { (label, FallenUnitInteractionMenuAction.ReleaseCarry) });
 	}
 
 	public void ShowFirstAidForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
@@ -408,9 +389,6 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	private void HandleItemClicked(FallenUnitInteractionMenuAction _action)
 	{
 		RtsUnitMember targetUnit = m_TargetUnit;
-		if (_action == FallenUnitInteractionMenuAction.DragAway)
-			Debug.Log($"[FallenUnitMenu] Оттащить clicked. target='{(targetUnit != null ? targetUnit.name : "null")}'", targetUnit);
-
 		HideImmediate();
 		ActionClicked?.Invoke(_action, targetUnit);
 	}
@@ -498,5 +476,6 @@ public enum FallenUnitInteractionMenuAction
 	DragAway = 2,
 	Lift = 3,
 	FirstAid = 4,
-	ReleaseDrag = 5
+	ReleaseDrag = 5,
+	ReleaseCarry = 6
 }

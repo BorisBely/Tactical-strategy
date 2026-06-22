@@ -21,7 +21,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilizationController;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOtherController;
 	[SerializeField] private UnitFiremanCarryController m_FiremanCarryController;
-	[SerializeField] private UnitFallenDragController m_FallenDragController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private Animator m_Animator;
@@ -69,8 +68,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_SelfStabilizationController == null)
 			m_SelfStabilizationController = GetComponent<UnitSelfStabilizationController>();
-		if (m_FallenDragController == null)
-			m_FallenDragController = GetComponent<UnitFallenDragController>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_UnitEquipment == null)
@@ -134,9 +131,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 			    (stabilizeOther.IsStabilizingOther || stabilizeOther.IsHealPresentationActive))
 				return;
 
-			if (m_FallenDragController != null && m_FallenDragController.IsDragging)
-				_moveTier = UnitClickToMove.MoveTier.Walk;
-
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				m_MagazineLoadingController?.StopLoading();
 
@@ -163,6 +157,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			UnitFiremanCarryController firemanCarry = ResolveFiremanCarryController();
+			if (_ready && firemanCarry != null && firemanCarry.IsCarryingFallen)
+				return;
+
 			if (m_ReadyHands != null)
 				m_ReadyHands.SetReadyWanted(_ready);
 		});
@@ -187,12 +185,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
-			if (m_FallenDragController != null && m_FallenDragController.IsDragging)
-			{
-				m_FallenDragController.RequestReleaseDrag();
-				return;
-			}
-
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
 			selfStabilization?.StopSelfStabilization();
 

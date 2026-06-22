@@ -64,7 +64,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitConsciousness m_Consciousness;
-	[SerializeField] private UnitFallenDragController m_DragController;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[SerializeField] private LayerMask m_GroundMask = ~0;
@@ -312,8 +311,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Team = GetComponent<UnitTeam>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
-		if (m_DragController == null)
-			m_DragController = GetComponent<UnitFallenDragController>();
 		if (m_SelfStabilization == null)
 			m_SelfStabilization = GetComponent<UnitSelfStabilizationController>();
 		if (m_StabilizeOther == null)
@@ -499,9 +496,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		if (IsHealingBlocked())
 			return;
-
-		if (IsBackwardDragLocomotionActive())
-			_mode = MoveTier.Walk;
 
 		if (_mode == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
@@ -744,9 +738,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 			}
 			else
 				return;
-
-			if (IsBackwardDragLocomotionActive())
-				dir = -dir;
 		}
 
 		if (dir.sqrMagnitude < 1e-6f)
@@ -765,11 +756,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool IsConscious()
 	{
 		return m_Consciousness == null || m_Consciousness.IsConscious;
-	}
-
-	private bool IsBackwardDragLocomotionActive()
-	{
-		return m_DragController != null && m_DragController.IsBackwardDragLocomotion;
 	}
 
 	private bool IsHealingBlocked()
@@ -1057,14 +1043,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (targetDir.sqrMagnitude > 1e-6f)
 			targetDir.Normalize();
 
-		if (IsBackwardDragLocomotionActive() && moving && !IsEngagingVisibleTarget())
-		{
-			targetDir = new Vector2(0f, 1f);
-			m_SmoothDir = targetDir;
-			m_SmoothDirVel = Vector2.zero;
-		}
-		else
-		{
 		float dirSmooth = moving && planarSpeed < m_StopVelocityEpsilon * 1.25f
 			? m_DirectionSmoothTimeMoveStart
 			: m_DirectionSmoothTime;
@@ -1088,7 +1066,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 				Mathf.Infinity,
 				Time.deltaTime);
 		}
-		}
 
 		float navSpeedOut = m_SmoothSpeed01;
 		if (m_PostStandLowNavSpeedUntil > Time.time && HasActiveMoveIntent())
@@ -1104,20 +1081,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Animator.SetFloat(s_NavForward, m_SmoothDir.y);
 
 		SetAnimatorLocomotionTier(tier);
-		if (IsBackwardDragLocomotionActive() && moving && !IsEngagingVisibleTarget())
-		{
-			bool notReady = m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady();
-			m_Animator.SetBool(s_IsDraggingNotReady, notReady);
-
-			m_Animator.SetFloat(s_NavForward, -Mathf.Abs(m_SmoothDir.y));
-			m_Animator.speed = 1f;
-			AnimatorPlaybackSpeedMultiplier = 1f;
-		}
-		else
-		{
-			m_Animator.SetBool(s_IsDraggingNotReady, false);
-			ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
-		}
+		m_Animator.SetBool(s_IsDraggingNotReady, false);
+		ApplyAnimatorPlaybackSpeedOutputs(navSpeedOut, planarSpeed);
 	}
 
 	private void ApplyAnimatorPlaybackSpeedOutputs(float _navSpeedOut, float _planarSpeed)

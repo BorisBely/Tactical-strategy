@@ -1260,6 +1260,12 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 
 		float targetWeight = m_HealPresentationActive ? 1f : 0f;
 
+		if (!m_HealPresentationActive && m_BusyState != null &&
+
+		    m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther))
+
+			targetWeight = 1f;
+
 		float fadeSeconds = Mathf.Max(0.02f, m_LayerWeightFadeSeconds);
 
 		m_SmoothedLayerWeight = Mathf.MoveTowards(m_SmoothedLayerWeight, targetWeight, Time.deltaTime / fadeSeconds);
@@ -1283,6 +1289,14 @@ public sealed class UnitSelfStabilizationController : MonoBehaviour
 			ResolveMedkitHandsLayerIndex();
 
 		if (m_MedkitHandsLayerIndex < 0)
+
+			return;
+
+
+
+		if (_weight <= 0f && m_BusyState != null &&
+
+		    m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther))
 
 			return;
 
