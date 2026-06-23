@@ -43,9 +43,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Header("Aiming Gate")]
 	[Tooltip("Запрещать выстрел, пока не достигнут порог выбранного режима прицеливания. Для Burst/FullAuto — только 1-й выстрел серии или очереди.")]
 	[SerializeField] private bool m_RequireFullAimToFire = true;
-	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Только для одиночного и когда Auto выбрал SemiAuto; Burst/FullAuto идут по RPM и разбросу.")]
+	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Для SemiAuto используется тугой допуск; для Burst/FullAuto — более широкий (см. MaxBarrelAimErrorDegreesAuto).")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 1.5f;
+	[Tooltip("Допуск угла ствола для авто-режимов (Burst/FullAuto). Шире чем для полуавтомата, чтобы не блокировать очередь при развороте на новую цель.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesAuto = 10f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsFiringCommandActive;
@@ -423,11 +425,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (!m_RequireBarrelAlignedToFire || !HasEngageableVisibleTarget())
 			return true;
 
-		if (WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
-		{
-			m_DebugLastBarrelAimErrorDegrees = 0f;
-			return true;
-		}
+		bool isAutoMode = WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode());
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		Transform barrel = weapon != null ? weapon.BarrelTransform : null;
@@ -445,8 +443,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return true;
 		}
 
+		float maxError = isAutoMode ? m_MaxBarrelAimErrorDegreesAuto : m_MaxBarrelAimErrorDegrees;
 		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(barrel.forward, toTarget.normalized);
-		return m_DebugLastBarrelAimErrorDegrees <= m_MaxBarrelAimErrorDegrees;
+		return m_DebugLastBarrelAimErrorDegrees <= maxError;
 	}
 
 	private bool HasRequiredAimProgress(EquippedWeaponTransientState _transientState)
