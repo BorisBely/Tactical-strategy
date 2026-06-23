@@ -2315,7 +2315,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_LastRightClickTime = Time.time;
 
 		UnitClickToMove.MoveTier moveTier = doubleRightClick
-			? UnitClickToMove.MoveTier.Sprint
+			? UnitClickToMove.MoveTier.Run
 			: UnitClickToMove.MoveTier.Walk;
 
 		IssueScatteredMoveOrder(hit.point, moveTier);

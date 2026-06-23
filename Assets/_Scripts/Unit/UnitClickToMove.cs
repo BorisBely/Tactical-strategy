@@ -77,7 +77,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	[Header("Speeds")]
 	[SerializeField, Min(0.1f)] private float m_WalkSpeed = 1.5f;
-	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3.5f;
+	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3f;
 	[SerializeField, Min(0.1f)] private float m_SprintSpeed = 7.25f;
 	[Tooltip("Скорость NavMeshAgent в приседе (м/с). Подгоняй под шаг клипа Crouch_WalkFwdLoop (MovementAnimsetPro).")]
 	[SerializeField, Min(0.1f)] private float m_CrouchWalkSpeed = 1.15f;
@@ -197,6 +197,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
 	}
 
+	private bool IsRunActive()
+	{
+		if (m_Mode != MoveTier.Run)
+			return false;
+		if (HasActiveMoveIntent() || NavAgentHasIncompletePath())
+			return true;
+		if (m_Agent == null)
+			return false;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
+	}
+
 	/// <summary>
 	/// Принудительно сбросить заказ скорости на шаг (например, для механик, которым нельзя оставаться в спринте).
 	/// </summary>
@@ -210,6 +224,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_Agent != null)
 			ApplyTierSpeed();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
@@ -390,6 +405,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 					m_Mode = MoveTier.Walk;
 					if (!HasPendingSprintOrder())
 						m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+					if (!HasPendingRunOrder())
+						m_ReadyHands?.TryRestoreReadyAfterRun(false);
 				}
 
 				m_LastStance = stance;
@@ -422,6 +439,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		UpdateFacing();
 		PushAnimator();
 		TryRestoreReadyAfterSprintWhenStopped();
+		TryRestoreReadyAfterRunWhenStopped();
 	}
 
 	private bool IsMovingOnNavMesh()
@@ -459,6 +477,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	private void TickPendingSingleRightClick()
@@ -499,6 +518,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (_mode == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+		if (_mode == MoveTier.Run)
+			m_ReadyHands?.SuppressReadyForRunIfNeeded();
 
 		if (IsStanceTransitionMovementBlocked())
 		{
@@ -508,6 +529,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_HasPendingNavOrder = true;
 			if (_mode != MoveTier.Sprint)
 				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			if (_mode != MoveTier.Run)
+				m_ReadyHands?.TryRestoreReadyAfterRun(false);
 			return;
 		}
 
@@ -520,6 +543,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		PrimeAnimatorForMoveStart();
 		if (_mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (_mode != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	private void TryRightClick()
@@ -543,12 +568,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_LastRightClickTime = Time.time;
 
-		// Double click commits immediately as Sprint (and cancels pending single click).
+		// Double click commits immediately as Run (and cancels pending single click).
 		if (doubleClick)
 		{
 			m_HasPendingRightClick = false;
 			m_PendingRightClickTime = -1f;
-			IssueNavOrderInternal(navHit.position, MoveTier.Sprint);
+			IssueNavOrderInternal(navHit.position, MoveTier.Run);
 			return;
 		}
 
@@ -774,7 +799,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (IsSprintActive())
+		if (IsSprintActive() || IsRunActive())
 			return false;
 		if (m_BlockEngageFacingDuringReload)
 		{
@@ -815,6 +840,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		PrimeAnimatorForMoveStart();
 		if (m_Mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (m_Mode != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	private void TryRestoreReadyAfterSprintWhenStopped()
@@ -834,9 +861,31 @@ public sealed class UnitClickToMove : MonoBehaviour
 		ForceWalkMoveMode();
 	}
 
+	private void TryRestoreReadyAfterRunWhenStopped()
+	{
+		if (m_Mode != MoveTier.Run || m_ReadyHands == null || m_Agent == null)
+			return;
+		if (HasPendingRunOrder())
+			return;
+		if (NavAgentHasIncompletePath())
+			return;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
+			return;
+
+		ForceWalkMoveMode();
+	}
+
 	private bool HasPendingSprintOrder()
 	{
 		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Sprint;
+	}
+
+	private bool HasPendingRunOrder()
+	{
+		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Run;
 	}
 
 	private void EnsureStandingForFastMoveIfNeeded()

@@ -36,6 +36,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private ItemDefinition m_LastEquipped;
 	private bool m_BlockToggleInput;
 	private bool m_RestoreReadyAfterSprint;
+	private bool m_RestoreReadyAfterRun;
 	#endregion
 
 	#region Public Methods
@@ -128,6 +129,24 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Бег временно снимает «готов» (аналогично спринту).
+	/// </summary>
+	public void SuppressReadyForRunIfNeeded()
+	{
+		if (!IsWeaponEquipped())
+		{
+			m_RestoreReadyAfterRun = false;
+			return;
+		}
+
+		if (!m_UserWantsReady)
+			return;
+
+		m_RestoreReadyAfterRun = true;
+		ApplyReadyWanted(false, false, true);
+	}
+
+	/// <summary>
 	/// Возвращает «готов» после спринта, когда локомоция уже считает, что спринт завершён.
 	/// </summary>
 	public void TryRestoreReadyAfterSprint(bool _isStillSprinting)
@@ -136,6 +155,19 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return;
 
 		m_RestoreReadyAfterSprint = false;
+		if (IsWeaponEquipped())
+			ApplyReadyWanted(true, false, true);
+	}
+
+	/// <summary>
+	/// Возвращает «готов» после бега.
+	/// </summary>
+	public void TryRestoreReadyAfterRun(bool _isStillRunning)
+	{
+		if (_isStillRunning || !m_RestoreReadyAfterRun)
+			return;
+
+		m_RestoreReadyAfterRun = false;
 		if (IsWeaponEquipped())
 			ApplyReadyWanted(true, false, true);
 	}
@@ -185,6 +217,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_UserWantsReady = false;
 		m_LastEquipped = null;
 		m_RestoreReadyAfterSprint = false;
+		m_RestoreReadyAfterRun = false;
 		PushWeaponReadyParameter();
 	}
 
@@ -196,6 +229,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_LastEquipped = current;
 			m_UserWantsReady = false;
 			m_RestoreReadyAfterSprint = false;
+			m_RestoreReadyAfterRun = false;
 			PushWeaponReadyParameter();
 		}
 
@@ -283,6 +317,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		{
 			m_UserWantsReady = false;
 			m_RestoreReadyAfterSprint = false;
+			m_RestoreReadyAfterRun = false;
 			PushWeaponReadyParameter();
 			return;
 		}

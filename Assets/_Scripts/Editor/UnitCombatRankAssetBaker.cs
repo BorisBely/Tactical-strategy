@@ -15,11 +15,11 @@ public static class UnitCombatRankAssetBaker
 	{
 		EnsureFolder(c_OutputFolder);
 
-		CreateOrUpdate("Rank_Recruit", "combat.rank.recruit", "Recruit", 35f, 40f, 35f, 0.55f);
-		CreateOrUpdate("Rank_Soldier", "combat.rank.soldier", "Soldier", 50f, 50f, 50f, 0.35f);
-		CreateOrUpdate("Rank_Veteran", "combat.rank.veteran", "Corporal", 58f, 56f, 58f, 0.28f);
-		CreateOrUpdate("Rank_Specialist", "combat.rank.specialist", "Veteran", 61f, 68f, 60f, 0.22f);
-		CreateOrUpdate("Rank_Elite", "combat.rank.elite", "Elite", 65f, 63f, 66f, 0.15f);
+		CreateOrUpdate("Rank_Recruit", "combat.rank.recruit", "Recruit", 35f, 40f, 35f, 0.38f);
+		CreateOrUpdate("Rank_Soldier", "combat.rank.soldier", "Soldier", 50f, 50f, 50f, 0.32f);
+		CreateOrUpdate("Rank_Veteran", "combat.rank.veteran", "Corporal", 58f, 56f, 58f, 0.27f);
+		CreateOrUpdate("Rank_Specialist", "combat.rank.specialist", "Veteran", 61f, 68f, 60f, 0.23f);
+		CreateOrUpdate("Rank_Elite", "combat.rank.elite", "Elite", 65f, 63f, 66f, 0.20f);
 
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();

@@ -19,11 +19,11 @@ public static class UnitAnimControllerSelfHealSetup
 	private const string c_ParamIsStabilizingOther = UnitStabilizeOtherController.ParamIsStabilizingOther;
 	private const string c_ParamIsCarryingFallen = UnitFiremanCarryController.ParamIsCarryingFallen;
 
-	private const string c_ClipHealStart = "Assets/healStart.anim";
-	private const string c_ClipHeal = "Assets/heal.anim";
-	private const string c_ClipHeal2 = "Assets/heal2.anim";
-	private const string c_ClipHealEnd = "Assets/healEnd.anim";
-	private const string c_ClipFiremanCarry2 = "Assets/Fireman'sCarry2.anim";
+	private const string c_ClipHealStart = "Assets/Animations/heal/healStart.anim";
+	private const string c_ClipHeal = "Assets/Animations/heal/heal.anim";
+	private const string c_ClipHeal2 = "Assets/Animations/heal/heal2.anim";
+	private const string c_ClipHealEnd = "Assets/Animations/heal/healEnd.anim";
+	private const string c_ClipFiremanCarry2 = "Assets/Animations/heal/Fireman'sCarry2.anim";
 
 	private const string c_ParamIsBeingCarried = UnitFiremanCarryController.ParamIsBeingCarried;
 	private const string c_CarriedPoseLayerName = UnitFiremanCarryController.CarriedPoseLayerName;

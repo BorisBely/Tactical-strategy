@@ -63,7 +63,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	[Header("Speeds")]
 	[SerializeField, Min(0.1f)] private float m_WalkSpeed = 1.5f;
-	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3.5f;
+	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3f;
 	[SerializeField, Min(0.1f)] private float m_SprintSpeed = 7.25f;
 	[SerializeField, Min(0.1f)] private float m_CrouchWalkSpeed = 1.15f;
 	[SerializeField, Min(0.05f)] private float m_ProneCrawlSpeed = 0.5f;
@@ -148,6 +148,20 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
 	}
 
+	private bool IsRunActive()
+	{
+		if (m_Mode != MoveTier.Run)
+			return false;
+		if (HasActiveMoveIntent() || NavAgentHasIncompletePath())
+			return true;
+		if (!IsNavAgentOperational())
+			return false;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		return velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon;
+	}
+
 	#region Public Methods
 	public void ForceWalkMoveMode()
 	{
@@ -159,12 +173,15 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_Agent != null)
 			ApplyTierSpeed();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	public void SetMoveTier(MoveTier _moveTier)
 	{
 		if (_moveTier == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+		if (_moveTier == MoveTier.Run)
+			m_ReadyHands?.SuppressReadyForRunIfNeeded();
 
 		if (m_Mode == _moveTier)
 			return;
@@ -174,6 +191,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			ApplyTierSpeed();
 		if (_moveTier != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (_moveTier != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
@@ -224,12 +243,14 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (!IsNavAgentOperational())
 		{
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 			return;
 		}
 
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 	#endregion
 
@@ -310,6 +331,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		UpdateFacing();
 		PushAnimator();
 		TryRestoreReadyAfterSprintWhenStopped();
+		TryRestoreReadyAfterRunWhenStopped();
 	}
 	#endregion
 
@@ -323,6 +345,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		if (_moveTier == MoveTier.Sprint)
 			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+		if (_moveTier == MoveTier.Run)
+			m_ReadyHands?.SuppressReadyForRunIfNeeded();
 
 		if (IsStanceTransitionMovementBlocked())
 		{
@@ -332,6 +356,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_HasPendingNavOrder = true;
 			if (_moveTier != MoveTier.Sprint)
 				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			if (_moveTier != MoveTier.Run)
+				m_ReadyHands?.TryRestoreReadyAfterRun(false);
 			return;
 		}
 
@@ -344,6 +370,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		PrimeAnimatorForMoveStart();
 		if (_moveTier != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (_moveTier != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	private void UpdateMoveTierForStanceChanges()
@@ -371,6 +399,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_Mode = MoveTier.Walk;
 			if (!HasPendingSprintOrder())
 				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			if (!HasPendingRunOrder())
+				m_ReadyHands?.TryRestoreReadyAfterRun(false);
 		}
 
 		m_LastStance = stance;
@@ -591,7 +621,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
-		if (IsSprintActive())
+		if (IsSprintActive() || IsRunActive())
 			return false;
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
@@ -624,6 +654,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		PrimeAnimatorForMoveStart();
 		if (m_Mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (m_Mode != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
 	private void TryRestoreReadyAfterSprintWhenStopped()
@@ -643,9 +675,31 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		ForceWalkMoveMode();
 	}
 
+	private void TryRestoreReadyAfterRunWhenStopped()
+	{
+		if (m_Mode != MoveTier.Run || m_ReadyHands == null || m_Agent == null)
+			return;
+		if (HasPendingRunOrder())
+			return;
+		if (NavAgentHasIncompletePath())
+			return;
+
+		Vector3 velocity = m_Agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent())
+			return;
+
+		ForceWalkMoveMode();
+	}
+
 	private bool HasPendingSprintOrder()
 	{
 		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Sprint;
+	}
+
+	private bool HasPendingRunOrder()
+	{
+		return m_HasPendingNavOrder && m_PendingNavOverridesMode && m_PendingNavMode == MoveTier.Run;
 	}
 
 	private void EnsureStandingForFastMoveIfNeeded()
