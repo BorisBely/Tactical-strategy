@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 /// <summary>
@@ -28,6 +29,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private Collider m_SelectionCollider;
 	[SerializeField] private GameObject m_SelectionVisualRoot;
 	[SerializeField] private bool m_DisableDirectInputForRts = true;
+	[Header("Selection Name Label")]
+	[SerializeField] private GameObject m_SelectionNameLabelRoot;
+	[SerializeField] private TextMeshProUGUI m_SelectionNameText;
+	[SerializeField, Min(0.1f)] private float m_SelectionLabelHeight = 1.5f;
 	[Header("Animator Variation")]
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMin = 0.97f;
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMax = 1.03f;
@@ -37,6 +42,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private static readonly List<RtsUnitMember> s_Instances = new List<RtsUnitMember>(128);
 	private Coroutine m_PendingCommandCoroutine;
 	private int m_PendingCommandVersion;
+	private UnitRosterDisplayState m_RosterDisplay;
+	private Transform m_CachedCameraTransform;
 	#endregion
 
 	#region Public Properties
@@ -106,6 +113,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void Update()
 	{
 		ApplyAnimatorSpeedVariation();
+		UpdateSelectionLabelBillboard();
 	}
 	#endregion
 
@@ -114,7 +122,17 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		m_IsSelected = _selected;
 		if (m_SelectionVisualRoot != null)
-			m_SelectionVisualRoot.SetActive(_selected);
+			m_SelectionVisualRoot.SetActive(false);
+
+		if (_selected)
+		{
+			m_RosterDisplay = UnitRosterDisplayState.GetOrCreate(gameObject);
+			EnsureSelectionNameLabel();
+			RefreshSelectionNameLabel();
+		}
+
+		if (m_SelectionNameLabelRoot != null)
+			m_SelectionNameLabelRoot.SetActive(_selected);
 	}
 
 	public void IssueMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier)
@@ -418,6 +436,76 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		StopCoroutine(m_PendingCommandCoroutine);
 		m_PendingCommandCoroutine = null;
+	}
+
+	private void EnsureSelectionNameLabel()
+	{
+		if (m_SelectionNameLabelRoot != null && m_SelectionNameText != null)
+			return;
+
+		if (m_SelectionNameLabelRoot == null)
+		{
+			m_SelectionNameLabelRoot = new GameObject("SelectionNameLabel", typeof(RectTransform));
+			RectTransform rt = m_SelectionNameLabelRoot.GetComponent<RectTransform>();
+			rt.SetParent(transform, false);
+			rt.sizeDelta = new Vector2(2f, 0.5f);
+
+			Canvas canvas = m_SelectionNameLabelRoot.AddComponent<Canvas>();
+			canvas.renderMode = RenderMode.WorldSpace;
+			canvas.sortingOrder = 31500;
+
+			m_SelectionNameLabelRoot.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+		}
+
+		if (m_SelectionNameText == null)
+		{
+			GameObject textGo = new GameObject("NameText", typeof(RectTransform));
+			RectTransform textRt = textGo.GetComponent<RectTransform>();
+			textRt.SetParent(m_SelectionNameLabelRoot.transform, false);
+			textRt.anchorMin = Vector2.zero;
+			textRt.anchorMax = Vector2.one;
+			textRt.offsetMin = Vector2.zero;
+			textRt.offsetMax = Vector2.zero;
+
+			m_SelectionNameText = textGo.AddComponent<TextMeshProUGUI>();
+			m_SelectionNameText.fontSize = 0.15f;
+			m_SelectionNameText.alignment = TextAlignmentOptions.Center;
+			m_SelectionNameText.color = Color.white;
+			m_SelectionNameText.outlineWidth = 0.35f;
+			m_SelectionNameText.outlineColor = Color.black;
+			m_SelectionNameText.fontStyle = FontStyles.Bold;
+		}
+	}
+
+	private void RefreshSelectionNameLabel()
+	{
+		if (m_SelectionNameText == null)
+			return;
+
+		if (m_RosterDisplay == null)
+			m_RosterDisplay = UnitRosterDisplayState.GetOrCreate(gameObject);
+
+		m_SelectionNameText.text = m_RosterDisplay != null ? m_RosterDisplay.FullName : gameObject.name;
+	}
+
+	private void UpdateSelectionLabelBillboard()
+	{
+		if (m_SelectionNameLabelRoot == null || !m_SelectionNameLabelRoot.activeSelf)
+			return;
+
+		if (m_CachedCameraTransform == null)
+		{
+			Camera cam = Camera.main;
+			if (cam != null)
+				m_CachedCameraTransform = cam.transform;
+			else
+				return;
+		}
+
+		Transform labelTransform = m_SelectionNameLabelRoot.transform;
+		Vector3 worldPos = transform.position + Vector3.up * m_SelectionLabelHeight;
+		labelTransform.position = worldPos;
+		labelTransform.rotation = m_CachedCameraTransform.rotation;
 	}
 
 	private void ApplyAnimatorSpeedVariation()

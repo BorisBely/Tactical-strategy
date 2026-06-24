@@ -266,9 +266,18 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget) &&
 			m_WeaponRuntime != null)
 		{
-			float carryover = CalculateAimCarryover(oldAimPoint);
-			float currentAim = m_WeaponRuntime.TransientState.AimProgress01;
-			m_WeaponRuntime.SetAimProgress(currentAim * carryover);
+			bool isFullAuto = m_FireController != null && m_FireController.IsCurrentEffectiveFireModeAutomatic()
+				&& m_FireController.ResolveEffectiveFireMode() == WeaponFireMode.FullAuto;
+			if (isFullAuto)
+			{
+				m_WeaponRuntime.SetAimProgress(0f);
+			}
+			else
+			{
+				float carryover = CalculateAimCarryover(oldAimPoint);
+				float currentAim = m_WeaponRuntime.TransientState.AimProgress01;
+				m_WeaponRuntime.SetAimProgress(currentAim * carryover);
+			}
 		}
 	}
 

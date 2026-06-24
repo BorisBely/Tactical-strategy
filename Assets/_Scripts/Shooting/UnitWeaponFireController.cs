@@ -521,7 +521,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			case WeaponShotAttemptResult.Success:
 				m_BurstShotsRemainingInWave--;
 				if (m_BurstShotsRemainingInWave <= 0)
+				{
 					m_NextBurstWaveTime = _time + pause;
+					m_WeaponRuntime?.SetAimProgress(0f);
+				}
 				break;
 			case WeaponShotAttemptResult.FireRateLimited:
 			case WeaponShotAttemptResult.Busy:
@@ -531,6 +534,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			default:
 				m_BurstShotsRemainingInWave = 0;
 				m_NextBurstWaveTime = _time + pause;
+				m_WeaponRuntime?.SetAimProgress(0f);
 				break;
 		}
 

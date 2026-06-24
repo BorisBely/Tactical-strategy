@@ -51,7 +51,7 @@ public static class UnitCellDisplayBinder
 			return string.Empty;
 
 		if (_unitRoot.TryGetComponent(out UnitRosterDisplayState roster))
-			return roster.DisplayName;
+			return roster.FullName;
 
 		return _unitRoot.name;
 	}
