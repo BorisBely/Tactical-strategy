@@ -32,7 +32,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[Header("Selection Name Label")]
 	[SerializeField] private GameObject m_SelectionNameLabelRoot;
 	[SerializeField] private TextMeshProUGUI m_SelectionNameText;
-	[SerializeField, Min(0.1f)] private float m_SelectionLabelHeight = 1.5f;
+	[SerializeField, Min(0.1f)] private float m_SelectionLabelHeight = 2.2f;
 	[Header("Animator Variation")]
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMin = 0.97f;
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMax = 1.03f;

@@ -257,7 +257,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	#endregion
 
 	#region Private Methods
-	private bool IsWeaponEquipped()
+	public bool IsWeaponEquipped()
 	{
 		ItemDefinition current = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
 		return current != null && current.IsEquipment && current.EquipmentKind == EquipmentKind.Weapon;

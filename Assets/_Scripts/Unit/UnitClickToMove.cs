@@ -77,7 +77,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	[Header("Speeds")]
 	[SerializeField, Min(0.1f)] private float m_WalkSpeed = 1.5f;
-	[SerializeField, Min(0.1f)] private float m_RunSpeed = 3f;
+	[SerializeField, Min(0.1f)] private float m_RunSpeed = 4.6f;
+	[Tooltip("Скорость бега без оружия.")]
+	[SerializeField, Min(0.1f)] private float m_RunSpeedNoWeapon = 3.4f;
 	[SerializeField, Min(0.1f)] private float m_SprintSpeed = 7.25f;
 	[Tooltip("Скорость NavMeshAgent в приседе (м/с). Подгоняй под шаг клипа Crouch_WalkFwdLoop (MovementAnimsetPro).")]
 	[SerializeField, Min(0.1f)] private float m_CrouchWalkSpeed = 1.15f;
@@ -659,7 +661,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			case MoveTier.Walk:
 				return m_WalkSpeed;
 			case MoveTier.Run:
-				return m_RunSpeed;
+				bool hasWeapon = m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped();
+				return hasWeapon ? m_RunSpeed : m_RunSpeedNoWeapon;
 			case MoveTier.Sprint:
 				return m_SprintSpeed;
 			default:
