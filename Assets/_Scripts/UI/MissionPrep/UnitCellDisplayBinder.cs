@@ -29,10 +29,21 @@ public static class UnitCellDisplayBinder
 		if (_unitRoot == null)
 			return string.Empty;
 
-		if (_unitRoot.TryGetComponent(out UnitHealth health))
-			return health.GetLocalizedOverallStatusText();
+		string result;
 
-		return LocalizationManager.Get("health.status.ok", "В норме");
+		if (_unitRoot.TryGetComponent(out UnitHealth health))
+			result = health.GetLocalizedOverallStatusText();
+		else
+			result = LocalizationManager.Get("health.status.ok", "В норме");
+
+		if (_unitRoot.TryGetComponent(out UnitStamina stamina))
+		{
+			string staminaText = stamina.GetLocalizedStaminaStatus();
+			if (!string.IsNullOrEmpty(staminaText))
+				result = $"{result}/{staminaText}";
+		}
+
+		return result;
 	}
 
 	public static string ResolveArmorSummary(GameObject _unitRoot)

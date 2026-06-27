@@ -150,6 +150,16 @@ public sealed class UnitArmor : MonoBehaviour
 			: ArmorMitigationResult.Penetrated;
 	}
 
+	public float GetWeightKg()
+	{
+		return m_ArmorType switch
+		{
+			UnitArmorType.Light => UnitArmorCombatDesign.LightArmorWeightKg,
+			UnitArmorType.Heavy => UnitArmorCombatDesign.HeavyArmorWeightKg,
+			_ => 0f
+		};
+	}
+
 	public bool TryMitigateFragmentExplosive(BodyPartType _bodyPart, DamageSourceType _source)
 	{
 		if (m_ArmorType != UnitArmorType.Heavy || IsDestroyed)

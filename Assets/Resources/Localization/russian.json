@@ -839,7 +839,7 @@
     },
     {
       "key": "mission_prep.equipment.title",
-      "value": "Снаряжение"
+      "value": "Инвентарь"
     },
     {
       "key": "mission_prep.equipment.preset_dropdown_placeholder",
@@ -952,6 +952,18 @@
     {
       "key": "armor.status.destroyed",
       "value": "Броня разрушена"
+    },
+    {
+      "key": "stamina.tired",
+      "value": "Устал"
+    },
+    {
+      "key": "stamina.exhausted",
+      "value": "Выдохся"
+    },
+    {
+      "key": "stamina.depleted",
+      "value": "Истощён"
     },
     {
       "key": "mission_prep.equipment.available_title",

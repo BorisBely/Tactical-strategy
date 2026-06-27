@@ -477,6 +477,19 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (useEquippedMagazineReload)
 			return TryInstallEquippedMagazineFromDrag(payload, resolvedIsMainHand, resolvedBagIndex);
 
+		if (payload.SourceKind == RuntimeInventoryModificationDragSourceKind.GroundPanel &&
+		    ActiveInventory != null && ActiveInventory.IsBagOverweight &&
+		    ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
+		{
+			ItemModificationDiagnostics.LogInstallRejected(
+				$"{context} src={payload.SourceKind}",
+				_slotDescriptor,
+				weaponSlot,
+				payload.Item,
+				"inventory bag is overweight, cannot store replaced item");
+			return false;
+		}
+
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
@@ -556,6 +569,12 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out _))
 		{
 			ItemModificationDiagnostics.LogClearRejected(context, _slotDescriptor, weaponSlot, "slot is empty");
+			return false;
+		}
+
+		if (_addToCharacterBag && ActiveInventory != null && ActiveInventory.IsBagOverweight)
+		{
+			ItemModificationDiagnostics.LogClearRejected(context, _slotDescriptor, weaponSlot, "inventory bag is overweight");
 			return false;
 		}
 

@@ -19,6 +19,12 @@ public sealed class LocalizedTextMeshProUGUI : MonoBehaviour
 		m_LocalizationKey = _localizationKey;
 		RefreshText();
 	}
+
+	public bool TryGetLocalizationKey(out string _key)
+	{
+		_key = m_LocalizationKey;
+		return !string.IsNullOrWhiteSpace(m_LocalizationKey);
+	}
 	#endregion
 
 	#region Unity Lifecycle

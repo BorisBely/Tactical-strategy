@@ -187,6 +187,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		RepaintInventoryPanel();
 	}
 
+	public MissionPrepPresetSnapshot GetEditingPresetSnapshot()
+	{
+		if (m_SharedPresetStore == null)
+			return null;
+
+		return m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+	}
+
 	/// <summary>Выбор юнита: превью его назначенного пресета на модели; панель остаётся на редактируемом пресете.</summary>
 	public void BindUnit(GameObject _unitRoot)
 	{
@@ -210,8 +218,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			m_BoundPresetState.EnsureSnapshotDefaultsFromCatalog(m_EditingPresetCatalogIndex, m_PresetCatalog);
 			ApplyUnitAssignedPresetToRuntime();
 			SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
-			RepaintInventoryPanel();
-		}
+		RepaintInventoryPanel();
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+	}
 
 		RepaintAvailableEquipmentPanel();
 	}
@@ -1276,6 +1285,19 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
 			return TryInstallEquippedMagazineFromDragMissionPrep(payload, _slotDescriptor, resolvedIsMainHand, resolvedBagIndex);
 
+		if (payload.SourceKind != MissionPrepModificationDragSourceKind.PresetBag &&
+		    ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData existingInSlot) &&
+		    !existingInSlot.IsEmpty && !snapshot.CanAddToBag(existingInSlot))
+		{
+			ItemModificationDiagnostics.LogInstallRejected(
+				$"{context} src={payload.SourceKind}",
+				_slotDescriptor,
+				weaponSlot,
+				payload.Item,
+				"bag weight limit exceeded, cannot store replaced item");
+			return false;
+		}
+
 		InventorySlotRuntimeData candidate = MissionPrepInventoryCopyUtility.CloneSlot(payload.Item);
 		if (!ItemModificationUtility.TryInstallAtSlot(_slotDescriptor, weaponSlot, candidate, out InventorySlotRuntimeData replacedItem))
 			return false;
@@ -1375,6 +1397,16 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return true;
 		}
 
+		if (_addToBag)
+		{
+			ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData installedItem);
+			if (!installedItem.IsEmpty && !snapshot.CanAddToBag(installedItem))
+			{
+				ItemModificationDiagnostics.LogClearRejected(context, _slotDescriptor, weaponSlot, "bag weight limit exceeded");
+				return false;
+			}
+		}
+
 		if (!ItemModificationUtility.TryClearSlot(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData removedItem))
 			return false;
 
@@ -1459,6 +1491,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		TryRestoreExpandedModificationSelectionAfterRepaint();
 		RebuildInlineModificationRows();
 		ModificationGraphDataChanged?.Invoke();
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
 	}
 
 	public void ScheduleRefreshInlineModificationRowsAfterDrag()

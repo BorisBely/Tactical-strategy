@@ -22,4 +22,7 @@ public static class UnitArmorCombatDesign
 	public const float HeavyAbdomenBulletBlockChance = 0.60f;
 
 	public const float HeavyFragmentExplosiveBlockChance = 0.85f;
+
+	public const float LightArmorWeightKg = 8f;
+	public const float HeavyArmorWeightKg = 15f;
 }

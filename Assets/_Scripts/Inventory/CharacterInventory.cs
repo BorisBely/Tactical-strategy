@@ -45,6 +45,26 @@ public class CharacterInventory : MonoBehaviour
 	/// <summary>Число предметов в сумке + занятые слоты экипировки.</summary>
 	public int TotalItemCount => BagCount + (HasMainHandEquipment ? 1 : 0) + (HasHeadEquipment ? 1 : 0) +
 	                             (HasBackEquipment ? 1 : 0);
+	public float TotalWeightKg => CalculateTotalWeightKg();
+	public float BagWeightKg => CalculateBagWeightKg();
+	public float ArmorWeightKg => CalculateArmorWeightKg();
+	public float CargoWeightKg => TotalWeightKg - ArmorWeightKg;
+	public float TotalMaxWeightKg => MaxBagWeightKg + ArmorWeightKg;
+	public float MaxBagWeightKg
+	{
+		get
+		{
+			if (HasBackEquipment && m_BackEquipment.Definition != null)
+			{
+				float limit = ItemWeightDefaults.GetBackpackWeightLimit(m_BackEquipment.Definition.LocalizationKey);
+				if (limit > 0f)
+					return limit;
+			}
+			return ItemWeightDefaults.DefaultBagWeightLimitKg;
+		}
+	}
+	public bool IsBagOverweight => CargoWeightKg > MaxBagWeightKg;
+	public int MaxBagCapacity => (int)MaxBagWeightKg;
 	#endregion
 
 	#region Unity Lifecycle
@@ -60,6 +80,13 @@ public class CharacterInventory : MonoBehaviour
 	{
 		if (_data.IsEmpty)
 			return false;
+
+		float itemWeight = _data.Definition != null ? _data.Definition.WeightKg : 0f;
+		if (CargoWeightKg + itemWeight > MaxBagWeightKg)
+		{
+			Debug.LogWarning($"[Инвентарь] {name} | превышен лимит веса (груз {CargoWeightKg:F1} + {itemWeight:F1} > {MaxBagWeightKg:F1} кг), предмет не добавлен.");
+			return false;
+		}
 
 		InventorySlotRuntimeData copy = _data;
 		EnsureSlotHasInstanceState(ref copy);
@@ -214,6 +241,7 @@ public class CharacterInventory : MonoBehaviour
 			m_BagItems.Insert(_bagIndex, previousBack);
 
 		_backEquipment.TryEquip(m_BackEquipment.Definition);
+		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
 		return true;
 	}
@@ -229,11 +257,12 @@ public class CharacterInventory : MonoBehaviour
 
 		m_BackEquipment = _item;
 		_backEquipment.TryEquip(m_BackEquipment.Definition);
+		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
 		return true;
 	}
 
-	/// <summary>Снять рюкзак в сумку.</summary>
+	/// <summary>Снять рюкзак в сумку. Если после снятия превышен лимит — лишние предметы выбрасываются на землю.</summary>
 	public bool TryUnequipBackToBag()
 	{
 		if (m_BackEquipment.IsEmpty)
@@ -243,7 +272,54 @@ public class CharacterInventory : MonoBehaviour
 		m_BackEquipment = default;
 		ClearBackEquipmentVisual();
 		m_BagItems.Add(back);
+		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
+		return true;
+	}
+
+	private void DropExcessBagItemsToGround()
+	{
+		while (CargoWeightKg > MaxBagWeightKg && m_BagItems.Count > 0)
+		{
+			InventorySlotRuntimeData item = m_BagItems[0];
+			m_BagItems.RemoveAt(0);
+
+			if (TrySpawnItemOnGround(item))
+				continue;
+
+			m_BagItems.Insert(0, item);
+			break;
+		}
+	}
+
+	private bool TrySpawnItemOnGround(InventorySlotRuntimeData _data)
+	{
+		ItemDefinition def = _data.Definition;
+		if (def == null || def.DropWorldPrefab == null)
+			return false;
+
+		GetDropWorldPose(out Vector3 pos, out Quaternion rot);
+		UnityEngine.Object instanceObj = Instantiate(def.DropWorldPrefab, pos + Vector3.up * 0.08f, rot);
+		GameObject go = instanceObj as GameObject;
+		if (go == null)
+			return false;
+
+		WorldPickupItem pickup = go.GetComponent<WorldPickupItem>();
+		if (pickup == null)
+		{
+			Destroy(go);
+			return false;
+		}
+
+		Rigidbody[] bodies = go.GetComponentsInChildren<Rigidbody>(true);
+		for (int i = 0; i < bodies.Length; i++)
+		{
+			bodies[i].collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+			bodies[i].linearVelocity = Vector3.zero;
+			bodies[i].angularVelocity = Vector3.zero;
+		}
+
+		pickup.ConfigureForDroppedFromInventory(_data);
 		return true;
 	}
 
@@ -607,6 +683,46 @@ public class CharacterInventory : MonoBehaviour
 	private void NotifyInventoryChanged()
 	{
 		InventoryChanged?.Invoke(this);
+	}
+
+	private float CalculateBagWeightKg()
+	{
+		float total = 0f;
+		for (int i = 0; i < m_BagItems.Count; i++)
+		{
+			if (!m_BagItems[i].IsEmpty && m_BagItems[i].Definition != null)
+				total += m_BagItems[i].Definition.WeightKg + ItemWeightDefaults.GetWeaponModificationWeight(m_BagItems[i]);
+		}
+		return total;
+	}
+
+	private float CalculateTotalWeightKg()
+	{
+		float total = 0f;
+
+		if (!m_MainHandEquipment.IsEmpty && m_MainHandEquipment.Definition != null)
+			total += m_MainHandEquipment.Definition.WeightKg + ItemWeightDefaults.GetWeaponModificationWeight(m_MainHandEquipment);
+		if (!m_HeadEquipment.IsEmpty && m_HeadEquipment.Definition != null)
+			total += m_HeadEquipment.Definition.WeightKg;
+		if (!m_BackEquipment.IsEmpty && m_BackEquipment.Definition != null)
+			total += m_BackEquipment.Definition.WeightKg;
+
+		for (int i = 0; i < m_BagItems.Count; i++)
+		{
+			if (!m_BagItems[i].IsEmpty && m_BagItems[i].Definition != null)
+				total += m_BagItems[i].Definition.WeightKg + ItemWeightDefaults.GetWeaponModificationWeight(m_BagItems[i]);
+		}
+
+		total += CalculateArmorWeightKg();
+		return total;
+	}
+
+	private float CalculateArmorWeightKg()
+	{
+		UnitArmor armor = GetComponentInChildren<UnitArmor>(true);
+		if (armor != null)
+			return armor.GetWeightKg();
+		return 0f;
 	}
 	#endregion
 }

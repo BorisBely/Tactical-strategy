@@ -20,6 +20,8 @@ public class ItemDefinition : ScriptableObject
 	[Header("Economy")]
 	[Tooltip("Базовая цена предмета без учёта скидок, состояния и рыночных модификаторов.")]
 	[SerializeField, Min(0)] private int m_BasePrice = 100;
+	[Tooltip("Вес предмета в килограммах.")]
+	[SerializeField, Min(0f)] private float m_WeightKg;
 
 	[Header("Тип")]
 	[Tooltip("Категория предмета: обычный предмет или экипируемое снаряжение.")]
@@ -86,6 +88,15 @@ public class ItemDefinition : ScriptableObject
 	public string Description => m_Description;
 	public Sprite Icon => m_Icon;
 	public int BasePrice => m_BasePrice;
+	public float WeightKg
+	{
+		get
+		{
+			if (m_WeightKg <= 0f || Mathf.Approximately(m_WeightKg, 0.5f))
+				return ItemWeightDefaults.GetWeight(m_LocalizationKey);
+			return m_WeightKg;
+		}
+	}
 	public ItemCategory Category => m_Category;
 	/// <summary>Слот экипировки по подтипу.</summary>
 	public EquipmentSlotType EquipmentSlot

@@ -40,6 +40,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	#region Private Fields
 	private bool m_PendingActiveCharacterPanelRefresh;
+	private CharacterInventory m_SubscribedInventory;
 	private UnitHealth m_SubscribedUnitHealth;
 	private UnitArmor m_SubscribedUnitArmor;
 	private UnitHealth m_SubscribedPartnerHealth;
@@ -128,6 +129,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	private void OnDestroy()
 	{
 		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
+		UnsubscribeFromActiveInventory();
 		UnsubscribeFromActiveUnitHealth();
 		UnsubscribeFromActiveUnitArmor();
 		UnsubscribeFromPartnerUnitHealth();
@@ -158,6 +160,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		}
 
 		m_ActiveCharacterInventory = _inventory;
+		SubscribeToActiveInventory();
 		SubscribeToActiveUnitHealth();
 		SubscribeToActiveUnitArmor();
 
@@ -200,6 +203,8 @@ public class InventoryScreenBindings : MonoBehaviour
 			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
 			panel.ClearAllSlots();
 		}
+
+		RefreshInventoryWeightTitle();
 	}
 
 	/// <summary>Полное обновление UI при открытии: рюкзак из <see cref="CharacterInventory"/>, «земля» из текущих пересечений <see cref="InventoryPickupZone"/>.</summary>
@@ -428,8 +433,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	private void RefreshLocalizedTexts()
 	{
-		if (m_InventoryTitleText != null)
-			m_InventoryTitleText.text = LocalizationManager.Get("inventory.window.title");
+		RefreshInventoryWeightTitle();
 		if (m_GroundItemsTitleText != null)
 			m_GroundItemsTitleText.text = LocalizationManager.Get("inventory.ground.title");
 	}
@@ -492,7 +496,53 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	private void HandleActiveUnitArmorChanged()
 	{
+		RefreshInventoryWeightTitle();
 		RefreshInventoryUnitHealthSummary();
+	}
+
+	private void SubscribeToActiveInventory()
+	{
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory == m_SubscribedInventory)
+			return;
+
+		UnsubscribeFromActiveInventory();
+		m_SubscribedInventory = inventory;
+		if (m_SubscribedInventory != null)
+			m_SubscribedInventory.InventoryChanged += HandleActiveInventoryChanged;
+
+		RefreshInventoryWeightTitle();
+	}
+
+	private void UnsubscribeFromActiveInventory()
+	{
+		if (m_SubscribedInventory == null)
+			return;
+
+		m_SubscribedInventory.InventoryChanged -= HandleActiveInventoryChanged;
+		m_SubscribedInventory = null;
+	}
+
+	private void HandleActiveInventoryChanged(CharacterInventory _inventory)
+	{
+		RefreshInventoryWeightTitle();
+	}
+
+	private void RefreshInventoryWeightTitle()
+	{
+		if (m_InventoryTitleText == null)
+			return;
+
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory != null)
+		{
+			float total = inventory.TotalWeightKg;
+			float max = inventory.TotalMaxWeightKg;
+			string title = LocalizationManager.Get("inventory.window.title");
+			m_InventoryTitleText.text = $"{title} ({total:F1}/{max:F1} кг)";
+		}
+		else
+			m_InventoryTitleText.text = LocalizationManager.Get("inventory.window.title");
 	}
 
 	private void SubscribeToPartnerUnitHealth()
@@ -554,6 +604,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 	private void HandlePartnerUnitArmorChanged()
 	{
+		RefreshInventoryWeightTitle();
 		RefreshExchangePartnerUnitHealthSummary();
 	}
 

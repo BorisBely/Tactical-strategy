@@ -25,6 +25,20 @@ public sealed class MissionPrepPresetSnapshot
 	public InventorySlotRuntimeData BackEquipment => m_BackEquipment;
 	public IReadOnlyList<InventorySlotRuntimeData> BagItems => m_BagItems;
 	public int BagCount => m_BagItems.Count;
+	public float TotalWeightKg => CalculateWeightKg();
+	public float BagWeightKg => CalculateBagWeightKg();
+	public float ArmorWeightKg => CalculateArmorWeightKg();
+	public float CargoWeightKg => TotalWeightKg - ArmorWeightKg;
+	public float TotalMaxWeightKg => MaxBagWeightKg + ArmorWeightKg;
+	public float MaxBagWeightKg => CalculateMaxBagWeightKg();
+	public int MaxBagCapacity => (int)MaxBagWeightKg;
+	public bool IsBagOverweight => CargoWeightKg > MaxBagWeightKg;
+	public bool CanAddToBag(InventorySlotRuntimeData _data)
+	{
+		if (_data.IsEmpty || _data.Definition == null)
+			return true;
+		return CargoWeightKg + _data.Definition.WeightKg <= MaxBagWeightKg;
+	}
 	#endregion
 
 	#region Public Methods
@@ -144,6 +158,10 @@ public sealed class MissionPrepPresetSnapshot
 		if (_data.IsEmpty)
 			return false;
 
+		float itemWeight = _data.Definition != null ? _data.Definition.WeightKg : 0f;
+		if (CargoWeightKg + itemWeight > MaxBagWeightKg)
+			return false;
+
 		InventorySlotRuntimeData copy = MissionPrepInventoryCopyUtility.CloneSlot(_data);
 		m_BagItems.Add(copy);
 		return true;
@@ -176,7 +194,14 @@ public sealed class MissionPrepPresetSnapshot
 
 		m_BagItems.Add(MissionPrepInventoryCopyUtility.CloneSlot(m_BackEquipment));
 		m_BackEquipment = default;
+		TrimExcessBagItemsFromStart();
 		return true;
+	}
+
+	private void TrimExcessBagItemsFromStart()
+	{
+		while (CargoWeightKg > MaxBagWeightKg && m_BagItems.Count > 0)
+			m_BagItems.RemoveAt(0);
 	}
 
 	public bool TryClearMainHand()
@@ -412,6 +437,7 @@ public sealed class MissionPrepPresetSnapshot
 		if (!previousBack.IsEmpty)
 			m_BagItems.Insert(_bagIndex, MissionPrepInventoryCopyUtility.CloneSlot(previousBack));
 
+		TrimExcessBagItemsFromStart();
 		return true;
 	}
 
@@ -424,6 +450,7 @@ public sealed class MissionPrepPresetSnapshot
 			TryUnequipBackToBag();
 
 		m_BackEquipment = MissionPrepInventoryCopyUtility.CloneSlot(_item);
+		TrimExcessBagItemsFromStart();
 		return true;
 	}
 
@@ -444,6 +471,54 @@ public sealed class MissionPrepPresetSnapshot
 			m_BagItems.Insert(_bagIndex, MissionPrepInventoryCopyUtility.CloneSlot(previousMain));
 
 		return true;
+	}
+	#endregion
+
+	#region Weight / Capacity
+	private float CalculateBagWeightKg()
+	{
+		float total = 0f;
+		for (int i = 0; i < m_BagItems.Count; i++)
+		{
+			if (!m_BagItems[i].IsEmpty && m_BagItems[i].Definition != null)
+				total += m_BagItems[i].Definition.WeightKg + ItemWeightDefaults.GetWeaponModificationWeight(m_BagItems[i]);
+		}
+		return total;
+	}
+
+	private float CalculateWeightKg()
+	{
+		float total = CalculateBagWeightKg();
+
+		if (!m_MainHandEquipment.IsEmpty && m_MainHandEquipment.Definition != null)
+			total += m_MainHandEquipment.Definition.WeightKg + ItemWeightDefaults.GetWeaponModificationWeight(m_MainHandEquipment);
+		if (!m_HeadEquipment.IsEmpty && m_HeadEquipment.Definition != null)
+			total += m_HeadEquipment.Definition.WeightKg;
+		if (!m_BackEquipment.IsEmpty && m_BackEquipment.Definition != null)
+			total += m_BackEquipment.Definition.WeightKg;
+
+		total += CalculateArmorWeightKg();
+		return total;
+	}
+
+	private float CalculateArmorWeightKg()
+	{
+		if (m_ArmorVisualIndex == MissionPrepUnitArmorVisualController.HeavyArmorIndex)
+			return UnitArmorCombatDesign.HeavyArmorWeightKg;
+
+		return UnitArmorCombatDesign.LightArmorWeightKg;
+	}
+
+	private float CalculateMaxBagWeightKg()
+	{
+		if (!m_BackEquipment.IsEmpty && m_BackEquipment.Definition != null)
+		{
+			float limit = ItemWeightDefaults.GetBackpackWeightLimit(m_BackEquipment.Definition.LocalizationKey);
+			if (limit > 0f)
+				return limit;
+		}
+
+		return ItemWeightDefaults.DefaultBagWeightLimitKg;
 	}
 	#endregion
 }

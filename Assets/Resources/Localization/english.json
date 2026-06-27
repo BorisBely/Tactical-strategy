@@ -695,7 +695,7 @@
     },
     {
       "key": "mission_prep.equipment.title",
-      "value": "Equipment"
+      "value": "Inventory"
     },
     {
       "key": "mission_prep.equipment.preset_dropdown_placeholder",
@@ -808,6 +808,18 @@
     {
       "key": "armor.status.destroyed",
       "value": "Armor destroyed"
+    },
+    {
+      "key": "stamina.tired",
+      "value": "Tired"
+    },
+    {
+      "key": "stamina.exhausted",
+      "value": "Exhausted"
+    },
+    {
+      "key": "stamina.depleted",
+      "value": "Depleted"
     },
     {
       "key": "mission_prep.equipment.available_title",

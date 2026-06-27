@@ -154,6 +154,13 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 			if (m_AvailableEquipmentPanel != null)
 				m_AvailableEquipmentPanel.ClearAllSlots();
 		}
+
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+	}
+
+	public MissionPrepPresetSnapshot GetCurrentPresetSnapshot()
+	{
+		return m_LoadoutCoordinator != null ? m_LoadoutCoordinator.GetEditingPresetSnapshot() : null;
 	}
 	#endregion
 
