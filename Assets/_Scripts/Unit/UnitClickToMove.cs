@@ -362,7 +362,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void Update()
 	{
-		if (m_Agent == null)
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
 			return;
 		if (!IsConscious())
 		{
@@ -673,7 +673,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Есть заказ двигаться: путь считается или уже есть и до цели дальше чем stopping distance.</summary>
 	private bool HasActiveMoveIntent()
 	{
-		if (m_Agent == null)
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
 			return false;
 
 		if (m_Agent.isStopped)
@@ -690,7 +690,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Есть незавершённый путь к цели; <c>isStopped</c> не учитывается (для снятия паузы ровно при выходе из блокировки стойки).</summary>
 	private bool NavAgentHasIncompletePath()
 	{
-		if (m_Agent == null)
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
 			return false;
 
 		if (m_Agent.pathPending)
@@ -704,6 +704,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private Vector3 PlanarLocomotionDirection(out float _planarSpeed, out bool _hasGoalAhead)
 	{
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
+		{
+			_planarSpeed = 0f;
+			_hasGoalAhead = false;
+			return transform.forward;
+		}
+
 		Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
 		_planarSpeed = vel.magnitude;
 		_hasGoalAhead = HasActiveMoveIntent();

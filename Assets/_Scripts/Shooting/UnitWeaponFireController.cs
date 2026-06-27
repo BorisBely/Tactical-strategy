@@ -227,16 +227,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return false;
 		}
 
-		if (m_RequireVisibleTarget && m_Vision != null && !m_Vision.HasLineOfSightToCurrentTarget())
-		{
-			m_Vision.TryGetLosBlocker(out string blocker);
-			string targetName = m_Vision.VisibleTarget != null ? m_Vision.VisibleTarget.name : "?";
-			blockReason = $"No LOS to '{targetName}' | distance={GetTargetDistanceStr()} blocker='{blocker}'";
-			LogFireBlock(blockReason);
-			return false;
-		}
-
-		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+        EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
 		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
 
 		if (ShouldRequireAimProgressForNextShot() && !HasRequiredAimProgress(transientState))

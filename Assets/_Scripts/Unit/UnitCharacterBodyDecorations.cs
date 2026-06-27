@@ -62,6 +62,9 @@ public sealed class UnitCharacterBodyDecorations : MonoBehaviour
 
 	public void RefreshDecorations(UnitIndividualTraits _traits, UnitCharacterAppearance _appearance)
 	{
+		if (!enabled)
+			return;
+
 		CharacterGender gender = _appearance != null ? _appearance.Gender : CharacterGender.Male;
 		ApplyChestDecoration(ResolveVariant(_traits, RadioProfileId));
 		ApplyHeadDecoration(ResolveVariant(_traits, GlassesProfileId), gender);

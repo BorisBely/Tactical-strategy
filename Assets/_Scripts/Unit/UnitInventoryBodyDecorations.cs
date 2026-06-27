@@ -58,6 +58,10 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 	private int m_LastMagazineVariant = -1;
 	#endregion
 
+	#region Public Properties
+	public bool OnlyGrenades { get; set; }
+	#endregion
+
 	#region Unity Lifecycle
 	private void Awake()
 	{
@@ -88,11 +92,14 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 			_inventory = ResolveInventory();
 
 		SubscribeToInventory(_inventory);
-		UnitIndividualTraits traits = GetComponentInParent<UnitIndividualTraits>(true);
-		ApplyPreferencePouches(traits);
 
-		MagazineCaliberVisualPreference magazinePreference = MagazineCaliberPreferenceResolver.Resolve(_inventory);
-		ApplyMagazinePouch(magazinePreference);
+		if (!OnlyGrenades)
+		{
+			UnitIndividualTraits traits = GetComponentInParent<UnitIndividualTraits>(true);
+			ApplyPreferencePouches(traits);
+			MagazineCaliberVisualPreference magazinePreference = MagazineCaliberPreferenceResolver.Resolve(_inventory);
+			ApplyMagazinePouch(magazinePreference);
+		}
 
 		List<ItemDefinition> grenades = GrenadeVisualOrderResolver.CollectOrderedGrenades(_inventory);
 		ApplyGrenadePouches(grenades.Count);
@@ -102,11 +109,14 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 	public void RefreshFromPresetSnapshot(MissionPrepPresetSnapshot _snapshot)
 	{
 		EnsureAttachedInstanceArray();
-		UnitIndividualTraits traits = GetComponentInParent<UnitIndividualTraits>(true);
-		ApplyPreferencePouches(traits);
 
-		MagazineCaliberVisualPreference magazinePreference = MagazineCaliberPreferenceResolver.Resolve(_snapshot);
-		ApplyMagazinePouch(magazinePreference);
+		if (!OnlyGrenades)
+		{
+			UnitIndividualTraits traits = GetComponentInParent<UnitIndividualTraits>(true);
+			ApplyPreferencePouches(traits);
+			MagazineCaliberVisualPreference magazinePreference = MagazineCaliberPreferenceResolver.Resolve(_snapshot);
+			ApplyMagazinePouch(magazinePreference);
+		}
 
 		List<ItemDefinition> grenades = GrenadeVisualOrderResolver.CollectOrderedGrenades(_snapshot);
 		ApplyGrenadePouches(grenades.Count);

@@ -56,11 +56,8 @@ public sealed class UnitVisionRegistry : MonoBehaviour
 		_outBuffer.Clear();
 
 		if (_viewerTeam == UnitTeamId.Player)
-		{
 			_outBuffer.AddRange(m_EnemyUnits);
-			_outBuffer.AddRange(m_NeutralUnits);
-		}
-		else
+		else if (_viewerTeam == UnitTeamId.Enemy)
 			_outBuffer.AddRange(m_PlayerUnits);
 	}
 

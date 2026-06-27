@@ -86,6 +86,9 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 
 	public void RefreshFromTraits(UnitIndividualTraits _traits, UnitCharacterAppearance _appearance)
 	{
+		if (!enabled)
+			return;
+
 		CharacterGender gender = _appearance != null ? _appearance.Gender : CharacterGender.Male;
 		bool hasHelmet = m_HeadEquipment != null && m_HeadEquipment.EquippedDefinition != null;
 

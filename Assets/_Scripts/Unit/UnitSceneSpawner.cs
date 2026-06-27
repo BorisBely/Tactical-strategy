@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Спавн игрока и врага из одного универсального префаба с inline-параметрами в инспекторе.
+/// Спавн юнитов (игрок/враг/гражданские) из одного универсального префаба по точкам.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class UnitSceneSpawner : MonoBehaviour
@@ -13,11 +13,16 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 	[SerializeField] private bool m_SpawnOnStart = true;
 	[SerializeField] private bool m_DestroySpawnedOnDisable = true;
 
-	[Header("Spawn Entries")]
-	[SerializeField] private UnitSceneSpawnEntry m_PlayerSpawn = new UnitSceneSpawnEntry();
-	[SerializeField] private UnitSceneSpawnEntry m_EnemySpawn = new UnitSceneSpawnEntry();
+	[Header("Player Spawns")]
+	[SerializeField] private UnitSceneSpawnEntry[] m_PlayerSpawns = new UnitSceneSpawnEntry[0];
 
-	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(8);
+	[Header("Enemy Spawns")]
+	[SerializeField] private UnitSceneSpawnEntry[] m_EnemySpawns = new UnitSceneSpawnEntry[0];
+
+	[Header("Civilian Spawns")]
+	[SerializeField] private UnitSceneSpawnEntry[] m_CivilianSpawns = new UnitSceneSpawnEntry[0];
+
+	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(64);
 	#endregion
 
 	#region Unity Lifecycle
@@ -45,13 +50,29 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 		}
 
 		DestroySpawnedInstances();
-		SpawnEntry(m_PlayerSpawn);
-		SpawnEntry(m_EnemySpawn);
+		SpawnEntries(m_PlayerSpawns);
+		SpawnEntries(m_EnemySpawns);
+		SpawnEntries(m_CivilianSpawns);
 		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
 	}
 	#endregion
 
 	#region Private Methods
+	private void SpawnEntries(UnitSceneSpawnEntry[] _entries)
+	{
+		if (_entries == null)
+			return;
+
+		for (int i = 0; i < _entries.Length; i++)
+		{
+			UnitSceneSpawnEntry entry = _entries[i];
+			if (entry == null)
+				continue;
+
+			SpawnEntry(entry);
+		}
+	}
+
 	private void SpawnEntry(UnitSceneSpawnEntry _entry)
 	{
 		if (_entry == null || _entry.SpawnPoint == null)
@@ -61,19 +82,41 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 		}
 
 		Transform parent = m_SpawnedUnitsParent != null ? m_SpawnedUnitsParent : transform;
-		GameObject instance = Instantiate(
-			m_UnitPrefab,
-			_entry.SpawnPoint.position,
-			_entry.SpawnPoint.rotation,
-			parent);
+		int count = _entry.SpawnCount;
+		UnitSpawnConfig baseConfig = _entry.ToConfig();
+		for (int i = 0; i < count; i++)
+		{
+			UnitSpawnConfig config = baseConfig;
+			if (count > 1)
+			{
+				config = new UnitSpawnConfig(
+					baseConfig.Team,
+					baseConfig.Loadout,
+					baseConfig.StartReady,
+					$"{baseConfig.DisplayName}_{i + 1}",
+					baseConfig.ArmorVisualIndex,
+					baseConfig.CamouflageVisualIndex,
+					_bodyMeshArchetype: baseConfig.BodyMeshArchetype);
+			}
 
-		if (!instance.TryGetComponent(out UnitFactionConfigurator configurator))
-			configurator = instance.AddComponent<UnitFactionConfigurator>();
+			Vector3 offset = count > 1
+				? new Vector3(Random.Range(-1.5f, 1.5f), 0f, Random.Range(-1.5f, 1.5f))
+				: Vector3.zero;
 
-		configurator.Configure(_entry.ToConfig());
-		configurator.ApplyConfiguration();
+			GameObject instance = Instantiate(
+				m_UnitPrefab,
+				_entry.SpawnPoint.position + offset,
+				_entry.SpawnPoint.rotation,
+				parent);
 
-		m_SpawnedInstances.Add(instance);
+			if (!instance.TryGetComponent(out UnitFactionConfigurator configurator))
+				configurator = instance.AddComponent<UnitFactionConfigurator>();
+
+			configurator.Configure(config);
+			configurator.ApplyConfiguration();
+
+			m_SpawnedInstances.Add(instance);
+		}
 	}
 
 	private void DestroySpawnedInstances()

@@ -35,6 +35,10 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private UnitStabilizeOtherController m_StabilizeOtherController;
 	private UnitFiremanCarryController m_FiremanCarryController;
 	private UnitHealthDeteriorationController m_HealthDeteriorationController;
+	private UnitBodyMeshSelector m_BodyMeshSelector;
+	private UnitCharacterHeadAppearance m_HeadAppearance;
+	private UnitCharacterBodyDecorations m_BodyDecorations;
+	private UnitInventoryBodyDecorations m_InventoryDecorations;
 	#endregion
 
 	#region Public Methods
@@ -54,13 +58,16 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (m_Team != null)
 			m_Team.SetTeam(team);
 
+		ApplyFactionComponentStates();
 		ApplyCharacterGender();
 		ApplyCharacterSkinTone();
 		EnsureIndividualTraits();
+		ApplyBodyMesh();
 		ApplyLoadout();
-		ApplyArmor(m_RuntimeConfig.ArmorVisualIndex);
-		ApplyCamouflage(m_RuntimeConfig.CamouflageVisualIndex);
-		RefreshHeadAppearance();
+		ApplyArmor();
+		if (m_RuntimeConfig.BodyMeshArchetype != UnitBodyMeshArchetype.Soldier)
+			ApplyCamouflage(ResolveCamouflageIndex());
+		ApplyFactionVisualRefreshes();
 		ApplyRoleComponents(isPlayer);
 
 		if (m_ReadyHands != null)
@@ -130,6 +137,14 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 			m_FiremanCarryController = GetComponent<UnitFiremanCarryController>();
 		if (m_HealthDeteriorationController == null)
 			m_HealthDeteriorationController = GetComponent<UnitHealthDeteriorationController>();
+		if (m_BodyMeshSelector == null)
+			m_BodyMeshSelector = GetComponent<UnitBodyMeshSelector>();
+		if (m_HeadAppearance == null)
+			m_HeadAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
+		if (m_BodyDecorations == null)
+			m_BodyDecorations = GetComponentInChildren<UnitCharacterBodyDecorations>(true);
+		if (m_InventoryDecorations == null)
+			m_InventoryDecorations = GetComponentInChildren<UnitInventoryBodyDecorations>(true);
 	}
 
 	private void EnsureHealthRuntimeControllers()
@@ -163,7 +178,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (traits != null && !traits.IsInitialized)
 			traits.RollRandomTraits();
 
-		if (traits != null)
+		if (traits != null && m_RuntimeConfig.BodyMeshArchetype == UnitBodyMeshArchetype.Soldier)
 			traits.RollHeadAppearance(ResolveRankPreset(), m_Appearance != null ? m_Appearance.Gender : CharacterGender.Male);
 
 		m_Traits = traits;
@@ -180,6 +195,14 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		UnitCharacterHeadAppearance headAppearance = GetComponentInChildren<UnitCharacterHeadAppearance>(true);
 		if (headAppearance != null)
 			headAppearance.RefreshFromTraits(m_Traits, m_Appearance);
+	}
+
+	private int ResolveCamouflageIndex()
+	{
+		int index = m_RuntimeConfig.CamouflageVisualIndex;
+		if (index < 0)
+			index = Random.Range(0, 4);
+		return index;
 	}
 
 	private void ApplyCharacterSkinTone()
@@ -199,9 +222,40 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		materialAppearance.SetCamouflageIndex(clamped);
 	}
 
-	private void ApplyArmor(int _armorVisualIndex)
+	private void ApplyBodyMesh()
 	{
-		if (_armorVisualIndex < 0)
+		if (m_BodyMeshSelector == null)
+			m_BodyMeshSelector = gameObject.AddComponent<UnitBodyMeshSelector>();
+
+		CharacterGender gender = m_Appearance != null ? m_Appearance.Gender : CharacterGender.Male;
+		m_BodyMeshSelector.SelectMesh(m_RuntimeConfig.BodyMeshArchetype, gender);
+	}
+
+	private void ApplyArmor()
+	{
+		UnitBodyMeshArchetype archetype = m_RuntimeConfig.BodyMeshArchetype;
+		int armorIndex = m_RuntimeConfig.ArmorVisualIndex;
+
+		if (archetype != UnitBodyMeshArchetype.Soldier)
+		{
+			UnitArmorType defaultType = UnitBodyMeshSelector.GetDefaultArmorType(archetype);
+			if (defaultType == UnitArmorType.None)
+			{
+				if (TryGetComponent(out UnitArmor armor))
+					armor.ClearArmor();
+				return;
+			}
+
+			armorIndex = defaultType == UnitArmorType.Light
+				? MissionPrepUnitArmorVisualController.LightArmorIndex
+				: MissionPrepUnitArmorVisualController.HeavyArmorIndex;
+
+			UnitArmor unitArmor = GetComponent<UnitArmor>() ?? gameObject.AddComponent<UnitArmor>();
+			unitArmor.SetArmorFromPresetIndex(armorIndex);
+			return;
+		}
+
+		if (armorIndex < 0)
 		{
 			if (TryGetComponent(out UnitArmor armor))
 				armor.ClearArmor();
@@ -209,13 +263,50 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		}
 
 		int clamped = Mathf.Clamp(
-			_armorVisualIndex,
+			armorIndex,
 			MissionPrepUnitArmorVisualController.LightArmorIndex,
 			MissionPrepUnitArmorVisualController.HeavyArmorIndex);
 
 		MissionPrepUnitArmorVisualController.GetOrCreate(gameObject, clamped).ApplyArmorVisual(clamped);
-		UnitArmor unitArmor = GetComponent<UnitArmor>() ?? gameObject.AddComponent<UnitArmor>();
-		unitArmor.SetArmorFromPresetIndex(clamped);
+		UnitArmor soldierArmor = GetComponent<UnitArmor>() ?? gameObject.AddComponent<UnitArmor>();
+		soldierArmor.SetArmorFromPresetIndex(clamped);
+	}
+
+	/// <summary>Рантайм-смена команды. Визуал не меняется, переключаются только RTS/AI-компоненты.</summary>
+	public void ChangeTeam(UnitTeamId _newTeam)
+	{
+		m_RuntimeConfig.SetTeam(_newTeam);
+		bool isPlayer = _newTeam == UnitTeamId.Player;
+		ApplyRoleComponents(isPlayer);
+		RefreshVisionRegistry();
+	}
+
+	private void ApplyFactionComponentStates()
+	{
+		bool isSoldier = m_RuntimeConfig.BodyMeshArchetype == UnitBodyMeshArchetype.Soldier;
+
+		if (isSoldier)
+		{
+			SetBehaviourEnabled(m_HeadAppearance, true);
+			SetBehaviourEnabled(m_BodyDecorations, true);
+			SetBehaviourEnabled(m_InventoryDecorations, true);
+			if (m_InventoryDecorations != null)
+				m_InventoryDecorations.OnlyGrenades = false;
+		}
+		else
+		{
+			SetBehaviourEnabled(m_HeadAppearance, false);
+			SetBehaviourEnabled(m_BodyDecorations, false);
+			SetBehaviourEnabled(m_InventoryDecorations, true);
+			if (m_InventoryDecorations != null)
+				m_InventoryDecorations.OnlyGrenades = true;
+		}
+	}
+
+	private void ApplyFactionVisualRefreshes()
+	{
+		if (m_RuntimeConfig.BodyMeshArchetype == UnitBodyMeshArchetype.Soldier)
+			RefreshHeadAppearance();
 	}
 
 	private void ApplyLoadout()

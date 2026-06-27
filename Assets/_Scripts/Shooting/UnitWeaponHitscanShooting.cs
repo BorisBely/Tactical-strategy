@@ -104,6 +104,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	#region Private Fields
 	private Transform m_ShooterRoot;
+	private UnitTeam m_Team;
 	private readonly HashSet<ProcessedBodyPartHit> m_ProcessedBodyPartHits = new HashSet<ProcessedBodyPartHit>();
 	#endregion
 
@@ -134,6 +135,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 
 		m_ShooterRoot = transform;
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
 	}
 	#endregion
 
@@ -429,6 +432,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		UnitBodyHitZone hitZone = _hit.collider.GetComponent<UnitBodyHitZone>() ??
 		                          _hit.collider.GetComponentInParent<UnitBodyHitZone>();
 
+		BodyPartType bodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown;
+		if (target != null && IsFriendlyOrNeutral(target))
+			bodyPart = BodyPartType.Chest;
+
 		WeaponShotImpactVfxKind impactVfxKind = ResolveImpactVfxKind(target, hitZone, armorFullyBlocked);
 		float traceDamage = damageApplied ? damage : 0f;
 		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
@@ -440,7 +447,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			Damage = damageApplied ? damage : 0f,
 			HitColliderName = _hit.collider.name,
 			HitRootName = _hit.collider.transform.root.name,
-			BodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown,
+			BodyPart = bodyPart,
 			BodyZone = hitZone != null ? hitZone.Zone : CombatBodyZone.Unknown,
 			HasDamageableTarget = target != null,
 			HasUnitHealth = targetHealth != null,
@@ -470,6 +477,20 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		Transform hitTransform = _collider.transform;
 		return hitTransform == m_ShooterRoot || hitTransform.IsChildOf(m_ShooterRoot);
+	}
+
+	private bool IsFriendlyOrNeutral(DamageableTarget _target)
+	{
+		if (_target == null || m_Team == null)
+			return false;
+
+		UnitTeam targetTeam = _target.GetComponent<UnitTeam>() ??
+		                      _target.GetComponentInParent<UnitTeam>();
+
+		if (targetTeam == null)
+			return false;
+
+		return targetTeam.Team == m_Team.Team || targetTeam.Team == UnitTeamId.Neutral;
 	}
 
 	private bool ShouldSkipDuplicateBodyPartHit(Collider _collider)

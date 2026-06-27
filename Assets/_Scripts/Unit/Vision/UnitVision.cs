@@ -263,10 +263,8 @@ public sealed class UnitVision : MonoBehaviour
 			Collider hc = hit.collider;
 			if (hc == null)
 				continue;
-
 			if (hc.transform.IsChildOf(transform))
 				continue;
-
 			if (hc.transform == m_VisibleTarget || hc.transform.IsChildOf(m_VisibleTarget))
 				return false;
 
@@ -689,7 +687,6 @@ public sealed class UnitVision : MonoBehaviour
 		return transform.position + Vector3.up * m_EyeHeight;
 	}
 
-	/// <summary>Точка начала конуса и LOS: прицел в «готов» или глаза.</summary>
 	private Vector3 GetVisionConeOriginWorld()
 	{
 		Transform sight = GetActiveSightTransform();
