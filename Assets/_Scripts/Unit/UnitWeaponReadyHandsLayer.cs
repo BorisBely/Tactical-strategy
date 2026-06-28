@@ -37,6 +37,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool m_BlockToggleInput;
 	private bool m_RestoreReadyAfterSprint;
 	private bool m_RestoreReadyAfterRun;
+	private bool m_RestoreReadyAfterTurn;
 	#endregion
 
 	#region Public Methods
@@ -168,6 +169,25 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return;
 
 		m_RestoreReadyAfterRun = false;
+		if (IsWeaponEquipped())
+			ApplyReadyWanted(true, false, true);
+	}
+
+	public void SuppressReadyForTurnIfNeeded()
+	{
+		if (!IsWeaponEquipped() || !m_UserWantsReady)
+			return;
+
+		m_RestoreReadyAfterTurn = true;
+		ApplyReadyWanted(false, false, true);
+	}
+
+	public void TryRestoreReadyAfterTurn(bool _isStillTurning)
+	{
+		if (_isStillTurning || !m_RestoreReadyAfterTurn)
+			return;
+
+		m_RestoreReadyAfterTurn = false;
 		if (IsWeaponEquipped())
 			ApplyReadyWanted(true, false, true);
 	}

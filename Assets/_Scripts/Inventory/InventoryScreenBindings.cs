@@ -45,6 +45,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	private UnitArmor m_SubscribedUnitArmor;
 	private UnitHealth m_SubscribedPartnerHealth;
 	private UnitArmor m_SubscribedPartnerArmor;
+	private UnitStamina m_SubscribedUnitStamina;
 	#endregion
 
 	#region Public Properties
@@ -130,6 +131,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		LocalizationManager.LanguageChanged -= HandleLanguageChanged;
 		UnsubscribeFromActiveInventory();
+		UnsubscribeFromActiveUnitStamina();
 		UnsubscribeFromActiveUnitHealth();
 		UnsubscribeFromActiveUnitArmor();
 		UnsubscribeFromPartnerUnitHealth();
@@ -161,6 +163,7 @@ public class InventoryScreenBindings : MonoBehaviour
 
 		m_ActiveCharacterInventory = _inventory;
 		SubscribeToActiveInventory();
+		SubscribeToActiveUnitStamina();
 		SubscribeToActiveUnitHealth();
 		SubscribeToActiveUnitArmor();
 
@@ -500,6 +503,32 @@ public class InventoryScreenBindings : MonoBehaviour
 		RefreshInventoryUnitHealthSummary();
 	}
 
+	private void SubscribeToActiveUnitStamina()
+	{
+		UnitStamina stamina = ResolveActiveUnitStamina();
+		if (stamina == m_SubscribedUnitStamina)
+			return;
+
+		UnsubscribeFromActiveUnitStamina();
+		m_SubscribedUnitStamina = stamina;
+		if (m_SubscribedUnitStamina != null)
+			m_SubscribedUnitStamina.StaminaChanged += HandleActiveUnitStaminaChanged;
+	}
+
+	private void UnsubscribeFromActiveUnitStamina()
+	{
+		if (m_SubscribedUnitStamina == null)
+			return;
+
+		m_SubscribedUnitStamina.StaminaChanged -= HandleActiveUnitStaminaChanged;
+		m_SubscribedUnitStamina = null;
+	}
+
+	private void HandleActiveUnitStaminaChanged(float _stamina)
+	{
+		RefreshInventoryUnitHealthSummary();
+	}
+
 	private void SubscribeToActiveInventory()
 	{
 		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
@@ -658,6 +687,19 @@ public class InventoryScreenBindings : MonoBehaviour
 			return armor;
 
 		return inventory.GetComponentInParent<UnitArmor>(true);
+	}
+
+	private UnitStamina ResolveActiveUnitStamina()
+	{
+		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
+		if (inventory == null)
+			return null;
+
+		RtsUnitMember member = inventory.GetComponentInParent<RtsUnitMember>(true);
+		if (member != null && member.TryGetComponent(out UnitStamina stamina))
+			return stamina;
+
+		return inventory.GetComponentInParent<UnitStamina>(true);
 	}
 
 	private InventoryPickupZone FindPickupZoneOnActiveCharacter()

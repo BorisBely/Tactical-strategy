@@ -152,6 +152,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				m_MagazineLoadingController?.StopLoading();
 
+			bool isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+			if (isRunOrSprint && TryGetComponent(out UnitStamina stamina) && stamina.IsExhausted)
+				_moveTier = UnitClickToMove.MoveTier.Walk;
+
 			if (m_ClickToMove != null)
 			{
 				m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);

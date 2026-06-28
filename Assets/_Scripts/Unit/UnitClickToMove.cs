@@ -101,6 +101,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Header("Rotation")]
 	[Tooltip("Скорость разворота корня (на путь или по velocity), коэффициент Slerp.")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
+	public float RotateSpeed { get => m_RotateSpeed; set => m_RotateSpeed = value; }
 	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек).")]
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 	[Tooltip("Не разворачивать корень на видимую цель (engage) во время перезарядки и передёргивания затвора.")]
@@ -749,6 +750,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			visionFacing = true;
 
 			float yawError = Vector3.SignedAngle(facingForwardXZ, dir, Vector3.up);
+			HandleTurnReady(Mathf.Abs(yawError));
 			float currentYaw = transform.eulerAngles.y;
 			float targetYaw = currentYaw + yawError;
 			float newYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
@@ -772,15 +774,33 @@ public sealed class UnitClickToMove : MonoBehaviour
 				dir = toSteer.normalized;
 			}
 			else
+			{
+				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 				return;
+			}
 		}
 
 		if (dir.sqrMagnitude < 1e-6f)
+		{
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 			return;
+		}
 
 		Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
 		if (!visionFacing)
+		{
+			float angleDiff = Quaternion.Angle(transform.rotation, q);
+			HandleTurnReady(angleDiff);
 			transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
+		}
+	}
+
+	private void HandleTurnReady(float _angleDegrees)
+	{
+		if (_angleDegrees > 90f)
+			m_ReadyHands?.SuppressReadyForTurnIfNeeded();
+		else if (_angleDegrees < 20f)
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 	}
 
 	private bool IsEngagingVisibleTarget()

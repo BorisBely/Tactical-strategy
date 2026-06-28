@@ -82,6 +82,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	[Header("Rotation")]
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
+	public float RotateSpeed { get => m_RotateSpeed; set => m_RotateSpeed = value; }
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 
 	[Header("Combat: steady stance while firing")]
@@ -566,6 +567,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 			direction = toTarget.normalized;
 			float yawError = Vector3.SignedAngle(facingForwardXZ, direction, Vector3.up);
+			HandleTurnReady(Mathf.Abs(yawError));
 			float currentYaw = transform.eulerAngles.y;
 			float targetYaw = currentYaw + yawError;
 			float newYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
@@ -588,12 +590,25 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			direction = toSteer.normalized;
 		}
 		else
+		{
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 			return;
+		}
 
 
 
 		Quaternion targetRotation = Quaternion.LookRotation(direction, Vector3.up);
+		float angleDiff = Quaternion.Angle(transform.rotation, targetRotation);
+		HandleTurnReady(angleDiff);
 		transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, m_RotateSpeed * Time.deltaTime);
+	}
+
+	private void HandleTurnReady(float _angleDegrees)
+	{
+		if (_angleDegrees > 90f)
+			m_ReadyHands?.SuppressReadyForTurnIfNeeded();
+		else if (_angleDegrees < 20f)
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 	}
 
 	private bool IsEngagingVisibleTarget()

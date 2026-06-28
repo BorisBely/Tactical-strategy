@@ -12465,6 +12465,7 @@ MonoBehaviour:
   m_WeaponReloadController: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
   m_LeftHandIk: {fileID: 0}
+  m_BusyState: {fileID: 0}
   m_EnableKeyboardInput: 0
   m_ToggleReadyKey: 19
 --- !u!114 &1243261164
@@ -12650,7 +12651,8 @@ MonoBehaviour:
   m_ReadyHands: {fileID: 0}
   m_FireController: {fileID: 0}
   m_Consciousness: {fileID: 0}
-  m_DragController: {fileID: 0}
+  m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
   m_NavMeshSampleRadius: 2
   m_StoppingDistance: 0.15
   m_AgentAcceleration: 40
@@ -12658,6 +12660,7 @@ MonoBehaviour:
   m_WarpSearchRadius: 12
   m_WalkSpeed: 1.5
   m_RunSpeed: 3.5
+  m_RunSpeedNoWeapon: 3.4
   m_SprintSpeed: 7.25
   m_CrouchWalkSpeed: 1.15
   m_ProneCrawlSpeed: 0.5
@@ -13635,39 +13638,57 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionPrepEquipmentPresetCatalog
   m_Presets:
-  - m_DisplayName: Standard
-    m_LocalizationKey: mission_prep.equipment.preset.standard
-    m_DefaultArmorVisualIndex: 0
-    m_WeaponItem: {fileID: 0}
-    m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-    m_BackItem: {fileID: 0}
-    m_ExtraHeadItemsInBag: []
-    m_MagazineItem: {fileID: 0}
-    m_AmmoForMagazine: {fileID: 0}
-    m_SpareLoadedMagazinesInBag: 0
-    m_SpareEmptyMagazinesInBag: 0
-    m_RoundsPerMagazine: -1
-    m_PutLoadedMagazineInWeapon: 0
-    m_AmmoBoxItems:
-    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-  - m_DisplayName: Heavy
-    m_LocalizationKey: mission_prep.equipment.preset.heavy
-    m_DefaultArmorVisualIndex: 1
-    m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
-    m_HeadItem: {fileID: 11400000, guid: 3587fa6c294bea74cb580506e0fb6adb, type: 2}
-    m_BackItem: {fileID: 0}
-    m_ExtraHeadItemsInBag:
-    - {fileID: 11400000, guid: 4a91d4f18799ae341af81ea609cdd5bc, type: 2}
-    - {fileID: 11400000, guid: 156ba2824000a544f8d88c446ee7077c, type: 2}
-    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
-    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
-    m_SpareLoadedMagazinesInBag: 0
-    m_SpareEmptyMagazinesInBag: 2
-    m_RoundsPerMagazine: -1
-    m_PutLoadedMagazineInWeapon: 0
-    m_AmmoBoxItems:
-    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+   - m_DisplayName: Standard
+     m_LocalizationKey: mission_prep.equipment.preset.standard
+     m_DefaultArmorVisualIndex: 1
+     m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
+     m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
+     m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+     m_ExtraHeadItemsInBag: []
+     m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+     m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+     m_SpareLoadedMagazinesInBag: 8
+     m_SpareEmptyMagazinesInBag: 0
+     m_RoundsPerMagazine: -1
+     m_PutLoadedMagazineInWeapon: 1
+     m_AmmoBoxItems:
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+   - m_DisplayName: Heavy
+     m_LocalizationKey: mission_prep.equipment.preset.heavy
+     m_DefaultArmorVisualIndex: 1
+     m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
+     m_HeadItem: {fileID: 11400000, guid: 3587fa6c294bea74cb580506e0fb6adb, type: 2}
+     m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+     m_ExtraHeadItemsInBag:
+     - {fileID: 11400000, guid: 4a91d4f18799ae341af81ea609cdd5bc, type: 2}
+     - {fileID: 11400000, guid: 156ba2824000a544f8d88c446ee7077c, type: 2}
+     m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+     m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+     m_SpareLoadedMagazinesInBag: 12
+     m_SpareEmptyMagazinesInBag: 0
+     m_RoundsPerMagazine: -1
+     m_PutLoadedMagazineInWeapon: 1
+     m_AmmoBoxItems:
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+     - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
+     - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
+     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
   m_ArmorOptions:
   - m_DisplayName: Light armor
     m_LocalizationKey: mission_prep.equipment.armor.light
@@ -16702,6 +16723,7 @@ MonoBehaviour:
   m_MissionPrepCanvasRoot: {fileID: 1971120513}
   m_ScreenController: {fileID: 1971120518}
   m_StartWithMissionPrepClosed: 1
+  m_EquipmentTitleText: {fileID: 0}
 --- !u!1 &1657349950
 GameObject:
   m_ObjectHideFlags: 0
@@ -22600,71 +22622,88 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
     m_StartReady: 0
     m_DisplayName: Player-01
-    m_ArmorVisualIndex: 0
+    m_ArmorVisualIndex: 1
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
+    m_SpawnCount: 1
   - m_SpawnPoint: {fileID: 2100000011}
     m_Team: 0
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
     m_StartReady: 0
-    m_DisplayName: Player-02
-    m_ArmorVisualIndex: 0
+    m_DisplayName: Player-0
+    m_ArmorVisualIndex: 1
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
+    m_SpawnCount: 1
   - m_SpawnPoint: {fileID: 2100000013}
     m_Team: 0
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22673,24 +22712,30 @@ MonoBehaviour:
     m_ArmorVisualIndex: 0
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
+    m_SpawnCount: 1
   - m_SpawnPoint: {fileID: 2100000015}
     m_Team: 0
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22699,24 +22744,30 @@ MonoBehaviour:
     m_ArmorVisualIndex: 0
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
+    m_SpawnCount: 1
   - m_SpawnPoint: {fileID: 2100000017}
     m_Team: 0
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22725,25 +22776,31 @@ MonoBehaviour:
     m_ArmorVisualIndex: 0
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
+    m_SpawnCount: 1
   m_EnemySpawns:
   - m_SpawnPoint: {fileID: 2100000007}
     m_Team: 1
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22758,19 +22815,24 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22785,19 +22847,24 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22812,19 +22879,24 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22839,19 +22911,24 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems:
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
-      - {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -22867,7 +22944,7 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
@@ -22883,7 +22960,7 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
@@ -22899,7 +22976,7 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
@@ -22915,7 +22992,7 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
@@ -22931,7 +23008,7 @@ MonoBehaviour:
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
-      m_BackItem: {fileID: 0}
+      m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1

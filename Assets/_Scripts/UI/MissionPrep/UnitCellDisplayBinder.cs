@@ -40,7 +40,7 @@ public static class UnitCellDisplayBinder
 		{
 			string staminaText = stamina.GetLocalizedStaminaStatus();
 			if (!string.IsNullOrEmpty(staminaText))
-				result = $"{result}/{staminaText}";
+				result = $"{result}\n{staminaText}";
 		}
 
 		return result;

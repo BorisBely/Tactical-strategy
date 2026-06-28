@@ -18,3 +18,4 @@ MonoBehaviour:
   m_WeaponHandling: 68
   m_RecoilControl: 60
   m_ReactionTimeSeconds: 0.23
+  m_WeightPenaltyReduction: 0.2

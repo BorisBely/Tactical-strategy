@@ -15,6 +15,8 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	[SerializeField, Range(0f, 100f)] private float m_RecoilControl = 50f;
 	[Tooltip("Задержка реакции при обнаружении цели (сек). Опытные бойцы реагируют быстрее.")]
 	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
+	[Tooltip("Снижение штрафов веса (0-1). 0 = без бонуса, 0.3 = -30% к эффективной загрузке.")]
+	[SerializeField, Range(0f, 1f)] private float m_WeightPenaltyReduction;
 	#endregion
 
 	#region Public Properties
@@ -24,6 +26,7 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
 	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
+	public float WeightPenaltyReduction => m_WeightPenaltyReduction;
 	#endregion
 
 	#region Public Methods
