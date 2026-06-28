@@ -44,6 +44,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private int m_PendingCommandVersion;
 	private UnitRosterDisplayState m_RosterDisplay;
 	private Transform m_CachedCameraTransform;
+	private GameObject m_DestinationMarker;
+	private GameObject m_PathMarkersRoot;
+	private readonly List<GameObject> m_PathMarkers = new List<GameObject>();
+	private float m_NextPathMarkerCheckTime;
+	private float m_DestinationMarkerSetTime = -1f;
+	private bool m_HasWantedFacing;
+	private float m_WantedFacingAngle;
+	private bool m_IsRotatingToFacing;
+	private float m_FacingRotateVelocity;
 	#endregion
 
 	#region Public Properties
@@ -108,12 +117,77 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ResetAnimatorSpeed();
 		s_Instances.Remove(this);
 		SetSelected(false);
+		ClearAllMarkers();
 	}
 
 	private void Update()
 	{
 		ApplyAnimatorSpeedVariation();
 		UpdateSelectionLabelBillboard();
+		UpdatePathMarkers();
+		TryRemoveArrivedDestinationMarker();
+		UpdateFacingRotation();
+	}
+
+	private void UpdateFacingRotation()
+	{
+		if (!m_IsRotatingToFacing)
+			return;
+
+		UnitClickToMove clickToMove = m_ClickToMove;
+		float rotateSpeed = clickToMove != null ? clickToMove.RotateSpeed : 6f;
+
+		Quaternion targetRot = Quaternion.Euler(0f, m_WantedFacingAngle, 0f);
+		float angle = Quaternion.Angle(transform.rotation, targetRot);
+
+		if (angle < 0.5f)
+		{
+			transform.rotation = targetRot;
+			m_IsRotatingToFacing = false;
+			return;
+		}
+
+		float smoothAngle = Mathf.SmoothDampAngle(
+			transform.rotation.eulerAngles.y,
+			m_WantedFacingAngle,
+			ref m_FacingRotateVelocity,
+			1f / rotateSpeed,
+			Mathf.Infinity,
+			Time.deltaTime);
+
+		transform.rotation = Quaternion.Euler(0f, smoothAngle, 0f);
+	}
+
+	private void TryRemoveArrivedDestinationMarker()
+	{
+		if (m_DestinationMarker == null)
+			return;
+
+		if (m_DestinationMarkerSetTime >= 0f && Time.time - m_DestinationMarkerSetTime < 0.5f)
+			return;
+
+		UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh)
+			return;
+		if (agent.pathPending)
+			return;
+		if (agent.hasPath)
+			return;
+
+		Vector3 v = agent.velocity;
+		v.y = 0f;
+		if (v.sqrMagnitude > 0.01f)
+			return;
+
+		if (m_HasWantedFacing)
+		{
+			m_IsRotatingToFacing = true;
+			m_FacingRotateVelocity = 0f;
+			m_HasWantedFacing = false;
+		}
+
+		Destroy(m_DestinationMarker);
+		m_DestinationMarker = null;
 	}
 	#endregion
 
@@ -130,6 +204,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			EnsureSelectionNameLabel();
 			RefreshSelectionNameLabel();
 		}
+
+		SetMarkersVisible(_selected);
 
 		if (m_SelectionNameLabelRoot != null)
 			m_SelectionNameLabelRoot.SetActive(_selected);
@@ -173,6 +249,127 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
 			}
 		});
+	}
+
+	public void SetDestinationMarker(GameObject _marker)
+	{
+		ClearPathMarkers();
+
+		if (m_DestinationMarker != null)
+			Destroy(m_DestinationMarker);
+
+		m_DestinationMarker = _marker;
+		m_IsRotatingToFacing = false;
+
+		if (m_DestinationMarker != null)
+		{
+			m_DestinationMarker.SetActive(m_IsSelected);
+			m_DestinationMarkerSetTime = Time.time;
+		}
+	}
+
+	public void SetWantedFacingAngle(float _angle)
+	{
+		m_HasWantedFacing = true;
+		m_WantedFacingAngle = _angle;
+		m_IsRotatingToFacing = false;
+	}
+
+	public void SetPathMarkers(List<Vector3> _points, GameObject _markerPrefab)
+	{
+		ClearPathMarkers();
+
+		if (_points == null || _points.Count == 0 || _markerPrefab == null)
+			return;
+
+		m_PathMarkersRoot = new GameObject("PathMarkers");
+
+		for (int i = 0; i < _points.Count; i++)
+		{
+			GameObject marker = Instantiate(_markerPrefab, _points[i], Quaternion.identity, m_PathMarkersRoot.transform);
+			marker.name = "PathMarker";
+			m_PathMarkers.Add(marker);
+		}
+
+		m_PathMarkersRoot.SetActive(m_IsSelected);
+	}
+
+	public void SetMarkersVisible(bool _visible)
+	{
+		if (m_DestinationMarker != null)
+			m_DestinationMarker.SetActive(_visible);
+		if (m_PathMarkersRoot != null)
+			m_PathMarkersRoot.SetActive(_visible);
+	}
+
+	private void UpdatePathMarkers()
+	{
+		if (m_PathMarkers.Count == 0)
+			return;
+
+		if (Time.time < m_NextPathMarkerCheckTime)
+			return;
+
+		m_NextPathMarkerCheckTime = Time.time + 0.25f;
+
+		Vector3 pos = transform.position;
+		float passDistSqr = 1.2f * 1.2f;
+
+		for (int i = m_PathMarkers.Count - 1; i >= 0; i--)
+		{
+			GameObject marker = m_PathMarkers[i];
+			if (marker == null)
+			{
+				m_PathMarkers.RemoveAt(i);
+				continue;
+			}
+
+			Vector3 toMarker = marker.transform.position - pos;
+			toMarker.y = 0f;
+
+			if (toMarker.sqrMagnitude < passDistSqr)
+			{
+				Destroy(marker);
+				m_PathMarkers.RemoveAt(i);
+			}
+		}
+
+		if (m_PathMarkers.Count == 0 && m_PathMarkersRoot != null)
+		{
+			Destroy(m_PathMarkersRoot);
+			m_PathMarkersRoot = null;
+		}
+	}
+
+	private void ClearPathMarkers()
+	{
+		if (m_PathMarkersRoot != null)
+		{
+			Destroy(m_PathMarkersRoot);
+			m_PathMarkersRoot = null;
+		}
+
+		for (int i = 0; i < m_PathMarkers.Count; i++)
+		{
+			if (m_PathMarkers[i] != null)
+				Destroy(m_PathMarkers[i]);
+		}
+
+		m_PathMarkers.Clear();
+	}
+
+	private void ClearAllMarkers()
+	{
+		if (m_DestinationMarker != null)
+		{
+			Destroy(m_DestinationMarker);
+			m_DestinationMarker = null;
+			m_DestinationMarkerSetTime = -1f;
+		}
+
+		ClearPathMarkers();
+		m_HasWantedFacing = false;
+		m_IsRotatingToFacing = false;
 	}
 
 	public void SetReadyWanted(bool _ready)
@@ -219,6 +416,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_MagazineLoadingController?.StopLoading();
 			m_WeaponReloadController?.StopReload();
 			m_FireController?.StopFiring();
+
+			ClearAllMarkers();
 
 			if (m_ClickToMove != null)
 			{

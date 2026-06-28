@@ -141,6 +141,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Tooltip("За сколько метров до цели (поверх stopping distance) начинать снижать NavSpeed, чтобы клип остановки шёл во время замедления, а не после полной остановки.")]
 	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
 
+	[Header("Stopping")]
+	[Tooltip("Если от точки назначения осталось меньше этого расстояния и скорость почти ноль — принудительный стоп (чтобы юниты не толкались на финише).")]
+	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.5f;
+
 	[Header("Animator playback sync")]
 	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
 	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
@@ -383,6 +387,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_StanceMovementWasBlocked = stanceMovementBlocked;
 
+		if (!stanceMovementBlocked)
+			TryEarlyArrivalStop();
+
 		if (m_StanceSource != null)
 		{
 			LocomotionStance stance = m_StanceSource.CurrentStance;
@@ -481,6 +488,28 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		m_ReadyHands?.TryRestoreReadyAfterRun(false);
+	}
+
+	private void TryEarlyArrivalStop()
+	{
+		if (m_Agent == null || m_Agent.isStopped)
+			return;
+		if (m_Agent.pathPending)
+			return;
+		if (!m_Agent.hasPath)
+			return;
+		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
+			return;
+
+		if (m_Agent.remainingDistance > m_EarlyArrivalDistance + m_Agent.stoppingDistance)
+			return;
+
+		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		if (planarVel.magnitude > m_StopVelocityEpsilon)
+			return;
+
+		m_Agent.isStopped = true;
+		m_Agent.ResetPath();
 	}
 
 	private void TickPendingSingleRightClick()

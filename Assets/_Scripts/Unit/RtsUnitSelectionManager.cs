@@ -22,10 +22,23 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.25f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
-	[Header("Group Move Scatter")]
-	[SerializeField, Min(0f)] private float m_GroupMoveScatterRadius = 0.4f;
-	[SerializeField, Min(0f)] private float m_GroupMoveMinSeparation = 0.24f;
-	[SerializeField, Range(0f, 0.75f)] private float m_GroupMoveScatterJitter = 0.08f;
+	[Header("Group Move Formation")]
+	[Tooltip("Добавочные метры к диаметру агента (NavMeshAgent.radius * 2) для расстояния между юнитами в строю.")]
+	[SerializeField, Min(0f)] private float m_GroupMoveUnitPadding = 0.5f;
+	[Tooltip("Максимальный случайный сдвиг позиции юнита в формации для естественности.")]
+	[SerializeField, Range(0f, 0.5f)] private float m_GroupMoveFormationJitter = 0.10f;
+	[Header("Group Move Stagger")]
+	[Tooltip("Мин. задержка перед стартом следующего юнита (сек).")]
+	[SerializeField, Range(0f, 0.2f)] private float m_GroupMoveStaggerMin = 0.03f;
+	[Tooltip("Макс. задержка перед стартом следующего юнита (сек).")]
+	[SerializeField, Range(0f, 0.2f)] private float m_GroupMoveStaggerMax = 0.10f;
+
+	[Header("Destination Markers")]
+	[SerializeField] private GameObject m_DestinationMarkerPrefab;
+	[Tooltip("Маркер вдоль пути (каждые N метров).")]
+	[SerializeField] private GameObject m_PathMarkerPrefab;
+	[Tooltip("Интервал расстановки маркеров пути (метры).")]
+	[SerializeField, Min(0.5f)] private float m_PathMarkerInterval = 1f;
 
 	[Header("Inventory UI")]
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
@@ -42,6 +55,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_LeftMouseStartedOverUi;
 	private float m_LastRightClickTime = -1f;
 	private Coroutine m_ExchangeApproachCoroutine;
+	private Coroutine m_StaggerCoroutine;
+	private bool m_IsPreviewingMove;
+	private bool m_PreviewCancelled;
+	private bool m_PreviewPending;
+	private float m_PreviewPendingTime;
+	private Vector3 m_PreviewCenterPoint;
+	private List<Vector3> m_PreviewOffsets;
+	private readonly List<GameObject> m_PreviewMarkers = new List<GameObject>();
+	private Vector3 m_LastWalkCenter;
+	private List<Vector3> m_LastWalkOffsets;
+	private bool m_IsSettingFacing;
+	private List<float> m_PreviewFacingAngles;
+	private readonly List<GameObject> m_DirectionMarkers = new List<GameObject>();
 	private RtsUnitMember m_PendingExchangePlayerUnit;
 	private RtsUnitMember m_PendingExchangePartnerUnit;
 	private static RtsUnitSelectionManager s_Instance;
@@ -2278,12 +2304,58 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void HandleRightMouseCommand()
 	{
 		if (Mouse.current == null || m_SelectionCamera == null || m_SelectedUnits.Count == 0)
+		{
+			if (m_IsPreviewingMove || m_PreviewPending)
+				CancelMovePreview();
 			return;
-		if (!Mouse.current.rightButton.wasPressedThisFrame)
-			return;
+		}
 		if (IsPointerOverUi())
 			return;
 
+		bool wasPressed = Mouse.current.rightButton.wasPressedThisFrame;
+		bool wasReleased = Mouse.current.rightButton.wasReleasedThisFrame;
+
+		if (wasPressed)
+			HandleRightMouseDown();
+
+		if (wasReleased)
+			HandleRightMouseUp();
+
+		if (m_PreviewPending && !wasPressed && !wasReleased &&
+		    Time.time - m_PreviewPendingTime >= m_DoubleRightClickSeconds)
+			ShowPreviewMarkers();
+
+		if (m_IsPreviewingMove)
+		{
+			if (!Mouse.current.rightButton.isPressed)
+			{
+				CancelMovePreview();
+			}
+			else if (m_IsSettingFacing)
+			{
+				if (!IsAltHeld())
+					EndFacingMode();
+				else
+					UpdateFacingMode();
+			}
+			else
+			{
+				if (IsAltHeld() && !m_IsSettingFacing)
+					BeginFacingMode();
+				else
+					UpdateMovePreview();
+			}
+		}
+	}
+
+	private static bool IsAltHeld()
+	{
+		return Keyboard.current != null &&
+		       (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed);
+	}
+
+	private void HandleRightMouseDown()
+	{
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
 		FallenUnitInteractionMenuController menu = FallenUnitInteractionMenuController.Instance;
 		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
@@ -2310,15 +2382,241 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
 			return;
 
-		bool doubleRightClick = m_LastRightClickTime >= 0f &&
-		                        Time.time - m_LastRightClickTime <= m_DoubleRightClickSeconds;
+		if (m_LastRightClickTime >= 0f &&
+		    Time.time - m_LastRightClickTime <= m_DoubleRightClickSeconds)
+		{
+			m_LastRightClickTime = -1f;
+			if (m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0)
+				IssueScatteredMoveOrder(m_LastWalkCenter, UnitClickToMove.MoveTier.Run, m_LastWalkOffsets);
+			else
+				IssueScatteredMoveOrder(hit.point, UnitClickToMove.MoveTier.Run);
+			return;
+		}
+
+		ClearPreviewMarkers();
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (validUnits.Count == 0)
+			return;
+
+		m_PreviewPending = true;
+		m_PreviewPendingTime = Time.time;
+		m_PreviewCancelled = false;
+		m_PreviewCenterPoint = hit.point;
+
+		if (validUnits.Count == 1)
+			m_PreviewOffsets = new List<Vector3> { Vector3.zero };
+		else
+			m_PreviewOffsets = BuildFormationOffsets(validUnits, hit.point);
+	}
+
+	private void ShowPreviewMarkers()
+	{
+		m_PreviewPending = false;
+
+		if (m_PreviewCancelled || m_PreviewOffsets == null)
+			return;
+
+		m_IsPreviewingMove = true;
+
+		for (int i = 0; i < m_PreviewOffsets.Count; i++)
+		{
+			GameObject marker = CreateDestinationMarker(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+			if (marker != null)
+				m_PreviewMarkers.Add(marker);
+		}
+	}
+
+	private void UpdateMovePreview()
+	{
+		if (m_PreviewCancelled)
+			return;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return;
+
+		Vector3 delta = hit.point - m_PreviewCenterPoint;
+		delta.y = 0f;
+		if (delta.sqrMagnitude < 0.01f)
+			return;
+
+		m_PreviewCenterPoint = hit.point;
+
+		for (int i = 0; i < m_PreviewMarkers.Count && i < m_PreviewOffsets.Count; i++)
+		{
+			if (m_PreviewMarkers[i] != null)
+				m_PreviewMarkers[i].transform.position = m_PreviewCenterPoint + m_PreviewOffsets[i];
+		}
+	}
+
+	private void BeginFacingMode()
+	{
+		if (m_PreviewOffsets == null || m_PreviewOffsets.Count == 0)
+			return;
+
+		m_IsSettingFacing = true;
+
+		int count = m_PreviewOffsets.Count;
+		m_PreviewFacingAngles = new List<float>(count);
+		for (int i = 0; i < count; i++)
+			m_PreviewFacingAngles.Add(0f);
+
+		for (int i = 0; i < count; i++)
+		{
+			GameObject dirMarker = CreatePathMarker(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+			if (dirMarker != null)
+				m_DirectionMarkers.Add(dirMarker);
+		}
+
+		UpdateFacingMode();
+	}
+
+	private void UpdateFacingMode()
+	{
+		if (m_PreviewOffsets == null || m_PreviewFacingAngles == null)
+			return;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return;
+
+		int count = Mathf.Min(m_PreviewOffsets.Count, m_DirectionMarkers.Count);
+		for (int i = 0; i < count; i++)
+		{
+			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[i];
+			Vector3 toCursor = hit.point - dest;
+			toCursor.y = 0f;
+
+			float angle = toCursor.sqrMagnitude > 0.01f
+				? Mathf.Atan2(toCursor.x, toCursor.z) * Mathf.Rad2Deg
+				: 0f;
+
+			m_PreviewFacingAngles[i] = angle;
+
+			if (m_DirectionMarkers[i] != null)
+			{
+				Vector3 dir = toCursor.sqrMagnitude > 0.01f
+					? toCursor.normalized
+					: Vector3.forward;
+
+				m_DirectionMarkers[i].transform.position = dest + dir * 1f;
+			}
+		}
+	}
+
+	private void EndFacingMode()
+	{
+		m_IsSettingFacing = false;
+
+		for (int i = 0; i < m_DirectionMarkers.Count; i++)
+		{
+			if (m_DirectionMarkers[i] != null)
+				Destroy(m_DirectionMarkers[i]);
+		}
+		m_DirectionMarkers.Clear();
+	}
+
+	private void HandleRightMouseUp()
+	{
+		bool wasPending = m_PreviewPending;
+		m_PreviewPending = false;
+		m_IsPreviewingMove = false;
+
 		m_LastRightClickTime = Time.time;
 
-		UnitClickToMove.MoveTier moveTier = doubleRightClick
-			? UnitClickToMove.MoveTier.Run
-			: UnitClickToMove.MoveTier.Walk;
+		List<Vector3> offsets = m_PreviewOffsets;
+		Vector3 center = m_PreviewCenterPoint;
+		bool cancelled = m_PreviewCancelled;
+		List<float> facingAngles = m_PreviewFacingAngles;
 
-		IssueScatteredMoveOrder(hit.point, moveTier);
+		ClearPreviewMarkers();
+
+		if (cancelled)
+			return;
+
+		if (offsets == null || offsets.Count == 0)
+			return;
+
+		m_LastWalkCenter = center;
+		m_LastWalkOffsets = new List<Vector3>(offsets);
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (validUnits.Count == 0)
+			return;
+
+		for (int i = 0; i < validUnits.Count && i < offsets.Count; i++)
+		{
+			Vector3 destination = center + offsets[i];
+			GameObject marker = CreateDestinationMarker(destination);
+			validUnits[i].SetDestinationMarker(marker);
+		}
+
+		if (facingAngles != null && facingAngles.Count > 0)
+		{
+			for (int i = 0; i < validUnits.Count && i < facingAngles.Count; i++)
+				validUnits[i].SetWantedFacingAngle(facingAngles[i]);
+		}
+
+		bool needStagger = m_GroupMoveStaggerMax > 0f && validUnits.Count > 1;
+
+		if (needStagger)
+		{
+			m_StaggerCoroutine = StartCoroutine(
+				StaggeredMoveOrdersRoutine(validUnits, offsets, center, UnitClickToMove.MoveTier.Walk));
+		}
+		else
+		{
+			for (int i = 0; i < validUnits.Count && i < offsets.Count; i++)
+				validUnits[i].IssueMoveOrder(center + offsets[i], UnitClickToMove.MoveTier.Walk);
+
+			if (m_PathMarkerPrefab != null)
+				StartCoroutine(BuildPathMarkersRoutine(validUnits));
+		}
+	}
+
+	private void CancelMovePreview()
+	{
+		if (!m_IsPreviewingMove && !m_PreviewPending)
+			return;
+
+		m_PreviewPending = false;
+		m_IsPreviewingMove = false;
+		m_PreviewCancelled = true;
+		ClearPreviewMarkers();
+	}
+
+	private void ClearPreviewMarkers()
+	{
+		for (int i = 0; i < m_PreviewMarkers.Count; i++)
+		{
+			if (m_PreviewMarkers[i] != null)
+				Destroy(m_PreviewMarkers[i]);
+		}
+		m_PreviewMarkers.Clear();
+
+		for (int i = 0; i < m_DirectionMarkers.Count; i++)
+		{
+			if (m_DirectionMarkers[i] != null)
+				Destroy(m_DirectionMarkers[i]);
+		}
+		m_DirectionMarkers.Clear();
+
+		m_IsSettingFacing = false;
+		m_PreviewFacingAngles = null;
+		m_PreviewOffsets = null;
+	}
+
+	private List<RtsUnitMember> GetValidSelectedUnits()
+	{
+		List<RtsUnitMember> validUnits = new List<RtsUnitMember>(m_SelectedUnits.Count);
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit != null)
+				validUnits.Add(unit);
+		}
+		return validUnits;
 	}
 
 	private bool TryRaycastAnyUnit(Ray _ray, out RaycastHit _hit)
@@ -2337,7 +2635,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Keyboard.current.fKey.wasPressedThisFrame)
 		{
-			CommandSelectedHardStop();
+			if (m_IsPreviewingMove)
+				CancelMovePreview();
+			else
+				CommandSelectedHardStop();
 			return;
 		}
 
@@ -2409,6 +2710,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CommandSelectedHardStop()
 	{
+		if (m_StaggerCoroutine != null)
+		{
+			StopCoroutine(m_StaggerCoroutine);
+			m_StaggerCoroutine = null;
+		}
+
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
@@ -2467,50 +2774,212 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
-	private void IssueScatteredMoveOrder(Vector3 _centerPoint, UnitClickToMove.MoveTier _moveTier)
+	private void IssueScatteredMoveOrder(Vector3 _centerPoint, UnitClickToMove.MoveTier _moveTier,
+		List<Vector3> _prebuiltOffsets = null)
 	{
-		List<RtsUnitMember> validUnits = new List<RtsUnitMember>(m_SelectedUnits.Count);
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit != null)
-				validUnits.Add(unit);
-		}
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 
 		if (validUnits.Count == 0)
 			return;
 
 		if (validUnits.Count == 1)
 		{
+			GameObject marker = CreateDestinationMarker(_centerPoint);
+			validUnits[0].SetDestinationMarker(marker);
 			validUnits[0].IssueMoveOrder(_centerPoint, _moveTier);
+
+			if (m_PathMarkerPrefab != null)
+				StartCoroutine(BuildPathMarkersRoutine(validUnits));
+
 			return;
 		}
 
-		List<Vector3> offsets = new List<Vector3>(validUnits.Count)
-		{
-			Vector3.zero
-		};
+		List<Vector3> offsets = _prebuiltOffsets ?? BuildFormationOffsets(validUnits, _centerPoint);
 
-		float effectiveRadius = Mathf.Max(
-			m_GroupMoveScatterRadius,
-			m_GroupMoveMinSeparation * 0.45f * Mathf.Sqrt(validUnits.Count));
-		float candidateRadius = effectiveRadius * (1f + m_GroupMoveScatterJitter);
-		float minSeparation = Mathf.Max(0.12f, m_GroupMoveMinSeparation);
-
-		for (int i = 1; i < validUnits.Count; i++)
+		for (int i = 0; i < validUnits.Count; i++)
 		{
-			Vector3 chosenOffset = Vector3.zero;
+			Vector3 destination = _centerPoint + offsets[i];
+			GameObject marker = CreateDestinationMarker(destination);
+			validUnits[i].SetDestinationMarker(marker);
+		}
+
+		if (m_GroupMoveStaggerMax <= 0f)
+		{
+			for (int i = 0; i < validUnits.Count; i++)
+				validUnits[i].IssueMoveOrder(_centerPoint + offsets[i], _moveTier);
+
+			if (m_PathMarkerPrefab != null)
+				StartCoroutine(BuildPathMarkersRoutine(validUnits));
+		}
+		else
+		{
+			m_StaggerCoroutine = StartCoroutine(StaggeredMoveOrdersRoutine(validUnits, offsets, _centerPoint, _moveTier));
+		}
+	}
+
+	private System.Collections.IEnumerator StaggeredMoveOrdersRoutine(
+		List<RtsUnitMember> _units, List<Vector3> _offsets,
+		Vector3 _centerPoint, UnitClickToMove.MoveTier _moveTier)
+	{
+		float minDelay = Mathf.Max(0f, m_GroupMoveStaggerMin);
+		float maxDelay = Mathf.Max(minDelay, m_GroupMoveStaggerMax);
+
+		for (int i = 0; i < _units.Count; i++)
+		{
+			if (_units[i] != null)
+				_units[i].IssueMoveOrder(_centerPoint + _offsets[i], _moveTier);
+
+			if (i < _units.Count - 1)
+				yield return new WaitForSeconds(Random.Range(minDelay, maxDelay));
+		}
+
+		if (m_PathMarkerPrefab != null)
+			yield return BuildPathMarkersRoutine(_units);
+
+		m_StaggerCoroutine = null;
+	}
+
+	private System.Collections.IEnumerator BuildPathMarkersRoutine(List<RtsUnitMember> _units)
+	{
+		for (int frame = 0; frame < 6; frame++)
+			yield return null;
+
+		for (int i = 0; i < _units.Count; i++)
+		{
+			RtsUnitMember unit = _units[i];
+			if (unit == null)
+				continue;
+
+			List<Vector3> pathPoints = SampleAgentPath(unit);
+			if (pathPoints != null && pathPoints.Count > 0)
+				unit.SetPathMarkers(pathPoints, m_PathMarkerPrefab);
+		}
+	}
+
+	private List<Vector3> SampleAgentPath(RtsUnitMember _unit)
+	{
+		UnityEngine.AI.NavMeshAgent agent = _unit.GetComponent<UnityEngine.AI.NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh || agent.pathPending)
+			return null;
+
+		UnityEngine.AI.NavMeshPath path = agent.path;
+		if (path == null)
+			return null;
+
+		Vector3[] corners = path.corners;
+		if (corners == null || corners.Length < 2)
+			return null;
+
+		List<Vector3> points = new List<Vector3>();
+		float interval = Mathf.Max(0.5f, m_PathMarkerInterval);
+		float nextDist = interval;
+		float accumulated = 0f;
+		Vector3 destination = corners[corners.Length - 1];
+		destination.y = 0f;
+
+		for (int i = 0; i < corners.Length - 1; i++)
+		{
+			Vector3 a = corners[i];
+			Vector3 b = corners[i + 1];
+			Vector3 ab = b - a;
+			ab.y = 0f;
+			float segLen = ab.magnitude;
+
+			if (segLen < 0.001f)
+				continue;
+
+			Vector3 dir = ab / segLen;
+
+			while (accumulated + segLen >= nextDist - 0.001f)
+			{
+				float t = nextDist - accumulated;
+				if (t < 0f) t = 0f;
+				Vector3 pt = a + dir * t;
+				pt.y = corners[i].y;
+				points.Add(pt);
+				nextDist += interval;
+			}
+
+			accumulated += segLen;
+		}
+
+		float destSkipDist = m_PathMarkerInterval * 0.6f;
+		float destSkipDistSqr = destSkipDist * destSkipDist;
+		for (int i = points.Count - 1; i >= 0; i--)
+		{
+			Vector3 d = points[i] - destination;
+			d.y = 0f;
+			if (d.sqrMagnitude < destSkipDistSqr)
+				points.RemoveAt(i);
+		}
+
+		return points;
+	}
+
+	private List<Vector3> BuildFormationOffsets(List<RtsUnitMember> _units, Vector3 _centerPoint)
+	{
+		int count = _units.Count;
+
+		float agentRadius = 0.5f;
+		for (int i = 0; i < count; i++)
+		{
+			UnityEngine.AI.NavMeshAgent agent = _units[i].GetComponent<UnityEngine.AI.NavMeshAgent>();
+			if (agent != null)
+			{
+				agentRadius = agent.radius;
+				break;
+			}
+		}
+
+		float spacing = agentRadius * 2f + m_GroupMoveUnitPadding;
+		float minSeparation = agentRadius * 2f + Mathf.Max(0.1f, m_GroupMoveUnitPadding * 0.5f);
+		float jitter = Mathf.Min(m_GroupMoveFormationJitter, spacing * 0.3f);
+
+		Vector3 avgUnitPos = Vector3.zero;
+		for (int i = 0; i < count; i++)
+		{
+			RtsUnitMember unit = _units[i];
+			if (unit != null)
+				avgUnitPos += unit.transform.position;
+		}
+		avgUnitPos /= count;
+
+		Vector3 toTarget = _centerPoint - avgUnitPos;
+		toTarget.y = 0f;
+
+		Vector3 formationForward;
+		if (toTarget.sqrMagnitude > 0.01f)
+			formationForward = toTarget.normalized;
+		else
+			formationForward = Vector3.forward;
+
+		// --- sort units by distance to target ---
+		List<UnitDistEntry> unitEntries = new List<UnitDistEntry>(count);
+		for (int i = 0; i < count; i++)
+		{
+			Vector3 toUnit = _units[i].transform.position - _centerPoint;
+			toUnit.y = 0f;
+			unitEntries.Add(new UnitDistEntry { Index = i, SqrDist = toUnit.sqrMagnitude });
+		}
+		unitEntries.Sort((a, b) => a.SqrDist.CompareTo(b.SqrDist));
+
+		// --- generate random positions with min separation ---
+		float scatterRadius = Mathf.Max(spacing, spacing * 0.6f * Mathf.Sqrt(count));
+		List<Vector3> positions = new List<Vector3>(count);
+
+		for (int i = 0; i < count; i++)
+		{
 			bool found = false;
 
-			for (int attempt = 0; attempt < 18; attempt++)
+			for (int attempt = 0; attempt < 24; attempt++)
 			{
-				Vector2 candidate2D = Random.insideUnitCircle * candidateRadius;
-				Vector3 candidate = new Vector3(candidate2D.x, 0f, candidate2D.y);
-				bool overlaps = false;
+				Vector2 c = Random.insideUnitCircle * scatterRadius;
+				Vector3 candidate = new Vector3(c.x, 0f, c.y);
 
-				for (int placedIndex = 0; placedIndex < offsets.Count; placedIndex++)
+				bool overlaps = false;
+				for (int p = 0; p < positions.Count; p++)
 				{
-					if ((offsets[placedIndex] - candidate).sqrMagnitude < minSeparation * minSeparation)
+					if ((positions[p] - candidate).sqrMagnitude < minSeparation * minSeparation)
 					{
 						overlaps = true;
 						break;
@@ -2520,23 +2989,84 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				if (overlaps)
 					continue;
 
-				chosenOffset = candidate;
+				positions.Add(candidate);
 				found = true;
 				break;
 			}
 
 			if (!found)
 			{
-				float angleRadians = Random.Range(0f, Mathf.PI * 2f);
-				float radius = Mathf.Min(candidateRadius, minSeparation * 0.9f + i * 0.03f);
-				chosenOffset = new Vector3(Mathf.Cos(angleRadians), 0f, Mathf.Sin(angleRadians)) * radius;
+				float angle = (float)i / count * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
+				float radius = scatterRadius * (0.5f + 0.5f * (float)i / count);
+				positions.Add(new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius));
 			}
-
-			offsets.Add(chosenOffset);
 		}
 
-		for (int i = 0; i < validUnits.Count; i++)
-			validUnits[i].IssueMoveOrder(_centerPoint + offsets[i], _moveTier);
+		// --- sort positions by depth along formationForward ---
+		List<PosDepthEntry> posEntries = new List<PosDepthEntry>(count);
+		for (int i = 0; i < count; i++)
+			posEntries.Add(new PosDepthEntry { Position = positions[i], Depth = Vector3.Dot(positions[i], formationForward) });
+		posEntries.Sort((a, b) => a.Depth.CompareTo(b.Depth));
+
+		// --- assign: closest unit → rear pos (index 0), furthest unit → front pos (index count-1) ---
+		Vector3[] offsets = new Vector3[count];
+		for (int i = 0; i < count; i++)
+		{
+			int unitOriginalIndex = unitEntries[i].Index;
+			offsets[unitOriginalIndex] = posEntries[count - 1 - i].Position;
+		}
+
+		// --- apply jitter ---
+		if (jitter > 0.0001f)
+		{
+			for (int i = 0; i < count; i++)
+			{
+				offsets[i].x += Random.Range(-jitter, jitter);
+				offsets[i].z += Random.Range(-jitter, jitter);
+			}
+		}
+
+		return new List<Vector3>(offsets);
+	}
+
+	private struct UnitDistEntry
+	{
+		public int Index;
+		public float SqrDist;
+	}
+
+	private struct PosDepthEntry
+	{
+		public Vector3 Position;
+		public float Depth;
+	}
+
+	private GameObject CreateDestinationMarker(Vector3 _worldPosition)
+	{
+		GameObject prefab = m_DestinationMarkerPrefab;
+		if (prefab == null)
+			prefab = m_PathMarkerPrefab;
+
+		if (prefab == null)
+			return null;
+
+		GameObject markerGo = Instantiate(prefab, _worldPosition, Quaternion.identity);
+		markerGo.name = "DestinationMarker";
+
+		if (markerGo.GetComponent<DestinationMarker>() == null)
+			markerGo.AddComponent<DestinationMarker>();
+
+		return markerGo;
+	}
+
+	private GameObject CreatePathMarker(Vector3 _worldPosition)
+	{
+		if (m_PathMarkerPrefab == null)
+			return null;
+
+		GameObject markerGo = Instantiate(m_PathMarkerPrefab, _worldPosition, Quaternion.identity);
+		markerGo.name = "DirectionMarker";
+		return markerGo;
 	}
 
 	private LocomotionStance GetNextZTargetStance()

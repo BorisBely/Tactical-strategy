@@ -103,6 +103,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Range(0f, 0.25f)] private float m_StartNavSpeedFloorMaxLeadOverVelocity = 0.1f;
 	[SerializeField, Min(0f)] private float m_BrakeAnimLeadDistance = 0.9f;
 
+	[Header("Stopping")]
+	[Tooltip("Если от точки назначения осталось меньше этого расстояния и скорость почти ноль — принудительный стоп.")]
+	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.5f;
+
 	[Header("Animator playback sync")]
 	[Tooltip("Множитель Animator.speed ≈ (скорость тела / NavSpeed в blend tree). Компонент RtsUnitMember умножает свой вариационный speed на это значение.")]
 	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
@@ -255,6 +259,28 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
+
+	private void TryEarlyArrivalStop()
+	{
+		if (!IsNavAgentOperational() || m_Agent.isStopped)
+			return;
+		if (m_Agent.pathPending)
+			return;
+		if (!m_Agent.hasPath)
+			return;
+		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
+			return;
+
+		if (m_Agent.remainingDistance > m_EarlyArrivalDistance + m_Agent.stoppingDistance)
+			return;
+
+		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		if (planarVel.magnitude > m_StopVelocityEpsilon)
+			return;
+
+		m_Agent.isStopped = true;
+		m_Agent.ResetPath();
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -329,6 +355,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_Agent.isStopped = false;
 
 		m_StanceMovementWasBlocked = stanceMovementBlocked;
+
+		if (!stanceMovementBlocked)
+			TryEarlyArrivalStop();
+
 		UpdateMoveTierForStanceChanges();
 		UpdateAgentSpeedToTarget();
 		UpdateFacing();
