@@ -39,20 +39,31 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private float m_RuntimeMoveAnimatorSpeed = 1f;
 	[SerializeField] private bool m_IsSelected;
 
+	private static Material s_PathLineMaterial;
 	private static readonly List<RtsUnitMember> s_Instances = new List<RtsUnitMember>(128);
 	private Coroutine m_PendingCommandCoroutine;
 	private int m_PendingCommandVersion;
 	private UnitRosterDisplayState m_RosterDisplay;
 	private Transform m_CachedCameraTransform;
-	private GameObject m_DestinationMarker;
-	private GameObject m_PathMarkersRoot;
-	private readonly List<GameObject> m_PathMarkers = new List<GameObject>();
-	private float m_NextPathMarkerCheckTime;
-	private float m_DestinationMarkerSetTime = -1f;
+	private LineRenderer m_PathLine;
+	private bool m_HasActiveDestination;
+	private float m_DestinationSetTime = -1f;
 	private bool m_HasWantedFacing;
 	private float m_WantedFacingAngle;
 	private bool m_IsRotatingToFacing;
 	private float m_FacingRotateVelocity;
+	private bool m_FacingSuppressedReady;
+	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
+	private float m_NextWaypointCheckTime;
+
+	private struct QueuedCommand
+	{
+		public Vector3 Destination;
+		public UnitClickToMove.MoveTier MoveTier;
+		public float FacingAngle;
+	}
+
+	private readonly Queue<QueuedCommand> m_CommandQueue = new Queue<QueuedCommand>();
 	#endregion
 
 	#region Public Properties
@@ -61,6 +72,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public bool IsSelected => m_IsSelected;
 	public bool IsPlayerSelectable => m_Team != null && m_Team.Team == UnitTeamId.Player;
 	public bool WantsReady => m_ReadyHands != null && m_ReadyHands.WantsReady;
+	public bool HasQueuedCommands => m_CommandQueue.Count > 0;
+	public bool HasActiveDestination => m_HasActiveDestination;
 	#endregion
 
 	#region Unity Lifecycle
@@ -101,6 +114,49 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (m_DisableDirectInputForRts)
 			ApplyDirectInputState(false);
+
+		CreatePathLine();
+	}
+
+	private void CreatePathLine()
+	{
+		if (s_PathLineMaterial == null)
+		{
+			s_PathLineMaterial = new Material(Shader.Find("Sprites/Default"));
+			s_PathLineMaterial.hideFlags = HideFlags.HideAndDontSave;
+		}
+
+		GameObject lineGo = new GameObject("PathLine");
+		lineGo.transform.SetParent(transform, false);
+		m_PathLine = lineGo.AddComponent<LineRenderer>();
+		m_PathLine.positionCount = 0;
+		m_PathLine.startWidth = 0.06f;
+		m_PathLine.endWidth = 0.06f;
+		m_PathLine.sharedMaterial = s_PathLineMaterial;
+		m_PathLine.startColor = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+		m_PathLine.endColor = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+		m_PathLine.enabled = false;
+	}
+
+	private void RebuildPathLine()
+	{
+		if (m_PathLine == null)
+			return;
+
+		if (m_Waypoints.Count == 0)
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
+			return;
+		}
+
+		int count = 1 + m_Waypoints.Count;
+		m_PathLine.positionCount = count;
+		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
+		for (int i = 0; i < m_Waypoints.Count; i++)
+			m_PathLine.SetPosition(i + 1, m_Waypoints[i] + Vector3.up * 0.03f);
+
+		m_PathLine.enabled = m_IsSelected;
 	}
 
 	private void OnEnable()
@@ -114,19 +170,59 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void OnDisable()
 	{
 		CancelPendingCommand();
+		ClearWaypoints();
 		ResetAnimatorSpeed();
 		s_Instances.Remove(this);
 		SetSelected(false);
-		ClearAllMarkers();
 	}
 
 	private void Update()
 	{
 		ApplyAnimatorSpeedVariation();
 		UpdateSelectionLabelBillboard();
-		UpdatePathMarkers();
-		TryRemoveArrivedDestinationMarker();
+		UpdatePathLinePosition();
+		TryRemoveArrivedDestination();
+		TryAdvanceWaypointEarly();
 		UpdateFacingRotation();
+	}
+
+	private void TryAdvanceWaypointEarly()
+	{
+		if (!m_HasActiveDestination)
+			return;
+		if (m_CommandQueue.Count == 0)
+			return;
+		if (m_IsRotatingToFacing)
+			return;
+
+		if (Time.time < m_NextWaypointCheckTime)
+			return;
+		m_NextWaypointCheckTime = Time.time + 0.2f;
+
+		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.3f)
+			return;
+
+		UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh || agent.pathPending)
+			return;
+		if (!agent.hasPath)
+			return;
+
+		if (agent.remainingDistance > 0.5f)
+			return;
+
+		if (m_Waypoints.Count > 0)
+			m_Waypoints.RemoveAt(0);
+		RebuildPathLine();
+		DequeueAndExecuteNextCommand();
+	}
+
+	private void UpdatePathLinePosition()
+	{
+		if (m_PathLine == null || !m_PathLine.enabled || m_PathLine.positionCount < 2)
+			return;
+
+		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
 	}
 
 	private void UpdateFacingRotation()
@@ -140,10 +236,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 		Quaternion targetRot = Quaternion.Euler(0f, m_WantedFacingAngle, 0f);
 		float angle = Quaternion.Angle(transform.rotation, targetRot);
 
+		HandleFacingTurnReady(angle);
+
 		if (angle < 0.5f)
 		{
 			transform.rotation = targetRot;
 			m_IsRotatingToFacing = false;
+			if (m_FacingSuppressedReady)
+			{
+				m_ReadyHands?.SetReadyWanted(true);
+				m_FacingSuppressedReady = false;
+			}
+
+			DequeueAndExecuteNextCommand();
 			return;
 		}
 
@@ -158,12 +263,33 @@ public sealed class RtsUnitMember : MonoBehaviour
 		transform.rotation = Quaternion.Euler(0f, smoothAngle, 0f);
 	}
 
-	private void TryRemoveArrivedDestinationMarker()
+	private void HandleFacingTurnReady(float _angleDegrees)
 	{
-		if (m_DestinationMarker == null)
+		if (m_ReadyHands == null)
 			return;
 
-		if (m_DestinationMarkerSetTime >= 0f && Time.time - m_DestinationMarkerSetTime < 0.5f)
+		if (_angleDegrees > 90f)
+		{
+			if (!m_FacingSuppressedReady)
+			{
+				if (m_ReadyHands.IsWeaponEquipped() && m_ReadyHands.WantsReady)
+					m_ReadyHands.SetReadyWanted(false);
+				m_FacingSuppressedReady = true;
+			}
+		}
+		else if (_angleDegrees < 20f && m_FacingSuppressedReady)
+		{
+			m_ReadyHands.SetReadyWanted(true);
+			m_FacingSuppressedReady = false;
+		}
+	}
+
+	private void TryRemoveArrivedDestination()
+	{
+		if (!m_HasActiveDestination)
+			return;
+
+		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.5f)
 			return;
 
 		UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
@@ -183,11 +309,24 @@ public sealed class RtsUnitMember : MonoBehaviour
 		{
 			m_IsRotatingToFacing = true;
 			m_FacingRotateVelocity = 0f;
+			m_FacingSuppressedReady = false;
 			m_HasWantedFacing = false;
 		}
 
-		Destroy(m_DestinationMarker);
-		m_DestinationMarker = null;
+		if (!m_IsRotatingToFacing)
+		{
+			if (m_Waypoints.Count > 0)
+				m_Waypoints.RemoveAt(0);
+			m_HasActiveDestination = false;
+			RebuildPathLine();
+			DequeueAndExecuteNextCommand();
+		}
+
+		if (!m_HasActiveDestination && m_Waypoints.Count == 0)
+		{
+			if (m_PathLine != null)
+				m_PathLine.enabled = false;
+		}
 	}
 	#endregion
 
@@ -205,7 +344,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			RefreshSelectionNameLabel();
 		}
 
-		SetMarkersVisible(_selected);
+		if (m_PathLine != null)
+			m_PathLine.enabled = _selected && m_PathLine.positionCount >= 2;
 
 		if (m_SelectionNameLabelRoot != null)
 			m_SelectionNameLabelRoot.SetActive(_selected);
@@ -251,124 +391,62 @@ public sealed class RtsUnitMember : MonoBehaviour
 		});
 	}
 
-	public void SetDestinationMarker(GameObject _marker)
+	public void SetPreviewLine(Vector3 _dest)
 	{
-		ClearPathMarkers();
+		if (m_PathLine == null)
+			return;
 
-		if (m_DestinationMarker != null)
-			Destroy(m_DestinationMarker);
+		m_PathLine.positionCount = 2;
+		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
+		m_PathLine.SetPosition(1, _dest + Vector3.up * 0.03f);
+		m_PathLine.enabled = m_IsSelected;
+	}
 
-		m_DestinationMarker = _marker;
+	public void SetDestinationDirect(Vector3 _dest)
+	{
+		m_Waypoints.Clear();
+		m_Waypoints.Add(_dest);
+		RebuildPathLine();
+		m_HasActiveDestination = true;
+		m_DestinationSetTime = Time.time;
 		m_IsRotatingToFacing = false;
+	}
 
-		if (m_DestinationMarker != null)
+	public void EnqueueWaypoint(Vector3 _dest, UnitClickToMove.MoveTier _tier, float? _facing)
+	{
+		m_Waypoints.Add(_dest);
+
+		var cmd = new QueuedCommand
 		{
-			m_DestinationMarker.SetActive(m_IsSelected);
-			m_DestinationMarkerSetTime = Time.time;
+			Destination = _dest,
+			MoveTier = _tier,
+			FacingAngle = _facing ?? float.NaN,
+		};
+		m_CommandQueue.Enqueue(cmd);
+
+		RebuildPathLine();
+
+		bool isIdle = !m_HasActiveDestination && !m_IsRotatingToFacing;
+		if (m_Waypoints.Count == 1 && isIdle)
+			DequeueAndExecuteNextCommand();
+	}
+
+	public void ClearWaypoints()
+	{
+		m_CommandQueue.Clear();
+		m_Waypoints.Clear();
+		if (m_PathLine != null)
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
 		}
+		m_HasActiveDestination = false;
 	}
 
 	public void SetWantedFacingAngle(float _angle)
 	{
 		m_HasWantedFacing = true;
 		m_WantedFacingAngle = _angle;
-		m_IsRotatingToFacing = false;
-	}
-
-	public void SetPathMarkers(List<Vector3> _points, GameObject _markerPrefab)
-	{
-		ClearPathMarkers();
-
-		if (_points == null || _points.Count == 0 || _markerPrefab == null)
-			return;
-
-		m_PathMarkersRoot = new GameObject("PathMarkers");
-
-		for (int i = 0; i < _points.Count; i++)
-		{
-			GameObject marker = Instantiate(_markerPrefab, _points[i], Quaternion.identity, m_PathMarkersRoot.transform);
-			marker.name = "PathMarker";
-			m_PathMarkers.Add(marker);
-		}
-
-		m_PathMarkersRoot.SetActive(m_IsSelected);
-	}
-
-	public void SetMarkersVisible(bool _visible)
-	{
-		if (m_DestinationMarker != null)
-			m_DestinationMarker.SetActive(_visible);
-		if (m_PathMarkersRoot != null)
-			m_PathMarkersRoot.SetActive(_visible);
-	}
-
-	private void UpdatePathMarkers()
-	{
-		if (m_PathMarkers.Count == 0)
-			return;
-
-		if (Time.time < m_NextPathMarkerCheckTime)
-			return;
-
-		m_NextPathMarkerCheckTime = Time.time + 0.25f;
-
-		Vector3 pos = transform.position;
-		float passDistSqr = 1.2f * 1.2f;
-
-		for (int i = m_PathMarkers.Count - 1; i >= 0; i--)
-		{
-			GameObject marker = m_PathMarkers[i];
-			if (marker == null)
-			{
-				m_PathMarkers.RemoveAt(i);
-				continue;
-			}
-
-			Vector3 toMarker = marker.transform.position - pos;
-			toMarker.y = 0f;
-
-			if (toMarker.sqrMagnitude < passDistSqr)
-			{
-				Destroy(marker);
-				m_PathMarkers.RemoveAt(i);
-			}
-		}
-
-		if (m_PathMarkers.Count == 0 && m_PathMarkersRoot != null)
-		{
-			Destroy(m_PathMarkersRoot);
-			m_PathMarkersRoot = null;
-		}
-	}
-
-	private void ClearPathMarkers()
-	{
-		if (m_PathMarkersRoot != null)
-		{
-			Destroy(m_PathMarkersRoot);
-			m_PathMarkersRoot = null;
-		}
-
-		for (int i = 0; i < m_PathMarkers.Count; i++)
-		{
-			if (m_PathMarkers[i] != null)
-				Destroy(m_PathMarkers[i]);
-		}
-
-		m_PathMarkers.Clear();
-	}
-
-	private void ClearAllMarkers()
-	{
-		if (m_DestinationMarker != null)
-		{
-			Destroy(m_DestinationMarker);
-			m_DestinationMarker = null;
-			m_DestinationMarkerSetTime = -1f;
-		}
-
-		ClearPathMarkers();
-		m_HasWantedFacing = false;
 		m_IsRotatingToFacing = false;
 	}
 
@@ -417,7 +495,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_WeaponReloadController?.StopReload();
 			m_FireController?.StopFiring();
 
-			ClearAllMarkers();
+			ClearWaypoints();
 
 			if (m_ClickToMove != null)
 			{
@@ -590,6 +668,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_ReadyHands != null)
 			m_ReadyHands.SetKeyboardInputEnabled(_enabled);
 	}
+
+	public void ClearCommandQueue()
+	{
+		m_CommandQueue.Clear();
+	}
+
 	#endregion
 
 	#region Private Methods
@@ -615,6 +699,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_FiremanCarryController = GetComponent<UnitFiremanCarryController>();
 
 		return m_FiremanCarryController;
+	}
+
+	private void DequeueAndExecuteNextCommand()
+	{
+		if (m_CommandQueue.Count == 0)
+			return;
+
+		QueuedCommand cmd = m_CommandQueue.Dequeue();
+
+		if (!float.IsNaN(cmd.FacingAngle))
+			SetWantedFacingAngle(cmd.FacingAngle);
+		IssueMoveOrder(cmd.Destination, cmd.MoveTier);
+		m_HasActiveDestination = true;
+		m_DestinationSetTime = Time.time;
 	}
 
 	private void ScheduleRtsCommand(Action _command)

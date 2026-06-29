@@ -19,7 +19,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField] private LayerMask m_CommandGroundMask = ~0;
 	[SerializeField] private bool m_BlockPointerOverUi = true;
 	[SerializeField, Min(2f)] private float m_BoxSelectionMinDragPixels = 12f;
-	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.25f;
+	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.18f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
 	[Header("Group Move Formation")]
@@ -62,11 +62,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private float m_PreviewPendingTime;
 	private Vector3 m_PreviewCenterPoint;
 	private List<Vector3> m_PreviewOffsets;
-	private readonly List<GameObject> m_PreviewMarkers = new List<GameObject>();
 	private Vector3 m_LastWalkCenter;
 	private List<Vector3> m_LastWalkOffsets;
 	private bool m_IsSettingFacing;
 	private List<float> m_PreviewFacingAngles;
+	private Coroutine m_PendingWalkCoroutine;
 	private readonly List<GameObject> m_DirectionMarkers = new List<GameObject>();
 	private RtsUnitMember m_PendingExchangePlayerUnit;
 	private RtsUnitMember m_PendingExchangePartnerUnit;
@@ -2354,6 +2354,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		       (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed);
 	}
 
+	private static bool IsShiftHeld()
+	{
+		return Keyboard.current != null &&
+		       (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
+	}
+
 	private void HandleRightMouseDown()
 	{
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
@@ -2386,10 +2392,31 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		    Time.time - m_LastRightClickTime <= m_DoubleRightClickSeconds)
 		{
 			m_LastRightClickTime = -1f;
-			if (m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0)
-				IssueScatteredMoveOrder(m_LastWalkCenter, UnitClickToMove.MoveTier.Run, m_LastWalkOffsets);
+
+			if (m_PendingWalkCoroutine != null)
+			{
+				StopCoroutine(m_PendingWalkCoroutine);
+				m_PendingWalkCoroutine = null;
+			}
+
+			List<RtsUnitMember> doubleUnits = GetValidSelectedUnits();
+			if (doubleUnits.Count == 0)
+				return;
+
+			if (IsShiftHeld())
+			{
+				List<Vector3> runOffsets = BuildFormationOffsets(doubleUnits, hit.point);
+				ShiftEnqueueMoveOrders(doubleUnits, runOffsets, hit.point, null, UnitClickToMove.MoveTier.Run);
+			}
 			else
-				IssueScatteredMoveOrder(hit.point, UnitClickToMove.MoveTier.Run);
+			{
+				foreach (var u in doubleUnits)
+					u.ClearCommandQueue();
+				if (m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0)
+					IssueScatteredMoveOrder(m_LastWalkCenter, UnitClickToMove.MoveTier.Run, m_LastWalkOffsets);
+				else
+					IssueScatteredMoveOrder(hit.point, UnitClickToMove.MoveTier.Run);
+			}
 			return;
 		}
 
@@ -2419,12 +2446,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		m_IsPreviewingMove = true;
 
-		for (int i = 0; i < m_PreviewOffsets.Count; i++)
-		{
-			GameObject marker = CreateDestinationMarker(m_PreviewCenterPoint + m_PreviewOffsets[i]);
-			if (marker != null)
-				m_PreviewMarkers.Add(marker);
-		}
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
 	}
 
 	private void UpdateMovePreview()
@@ -2443,11 +2467,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		m_PreviewCenterPoint = hit.point;
 
-		for (int i = 0; i < m_PreviewMarkers.Count && i < m_PreviewOffsets.Count; i++)
-		{
-			if (m_PreviewMarkers[i] != null)
-				m_PreviewMarkers[i].transform.position = m_PreviewCenterPoint + m_PreviewOffsets[i];
-		}
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
 	}
 
 	private void BeginFacingMode()
@@ -2464,9 +2486,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		for (int i = 0; i < count; i++)
 		{
-			GameObject dirMarker = CreatePathMarker(m_PreviewCenterPoint + m_PreviewOffsets[i]);
-			if (dirMarker != null)
-				m_DirectionMarkers.Add(dirMarker);
+			GameObject arrowGo = new GameObject("FacingArrow");
+			LineRenderer lr = arrowGo.AddComponent<LineRenderer>();
+			lr.positionCount = 3;
+			lr.startWidth = 0.06f;
+			lr.endWidth = 0.02f;
+			lr.material = new Material(Shader.Find("Sprites/Default"));
+			lr.startColor = new Color(0.9f, 0.9f, 0.9f, 0.9f);
+			lr.endColor = new Color(0.9f, 0.9f, 0.9f, 0.9f);
+			m_DirectionMarkers.Add(arrowGo);
 		}
 
 		UpdateFacingMode();
@@ -2499,8 +2527,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				Vector3 dir = toCursor.sqrMagnitude > 0.01f
 					? toCursor.normalized
 					: Vector3.forward;
+				Vector3 perp = new Vector3(dir.z, 0f, -dir.x);
 
-				m_DirectionMarkers[i].transform.position = dest + dir * 1f;
+				LineRenderer lr = m_DirectionMarkers[i].GetComponent<LineRenderer>();
+				if (lr != null)
+				{
+					lr.SetPosition(0, dest + dir * 1.5f);
+					lr.SetPosition(1, dest + dir * 0.8f + perp * 0.3f);
+					lr.SetPosition(2, dest + dir * 0.8f - perp * 0.3f);
+				}
 			}
 		}
 	}
@@ -2519,6 +2554,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void HandleRightMouseUp()
 	{
+		if (!m_PreviewPending && !m_IsPreviewingMove)
+		{
+			m_LastRightClickTime = Time.time;
+			return;
+		}
+
 		bool wasPending = m_PreviewPending;
 		m_PreviewPending = false;
 		m_IsPreviewingMove = false;
@@ -2541,21 +2582,49 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_LastWalkCenter = center;
 		m_LastWalkOffsets = new List<Vector3>(offsets);
 
+		if (wasPending)
+		{
+			if (m_PendingWalkCoroutine != null)
+				StopCoroutine(m_PendingWalkCoroutine);
+			m_PendingWalkCoroutine = StartCoroutine(DelayedWalkRoutine(offsets, center, facingAngles));
+			return;
+		}
+
+		ExecuteWalkOrder(offsets, center, facingAngles);
+	}
+
+	private System.Collections.IEnumerator DelayedWalkRoutine(
+		List<Vector3> _offsets, Vector3 _center, List<float> _facingAngles)
+	{
+		yield return new WaitForSeconds(m_DoubleRightClickSeconds);
+		m_PendingWalkCoroutine = null;
+		ExecuteWalkOrder(_offsets, _center, _facingAngles);
+	}
+
+	private void ExecuteWalkOrder(List<Vector3> _offsets, Vector3 _center, List<float> _facingAngles)
+	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
 			return;
 
-		for (int i = 0; i < validUnits.Count && i < offsets.Count; i++)
+		bool shift = IsShiftHeld();
+
+		if (shift)
 		{
-			Vector3 destination = center + offsets[i];
-			GameObject marker = CreateDestinationMarker(destination);
-			validUnits[i].SetDestinationMarker(marker);
+			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, UnitClickToMove.MoveTier.Walk);
+			return;
 		}
 
-		if (facingAngles != null && facingAngles.Count > 0)
+		for (int i = 0; i < validUnits.Count; i++)
+			validUnits[i].ClearCommandQueue();
+
+		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
+			validUnits[i].SetDestinationDirect(_center + _offsets[i]);
+
+		if (_facingAngles != null && _facingAngles.Count > 0)
 		{
-			for (int i = 0; i < validUnits.Count && i < facingAngles.Count; i++)
-				validUnits[i].SetWantedFacingAngle(facingAngles[i]);
+			for (int i = 0; i < validUnits.Count && i < _facingAngles.Count; i++)
+				validUnits[i].SetWantedFacingAngle(_facingAngles[i]);
 		}
 
 		bool needStagger = m_GroupMoveStaggerMax > 0f && validUnits.Count > 1;
@@ -2563,15 +2632,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (needStagger)
 		{
 			m_StaggerCoroutine = StartCoroutine(
-				StaggeredMoveOrdersRoutine(validUnits, offsets, center, UnitClickToMove.MoveTier.Walk));
+				StaggeredMoveOrdersRoutine(validUnits, _offsets, _center, UnitClickToMove.MoveTier.Walk));
 		}
 		else
 		{
-			for (int i = 0; i < validUnits.Count && i < offsets.Count; i++)
-				validUnits[i].IssueMoveOrder(center + offsets[i], UnitClickToMove.MoveTier.Walk);
+			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
+				validUnits[i].IssueMoveOrder(_center + _offsets[i], UnitClickToMove.MoveTier.Walk);
+		}
+	}
 
-			if (m_PathMarkerPrefab != null)
-				StartCoroutine(BuildPathMarkersRoutine(validUnits));
+	private void ShiftEnqueueMoveOrders(List<RtsUnitMember> _units, List<Vector3> _offsets,
+		Vector3 _center, List<float> _facingAngles, UnitClickToMove.MoveTier _tier)
+	{
+		for (int i = 0; i < _units.Count && i < _offsets.Count; i++)
+		{
+			Vector3 dest = _center + _offsets[i];
+			float? facing = (_facingAngles != null && i < _facingAngles.Count)
+				? _facingAngles[i]
+				: (float?)null;
+			_units[i].EnqueueWaypoint(dest, _tier, facing);
 		}
 	}
 
@@ -2588,12 +2667,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void ClearPreviewMarkers()
 	{
-		for (int i = 0; i < m_PreviewMarkers.Count; i++)
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count; i++)
 		{
-			if (m_PreviewMarkers[i] != null)
-				Destroy(m_PreviewMarkers[i]);
+			if (!validUnits[i].HasActiveDestination)
+				validUnits[i].ClearWaypoints();
 		}
-		m_PreviewMarkers.Clear();
 
 		for (int i = 0; i < m_DirectionMarkers.Count; i++)
 		{
@@ -2782,34 +2861,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (validUnits.Count == 0)
 			return;
 
+		for (int i = 0; i < validUnits.Count; i++)
+			validUnits[i].ClearCommandQueue();
+
 		if (validUnits.Count == 1)
 		{
-			GameObject marker = CreateDestinationMarker(_centerPoint);
-			validUnits[0].SetDestinationMarker(marker);
+			validUnits[0].SetDestinationDirect(_centerPoint);
 			validUnits[0].IssueMoveOrder(_centerPoint, _moveTier);
-
-			if (m_PathMarkerPrefab != null)
-				StartCoroutine(BuildPathMarkersRoutine(validUnits));
-
 			return;
 		}
 
 		List<Vector3> offsets = _prebuiltOffsets ?? BuildFormationOffsets(validUnits, _centerPoint);
 
 		for (int i = 0; i < validUnits.Count; i++)
-		{
-			Vector3 destination = _centerPoint + offsets[i];
-			GameObject marker = CreateDestinationMarker(destination);
-			validUnits[i].SetDestinationMarker(marker);
-		}
+			validUnits[i].SetDestinationDirect(_centerPoint + offsets[i]);
 
 		if (m_GroupMoveStaggerMax <= 0f)
 		{
 			for (int i = 0; i < validUnits.Count; i++)
 				validUnits[i].IssueMoveOrder(_centerPoint + offsets[i], _moveTier);
-
-			if (m_PathMarkerPrefab != null)
-				StartCoroutine(BuildPathMarkersRoutine(validUnits));
 		}
 		else
 		{
@@ -2833,87 +2903,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				yield return new WaitForSeconds(Random.Range(minDelay, maxDelay));
 		}
 
-		if (m_PathMarkerPrefab != null)
-			yield return BuildPathMarkersRoutine(_units);
-
 		m_StaggerCoroutine = null;
-	}
-
-	private System.Collections.IEnumerator BuildPathMarkersRoutine(List<RtsUnitMember> _units)
-	{
-		for (int frame = 0; frame < 6; frame++)
-			yield return null;
-
-		for (int i = 0; i < _units.Count; i++)
-		{
-			RtsUnitMember unit = _units[i];
-			if (unit == null)
-				continue;
-
-			List<Vector3> pathPoints = SampleAgentPath(unit);
-			if (pathPoints != null && pathPoints.Count > 0)
-				unit.SetPathMarkers(pathPoints, m_PathMarkerPrefab);
-		}
-	}
-
-	private List<Vector3> SampleAgentPath(RtsUnitMember _unit)
-	{
-		UnityEngine.AI.NavMeshAgent agent = _unit.GetComponent<UnityEngine.AI.NavMeshAgent>();
-		if (agent == null || !agent.isOnNavMesh || agent.pathPending)
-			return null;
-
-		UnityEngine.AI.NavMeshPath path = agent.path;
-		if (path == null)
-			return null;
-
-		Vector3[] corners = path.corners;
-		if (corners == null || corners.Length < 2)
-			return null;
-
-		List<Vector3> points = new List<Vector3>();
-		float interval = Mathf.Max(0.5f, m_PathMarkerInterval);
-		float nextDist = interval;
-		float accumulated = 0f;
-		Vector3 destination = corners[corners.Length - 1];
-		destination.y = 0f;
-
-		for (int i = 0; i < corners.Length - 1; i++)
-		{
-			Vector3 a = corners[i];
-			Vector3 b = corners[i + 1];
-			Vector3 ab = b - a;
-			ab.y = 0f;
-			float segLen = ab.magnitude;
-
-			if (segLen < 0.001f)
-				continue;
-
-			Vector3 dir = ab / segLen;
-
-			while (accumulated + segLen >= nextDist - 0.001f)
-			{
-				float t = nextDist - accumulated;
-				if (t < 0f) t = 0f;
-				Vector3 pt = a + dir * t;
-				pt.y = corners[i].y;
-				points.Add(pt);
-				nextDist += interval;
-			}
-
-			accumulated += segLen;
-		}
-
-		float destSkipDist = m_PathMarkerInterval * 0.6f;
-		float destSkipDistSqr = destSkipDist * destSkipDist;
-		for (int i = points.Count - 1; i >= 0; i--)
-		{
-			Vector3 d = points[i] - destination;
-			d.y = 0f;
-			if (d.sqrMagnitude < destSkipDistSqr)
-				points.RemoveAt(i);
-		}
-
-		return points;
 	}
 
 	private List<Vector3> BuildFormationOffsets(List<RtsUnitMember> _units, Vector3 _centerPoint)
@@ -3039,34 +3029,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		public Vector3 Position;
 		public float Depth;
-	}
-
-	private GameObject CreateDestinationMarker(Vector3 _worldPosition)
-	{
-		GameObject prefab = m_DestinationMarkerPrefab;
-		if (prefab == null)
-			prefab = m_PathMarkerPrefab;
-
-		if (prefab == null)
-			return null;
-
-		GameObject markerGo = Instantiate(prefab, _worldPosition, Quaternion.identity);
-		markerGo.name = "DestinationMarker";
-
-		if (markerGo.GetComponent<DestinationMarker>() == null)
-			markerGo.AddComponent<DestinationMarker>();
-
-		return markerGo;
-	}
-
-	private GameObject CreatePathMarker(Vector3 _worldPosition)
-	{
-		if (m_PathMarkerPrefab == null)
-			return null;
-
-		GameObject markerGo = Instantiate(m_PathMarkerPrefab, _worldPosition, Quaternion.identity);
-		markerGo.name = "DirectionMarker";
-		return markerGo;
 	}
 
 	private LocomotionStance GetNextZTargetStance()
