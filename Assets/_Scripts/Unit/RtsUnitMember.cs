@@ -37,9 +37,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMin = 0.97f;
 	[SerializeField, Range(0.85f, 1.15f)] private float m_MoveAnimatorSpeedMax = 1.03f;
 	[SerializeField] private float m_RuntimeMoveAnimatorSpeed = 1f;
-	[SerializeField] private bool m_IsSelected;
+	[SerializeField] 	private bool m_IsSelected;
+	private FormationType m_CurrentFormation;
 
 	private static Material s_PathLineMaterial;
+	private static readonly Vector3 s_PathLineYOffset = Vector3.up * 0.03f;
 	private static readonly List<RtsUnitMember> s_Instances = new List<RtsUnitMember>(128);
 	private Coroutine m_PendingCommandCoroutine;
 	private int m_PendingCommandVersion;
@@ -53,17 +55,40 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private bool m_IsRotatingToFacing;
 	private float m_FacingRotateVelocity;
 	private bool m_FacingSuppressedReady;
+	private bool m_WasReadyBeforeFacing;
+	private FormationSyncGroup m_FormationSyncGroup;
+	private bool m_IsFormationSyncWaiting;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
 	private float m_NextWaypointCheckTime;
+
+	private struct FacingArrow
+	{
+		public Vector3 Position;
+		public float Angle;
+	}
 
 	private struct QueuedCommand
 	{
 		public Vector3 Destination;
 		public UnitClickToMove.MoveTier MoveTier;
-		public float FacingAngle;
+		public List<FacingArrow> FacingArrows;
 	}
 
-	private readonly Queue<QueuedCommand> m_CommandQueue = new Queue<QueuedCommand>();
+	private readonly List<QueuedCommand> m_CommandQueue = new List<QueuedCommand>();
+
+	private static readonly Color s_FacingArrowColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+	private static readonly Vector3 s_FacingArrowYOffset = Vector3.up * 0.05f;
+	private readonly List<FacingArrowState> m_FacingArrows = new List<FacingArrowState>();
+	private bool m_FacingArrowsDirty;
+	private List<FacingArrow> m_ActiveFacingArrows;
+	private const float FacingArrowActivationDistance = 5f;
+
+	private struct FacingArrowState
+	{
+		public LineRenderer Line;
+		public float Angle;
+		public Vector3 Anchor;
+	}
 	#endregion
 
 	#region Public Properties
@@ -74,6 +99,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public bool WantsReady => m_ReadyHands != null && m_ReadyHands.WantsReady;
 	public bool HasQueuedCommands => m_CommandQueue.Count > 0;
 	public bool HasActiveDestination => m_HasActiveDestination;
+	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
+	public float FormationSpacing { get; set; } = 2f;
 	#endregion
 
 	#region Unity Lifecycle
@@ -150,11 +177,24 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		int count = 1 + m_Waypoints.Count;
-		m_PathLine.positionCount = count;
-		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
-		for (int i = 0; i < m_Waypoints.Count; i++)
-			m_PathLine.SetPosition(i + 1, m_Waypoints[i] + Vector3.up * 0.03f);
+		float dx = transform.position.x - m_Waypoints[0].x;
+		float dz = transform.position.z - m_Waypoints[0].z;
+		bool atFirstWaypoint = dx * dx + dz * dz < 0.25f;
+
+		if (atFirstWaypoint)
+		{
+			m_PathLine.positionCount = m_Waypoints.Count;
+			for (int i = 0; i < m_Waypoints.Count; i++)
+				m_PathLine.SetPosition(i, m_Waypoints[i] + s_PathLineYOffset);
+		}
+		else
+		{
+			int count = 1 + m_Waypoints.Count;
+			m_PathLine.positionCount = count;
+			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
+			for (int i = 0; i < m_Waypoints.Count; i++)
+				m_PathLine.SetPosition(i + 1, m_Waypoints[i] + s_PathLineYOffset);
+		}
 
 		m_PathLine.enabled = m_IsSelected;
 	}
@@ -169,6 +209,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void OnDisable()
 	{
+		if (m_FormationSyncGroup != null && m_FormationSyncGroup.MemberCount > 1)
+		{
+			m_FormationSyncGroup.MemberCount--;
+			if (m_IsFormationSyncWaiting)
+				m_FormationSyncGroup.ReachedCount = Mathf.Max(0, m_FormationSyncGroup.ReachedCount - 1);
+		}
 		CancelPendingCommand();
 		ClearWaypoints();
 		ResetAnimatorSpeed();
@@ -181,8 +227,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ApplyAnimatorSpeedVariation();
 		UpdateSelectionLabelBillboard();
 		UpdatePathLinePosition();
+		UpdateActiveFacingArrows();
+		SyncFacingArrows();
+		UpdateFacingArrows();
 		TryRemoveArrivedDestination();
 		TryAdvanceWaypointEarly();
+		if (m_IsFormationSyncWaiting)
+			TryAdvanceFormationSync();
 		UpdateFacingRotation();
 	}
 
@@ -193,6 +244,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_CommandQueue.Count == 0)
 			return;
 		if (m_IsRotatingToFacing)
+			return;
+		if (m_FormationSyncGroup != null)
 			return;
 
 		if (Time.time < m_NextWaypointCheckTime)
@@ -221,8 +274,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (m_PathLine == null || !m_PathLine.enabled || m_PathLine.positionCount < 2)
 			return;
+		if (m_Waypoints.Count == 0)
+			return;
 
-		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
+		float dx = transform.position.x - m_Waypoints[0].x;
+		float dz = transform.position.z - m_Waypoints[0].z;
+		if (dx * dx + dz * dz >= 0.25f)
+			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
 	}
 
 	private void UpdateFacingRotation()
@@ -248,6 +306,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_FacingSuppressedReady = false;
 			}
 
+			if (m_Waypoints.Count > 0)
+				m_Waypoints.RemoveAt(0);
+			RebuildPathLine();
+
+			if (TryHandleFormationSyncArrival())
+				return;
+
 			DequeueAndExecuteNextCommand();
 			return;
 		}
@@ -266,6 +331,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void HandleFacingTurnReady(float _angleDegrees)
 	{
 		if (m_ReadyHands == null)
+			return;
+		if (!m_WasReadyBeforeFacing)
 			return;
 
 		if (_angleDegrees > 90f)
@@ -288,6 +355,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!m_HasActiveDestination)
 			return;
+		if (m_IsFormationSyncWaiting)
+			return;
 
 		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.5f)
 			return;
@@ -307,18 +376,31 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (m_HasWantedFacing)
 		{
-			m_IsRotatingToFacing = true;
-			m_FacingRotateVelocity = 0f;
-			m_FacingSuppressedReady = false;
+			if (m_IsRotatingToFacing)
+			{
+				m_FacingRotateVelocity = 0f;
+				m_FacingSuppressedReady = false;
+				m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
+			}
+			else
+			{
+				ClearFacingOverride();
+			}
 			m_HasWantedFacing = false;
+			m_ActiveFacingArrows = null;
+			MarkFacingArrowsDirty();
 		}
 
 		if (!m_IsRotatingToFacing)
 		{
 			if (m_Waypoints.Count > 0)
 				m_Waypoints.RemoveAt(0);
-			m_HasActiveDestination = false;
 			RebuildPathLine();
+
+			if (TryHandleFormationSyncArrival())
+				return;
+
+			m_HasActiveDestination = false;
 			DequeueAndExecuteNextCommand();
 		}
 
@@ -396,9 +478,32 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_PathLine == null)
 			return;
 
-		m_PathLine.positionCount = 2;
-		m_PathLine.SetPosition(0, transform.position + Vector3.up * 0.03f);
-		m_PathLine.SetPosition(1, _dest + Vector3.up * 0.03f);
+		List<Vector3> waypoints = m_Waypoints;
+		if (waypoints.Count == 0)
+		{
+			m_PathLine.positionCount = 2;
+			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
+			m_PathLine.SetPosition(1, _dest + s_PathLineYOffset);
+		}
+		else
+		{
+			float dx = transform.position.x - waypoints[0].x;
+			float dz = transform.position.z - waypoints[0].z;
+			bool atFirstWaypoint = dx * dx + dz * dz < 0.25f;
+
+			int count = (atFirstWaypoint ? 0 : 1) + waypoints.Count + 1;
+			m_PathLine.positionCount = count;
+
+			int idx = 0;
+			if (!atFirstWaypoint)
+				m_PathLine.SetPosition(idx++, transform.position + s_PathLineYOffset);
+
+			for (int i = 0; i < waypoints.Count; i++)
+				m_PathLine.SetPosition(idx++, waypoints[i] + s_PathLineYOffset);
+
+			m_PathLine.SetPosition(idx, _dest + s_PathLineYOffset);
+		}
+
 		m_PathLine.enabled = m_IsSelected;
 	}
 
@@ -410,6 +515,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasActiveDestination = true;
 		m_DestinationSetTime = Time.time;
 		m_IsRotatingToFacing = false;
+		m_HasWantedFacing = false;
+		ClearFacingOverride();
+		m_ActiveFacingArrows = null;
+		MarkFacingArrowsDirty();
 	}
 
 	public void EnqueueWaypoint(Vector3 _dest, UnitClickToMove.MoveTier _tier, float? _facing)
@@ -420,27 +529,108 @@ public sealed class RtsUnitMember : MonoBehaviour
 		{
 			Destination = _dest,
 			MoveTier = _tier,
-			FacingAngle = _facing ?? float.NaN,
+			FacingArrows = new List<FacingArrow>(),
 		};
-		m_CommandQueue.Enqueue(cmd);
+		
+		if (_facing.HasValue && !float.IsNaN(_facing.Value))
+		{
+			cmd.FacingArrows.Add(new FacingArrow { Position = _dest, Angle = _facing.Value });
+		}
+		
+		m_CommandQueue.Add(cmd);
 
 		RebuildPathLine();
 
 		bool isIdle = !m_HasActiveDestination && !m_IsRotatingToFacing;
 		if (m_Waypoints.Count == 1 && isIdle)
 			DequeueAndExecuteNextCommand();
+
+		MarkFacingArrowsDirty();
 	}
+
+	public int WaypointCount => m_Waypoints.Count;
+
+	public Vector3 GetWaypointWorld(int _index)
+	{
+		return _index >= 0 && _index < m_Waypoints.Count ? m_Waypoints[_index] : Vector3.zero;
+	}
+
+	public float GetWaypointFacing(int _index)
+	{
+		int cmdIndex = _index;
+		if (m_HasActiveDestination)
+		{
+			if (cmdIndex == 0)
+			{
+				if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0)
+					return m_ActiveFacingArrows[m_ActiveFacingArrows.Count - 1].Angle;
+				return float.NaN;
+			}
+			cmdIndex--;
+		}
+		if (cmdIndex < 0 || cmdIndex >= m_CommandQueue.Count)
+			return float.NaN;
+		
+		var arrows = m_CommandQueue[cmdIndex].FacingArrows;
+		if (arrows == null || arrows.Count == 0)
+			return float.NaN;
+		return arrows[arrows.Count - 1].Angle;
+	}
+
+	public void SetWaypointFacing(int _index, float _angle, Vector3 _anchor)
+	{
+		int cmdIndex = _index;
+		if (m_HasActiveDestination)
+		{
+			if (cmdIndex == 0)
+			{
+				AddFacingArrowToActiveSegment(_angle, _anchor);
+				return;
+			}
+			cmdIndex--;
+		}
+		if (cmdIndex < 0 || cmdIndex >= m_CommandQueue.Count)
+			return;
+		
+		var cmd = m_CommandQueue[cmdIndex];
+		if (cmd.FacingArrows == null)
+			cmd.FacingArrows = new List<FacingArrow>();
+		
+		cmd.FacingArrows.Add(new FacingArrow { Position = _anchor, Angle = _angle });
+		m_CommandQueue[cmdIndex] = cmd;
+		MarkFacingArrowsDirty();
+	}
+	
+	private void AddFacingArrowToActiveSegment(float _angle, Vector3 _anchor)
+	{
+		if (m_ActiveFacingArrows == null)
+			m_ActiveFacingArrows = new List<FacingArrow>();
+		
+		m_ActiveFacingArrows.Add(new FacingArrow { Position = _anchor, Angle = _angle });
+		
+		if (m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
+			m_ReadyHands.SetReadyWanted(true, false);
+		
+		MarkFacingArrowsDirty();
+	}
+
+	public LineRenderer PathLine => m_PathLine;
 
 	public void ClearWaypoints()
 	{
 		m_CommandQueue.Clear();
 		m_Waypoints.Clear();
+		ClearFacingArrows();
+		m_ActiveFacingArrows = null;
 		if (m_PathLine != null)
 		{
 			m_PathLine.positionCount = 0;
 			m_PathLine.enabled = false;
 		}
 		m_HasActiveDestination = false;
+		m_HasWantedFacing = false;
+		ClearFacingOverride();
+		ClearFormationSync();
 	}
 
 	public void SetWantedFacingAngle(float _angle)
@@ -448,6 +638,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasWantedFacing = true;
 		m_WantedFacingAngle = _angle;
 		m_IsRotatingToFacing = false;
+
+		if (m_ClickToMove != null)
+			m_ClickToMove.OverrideFacingAngle = _angle;
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.OverrideFacingAngle = _angle;
+		else
+			m_IsRotatingToFacing = true;
+	}
+
+	private void ClearFacingOverride()
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.OverrideFacingAngle = null;
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.OverrideFacingAngle = null;
 	}
 
 	public void SetReadyWanted(bool _ready)
@@ -672,6 +877,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public void ClearCommandQueue()
 	{
 		m_CommandQueue.Clear();
+		if (m_HasActiveDestination && m_Waypoints.Count > 0)
+			m_Waypoints.RemoveRange(1, m_Waypoints.Count - 1);
+		MarkFacingArrowsDirty();
 	}
 
 	#endregion
@@ -706,13 +914,177 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_CommandQueue.Count == 0)
 			return;
 
-		QueuedCommand cmd = m_CommandQueue.Dequeue();
+		QueuedCommand cmd = m_CommandQueue[0];
+		m_CommandQueue.RemoveAt(0);
 
-		if (!float.IsNaN(cmd.FacingAngle))
-			SetWantedFacingAngle(cmd.FacingAngle);
-		IssueMoveOrder(cmd.Destination, cmd.MoveTier);
+		m_ActiveFacingArrows = cmd.FacingArrows != null && cmd.FacingArrows.Count > 0 
+			? new List<FacingArrow>(cmd.FacingArrows) 
+			: null;
+		
+		if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0
+		    && m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
+			m_ReadyHands.SetReadyWanted(true, false);
+		
+		{
+			int arrCnt = m_ActiveFacingArrows != null ? m_ActiveFacingArrows.Count : 0;
+			Vector3 arrPos = arrCnt > 0 ? m_ActiveFacingArrows[0].Position : Vector3.zero;
+			Debug.Log($"[{gameObject.name}] DEQUEUE: arrows={arrCnt} arrowPos0={arrPos} dest={cmd.Destination} tier={cmd.MoveTier}");
+		}
+		
+		ClearFacingOverride();
+		m_HasWantedFacing = false;
 		m_HasActiveDestination = true;
 		m_DestinationSetTime = Time.time;
+		
+		IssueMoveOrder(cmd.Destination, cmd.MoveTier);
+
+		MarkFacingArrowsDirty();
+	}
+
+	private void UpdateActiveFacingArrows()
+	{
+		if (!m_HasActiveDestination || m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0)
+		{
+			if (m_HasWantedFacing && m_ActiveFacingArrows == null)
+			{
+				ClearFacingOverride();
+				m_HasWantedFacing = false;
+			}
+			return;
+		}
+
+		Vector3 unitPos = transform.position;
+		float closestDist = float.MaxValue;
+		int closestIndex = -1;
+
+		for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+		{
+			Vector3 arrowPos = m_ActiveFacingArrows[i].Position;
+			float dx = unitPos.x - arrowPos.x;
+			float dz = unitPos.z - arrowPos.z;
+			float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+			if (dist < closestDist)
+			{
+				closestDist = dist;
+				closestIndex = i;
+			}
+		}
+
+		if (closestIndex < 0)
+			return;
+
+		if (m_ActiveFacingArrows.Count > 0)
+			Debug.Log($"[{gameObject.name}] FACE: dist={closestDist:F1} hasWanted={m_HasWantedFacing} arrowAngle={m_ActiveFacingArrows[closestIndex].Angle:F0} queue={m_CommandQueue.Count} hasDest={m_HasActiveDestination} override={m_ClickToMove?.OverrideFacingAngle}");
+
+		if (closestDist <= FacingArrowActivationDistance)
+		{
+			float angle = m_ActiveFacingArrows[closestIndex].Angle;
+			if (!m_HasWantedFacing || Mathf.Abs(m_WantedFacingAngle - angle) > 0.5f)
+			{
+				SetWantedFacingAngle(angle);
+				MarkFacingArrowsDirty();
+			}
+		}
+		else if (m_HasWantedFacing)
+		{
+			ClearFacingOverride();
+			m_HasWantedFacing = false;
+		}
+
+		if (closestDist <= 1.5f)
+		{
+			m_ActiveFacingArrows.RemoveAt(closestIndex);
+			if (m_ActiveFacingArrows.Count == 0)
+			{
+				ClearFacingOverride();
+				m_HasWantedFacing = false;
+			}
+			MarkFacingArrowsDirty();
+		}
+	}
+
+	private void MarkFacingArrowsDirty()
+	{
+		m_FacingArrowsDirty = true;
+	}
+
+	private void SyncFacingArrows()
+	{
+		if (!m_FacingArrowsDirty)
+			return;
+		m_FacingArrowsDirty = false;
+
+		for (int i = 0; i < m_FacingArrows.Count; i++)
+		{
+			if (m_FacingArrows[i].Line != null)
+				Destroy(m_FacingArrows[i].Line.gameObject);
+		}
+		m_FacingArrows.Clear();
+
+		if (m_ActiveFacingArrows != null && m_HasActiveDestination)
+		{
+			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+				CreateFacingArrowVisual(m_ActiveFacingArrows[i].Angle, m_ActiveFacingArrows[i].Position);
+		}
+
+		for (int i = 0; i < m_CommandQueue.Count; i++)
+		{
+			if (m_CommandQueue[i].FacingArrows == null)
+				continue;
+			
+			for (int j = 0; j < m_CommandQueue[i].FacingArrows.Count; j++)
+				CreateFacingArrowVisual(m_CommandQueue[i].FacingArrows[j].Angle, m_CommandQueue[i].FacingArrows[j].Position);
+		}
+	}
+
+	private void CreateFacingArrowVisual(float _angle, Vector3 _anchor)
+	{
+		if (s_PathLineMaterial == null)
+			return;
+
+		GameObject go = new GameObject("FacingArrow");
+		go.transform.SetParent(transform, false);
+		LineRenderer lr = go.AddComponent<LineRenderer>();
+		lr.positionCount = 2;
+		lr.startWidth = 0.04f;
+		lr.endWidth = 0.04f;
+		lr.sharedMaterial = s_PathLineMaterial;
+		lr.startColor = s_FacingArrowColor;
+		lr.endColor = s_FacingArrowColor;
+		lr.enabled = m_IsSelected;
+
+		Vector3 dir = Quaternion.Euler(0f, _angle, 0f) * Vector3.forward;
+		lr.SetPosition(0, _anchor + dir * 0.3f + s_FacingArrowYOffset);
+		lr.SetPosition(1, _anchor + dir * 4f + s_FacingArrowYOffset);
+
+		m_FacingArrows.Add(new FacingArrowState
+		{
+			Line = lr,
+			Angle = _angle,
+			Anchor = _anchor,
+		});
+	}
+
+	private void UpdateFacingArrows()
+	{
+		for (int i = 0; i < m_FacingArrows.Count; i++)
+		{
+			LineRenderer line = m_FacingArrows[i].Line;
+			if (line != null)
+				line.enabled = m_IsSelected;
+		}
+	}
+
+	private void ClearFacingArrows()
+	{
+		for (int i = 0; i < m_FacingArrows.Count; i++)
+		{
+			if (m_FacingArrows[i].Line != null)
+				Destroy(m_FacingArrows[i].Line.gameObject);
+		}
+		m_FacingArrows.Clear();
+		m_FacingArrowsDirty = false;
 	}
 
 	private void ScheduleRtsCommand(Action _command)
@@ -841,4 +1213,76 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_Animator.speed = 1f;
 	}
 	#endregion
+
+	public sealed class FormationSyncGroup
+	{
+		public int MemberCount;
+		public int ReachedCount;
+		public float LastSpeedUpdateTime;
+	}
+
+	public FormationSyncGroup ActiveFormationSync => m_FormationSyncGroup;
+
+	public void AssignFormationSyncGroup(FormationSyncGroup _group)
+	{
+		if (m_IsFormationSyncWaiting && m_FormationSyncGroup != _group)
+		{
+			UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+			if (agent != null && agent.isOnNavMesh)
+				agent.isStopped = false;
+		}
+		m_FormationSyncGroup = _group;
+		m_IsFormationSyncWaiting = false;
+	}
+
+	public void AssignFormationSpeedMultiplier(float _multiplier)
+	{
+		float clamped = Mathf.Clamp(_multiplier, 0f, 1f);
+		if (m_ClickToMove != null)
+			m_ClickToMove.FormationSpeedMultiplier = clamped;
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.FormationSpeedMultiplier = clamped;
+	}
+
+	public void ClearFormationSync()
+	{
+		m_FormationSyncGroup = null;
+		m_IsFormationSyncWaiting = false;
+		AssignFormationSpeedMultiplier(1f);
+	}
+
+	private bool TryHandleFormationSyncArrival()
+	{
+		if (m_FormationSyncGroup == null || m_IsFormationSyncWaiting)
+			return false;
+
+		m_FormationSyncGroup.ReachedCount++;
+
+		if (m_FormationSyncGroup.ReachedCount >= m_FormationSyncGroup.MemberCount)
+		{
+			m_FormationSyncGroup.ReachedCount = 0;
+			return false;
+		}
+
+		m_IsFormationSyncWaiting = true;
+		return true;
+	}
+
+	private bool TryAdvanceFormationSync()
+	{
+		if (m_FormationSyncGroup == null)
+			return false;
+
+		if (m_FormationSyncGroup.ReachedCount == 0 && m_IsFormationSyncWaiting)
+		{
+			m_IsFormationSyncWaiting = false;
+
+			AssignFormationSpeedMultiplier(1f);
+
+			DequeueAndExecuteNextCommand();
+			return true;
+		}
+
+		return false;
+	}
 }

@@ -56,7 +56,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
-	[SerializeField, Min(0f)] private float m_StoppingDistance = 0.15f;
+	[SerializeField, Min(0f)] private float m_StoppingDistance = 0.05f;
 	[SerializeField, Min(1f)] private float m_AgentAcceleration = 40f;
 	[SerializeField] private bool m_WarpToNavMeshOnStart = true;
 	[SerializeField, Min(0.5f)] private float m_WarpSearchRadius = 12f;
@@ -123,12 +123,16 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private Vector2 m_SmoothDir;
 	private Vector2 m_SmoothDirVel;
 	private float m_EngageYawVelocity;
+	private bool m_TurnSuppressedReady;
 	private float m_PostStandLowNavSpeedUntil = -1f;
 	private bool m_HasPendingNavOrder;
 	private Vector3 m_PendingNavDestination;
 	private bool m_PendingNavOverridesMode;
 	private MoveTier m_PendingNavMode;
 	private float m_TargetAgentSpeed;
+	public float FormationSpeedMultiplier = 1f;
+	public float StaminaSpeedMultiplier = 1f;
+	public float? OverrideFacingAngle;
 	private bool m_StanceMovementWasBlocked;
 	private RtsUnitMember m_CachedRtsMember;
 	#endregion
@@ -483,7 +487,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return;
 		}
 
-		float target = Mathf.Max(0.01f, m_TargetAgentSpeed);
+		float target = Mathf.Max(0.01f, m_TargetAgentSpeed * FormationSpeedMultiplier * StaminaSpeedMultiplier);
 
 		if (m_AgentSpeedSmoothSeconds <= 0.0001f)
 		{
@@ -606,23 +610,32 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		}
 
 		m_EngageYawVelocity = 0f;
-		Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-		float planarSpeed = velocity.magnitude;
 
-		if (planarSpeed > m_StopVelocityEpsilon)
-			direction = velocity.normalized;
-		else if (NavAgentHasIncompletePath())
+		if (OverrideFacingAngle.HasValue)
 		{
-			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-			toSteer.y = 0f;
-			if (toSteer.sqrMagnitude < 1e-6f)
-				return;
-			direction = toSteer.normalized;
+			direction = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
 		}
 		else
 		{
-			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
-			return;
+			Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+			float planarSpeed = velocity.magnitude;
+
+			if (planarSpeed > m_StopVelocityEpsilon)
+				direction = velocity.normalized;
+			else if (NavAgentHasIncompletePath())
+			{
+				Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+				toSteer.y = 0f;
+				if (toSteer.sqrMagnitude < 1e-6f)
+					return;
+				direction = toSteer.normalized;
+			}
+			else
+			{
+				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+				m_TurnSuppressedReady = false;
+				return;
+			}
 		}
 
 
@@ -636,9 +649,18 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private void HandleTurnReady(float _angleDegrees)
 	{
 		if (_angleDegrees > 90f)
-			m_ReadyHands?.SuppressReadyForTurnIfNeeded();
-		else if (_angleDegrees < 20f)
+		{
+			if (!m_TurnSuppressedReady)
+			{
+				m_ReadyHands?.SuppressReadyForTurnIfNeeded();
+				m_TurnSuppressedReady = true;
+			}
+		}
+		else if (_angleDegrees < 20f && m_TurnSuppressedReady)
+		{
 			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
+		}
 	}
 
 	private bool IsEngagingVisibleTarget()

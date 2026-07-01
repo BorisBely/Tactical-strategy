@@ -70,7 +70,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_NavMeshSampleRadius = 2f;
 
 	[Header("NavMeshAgent")]
-	[SerializeField, Min(0f)] private float m_StoppingDistance = 0.15f;
+	[SerializeField, Min(0f)] private float m_StoppingDistance = 0.05f;
 	[SerializeField, Min(1f)] private float m_AgentAcceleration = 40f;
 	[SerializeField] private bool m_WarpToNavMeshOnStart = true;
 	[SerializeField, Min(0.5f)] private float m_WarpSearchRadius = 12f;
@@ -117,7 +117,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	[Header("Input")]
 	[SerializeField] private bool m_EnableDirectInput = true;
-	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.25f;
+	[SerializeField, Min(0.05f)] private float m_DoubleClickSeconds = 0.15f;
 	[Tooltip("Гибрид одиночного/двойного ПКМ: одиночный клик откладывается на небольшой интервал, чтобы Unity успела распознать двойной клик.\nЕсли второй клик пришёл в окно double-click — одиночная команда отменяется и сразу идёт Sprint.")]
 	[SerializeField, Min(0.01f)] private float m_SingleClickCommitDelaySeconds = 0.12f;
 	[SerializeField] private bool m_BlockClicksOverUi = true;
@@ -160,6 +160,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private Vector2 m_SmoothDir;
 	private Vector2 m_SmoothDirVel;
 	private float m_EngageYawVelocity;
+	private bool m_TurnSuppressedReady;
 
 	private float m_PostStandLowNavSpeedUntil = -1f;
 
@@ -168,6 +169,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool m_PendingNavOverridesMode;
 	private MoveTier m_PendingNavMode;
 	private float m_TargetAgentSpeed;
+	public float FormationSpeedMultiplier = 1f;
+	public float StaminaSpeedMultiplier = 1f;
+	public float? OverrideFacingAngle;
 
 	// Single vs double right-click debounce (ПКМ и RTS-команда «шаг»):
 	// одиночный клик откладывается, пока юнит уже бежит/спринтует — чтобы не сбрасывать скорость до двойного ПКМ.
@@ -659,7 +663,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		}
 
-		float target = Mathf.Max(0.01f, m_TargetAgentSpeed);
+		float target = Mathf.Max(0.01f, m_TargetAgentSpeed * FormationSpeedMultiplier * StaminaSpeedMultiplier);
 
 		if (m_AgentSpeedSmoothSeconds <= 0.0001f)
 		{
@@ -789,29 +793,39 @@ public sealed class UnitClickToMove : MonoBehaviour
 		else
 		{
 			m_EngageYawVelocity = 0f;
-			Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-			float planarSpeed = vel.magnitude;
 
-			if (planarSpeed > m_StopVelocityEpsilon)
-				dir = vel.normalized;
-			else if (NavAgentHasIncompletePath())
+			if (OverrideFacingAngle.HasValue)
 			{
-				Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-				toSteer.y = 0f;
-				if (toSteer.sqrMagnitude < 1e-6f)
-					return;
-				dir = toSteer.normalized;
+				dir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
 			}
 			else
 			{
-				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
-				return;
+				Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+				float planarSpeed = vel.magnitude;
+
+				if (planarSpeed > m_StopVelocityEpsilon)
+					dir = vel.normalized;
+				else if (NavAgentHasIncompletePath())
+				{
+					Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+					toSteer.y = 0f;
+					if (toSteer.sqrMagnitude < 1e-6f)
+						return;
+					dir = toSteer.normalized;
+				}
+				else
+				{
+					m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+					m_TurnSuppressedReady = false;
+					return;
+				}
 			}
 		}
 
 		if (dir.sqrMagnitude < 1e-6f)
 		{
 			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
 			return;
 		}
 
@@ -827,9 +841,18 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private void HandleTurnReady(float _angleDegrees)
 	{
 		if (_angleDegrees > 90f)
-			m_ReadyHands?.SuppressReadyForTurnIfNeeded();
-		else if (_angleDegrees < 20f)
+		{
+			if (!m_TurnSuppressedReady)
+			{
+				m_ReadyHands?.SuppressReadyForTurnIfNeeded();
+				m_TurnSuppressedReady = true;
+			}
+		}
+		else if (_angleDegrees < 20f && m_TurnSuppressedReady)
+		{
 			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
+		}
 	}
 
 	private bool IsEngagingVisibleTarget()
