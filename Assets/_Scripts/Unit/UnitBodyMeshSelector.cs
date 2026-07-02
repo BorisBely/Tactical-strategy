@@ -12,6 +12,7 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 	private Dictionary<string, GameObject> m_MeshCache;
 	private UnitBodyMeshArchetype m_CurrentArchetype;
 	private CharacterGender m_CurrentGender;
+	private string m_CurrentMeshName;
 	private bool m_IsInitialized;
 	#endregion
 
@@ -19,6 +20,18 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 	public UnitBodyMeshArchetype CurrentArchetype => m_CurrentArchetype;
 	public CharacterGender CurrentGender => m_CurrentGender;
 	public bool IsHeadpieceActive { get; private set; }
+
+	public bool IsHeadCovered
+	{
+		get
+		{
+			if (m_CurrentMeshName == null)
+				return false;
+
+			return m_CurrentMeshName == "SM_Chr_Civilian_Female_01" ||
+			       m_CurrentMeshName == "SM_Chr_Civilian_Female_02";
+		}
+	}
 
 	public UnitArmorType DefaultArmorType => m_CurrentArchetype switch
 	{
@@ -68,6 +81,7 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 
 		m_CurrentArchetype = _archetype;
 		m_CurrentGender = _gender;
+		m_CurrentMeshName = meshName;
 		m_IsInitialized = true;
 	}
 	#endregion

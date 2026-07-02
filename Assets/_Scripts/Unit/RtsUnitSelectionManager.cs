@@ -24,6 +24,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[Header("Path Waypoint Hover")]
 	[SerializeField, Min(0.05f)] private float m_PathHoverDelay = 0.2f;
 	[SerializeField, Min(5f)] private float m_PathHoverThresholdPixels = 30f;
+	[SerializeField, Min(5f)] private float m_ArrowHoverThresholdPixels = 20f;
+	[SerializeField, Min(0.05f)] private float m_RouteEditHandleSize = 0.2f;
+	[SerializeField, Min(5f)] private float m_RouteEditHandleHitPixels = 24f;
+	[SerializeField, Min(5f)] private float m_RouteVertexSnapPixels = 40f;
+	[SerializeField, Min(20f)] private float m_ArrowDeleteButtonSize = 26f;
+	[SerializeField, Min(16f)] private float m_WaitPointIconSize = 22f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
 	[Header("Group Move Formation")]
@@ -80,6 +86,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Vector3 m_LastWalkCenter;
 	private List<Vector3> m_LastWalkOffsets;
 	private bool m_IsQuickRotateFacing;
+	private bool m_HasMoveFacingSet;
+	private bool m_RmbStartedOnSelectedUnit;
 	private Vector2 m_RmbDownMousePos;
 	private List<float> m_PreviewFacingAngles;
 	private float m_CurrentFormationSpacing;
@@ -91,12 +99,31 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private int m_HoveredSegmentIndex = -1;
 	private Vector3 m_HoveredSegmentWorldPoint;
 	private float m_HoveredSegmentFacingAngle;
-	private GameObject m_PathHoverArrow;
 	private bool m_IsEditingWaypointFacing;
+	private int m_HoveredArrowUnitIndex = -1;
+	private RtsUnitMember.FacingArrowDescriptor m_HoveredFacingArrow;
+	private float m_ArrowHoverStartTime;
+	private bool m_IsArrowDeleteButtonVisible;
+	private Rect m_ArrowDeleteButtonScreenRect;
+	private bool m_IsRouteEditMode;
+	private GameObject m_RouteEditHandle;
+	private bool m_IsDraggingRoute;
+	private int m_RouteEditWaypointIndex = -1;
+	private RouteEditTargetKind m_RouteEditTargetKind;
+	private int m_RouteEditVertexIndex = -1;
+	private readonly List<RtsUnitMember.FacingArrowDescriptor> m_FacingArrowPickBuffer = new List<RtsUnitMember.FacingArrowDescriptor>(16);
+	private readonly List<RtsUnitMember.WaitPointDescriptor> m_WaitPointPickBuffer = new List<RtsUnitMember.WaitPointDescriptor>(16);
+	private readonly List<Rect> m_WaitPointIconScreenRects = new List<Rect>(16);
+	private readonly List<int> m_WaitPointIconUnitIndices = new List<int>(16);
+	private readonly List<int> m_WaitPointIconWaypointIndices = new List<int>(16);
+	private static GUIStyle s_ArrowDeleteButtonGuiStyle;
+	private static GUIStyle s_WaitPointIconGuiStyle;
 	private int m_EditingUnitIndex = -1;
 	private int m_EditingSegmentIndex = -1;
 	private float m_EditingWaypointAngle;
 	private Vector3 m_EditingWaypointAnchor;
+	private RtsUnitMember.FacingArrowMode m_EditingWaypointMode;
+	private Vector3 m_EditingWaypointLookPoint;
 	private RtsUnitMember m_PendingExchangePlayerUnit;
 	private RtsUnitMember m_PendingExchangePartnerUnit;
 	private static RtsUnitSelectionManager s_Instance;
@@ -104,6 +131,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private static GUIStyle s_TransientMessageGuiStyle;
 	private static string s_TransientMessage;
 	private static float s_TransientMessageUntilUnscaledTime = -1f;
+
+	private enum RouteEditTargetKind
+	{
+		SegmentPoint,
+		WaypointVertex,
+	}
+
+	private enum RouteVertexRole
+	{
+		First,
+		Corner,
+		End,
+	}
 	#endregion
 
 	#region Public Properties
@@ -156,6 +196,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (FallenUnitInteractionMenuController.Instance != null)
 			FallenUnitInteractionMenuController.Instance.ActionClicked -= HandleFallenUnitMenuAction;
 
+		if (m_RouteEditHandle != null)
+			Destroy(m_RouteEditHandle);
+
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -188,7 +231,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		HandleLeftMouseSelection();
-		UpdatePathHover();
+		UpdatePathInteractions();
 		HandleRightMouseCommand();
 		HandleKeyboardCommands();
 		UpdateFormationSyncSpeeds();
@@ -204,6 +247,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		DrawRtsControlHintsIfAnySelection();
+		DrawArrowDeleteButtonIfAny();
+		DrawWaitPointIconsIfAny();
 		DrawTransientMessageIfAny();
 	}
 	#endregion
@@ -211,6 +256,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	#region Public Methods
 	public void ClearSelection()
 	{
+		ClearAllPathInteractions();
 		SetSelection(new List<RtsUnitMember>(0));
 	}
 
@@ -2024,6 +2070,48 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Mouse.current.leftButton.wasPressedThisFrame)
 		{
+			if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
+			{
+				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
+				m_IsDraggingSelection = false;
+				m_LeftMouseStartedOverUi = true;
+				CycleWaitPointIcon(waitUnitIndex, waitWaypointIndex);
+				return;
+			}
+
+			if (IsPointerOverArrowDeleteButton())
+			{
+				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
+				m_IsDraggingSelection = false;
+				m_LeftMouseStartedOverUi = true;
+				RemoveHoveredFacingArrow();
+				return;
+			}
+
+			if (IsAltHeld() && !IsPointerOverUi() && TryPlaceWaitPointFromRouteClick())
+			{
+				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
+				m_IsDraggingSelection = false;
+				m_LeftMouseStartedOverUi = true;
+				return;
+			}
+
+			if (TryBeginRouteDragOnPress())
+				return;
+		}
+
+		if (m_IsDraggingRoute)
+		{
+			if (Mouse.current.leftButton.wasReleasedThisFrame)
+				EndRouteDrag();
+			return;
+		}
+
+		if (m_IsRouteEditMode || m_IsEditingWaypointFacing)
+			return;
+
+		if (Mouse.current.leftButton.wasPressedThisFrame)
+		{
 			m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
 			m_IsDraggingSelection = false;
 			m_LeftMouseStartedOverUi = IsPointerOverUi();
@@ -2054,6 +2142,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (!Mouse.current.leftButton.wasReleasedThisFrame)
 			return;
+
+		if (IsPointerOverWaitPointIcon(out _, out _))
+		{
+			m_IsDraggingSelection = false;
+			m_LeftMouseStartedOverUi = false;
+			return;
+		}
+
+		if (IsPointerOverArrowDeleteButton())
+		{
+			m_IsDraggingSelection = false;
+			m_LeftMouseStartedOverUi = false;
+			return;
+		}
 
 		if (m_LeftMouseStartedOverUi || IsPointerOverUi())
 		{
@@ -2332,100 +2434,767 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		SetSelection(inRect);
 	}
 
-	private void UpdatePathHover()
+	private void UpdatePathInteractions()
 	{
-		if (m_SelectionCamera == null || m_SelectedUnits.Count == 0 || Mouse.current == null || m_IsEditingWaypointFacing)
+		if (m_IsEditingWaypointFacing)
 		{
-			ClearPathHover();
+			ClearArrowHover();
+			ClearRouteEditMode();
+			ClearPathSegmentHover();
+			return;
+		}
+
+		if (m_SelectionCamera == null || m_SelectedUnits.Count == 0 || Mouse.current == null)
+		{
+			ClearAllPathInteractions();
+			return;
+		}
+
+		if (IsPointerOverUi() && !m_IsDraggingRoute)
+		{
+			ClearAllPathInteractions();
+			return;
+		}
+
+		if (m_IsDraggingRoute)
+		{
+			UpdateRouteDrag();
 			return;
 		}
 
 		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+
+		if (TryPickRouteEditTarget(
+			    mouseScreen,
+			    out int routeUnitIndex,
+			    out RouteEditTargetKind routeTargetKind,
+			    out int routeSegmentIndex,
+			    out int routeVertexIndex,
+			    out Vector3 routeWorldPoint))
+		{
+			ClearArrowHover();
+
+			if (m_IsRouteEditMode && m_HoveredUnitIndex == routeUnitIndex)
+			{
+				m_RouteEditTargetKind = routeTargetKind;
+				m_RouteEditVertexIndex = routeVertexIndex;
+				m_HoveredSegmentIndex = routeSegmentIndex;
+				m_HoveredSegmentWorldPoint = routeWorldPoint;
+				m_IsHoveringPathSegment = true;
+				UpdateRouteEditHandle(routeWorldPoint);
+				return;
+			}
+
+			if (m_IsRouteEditMode)
+				ClearRouteEditMode();
+
+			if (m_HoveredUnitIndex == routeUnitIndex &&
+			    m_HoveredSegmentIndex == routeSegmentIndex &&
+			    m_RouteEditTargetKind == routeTargetKind &&
+			    m_RouteEditVertexIndex == routeVertexIndex)
+			{
+				m_HoveredSegmentWorldPoint = routeWorldPoint;
+				if (Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
+				{
+					EnterRouteEditMode(
+						routeUnitIndex,
+						routeTargetKind,
+						routeSegmentIndex,
+						routeVertexIndex,
+						routeWorldPoint);
+				}
+			}
+			else
+			{
+				ClearPathSegmentHover();
+				m_HoveredUnitIndex = routeUnitIndex;
+				m_HoveredSegmentIndex = routeSegmentIndex;
+				m_RouteEditTargetKind = routeTargetKind;
+				m_RouteEditVertexIndex = routeVertexIndex;
+				m_HoveredSegmentWorldPoint = routeWorldPoint;
+				m_PathHoverStartTime = Time.unscaledTime;
+			}
+
+			return;
+		}
+
+		if (TryPickFacingArrow(mouseScreen, out int arrowUnitIndex, out RtsUnitMember.FacingArrowDescriptor facingArrow))
+		{
+			ClearRouteEditMode();
+			ClearPathSegmentHover();
+			UpdateArrowHover(arrowUnitIndex, facingArrow);
+			return;
+		}
+
+		ClearArrowHover();
+
+		if (m_IsRouteEditMode)
+		{
+			ClearRouteEditMode();
+			ClearPathSegmentHover();
+			return;
+		}
+
+		ClearPathSegmentHover();
+	}
+
+	private bool TryPickFacingArrow(
+		Vector2 _mouseScreen,
+		out int _unitIndex,
+		out RtsUnitMember.FacingArrowDescriptor _descriptor)
+	{
+		_unitIndex = -1;
+		_descriptor = default;
+		float thresholdSqr = m_ArrowHoverThresholdPixels * m_ArrowHoverThresholdPixels;
+		float bestDistSqr = thresholdSqr;
+
+		for (int unitIndex = 0; unitIndex < m_SelectedUnits.Count; unitIndex++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[unitIndex];
+			if (unit == null)
+				continue;
+
+			m_FacingArrowPickBuffer.Clear();
+			unit.CollectFacingArrowDescriptors(m_FacingArrowPickBuffer);
+			for (int i = 0; i < m_FacingArrowPickBuffer.Count; i++)
+			{
+				RtsUnitMember.FacingArrowDescriptor descriptor = m_FacingArrowPickBuffer[i];
+				RtsUnitMember.GetFacingArrowShaftEndpoints(
+					descriptor.Anchor,
+					descriptor.Angle,
+					descriptor.Mode,
+					descriptor.LookPoint,
+					descriptor.HasLookPoint,
+					out Vector3 shaftStart,
+					out Vector3 shaftEnd);
+				Vector2 startScreen = m_SelectionCamera.WorldToScreenPoint(shaftStart);
+				Vector2 endScreen = m_SelectionCamera.WorldToScreenPoint(shaftEnd);
+				float distSqr = DistPointToSegmentSqr(_mouseScreen, startScreen, endScreen, out _, out _);
+				if (distSqr < bestDistSqr)
+				{
+					bestDistSqr = distSqr;
+					_unitIndex = unitIndex;
+					_descriptor = descriptor;
+				}
+			}
+		}
+
+		return _unitIndex >= 0;
+	}
+
+	private bool TryPickRouteEditTarget(
+		Vector2 _mouseScreen,
+		out int _unitIndex,
+		out RouteEditTargetKind _targetKind,
+		out int _segmentIndex,
+		out int _vertexIndex,
+		out Vector3 _worldPoint)
+	{
+		_unitIndex = -1;
+		_targetKind = RouteEditTargetKind.SegmentPoint;
+		_segmentIndex = -1;
+		_vertexIndex = -1;
+		_worldPoint = Vector3.zero;
+
+		if (TryPickRouteVertex(_mouseScreen, out _unitIndex, out _vertexIndex, out _worldPoint))
+		{
+			_targetKind = RouteEditTargetKind.WaypointVertex;
+			_segmentIndex = _vertexIndex;
+			return true;
+		}
+
+		if (!TryPickRouteSegment(_mouseScreen, out _unitIndex, out _segmentIndex, out _worldPoint))
+			return false;
+
+		_targetKind = RouteEditTargetKind.SegmentPoint;
+		_vertexIndex = -1;
+		return true;
+	}
+
+	private bool TryPickRouteVertex(
+		Vector2 _mouseScreen,
+		out int _unitIndex,
+		out int _vertexIndex,
+		out Vector3 _worldPoint)
+	{
+		_unitIndex = -1;
+		_vertexIndex = -1;
+		_worldPoint = Vector3.zero;
+
+		float bestDistSqr = float.MaxValue;
+
+		for (int unitIndex = 0; unitIndex < m_SelectedUnits.Count; unitIndex++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[unitIndex];
+			if (unit == null || unit.WaypointCount == 0)
+				continue;
+
+			for (int waypointIndex = 0; waypointIndex < unit.WaypointCount; waypointIndex++)
+			{
+				Vector3 waypointWorld = unit.GetWaypointWorld(waypointIndex);
+				Vector2 waypointScreen = m_SelectionCamera.WorldToScreenPoint(waypointWorld);
+				RouteVertexRole role = ResolveRouteVertexRole(unit, waypointIndex);
+				float snapRadius = m_RouteVertexSnapPixels * role switch
+				{
+					RouteVertexRole.End => 1.25f,
+					RouteVertexRole.Corner => 1.15f,
+					_ => 1f,
+				};
+				float snapRadiusSqr = snapRadius * snapRadius;
+				float distSqr = (_mouseScreen - waypointScreen).sqrMagnitude;
+				if (distSqr >= snapRadiusSqr || distSqr >= bestDistSqr)
+					continue;
+
+				bestDistSqr = distSqr;
+				_unitIndex = unitIndex;
+				_vertexIndex = waypointIndex;
+				_worldPoint = waypointWorld;
+			}
+		}
+
+		return _unitIndex >= 0;
+	}
+
+	private bool TryPickRouteSegment(
+		Vector2 _mouseScreen,
+		out int _unitIndex,
+		out int _segmentIndex,
+		out Vector3 _worldPoint)
+	{
+		_unitIndex = -1;
+		_segmentIndex = -1;
+		_worldPoint = Vector3.zero;
+
 		float thresholdSqr = m_PathHoverThresholdPixels * m_PathHoverThresholdPixels;
+		float bestDistSqr = thresholdSqr;
 
 		bool hasMouseWorld = false;
 		Vector3 mouseWorld = Vector3.zero;
-		Ray mouseRay = m_SelectionCamera.ScreenPointToRay(mouseScreen);
+		Ray mouseRay = m_SelectionCamera.ScreenPointToRay(_mouseScreen);
 		if (Physics.Raycast(mouseRay, out RaycastHit mouseHit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
 		{
 			mouseWorld = mouseHit.point;
 			hasMouseWorld = true;
 		}
 
-		float bestDistSqr = thresholdSqr;
-		int bestUnitIndex = -1;
-		int bestSegmentIndex = -1;
-		Vector2 bestScreenPoint = Vector2.zero;
-		Vector3 bestWorldPoint = Vector3.zero;
-
-		// Check each selected unit's path
-		for (int u = 0; u < m_SelectedUnits.Count; u++)
+		for (int unitIndex = 0; unitIndex < m_SelectedUnits.Count; unitIndex++)
 		{
-			RtsUnitMember unit = m_SelectedUnits[u];
+			RtsUnitMember unit = m_SelectedUnits[unitIndex];
 			if (unit == null || unit.WaypointCount == 0)
 				continue;
 
-			// Segment 0: unit position → waypoint[0]
 			Vector3 unitWorldPos = unit.transform.position;
-			Vector3 wp0World = unit.GetWaypointWorld(0);
+			Vector3 waypointZero = unit.GetWaypointWorld(0);
 			Vector2 unitScreen = m_SelectionCamera.WorldToScreenPoint(unitWorldPos);
-			Vector2 wp0Screen = m_SelectionCamera.WorldToScreenPoint(wp0World);
-			float d = DistPointToSegmentSqr(mouseScreen, unitScreen, wp0Screen, out Vector2 cp, out float t);
-			if (d < bestDistSqr)
+			Vector2 waypointZeroScreen = m_SelectionCamera.WorldToScreenPoint(waypointZero);
+			float distSqr = DistPointToSegmentSqr(_mouseScreen, unitScreen, waypointZeroScreen, out _, out float segmentT);
+			if (distSqr < bestDistSqr)
 			{
-				bestDistSqr = d;
-				bestUnitIndex = u;
-				bestSegmentIndex = 0;
-				bestScreenPoint = cp;
-				bestWorldPoint = hasMouseWorld
-					? ClosestPointOnLineSegment(mouseWorld, unitWorldPos, wp0World)
-					: Vector3.Lerp(unitWorldPos, wp0World, t);
+				bestDistSqr = distSqr;
+				_unitIndex = unitIndex;
+				_segmentIndex = 0;
+				_worldPoint = hasMouseWorld
+					? ClosestPointOnLineSegment(mouseWorld, unitWorldPos, waypointZero)
+					: Vector3.Lerp(unitWorldPos, waypointZero, segmentT);
 			}
 
-			// Segments i: waypoint[i-1] → waypoint[i]
-			for (int w = 1; w < unit.WaypointCount; w++)
+			for (int waypointIndex = 1; waypointIndex < unit.WaypointCount; waypointIndex++)
 			{
-				Vector3 segStart = unit.GetWaypointWorld(w - 1);
-				Vector3 segEnd = unit.GetWaypointWorld(w);
-				Vector2 a = m_SelectionCamera.WorldToScreenPoint(segStart);
-				Vector2 b = m_SelectionCamera.WorldToScreenPoint(segEnd);
-				d = DistPointToSegmentSqr(mouseScreen, a, b, out cp, out t);
-				if (d < bestDistSqr)
+				Vector3 segmentStart = unit.GetWaypointWorld(waypointIndex - 1);
+				Vector3 segmentEnd = unit.GetWaypointWorld(waypointIndex);
+				Vector2 startScreen = m_SelectionCamera.WorldToScreenPoint(segmentStart);
+				Vector2 endScreen = m_SelectionCamera.WorldToScreenPoint(segmentEnd);
+				distSqr = DistPointToSegmentSqr(_mouseScreen, startScreen, endScreen, out _, out segmentT);
+				if (distSqr < bestDistSqr)
 				{
-					bestDistSqr = d;
-					bestUnitIndex = u;
-					bestSegmentIndex = w;
-					bestScreenPoint = cp;
-					bestWorldPoint = hasMouseWorld
-					? ClosestPointOnLineSegment(mouseWorld, segStart, segEnd)
-					: Vector3.Lerp(segStart, segEnd, t);
+					bestDistSqr = distSqr;
+					_unitIndex = unitIndex;
+					_segmentIndex = waypointIndex;
+					_worldPoint = hasMouseWorld
+						? ClosestPointOnLineSegment(mouseWorld, segmentStart, segmentEnd)
+						: Vector3.Lerp(segmentStart, segmentEnd, segmentT);
 				}
 			}
 		}
 
-		// Apply results
-		if (bestUnitIndex >= 0)
+		return _unitIndex >= 0;
+	}
+
+	private void UpdateArrowHover(int _unitIndex, RtsUnitMember.FacingArrowDescriptor _descriptor)
+	{
+		if (m_HoveredArrowUnitIndex == _unitIndex &&
+		    m_HoveredFacingArrow.SegmentIndex == _descriptor.SegmentIndex &&
+		    m_HoveredFacingArrow.ArrowIndex == _descriptor.ArrowIndex &&
+		    m_HoveredFacingArrow.IsActiveSegment == _descriptor.IsActiveSegment)
 		{
-			if (m_HoveredUnitIndex == bestUnitIndex && m_HoveredSegmentIndex == bestSegmentIndex)
+			if (Time.unscaledTime - m_ArrowHoverStartTime >= m_PathHoverDelay)
+				ShowArrowDeleteButton(_unitIndex, _descriptor);
+			return;
+		}
+
+		ClearArrowHover();
+		m_HoveredArrowUnitIndex = _unitIndex;
+		m_HoveredFacingArrow = _descriptor;
+		m_ArrowHoverStartTime = Time.unscaledTime;
+	}
+
+	private void ShowArrowDeleteButton(int _unitIndex, RtsUnitMember.FacingArrowDescriptor _descriptor)
+	{
+		m_IsArrowDeleteButtonVisible = true;
+
+		RtsUnitMember.GetFacingArrowShaftEndpoints(
+			_descriptor.Anchor,
+			_descriptor.Angle,
+			_descriptor.Mode,
+			_descriptor.LookPoint,
+			_descriptor.HasLookPoint,
+			out _,
+			out Vector3 arrowTip);
+		Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(arrowTip);
+		float buttonSize = m_ArrowDeleteButtonSize;
+		m_ArrowDeleteButtonScreenRect = new Rect(
+			screenPoint.x - buttonSize * 0.5f,
+			Screen.height - screenPoint.y + 6f,
+			buttonSize,
+			buttonSize);
+	}
+
+	private void ClearArrowHover()
+	{
+		m_HoveredArrowUnitIndex = -1;
+		m_HoveredFacingArrow = default;
+		m_ArrowHoverStartTime = 0f;
+		m_IsArrowDeleteButtonVisible = false;
+	}
+
+	private void EnterRouteEditMode(
+		int _unitIndex,
+		RouteEditTargetKind _targetKind,
+		int _segmentIndex,
+		int _vertexIndex,
+		Vector3 _worldPoint)
+	{
+		m_IsRouteEditMode = true;
+		m_IsHoveringPathSegment = true;
+		m_HoveredUnitIndex = _unitIndex;
+		m_HoveredSegmentIndex = _segmentIndex;
+		m_RouteEditTargetKind = _targetKind;
+		m_RouteEditVertexIndex = _vertexIndex;
+		m_HoveredSegmentWorldPoint = _worldPoint;
+		m_RouteEditWaypointIndex = -1;
+		EnsureRouteEditHandle();
+		UpdateRouteEditHandle(_worldPoint);
+	}
+
+	private void EnsureRouteEditHandle()
+	{
+		if (m_RouteEditHandle != null)
+			return;
+
+		m_RouteEditHandle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+		m_RouteEditHandle.name = "RouteEditHandle";
+		Collider handleCollider = m_RouteEditHandle.GetComponent<Collider>();
+		if (handleCollider != null)
+			Destroy(handleCollider);
+
+		if (m_RouteEditHandle.TryGetComponent<Renderer>(out Renderer renderer))
+		{
+			renderer.sharedMaterial = new Material(Shader.Find("Sprites/Default"));
+			renderer.sharedMaterial.color = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+		}
+
+		m_RouteEditHandle.transform.localScale = Vector3.one * m_RouteEditHandleSize;
+	}
+
+	private void UpdateRouteEditHandle(Vector3 _worldPoint)
+	{
+		if (m_RouteEditHandle == null)
+			return;
+
+		Vector3 handlePoint = _worldPoint;
+		handlePoint.y += 0.08f;
+		m_RouteEditHandle.transform.position = handlePoint;
+		m_RouteEditHandle.SetActive(true);
+		m_HoveredSegmentWorldPoint = _worldPoint;
+
+		RtsUnitMember unit = null;
+		if (m_HoveredUnitIndex >= 0 && m_HoveredUnitIndex < m_SelectedUnits.Count)
+			unit = m_SelectedUnits[m_HoveredUnitIndex];
+
+		ApplyRouteEditHandleVisual();
+	}
+
+	private void ApplyRouteEditHandleVisual()
+	{
+		if (m_RouteEditHandle == null)
+			return;
+
+		m_RouteEditHandle.transform.localScale = Vector3.one * m_RouteEditHandleSize;
+
+		if (m_RouteEditHandle.TryGetComponent<Renderer>(out Renderer renderer) && renderer.sharedMaterial != null)
+			renderer.sharedMaterial.color = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+	}
+
+	private static RouteVertexRole ResolveRouteVertexRole(RtsUnitMember _unit, int _vertexIndex)
+	{
+		if (_unit == null || _vertexIndex < 0)
+			return RouteVertexRole.First;
+
+		int waypointCount = _unit.WaypointCount;
+		if (_vertexIndex >= waypointCount - 1)
+			return RouteVertexRole.End;
+		if (_vertexIndex > 0)
+			return RouteVertexRole.Corner;
+		return RouteVertexRole.First;
+	}
+
+	private void ClearRouteEditMode()
+	{
+		m_IsRouteEditMode = false;
+		m_IsDraggingRoute = false;
+		m_RouteEditWaypointIndex = -1;
+		m_RouteEditTargetKind = RouteEditTargetKind.SegmentPoint;
+		m_RouteEditVertexIndex = -1;
+
+		if (m_RouteEditHandle != null)
+			m_RouteEditHandle.SetActive(false);
+	}
+
+	private void ClearPathSegmentHover()
+	{
+		m_IsHoveringPathSegment = false;
+		m_HoveredUnitIndex = -1;
+		m_HoveredSegmentIndex = -1;
+		m_RouteEditTargetKind = RouteEditTargetKind.SegmentPoint;
+		m_RouteEditVertexIndex = -1;
+		m_PathHoverStartTime = 0f;
+	}
+
+	private void ClearAllPathInteractions()
+	{
+		ClearArrowHover();
+		ClearRouteEditMode();
+		ClearPathSegmentHover();
+	}
+
+	private bool IsPointerOverArrowDeleteButton()
+	{
+		if (!m_IsArrowDeleteButtonVisible || Mouse.current == null)
+			return false;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		Vector2 guiMouse = new Vector2(mousePosition.x, Screen.height - mousePosition.y);
+		return m_ArrowDeleteButtonScreenRect.Contains(guiMouse);
+	}
+
+	private void RemoveHoveredFacingArrow()
+	{
+		if (m_HoveredArrowUnitIndex < 0 ||
+		    m_HoveredArrowUnitIndex >= m_SelectedUnits.Count)
+		{
+			ClearArrowHover();
+			return;
+		}
+
+		RtsUnitMember unit = m_SelectedUnits[m_HoveredArrowUnitIndex];
+		if (unit != null)
+		{
+			unit.TryRemoveFacingArrow(
+				m_HoveredFacingArrow.SegmentIndex,
+				m_HoveredFacingArrow.ArrowIndex);
+		}
+
+		ClearArrowHover();
+	}
+
+	private bool TryBeginRouteDragOnPress()
+	{
+		if (!m_IsRouteEditMode || Mouse.current == null || m_SelectionCamera == null)
+			return false;
+		if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
+			return false;
+		if (!IsPointerOverRouteHandle())
+			return false;
+
+		RtsUnitMember unit = m_SelectedUnits[m_HoveredUnitIndex];
+		if (unit == null)
+			return false;
+
+		if (m_RouteEditWaypointIndex < 0)
+		{
+			if (m_RouteEditTargetKind == RouteEditTargetKind.WaypointVertex && m_RouteEditVertexIndex >= 0)
 			{
-				m_HoveredSegmentWorldPoint = bestWorldPoint;
-				if (Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
-					ShowPathHoverArrow(bestUnitIndex, bestSegmentIndex, bestWorldPoint);
+				m_RouteEditWaypointIndex = m_RouteEditVertexIndex;
+			}
+			else if (!unit.TryInsertRouteWaypointAtSegment(m_HoveredSegmentIndex, m_HoveredSegmentWorldPoint))
+			{
+				return false;
 			}
 			else
 			{
-				// Different segment
-				ClearPathHover();
-				m_HoveredUnitIndex = bestUnitIndex;
-				m_HoveredSegmentIndex = bestSegmentIndex;
-				m_HoveredSegmentWorldPoint = bestWorldPoint;
-				m_PathHoverStartTime = Time.unscaledTime;
+				m_RouteEditWaypointIndex = m_HoveredSegmentIndex;
 			}
 		}
-		else
+
+		m_IsDraggingRoute = true;
+		UpdateRouteDrag();
+		return true;
+	}
+
+	private bool IsPointerOverRouteHandle()
+	{
+		if (m_RouteEditHandle == null || !m_RouteEditHandle.activeSelf || Mouse.current == null)
+			return false;
+
+		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+		Vector3 handleScreen = m_SelectionCamera.WorldToScreenPoint(m_RouteEditHandle.transform.position);
+		float hitRadius = m_RouteEditHandleHitPixels;
+		Vector2 delta = mouseScreen - new Vector2(handleScreen.x, handleScreen.y);
+		return delta.sqrMagnitude <= hitRadius * hitRadius;
+	}
+
+	private void UpdateRouteDrag()
+	{
+		if (!m_IsDraggingRoute || Mouse.current == null || m_SelectionCamera == null)
+			return;
+		if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
+			return;
+		if (m_RouteEditWaypointIndex < 0)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[m_HoveredUnitIndex];
+		if (unit == null)
+			return;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return;
+
+		unit.UpdateRouteEditWaypoint(m_RouteEditWaypointIndex, hit.point);
+		m_RouteEditTargetKind = RouteEditTargetKind.WaypointVertex;
+		m_RouteEditVertexIndex = m_RouteEditWaypointIndex;
+		UpdateRouteEditHandle(unit.GetWaypointWorld(m_RouteEditWaypointIndex));
+	}
+
+	private void EndRouteDrag()
+	{
+		int editedWaypointIndex = m_RouteEditWaypointIndex;
+		m_IsDraggingRoute = false;
+		m_RouteEditWaypointIndex = -1;
+
+		if (editedWaypointIndex < 0 ||
+		    m_HoveredUnitIndex < 0 ||
+		    m_HoveredUnitIndex >= m_SelectedUnits.Count)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[m_HoveredUnitIndex];
+		if (unit != null && editedWaypointIndex < unit.WaypointCount)
 		{
-			ClearPathHover();
+			m_RouteEditTargetKind = RouteEditTargetKind.WaypointVertex;
+			m_RouteEditVertexIndex = editedWaypointIndex;
+			UpdateRouteEditHandle(unit.GetWaypointWorld(editedWaypointIndex));
 		}
+	}
+
+	private void DrawArrowDeleteButtonIfAny()
+	{
+		if (!m_IsArrowDeleteButtonVisible)
+			return;
+
+		if (s_ArrowDeleteButtonGuiStyle == null)
+		{
+			s_ArrowDeleteButtonGuiStyle = new GUIStyle(GUI.skin.button)
+			{
+				fontSize = 14,
+				fontStyle = FontStyle.Bold,
+				alignment = TextAnchor.MiddleCenter
+			};
+			s_ArrowDeleteButtonGuiStyle.normal.textColor = Color.white;
+		}
+
+		if (GUI.Button(m_ArrowDeleteButtonScreenRect, "X", s_ArrowDeleteButtonGuiStyle))
+		{
+			RemoveHoveredFacingArrow();
+			m_LeftMouseStartedOverUi = true;
+		}
+	}
+
+	private void DrawWaitPointIconsIfAny()
+	{
+		m_WaitPointIconScreenRects.Clear();
+		m_WaitPointIconUnitIndices.Clear();
+		m_WaitPointIconWaypointIndices.Clear();
+
+		if (m_SelectionCamera == null || m_SelectedUnits.Count == 0)
+			return;
+
+		if (s_WaitPointIconGuiStyle == null)
+		{
+			s_WaitPointIconGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 13,
+				fontStyle = FontStyle.Bold,
+				alignment = TextAnchor.MiddleCenter
+			};
+			s_WaitPointIconGuiStyle.normal.textColor = Color.white;
+		}
+
+		float iconSize = m_WaitPointIconSize;
+		for (int unitIndex = 0; unitIndex < m_SelectedUnits.Count; unitIndex++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[unitIndex];
+			if (unit == null)
+				continue;
+
+			m_WaitPointPickBuffer.Clear();
+			unit.CollectWaitPointDescriptors(m_WaitPointPickBuffer);
+			for (int i = 0; i < m_WaitPointPickBuffer.Count; i++)
+			{
+				RtsUnitMember.WaitPointDescriptor descriptor = m_WaitPointPickBuffer[i];
+				Vector3 iconWorld = descriptor.WorldPosition + Vector3.up * 0.12f;
+				Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(iconWorld);
+				if (screenPoint.z <= 0f)
+					continue;
+
+				Rect iconRect = new Rect(
+					screenPoint.x - iconSize * 0.5f,
+					Screen.height - screenPoint.y - iconSize * 0.5f,
+					iconSize,
+					iconSize);
+
+				m_WaitPointIconScreenRects.Add(iconRect);
+				m_WaitPointIconUnitIndices.Add(unitIndex);
+				m_WaitPointIconWaypointIndices.Add(descriptor.WaypointIndex);
+
+				Color previousColor = GUI.backgroundColor;
+				GUI.backgroundColor = new Color(0.85f, 0.55f, 0.15f, 0.95f);
+				GUI.Box(iconRect, descriptor.WaitGroup.ToString(), s_WaitPointIconGuiStyle);
+				GUI.backgroundColor = previousColor;
+			}
+		}
+	}
+
+	private bool IsPointerOverWaitPointIcon(out int _unitIndex, out int _waypointIndex)
+	{
+		_unitIndex = -1;
+		_waypointIndex = -1;
+		if (Mouse.current == null || m_SelectionCamera == null || m_SelectedUnits.Count == 0)
+			return false;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		Vector2 guiMouse = new Vector2(mousePosition.x, Screen.height - mousePosition.y);
+		float iconSize = m_WaitPointIconSize;
+		float bestDistSqr = float.MaxValue;
+
+		for (int unitIndex = 0; unitIndex < m_SelectedUnits.Count; unitIndex++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[unitIndex];
+			if (unit == null)
+				continue;
+
+			m_WaitPointPickBuffer.Clear();
+			unit.CollectWaitPointDescriptors(m_WaitPointPickBuffer);
+			for (int i = 0; i < m_WaitPointPickBuffer.Count; i++)
+			{
+				RtsUnitMember.WaitPointDescriptor descriptor = m_WaitPointPickBuffer[i];
+				Vector3 iconWorld = descriptor.WorldPosition + Vector3.up * 0.12f;
+				Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(iconWorld);
+				if (screenPoint.z <= 0f)
+					continue;
+
+				Rect iconRect = new Rect(
+					screenPoint.x - iconSize * 0.5f,
+					Screen.height - screenPoint.y - iconSize * 0.5f,
+					iconSize,
+					iconSize);
+
+				if (!iconRect.Contains(guiMouse))
+					continue;
+
+				float distSqr = (guiMouse - iconRect.center).sqrMagnitude;
+				if (distSqr >= bestDistSqr)
+					continue;
+
+				bestDistSqr = distSqr;
+				_unitIndex = unitIndex;
+				_waypointIndex = descriptor.WaypointIndex;
+			}
+		}
+
+		return _unitIndex >= 0;
+	}
+
+	private void CycleWaitPointIcon(int _unitIndex, int _waypointIndex)
+	{
+		if (_unitIndex < 0 || _unitIndex >= m_SelectedUnits.Count)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
+		unit?.TryCycleWaitGroupForWaypoint(_waypointIndex);
+	}
+
+	private void RemoveWaitPointIcon(int _unitIndex, int _waypointIndex)
+	{
+		if (_unitIndex < 0 || _unitIndex >= m_SelectedUnits.Count)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
+		unit?.TryRemoveWaitPointAtWaypoint(_waypointIndex);
+	}
+
+	private bool TryPlaceWaitPointFromRouteClick()
+	{
+		if (Mouse.current == null || m_SelectionCamera == null || m_SelectedUnits.Count == 0)
+			return false;
+
+		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+
+		if (TryPickRouteSegment(mouseScreen, out int routeUnitIndex, out int routeSegmentIndex, out Vector3 routeWorldPoint))
+		{
+			if (routeUnitIndex < 0 || routeUnitIndex >= m_SelectedUnits.Count)
+				return false;
+
+			RtsUnitMember unit = m_SelectedUnits[routeUnitIndex];
+			if (unit == null)
+				return false;
+
+			return unit.TryInsertRouteWaypointAtSegment(
+				routeSegmentIndex,
+				routeWorldPoint,
+				unit.GetNextAutoWaitGroup());
+		}
+
+		if (TryPickRouteVertex(mouseScreen, out routeUnitIndex, out int routeVertexIndex, out _))
+		{
+			if (routeUnitIndex < 0 || routeUnitIndex >= m_SelectedUnits.Count)
+				return false;
+
+			RtsUnitMember unit = m_SelectedUnits[routeUnitIndex];
+			if (unit == null || routeVertexIndex < 0)
+				return false;
+
+			return unit.TrySetWaitGroupForWaypoint(routeVertexIndex, unit.GetNextAutoWaitGroup());
+		}
+
+		return false;
+	}
+
+	private void ContinueSelectedRouteWaitGroup(int _waitGroup)
+	{
+		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
+		for (int i = 0; i < instances.Count; i++)
+		{
+			RtsUnitMember unit = instances[i];
+			if (unit == null || !unit.IsPlayerSelectable)
+				continue;
+
+			unit.TryContinueRouteWaitGroup(_waitGroup);
+		}
+	}
+
+	private void UpdatePathHover()
+	{
+		UpdatePathInteractions();
 	}
 
 	private static float DistPointToSegmentSqr(Vector2 _p, Vector2 _a, Vector2 _b, out Vector2 _closest, out float _t)
@@ -2438,6 +3207,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			_t = 0f;
 			return (_p - _a).sqrMagnitude;
 		}
+
 		float t = Mathf.Clamp01(Vector2.Dot(_p - _a, ab) / lenSqr);
 		_closest = _a + t * ab;
 		_t = t;
@@ -2450,52 +3220,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		float abSqr = ab.sqrMagnitude;
 		if (abSqr < 1e-9f)
 			return _a;
+
 		float t = Mathf.Clamp01(Vector3.Dot(_p - _a, ab) / abSqr);
 		return _a + ab * t;
 	}
 
-	private void ShowPathHoverArrow(int _unitIndex, int _segmentIndex, Vector3 _worldAnchor)
+	private static Color GetFacingArrowColor(RtsUnitMember.FacingArrowMode _mode)
 	{
-		m_IsHoveringPathSegment = true;
-
-		if (m_PathHoverArrow == null)
+		return _mode switch
 		{
-			m_PathHoverArrow = new GameObject("PathHoverFacingLine");
-			LineRenderer lr = m_PathHoverArrow.AddComponent<LineRenderer>();
-			lr.positionCount = 2;
-			lr.startWidth = 0.04f;
-			lr.endWidth = 0.04f;
-			lr.material = new Material(Shader.Find("Sprites/Default"));
-			lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
-			lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
-		}
-
-		// Get current facing for this segment
-		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
-		float facing = unit.GetWaypointFacing(_segmentIndex);
-		float angle = float.IsNaN(facing) ? 0f : facing;
-
-		Vector3 dir = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
-		LineRenderer line = m_PathHoverArrow.GetComponent<LineRenderer>();
-		if (line != null)
-		{
-			line.SetPosition(0, _worldAnchor + dir * 0.3f);
-			line.SetPosition(1, _worldAnchor + dir * 2f);
-		}
-	}
-
-	private void ClearPathHover()
-	{
-		m_IsHoveringPathSegment = false;
-		m_HoveredUnitIndex = -1;
-		m_HoveredSegmentIndex = -1;
-		m_PathHoverStartTime = 0f;
-
-		if (m_PathHoverArrow != null)
-		{
-			Destroy(m_PathHoverArrow);
-			m_PathHoverArrow = null;
-		}
+			RtsUnitMember.FacingArrowMode.HoldToEnd => new Color(0.2f, 0.7f, 1f, 0.95f),
+			RtsUnitMember.FacingArrowMode.LookAtPoint => new Color(0.3f, 0.95f, 0.3f, 0.95f),
+			_ => new Color(1f, 0.85f, 0.2f, 0.95f),
+		};
 	}
 
 	private void HandleRightMouseCommand()
@@ -2529,41 +3266,34 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (wasReleased)
 			HandleRightMouseUp();
 
-		if (m_PreviewPending && !wasPressed && !wasReleased)
+		if (m_IsPreviewingMove && Mouse.current.rightButton.isPressed)
 		{
-			if (!m_IsQuickRotateFacing)
+			if (IsCtrlPressed())
 			{
-				Vector2 currentMouse = Mouse.current.position.ReadValue();
-				float dx = Mathf.Abs(currentMouse.x - m_RmbDownMousePos.x);
-				float dy = Mathf.Abs(currentMouse.y - m_RmbDownMousePos.y);
-				if (dx >= m_QuickRotateDragThresholdPixels || dy >= m_QuickRotateDragThresholdPixels)
-				{
-					List<RtsUnitMember> validForRotate = GetValidSelectedUnits();
-					if (validForRotate.Count == 1 ||
-					    (validForRotate.Count >= 2 && GetDominantFormation(validForRotate) == FormationType.Line))
-					{
-						EnterQuickRotateMode();
-					}
-				}
-				else if (Time.time - m_PreviewPendingTime >= m_DoubleRightClickSeconds)
-				{
-					ShowPreviewMarkers();
-				}
-			}
-		}
-
-		if (m_IsPreviewingMove)
-		{
-			if (!Mouse.current.rightButton.isPressed)
-			{
-				CancelMovePreview();
-			}
-			else if (m_IsQuickRotateFacing)
-			{
+				if (!m_IsQuickRotateFacing)
+					EnterMoveFacingMode();
 				UpdateQuickRotateMode();
 			}
 			else
 			{
+				if (m_RmbStartedOnSelectedUnit && CanPreviewMoveFacing())
+				{
+					Vector2 mousePos = Mouse.current.position.ReadValue();
+					if (!m_IsQuickRotateFacing &&
+					    (mousePos - m_RmbDownMousePos).magnitude >= m_QuickRotateDragThresholdPixels)
+					{
+						EnterQuickRotateMode();
+					}
+
+					if (m_IsQuickRotateFacing)
+					{
+						UpdateQuickRotateMode();
+						return;
+					}
+				}
+
+				if (m_IsQuickRotateFacing)
+					ExitMoveFacingMode();
 				UpdateMovePreview();
 				HandleFormationScroll();
 			}
@@ -2576,6 +3306,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		       (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
 	}
 
+	private static bool IsAltHeld()
+	{
+		return Keyboard.current != null &&
+		       (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed);
+	}
+
 	private void HandleRightMouseDown()
 	{
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
@@ -2583,7 +3319,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
 			return;
 
-		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0)
+		if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
+		{
+			RemoveWaitPointIcon(waitUnitIndex, waitWaypointIndex);
+			return;
+		}
+
+		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0 && !IsAltHeld())
 		{
 			BeginWaypointFacingEdit(m_HoveredUnitIndex, m_HoveredSegmentIndex);
 			return;
@@ -2646,9 +3388,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (m_LastRightClickTime >= 0f &&
-		    Time.time - m_LastRightClickTime <= m_DoubleRightClickSeconds)
+		    Time.unscaledTime - m_LastRightClickTime <= m_DoubleRightClickSeconds)
 		{
 			m_LastRightClickTime = -1f;
+			ClearPreviewMarkers();
+			m_IsPreviewingMove = false;
+			m_PreviewPending = false;
 
 			if (m_PendingWalkCoroutine != null)
 			{
@@ -2660,19 +3405,35 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (doubleUnits.Count == 0)
 				return;
 
+			bool useSavedWalkTarget = m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0;
+			Vector3 runCenter = useSavedWalkTarget ? m_LastWalkCenter : hitPoint;
+			List<Vector3> runOffsets = useSavedWalkTarget
+				? new List<Vector3>(m_LastWalkOffsets)
+				: BuildFormationOffsets(doubleUnits, hitPoint);
+
 			if (IsShiftHeld())
 			{
-				List<Vector3> runOffsets = BuildFormationOffsets(doubleUnits, hitPoint);
-				ShiftEnqueueMoveOrders(doubleUnits, runOffsets, hitPoint, null, UnitClickToMove.MoveTier.Run);
+				ShiftEnqueueMoveOrders(doubleUnits, runOffsets, runCenter, null, UnitClickToMove.MoveTier.Run);
 			}
 			else
 			{
+				bool allUpgraded = doubleUnits.Count > 0;
+				for (int i = 0; i < doubleUnits.Count; i++)
+				{
+					Vector3 dest = i < runOffsets.Count ? runCenter + runOffsets[i] : runCenter;
+					if (!doubleUnits[i].TryUpgradeMoveTargetToRun(dest))
+					{
+						allUpgraded = false;
+						break;
+					}
+				}
+
+				if (allUpgraded)
+					return;
+
 				foreach (var u in doubleUnits)
 					u.ClearCommandQueue();
-				if (m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0)
-					IssueScatteredMoveOrder(m_LastWalkCenter, UnitClickToMove.MoveTier.Run, m_LastWalkOffsets);
-				else
-					IssueScatteredMoveOrder(hitPoint, UnitClickToMove.MoveTier.Run);
+				IssueScatteredMoveOrder(runCenter, UnitClickToMove.MoveTier.Run, runOffsets);
 			}
 			return;
 		}
@@ -2683,9 +3444,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (validUnits.Count == 0)
 			return;
 
-		m_PreviewPending = true;
-		m_PreviewPendingTime = Time.time;
+		m_PreviewPending = false;
 		m_PreviewCancelled = false;
+		m_HasMoveFacingSet = false;
+		m_RmbStartedOnSelectedUnit = unitForcedGroundPoint.HasValue;
+		m_IsPreviewingMove = true;
 		m_PreviewCenterPoint = hitPoint;
 		m_RmbDownMousePos = mousePosition;
 
@@ -2696,6 +3459,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			m_PreviewOffsets = new List<Vector3> { Vector3.zero };
 		else
 			m_PreviewOffsets = BuildFormationOffsets(validUnits, hitPoint);
+
+		ApplyPreviewPathLines();
+	}
+
+	private void ApplyPreviewPathLines()
+	{
+		if (m_PreviewOffsets == null)
+			return;
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
 	}
 
 	private void ShowPreviewMarkers()
@@ -2706,10 +3481,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		m_IsPreviewingMove = true;
-
-		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
-		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+		ApplyPreviewPathLines();
 	}
 
 	private void UpdateMovePreview()
@@ -2786,18 +3558,48 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
+	private bool CanPreviewMoveFacing()
+	{
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		return validUnits.Count == 1 ||
+		       (validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line);
+	}
+
+	private void EnterMoveFacingMode()
+	{
+		if (!CanPreviewMoveFacing())
+			return;
+
+		m_IsQuickRotateFacing = true;
+		if (m_DirectionMarkers.Count == 0)
+			CreateDirectionMarkers();
+		UpdateQuickRotateMode();
+	}
+
+	private void ExitMoveFacingMode()
+	{
+		if (!m_IsQuickRotateFacing)
+			return;
+
+		m_IsQuickRotateFacing = false;
+		for (int i = 0; i < m_DirectionMarkers.Count; i++)
+		{
+			if (m_DirectionMarkers[i] != null)
+				Destroy(m_DirectionMarkers[i]);
+		}
+		m_DirectionMarkers.Clear();
+
+		if (m_PreviewFacingAngles != null && m_PreviewFacingAngles.Count > 0)
+			m_HasMoveFacingSet = true;
+
+		ApplyPreviewPathLines();
+	}
+
 	private void EnterQuickRotateMode()
 	{
 		m_PreviewPending = false;
 		m_IsPreviewingMove = true;
-		m_IsQuickRotateFacing = true;
-
-		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
-		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
-
-		CreateDirectionMarkers();
-		UpdateQuickRotateMode();
+		EnterMoveFacingMode();
 	}
 
 	private void UpdateQuickRotateMode()
@@ -2830,7 +3632,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				if (lr != null)
 				{
 					lr.SetPosition(0, dest + dir * 0.3f);
-					lr.SetPosition(1, dest + dir * 2f);
+					lr.SetPosition(1, dest + dir * 4f);
 				}
 			}
 		}
@@ -2860,11 +3662,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					if (lr != null)
 					{
 						lr.SetPosition(0, dest + formationForward * 0.3f);
-						lr.SetPosition(1, dest + formationForward * 2f);
+						lr.SetPosition(1, dest + formationForward * 4f);
 					}
 				}
 			}
 		}
+	}
+
+	private RtsUnitMember.FacingArrowMode ResolveFacingArrowModeFromModifiers()
+	{
+		if (IsCtrlPressed())
+			return RtsUnitMember.FacingArrowMode.HoldToEnd;
+		if (IsShiftHeld())
+			return RtsUnitMember.FacingArrowMode.LookAtPoint;
+		return RtsUnitMember.FacingArrowMode.TurnOverDistance;
 	}
 
 	private void BeginWaypointFacingEdit(int _unitIndex, int _segmentIndex)
@@ -2873,6 +3684,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_EditingUnitIndex = _unitIndex;
 		m_EditingSegmentIndex = _segmentIndex;
 		m_EditingWaypointAnchor = m_HoveredSegmentWorldPoint;
+		m_EditingWaypointMode = ResolveFacingArrowModeFromModifiers();
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
@@ -2890,8 +3702,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			lr.startWidth = 0.04f;
 			lr.endWidth = 0.04f;
 			lr.material = new Material(Shader.Find("Sprites/Default"));
-			lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
-			lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+			Color initialColor = GetFacingArrowColor(m_EditingWaypointMode);
+			lr.startColor = initialColor;
+			lr.endColor = initialColor;
 			m_DirectionMarkers.Add(arrowGo);
 		}
 
@@ -2904,9 +3717,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!m_IsEditingWaypointFacing)
 			return;
 
+		m_EditingWaypointMode = ResolveFacingArrowModeFromModifiers();
+		Color arrowColor = GetFacingArrowColor(m_EditingWaypointMode);
+
 		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
 		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+		{
+			if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
+			{
+				LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
+				if (lr != null)
+				{
+					lr.startColor = arrowColor;
+					lr.endColor = arrowColor;
+				}
+			}
+
 			return;
+		}
 
 		Vector3 anchor = m_EditingWaypointAnchor;
 		Vector3 toCursor = hit.point - anchor;
@@ -2916,15 +3744,21 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			? Mathf.Atan2(toCursor.x, toCursor.z) * Mathf.Rad2Deg
 			: 0f;
 		m_EditingWaypointAngle = angle;
+		m_EditingWaypointLookPoint = hit.point;
 
 		if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
 		{
 			Vector3 dir = toCursor.sqrMagnitude > 0.01f ? toCursor.normalized : Vector3.forward;
-			Vector3 tip = toCursor.sqrMagnitude > 0.01f ? hit.point : anchor + dir * 4f;
+			Vector3 shaftStart = anchor + dir * 0.3f;
+			Vector3 tip = m_EditingWaypointMode == RtsUnitMember.FacingArrowMode.LookAtPoint && toCursor.sqrMagnitude > 0.01f
+				? hit.point
+				: anchor + dir * 4f;
 			LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
 			if (lr != null)
 			{
-				lr.SetPosition(0, anchor + dir * 0.3f);
+				lr.startColor = arrowColor;
+				lr.endColor = arrowColor;
+				lr.SetPosition(0, shaftStart);
 				lr.SetPosition(1, tip);
 			}
 		}
@@ -2937,6 +3771,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		int segmentIndex = m_EditingSegmentIndex;
 		float angle = m_EditingWaypointAngle;
 		Vector3 anchor = m_EditingWaypointAnchor;
+		Vector3 lookPoint = m_EditingWaypointLookPoint;
+		RtsUnitMember.FacingArrowMode mode = m_EditingWaypointMode;
 		m_EditingUnitIndex = -1;
 		m_EditingSegmentIndex = -1;
 
@@ -2954,11 +3790,16 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count; i++)
 		{
-			if (validUnits[i] != null && validUnits[i].WaypointCount > segmentIndex)
-				validUnits[i].SetWaypointFacing(segmentIndex, angle, anchor);
+			if (validUnits[i] == null || validUnits[i].WaypointCount <= segmentIndex)
+				continue;
+
+			Vector3? lookPointArg = mode == RtsUnitMember.FacingArrowMode.LookAtPoint
+				? lookPoint
+				: null;
+			validUnits[i].SetWaypointFacing(segmentIndex, angle, anchor, mode, lookPointArg);
 		}
 
-		ClearPathHover();
+		ClearAllPathInteractions();
 	}
 
 	private List<Vector3> BuildLineOffsetsNoJitter(List<RtsUnitMember> _units, Vector3 _centerPoint, Vector3 _formationForward)
@@ -3130,22 +3971,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void HandleRightMouseUp()
 	{
-		if (!m_PreviewPending && !m_IsPreviewingMove)
+		if (!m_IsPreviewingMove)
 		{
-			m_LastRightClickTime = Time.time;
+			m_LastRightClickTime = Time.unscaledTime;
 			return;
 		}
 
-		bool wasPending = m_PreviewPending;
 		m_PreviewPending = false;
 		m_IsPreviewingMove = false;
 
-		m_LastRightClickTime = Time.time;
+		m_LastRightClickTime = Time.unscaledTime;
 
 		List<Vector3> offsets = m_PreviewOffsets;
 		Vector3 center = m_PreviewCenterPoint;
 		bool cancelled = m_PreviewCancelled;
-		List<float> facingAngles = m_PreviewFacingAngles;
+		bool useMoveFacing = m_HasMoveFacingSet || m_IsQuickRotateFacing;
+		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
+			? ResolveFacingArrowModeFromModifiers()
+			: null;
+		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
 
 		ClearPreviewMarkers();
 
@@ -3157,38 +4001,50 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		m_LastWalkCenter = center;
 		m_LastWalkOffsets = new List<Vector3>(offsets);
-
-		if (wasPending)
-		{
-			if (m_PendingWalkCoroutine != null)
-				StopCoroutine(m_PendingWalkCoroutine);
-			m_PendingWalkCoroutine = StartCoroutine(DelayedWalkRoutine(offsets, center, facingAngles));
-			return;
-		}
-
-		ExecuteWalkOrder(offsets, center, facingAngles);
+		ExecuteWalkOrder(offsets, center, facingAngles, IsAltHeld() ? -1 : 0, facingMode);
 	}
 
-	private System.Collections.IEnumerator DelayedWalkRoutine(
-		List<Vector3> _offsets, Vector3 _center, List<float> _facingAngles)
-	{
-		yield return new WaitForSeconds(m_DoubleRightClickSeconds);
-		m_PendingWalkCoroutine = null;
-		ExecuteWalkOrder(_offsets, _center, _facingAngles);
-	}
-
-	private void ExecuteWalkOrder(List<Vector3> _offsets, Vector3 _center, List<float> _facingAngles)
+	private void ExecuteWalkOrder(
+		List<Vector3> _offsets,
+		Vector3 _center,
+		List<float> _facingAngles,
+		int _waitGroup = 0,
+		RtsUnitMember.FacingArrowMode? _facingMode = null)
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
 			return;
 
 		bool shift = IsShiftHeld();
+		bool useWait = _waitGroup != 0;
+
+		RtsUnitMember.FacingArrowMode facingMode = _facingMode ?? RtsUnitMember.FacingArrowMode.TurnOverDistance;
 
 		if (shift)
 		{
 			EnsureFormationSyncGroup(validUnits, _offsets, _center);
-			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, UnitClickToMove.MoveTier.Walk);
+			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, UnitClickToMove.MoveTier.Walk, _waitGroup, facingMode);
+			return;
+		}
+
+		if (useWait && !shift)
+		{
+			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
+
+			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
+			{
+				int waitGroup = _waitGroup > 0 ? _waitGroup : 1;
+				float? facing = (_facingAngles != null && i < _facingAngles.Count)
+					? _facingAngles[i]
+					: (float?)null;
+				validUnits[i].IssueDirectMoveOrderWithWait(
+					_center + _offsets[i],
+					UnitClickToMove.MoveTier.Walk,
+					facing,
+					facingMode,
+					waitGroup);
+			}
+
 			return;
 		}
 
@@ -3197,13 +4053,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 
+		bool[] inPlaceFacing = new bool[validUnits.Count];
 		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
-			validUnits[i].SetDestinationDirect(_center + _offsets[i]);
-
-		if (_facingAngles != null && _facingAngles.Count > 0)
 		{
-			for (int i = 0; i < validUnits.Count && i < _facingAngles.Count; i++)
-				validUnits[i].SetWantedFacingAngle(_facingAngles[i]);
+			Vector3 dest = _center + _offsets[i];
+			bool hasFacing = _facingAngles != null && i < _facingAngles.Count;
+			inPlaceFacing[i] = hasFacing && IsNearMoveDestination(validUnits[i].transform.position, dest);
+
+			if (inPlaceFacing[i])
+			{
+				validUnits[i].IssueInPlaceFacingOrder(_facingAngles[i], facingMode);
+				continue;
+			}
+
+			validUnits[i].SetDestinationDirect(dest);
+			if (hasFacing)
+				validUnits[i].SetWaypointFacing(0, _facingAngles[i], dest, facingMode);
 		}
 
 		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
@@ -3217,20 +4082,42 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		else
 		{
 			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
+			{
+				if (inPlaceFacing[i])
+					continue;
+
 				validUnits[i].IssueMoveOrder(_center + _offsets[i], UnitClickToMove.MoveTier.Walk);
+			}
 		}
 	}
 
+	private static bool IsNearMoveDestination(Vector3 _from, Vector3 _to, float _epsilon = 0.75f)
+	{
+		Vector3 flatFrom = _from;
+		flatFrom.y = 0f;
+		Vector3 flatTo = _to;
+		flatTo.y = 0f;
+		return (flatTo - flatFrom).sqrMagnitude <= _epsilon * _epsilon;
+	}
+
 	private void ShiftEnqueueMoveOrders(List<RtsUnitMember> _units, List<Vector3> _offsets,
-		Vector3 _center, List<float> _facingAngles, UnitClickToMove.MoveTier _tier)
+		Vector3 _center, List<float> _facingAngles, UnitClickToMove.MoveTier _tier, int _waitGroup = 0,
+		RtsUnitMember.FacingArrowMode _facingMode = RtsUnitMember.FacingArrowMode.TurnOverDistance)
 	{
 		for (int i = 0; i < _units.Count && i < _offsets.Count; i++)
 		{
 			Vector3 dest = _center + _offsets[i];
+			if (_tier == UnitClickToMove.MoveTier.Run && _units[i].TryUpgradeMoveTargetToRun(dest))
+				continue;
+
+			int waitGroup = _waitGroup;
+			if (_waitGroup < 0)
+				waitGroup = _units[i].GetNextAutoWaitGroup();
+
 			float? facing = (_facingAngles != null && i < _facingAngles.Count)
 				? _facingAngles[i]
 				: (float?)null;
-			_units[i].EnqueueWaypoint(dest, _tier, facing);
+			_units[i].EnqueueWaypoint(dest, _tier, facing, _facingMode, waitGroup);
 		}
 	}
 
@@ -3265,6 +4152,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_DirectionMarkers.Clear();
 
 		m_IsQuickRotateFacing = false;
+		m_HasMoveFacingSet = false;
+		m_RmbStartedOnSelectedUnit = false;
 		m_PreviewFacingAngles = null;
 		m_PreviewOffsets = null;
 	}
@@ -3290,7 +4179,31 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void HandleKeyboardCommands()
 	{
-		if (Keyboard.current == null || m_SelectedUnits.Count == 0)
+		if (Keyboard.current == null)
+			return;
+
+		if (!IsPointerOverUi())
+		{
+			if (Keyboard.current.f1Key.wasPressedThisFrame)
+			{
+				ContinueSelectedRouteWaitGroup(1);
+				return;
+			}
+
+			if (Keyboard.current.f2Key.wasPressedThisFrame)
+			{
+				ContinueSelectedRouteWaitGroup(2);
+				return;
+			}
+
+			if (Keyboard.current.f3Key.wasPressedThisFrame)
+			{
+				ContinueSelectedRouteWaitGroup(3);
+				return;
+			}
+		}
+
+		if (m_SelectedUnits.Count == 0)
 			return;
 		if (IsPointerOverUi())
 			return;
@@ -3479,8 +4392,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (validUnits.Count == 1)
 		{
-			validUnits[0].SetDestinationDirect(_centerPoint);
-			validUnits[0].IssueMoveOrder(_centerPoint, _moveTier);
+			validUnits[0].SetDestinationDirect(_centerPoint, _moveTier);
+			validUnits[0].BeginActiveRouteMovement(_moveTier);
 			return;
 		}
 
@@ -3489,13 +4402,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		ApplyFormationSyncSpeeds(validUnits, offsets, _centerPoint);
 
 		for (int i = 0; i < validUnits.Count; i++)
-			validUnits[i].SetDestinationDirect(_centerPoint + offsets[i]);
+			validUnits[i].SetDestinationDirect(_centerPoint + offsets[i], _moveTier);
 
 		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
 		if (isFormationSync || m_GroupMoveStaggerMax <= 0f)
 		{
 			for (int i = 0; i < validUnits.Count; i++)
-				validUnits[i].IssueMoveOrder(_centerPoint + offsets[i], _moveTier);
+				validUnits[i].BeginActiveRouteMovement(_moveTier);
 		}
 		else
 		{
@@ -3513,10 +4426,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < _units.Count; i++)
 		{
 			if (_units[i] != null)
-				_units[i].IssueMoveOrder(_centerPoint + _offsets[i], _moveTier);
+				_units[i].BeginActiveRouteMovement(_moveTier);
 
 			if (i < _units.Count - 1)
-				yield return new WaitForSeconds(Random.Range(minDelay, maxDelay));
+				yield return new WaitForSecondsRealtime(Random.Range(minDelay, maxDelay));
 		}
 
 		m_StaggerCoroutine = null;
@@ -3817,6 +4730,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void SetSelection(List<RtsUnitMember> _units)
 	{
+		ClearAllPathInteractions();
 		ClearSelectionVisualsOnly();
 		m_SelectedUnits.Clear();
 
@@ -4266,7 +5180,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		const string c_HintText =
-			"Выделение: F стоп · E готов · Z/C стойка · T зарядка магазина · R перезарядка · V режим огня · X формация";
+			"ПКМ — перемещение (линия сразу) · Ctrl при зажатом ПКМ — направление · отпуск Ctrl — снова двигать точку · маршрут: ЛКМ редактирование · X — удалить стрелку";
 		const float pad = 10f;
 		const float height = 34f;
 

@@ -22,6 +22,11 @@ public class UnitStamina : MonoBehaviour
 	private const float RecoveryStanding = 1.65f;
 	private const float RecoveryCrouch = 2.2f;
 	private const float RecoveryProne = 2.5f;
+
+	private const float MaxReadyStamina = 100f;
+	private const float ReadyStaminaRecoveryRate = 3f;
+	private const float JuniorReadyDrainRate = 100f / (30f * 60f);
+	private const float SeniorReadyDrainRate = 100f / (50f * 60f);
 	#endregion
 
 	#region Serialized Fields
@@ -35,6 +40,11 @@ public class UnitStamina : MonoBehaviour
 	[SerializeField] private bool m_IsRecovering;
 	[SerializeField] private float m_CargoWeightDebug;
 	[SerializeField] private float m_MaxWeightDebug;
+
+	[Header("Ready Mode Stamina")]
+	[SerializeField, Range(0f, 100f)] private float m_ReadyStamina = 100f;
+	[SerializeField] private float m_ReadyStaminaDrainRate;
+	[SerializeField] private bool m_IsReadyStaminaExhausted;
 	#endregion
 
 	#region Private Fields
@@ -44,6 +54,8 @@ public class UnitStamina : MonoBehaviour
 	private UnitAnimatorStance m_Stance;
 	private Animator m_Animator;
 	private UnitCombatStats m_CombatStats;
+	private UnitWeaponReadyHandsLayer m_ReadyHands;
+	private UnitCombatCondition m_CombatCondition;
 	private bool m_ForceWalkActive;
 	private int m_LastStaminaBucket;
 	private float m_BaseRotateSpeed = 6f;
@@ -65,6 +77,8 @@ public class UnitStamina : MonoBehaviour
 		m_Stance = GetComponent<UnitAnimatorStance>();
 		m_Animator = GetComponentInChildren<Animator>(true);
 		m_CombatStats = GetComponent<UnitCombatStats>();
+		m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		m_CombatCondition = GetComponent<UnitCombatCondition>();
 
 		if (m_ClickToMove != null)
 			m_BaseRotateSpeed = m_ClickToMove.RotateSpeed;
@@ -73,6 +87,7 @@ public class UnitStamina : MonoBehaviour
 
 		UnitCombatRankDefinition rank = m_CombatStats != null ? m_CombatStats.RankPreset : null;
 		m_RankReduction = rank != null ? rank.WeightPenaltyReduction : 0f;
+		InitReadyStaminaDrainRate();
 	}
 
 	private void Update()
@@ -101,6 +116,9 @@ public class UnitStamina : MonoBehaviour
 			m_CurrentDrainRate = 0f;
 			m_CurrentRecoveryRate = 0f;
 		}
+
+		UpdateReadyStamina();
+		ApplyReadyExhaustionPenalties();
 
 		int bucket = ResolveStaminaBucket();
 		if (bucket != m_LastStaminaBucket)
@@ -227,6 +245,60 @@ public class UnitStamina : MonoBehaviour
 	private void ClearForceWalk()
 	{
 		m_ForceWalkActive = false;
+	}
+
+	private void InitReadyStaminaDrainRate()
+	{
+		if (m_CombatStats == null || m_CombatStats.RankPreset == null)
+		{
+			m_ReadyStaminaDrainRate = JuniorReadyDrainRate;
+			return;
+		}
+
+		m_ReadyStaminaDrainRate = IsJuniorRank(m_CombatStats.RankPreset) ? JuniorReadyDrainRate : SeniorReadyDrainRate;
+	}
+
+	private bool IsJuniorRank(UnitCombatRankDefinition _rank)
+	{
+		if (_rank == null)
+			return true;
+
+		string key = _rank.LocalizationKey ?? "";
+		return key.Contains("Recruit") || key.Contains("Soldier");
+	}
+
+	private void UpdateReadyStamina()
+	{
+		if (m_ReadyHands != null && m_ReadyHands.WantsReady && m_ReadyHands.IsWeaponEquipped())
+		{
+			m_ReadyStamina -= m_ReadyStaminaDrainRate * Time.deltaTime;
+		}
+		else
+		{
+			m_ReadyStamina = Mathf.Min(MaxReadyStamina, m_ReadyStamina + ReadyStaminaRecoveryRate * Time.deltaTime);
+		}
+
+		bool exhausted = m_ReadyStamina <= 0f;
+		if (exhausted && !m_IsReadyStaminaExhausted)
+		{
+			m_IsReadyStaminaExhausted = true;
+			m_ReadyStamina = 0f;
+		}
+		else if (!exhausted && m_IsReadyStaminaExhausted)
+		{
+			m_IsReadyStaminaExhausted = false;
+		}
+	}
+
+	private void ApplyReadyExhaustionPenalties()
+	{
+		float speedMul = m_IsReadyStaminaExhausted ? 0.8f : 1f;
+		if (m_ClickToMove != null)
+			m_ClickToMove.StaminaSpeedMultiplier = speedMul;
+		if (m_NavDriver != null)
+			m_NavDriver.StaminaSpeedMultiplier = speedMul;
+
+		m_CombatCondition?.SetReadyStaminaExhausted(m_IsReadyStaminaExhausted);
 	}
 	#endregion
 }

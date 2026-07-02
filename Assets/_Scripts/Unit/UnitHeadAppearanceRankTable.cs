@@ -98,6 +98,62 @@ public sealed class UnitHeadAppearanceRankTable : ScriptableObject
 		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHairCap02, 14),
 		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHairCap02Alt, 14)
 	};
+
+	[Header("Civilian/Insurgent — Male Hair")]
+	[SerializeField] private UnitHeadAppearanceVariantWeight[] m_CivilianMaleHairWeights =
+	{
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairBald, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShort04, 14),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairLongBack02, 10),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairRaised03, 10),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairCurly05, 10),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairMessy06, 14),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairStylish07, 6),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSides08, 10),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSidesLong10, 6),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHair01, 7),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHair09, 5),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHair11, 5)
+	};
+
+	[Header("Civilian/Insurgent — Female Hair")]
+	[SerializeField] private UnitHeadAppearanceVariantWeight[] m_CivilianFemaleHairWeights =
+	{
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHair01, 25),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHair02, 25),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHair03, 20),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHair04, 20),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.FemaleHair05, 10)
+	};
+
+	[Header("Civilian/Insurgent — Hats")]
+	[SerializeField] private UnitHeadAppearanceVariantWeight[] m_CivilianHatWeights =
+	{
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.HatNone, 70),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beanie01, 12),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Hat01, 6),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Hat06, 6),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Hat07, 6)
+	};
+
+	[Header("Civilian/Insurgent — Beards")]
+	[SerializeField] private UnitHeadAppearanceVariantWeight[] m_CivilianBeardWeights =
+	{
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.BeardNone, 45),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Mustache01, 10),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard01, 5),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard02, 4),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard03, 4),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard04, 5),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard05, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard06, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard07, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard08, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard09, 5),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard10, 4),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard11, 3),
+		new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard12, 3)
+	};
 	#endregion
 
 	#region Public Methods
@@ -122,6 +178,39 @@ public sealed class UnitHeadAppearanceRankTable : ScriptableObject
 			return UnitHeadAppearanceVariantIds.BeardNone;
 
 		return RollWeighted(ResolveMaleBeardWeights(_rank), UnitHeadAppearanceVariantIds.BeardNone);
+	}
+
+	public int RollCivilianHair(CharacterGender _gender)
+	{
+		return _gender == CharacterGender.Female
+			? RollWeighted(m_CivilianFemaleHairWeights, UnitHeadAppearanceVariantIds.FemaleHair01)
+			: RollWeighted(m_CivilianMaleHairWeights, UnitHeadAppearanceVariantIds.MaleHairShort04);
+	}
+
+	public int RollCivilianHat(CharacterGender _gender, int _hairVariant)
+	{
+		if (!CanUseCivilianHat(_gender, _hairVariant))
+			return UnitHeadAppearanceVariantIds.HatNone;
+
+		return RollWeighted(m_CivilianHatWeights, UnitHeadAppearanceVariantIds.HatNone);
+	}
+
+	public int RollCivilianBeard(CharacterGender _gender)
+	{
+		if (_gender != CharacterGender.Male)
+			return UnitHeadAppearanceVariantIds.BeardNone;
+
+		return RollWeighted(m_CivilianBeardWeights, UnitHeadAppearanceVariantIds.BeardNone);
+	}
+
+	private static bool CanUseCivilianHat(CharacterGender _gender, int _hairVariant)
+	{
+		if (_gender == CharacterGender.Female)
+			return _hairVariant != UnitHeadAppearanceVariantIds.FemaleHairCap02 &&
+			       _hairVariant != UnitHeadAppearanceVariantIds.FemaleHairCap02Alt &&
+			       _hairVariant != UnitHeadAppearanceVariantIds.FemaleHairHelmetShort05;
+
+		return _hairVariant != UnitHeadAppearanceVariantIds.MaleHairStylish07;
 	}
 
 	public static UnitHeadAppearanceRankTable CreateDefaultRuntimeInstance()
@@ -182,18 +271,7 @@ public sealed class UnitHeadAppearanceRankTable : ScriptableObject
 					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSides08, 11),
 					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSidesLong10, 10)
 				},
-				new[]
-				{
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.BeardNone, 62),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Mustache01, 10),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard04Mustache, 6),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard09Mustache, 5),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard01, 5),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard04, 4),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard09, 4),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard10, 2),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard11, 2)
-				}),
+				new[] { new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.BeardNone, 100) }),
 			CreateWeights(
 				"Rank_Elite",
 				new[]
@@ -208,19 +286,7 @@ public sealed class UnitHeadAppearanceRankTable : ScriptableObject
 					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSides08, 13),
 					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.MaleHairShavedSidesLong10, 13)
 				},
-				new[]
-				{
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.BeardNone, 38),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Mustache01, 6),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard04Mustache, 6),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard09Mustache, 6),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard01, 9),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard04, 9),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard09, 9),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard10, 8),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard11, 6),
-					new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.Beard12, 3)
-				})
+				new[] { new UnitHeadAppearanceVariantWeight(UnitHeadAppearanceVariantIds.BeardNone, 100) })
 		};
 	}
 	#endregion

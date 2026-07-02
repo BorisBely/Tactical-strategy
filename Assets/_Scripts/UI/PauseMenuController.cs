@@ -101,7 +101,7 @@ public sealed class PauseMenuController : MonoBehaviour
 			s_Instance = null;
 
 		if (IsPaused)
-			Time.timeScale = 1f;
+			GamePauseState.SetMenuPaused(false);
 
 		IsPaused = false;
 	}
@@ -111,7 +111,8 @@ public sealed class PauseMenuController : MonoBehaviour
 	private void SetPaused(bool _paused, bool _refreshTexts)
 	{
 		IsPaused = _paused;
-		Time.timeScale = _paused ? 0f : 1f;
+		GamePauseState.SetMenuPaused(_paused);
+		TacticalPauseController.NotifyMenuPauseChanged(_paused);
 
 		if (m_RootPanel != null)
 			m_RootPanel.SetActive(_paused);

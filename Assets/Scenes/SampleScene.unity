@@ -4678,6 +4678,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -4807,7 +4808,7 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   m_Enabled: 1
-  serializedVersion: 12
+  serializedVersion: 13
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 2
@@ -4859,7 +4860,7 @@ Light:
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
-  m_ShadowRadius: 0
+  m_ShapeRadius: 0
   m_ShadowAngle: 0
   m_LightUnit: 1
   m_LuxAtDistance: 1
@@ -10140,7 +10141,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1032073189
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -12682,9 +12683,12 @@ MonoBehaviour:
   m_StartNavSpeedFloor: 0.88
   m_StartNavSpeedFloorMaxLeadOverVelocity: 0.1
   m_BrakeAnimLeadDistance: 0.9
+  m_EarlyArrivalDistance: 0.5
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  FormationSpeedMultiplier: 1
+  StaminaSpeedMultiplier: 1
 --- !u!114 &1243261168
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13638,57 +13642,57 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionPrepEquipmentPresetCatalog
   m_Presets:
-   - m_DisplayName: Standard
-     m_LocalizationKey: mission_prep.equipment.preset.standard
-     m_DefaultArmorVisualIndex: 1
-     m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
-     m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
-     m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
-     m_ExtraHeadItemsInBag: []
-     m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
-     m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
-     m_SpareLoadedMagazinesInBag: 8
-     m_SpareEmptyMagazinesInBag: 0
-     m_RoundsPerMagazine: -1
-     m_PutLoadedMagazineInWeapon: 1
-     m_AmmoBoxItems:
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-   - m_DisplayName: Heavy
-     m_LocalizationKey: mission_prep.equipment.preset.heavy
-     m_DefaultArmorVisualIndex: 1
-     m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
-     m_HeadItem: {fileID: 11400000, guid: 3587fa6c294bea74cb580506e0fb6adb, type: 2}
-     m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
-     m_ExtraHeadItemsInBag:
-     - {fileID: 11400000, guid: 4a91d4f18799ae341af81ea609cdd5bc, type: 2}
-     - {fileID: 11400000, guid: 156ba2824000a544f8d88c446ee7077c, type: 2}
-     m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
-     m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
-     m_SpareLoadedMagazinesInBag: 12
-     m_SpareEmptyMagazinesInBag: 0
-     m_RoundsPerMagazine: -1
-     m_PutLoadedMagazineInWeapon: 1
-     m_AmmoBoxItems:
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-     - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-     - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-     - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
-     - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
-     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-     - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+  - m_DisplayName: Standard
+    m_LocalizationKey: mission_prep.equipment.preset.standard
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
+    m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+  - m_DisplayName: Heavy
+    m_LocalizationKey: mission_prep.equipment.preset.heavy
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
+    m_HeadItem: {fileID: 11400000, guid: 3587fa6c294bea74cb580506e0fb6adb, type: 2}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag:
+    - {fileID: 11400000, guid: 4a91d4f18799ae341af81ea609cdd5bc, type: 2}
+    - {fileID: 11400000, guid: 156ba2824000a544f8d88c446ee7077c, type: 2}
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 12
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+    - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
+    - {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
+    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
   m_ArmorOptions:
   - m_DisplayName: Light armor
     m_LocalizationKey: mission_prep.equipment.armor.light
@@ -14619,10 +14623,22 @@ MonoBehaviour:
   m_BlockPointerOverUi: 1
   m_BoxSelectionMinDragPixels: 12
   m_DoubleRightClickSeconds: 0.25
+  m_QuickRotateDragThresholdPixels: 5
+  m_PathHoverDelay: 0.2
+  m_PathHoverThresholdPixels: 30
   m_SelectFirstPlayerUnitOnStart: 1
-  m_GroupMoveScatterRadius: 0.4
-  m_GroupMoveMinSeparation: 0.24
-  m_GroupMoveScatterJitter: 0.08
+  m_GroupMoveUnitPadding: 0.5
+  m_GroupMoveFormationJitter: 0.1
+  m_FormationLineSpacing: 2
+  m_FormationLineSpacingMin: 0.5
+  m_FormationLineSpacingMax: 10
+  m_FormationLineSpacingStep: 0.25
+  m_FormationSyncMinSpeedMultiplier: 0.35
+  m_GroupMoveStaggerMin: 0.03
+  m_GroupMoveStaggerMax: 0.1
+  m_DestinationMarkerPrefab: {fileID: 9167699386245517432, guid: ea55f4c3438f4f4429b346f9e27aab1c, type: 3}
+  m_PathMarkerPrefab: {fileID: 9167699386245517432, guid: 063505ce1373ba6448f16c775189aceb, type: 3}
+  m_PathMarkerInterval: 1
   m_InventoryBindings: {fileID: 1656890144}
   m_GroundPanel: {fileID: 91343974}
   m_CharacterInventoryPanel: {fileID: 1076715632}
@@ -17658,7 +17674,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1717102755
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20504,7 +20520,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022201
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20616,7 +20632,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022211
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20728,7 +20744,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022221
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20840,7 +20856,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022231
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20952,7 +20968,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022241
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21064,7 +21080,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022251
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21176,7 +21192,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022261
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21288,7 +21304,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022271
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -22777,6 +22793,7 @@ MonoBehaviour:
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
     m_SpawnCount: 1
+  m_SpawnEnemies: 0
   m_EnemySpawns:
   - m_SpawnPoint: {fileID: 2100000007}
     m_Team: 1
@@ -22938,6 +22955,7 @@ MonoBehaviour:
     m_BodyMeshArchetype: 2
     m_CamouflageVisualIndex: -1
     m_SpawnCount: 5
+  m_SpawnCivilians: 0
   m_CivilianSpawns:
   - m_SpawnPoint: {fileID: 2100000027}
     m_Team: 2

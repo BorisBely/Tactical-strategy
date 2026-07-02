@@ -28,6 +28,10 @@ public sealed class UnitCombatCondition : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_ArmsWoundedRecoilRecoveryMultiplier = 0.85f;
 	[SerializeField, Min(0.01f)] private float m_HeavyPainRecoilAddedMultiplier = 1.1f;
 	[SerializeField, Min(0.01f)] private float m_HeavyPainRecoilRecoveryMultiplier = 0.9f;
+
+	[Header("Ready Stamina Exhaustion")]
+	[SerializeField, Min(0.01f)] private float m_ReadyStaminaDispersionMultiplier = 1.2f;
+	[SerializeField, Min(0.01f)] private float m_ReadyStaminaRecoilMultiplier = 1.5f;
 	#endregion
 
 	#region Public Properties
@@ -37,7 +41,15 @@ public sealed class UnitCombatCondition : MonoBehaviour
 	public bool Suppressed => m_Suppressed;
 	#endregion
 
+	#region Private Fields
+	private bool m_IsReadyStaminaExhausted;
+	#endregion
+
 	#region Public Methods
+	public void SetReadyStaminaExhausted(bool _exhausted)
+	{
+		m_IsReadyStaminaExhausted = _exhausted;
+	}
 	public void SetArmsWounded(bool _value)
 	{
 		m_ArmsWounded = _value;
@@ -67,6 +79,8 @@ public sealed class UnitCombatCondition : MonoBehaviour
 			multiplier *= m_HeavyPainDispersionMultiplier;
 		if (m_Suppressed)
 			multiplier *= m_SuppressedDispersionMultiplier;
+		if (m_IsReadyStaminaExhausted)
+			multiplier *= m_ReadyStaminaDispersionMultiplier;
 		return Mathf.Max(0.01f, multiplier);
 	}
 
@@ -91,6 +105,8 @@ public sealed class UnitCombatCondition : MonoBehaviour
 			multiplier *= m_ArmsWoundedRecoilAddedMultiplier;
 		if (m_HeavyPain)
 			multiplier *= m_HeavyPainRecoilAddedMultiplier;
+		if (m_IsReadyStaminaExhausted)
+			multiplier *= m_ReadyStaminaRecoilMultiplier;
 		return Mathf.Max(0.01f, multiplier);
 	}
 

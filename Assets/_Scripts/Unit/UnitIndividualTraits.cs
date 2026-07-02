@@ -156,6 +156,14 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 		m_HeadBeardVariant = table.RollBeard(_rank, _gender);
 	}
 
+	public void RollCivilianHeadAppearance(CharacterGender _gender)
+	{
+		UnitHeadAppearanceRankTable table = ResolveHeadAppearanceRankTable();
+		m_HeadHairVariant = table.RollCivilianHair(_gender);
+		m_HeadHatVariant = table.RollCivilianHat(_gender, m_HeadHairVariant);
+		m_HeadBeardVariant = table.RollCivilianBeard(_gender);
+	}
+
 	public static UnitIndividualTraits GetOrCreate(GameObject _unitRoot)
 	{
 		if (_unitRoot == null)

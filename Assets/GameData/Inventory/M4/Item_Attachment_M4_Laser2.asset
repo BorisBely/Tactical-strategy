@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Laser2
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_laser2
-  m_Description: Компактный ЛЦУ: немного точнее до 15 м.
+  m_Description: 
   m_Icon: {fileID: 0}
   m_BasePrice: 260
   m_Category: 0
@@ -23,9 +23,15 @@ MonoBehaviour:
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 0762ccc5c99fa3543b8a6fbe5e8e3cc5, type: 2}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}

@@ -10,6 +10,9 @@ public static class UnitHeadAppearanceVariantIds
 	public const int MaleHairStylish07 = 6;
 	public const int MaleHairShavedSides08 = 7;
 	public const int MaleHairShavedSidesLong10 = 8;
+	public const int MaleHair01 = 9;
+	public const int MaleHair09 = 10;
+	public const int MaleHair11 = 11;
 	#endregion
 
 	#region Female Hair
@@ -20,6 +23,7 @@ public static class UnitHeadAppearanceVariantIds
 	public const int FemaleHairCap02 = 4;
 	public const int FemaleHairCap02Alt = 5;
 	public const int FemaleHairHelmetShort05 = 6;
+	public const int FemaleHair05 = 7;
 	#endregion
 
 	#region Hats
@@ -29,6 +33,12 @@ public static class UnitHeadAppearanceVariantIds
 	public const int Hat04 = 3;
 	public const int Hat05 = 4;
 	public const int Beanie01 = 5;
+	public const int Hat01 = 6;
+	public const int Hat06 = 7;
+	public const int Hat07 = 8;
+	public const int HatCap01 = 9;
+	public const int HatCap02 = 10;
+	public const int CowboyHat01 = 11;
 	#endregion
 
 	#region Beard
@@ -42,6 +52,12 @@ public static class UnitHeadAppearanceVariantIds
 	public const int Beard11 = 7;
 	public const int Beard12 = 8;
 	public const int Mustache01 = 9;
+	public const int Beard02 = 10;
+	public const int Beard03 = 11;
+	public const int Beard05 = 12;
+	public const int Beard06 = 13;
+	public const int Beard07 = 14;
+	public const int Beard08 = 15;
 	#endregion
 
 	#region Public Methods

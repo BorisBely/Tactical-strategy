@@ -65,7 +65,6 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (m_FireVoicePool != null)
 			return;
 
-		// Нельзя вешать источник на корень и двигать transform.position под ствол — переносится весь юнит.
 		if (m_AudioSource != null && m_AudioSource.transform != transform)
 		{
 			m_AudioSource.playOnAwake = false;

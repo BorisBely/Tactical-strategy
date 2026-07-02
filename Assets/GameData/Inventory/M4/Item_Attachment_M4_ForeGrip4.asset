@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,10 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ForeGrip4
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_foregrip4
-  m_Description: Эргономичная рукоятка — сбалансированный компромисс между контролем и скоростью.
+  m_Description: "\u042D\u0440\u0433\u043E\u043D\u043E\u043C\u0438\u0447\u043D\u0430\u044F
+    \u0440\u0443\u043A\u043E\u044F\u0442\u043A\u0430 \u2014 \u0441\u0431\u0430\u043B\u0430\u043D\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439
+    \u043A\u043E\u043C\u043F\u0440\u043E\u043C\u0438\u0441\u0441 \u043C\u0435\u0436\u0434\u0443
+    \u043A\u043E\u043D\u0442\u0440\u043E\u043B\u0435\u043C \u0438 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E."
   m_Icon: {fileID: 0}
   m_BasePrice: 210
   m_Category: 0
@@ -23,9 +26,15 @@ MonoBehaviour:
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 2befe30494f10994aa26721748b24bc7, type: 2}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}

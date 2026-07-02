@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// RTS-обёртка над существующими компонентами юнита:
@@ -39,6 +40,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private float m_RuntimeMoveAnimatorSpeed = 1f;
 	[SerializeField] 	private bool m_IsSelected;
 	private FormationType m_CurrentFormation;
+	[Header("Route Corner Smoothing")]
+	[SerializeField] private bool m_EnableRouteCornerSmoothing = true;
+	[SerializeField, Min(0.1f)] private float m_CornerSmoothingMaxRadius = 2.5f;
+	[SerializeField, Range(0.05f, 0.49f)] private float m_CornerSmoothingSegmentFraction = 0.35f;
+	[SerializeField, Range(5f, 175f)] private float m_CornerSmoothingMinAngle = 12f;
+	[SerializeField, Range(2, 24)] private int m_CornerSmoothingMaxSamples = 12;
+	[SerializeField, Min(0.1f)] private float m_CornerSmoothingNavMeshSampleRadius = 1.5f;
+	[SerializeField, Min(0.2f)] private float m_ContinuousRouteLookaheadDistance = 1.25f;
+	[Header("Segment Facing (ПКМ по отрезку маршрута)")]
+	[SerializeField, Min(0.5f)] private float m_FacingTurnOverDistance = 5f;
 
 	private static Material s_PathLineMaterial;
 	private static readonly Vector3 s_PathLineYOffset = Vector3.up * 0.03f;
@@ -49,6 +60,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private Transform m_CachedCameraTransform;
 	private LineRenderer m_PathLine;
 	private bool m_HasActiveDestination;
+	private UnitClickToMove.MoveTier m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
+	private Vector3 m_ActiveRouteSegmentStart;
 	private float m_DestinationSetTime = -1f;
 	private bool m_HasWantedFacing;
 	private float m_WantedFacingAngle;
@@ -56,39 +69,130 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private float m_FacingRotateVelocity;
 	private bool m_FacingSuppressedReady;
 	private bool m_WasReadyBeforeFacing;
+	private bool m_IsInFacingTurn;
+	private FacingArrowMode m_FacingTurnMode;
+	private Vector3 m_FacingTurnStartPos;
+	private float m_FacingTurnStartAngle;
+	private float m_FacingTurnTargetAngle;
+	private float m_FacingTurnDistanceTraveled;
+	private Vector3 m_FacingLookPoint;
 	private FormationSyncGroup m_FormationSyncGroup;
 	private bool m_IsFormationSyncWaiting;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
 	private float m_NextWaypointCheckTime;
+	private readonly List<Vector3> m_SmoothingSubtargets = new List<Vector3>(16);
+	private int m_SmoothingSubtargetIndex;
+	private bool m_IsExecutingSmoothingArc;
+	private UnitClickToMove.MoveTier m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
+	private readonly List<Vector3> m_RawRoutePoints = new List<Vector3>(32);
+	private readonly List<Vector3> m_SmoothedRoutePoints = new List<Vector3>(64);
+	private readonly List<Vector3> m_CornerArcSamples = new List<Vector3>(16);
 
-	private struct FacingArrow
+	public enum FacingArrowMode
 	{
-		public Vector3 Position;
-		public float Angle;
+		TurnOverDistance,
+		HoldToEnd,
+		LookAtPoint,
 	}
 
+	public readonly struct WaitPointDescriptor
+	{
+		public WaitPointDescriptor(int _waypointIndex, bool _isActiveWaypoint, Vector3 _worldPosition, int _waitGroup)
+		{
+			WaypointIndex = _waypointIndex;
+			IsActiveWaypoint = _isActiveWaypoint;
+			WorldPosition = _worldPosition;
+			WaitGroup = _waitGroup;
+		}
+
+		public int WaypointIndex { get; }
+		public bool IsActiveWaypoint { get; }
+		public Vector3 WorldPosition { get; }
+		public int WaitGroup { get; }
+	}
+
+	public readonly struct FacingArrowDescriptor
+	{
+		public FacingArrowDescriptor(
+			int _segmentIndex,
+			int _arrowIndex,
+			bool _isActiveSegment,
+			Vector3 _anchor,
+			float _angle,
+			FacingArrowMode _mode,
+			Vector3 _lookPoint,
+			bool _hasLookPoint)
+		{
+			SegmentIndex = _segmentIndex;
+			ArrowIndex = _arrowIndex;
+			IsActiveSegment = _isActiveSegment;
+			Anchor = _anchor;
+			Angle = _angle;
+			Mode = _mode;
+			LookPoint = _lookPoint;
+			HasLookPoint = _hasLookPoint;
+		}
+
+		public int SegmentIndex { get; }
+		public int ArrowIndex { get; }
+		public bool IsActiveSegment { get; }
+		public Vector3 Anchor { get; }
+		public float Angle { get; }
+		public FacingArrowMode Mode { get; }
+		public Vector3 LookPoint { get; }
+		public bool HasLookPoint { get; }
+	}
+
+	#endregion
+
+	#region Private Types
 	private struct QueuedCommand
 	{
 		public Vector3 Destination;
 		public UnitClickToMove.MoveTier MoveTier;
 		public List<FacingArrow> FacingArrows;
+		public int WaitGroup;
+		public bool WaitIconAtWaypoint;
+		public bool HasWaitRouteBinding;
+		public int WaitRouteSegmentIndex;
+		public float WaitRouteSegmentT;
 	}
+
+	private struct FacingArrow
+	{
+		public float Angle;
+		public FacingArrowMode Mode;
+		public bool HasLookPoint;
+		public int RouteSegmentIndex;
+		public float RouteSegmentT;
+		public Vector3 LookOffsetFromAnchor;
+	}
+
+	private struct FacingArrowVisualSource
+	{
+		public LineRenderer Line;
+		public bool IsActiveSegment;
+		public int CommandIndex;
+		public int ArrowIndex;
+	}
+	#endregion
+
+	#region Public Properties
 
 	private readonly List<QueuedCommand> m_CommandQueue = new List<QueuedCommand>();
 
 	private static readonly Color s_FacingArrowColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+	private static readonly Color s_FacingArrowHoldColor = new Color(0.2f, 0.7f, 1f, 0.95f);
+	private static readonly Color s_FacingArrowLookColor = new Color(0.3f, 0.95f, 0.3f, 0.95f);
 	private static readonly Vector3 s_FacingArrowYOffset = Vector3.up * 0.05f;
-	private readonly List<FacingArrowState> m_FacingArrows = new List<FacingArrowState>();
+	private readonly List<FacingArrowVisualSource> m_FacingArrowVisuals = new List<FacingArrowVisualSource>();
 	private bool m_FacingArrowsDirty;
 	private List<FacingArrow> m_ActiveFacingArrows;
-	private const float FacingArrowActivationDistance = 5f;
-
-	private struct FacingArrowState
-	{
-		public LineRenderer Line;
-		public float Angle;
-		public Vector3 Anchor;
-	}
+	private int m_ActiveWaitGroup;
+	private bool m_IsWaitingAtRouteGate;
+	private const float FacingArrowActivationDistance = 1.5f;
+	private const float c_FacingArrowShaftStartOffset = 0.3f;
+	private const float c_FacingArrowFixedLength = 4f;
 	#endregion
 
 	#region Public Properties
@@ -99,6 +203,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public bool WantsReady => m_ReadyHands != null && m_ReadyHands.WantsReady;
 	public bool HasQueuedCommands => m_CommandQueue.Count > 0;
 	public bool HasActiveDestination => m_HasActiveDestination;
+	public bool IsWaitingAtRouteGate => m_IsWaitingAtRouteGate;
+	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
 	public float FormationSpacing { get; set; } = 2f;
 	#endregion
@@ -177,25 +283,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		float dx = transform.position.x - m_Waypoints[0].x;
-		float dz = transform.position.z - m_Waypoints[0].z;
-		bool atFirstWaypoint = dx * dx + dz * dz < 0.25f;
-
-		if (atFirstWaypoint)
-		{
-			m_PathLine.positionCount = m_Waypoints.Count;
-			for (int i = 0; i < m_Waypoints.Count; i++)
-				m_PathLine.SetPosition(i, m_Waypoints[i] + s_PathLineYOffset);
-		}
-		else
-		{
-			int count = 1 + m_Waypoints.Count;
-			m_PathLine.positionCount = count;
-			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
-			for (int i = 0; i < m_Waypoints.Count; i++)
-				m_PathLine.SetPosition(i + 1, m_Waypoints[i] + s_PathLineYOffset);
-		}
-
+		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: !IsAtFirstWaypoint(), previewDestination: null);
+		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		ApplyPathLinePoints(m_SmoothedRoutePoints);
 		m_PathLine.enabled = m_IsSelected;
 	}
 
@@ -226,8 +316,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ApplyAnimatorSpeedVariation();
 		UpdateSelectionLabelBillboard();
+		UpdateContinuousRouteLocomotionFlags();
 		UpdatePathLinePosition();
 		UpdateActiveFacingArrows();
+		UpdateFacingTurn();
 		SyncFacingArrows();
 		UpdateFacingArrows();
 		TryRemoveArrivedDestination();
@@ -241,46 +333,96 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!m_HasActiveDestination)
 			return;
-		if (m_CommandQueue.Count == 0)
-			return;
 		if (m_IsRotatingToFacing)
+			return;
+		if (m_IsWaitingAtRouteGate)
 			return;
 		if (m_FormationSyncGroup != null)
 			return;
 
-		if (Time.time < m_NextWaypointCheckTime)
+		bool isIntermediate = IsIntermediateRouteSegment();
+		if (!isIntermediate && Time.time < m_NextWaypointCheckTime)
 			return;
-		m_NextWaypointCheckTime = Time.time + 0.2f;
+		if (!isIntermediate)
+			m_NextWaypointCheckTime = Time.time + 0.2f;
 
-		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.3f)
+		if (!isIntermediate &&
+		    m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.3f)
 			return;
 
-		UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.15f)
+			return;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
 		if (agent == null || !agent.isOnNavMesh || agent.pathPending)
 			return;
 		if (!agent.hasPath)
 			return;
 
-		if (agent.remainingDistance > 0.5f)
+		float advanceDistance = isIntermediate ? m_ContinuousRouteLookaheadDistance : 0.5f;
+		if (agent.remainingDistance > advanceDistance)
 			return;
 
-		if (m_Waypoints.Count > 0)
-			m_Waypoints.RemoveAt(0);
-		RebuildPathLine();
-		DequeueAndExecuteNextCommand();
+		if (m_IsExecutingSmoothingArc)
+		{
+			AdvanceSmoothingArc();
+			return;
+		}
+
+		if (m_CommandQueue.Count == 0)
+			return;
+
+		TryAdvanceRouteQueue();
+	}
+
+	private void AdvanceSmoothingArc()
+	{
+		m_SmoothingSubtargetIndex++;
+		if (m_SmoothingSubtargetIndex < m_SmoothingSubtargets.Count)
+		{
+			m_DestinationSetTime = Time.time;
+			IssueRouteMoveOrder(m_SmoothingSubtargets[m_SmoothingSubtargetIndex], m_SmoothingMoveTier, _continuous: true);
+			return;
+		}
+
+		CompleteSmoothingArcAndContinueQueue();
+	}
+
+	private void CompleteSmoothingArcAndContinueQueue()
+	{
+		ClearSmoothingArcState();
+
+		if (TryHandleFormationSyncArrival())
+			return;
+
+		TryAdvanceRouteQueue();
+	}
+
+	private void ClearSmoothingArcState()
+	{
+		m_IsExecutingSmoothingArc = false;
+		m_SmoothingSubtargets.Clear();
+		m_SmoothingSubtargetIndex = 0;
+	}
+
+	private void ResetContinuousRouteLocomotionFlags()
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.SuppressEarlyArrivalStop = false;
+		if (m_LocomotionDriver != null)
+			m_LocomotionDriver.SuppressEarlyArrivalStop = false;
 	}
 
 	private void UpdatePathLinePosition()
 	{
-		if (m_PathLine == null || !m_PathLine.enabled || m_PathLine.positionCount < 2)
-			return;
-		if (m_Waypoints.Count == 0)
+		if (m_PathLine == null || !m_PathLine.enabled || m_Waypoints.Count == 0)
 			return;
 
-		float dx = transform.position.x - m_Waypoints[0].x;
-		float dz = transform.position.z - m_Waypoints[0].z;
-		if (dx * dx + dz * dz >= 0.25f)
-			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
+		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: true, previewDestination: null);
+		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		if (m_SmoothedRoutePoints.Count > 0)
+			m_SmoothedRoutePoints[0] = transform.position;
+		ApplyPathLinePoints(m_SmoothedRoutePoints);
 	}
 
 	private void UpdateFacingRotation()
@@ -288,8 +430,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsRotatingToFacing)
 			return;
 
-		UnitClickToMove clickToMove = m_ClickToMove;
-		float rotateSpeed = clickToMove != null ? clickToMove.RotateSpeed : 6f;
+		if (ShouldDeferRouteFacingOverride())
+			return;
+
+		float rotateSpeed = GetEffectiveRotateSpeed();
 
 		Quaternion targetRot = Quaternion.Euler(0f, m_WantedFacingAngle, 0f);
 		float angle = Quaternion.Angle(transform.rotation, targetRot);
@@ -306,14 +450,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_FacingSuppressedReady = false;
 			}
 
-			if (m_Waypoints.Count > 0)
-				m_Waypoints.RemoveAt(0);
-			RebuildPathLine();
-
 			if (TryHandleFormationSyncArrival())
 				return;
 
-			DequeueAndExecuteNextCommand();
+			TryAdvanceRouteQueue();
 			return;
 		}
 
@@ -357,15 +497,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		if (m_IsFormationSyncWaiting)
 			return;
-
-		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.5f)
+		if (m_IsWaitingAtRouteGate)
 			return;
 
-		UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+		bool isIntermediate = IsIntermediateRouteSegment();
+		if (!isIntermediate &&
+		    m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.5f)
+			return;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
 		if (agent == null || !agent.isOnNavMesh)
 			return;
 		if (agent.pathPending)
 			return;
+
 		if (agent.hasPath)
 			return;
 
@@ -374,34 +519,43 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (v.sqrMagnitude > 0.01f)
 			return;
 
-		if (m_HasWantedFacing)
+		if (ShouldClearFacingOnLegArrival())
 		{
-			if (m_IsRotatingToFacing)
+			if (m_IsInFacingTurn)
 			{
-				m_FacingRotateVelocity = 0f;
-				m_FacingSuppressedReady = false;
-				m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
+				ClearFacingTurn();
 			}
-			else
+			else if (m_HasWantedFacing)
 			{
-				ClearFacingOverride();
+				if (m_IsRotatingToFacing)
+				{
+					m_FacingRotateVelocity = 0f;
+					m_FacingSuppressedReady = false;
+					m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
+				}
+				else
+				{
+					ClearFacingOverride();
+				}
+
+				m_HasWantedFacing = false;
+				m_ActiveFacingArrows = null;
+				MarkFacingArrowsDirty();
 			}
-			m_HasWantedFacing = false;
-			m_ActiveFacingArrows = null;
-			MarkFacingArrowsDirty();
 		}
 
 		if (!m_IsRotatingToFacing)
 		{
-			if (m_Waypoints.Count > 0)
-				m_Waypoints.RemoveAt(0);
-			RebuildPathLine();
+			if (m_IsExecutingSmoothingArc)
+			{
+				AdvanceSmoothingArc();
+				return;
+			}
 
 			if (TryHandleFormationSyncArrival())
 				return;
 
-			m_HasActiveDestination = false;
-			DequeueAndExecuteNextCommand();
+			TryAdvanceRouteQueue();
 		}
 
 		if (!m_HasActiveDestination && m_Waypoints.Count == 0)
@@ -435,6 +589,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void IssueMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier)
 	{
+		IssueRouteMoveOrder(_worldPosition, _moveTier, _continuous: false);
+	}
+
+	public void BeginActiveRouteMovement(UnitClickToMove.MoveTier _moveTier)
+	{
+		if (!m_HasActiveDestination || m_Waypoints.Count == 0)
+			return;
+
+		m_ActiveMoveTier = _moveTier;
+		IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], _moveTier);
+	}
+
+	private void IssueRouteMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier, bool _continuous)
+	{
 		ScheduleRtsCommand(() =>
 		{
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
@@ -454,9 +622,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (isRunOrSprint && TryGetComponent(out UnitStamina stamina) && stamina.IsExhausted)
 				_moveTier = UnitClickToMove.MoveTier.Walk;
 
+			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
+				ClearFacingOverride();
+
 			if (m_ClickToMove != null)
 			{
-				m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
+				if (_continuous)
+					m_ClickToMove.IssueNavOrderContinuous(_worldPosition, _moveTier);
+				else
+					m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
 				return;
 			}
 
@@ -468,7 +642,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 					UnitClickToMove.MoveTier.Sprint => UnitNavLocomotionDriver.MoveTier.Sprint,
 					_ => UnitNavLocomotionDriver.MoveTier.Walk
 				};
-				m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
+				if (_continuous)
+					m_LocomotionDriver.IssueNavOrderContinuous(_worldPosition, navTier);
+				else
+					m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
 			}
 		});
 	}
@@ -478,41 +655,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_PathLine == null)
 			return;
 
-		List<Vector3> waypoints = m_Waypoints;
-		if (waypoints.Count == 0)
-		{
-			m_PathLine.positionCount = 2;
-			m_PathLine.SetPosition(0, transform.position + s_PathLineYOffset);
-			m_PathLine.SetPosition(1, _dest + s_PathLineYOffset);
-		}
-		else
-		{
-			float dx = transform.position.x - waypoints[0].x;
-			float dz = transform.position.z - waypoints[0].z;
-			bool atFirstWaypoint = dx * dx + dz * dz < 0.25f;
-
-			int count = (atFirstWaypoint ? 0 : 1) + waypoints.Count + 1;
-			m_PathLine.positionCount = count;
-
-			int idx = 0;
-			if (!atFirstWaypoint)
-				m_PathLine.SetPosition(idx++, transform.position + s_PathLineYOffset);
-
-			for (int i = 0; i < waypoints.Count; i++)
-				m_PathLine.SetPosition(idx++, waypoints[i] + s_PathLineYOffset);
-
-			m_PathLine.SetPosition(idx, _dest + s_PathLineYOffset);
-		}
-
+		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: !IsAtFirstWaypoint(), previewDestination: _dest);
+		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		ApplyPathLinePoints(m_SmoothedRoutePoints);
 		m_PathLine.enabled = m_IsSelected;
 	}
 
-	public void SetDestinationDirect(Vector3 _dest)
+	public void SetDestinationDirect(Vector3 _dest, UnitClickToMove.MoveTier _moveTier = UnitClickToMove.MoveTier.Walk)
 	{
+		ClearFacingTurn();
+		ClearSmoothingArcState();
+		ClearRouteWaitState();
 		m_Waypoints.Clear();
 		m_Waypoints.Add(_dest);
 		RebuildPathLine();
 		m_HasActiveDestination = true;
+		m_ActiveMoveTier = _moveTier;
+		m_ActiveRouteSegmentStart = transform.position;
 		m_DestinationSetTime = Time.time;
 		m_IsRotatingToFacing = false;
 		m_HasWantedFacing = false;
@@ -521,10 +680,77 @@ public sealed class RtsUnitMember : MonoBehaviour
 		MarkFacingArrowsDirty();
 	}
 
-	public void EnqueueWaypoint(Vector3 _dest, UnitClickToMove.MoveTier _tier, float? _facing)
+	public int GetNextAutoWaitGroup()
+	{
+		int maxGroup = 0;
+		for (int i = 0; i < m_CommandQueue.Count; i++)
+		{
+			if (m_CommandQueue[i].WaitGroup > maxGroup)
+				maxGroup = m_CommandQueue[i].WaitGroup;
+		}
+
+		if (m_IsWaitingAtRouteGate && m_ActiveWaitGroup > maxGroup)
+			maxGroup = m_ActiveWaitGroup;
+
+		if (maxGroup >= 3)
+			return 3;
+		if (maxGroup <= 0)
+			return 1;
+		return maxGroup + 1;
+	}
+
+	public void IssueDirectMoveOrderWithWait(
+		Vector3 _dest,
+		UnitClickToMove.MoveTier _tier,
+		float? _facing,
+		FacingArrowMode _mode,
+		int _waitGroup)
+	{
+		CancelPendingCommand();
+		ClearWaypoints();
+
+		m_Waypoints.Add(_dest);
+
+		var cmd = new QueuedCommand
+		{
+			Destination = _dest,
+			MoveTier = _tier,
+			FacingArrows = new List<FacingArrow>(),
+		};
+
+		if (_facing.HasValue && !float.IsNaN(_facing.Value))
+		{
+			cmd.FacingArrows.Add(BindFacingArrowToRouteSegment(new FacingArrow
+			{
+				Angle = _facing.Value,
+				Mode = _mode,
+			}, 0, _dest));
+		}
+
+		AssignWaitMetadata(ref cmd, _waitGroup, _iconAtWaypoint: false);
+
+		m_CommandQueue.Add(cmd);
+		if (cmd.WaitGroup >= 1)
+		{
+			cmd = m_CommandQueue[0];
+			BindWaitHoldToRoute(ref cmd, 0);
+			m_CommandQueue[0] = cmd;
+		}
+		RebuildPathLine();
+		MarkFacingArrowsDirty();
+		TryStartNextQueuedCommand();
+	}
+
+	public void EnqueueWaypoint(
+		Vector3 _dest,
+		UnitClickToMove.MoveTier _tier,
+		float? _facing,
+		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
+		int _waitGroup = 0)
 	{
 		m_Waypoints.Add(_dest);
 
+		int commandIndex = m_CommandQueue.Count;
 		var cmd = new QueuedCommand
 		{
 			Destination = _dest,
@@ -534,18 +760,73 @@ public sealed class RtsUnitMember : MonoBehaviour
 		
 		if (_facing.HasValue && !float.IsNaN(_facing.Value))
 		{
-			cmd.FacingArrows.Add(new FacingArrow { Position = _dest, Angle = _facing.Value });
+			int waypointIndex = m_Waypoints.Count - 1;
+			cmd.FacingArrows.Add(BindFacingArrowToRouteSegment(new FacingArrow
+			{
+				Angle = _facing.Value,
+				Mode = _mode,
+			}, waypointIndex, m_Waypoints[waypointIndex]));
 		}
+
+		AssignWaitMetadata(ref cmd, _waitGroup, _iconAtWaypoint: false);
 		
 		m_CommandQueue.Add(cmd);
+		if (cmd.WaitGroup >= 1)
+		{
+			cmd = m_CommandQueue[commandIndex];
+			BindWaitHoldToRoute(ref cmd, commandIndex);
+			m_CommandQueue[commandIndex] = cmd;
+		}
 
 		RebuildPathLine();
 
-		bool isIdle = !m_HasActiveDestination && !m_IsRotatingToFacing;
-		if (m_Waypoints.Count == 1 && isIdle)
-			DequeueAndExecuteNextCommand();
+		bool isIdle = !m_HasActiveDestination && !m_IsRotatingToFacing && !m_IsWaitingAtRouteGate;
+		if (isIdle)
+			TryStartNextQueuedCommand();
 
 		MarkFacingArrowsDirty();
+	}
+
+	/// <summary>
+	/// Upgrades an existing walk command to run when double-clicking the same destination (shift queue).
+	/// Avoids adding a duplicate waypoint that would briefly switch to run and back to walk.
+	/// </summary>
+	public bool TryUpgradeMoveTargetToRun(Vector3 _destination, float _destinationEpsilon = 0.75f)
+	{
+		if (m_Waypoints.Count == 0)
+			return false;
+
+		for (int waypointIndex = m_Waypoints.Count - 1; waypointIndex >= 0; waypointIndex--)
+		{
+			if (!IsNearDestination(m_Waypoints[waypointIndex], _destination, _destinationEpsilon))
+				continue;
+
+			if (m_HasActiveDestination && waypointIndex == 0)
+			{
+				if (m_ActiveMoveTier == UnitClickToMove.MoveTier.Run)
+					return true;
+
+				m_ActiveMoveTier = UnitClickToMove.MoveTier.Run;
+				ClearSmoothingArcState();
+				IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], UnitClickToMove.MoveTier.Run);
+				RebuildPathLine();
+				MarkFacingArrowsDirty();
+				return true;
+			}
+
+			int commandIndex = m_HasActiveDestination ? waypointIndex - 1 : waypointIndex;
+			if (commandIndex < 0 || commandIndex >= m_CommandQueue.Count)
+				return false;
+
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			cmd.MoveTier = UnitClickToMove.MoveTier.Run;
+			m_CommandQueue[commandIndex] = cmd;
+			RebuildPathLine();
+			MarkFacingArrowsDirty();
+			return true;
+		}
+
+		return false;
 	}
 
 	public int WaypointCount => m_Waypoints.Count;
@@ -555,15 +836,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return _index >= 0 && _index < m_Waypoints.Count ? m_Waypoints[_index] : Vector3.zero;
 	}
 
-	public float GetWaypointFacing(int _index)
+	public float GetWaypointFacing(int _index, out FacingArrowMode _mode)
 	{
+		_mode = FacingArrowMode.TurnOverDistance;
 		int cmdIndex = _index;
 		if (m_HasActiveDestination)
 		{
 			if (cmdIndex == 0)
 			{
 				if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0)
+				{
+					_mode = m_ActiveFacingArrows[m_ActiveFacingArrows.Count - 1].Mode;
 					return m_ActiveFacingArrows[m_ActiveFacingArrows.Count - 1].Angle;
+				}
 				return float.NaN;
 			}
 			cmdIndex--;
@@ -574,17 +859,579 @@ public sealed class RtsUnitMember : MonoBehaviour
 		var arrows = m_CommandQueue[cmdIndex].FacingArrows;
 		if (arrows == null || arrows.Count == 0)
 			return float.NaN;
+		_mode = arrows[arrows.Count - 1].Mode;
 		return arrows[arrows.Count - 1].Angle;
 	}
 
-	public void SetWaypointFacing(int _index, float _angle, Vector3 _anchor)
+	public void CollectFacingArrowDescriptors(List<FacingArrowDescriptor> _output)
 	{
+		if (_output == null)
+			return;
+
+		_output.Clear();
+
+		if (m_HasActiveDestination && m_ActiveFacingArrows != null)
+		{
+			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+			{
+				FacingArrow arrow = m_ActiveFacingArrows[i];
+				Vector3 anchor = ResolveFacingArrowAnchor(arrow, _isActiveSegment: true);
+				Vector3 lookPoint = arrow.HasLookPoint ? ResolveFacingArrowLookPoint(arrow, _isActiveSegment: true) : Vector3.zero;
+				_output.Add(new FacingArrowDescriptor(
+					0,
+					i,
+					true,
+					anchor,
+					arrow.Angle,
+					arrow.Mode,
+					lookPoint,
+					arrow.HasLookPoint));
+			}
+		}
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			List<FacingArrow> arrows = m_CommandQueue[commandIndex].FacingArrows;
+			if (arrows == null || arrows.Count == 0)
+				continue;
+
+			int segmentIndex = m_HasActiveDestination ? commandIndex + 1 : commandIndex;
+			for (int arrowIndex = 0; arrowIndex < arrows.Count; arrowIndex++)
+			{
+				FacingArrow arrow = arrows[arrowIndex];
+				Vector3 anchor = ResolveFacingArrowAnchor(arrow);
+				Vector3 lookPoint = arrow.HasLookPoint ? ResolveFacingArrowLookPoint(arrow) : Vector3.zero;
+				_output.Add(new FacingArrowDescriptor(
+					segmentIndex,
+					arrowIndex,
+					false,
+					anchor,
+					arrow.Angle,
+					arrow.Mode,
+					lookPoint,
+					arrow.HasLookPoint));
+			}
+		}
+	}
+
+	public bool TryRemoveFacingArrow(int _segmentIndex, int _arrowIndex)
+	{
+		if (_arrowIndex < 0)
+			return false;
+
+		if (m_HasActiveDestination && _segmentIndex == 0)
+		{
+			if (m_ActiveFacingArrows == null || _arrowIndex >= m_ActiveFacingArrows.Count)
+				return false;
+
+			m_ActiveFacingArrows.RemoveAt(_arrowIndex);
+			if (m_ActiveFacingArrows.Count == 0)
+				m_ActiveFacingArrows = null;
+
+			MarkFacingArrowsDirty();
+			return true;
+		}
+
+		int commandIndex = m_HasActiveDestination ? _segmentIndex - 1 : _segmentIndex;
+		if (commandIndex < 0 || commandIndex >= m_CommandQueue.Count)
+			return false;
+
+		QueuedCommand cmd = m_CommandQueue[commandIndex];
+		if (cmd.FacingArrows == null || _arrowIndex >= cmd.FacingArrows.Count)
+			return false;
+
+		cmd.FacingArrows.RemoveAt(_arrowIndex);
+		m_CommandQueue[commandIndex] = cmd;
+		MarkFacingArrowsDirty();
+		return true;
+	}
+
+	public void CollectWaitPointDescriptors(List<WaitPointDescriptor> _output)
+	{
+		if (_output == null)
+			return;
+
+		_output.Clear();
+		EnsureWaitRouteBindings();
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			int waitGroup = cmd.WaitGroup;
+			if (waitGroup < 1)
+				continue;
+
+			int waypointIndex = m_HasActiveDestination ? commandIndex + 1 : commandIndex;
+			if (waypointIndex < 0 || waypointIndex >= m_Waypoints.Count)
+				continue;
+
+			_output.Add(new WaitPointDescriptor(
+				waypointIndex,
+				false,
+				ResolveWaitHoldWorldPosition(commandIndex, cmd),
+				waitGroup));
+		}
+	}
+
+	private Vector3 ResolveWaitHoldWorldPosition(int _commandIndex, in QueuedCommand _command)
+	{
+		if (_command.HasWaitRouteBinding)
+			return ResolveRouteSegmentPoint(_command.WaitRouteSegmentIndex, _command.WaitRouteSegmentT);
+
+		if (_command.WaitIconAtWaypoint)
+		{
+			int waypointIndex = m_HasActiveDestination ? _commandIndex + 1 : _commandIndex;
+			if (waypointIndex >= 0 && waypointIndex < m_Waypoints.Count)
+				return m_Waypoints[waypointIndex];
+		}
+
+		return ComputeAutoWaitHoldWorldPosition(_commandIndex);
+	}
+
+	private Vector3 ResolveRouteSegmentPoint(int _segmentIndex, float _segmentT)
+	{
+		if (TryGetRouteSegmentEndpoints(_segmentIndex, out Vector3 segmentStart, out Vector3 segmentEnd))
+			return Vector3.Lerp(segmentStart, segmentEnd, _segmentT);
+
+		return transform.position;
+	}
+
+	private void BindWaitHoldToRoute(ref QueuedCommand _command, int _commandIndex)
+	{
+		if (_command.WaitIconAtWaypoint)
+		{
+			int waypointIndex = m_HasActiveDestination ? _commandIndex + 1 : _commandIndex;
+			if (waypointIndex < 0 || waypointIndex >= m_Waypoints.Count)
+				return;
+
+			BindRouteVertexToSegment(
+				waypointIndex,
+				out _command.WaitRouteSegmentIndex,
+				out _command.WaitRouteSegmentT);
+			_command.HasWaitRouteBinding = true;
+			return;
+		}
+
+		int waitSegmentIndex = m_HasActiveDestination ? _commandIndex + 1 : _commandIndex;
+		if (!TryGetRouteSegmentEndpoints(waitSegmentIndex, out _, out _))
+			return;
+
+		_command.HasWaitRouteBinding = true;
+		_command.WaitRouteSegmentIndex = waitSegmentIndex;
+		_command.WaitRouteSegmentT = 0f;
+	}
+
+	private void BindRouteVertexToSegment(int _waypointIndex, out int _segmentIndex, out float _segmentT)
+	{
+		if (_waypointIndex < m_Waypoints.Count - 1)
+		{
+			_segmentIndex = _waypointIndex + 1;
+			_segmentT = 0f;
+			return;
+		}
+
+		_segmentIndex = Mathf.Max(0, _waypointIndex);
+		_segmentT = 1f;
+	}
+
+	private void EnsureWaitRouteBindings()
+	{
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			if (cmd.WaitGroup >= 1 && !cmd.HasWaitRouteBinding)
+			{
+				BindWaitHoldToRoute(ref cmd, commandIndex);
+				m_CommandQueue[commandIndex] = cmd;
+			}
+		}
+	}
+
+	private void ShiftWaitHoldSegmentsForWaypointInsert(int _insertSegmentIndex, float _insertSegmentT)
+	{
+		EnsureWaitRouteBindings();
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			if (!cmd.HasWaitRouteBinding)
+				continue;
+
+			RemapRouteSegmentBindingForInsert(
+				ref cmd.WaitRouteSegmentIndex,
+				ref cmd.WaitRouteSegmentT,
+				_insertSegmentIndex,
+				_insertSegmentT);
+			m_CommandQueue[commandIndex] = cmd;
+		}
+	}
+
+	private void ShiftWaitHoldSegmentsAfterWaypointRemoved(int _removedWaypointIndex)
+	{
+		EnsureWaitRouteBindings();
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			if (!cmd.HasWaitRouteBinding)
+				continue;
+
+			RemapRouteSegmentBindingForRemove(ref cmd.WaitRouteSegmentIndex, ref cmd.WaitRouteSegmentT, _removedWaypointIndex);
+			m_CommandQueue[commandIndex] = cmd;
+		}
+	}
+
+	private static void RemapRouteSegmentBindingForInsert(
+		ref int _segmentIndex,
+		ref float _segmentT,
+		int _insertSegmentIndex,
+		float _insertSegmentT)
+	{
+		if (_segmentIndex < _insertSegmentIndex)
+			return;
+
+		if (_segmentIndex > _insertSegmentIndex)
+		{
+			_segmentIndex++;
+			return;
+		}
+
+		float clampedInsertT = Mathf.Clamp(_insertSegmentT, 0.0001f, 0.9999f);
+		if (_segmentT <= _insertSegmentT)
+		{
+			_segmentT = _segmentT / clampedInsertT;
+			return;
+		}
+
+		_segmentIndex = _insertSegmentIndex + 1;
+		_segmentT = (_segmentT - _insertSegmentT) / (1f - clampedInsertT);
+	}
+
+	private static void RemapRouteSegmentBindingForRemove(
+		ref int _segmentIndex,
+		ref float _segmentT,
+		int _removedWaypointIndex)
+	{
+		if (_segmentIndex > _removedWaypointIndex + 1)
+		{
+			_segmentIndex--;
+			return;
+		}
+
+		if (_segmentIndex == _removedWaypointIndex + 1)
+			_segmentIndex = Mathf.Max(0, _removedWaypointIndex);
+	}
+
+	private Vector3 ResolveFacingArrowAnchor(in FacingArrow _arrow, bool _isActiveSegment = false)
+	{
+		if (TryGetRouteSegmentEndpoints(_arrow.RouteSegmentIndex, _isActiveSegment, out Vector3 segmentStart, out Vector3 segmentEnd))
+			return Vector3.Lerp(segmentStart, segmentEnd, _arrow.RouteSegmentT);
+
+		return transform.position;
+	}
+
+	private Vector3 ResolveFacingArrowLookPoint(in FacingArrow _arrow, bool _isActiveSegment = false)
+	{
+		return ResolveFacingArrowAnchor(_arrow, _isActiveSegment) + _arrow.LookOffsetFromAnchor;
+	}
+
+	private bool TryGetRouteSegmentEndpoints(int _segmentIndex, out Vector3 _start, out Vector3 _end)
+	{
+		return TryGetRouteSegmentEndpoints(_segmentIndex, _useActiveSegmentStart: false, out _start, out _end);
+	}
+
+	private bool TryGetRouteSegmentEndpoints(
+		int _segmentIndex,
+		bool _useActiveSegmentStart,
+		out Vector3 _start,
+		out Vector3 _end)
+	{
+		_start = Vector3.zero;
+		_end = Vector3.zero;
+		if (m_Waypoints.Count == 0)
+			return false;
+
+		if (_segmentIndex == 0)
+		{
+			_start = _useActiveSegmentStart && m_HasActiveDestination
+				? m_ActiveRouteSegmentStart
+				: transform.position;
+			_end = m_Waypoints[0];
+			return true;
+		}
+
+		if (_segmentIndex < 1 || _segmentIndex >= m_Waypoints.Count)
+			return false;
+
+		_start = m_Waypoints[_segmentIndex - 1];
+		_end = m_Waypoints[_segmentIndex];
+		return true;
+	}
+
+	private static float ComputeRouteSegmentT(Vector3 _point, Vector3 _start, Vector3 _end)
+	{
+		Vector3 segment = _end - _start;
+		segment.y = 0f;
+		if (segment.sqrMagnitude < 0.0001f)
+			return 0f;
+
+		Vector3 toPoint = _point - _start;
+		toPoint.y = 0f;
+		return Mathf.Clamp01(Vector3.Dot(toPoint, segment) / segment.sqrMagnitude);
+	}
+
+	private FacingArrow BindFacingArrowToRouteSegment(
+		FacingArrow _arrow,
+		int _segmentIndex,
+		Vector3 _anchorWorld,
+		Vector3? _lookPointWorld = null,
+		bool _useActiveSegmentStart = false)
+	{
+		_arrow.RouteSegmentIndex = _segmentIndex;
+		if (TryGetRouteSegmentEndpoints(_segmentIndex, _useActiveSegmentStart, out Vector3 segmentStart, out Vector3 segmentEnd))
+			_arrow.RouteSegmentT = ComputeRouteSegmentT(_anchorWorld, segmentStart, segmentEnd);
+		else
+			_arrow.RouteSegmentT = 0f;
+
+		if (_arrow.HasLookPoint && _lookPointWorld.HasValue)
+		{
+			Vector3 anchor = ResolveFacingArrowAnchor(_arrow, _useActiveSegmentStart);
+			_arrow.LookOffsetFromAnchor = _lookPointWorld.Value - anchor;
+		}
+
+		return _arrow;
+	}
+
+	private bool TryGetFacingArrow(bool _isActiveSegment, int _commandIndex, int _arrowIndex, out FacingArrow _arrow)
+	{
+		_arrow = default;
+		if (_isActiveSegment)
+		{
+			if (m_ActiveFacingArrows == null || _arrowIndex < 0 || _arrowIndex >= m_ActiveFacingArrows.Count)
+				return false;
+
+			_arrow = m_ActiveFacingArrows[_arrowIndex];
+			return true;
+		}
+
+		if (_commandIndex < 0 || _commandIndex >= m_CommandQueue.Count)
+			return false;
+
+		List<FacingArrow> arrows = m_CommandQueue[_commandIndex].FacingArrows;
+		if (arrows == null || _arrowIndex < 0 || _arrowIndex >= arrows.Count)
+			return false;
+
+		_arrow = arrows[_arrowIndex];
+		return true;
+	}
+
+	public bool TryCycleWaitGroupForWaypoint(int _waypointIndex)
+	{
+		if (!TryGetWaitGroupForWaypoint(_waypointIndex, out int currentGroup))
+			return TrySetWaitGroupForWaypoint(_waypointIndex, 1, _manualPlacement: false);
+
+		int nextGroup = currentGroup >= 3 ? 1 : currentGroup + 1;
+		return TrySetWaitGroupForWaypoint(_waypointIndex, nextGroup, _preserveWaitHoldPosition: true);
+	}
+
+	public bool TryRemoveWaitPointAtWaypoint(int _waypointIndex)
+	{
+		if (!TryGetWaitGroupForWaypoint(_waypointIndex, out _))
+			return false;
+
+		int commandIndex = m_HasActiveDestination ? _waypointIndex - 1 : _waypointIndex;
+		if (!TrySetWaitGroupForWaypoint(_waypointIndex, 0))
+			return false;
+
+		if (m_IsWaitingAtRouteGate && commandIndex == 0)
+			ResumeAfterWaitGroupRemoved();
+
+		return true;
+	}
+
+	public bool TryContinueRouteWaitGroup(int _waitGroup)
+	{
+		int normalizedGroup = NormalizeWaitGroup(_waitGroup);
+		if (normalizedGroup < 1)
+			return false;
+
+		bool changed = false;
+
+		if (m_IsWaitingAtRouteGate && m_ActiveWaitGroup == normalizedGroup)
+		{
+			m_IsWaitingAtRouteGate = false;
+			m_ActiveWaitGroup = 0;
+			ResumeAgentAfterRouteGate();
+			if (m_CommandQueue.Count > 0)
+				DequeueAndExecuteNextCommand();
+			changed = true;
+		}
+
+		for (int i = 0; i < m_CommandQueue.Count; i++)
+		{
+			QueuedCommand cmd = m_CommandQueue[i];
+			if (cmd.WaitGroup != normalizedGroup)
+				continue;
+
+			cmd.WaitGroup = 0;
+			cmd.WaitIconAtWaypoint = false;
+			m_CommandQueue[i] = cmd;
+			changed = true;
+		}
+
+		if (changed)
+			MarkFacingArrowsDirty();
+
+		return changed;
+	}
+
+	public bool TryInsertRouteWaypointAtSegment(int _segmentIndex, Vector3 _worldPoint, int _waitGroup = 0)
+	{
+		if (_segmentIndex < 0 || _segmentIndex > m_Waypoints.Count || m_Waypoints.Count == 0)
+			return false;
+
+		Vector3 sampledPoint = _worldPoint;
+		TrySampleNavMeshPoint(_worldPoint, out sampledPoint);
+
+		UnitClickToMove.MoveTier tier = ResolveMoveTierForWaypointInsert(_segmentIndex);
+		float insertSegmentT = 1f;
+		if (TryGetRouteSegmentEndpoints(_segmentIndex, out Vector3 insertSegmentStart, out Vector3 insertSegmentEnd))
+			insertSegmentT = ComputeRouteSegmentT(_worldPoint, insertSegmentStart, insertSegmentEnd);
+		ShiftFacingArrowSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
+		ShiftWaitHoldSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
+
+		if (m_HasActiveDestination && _segmentIndex == 0)
+		{
+			Vector3 previousActiveDestination = m_Waypoints[0];
+			m_Waypoints.Insert(0, sampledPoint);
+
+			var promoteCommand = new QueuedCommand
+			{
+				Destination = previousActiveDestination,
+				MoveTier = m_ActiveMoveTier,
+				FacingArrows = m_ActiveFacingArrows != null
+					? new List<FacingArrow>(m_ActiveFacingArrows)
+					: new List<FacingArrow>(),
+				WaitGroup = 0,
+			};
+
+			int normalizedWait = NormalizeWaitGroup(_waitGroup);
+			if (normalizedWait >= 1)
+			{
+				var insertCommand = new QueuedCommand
+				{
+					Destination = sampledPoint,
+					MoveTier = tier,
+					FacingArrows = new List<FacingArrow>(),
+				};
+				AssignWaitMetadata(ref insertCommand, normalizedWait, _iconAtWaypoint: true);
+				m_CommandQueue.Insert(0, promoteCommand);
+				m_ActiveFacingArrows = null;
+				ClearSmoothingArcState();
+				m_HasActiveDestination = false;
+				BindWaitHoldToRoute(ref insertCommand, 0);
+				m_CommandQueue.Insert(0, insertCommand);
+
+				NavMeshAgent agent = GetComponent<NavMeshAgent>();
+				if (agent != null && agent.isOnNavMesh)
+				{
+					agent.isStopped = true;
+					agent.ResetPath();
+				}
+
+				RebuildPathLine();
+				MarkFacingArrowsDirty();
+				TryStartNextQueuedCommand();
+				return true;
+			}
+
+			m_CommandQueue.Insert(0, promoteCommand);
+			m_ActiveFacingArrows = null;
+			ClearSmoothingArcState();
+			IssueMoveOrderForCurrentWaypoint(sampledPoint, m_ActiveMoveTier);
+			RebuildPathLine();
+			MarkFacingArrowsDirty();
+			return true;
+		}
+
+		m_Waypoints.Insert(_segmentIndex, sampledPoint);
+
+		if (m_HasActiveDestination)
+		{
+			int normalizedWait = NormalizeWaitGroup(_waitGroup);
+			var insertCommand = new QueuedCommand
+			{
+				Destination = sampledPoint,
+				MoveTier = tier,
+				FacingArrows = new List<FacingArrow>(),
+			};
+			AssignWaitMetadata(ref insertCommand, normalizedWait, _iconAtWaypoint: true);
+			int insertCommandIndex = _segmentIndex - 1;
+			if (normalizedWait >= 1)
+				BindWaitHoldToRoute(ref insertCommand, insertCommandIndex);
+			m_CommandQueue.Insert(insertCommandIndex, insertCommand);
+		}
+		else
+		{
+			int normalizedWait = NormalizeWaitGroup(_waitGroup);
+			var insertCommand = new QueuedCommand
+			{
+				Destination = sampledPoint,
+				MoveTier = tier,
+				FacingArrows = new List<FacingArrow>(),
+			};
+			AssignWaitMetadata(ref insertCommand, normalizedWait, _iconAtWaypoint: true);
+			if (normalizedWait >= 1)
+				BindWaitHoldToRoute(ref insertCommand, _segmentIndex);
+			m_CommandQueue.Insert(_segmentIndex, insertCommand);
+		}
+
+		RebuildPathLine();
+		MarkFacingArrowsDirty();
+		return true;
+	}
+
+	public void UpdateRouteEditWaypoint(int _waypointIndex, Vector3 _worldPoint)
+	{
+		if (_waypointIndex < 0 || _waypointIndex >= m_Waypoints.Count)
+			return;
+
+		Vector3 sampledPoint = _worldPoint;
+		TrySampleNavMeshPoint(_worldPoint, out sampledPoint);
+		m_Waypoints[_waypointIndex] = sampledPoint;
+		SyncCommandDestinationForWaypointIndex(_waypointIndex, sampledPoint);
+		RebuildPathLine();
+		MarkFacingArrowsDirty();
+
+		if (m_HasActiveDestination && _waypointIndex == 0)
+		{
+			ClearSmoothingArcState();
+			IssueMoveOrderForCurrentWaypoint(sampledPoint, m_ActiveMoveTier);
+		}
+	}
+
+	public void SetWaypointFacing(
+		int _index,
+		float _angle,
+		Vector3 _anchor,
+		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
+		Vector3? _lookPoint = null)
+	{
+		bool hasLookPoint = _mode == FacingArrowMode.LookAtPoint && _lookPoint.HasValue;
+		bool bindToActiveSegment = m_HasActiveDestination && _index == 0;
+		var facingArrow = BindFacingArrowToRouteSegment(new FacingArrow
+		{
+			Angle = _angle,
+			Mode = _mode,
+			HasLookPoint = hasLookPoint,
+		}, _index, _anchor, hasLookPoint ? _lookPoint : null, bindToActiveSegment);
+
 		int cmdIndex = _index;
 		if (m_HasActiveDestination)
 		{
 			if (cmdIndex == 0)
 			{
-				AddFacingArrowToActiveSegment(_angle, _anchor);
+				AddFacingArrowToActiveSegment(facingArrow);
 				return;
 			}
 			cmdIndex--;
@@ -596,17 +1443,17 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (cmd.FacingArrows == null)
 			cmd.FacingArrows = new List<FacingArrow>();
 		
-		cmd.FacingArrows.Add(new FacingArrow { Position = _anchor, Angle = _angle });
+		cmd.FacingArrows.Add(facingArrow);
 		m_CommandQueue[cmdIndex] = cmd;
 		MarkFacingArrowsDirty();
 	}
 	
-	private void AddFacingArrowToActiveSegment(float _angle, Vector3 _anchor)
+	private void AddFacingArrowToActiveSegment(FacingArrow _arrow)
 	{
 		if (m_ActiveFacingArrows == null)
 			m_ActiveFacingArrows = new List<FacingArrow>();
 		
-		m_ActiveFacingArrows.Add(new FacingArrow { Position = _anchor, Angle = _angle });
+		m_ActiveFacingArrows.Add(_arrow);
 		
 		if (m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
 			m_ReadyHands.SetReadyWanted(true, false);
@@ -618,6 +1465,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void ClearWaypoints()
 	{
+		ClearFacingTurn();
+		ClearSmoothingArcState();
+		ClearRouteWaitState();
+		ResetContinuousRouteLocomotionFlags();
 		m_CommandQueue.Clear();
 		m_Waypoints.Clear();
 		ClearFacingArrows();
@@ -639,12 +1490,43 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_WantedFacingAngle = _angle;
 		m_IsRotatingToFacing = false;
 
-		if (m_ClickToMove != null)
-			m_ClickToMove.OverrideFacingAngle = _angle;
-		else if (m_LocomotionDriver != null)
-			m_LocomotionDriver.OverrideFacingAngle = _angle;
+		if (ShouldDeferRouteFacingOverride())
+		{
+			ClearFacingOverride();
+			return;
+		}
+
+		if (m_ClickToMove != null || m_LocomotionDriver != null)
+			ApplyLocomotionFacingOverride(_angle);
 		else
 			m_IsRotatingToFacing = true;
+	}
+
+	public void IssueInPlaceFacingOrder(float _angle, FacingArrowMode _mode = FacingArrowMode.TurnOverDistance)
+	{
+		ScheduleRtsCommand(() =>
+		{
+			ClearFacingTurn();
+			ClearSmoothingArcState();
+			ClearRouteWaitState();
+			ResetContinuousRouteLocomotionFlags();
+			m_CommandQueue.Clear();
+			m_Waypoints.Clear();
+			m_ActiveFacingArrows = null;
+			m_HasActiveDestination = false;
+			if (m_PathLine != null)
+			{
+				m_PathLine.positionCount = 0;
+				m_PathLine.enabled = false;
+			}
+
+			if (m_ClickToMove != null)
+				m_ClickToMove.HardStop();
+			else if (m_LocomotionDriver != null)
+				m_LocomotionDriver.HardStop();
+
+			SetWantedFacingAngle(_angle);
+		});
 	}
 
 	private void ClearFacingOverride()
@@ -876,9 +1758,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void ClearCommandQueue()
 	{
+		ClearSmoothingArcState();
 		m_CommandQueue.Clear();
 		if (m_HasActiveDestination && m_Waypoints.Count > 0)
 			m_Waypoints.RemoveRange(1, m_Waypoints.Count - 1);
+		if (m_IsWaitingAtRouteGate)
+			ClearRouteWaitState();
 		MarkFacingArrowsDirty();
 	}
 
@@ -911,6 +1796,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void DequeueAndExecuteNextCommand()
 	{
+		bool persistFacingTurn = ShouldPersistFacingTurnAcrossQueuedCommand();
+		if (!persistFacingTurn)
+			ClearFacingTurn();
+
+		ClearSmoothingArcState();
 		if (m_CommandQueue.Count == 0)
 			return;
 
@@ -924,28 +1814,146 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0
 		    && m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
 			m_ReadyHands.SetReadyWanted(true, false);
-		
+
+		if (!persistFacingTurn)
 		{
-			int arrCnt = m_ActiveFacingArrows != null ? m_ActiveFacingArrows.Count : 0;
-			Vector3 arrPos = arrCnt > 0 ? m_ActiveFacingArrows[0].Position : Vector3.zero;
-			Debug.Log($"[{gameObject.name}] DEQUEUE: arrows={arrCnt} arrowPos0={arrPos} dest={cmd.Destination} tier={cmd.MoveTier}");
+			ClearFacingOverride();
+			m_HasWantedFacing = false;
 		}
-		
-		ClearFacingOverride();
-		m_HasWantedFacing = false;
+
 		m_HasActiveDestination = true;
+		m_ActiveMoveTier = cmd.MoveTier;
+		m_ActiveRouteSegmentStart = transform.position;
 		m_DestinationSetTime = Time.time;
 		
-		IssueMoveOrder(cmd.Destination, cmd.MoveTier);
+		IssueMoveOrderForCurrentWaypoint(cmd.Destination, cmd.MoveTier);
 
 		MarkFacingArrowsDirty();
+	}
+
+	private void IssueMoveOrderForCurrentWaypoint(Vector3 _logicalDestination, UnitClickToMove.MoveTier _moveTier)
+	{
+		if (TryBeginSmoothingArcMovement(_moveTier))
+			return;
+
+		IssueRouteMoveOrder(_logicalDestination, _moveTier, ShouldUseContinuousRouteMovement());
+	}
+
+	private bool ShouldUseContinuousRouteMovement()
+	{
+		if (!m_HasActiveDestination)
+			return false;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh)
+			return false;
+
+		Vector3 velocity = agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude < 0.04f)
+			return false;
+
+		return HasRouteAfterCurrentSegment();
+	}
+
+	private bool HasRouteAfterCurrentSegment()
+	{
+		if (m_IsExecutingSmoothingArc && m_SmoothingSubtargetIndex < m_SmoothingSubtargets.Count - 1)
+			return true;
+		if (m_CommandQueue.Count > 0)
+			return true;
+		return m_Waypoints.Count > 1;
+	}
+
+	private bool IsIntermediateRouteSegment()
+	{
+		if (m_IsExecutingSmoothingArc)
+		{
+			if (m_SmoothingSubtargetIndex < m_SmoothingSubtargets.Count - 1)
+				return true;
+
+			return m_CommandQueue.Count > 0 || m_Waypoints.Count > 1;
+		}
+
+		return m_CommandQueue.Count > 0 || m_Waypoints.Count > 1;
+	}
+
+	private void UpdateContinuousRouteLocomotionFlags()
+	{
+		bool suppressEarlyStop = IsIntermediateRouteSegment();
+		if (m_ClickToMove != null)
+			m_ClickToMove.SuppressEarlyArrivalStop = suppressEarlyStop;
+		if (m_LocomotionDriver != null)
+			m_LocomotionDriver.SuppressEarlyArrivalStop = suppressEarlyStop;
+	}
+
+	private static bool IsNearDestination(Vector3 _a, Vector3 _b, float _epsilon)
+	{
+		Vector3 flatA = FlattenToGround(_a);
+		Vector3 flatB = FlattenToGround(_b);
+		return (flatB - flatA).sqrMagnitude <= _epsilon * _epsilon;
+	}
+
+	private static bool IsRunOrSprintMoveTier(UnitClickToMove.MoveTier _tier)
+	{
+		return _tier == UnitClickToMove.MoveTier.Run || _tier == UnitClickToMove.MoveTier.Sprint;
+	}
+
+	private void TransitionActiveMovementToWalk()
+	{
+		if (!IsRunOrSprintMoveTier(m_ActiveMoveTier))
+			return;
+
+		m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
+
+		if (m_IsExecutingSmoothingArc)
+			m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
+
+		ClearFacingOverride();
+
+		if (m_ClickToMove != null)
+			m_ClickToMove.ForceWalkMoveMode();
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.ForceWalkMoveMode();
+	}
+
+	private bool ShouldDeferRouteFacingOverride()
+	{
+		if (!m_HasActiveDestination)
+			return false;
+
+		UnitClickToMove.MoveTier activeTier = m_IsExecutingSmoothingArc
+			? m_SmoothingMoveTier
+			: m_ActiveMoveTier;
+		return IsRunOrSprintMoveTier(activeTier);
+	}
+
+	private bool TryBeginSmoothingArcMovement(UnitClickToMove.MoveTier _moveTier)
+	{
+		if (!m_EnableRouteCornerSmoothing || m_Waypoints.Count < 2)
+			return false;
+
+		Vector3 previousPoint = transform.position;
+		Vector3 corner = m_Waypoints[0];
+		Vector3 nextPoint = m_Waypoints[1];
+		if (!TryBuildMovementSubtargets(previousPoint, corner, nextPoint, m_SmoothingSubtargets))
+			return false;
+
+		m_IsExecutingSmoothingArc = true;
+		m_SmoothingMoveTier = _moveTier;
+		m_SmoothingSubtargetIndex = 0;
+		IssueRouteMoveOrder(m_SmoothingSubtargets[0], _moveTier, ShouldUseContinuousRouteMovement());
+		return true;
 	}
 
 	private void UpdateActiveFacingArrows()
 	{
 		if (!m_HasActiveDestination || m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0)
 		{
-			if (m_HasWantedFacing && m_ActiveFacingArrows == null)
+			if (m_HasActiveDestination &&
+			    m_HasWantedFacing &&
+			    m_ActiveFacingArrows == null &&
+			    !m_IsInFacingTurn)
 			{
 				ClearFacingOverride();
 				m_HasWantedFacing = false;
@@ -959,7 +1967,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
 		{
-			Vector3 arrowPos = m_ActiveFacingArrows[i].Position;
+			Vector3 arrowPos = ResolveFacingArrowAnchor(m_ActiveFacingArrows[i], _isActiveSegment: true);
 			float dx = unitPos.x - arrowPos.x;
 			float dz = unitPos.z - arrowPos.z;
 			float dist = Mathf.Sqrt(dx * dx + dz * dz);
@@ -974,34 +1982,148 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (closestIndex < 0)
 			return;
 
-		if (m_ActiveFacingArrows.Count > 0)
-			Debug.Log($"[{gameObject.name}] FACE: dist={closestDist:F1} hasWanted={m_HasWantedFacing} arrowAngle={m_ActiveFacingArrows[closestIndex].Angle:F0} queue={m_CommandQueue.Count} hasDest={m_HasActiveDestination} override={m_ClickToMove?.OverrideFacingAngle}");
-
 		if (closestDist <= FacingArrowActivationDistance)
 		{
-			float angle = m_ActiveFacingArrows[closestIndex].Angle;
-			if (!m_HasWantedFacing || Mathf.Abs(m_WantedFacingAngle - angle) > 0.5f)
-			{
-				SetWantedFacingAngle(angle);
-				MarkFacingArrowsDirty();
-			}
+			FacingArrow arrow = m_ActiveFacingArrows[closestIndex];
+			m_ActiveFacingArrows.RemoveAt(closestIndex);
+
+			if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+				TransitionActiveMovementToWalk();
+
+			StartFacingTurn(arrow, unitPos, _isActiveSegment: true);
+			MarkFacingArrowsDirty();
 		}
-		else if (m_HasWantedFacing)
+		else if (m_HasWantedFacing && !m_IsInFacingTurn)
 		{
 			ClearFacingOverride();
 			m_HasWantedFacing = false;
 		}
+	}
 
-		if (closestDist <= 1.5f)
+	private void StartFacingTurn(FacingArrow _arrow, Vector3 _unitPos, bool _isActiveSegment = false)
+	{
+		switch (_arrow.Mode)
 		{
-			m_ActiveFacingArrows.RemoveAt(closestIndex);
-			if (m_ActiveFacingArrows.Count == 0)
-			{
-				ClearFacingOverride();
-				m_HasWantedFacing = false;
-			}
-			MarkFacingArrowsDirty();
+			case FacingArrowMode.TurnOverDistance:
+				m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
+				m_FacingTurnStartPos = _unitPos;
+				m_FacingTurnStartAngle = transform.eulerAngles.y;
+				m_FacingTurnTargetAngle = _arrow.Angle;
+				m_FacingTurnDistanceTraveled = 0f;
+				m_IsInFacingTurn = true;
+				break;
+
+			case FacingArrowMode.HoldToEnd:
+				m_FacingTurnMode = FacingArrowMode.HoldToEnd;
+				m_FacingTurnTargetAngle = _arrow.Angle;
+				SetWantedFacingAngle(_arrow.Angle);
+				m_IsInFacingTurn = true;
+				break;
+
+			case FacingArrowMode.LookAtPoint:
+				m_FacingTurnMode = FacingArrowMode.LookAtPoint;
+				m_FacingLookPoint = _arrow.HasLookPoint
+					? ResolveFacingArrowLookPoint(_arrow, _isActiveSegment)
+					: ResolveFacingArrowAnchor(_arrow, _isActiveSegment) +
+					  Quaternion.Euler(0f, _arrow.Angle, 0f) * Vector3.forward * c_FacingArrowFixedLength;
+				m_IsInFacingTurn = true;
+				break;
 		}
+	}
+
+	private void UpdateFacingTurn()
+	{
+		if (!m_IsInFacingTurn)
+			return;
+		if (!m_HasActiveDestination)
+		{
+			ClearFacingTurn();
+			return;
+		}
+
+		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+			return;
+
+		switch (m_FacingTurnMode)
+		{
+			case FacingArrowMode.TurnOverDistance:
+			{
+				float dx = transform.position.x - m_FacingTurnStartPos.x;
+				float dz = transform.position.z - m_FacingTurnStartPos.z;
+				float dist = Mathf.Sqrt(dx * dx + dz * dz);
+				m_FacingTurnDistanceTraveled = dist;
+
+				ApplyLocomotionFacingOverride(m_FacingTurnTargetAngle);
+
+				if (dist >= m_FacingTurnOverDistance)
+					ClearFacingTurn();
+				break;
+			}
+
+			case FacingArrowMode.HoldToEnd:
+				ApplyLocomotionFacingOverride(m_FacingTurnTargetAngle);
+				break;
+
+			case FacingArrowMode.LookAtPoint:
+			{
+				Vector3 toLook = m_FacingLookPoint - transform.position;
+				toLook.y = 0f;
+				if (toLook.sqrMagnitude > 0.01f)
+				{
+					float angle = Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg;
+					ApplyLocomotionFacingOverride(angle);
+				}
+				break;
+			}
+		}
+	}
+
+	private void ClearFacingTurn()
+	{
+		m_IsInFacingTurn = false;
+		m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
+		ClearFacingOverride();
+		m_HasWantedFacing = false;
+		m_FacingRotateVelocity = 0f;
+		m_FacingSuppressedReady = false;
+	}
+
+	private float GetEffectiveRotateSpeed()
+	{
+		if (m_ClickToMove != null)
+			return m_ClickToMove.RotateSpeed;
+		if (m_LocomotionDriver != null)
+			return m_LocomotionDriver.RotateSpeed;
+		return 6f;
+	}
+
+	private void ApplyLocomotionFacingOverride(float _angle)
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.OverrideFacingAngle = _angle;
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.OverrideFacingAngle = _angle;
+	}
+
+	private bool ShouldPersistFacingTurnAcrossQueuedCommand()
+	{
+		return m_IsInFacingTurn &&
+		       (m_FacingTurnMode == FacingArrowMode.HoldToEnd ||
+		        m_FacingTurnMode == FacingArrowMode.LookAtPoint);
+	}
+
+	private bool ShouldClearFacingOnLegArrival()
+	{
+		if (m_IsInFacingTurn)
+		{
+			if (m_FacingTurnMode == FacingArrowMode.HoldToEnd ||
+			    m_FacingTurnMode == FacingArrowMode.LookAtPoint)
+				return m_CommandQueue.Count == 0;
+
+			return true;
+		}
+
+		return m_HasWantedFacing;
 	}
 
 	private void MarkFacingArrowsDirty()
@@ -1015,33 +2137,64 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		m_FacingArrowsDirty = false;
 
-		for (int i = 0; i < m_FacingArrows.Count; i++)
+		for (int i = 0; i < m_FacingArrowVisuals.Count; i++)
 		{
-			if (m_FacingArrows[i].Line != null)
-				Destroy(m_FacingArrows[i].Line.gameObject);
+			if (m_FacingArrowVisuals[i].Line != null)
+				Destroy(m_FacingArrowVisuals[i].Line.gameObject);
 		}
-		m_FacingArrows.Clear();
+		m_FacingArrowVisuals.Clear();
 
-		if (m_ActiveFacingArrows != null && m_HasActiveDestination)
+		if (m_ActiveFacingArrows != null)
 		{
 			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
-				CreateFacingArrowVisual(m_ActiveFacingArrows[i].Angle, m_ActiveFacingArrows[i].Position);
+				CreateFacingArrowVisual(_isActiveSegment: true, _commandIndex: 0, _arrowIndex: i);
 		}
 
-		for (int i = 0; i < m_CommandQueue.Count; i++)
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
 		{
-			if (m_CommandQueue[i].FacingArrows == null)
+			if (m_CommandQueue[commandIndex].FacingArrows == null)
 				continue;
-			
-			for (int j = 0; j < m_CommandQueue[i].FacingArrows.Count; j++)
-				CreateFacingArrowVisual(m_CommandQueue[i].FacingArrows[j].Angle, m_CommandQueue[i].FacingArrows[j].Position);
+
+			for (int arrowIndex = 0; arrowIndex < m_CommandQueue[commandIndex].FacingArrows.Count; arrowIndex++)
+				CreateFacingArrowVisual(_isActiveSegment: false, commandIndex, arrowIndex);
 		}
 	}
 
-	private void CreateFacingArrowVisual(float _angle, Vector3 _anchor)
+	public static void GetFacingArrowShaftEndpoints(
+		Vector3 _anchor,
+		float _angle,
+		FacingArrowMode _mode,
+		Vector3 _lookPoint,
+		bool _hasLookPoint,
+		out Vector3 _shaftStart,
+		out Vector3 _shaftEnd)
+	{
+		Vector3 dir = Quaternion.Euler(0f, _angle, 0f) * Vector3.forward;
+		_shaftStart = _anchor + dir * c_FacingArrowShaftStartOffset + s_FacingArrowYOffset;
+		if (_mode == FacingArrowMode.LookAtPoint && _hasLookPoint)
+			_shaftEnd = _lookPoint + s_FacingArrowYOffset;
+		else
+			_shaftEnd = _anchor + dir * c_FacingArrowFixedLength + s_FacingArrowYOffset;
+	}
+
+	private void CreateFacingArrowVisual(bool _isActiveSegment, int _commandIndex, int _arrowIndex)
 	{
 		if (s_PathLineMaterial == null)
 			return;
+		if (!TryGetFacingArrow(_isActiveSegment, _commandIndex, _arrowIndex, out FacingArrow arrow))
+			return;
+
+		Vector3 anchor = ResolveFacingArrowAnchor(arrow, _isActiveSegment);
+		Vector3 lookPoint = arrow.HasLookPoint ? ResolveFacingArrowLookPoint(arrow, _isActiveSegment) : Vector3.zero;
+		Color arrowColor = GetFacingArrowColor(arrow.Mode);
+		GetFacingArrowShaftEndpoints(
+			anchor,
+			arrow.Angle,
+			arrow.Mode,
+			lookPoint,
+			arrow.HasLookPoint,
+			out Vector3 shaftStart,
+			out Vector3 shaftEnd);
 
 		GameObject go = new GameObject("FacingArrow");
 		go.transform.SetParent(transform, false);
@@ -1050,40 +2203,67 @@ public sealed class RtsUnitMember : MonoBehaviour
 		lr.startWidth = 0.04f;
 		lr.endWidth = 0.04f;
 		lr.sharedMaterial = s_PathLineMaterial;
-		lr.startColor = s_FacingArrowColor;
-		lr.endColor = s_FacingArrowColor;
+		lr.startColor = arrowColor;
+		lr.endColor = arrowColor;
 		lr.enabled = m_IsSelected;
+		lr.SetPosition(0, shaftStart);
+		lr.SetPosition(1, shaftEnd);
 
-		Vector3 dir = Quaternion.Euler(0f, _angle, 0f) * Vector3.forward;
-		lr.SetPosition(0, _anchor + dir * 0.3f + s_FacingArrowYOffset);
-		lr.SetPosition(1, _anchor + dir * 4f + s_FacingArrowYOffset);
-
-		m_FacingArrows.Add(new FacingArrowState
+		m_FacingArrowVisuals.Add(new FacingArrowVisualSource
 		{
 			Line = lr,
-			Angle = _angle,
-			Anchor = _anchor,
+			IsActiveSegment = _isActiveSegment,
+			CommandIndex = _commandIndex,
+			ArrowIndex = _arrowIndex,
 		});
+	}
+
+	private static Color GetFacingArrowColor(FacingArrowMode _mode)
+	{
+		return _mode switch
+		{
+			FacingArrowMode.HoldToEnd => s_FacingArrowHoldColor,
+			FacingArrowMode.LookAtPoint => s_FacingArrowLookColor,
+			_ => s_FacingArrowColor,
+		};
 	}
 
 	private void UpdateFacingArrows()
 	{
-		for (int i = 0; i < m_FacingArrows.Count; i++)
+		for (int i = 0; i < m_FacingArrowVisuals.Count; i++)
 		{
-			LineRenderer line = m_FacingArrows[i].Line;
-			if (line != null)
-				line.enabled = m_IsSelected;
+			FacingArrowVisualSource source = m_FacingArrowVisuals[i];
+			LineRenderer line = source.Line;
+			if (line == null)
+				continue;
+			if (!TryGetFacingArrow(source.IsActiveSegment, source.CommandIndex, source.ArrowIndex, out FacingArrow arrow))
+				continue;
+
+			line.enabled = m_IsSelected;
+
+			Vector3 anchor = ResolveFacingArrowAnchor(arrow, source.IsActiveSegment);
+			Vector3 lookPoint = arrow.HasLookPoint ? ResolveFacingArrowLookPoint(arrow, source.IsActiveSegment) : Vector3.zero;
+			GetFacingArrowShaftEndpoints(
+				anchor,
+				arrow.Angle,
+				arrow.Mode,
+				lookPoint,
+				arrow.HasLookPoint,
+				out Vector3 shaftStart,
+				out Vector3 shaftEnd);
+			line.SetPosition(0, shaftStart);
+			line.SetPosition(1, shaftEnd);
 		}
 	}
 
 	private void ClearFacingArrows()
 	{
-		for (int i = 0; i < m_FacingArrows.Count; i++)
+		for (int i = 0; i < m_FacingArrowVisuals.Count; i++)
 		{
-			if (m_FacingArrows[i].Line != null)
-				Destroy(m_FacingArrows[i].Line.gameObject);
+			if (m_FacingArrowVisuals[i].Line != null)
+				Destroy(m_FacingArrowVisuals[i].Line.gameObject);
 		}
-		m_FacingArrows.Clear();
+		m_FacingArrowVisuals.Clear();
 		m_FacingArrowsDirty = false;
 	}
 
@@ -1212,6 +2392,472 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_Animator != null)
 			m_Animator.speed = 1f;
 	}
+
+	#region Route Corner Smoothing
+	private UnitClickToMove.MoveTier ResolveMoveTierForWaypointInsert(int _segmentIndex)
+	{
+		if (m_HasActiveDestination)
+		{
+			if (_segmentIndex == 0)
+				return m_ActiveMoveTier;
+
+			int previousQueueIndex = _segmentIndex - 2;
+			if (previousQueueIndex >= 0 && previousQueueIndex < m_CommandQueue.Count)
+				return m_CommandQueue[previousQueueIndex].MoveTier;
+
+			int queueIndex = _segmentIndex - 1;
+			if (queueIndex >= 0 && queueIndex < m_CommandQueue.Count)
+				return m_CommandQueue[queueIndex].MoveTier;
+		}
+		else if (_segmentIndex > 0 && _segmentIndex - 1 < m_CommandQueue.Count)
+		{
+			return m_CommandQueue[_segmentIndex - 1].MoveTier;
+		}
+		else if (_segmentIndex < m_CommandQueue.Count)
+		{
+			return m_CommandQueue[_segmentIndex].MoveTier;
+		}
+
+		return UnitClickToMove.MoveTier.Walk;
+	}
+
+	private void SyncCommandDestinationForWaypointIndex(int _waypointIndex, Vector3 _destination)
+	{
+		if (m_HasActiveDestination)
+		{
+			if (_waypointIndex == 0)
+				return;
+
+			int queueIndex = _waypointIndex - 1;
+			if (queueIndex < 0 || queueIndex >= m_CommandQueue.Count)
+				return;
+
+			QueuedCommand cmd = m_CommandQueue[queueIndex];
+			cmd.Destination = _destination;
+			m_CommandQueue[queueIndex] = cmd;
+			return;
+		}
+
+		if (_waypointIndex < 0 || _waypointIndex >= m_CommandQueue.Count)
+			return;
+
+		QueuedCommand queuedCommand = m_CommandQueue[_waypointIndex];
+		queuedCommand.Destination = _destination;
+		m_CommandQueue[_waypointIndex] = queuedCommand;
+	}
+
+	private static int NormalizeWaitGroup(int _waitGroup)
+	{
+		if (_waitGroup < 1)
+			return 0;
+		if (_waitGroup > 3)
+			return 3;
+		return _waitGroup;
+	}
+
+	private Vector3 ComputeAutoWaitHoldWorldPosition(int _commandIndex)
+	{
+		if (_commandIndex <= 0 && !m_HasActiveDestination)
+			return transform.position;
+
+		int holdWaypointIndex = m_HasActiveDestination ? _commandIndex : _commandIndex - 1;
+		if (holdWaypointIndex >= 0 && holdWaypointIndex < m_Waypoints.Count)
+			return m_Waypoints[holdWaypointIndex];
+
+		return transform.position;
+	}
+
+	private void AssignWaitMetadata(
+		ref QueuedCommand _command,
+		int _waitGroup,
+		bool _iconAtWaypoint,
+		bool _preserveIconPlacement = false)
+	{
+		int normalizedGroup = NormalizeWaitGroup(_waitGroup);
+		_command.WaitGroup = normalizedGroup;
+		if (normalizedGroup < 1)
+		{
+			_command.WaitIconAtWaypoint = false;
+			_command.HasWaitRouteBinding = false;
+			return;
+		}
+
+		if (!_preserveIconPlacement)
+			_command.WaitIconAtWaypoint = _iconAtWaypoint;
+	}
+
+	private void ClearRouteWaitState()
+	{
+		m_ActiveWaitGroup = 0;
+		m_IsWaitingAtRouteGate = false;
+		ResumeAgentAfterRouteGate();
+	}
+
+	private bool TryGetWaitGroupForWaypoint(int _waypointIndex, out int _waitGroup)
+	{
+		_waitGroup = 0;
+		if (_waypointIndex < 0 || _waypointIndex >= m_Waypoints.Count)
+			return false;
+
+		int commandIndex = m_HasActiveDestination ? _waypointIndex - 1 : _waypointIndex;
+		if (commandIndex < 0 || commandIndex >= m_CommandQueue.Count)
+			return false;
+
+		_waitGroup = m_CommandQueue[commandIndex].WaitGroup;
+		return _waitGroup >= 1;
+	}
+
+	public bool TrySetWaitGroupForWaypoint(
+		int _waypointIndex,
+		int _waitGroup,
+		bool _preserveWaitHoldPosition = false,
+		bool _manualPlacement = true)
+	{
+		if (_waypointIndex < 0 || _waypointIndex >= m_Waypoints.Count)
+			return false;
+
+		int normalizedGroup = NormalizeWaitGroup(_waitGroup);
+		int commandIndex = m_HasActiveDestination ? _waypointIndex - 1 : _waypointIndex;
+		if (commandIndex < 0 || commandIndex >= m_CommandQueue.Count)
+			return false;
+
+		QueuedCommand cmd = m_CommandQueue[commandIndex];
+		AssignWaitMetadata(
+			ref cmd,
+			normalizedGroup,
+			_iconAtWaypoint: _manualPlacement,
+			_preserveIconPlacement: _preserveWaitHoldPosition);
+		if (normalizedGroup >= 1 && !_preserveWaitHoldPosition)
+			BindWaitHoldToRoute(ref cmd, commandIndex);
+		m_CommandQueue[commandIndex] = cmd;
+
+		if (m_IsWaitingAtRouteGate && commandIndex == 0 && normalizedGroup >= 1)
+			m_ActiveWaitGroup = normalizedGroup;
+
+		return true;
+	}
+
+	private void TryAdvanceRouteQueue()
+	{
+		if (m_Waypoints.Count > 0)
+		{
+			ShiftFacingArrowSegmentsAfterWaypointRemoved(0);
+			ShiftWaitHoldSegmentsAfterWaypointRemoved(0);
+			m_Waypoints.RemoveAt(0);
+		}
+		RebuildPathLine();
+		m_HasActiveDestination = false;
+		ClearSmoothingArcState();
+		TryStartNextQueuedCommand();
+	}
+
+	private void ShiftFacingArrowSegmentsAfterWaypointRemoved(int _removedWaypointIndex)
+	{
+		if (m_ActiveFacingArrows != null)
+		{
+			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+				m_ActiveFacingArrows[i] = RemapFacingArrowSegmentForRemove(m_ActiveFacingArrows[i], _removedWaypointIndex);
+		}
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			if (cmd.FacingArrows == null)
+				continue;
+
+			for (int arrowIndex = 0; arrowIndex < cmd.FacingArrows.Count; arrowIndex++)
+				cmd.FacingArrows[arrowIndex] = RemapFacingArrowSegmentForRemove(cmd.FacingArrows[arrowIndex], _removedWaypointIndex);
+
+			m_CommandQueue[commandIndex] = cmd;
+		}
+
+		MarkFacingArrowsDirty();
+	}
+
+	private void ShiftFacingArrowSegmentsForWaypointInsert(int _insertSegmentIndex, float _insertSegmentT)
+	{
+		if (m_ActiveFacingArrows != null)
+		{
+			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+				m_ActiveFacingArrows[i] = RemapFacingArrowSegmentForInsert(m_ActiveFacingArrows[i], _insertSegmentIndex, _insertSegmentT);
+		}
+
+		for (int commandIndex = 0; commandIndex < m_CommandQueue.Count; commandIndex++)
+		{
+			QueuedCommand cmd = m_CommandQueue[commandIndex];
+			if (cmd.FacingArrows == null)
+				continue;
+
+			for (int arrowIndex = 0; arrowIndex < cmd.FacingArrows.Count; arrowIndex++)
+				cmd.FacingArrows[arrowIndex] = RemapFacingArrowSegmentForInsert(cmd.FacingArrows[arrowIndex], _insertSegmentIndex, _insertSegmentT);
+
+			m_CommandQueue[commandIndex] = cmd;
+		}
+
+		MarkFacingArrowsDirty();
+	}
+
+	private static FacingArrow RemapFacingArrowSegmentForInsert(
+		FacingArrow _arrow,
+		int _insertSegmentIndex,
+		float _insertSegmentT)
+	{
+		RemapRouteSegmentBindingForInsert(
+			ref _arrow.RouteSegmentIndex,
+			ref _arrow.RouteSegmentT,
+			_insertSegmentIndex,
+			_insertSegmentT);
+		return _arrow;
+	}
+
+	private static FacingArrow RemapFacingArrowSegmentForRemove(FacingArrow _arrow, int _removedWaypointIndex)
+	{
+		RemapRouteSegmentBindingForRemove(
+			ref _arrow.RouteSegmentIndex,
+			ref _arrow.RouteSegmentT,
+			_removedWaypointIndex);
+		return _arrow;
+	}
+
+	private void TryStartNextQueuedCommand()
+	{
+		if (m_CommandQueue.Count == 0)
+			return;
+		if (m_IsWaitingAtRouteGate)
+			return;
+
+		QueuedCommand next = m_CommandQueue[0];
+		if (next.WaitGroup >= 1)
+		{
+			EnterWaitBeforeNextCommand(next.WaitGroup);
+			return;
+		}
+
+		DequeueAndExecuteNextCommand();
+	}
+
+	private void EnterWaitBeforeNextCommand(int _waitGroup)
+	{
+		if (m_CommandQueue.Count == 0)
+			return;
+
+		m_IsWaitingAtRouteGate = true;
+		m_ActiveWaitGroup = NormalizeWaitGroup(_waitGroup);
+		m_HasActiveDestination = false;
+		ClearSmoothingArcState();
+		ResetContinuousRouteLocomotionFlags();
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent != null && agent.isOnNavMesh)
+		{
+			agent.isStopped = true;
+			agent.ResetPath();
+		}
+	}
+
+	private void ResumeAgentAfterRouteGate()
+	{
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent != null && agent.isOnNavMesh)
+			agent.isStopped = false;
+	}
+
+	private void ResumeAfterWaitGroupRemoved()
+	{
+		m_IsWaitingAtRouteGate = false;
+		m_ActiveWaitGroup = 0;
+		ResumeAgentAfterRouteGate();
+		DequeueAndExecuteNextCommand();
+	}
+
+	private bool IsAtFirstWaypoint()
+	{
+		if (m_Waypoints.Count == 0)
+			return true;
+
+		float dx = transform.position.x - m_Waypoints[0].x;
+		float dz = transform.position.z - m_Waypoints[0].z;
+		return dx * dx + dz * dz < 0.25f;
+	}
+
+	private void BuildRawRoutePoints(List<Vector3> _output, bool includeUnitStart, Vector3? previewDestination)
+	{
+		_output.Clear();
+		if (m_Waypoints.Count == 0 && !previewDestination.HasValue)
+			return;
+
+		if (includeUnitStart || m_Waypoints.Count == 0)
+			_output.Add(transform.position);
+
+		for (int i = 0; i < m_Waypoints.Count; i++)
+			_output.Add(m_Waypoints[i]);
+
+		if (previewDestination.HasValue)
+			_output.Add(previewDestination.Value);
+	}
+
+	private void BuildSmoothedPathPoints(IReadOnlyList<Vector3> _rawPoints, List<Vector3> _output)
+	{
+		_output.Clear();
+		int count = _rawPoints.Count;
+		if (count == 0)
+			return;
+
+		if (!m_EnableRouteCornerSmoothing || count < 3)
+		{
+			for (int i = 0; i < count; i++)
+				_output.Add(_rawPoints[i]);
+			return;
+		}
+
+		Vector3 approachPoint = _rawPoints[0];
+		_output.Add(approachPoint);
+
+		for (int i = 1; i < count - 1; i++)
+		{
+			Vector3 corner = _rawPoints[i];
+			Vector3 nextPoint = _rawPoints[i + 1];
+			if (!TryGetCornerArcPoints(approachPoint, corner, nextPoint, out Vector3 enter, out Vector3 exit))
+			{
+				_output.Add(corner);
+				approachPoint = corner;
+				continue;
+			}
+
+			_output.Add(enter);
+			for (int s = 0; s < m_CornerArcSamples.Count; s++)
+				_output.Add(m_CornerArcSamples[s]);
+			approachPoint = exit;
+		}
+
+		Vector3 finalPoint = _rawPoints[count - 1];
+		if (_output.Count == 0 || (_output[_output.Count - 1] - finalPoint).sqrMagnitude > 0.0001f)
+			_output.Add(finalPoint);
+	}
+
+	private void ApplyPathLinePoints(IReadOnlyList<Vector3> _worldPoints)
+	{
+		if (m_PathLine == null)
+			return;
+
+		if (_worldPoints == null || _worldPoints.Count < 2)
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
+			return;
+		}
+
+		m_PathLine.positionCount = _worldPoints.Count;
+		for (int i = 0; i < _worldPoints.Count; i++)
+			m_PathLine.SetPosition(i, _worldPoints[i] + s_PathLineYOffset);
+	}
+
+	private bool TryBuildMovementSubtargets(Vector3 _previousPoint, Vector3 _corner, Vector3 _nextPoint, List<Vector3> _subtargets)
+	{
+		_subtargets.Clear();
+		if (!TryGetCornerArcPoints(_previousPoint, _corner, _nextPoint, out Vector3 enter, out Vector3 exit))
+			return false;
+
+		if (!TrySampleNavMeshPoint(enter, out Vector3 sampledEnter))
+			return false;
+
+		_subtargets.Add(sampledEnter);
+		for (int i = 0; i < m_CornerArcSamples.Count; i++)
+		{
+			if (!TrySampleNavMeshPoint(m_CornerArcSamples[i], out Vector3 sampledArcPoint))
+				return false;
+
+			if ((_subtargets[_subtargets.Count - 1] - sampledArcPoint).sqrMagnitude > 0.01f)
+				_subtargets.Add(sampledArcPoint);
+		}
+
+		if (!TrySampleNavMeshPoint(exit, out Vector3 sampledExit))
+			return false;
+
+		if ((_subtargets[_subtargets.Count - 1] - sampledExit).sqrMagnitude > 0.01f)
+			_subtargets.Add(sampledExit);
+
+		return _subtargets.Count >= 2;
+	}
+
+	private bool TryGetCornerArcPoints(
+		Vector3 _previousPoint,
+		Vector3 _corner,
+		Vector3 _nextPoint,
+		out Vector3 _enter,
+		out Vector3 _exit)
+	{
+		_enter = _corner;
+		_exit = _corner;
+		m_CornerArcSamples.Clear();
+
+		Vector3 incoming = FlattenToGround(_corner - _previousPoint);
+		Vector3 outgoing = FlattenToGround(_nextPoint - _corner);
+		float incomingLength = incoming.magnitude;
+		float outgoingLength = outgoing.magnitude;
+		if (incomingLength < 0.05f || outgoingLength < 0.05f)
+			return false;
+
+		Vector3 incomingDirection = incoming / incomingLength;
+		Vector3 outgoingDirection = outgoing / outgoingLength;
+		float turnAngle = Vector3.Angle(incomingDirection, outgoingDirection);
+		if (turnAngle < m_CornerSmoothingMinAngle)
+			return false;
+
+		float halfAngleRad = turnAngle * 0.5f * Mathf.Deg2Rad;
+		if (halfAngleRad < 0.001f)
+			return false;
+
+		float maxTangentLength = m_CornerSmoothingMaxRadius / Mathf.Tan(halfAngleRad);
+		float tangentLength = Mathf.Min(
+			incomingLength * m_CornerSmoothingSegmentFraction,
+			outgoingLength * m_CornerSmoothingSegmentFraction,
+			maxTangentLength,
+			m_CornerSmoothingMaxRadius);
+		if (tangentLength < 0.05f)
+			return false;
+
+		_enter = _corner - incomingDirection * tangentLength;
+		_exit = _corner + outgoingDirection * tangentLength;
+		_enter.y = _corner.y;
+		_exit.y = _corner.y;
+
+		int sampleCount = Mathf.Clamp(Mathf.CeilToInt(turnAngle / 15f), 2, m_CornerSmoothingMaxSamples);
+		for (int i = 1; i <= sampleCount; i++)
+		{
+			float t = i / (float)(sampleCount + 1);
+			Vector3 sample = EvaluateQuadraticBezier(_enter, _corner, _exit, t);
+			m_CornerArcSamples.Add(sample);
+		}
+
+		m_CornerArcSamples.Add(_exit);
+		return true;
+	}
+
+	private bool TrySampleNavMeshPoint(Vector3 _point, out Vector3 _sampledPoint)
+	{
+		if (NavMesh.SamplePosition(_point, out NavMeshHit hit, m_CornerSmoothingNavMeshSampleRadius, NavMesh.AllAreas))
+		{
+			_sampledPoint = hit.position;
+			return true;
+		}
+
+		_sampledPoint = _point;
+		return false;
+	}
+
+	private static Vector3 EvaluateQuadraticBezier(Vector3 _start, Vector3 _control, Vector3 _end, float _t)
+	{
+		float oneMinusT = 1f - _t;
+		return oneMinusT * oneMinusT * _start + 2f * oneMinusT * _t * _control + _t * _t * _end;
+	}
+
+	private static Vector3 FlattenToGround(Vector3 _vector)
+	{
+		_vector.y = 0f;
+		return _vector;
+	}
+	#endregion
 	#endregion
 
 	public sealed class FormationSyncGroup
@@ -1279,7 +2925,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			AssignFormationSpeedMultiplier(1f);
 
-			DequeueAndExecuteNextCommand();
+			TryStartNextQueuedCommand();
 			return true;
 		}
 

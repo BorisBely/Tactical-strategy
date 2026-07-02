@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,7 +13,12 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_MuzzleBrakeM4
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_muzzle_brake
-  m_Description: Дульный тормоз для M4. Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди.
+  m_Description: "\u0414\u0443\u043B\u044C\u043D\u044B\u0439 \u0442\u043E\u0440\u043C\u043E\u0437
+    \u0434\u043B\u044F M4. \u0411\u044B\u0441\u0442\u0440\u0435\u0435 \u0432\u044B\u0432\u043E\u0434\u0438\u0442
+    \u043E\u0440\u0443\u0436\u0438\u0435 \u043D\u0430 \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u044B\u0439
+    \u0442\u043E\u0447\u043D\u044B\u0439 \u0432\u044B\u0441\u0442\u0440\u0435\u043B,
+    \u043D\u043E \u0443\u0445\u0443\u0434\u0448\u0430\u0435\u0442 \u043A\u043E\u043D\u0442\u0440\u043E\u043B\u044C
+    \u0434\u043B\u0438\u043D\u043D\u043E\u0439 \u043E\u0447\u0435\u0440\u0435\u0434\u0438."
   m_Icon: {fileID: 0}
   m_BasePrice: 420
   m_Category: 0
@@ -23,9 +28,15 @@ MonoBehaviour:
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 743da05771eb7fe4dbe4bc8a9cf60b66, type: 2}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}

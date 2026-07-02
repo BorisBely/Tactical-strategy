@@ -17,9 +17,11 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 	[SerializeField] private UnitSceneSpawnEntry[] m_PlayerSpawns = new UnitSceneSpawnEntry[0];
 
 	[Header("Enemy Spawns")]
+	[SerializeField] private bool m_SpawnEnemies = false;
 	[SerializeField] private UnitSceneSpawnEntry[] m_EnemySpawns = new UnitSceneSpawnEntry[0];
 
 	[Header("Civilian Spawns")]
+	[SerializeField] private bool m_SpawnCivilians = false;
 	[SerializeField] private UnitSceneSpawnEntry[] m_CivilianSpawns = new UnitSceneSpawnEntry[0];
 
 	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(64);
@@ -51,9 +53,23 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 
 		DestroySpawnedInstances();
 		SpawnEntries(m_PlayerSpawns);
-		SpawnEntries(m_EnemySpawns);
-		SpawnEntries(m_CivilianSpawns);
+		if (m_SpawnEnemies) SpawnEntries(m_EnemySpawns);
+		if (m_SpawnCivilians) SpawnEntries(m_CivilianSpawns);
 		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
+	}
+
+	[ContextMenu("Toggle Enemy Spawn")]
+	private void ToggleEnemySpawn()
+	{
+		m_SpawnEnemies = !m_SpawnEnemies;
+		Debug.Log($"{name}: enemies spawn = {m_SpawnEnemies}", this);
+	}
+
+	[ContextMenu("Toggle Civilian Spawn")]
+	private void ToggleCivilianSpawn()
+	{
+		m_SpawnCivilians = !m_SpawnCivilians;
+		Debug.Log($"{name}: civilians spawn = {m_SpawnCivilians}", this);
 	}
 	#endregion
 

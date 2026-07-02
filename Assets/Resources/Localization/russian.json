@@ -834,6 +834,14 @@
       "value": "Esc - Открыть или закрыть паузу"
     },
     {
+      "key": "tactical_pause.title",
+      "value": "ТАКТИЧЕСКАЯ ПАУЗА"
+    },
+    {
+      "key": "tactical_pause.hint",
+      "value": "Space — продолжить"
+    },
+    {
       "key": "mission_prep.unit_list.title",
       "value": "Список юнитов"
     },

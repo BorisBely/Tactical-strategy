@@ -178,8 +178,16 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (traits != null && !traits.IsInitialized)
 			traits.RollRandomTraits();
 
-		if (traits != null && m_RuntimeConfig.BodyMeshArchetype == UnitBodyMeshArchetype.Soldier)
-			traits.RollHeadAppearance(ResolveRankPreset(), m_Appearance != null ? m_Appearance.Gender : CharacterGender.Male);
+		if (traits != null)
+		{
+			CharacterGender gender = m_Appearance != null ? m_Appearance.Gender : CharacterGender.Male;
+			UnitBodyMeshArchetype archetype = m_RuntimeConfig.BodyMeshArchetype;
+
+			if (archetype == UnitBodyMeshArchetype.Soldier)
+				traits.RollHeadAppearance(ResolveRankPreset(), gender);
+			else
+				traits.RollCivilianHeadAppearance(gender);
+		}
 
 		m_Traits = traits;
 	}
@@ -295,7 +303,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		}
 		else
 		{
-			SetBehaviourEnabled(m_HeadAppearance, false);
+			SetBehaviourEnabled(m_HeadAppearance, true);
 			SetBehaviourEnabled(m_BodyDecorations, false);
 			SetBehaviourEnabled(m_InventoryDecorations, true);
 			if (m_InventoryDecorations != null)
@@ -305,8 +313,7 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 
 	private void ApplyFactionVisualRefreshes()
 	{
-		if (m_RuntimeConfig.BodyMeshArchetype == UnitBodyMeshArchetype.Soldier)
-			RefreshHeadAppearance();
+		RefreshHeadAppearance();
 	}
 
 	private void ApplyLoadout()

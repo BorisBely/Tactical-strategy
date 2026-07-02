@@ -172,6 +172,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public float FormationSpeedMultiplier = 1f;
 	public float StaminaSpeedMultiplier = 1f;
 	public float? OverrideFacingAngle;
+	public bool SuppressEarlyArrivalStop { get; set; }
 
 	// Single vs double right-click debounce (ПКМ и RTS-команда «шаг»):
 	// одиночный клик откладывается, пока юнит уже бежит/спринтует — чтобы не сбрасывать скорость до двойного ПКМ.
@@ -292,6 +293,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		IssueNavOrderInternal(hit.position, _mode);
+		return true;
+	}
+
+	public bool IssueNavOrderContinuous(Vector3 _worldPosition, MoveTier _mode)
+	{
+		if (m_Agent == null)
+			return false;
+		if (!IsConscious())
+			return false;
+
+		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+			return false;
+
+		IssueNavOrderContinuousInternal(hit.position, _mode);
 		return true;
 	}
 
@@ -496,6 +511,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void TryEarlyArrivalStop()
 	{
+		if (SuppressEarlyArrivalStop)
+			return;
 		if (m_Agent == null || m_Agent.isStopped)
 			return;
 		if (m_Agent.pathPending)
@@ -577,6 +594,48 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(_destination);
 		PrimeAnimatorForMoveStart();
+		if (_mode != MoveTier.Sprint)
+			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+		if (_mode != MoveTier.Run)
+			m_ReadyHands?.TryRestoreReadyAfterRun(false);
+	}
+
+	private void IssueNavOrderContinuousInternal(Vector3 _destination, MoveTier _mode)
+	{
+		if (m_Agent == null)
+			return;
+		if (!IsConscious())
+			return;
+		if (IsHealingBlocked())
+			return;
+
+		if (_mode == MoveTier.Sprint)
+			m_ReadyHands?.SuppressReadyForSprintIfNeeded();
+		if (_mode == MoveTier.Run)
+			m_ReadyHands?.SuppressReadyForRunIfNeeded();
+
+		if (IsStanceTransitionMovementBlocked())
+		{
+			m_PendingNavDestination = _destination;
+			m_PendingNavOverridesMode = true;
+			m_PendingNavMode = _mode;
+			m_HasPendingNavOrder = true;
+			if (_mode != MoveTier.Sprint)
+				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
+			if (_mode != MoveTier.Run)
+				m_ReadyHands?.TryRestoreReadyAfterRun(false);
+			return;
+		}
+
+		m_Agent.isStopped = false;
+		if (_mode != m_Mode)
+		{
+			m_Mode = _mode;
+			EnsureStandingForFastMoveIfNeeded();
+			ApplyTierSpeed();
+		}
+
+		m_Agent.SetDestination(_destination);
 		if (_mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		if (_mode != MoveTier.Run)
@@ -762,8 +821,54 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return transform.forward;
 	}
 
+	private bool TryGetMovementFacingDirection(out Vector3 _direction)
+	{
+		_direction = Vector3.zero;
+
+		Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		if (velocity.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon)
+		{
+			_direction = velocity.normalized;
+			return true;
+		}
+
+		if (!NavAgentHasIncompletePath())
+			return false;
+
+		Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+		toSteer.y = 0f;
+		if (toSteer.sqrMagnitude < 1e-6f)
+			return false;
+
+		_direction = toSteer.normalized;
+		return true;
+	}
+
+	private void ApplyFacingDirection(Vector3 _direction)
+	{
+		if (_direction.sqrMagnitude < 1e-6f)
+		{
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
+			return;
+		}
+
+		Quaternion targetRotation = Quaternion.LookRotation(_direction, Vector3.up);
+		float angleDiff = Quaternion.Angle(transform.rotation, targetRotation);
+		HandleTurnReady(angleDiff);
+		transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, m_RotateSpeed * Time.deltaTime);
+	}
+
 	private void UpdateFacing()
 	{
+		if (IsRunActive() || IsSprintActive())
+		{
+			m_EngageYawVelocity = 0f;
+			if (TryGetMovementFacingDirection(out Vector3 moveDirection))
+				ApplyFacingDirection(moveDirection);
+			return;
+		}
+
 		Vector3 dir = Vector3.zero;
 		bool visionFacing = false;
 
@@ -829,13 +934,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return;
 		}
 
-		Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
-		if (!visionFacing)
+		if (visionFacing)
 		{
-			float angleDiff = Quaternion.Angle(transform.rotation, q);
-			HandleTurnReady(angleDiff);
-			transform.rotation = Quaternion.Slerp(transform.rotation, q, m_RotateSpeed * Time.deltaTime);
+			Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
+			transform.rotation = q;
+			return;
 		}
+
+		ApplyFacingDirection(dir);
 	}
 
 	private void HandleTurnReady(float _angleDegrees)

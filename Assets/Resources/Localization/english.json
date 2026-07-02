@@ -690,6 +690,14 @@
       "value": "Esc - Open or close pause menu"
     },
     {
+      "key": "tactical_pause.title",
+      "value": "TACTICAL PAUSE"
+    },
+    {
+      "key": "tactical_pause.hint",
+      "value": "Space — resume"
+    },
+    {
       "key": "mission_prep.unit_list.title",
       "value": "Unit roster"
     },

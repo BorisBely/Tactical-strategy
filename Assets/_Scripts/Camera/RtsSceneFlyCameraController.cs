@@ -156,7 +156,7 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 		if (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed)
 			speed *= m_FastMoveMultiplier;
 
-		transform.position += move * (speed * Time.deltaTime);
+		transform.position += move * (speed * Time.unscaledDeltaTime);
 	}
 
 	private void UpdateSpeedFromScroll()

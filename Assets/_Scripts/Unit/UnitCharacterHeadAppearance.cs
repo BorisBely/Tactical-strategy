@@ -22,6 +22,9 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	[SerializeField] private CharacterBodyDecorationVariant m_MaleHairStylish07;
 	[SerializeField] private CharacterBodyDecorationVariant m_MaleHairShavedSides08;
 	[SerializeField] private CharacterBodyDecorationVariant m_MaleHairShavedSidesLong10;
+	[SerializeField] private CharacterBodyDecorationVariant m_MaleHair01;
+	[SerializeField] private CharacterBodyDecorationVariant m_MaleHair09;
+	[SerializeField] private CharacterBodyDecorationVariant m_MaleHair11;
 
 	[Header("Female Hair")]
 	[SerializeField] private CharacterBodyDecorationVariant m_FemaleHair01;
@@ -31,13 +34,20 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	[SerializeField] private CharacterBodyDecorationVariant m_FemaleHairCap02;
 	[SerializeField] private CharacterBodyDecorationVariant m_FemaleHairCap02Alt;
 	[SerializeField] private CharacterBodyDecorationVariant m_FemaleHairHelmetShort05;
+	[SerializeField] private CharacterBodyDecorationVariant m_FemaleHair05;
 
 	[Header("Standalone Hats")]
+	[SerializeField] private CharacterBodyDecorationVariant m_Hat01;
 	[SerializeField] private CharacterBodyDecorationVariant m_Hat02;
 	[SerializeField] private CharacterBodyDecorationVariant m_Hat03;
 	[SerializeField] private CharacterBodyDecorationVariant m_Hat04;
 	[SerializeField] private CharacterBodyDecorationVariant m_Hat05;
 	[SerializeField] private CharacterBodyDecorationVariant m_Beanie01;
+	[SerializeField] private CharacterBodyDecorationVariant m_Hat06;
+	[SerializeField] private CharacterBodyDecorationVariant m_Hat07;
+	[SerializeField] private CharacterBodyDecorationVariant m_HatCap01;
+	[SerializeField] private CharacterBodyDecorationVariant m_HatCap02;
+	[SerializeField] private CharacterBodyDecorationVariant m_CowboyHat01;
 
 	[Header("Beards")]
 	[SerializeField] private CharacterBodyDecorationVariant m_Beard01;
@@ -49,6 +59,12 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	[SerializeField] private CharacterBodyDecorationVariant m_Beard11;
 	[SerializeField] private CharacterBodyDecorationVariant m_Beard12;
 	[SerializeField] private CharacterBodyDecorationVariant m_Mustache01;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard02;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard03;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard05;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard06;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard07;
+	[SerializeField] private CharacterBodyDecorationVariant m_Beard08;
 	#endregion
 
 	#region Private Fields
@@ -57,6 +73,7 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	private GameObject m_BeardInstance;
 	private UnitHeadEquipment m_HeadEquipment;
 	private UnitCombatStats m_CombatStats;
+	private UnitBodyMeshSelector m_BodyMeshSelector;
 	#endregion
 
 	#region Unity Lifecycle
@@ -112,6 +129,9 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 			                 GetComponentInChildren<UnitCombatStats>(true);
 		if (m_CombatStats != null)
 			m_CombatStats.RankPresetChanged += HandleRankPresetChanged;
+
+		if (m_BodyMeshSelector == null)
+			m_BodyMeshSelector = GetComponent<UnitBodyMeshSelector>();
 	}
 
 	private void Unsubscribe()
@@ -142,6 +162,8 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 		CharacterDecorationSpawnUtility.ClearDecoration(ref m_HairInstance);
 		if (m_HeadAnchor == null || _traits == null)
 			return;
+		if (ShouldSuppressHeadDecorations())
+			return;
 
 		CharacterBodyDecorationVariant config = ResolveHairVariant(_traits.HeadHairVariant, _gender, _hasHelmet);
 		if (config.Prefab == null)
@@ -154,6 +176,8 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	{
 		CharacterDecorationSpawnUtility.ClearDecoration(ref m_HatInstance);
 		if (m_HeadAnchor == null || _traits == null || _hasHelmet)
+			return;
+		if (ShouldSuppressHeadDecorations())
 			return;
 
 		if (!UnitHeadAppearanceVariantIds.CanUseStandaloneHat(_gender, _traits.HeadHairVariant))
@@ -170,6 +194,8 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	{
 		CharacterDecorationSpawnUtility.ClearDecoration(ref m_BeardInstance);
 		if (m_HeadAnchor == null || _traits == null || _gender != CharacterGender.Male)
+			return;
+		if (ShouldSuppressHeadDecorations())
 			return;
 
 		CharacterBodyDecorationVariant config = ResolveBeardVariant(_traits.HeadBeardVariant);
@@ -193,6 +219,7 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 				UnitHeadAppearanceVariantIds.FemaleHair04 => m_FemaleHair04,
 				UnitHeadAppearanceVariantIds.FemaleHairCap02 => m_FemaleHairCap02,
 				UnitHeadAppearanceVariantIds.FemaleHairCap02Alt => m_FemaleHairCap02Alt,
+				UnitHeadAppearanceVariantIds.FemaleHair05 => m_FemaleHair05,
 				_ => m_FemaleHair01
 			};
 		}
@@ -210,6 +237,9 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 			UnitHeadAppearanceVariantIds.MaleHairStylish07 => m_MaleHairStylish07,
 			UnitHeadAppearanceVariantIds.MaleHairShavedSides08 => m_MaleHairShavedSides08,
 			UnitHeadAppearanceVariantIds.MaleHairShavedSidesLong10 => m_MaleHairShavedSidesLong10,
+			UnitHeadAppearanceVariantIds.MaleHair01 => m_MaleHair01,
+			UnitHeadAppearanceVariantIds.MaleHair09 => m_MaleHair09,
+			UnitHeadAppearanceVariantIds.MaleHair11 => m_MaleHair11,
 			_ => m_MaleHairShort04
 		};
 	}
@@ -218,13 +248,30 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 	{
 		return _variant switch
 		{
+			UnitHeadAppearanceVariantIds.Hat01 => m_Hat01,
 			UnitHeadAppearanceVariantIds.Hat02 => m_Hat02,
 			UnitHeadAppearanceVariantIds.Hat03 => m_Hat03,
 			UnitHeadAppearanceVariantIds.Hat04 => m_Hat04,
 			UnitHeadAppearanceVariantIds.Hat05 => m_Hat05,
 			UnitHeadAppearanceVariantIds.Beanie01 => m_Beanie01,
+			UnitHeadAppearanceVariantIds.Hat06 => m_Hat06,
+			UnitHeadAppearanceVariantIds.Hat07 => m_Hat07,
+			UnitHeadAppearanceVariantIds.HatCap01 => m_HatCap01,
+			UnitHeadAppearanceVariantIds.HatCap02 => m_HatCap02,
+			UnitHeadAppearanceVariantIds.CowboyHat01 => m_CowboyHat01,
 			_ => default
 		};
+	}
+
+	private bool ShouldSuppressHeadDecorations()
+	{
+		if (m_BodyMeshSelector == null)
+			m_BodyMeshSelector = GetComponent<UnitBodyMeshSelector>();
+
+		if (m_BodyMeshSelector == null)
+			return false;
+
+		return m_BodyMeshSelector.IsHeadCovered || m_BodyMeshSelector.IsHeadpieceActive;
 	}
 
 	private CharacterBodyDecorationVariant ResolveBeardVariant(int _variant)
@@ -240,6 +287,12 @@ public sealed class UnitCharacterHeadAppearance : MonoBehaviour
 			UnitHeadAppearanceVariantIds.Beard11 => m_Beard11,
 			UnitHeadAppearanceVariantIds.Beard12 => m_Beard12,
 			UnitHeadAppearanceVariantIds.Mustache01 => m_Mustache01,
+			UnitHeadAppearanceVariantIds.Beard02 => m_Beard02,
+			UnitHeadAppearanceVariantIds.Beard03 => m_Beard03,
+			UnitHeadAppearanceVariantIds.Beard05 => m_Beard05,
+			UnitHeadAppearanceVariantIds.Beard06 => m_Beard06,
+			UnitHeadAppearanceVariantIds.Beard07 => m_Beard07,
+			UnitHeadAppearanceVariantIds.Beard08 => m_Beard08,
 			_ => default
 		};
 	}
