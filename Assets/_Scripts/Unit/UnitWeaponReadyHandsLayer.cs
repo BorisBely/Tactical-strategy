@@ -262,7 +262,6 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!WasKeyPressedThisFrame(m_ToggleReadyKey))
 			return;
 
-		bool isSprinting = IsSprintingNow();
 		bool nextReady = !m_UserWantsReady;
 
 		if (nextReady && m_BusyState != null &&
@@ -272,7 +271,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return;
 
-		ApplyReadyWanted(nextReady, isSprinting, true);
+		ApplyReadyWanted(nextReady, nextReady, true);
 	}
 	#endregion
 
@@ -331,6 +330,21 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		return false;
 	}
 
+	private bool IsRunningNow()
+	{
+		if (m_ClickToMove != null && m_ClickToMove.IsRunMoveMode)
+			return true;
+		if (m_LocomotionDriver != null && m_LocomotionDriver.IsRunMoveMode)
+			return true;
+
+		return false;
+	}
+
+	private bool IsFastMoveModeNow()
+	{
+		return IsSprintingNow() || IsRunningNow();
+	}
+
 	private void ApplyReadyWanted(bool _ready, bool _forceWalkIfNeeded, bool _refreshImmediately)
 	{
 		if (!IsWeaponEquipped())
@@ -349,7 +363,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (didChange && m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
 			m_WeaponReloadController.SyncAimReloadClipForWeaponReadyChange();
 
-		if (_ready && _forceWalkIfNeeded && IsSprintingNow())
+		if (_ready && _forceWalkIfNeeded && IsFastMoveModeNow())
 			ForceWalkMoveModeOnAllLocomotionDrivers();
 
 		if (_ready && didChange)

@@ -185,6 +185,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private RtsUnitMember m_CachedRtsMember;
 
 	public bool IsSprintMoveMode => IsSprintActive();
+	public bool IsRunMoveMode => IsRunActive();
 
 	/// <summary>Множитель скорости проигрывания клипов (1 = без подстройки).</summary>
 	public float AnimatorPlaybackSpeedMultiplier { get; private set; } = 1f;

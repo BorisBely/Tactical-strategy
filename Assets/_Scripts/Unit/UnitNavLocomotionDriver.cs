@@ -140,6 +140,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	#region Public Properties
 	public bool IsSprintMoveMode => IsSprintActive();
+	public bool IsRunMoveMode => IsRunActive();
 	public bool IsWalkOrRunMoveMode => m_Mode == MoveTier.Walk || m_Mode == MoveTier.Run;
 	public bool HasMoveIntent => IsConscious() && IsNavAgentOperational() && HasActiveMoveIntent();
 	/// <summary>Множитель скорости проигрывания клипов (1 = без подстройки). См. <see cref="RtsUnitMember"/>.</summary>

@@ -54,6 +54,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private static Material s_PathLineMaterial;
 	private static readonly Vector3 s_PathLineYOffset = Vector3.up * 0.03f;
+	private static readonly Color s_PathLineNormalColor = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+	private static readonly Color s_PathLinePreviewColor = new Color(0.75f, 0.75f, 0.75f, 0.35f);
+	private const float c_PathLineNormalWidth = 0.06f;
+	private const float c_PathLinePreviewWidth = 0.04f;
 	private static readonly List<RtsUnitMember> s_Instances = new List<RtsUnitMember>(128);
 	private Coroutine m_PendingCommandCoroutine;
 	private int m_PendingCommandVersion;
@@ -61,6 +65,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private Transform m_CachedCameraTransform;
 	private LineRenderer m_PathLine;
 	private bool m_HasActiveDestination;
+	private bool m_IsMovePreviewVisualActive;
+	private Vector3? m_MovePreviewDestination;
 	private UnitClickToMove.MoveTier m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
 	private Vector3 m_ActiveRouteSegmentStart;
 	private float m_DestinationSetTime = -1f;
@@ -78,6 +84,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private float m_FacingTurnDistanceTraveled;
 	private Vector3 m_FacingLookPoint;
 	private FormationSyncGroup m_FormationSyncGroup;
+	private bool m_HasFormationFacingAngle;
+	private float m_FormationFacingAngle;
+	private LineRenderer m_FormationFacingArrowLine;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
 	private float m_NextWaypointCheckTime;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -189,6 +198,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private static readonly Color s_FacingArrowColor = new Color(1f, 0.85f, 0.2f, 0.95f);
 	private static readonly Color s_FacingArrowHoldColor = new Color(0.2f, 0.7f, 1f, 0.95f);
 	private static readonly Color s_FacingArrowLookColor = new Color(0.3f, 0.95f, 0.3f, 0.95f);
+	private static readonly Color s_FormationFacingArrowColor = new Color(0.72f, 0.38f, 1f, 0.92f);
 	private static readonly Vector3 s_FacingArrowYOffset = Vector3.up * 0.05f;
 	private readonly List<FacingArrowVisualSource> m_FacingArrowVisuals = new List<FacingArrowVisualSource>();
 	private bool m_FacingArrowsDirty;
@@ -212,6 +222,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
 	public float FormationSpacing { get; set; } = 2f;
+	public bool HasFormationFacingAngle => m_HasFormationFacingAngle;
 	#endregion
 
 	#region Unity Lifecycle
@@ -268,18 +279,37 @@ public sealed class RtsUnitMember : MonoBehaviour
 		lineGo.transform.SetParent(transform, false);
 		m_PathLine = lineGo.AddComponent<LineRenderer>();
 		m_PathLine.positionCount = 0;
-		m_PathLine.startWidth = 0.06f;
-		m_PathLine.endWidth = 0.06f;
+		m_PathLine.startWidth = c_PathLineNormalWidth;
+		m_PathLine.endWidth = c_PathLineNormalWidth;
 		m_PathLine.sharedMaterial = s_PathLineMaterial;
-		m_PathLine.startColor = new Color(0.75f, 0.75f, 0.75f, 0.8f);
-		m_PathLine.endColor = new Color(0.75f, 0.75f, 0.75f, 0.8f);
+		m_PathLine.startColor = s_PathLineNormalColor;
+		m_PathLine.endColor = s_PathLineNormalColor;
 		m_PathLine.enabled = false;
+	}
+
+	private void ApplyPathLineVisualStyle(bool _preview)
+	{
+		if (m_PathLine == null)
+			return;
+
+		float width = _preview ? c_PathLinePreviewWidth : c_PathLineNormalWidth;
+		Color color = _preview ? s_PathLinePreviewColor : s_PathLineNormalColor;
+		m_PathLine.startWidth = width;
+		m_PathLine.endWidth = width;
+		m_PathLine.startColor = color;
+		m_PathLine.endColor = color;
 	}
 
 	private void RebuildPathLine()
 	{
 		if (m_PathLine == null)
 			return;
+
+		if (m_IsMovePreviewVisualActive)
+		{
+			RefreshMovePreviewPathLine();
+			return;
+		}
 
 		if (m_Waypoints.Count == 0)
 		{
@@ -326,6 +356,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		TryRemoveArrivedDestination();
 		TryAdvanceWaypointEarly();
 		UpdateFacingRotation();
+		UpdateFormationFacing();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		UpdateRouteDebugPeriodicState();
 #endif
@@ -431,7 +462,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void UpdatePathLinePosition()
 	{
-		if (m_PathLine == null || !m_PathLine.enabled || m_Waypoints.Count == 0)
+		if (m_PathLine == null)
+			return;
+
+		if (m_IsMovePreviewVisualActive)
+		{
+			RefreshMovePreviewPathLine();
+			return;
+		}
+
+		if (!m_PathLine.enabled || m_Waypoints.Count == 0)
 			return;
 
 		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: true, previewDestination: null);
@@ -439,6 +479,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_SmoothedRoutePoints.Count > 0)
 			m_SmoothedRoutePoints[0] = transform.position;
 		ApplyPathLinePoints(m_SmoothedRoutePoints);
+	}
+
+	private void RefreshMovePreviewPathLine()
+	{
+		if (!m_IsMovePreviewVisualActive || !m_MovePreviewDestination.HasValue || m_PathLine == null)
+			return;
+
+		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: true, previewDestination: m_MovePreviewDestination);
+		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		if (m_SmoothedRoutePoints.Count > 0)
+			m_SmoothedRoutePoints[0] = transform.position;
+		ApplyPathLinePoints(m_SmoothedRoutePoints);
+		m_PathLine.enabled = m_IsSelected;
 	}
 
 	private void UpdateFacingRotation()
@@ -567,6 +620,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (!m_HasActiveDestination && m_Waypoints.Count == 0)
 		{
+			ResetActiveMoveTierWhenIdle();
 			if (m_PathLine != null)
 				m_PathLine.enabled = false;
 		}
@@ -672,15 +726,40 @@ public sealed class RtsUnitMember : MonoBehaviour
 		});
 	}
 
+	public void BeginMovePreviewVisual()
+	{
+		m_IsMovePreviewVisualActive = true;
+		m_MovePreviewDestination = null;
+		ApplyPathLineVisualStyle(_preview: true);
+	}
+
+	public void EndMovePreviewVisual()
+	{
+		if (!m_IsMovePreviewVisualActive)
+			return;
+
+		m_IsMovePreviewVisualActive = false;
+		m_MovePreviewDestination = null;
+		ApplyPathLineVisualStyle(_preview: false);
+		if (m_Waypoints.Count > 0)
+			RebuildPathLine();
+		else if (m_PathLine != null)
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
+		}
+	}
+
 	public void SetPreviewLine(Vector3 _dest)
 	{
 		if (m_PathLine == null)
 			return;
 
-		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: !IsAtFirstWaypoint(), previewDestination: _dest);
-		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
-		ApplyPathLinePoints(m_SmoothedRoutePoints);
-		m_PathLine.enabled = m_IsSelected;
+		if (!m_IsMovePreviewVisualActive)
+			BeginMovePreviewVisual();
+
+		m_MovePreviewDestination = _dest;
+		RefreshMovePreviewPathLine();
 	}
 
 	public void SetDestinationDirect(Vector3 _dest, UnitClickToMove.MoveTier _moveTier = UnitClickToMove.MoveTier.Walk)
@@ -1558,6 +1637,24 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasWantedFacing = false;
 		ClearFacingOverride();
 		ClearFormationSync();
+		ClearFormationFacing();
+	}
+
+	public void SetFormationFacingAngle(float _angleDegrees)
+	{
+		m_HasFormationFacingAngle = true;
+		m_FormationFacingAngle = _angleDegrees;
+		EnsureFormationFacingVisual();
+	}
+
+	public void ClearFormationFacing()
+	{
+		m_HasFormationFacingAngle = false;
+		if (m_FormationFacingArrowLine != null)
+		{
+			Destroy(m_FormationFacingArrowLine.gameObject);
+			m_FormationFacingArrowLine = null;
+		}
 	}
 
 	public void SetWantedFacingAngle(float _angle)
@@ -1623,7 +1720,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			if (m_ReadyHands != null)
 				m_ReadyHands.SetReadyWanted(_ready);
+
+			if (_ready)
+				DowngradeActiveMovementTierForReady();
 		});
+	}
+
+	private void DowngradeActiveMovementTierForReady()
+	{
+		if (!IsRunOrSprintMoveTier(m_ActiveMoveTier))
+			return;
+
+		m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
+		if (m_IsExecutingSmoothingArc)
+			m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
 	}
 
 	public void RequestStance(LocomotionStance _stance)
@@ -2037,6 +2147,17 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return _tier == UnitClickToMove.MoveTier.Run || _tier == UnitClickToMove.MoveTier.Sprint;
 	}
 
+	private void ResetActiveMoveTierWhenIdle()
+	{
+		if (m_HasActiveDestination || m_Waypoints.Count > 0 || m_CommandQueue.Count > 0)
+			return;
+		if (m_IsWaitingAtRouteGate || m_IsExecutingSmoothingArc)
+			return;
+
+		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+			m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
+	}
+
 	private void TransitionActiveMovementToWalk()
 	{
 		if (!IsRunOrSprintMoveTier(m_ActiveMoveTier))
@@ -2415,6 +2536,85 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 		m_FacingArrowVisuals.Clear();
 		m_FacingArrowsDirty = false;
+	}
+
+	private bool HasManualRouteFacingActive()
+	{
+		if (m_IsInFacingTurn)
+			return true;
+		if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0)
+			return true;
+		if (m_HasWantedFacing)
+			return true;
+		return false;
+	}
+
+	private bool ShouldApplyFormationFacing()
+	{
+		if (!m_HasFormationFacingAngle)
+			return false;
+		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+			return false;
+		if (!WantsReady)
+			return false;
+		if (HasManualRouteFacingActive())
+			return false;
+		return true;
+	}
+
+	private void UpdateFormationFacing()
+	{
+		bool shouldApply = ShouldApplyFormationFacing();
+		if (shouldApply)
+			ApplyLocomotionFacingOverride(m_FormationFacingAngle);
+
+		bool showVisual = m_HasFormationFacingAngle
+		                  && m_IsSelected
+		                  && WantsReady
+		                  && !IsRunOrSprintMoveTier(m_ActiveMoveTier);
+		UpdateFormationFacingVisual(showVisual);
+	}
+
+	private void EnsureFormationFacingVisual()
+	{
+		if (m_FormationFacingArrowLine != null || s_PathLineMaterial == null)
+			return;
+
+		GameObject go = new GameObject("FormationFacingArrow");
+		go.transform.SetParent(transform, false);
+		LineRenderer line = go.AddComponent<LineRenderer>();
+		line.positionCount = 2;
+		line.startWidth = 0.018f;
+		line.endWidth = 0.018f;
+		line.material = s_PathLineMaterial;
+		line.startColor = s_FormationFacingArrowColor;
+		line.endColor = s_FormationFacingArrowColor;
+		line.enabled = false;
+		m_FormationFacingArrowLine = line;
+	}
+
+	private void UpdateFormationFacingVisual(bool _visible)
+	{
+		if (!m_HasFormationFacingAngle)
+		{
+			if (m_FormationFacingArrowLine != null)
+				m_FormationFacingArrowLine.enabled = false;
+			return;
+		}
+
+		EnsureFormationFacingVisual();
+		if (m_FormationFacingArrowLine == null)
+			return;
+
+		bool show = _visible && m_IsSelected && WantsReady;
+		m_FormationFacingArrowLine.enabled = show;
+		if (!show)
+			return;
+
+		Vector3 dir = Quaternion.Euler(0f, m_FormationFacingAngle, 0f) * Vector3.forward;
+		Vector3 anchor = transform.position + s_FacingArrowYOffset;
+		m_FormationFacingArrowLine.SetPosition(0, anchor + dir * c_FacingArrowShaftStartOffset);
+		m_FormationFacingArrowLine.SetPosition(1, anchor + dir * (c_FacingArrowFixedLength * 0.85f));
 	}
 
 	private void ScheduleRtsCommand(Action _command)

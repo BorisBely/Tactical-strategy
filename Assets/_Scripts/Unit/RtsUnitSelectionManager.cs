@@ -19,7 +19,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField] private LayerMask m_CommandGroundMask = ~0;
 	[SerializeField] private bool m_BlockPointerOverUi = true;
 	[SerializeField, Min(2f)] private float m_BoxSelectionMinDragPixels = 12f;
-	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.12f;
+	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.28f;
 	[SerializeField, Min(1f)] private float m_QuickRotateDragThresholdPixels = 90f;
 	[Header("Path Waypoint Hover")]
 	[SerializeField, Min(0.05f)] private float m_PathHoverDelay = 0.2f;
@@ -38,8 +38,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_GroupMoveUnitPadding = 0.5f;
 	[Tooltip("Максимальный случайный сдвиг позиции юнита в формации для естественности.")]
 	[SerializeField, Range(0f, 0.5f)] private float m_GroupMoveFormationJitter = 0.10f;
-	[Header("Formation Line")]
-	[Tooltip("Базовый интервал между юнитами в шеренге (метры).")]
+	[Header("Formation Spacing")]
+	[Tooltip("Базовый интервал между юнитами в формации (метры).")]
 	[SerializeField, Min(0.1f)] private float m_FormationLineSpacing = 2f;
 	[Tooltip("Минимальный интервал шеренги при регулировке колёсиком.")]
 	[SerializeField, Min(0.1f)] private float m_FormationLineSpacingMin = 0.5f;
@@ -51,11 +51,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Range(0.1f, 1f)] private float m_FormationSyncMinSpeedMultiplier = 0.35f;
 	[Tooltip("Интервал пересчёта FormationSpeedMultiplier для активных групп (сек).")]
 	[SerializeField, Range(0.05f, 1f)] private float m_FormationSyncUpdateInterval = 0.25f;
-	[Header("Group Move Stagger")]
-	[Tooltip("Мин. задержка перед стартом следующего юнита (сек).")]
-	[SerializeField, Range(0f, 0.2f)] private float m_GroupMoveStaggerMin = 0.03f;
-	[Tooltip("Макс. задержка перед стартом следующего юнита (сек).")]
-	[SerializeField, Range(0f, 0.2f)] private float m_GroupMoveStaggerMax = 0.10f;
 
 	[Header("Destination Markers")]
 	[SerializeField] private GameObject m_DestinationMarkerPrefab;
@@ -81,6 +76,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Coroutine m_ExchangeApproachCoroutine;
 	private Coroutine m_StaggerCoroutine;
 	private bool m_IsPreviewingMove;
+	private bool m_IsAwaitingDoubleClick;
 	private bool m_PreviewCancelled;
 	private bool m_PreviewPending;
 	private float m_PreviewPendingTime;
@@ -88,14 +84,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private List<Vector3> m_PreviewOffsets;
 	private Vector3 m_LastWalkCenter;
 	private List<Vector3> m_LastWalkOffsets;
+	private UnitClickToMove.MoveTier m_PreviewMoveTier = UnitClickToMove.MoveTier.Walk;
 	private bool m_IsQuickRotateFacing;
 	private bool m_HasMoveFacingSet;
 	private bool m_RmbStartedOnSelectedUnit;
 	private Vector2 m_RmbDownMousePos;
 	private List<float> m_PreviewFacingAngles;
+	private List<float> m_PreviewFormationFacingAngles;
+	private Vector3? m_PreviewFormationForwardOverride;
+	private FormationLayoutUtility.FormationUnitSlotBinding[] m_FormationPreviewBindings;
+	private FormationType m_CachedFormationType = FormationType.TacticalColumn;
+	private float m_CachedFormationSpacing;
+	private Vector3 m_CachedFormationForward = Vector3.forward;
+	private bool m_HasCachedFormationForward;
 	private float m_CurrentFormationSpacing;
 	private Coroutine m_PendingWalkCoroutine;
 	private readonly List<GameObject> m_DirectionMarkers = new List<GameObject>();
+	private readonly List<GameObject> m_PreviewDestinationMarkers = new List<GameObject>();
+	private GameObject m_MovePreviewFacingArrow;
+	private bool m_IsFormationPickerKeyHeld;
+	private float m_FormationPickerKeyDownTime;
+	private bool m_FormationDigitSelectedWhileHeld;
+	private const float c_FormationTapMaxSeconds = 0.22f;
+	private const float c_FormationForwardRebuildAngleDegrees = 0.25f;
 	private bool m_IsHoveringPathSegment;
 	private float m_PathHoverStartTime;
 	private int m_HoveredUnitIndex = -1;
@@ -131,6 +142,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private RtsUnitMember m_PendingExchangePlayerUnit;
 	private RtsUnitMember m_PendingExchangePartnerUnit;
 	private static RtsUnitSelectionManager s_Instance;
+	private static GUIStyle s_FormationPickerGuiStyle;
 	private static GUIStyle s_RtsHintsGuiStyle;
 	private static GUIStyle s_TransientMessageGuiStyle;
 	private static string s_TransientMessage;
@@ -190,6 +202,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void Awake()
 	{
 		s_Instance = this;
+		m_CurrentFormationSpacing = m_FormationLineSpacing;
 
 		if (m_InventoryBindings != null)
 			m_InventoryBindings.SetSelectionManager(this);
@@ -239,6 +252,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		HandleLeftMouseSelection();
 		UpdatePathInteractions();
 		HandleRightMouseCommand();
+		HandleFormationKeyInput();
 		HandleKeyboardCommands();
 		UpdateFormationSyncSpeeds();
 	}
@@ -253,6 +267,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		DrawRtsControlHintsIfAnySelection();
+		DrawFormationPickerIfAny();
 		DrawArrowDeleteButtonIfAny();
 		DrawWaitPointIconsIfAny();
 		DrawTransientMessageIfAny();
@@ -2090,6 +2105,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
 				m_IsDraggingSelection = false;
 				m_LeftMouseStartedOverUi = true;
+				if (m_IsPreviewingMove)
+					CancelMovePreview();
 				RemoveHoveredFacingArrow();
 				return;
 			}
@@ -2440,6 +2457,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		SetSelection(inRect);
 	}
 
+	private bool IsMovePreviewBlockingPathInteractions()
+	{
+		return m_IsPreviewingMove &&
+		       Mouse.current != null &&
+		       Mouse.current.rightButton.isPressed;
+	}
+
 	private void UpdatePathInteractions()
 	{
 		if (m_IsEditingWaypointFacing)
@@ -2447,6 +2471,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			ClearArrowHover();
 			ClearRouteEditMode();
 			ClearPathSegmentHover();
+			return;
+		}
+
+		if (IsMovePreviewBlockingPathInteractions())
+		{
+			ClearAllPathInteractions();
 			return;
 		}
 
@@ -2922,6 +2952,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!IsPointerOverRouteHandle())
 			return false;
 
+		if (m_IsPreviewingMove)
+			CancelMovePreview();
+
 		RtsUnitMember unit = m_SelectedUnits[m_HoveredUnitIndex];
 		if (unit == null)
 			return false;
@@ -3256,7 +3289,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			if (m_IsEditingWaypointFacing)
 				EndWaypointFacingEdit();
-			if (m_IsPreviewingMove || m_PreviewPending)
+			if (m_IsPreviewingMove || m_PreviewPending || m_IsAwaitingDoubleClick)
 				CancelMovePreview();
 			return;
 		}
@@ -3283,6 +3316,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsPreviewingMove && Mouse.current.rightButton.isPressed)
 		{
+			bool handledFormationScroll = HandleFormationScroll();
+
+			if (TryYieldMovePreviewToPathInteraction())
+				return;
+
+			if (IsPathInteractionBlockingMovePreview() && !handledFormationScroll)
+				return;
+
 			if (CanPreviewMoveFacing())
 			{
 				Vector2 mousePos = Mouse.current.position.ReadValue();
@@ -3303,8 +3344,37 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				ExitMoveFacingMode();
 
 			UpdateMovePreview();
-			HandleFormationScroll();
 		}
+	}
+
+	private bool IsPathInteractionBlockingMovePreview()
+	{
+		if (m_IsDraggingRoute || m_IsRouteEditMode)
+			return true;
+		if (m_HoveredArrowUnitIndex >= 0)
+			return true;
+		if (m_IsHoveringPathSegment)
+			return true;
+		return false;
+	}
+
+	private bool TryYieldMovePreviewToPathInteraction()
+	{
+		if (!m_IsPreviewingMove || m_IsQuickRotateFacing || IsAltHeld())
+			return false;
+
+		if (m_IsHoveringPathSegment &&
+		    m_HoveredUnitIndex >= 0 &&
+		    Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
+		{
+			int unitIndex = m_HoveredUnitIndex;
+			int segmentIndex = m_HoveredSegmentIndex;
+			CancelMovePreview();
+			BeginWaypointFacingEdit(unitIndex, segmentIndex);
+			return true;
+		}
+
+		return false;
 	}
 
 	private static bool IsShiftHeld()
@@ -3332,6 +3402,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (m_IsAwaitingDoubleClick)
+		{
+			BeginRunPreviewAfterDoubleClick(mousePosition);
+			return;
+		}
+
+		if (m_IsRouteEditMode || m_IsDraggingRoute)
+			return;
+
+		if (m_HoveredArrowUnitIndex >= 0)
+			return;
+
 		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0 && !IsAltHeld())
 		{
 			BeginWaypointFacingEdit(m_HoveredUnitIndex, m_HoveredSegmentIndex);
@@ -3356,7 +3438,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (clickedUnit != null && m_SelectedUnits.Contains(clickedUnit))
 			{
 				List<RtsUnitMember> unitsForPoint = GetValidSelectedUnits();
-				if (unitsForPoint.Count >= 2 && GetDominantFormation(unitsForPoint) == FormationType.Line)
+				if (unitsForPoint.Count >= 2)
 				{
 					Vector3 avg = Vector3.zero;
 					for (int i = 0; i < unitsForPoint.Count; i++)
@@ -3381,72 +3463,122 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		FallenUnitInteractionMenuController.Instance?.HideImmediate();
 
 		Vector3 hitPoint;
+		bool hasGroundHit = Physics.Raycast(
+			ray,
+			out RaycastHit hit,
+			2000f,
+			m_CommandGroundMask,
+			QueryTriggerInteraction.Ignore);
 		if (unitForcedGroundPoint.HasValue)
-		{
 			hitPoint = unitForcedGroundPoint.Value;
-		}
-		else if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
-		{
+		else if (!hasGroundHit)
 			return;
-		}
 		else
-		{
 			hitPoint = hit.point;
-		}
 
-		if (m_LastRightClickTime >= 0f &&
-		    Time.unscaledTime - m_LastRightClickTime <= m_DoubleRightClickSeconds)
+		StartMovePreview(
+			hitPoint,
+			mousePosition,
+			unitForcedGroundPoint.HasValue,
+			UnitClickToMove.MoveTier.Walk);
+	}
+
+	private void BeginRunPreviewAfterDoubleClick(Vector2 _mouseDownScreen)
+	{
+		StopPendingWalkCoroutine();
+		m_IsAwaitingDoubleClick = false;
+		m_PreviewMoveTier = UnitClickToMove.MoveTier.Run;
+		m_IsPreviewingMove = true;
+		m_PreviewCancelled = false;
+		m_HasMoveFacingSet = false;
+		m_IsQuickRotateFacing = false;
+		m_RmbDownMousePos = _mouseDownScreen;
+		m_LastRightClickTime = -1f;
+
+		BeginMovePreviewForUnits();
+		ApplyPreviewPathLines();
+	}
+
+	private void BeginAwaitingDoubleClickForRun()
+	{
+		m_IsAwaitingDoubleClick = true;
+		StopPendingWalkCoroutine();
+		m_PendingWalkCoroutine = StartCoroutine(PendingWalkAfterDelay());
+	}
+
+	private IEnumerator PendingWalkAfterDelay()
+	{
+		yield return new WaitForSecondsRealtime(m_DoubleRightClickSeconds);
+		m_PendingWalkCoroutine = null;
+
+		if (!m_IsAwaitingDoubleClick)
+			yield break;
+
+		m_IsAwaitingDoubleClick = false;
+		CommitMovePreviewOrder();
+	}
+
+	private void StopPendingWalkCoroutine()
+	{
+		if (m_PendingWalkCoroutine == null)
+			return;
+
+		StopCoroutine(m_PendingWalkCoroutine);
+		m_PendingWalkCoroutine = null;
+	}
+
+	private void CommitMovePreviewOrder()
+	{
+		List<Vector3> offsets = m_PreviewOffsets;
+		Vector3 center = m_PreviewCenterPoint;
+		if (offsets == null || offsets.Count == 0)
 		{
-			m_LastRightClickTime = -1f;
 			ClearPreviewMarkers();
-			m_IsPreviewingMove = false;
-			m_PreviewPending = false;
-
-			if (m_PendingWalkCoroutine != null)
-			{
-				StopCoroutine(m_PendingWalkCoroutine);
-				m_PendingWalkCoroutine = null;
-			}
-
-			List<RtsUnitMember> doubleUnits = GetValidSelectedUnits();
-			if (doubleUnits.Count == 0)
-				return;
-
-			bool useSavedWalkTarget = m_LastWalkOffsets != null && m_LastWalkOffsets.Count > 0;
-			Vector3 runCenter = useSavedWalkTarget ? m_LastWalkCenter : hitPoint;
-			List<Vector3> runOffsets = useSavedWalkTarget
-				? new List<Vector3>(m_LastWalkOffsets)
-				: BuildFormationOffsets(doubleUnits, hitPoint);
-
-			if (IsShiftHeld())
-			{
-				ShiftEnqueueMoveOrders(doubleUnits, runOffsets, runCenter, null, UnitClickToMove.MoveTier.Run);
-				EnsureFormationSyncGroup(doubleUnits, runOffsets, runCenter);
-			}
-			else
-			{
-				bool allUpgraded = doubleUnits.Count > 0;
-				for (int i = 0; i < doubleUnits.Count; i++)
-				{
-					Vector3 dest = i < runOffsets.Count ? runCenter + runOffsets[i] : runCenter;
-					if (!doubleUnits[i].TryUpgradeMoveTargetToRun(dest))
-					{
-						allUpgraded = false;
-						break;
-					}
-				}
-
-				if (allUpgraded)
-					return;
-
-				foreach (var u in doubleUnits)
-					u.ClearCommandQueue();
-				IssueScatteredMoveOrder(runCenter, UnitClickToMove.MoveTier.Run, runOffsets);
-			}
 			return;
 		}
 
-		ClearPreviewMarkers();
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		bool isGroup = validUnits.Count >= 2;
+		if (isGroup && m_PreviewFormationForwardOverride.HasValue)
+		{
+			FormationLayoutUtility.FormationBuildResult rebuilt =
+				BuildFormationLayout(validUnits, center, m_PreviewFormationForwardOverride, _forceRebuildBindings: true);
+			offsets = rebuilt.Offsets;
+			m_PreviewOffsets = offsets;
+			m_PreviewFormationFacingAngles = rebuilt.FacingAngles;
+		}
+
+		bool useMoveFacing = !isGroup && (m_HasMoveFacingSet || m_IsQuickRotateFacing);
+		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
+			? RtsUnitMember.FacingArrowMode.TurnOverDistance
+			: null;
+		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
+		List<float> formationFacingAngles = isGroup ? m_PreviewFormationFacingAngles : null;
+
+		m_LastWalkCenter = center;
+		m_LastWalkOffsets = new List<Vector3>(offsets);
+		ExecuteWalkOrder(
+			offsets,
+			center,
+			facingAngles,
+			IsAltHeld() ? -1 : 0,
+			facingMode,
+			formationFacingAngles,
+			m_PreviewMoveTier);
+
+		ClearPreviewMarkers(_clearFormationFacing: false);
+	}
+
+	private void StartMovePreview(
+		Vector3 _centerPoint,
+		Vector2 _mouseDownScreen,
+		bool _rmbStartedOnSelectedUnit,
+		UnitClickToMove.MoveTier _moveTier,
+		List<Vector3> _prebuiltOffsets = null)
+	{
+		StopPendingWalkCoroutine();
+		m_IsAwaitingDoubleClick = false;
+		ClearPreviewMarkers(_clearFormationFacing: false);
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
@@ -3455,20 +3587,61 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_PreviewPending = false;
 		m_PreviewCancelled = false;
 		m_HasMoveFacingSet = false;
-		m_RmbStartedOnSelectedUnit = unitForcedGroundPoint.HasValue;
+		m_PreviewFormationForwardOverride = null;
+		m_PreviewMoveTier = _moveTier;
+		m_RmbStartedOnSelectedUnit = _rmbStartedOnSelectedUnit;
 		m_IsPreviewingMove = true;
-		m_PreviewCenterPoint = hitPoint;
-		m_RmbDownMousePos = mousePosition;
+		m_PreviewCenterPoint = _centerPoint;
+		m_RmbDownMousePos = _mouseDownScreen;
 
-		if (GetDominantFormation(validUnits) == FormationType.Line && m_CurrentFormationSpacing <= 0f)
+		if (validUnits.Count >= 2 && m_CurrentFormationSpacing <= 0f)
 			m_CurrentFormationSpacing = m_FormationLineSpacing;
 
-		if (validUnits.Count == 1)
+		if (_prebuiltOffsets != null && _prebuiltOffsets.Count > 0)
+		{
+			m_PreviewOffsets = new List<Vector3>(_prebuiltOffsets);
+			if (validUnits.Count >= 2)
+			{
+				EnsureSelectedGroupFormation(validUnits);
+				FormationLayoutUtility.FormationBuildResult built =
+					BuildFormationLayout(validUnits, _centerPoint, null, _forceRebuildBindings: true);
+				m_PreviewFormationFacingAngles = built.FacingAngles;
+			}
+			else
+			{
+				m_PreviewFormationFacingAngles = null;
+			}
+		}
+		else if (validUnits.Count == 1)
+		{
 			m_PreviewOffsets = new List<Vector3> { Vector3.zero };
+			m_PreviewFormationFacingAngles = null;
+		}
 		else
-			m_PreviewOffsets = BuildFormationOffsets(validUnits, hitPoint);
+		{
+			EnsureSelectedGroupFormation(validUnits);
+			FormationLayoutUtility.FormationBuildResult built =
+				BuildFormationLayout(validUnits, _centerPoint, null, _forceRebuildBindings: true);
+			m_PreviewOffsets = built.Offsets;
+			m_PreviewFormationFacingAngles = built.FacingAngles;
+		}
 
+		BeginMovePreviewForUnits();
 		ApplyPreviewPathLines();
+	}
+
+	private void BeginMovePreviewForUnits()
+	{
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count; i++)
+			validUnits[i]?.BeginMovePreviewVisual();
+	}
+
+	private void EndMovePreviewForUnits()
+	{
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		for (int i = 0; i < validUnits.Count; i++)
+			validUnits[i]?.EndMovePreviewVisual();
 	}
 
 	private void ApplyPreviewPathLines()
@@ -3479,6 +3652,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
 			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+
+		UpdateMovePreviewVisuals();
 	}
 
 	private void ShowPreviewMarkers()
@@ -3511,66 +3686,195 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
 			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+
+		UpdateMovePreviewVisuals();
 	}
 
-	private void HandleFormationScroll()
+	private void UpdateMovePreviewVisuals()
 	{
-		FormationType dominant = m_SelectedUnits.Count > 0
-			? GetDominantFormation(m_SelectedUnits)
-			: FormationType.None;
-
-		if (dominant != FormationType.Line)
+		if (!m_IsPreviewingMove || m_PreviewOffsets == null)
 			return;
 
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		EnsurePreviewDestinationMarkers(validUnits.Count);
+
+		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+		{
+			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[i];
+			if (i < m_PreviewDestinationMarkers.Count && m_PreviewDestinationMarkers[i] != null)
+				m_PreviewDestinationMarkers[i].transform.position = dest;
+		}
+
+		for (int i = validUnits.Count; i < m_PreviewDestinationMarkers.Count; i++)
+		{
+			if (m_PreviewDestinationMarkers[i] != null)
+				m_PreviewDestinationMarkers[i].SetActive(false);
+		}
+
+		if (!m_IsQuickRotateFacing)
+		{
+			SetMovePreviewFacingArrowVisible(false);
+			return;
+		}
+
+		if (validUnits.Count == 1)
+		{
+			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[0];
+			float angle = m_PreviewFacingAngles != null && m_PreviewFacingAngles.Count > 0
+				? m_PreviewFacingAngles[0]
+				: 0f;
+			Vector3 dir = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
+			SetMovePreviewFacingArrow(dest, dir, true);
+			return;
+		}
+
+		if (m_PreviewFormationForwardOverride.HasValue)
+		{
+			SetMovePreviewFacingArrow(m_PreviewCenterPoint, m_PreviewFormationForwardOverride.Value, true);
+			return;
+		}
+
+		Vector3 forward = FormationLayoutUtility.ResolveFormationForward(
+			validUnits,
+			m_PreviewCenterPoint,
+			null);
+		SetMovePreviewFacingArrow(m_PreviewCenterPoint, forward, true);
+	}
+
+	private void EnsurePreviewDestinationMarkers(int _count)
+	{
+		while (m_PreviewDestinationMarkers.Count < _count)
+		{
+			GameObject marker = CreatePreviewDestinationMarker();
+			m_PreviewDestinationMarkers.Add(marker);
+		}
+
+		for (int i = 0; i < m_PreviewDestinationMarkers.Count; i++)
+		{
+			if (m_PreviewDestinationMarkers[i] == null)
+				continue;
+
+			bool active = i < _count;
+			m_PreviewDestinationMarkers[i].SetActive(active);
+		}
+	}
+
+	private GameObject CreatePreviewDestinationMarker()
+	{
+		if (m_DestinationMarkerPrefab != null)
+			return Instantiate(m_DestinationMarkerPrefab);
+
+		GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+		marker.name = "MovePreviewDestinationMarker";
+		Collider col = marker.GetComponent<Collider>();
+		if (col != null)
+			Destroy(col);
+
+		marker.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
+		Renderer renderer = marker.GetComponent<Renderer>();
+		if (renderer != null)
+		{
+			renderer.material = new Material(Shader.Find("Sprites/Default"));
+			renderer.material.color = new Color(0.2f, 0.85f, 1f, 0.55f);
+		}
+
+		return marker;
+	}
+
+	private void EnsureMovePreviewFacingArrow()
+	{
+		if (m_MovePreviewFacingArrow != null)
+			return;
+
+		m_MovePreviewFacingArrow = new GameObject("MovePreviewFacingArrow");
+		LineRenderer lr = m_MovePreviewFacingArrow.AddComponent<LineRenderer>();
+		lr.positionCount = 2;
+		lr.startWidth = 0.03f;
+		lr.endWidth = 0.03f;
+		lr.material = new Material(Shader.Find("Sprites/Default"));
+		lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+		lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+		lr.enabled = false;
+	}
+
+	private void SetMovePreviewFacingArrow(Vector3 _anchor, Vector3 _direction, bool _visible)
+	{
+		EnsureMovePreviewFacingArrow();
+		if (m_MovePreviewFacingArrow == null)
+			return;
+
+		LineRenderer lr = m_MovePreviewFacingArrow.GetComponent<LineRenderer>();
+		if (lr == null)
+			return;
+
+		lr.enabled = _visible;
+		if (!_visible)
+			return;
+
+		Vector3 dir = _direction.sqrMagnitude > 0.0001f ? _direction.normalized : Vector3.forward;
+		Vector3 yOffset = Vector3.up * 0.05f;
+		lr.SetPosition(0, _anchor + dir * 0.15f + yOffset);
+		lr.SetPosition(1, _anchor + dir * 2.5f + yOffset);
+	}
+
+	private void SetMovePreviewFacingArrowVisible(bool _visible)
+	{
+		if (m_MovePreviewFacingArrow == null)
+			return;
+
+		LineRenderer lr = m_MovePreviewFacingArrow.GetComponent<LineRenderer>();
+		if (lr != null)
+			lr.enabled = _visible;
+	}
+
+	private void ClearMovePreviewVisuals()
+	{
+		for (int i = 0; i < m_PreviewDestinationMarkers.Count; i++)
+		{
+			if (m_PreviewDestinationMarkers[i] != null)
+				Destroy(m_PreviewDestinationMarkers[i]);
+		}
+		m_PreviewDestinationMarkers.Clear();
+
+		if (m_MovePreviewFacingArrow != null)
+		{
+			Destroy(m_MovePreviewFacingArrow);
+			m_MovePreviewFacingArrow = null;
+		}
+	}
+
+	private bool HandleFormationScroll()
+	{
 		if (Mouse.current == null)
-			return;
-
-		Vector2 scroll = Mouse.current.scroll.ReadValue();
-		if (Mathf.Approximately(scroll.y, 0f))
-			return;
-
-		float step = m_FormationLineSpacingStep;
-		m_CurrentFormationSpacing = Mathf.Clamp(
-			m_CurrentFormationSpacing + scroll.y * step,
-			m_FormationLineSpacingMin,
-			m_FormationLineSpacingMax);
+			return false;
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count < 2)
-			return;
+			return false;
 
-		m_PreviewOffsets = BuildFormationOffsets(validUnits, m_PreviewCenterPoint);
+		Vector2 scroll = Mouse.current.scroll.ReadValue();
+		if (Mathf.Approximately(scroll.y, 0f))
+			return false;
 
-		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
-	}
+		float scrollStep = Mathf.Abs(scroll.y) > 1f ? Mathf.Sign(scroll.y) : scroll.y;
+		float step = m_FormationLineSpacingStep;
+		m_CurrentFormationSpacing = Mathf.Clamp(
+			m_CurrentFormationSpacing + scrollStep * step,
+			m_FormationLineSpacingMin,
+			m_FormationLineSpacingMax);
 
-	private void CreateDirectionMarkers()
-	{
-		int count = m_PreviewOffsets.Count;
-		m_PreviewFacingAngles = new List<float>(count);
-		for (int i = 0; i < count; i++)
-			m_PreviewFacingAngles.Add(0f);
-
-		for (int i = 0; i < count; i++)
-		{
-			GameObject arrowGo = new GameObject("FacingLine");
-			LineRenderer lr = arrowGo.AddComponent<LineRenderer>();
-			lr.positionCount = 2;
-			lr.startWidth = 0.02f;
-			lr.endWidth = 0.02f;
-			lr.material = new Material(Shader.Find("Sprites/Default"));
-			lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
-			lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
-			m_DirectionMarkers.Add(arrowGo);
-		}
+		FormationLayoutUtility.FormationBuildResult built =
+			BuildFormationLayout(validUnits, m_PreviewCenterPoint, m_PreviewFormationForwardOverride, _forceRebuildBindings: true);
+		m_PreviewOffsets = built.Offsets;
+		m_PreviewFormationFacingAngles = built.FacingAngles;
+		ApplyPreviewPathLines();
+		return true;
 	}
 
 	private bool CanPreviewMoveFacing()
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
-		return validUnits.Count == 1 ||
-		       (validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line);
+		return validUnits.Count >= 1;
 	}
 
 	private void EnterMoveFacingMode()
@@ -3579,8 +3883,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		m_IsQuickRotateFacing = true;
-		if (m_DirectionMarkers.Count == 0)
-			CreateDirectionMarkers();
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (validUnits.Count == 1 && m_PreviewFacingAngles == null)
+			m_PreviewFacingAngles = new List<float>(1) { 0f };
+
 		UpdateQuickRotateMode();
 	}
 
@@ -3590,29 +3897,27 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		m_IsQuickRotateFacing = false;
-		for (int i = 0; i < m_DirectionMarkers.Count; i++)
-		{
-			if (m_DirectionMarkers[i] != null)
-				Destroy(m_DirectionMarkers[i]);
-		}
-		m_DirectionMarkers.Clear();
+		SetMovePreviewFacingArrowVisible(false);
 
-		if (m_PreviewFacingAngles != null && m_PreviewFacingAngles.Count > 0)
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (validUnits.Count < 2 &&
+		    m_PreviewFacingAngles != null && m_PreviewFacingAngles.Count > 0)
 			m_HasMoveFacingSet = true;
 
-		ApplyPreviewPathLines();
+		UpdateMovePreviewVisuals();
 	}
 
 	private void EnterQuickRotateMode()
 	{
 		m_PreviewPending = false;
 		m_IsPreviewingMove = true;
+		ClearAllPathInteractions();
 		EnterMoveFacingMode();
 	}
 
 	private void UpdateQuickRotateMode()
 	{
-		if (m_PreviewOffsets == null || m_PreviewFacingAngles == null)
+		if (m_PreviewOffsets == null)
 			return;
 
 		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
@@ -3625,6 +3930,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (validUnits.Count == 1)
 		{
+			if (m_PreviewFacingAngles == null)
+				m_PreviewFacingAngles = new List<float>(1) { 0f };
+
 			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[0];
 			Vector3 toCursor = hit.point - dest;
 			toCursor.y = 0f;
@@ -3632,49 +3940,23 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				? Mathf.Atan2(toCursor.x, toCursor.z) * Mathf.Rad2Deg
 				: 0f;
 			m_PreviewFacingAngles[0] = angle;
-
-			if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
-			{
-				Vector3 dir = toCursor.sqrMagnitude > 0.01f ? toCursor.normalized : Vector3.forward;
-				LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
-				if (lr != null)
-				{
-					lr.SetPosition(0, dest + dir * 0.15f);
-					lr.SetPosition(1, dest + dir * 2f);
-				}
-			}
+			ApplyPreviewPathLines();
+			return;
 		}
-		else
-		{
-			Vector3 toCursor = hit.point - m_PreviewCenterPoint;
-			toCursor.y = 0f;
-			if (toCursor.sqrMagnitude < 0.01f)
-				return;
 
-			Vector3 formationForward = toCursor.normalized;
-			float formationAngle = Mathf.Atan2(formationForward.x, formationForward.z) * Mathf.Rad2Deg;
+		Vector3 toFormationCursor = hit.point - m_PreviewCenterPoint;
+		toFormationCursor.y = 0f;
+		if (toFormationCursor.sqrMagnitude < 0.01f)
+			return;
 
-			m_PreviewOffsets = BuildLineOffsetsNoJitter(validUnits, m_PreviewCenterPoint, formationForward);
+		Vector3 formationForward = toFormationCursor.normalized;
+		m_PreviewFormationForwardOverride = formationForward;
 
-			for (int i = 0; i < validUnits.Count && i < m_PreviewFacingAngles.Count; i++)
-				m_PreviewFacingAngles[i] = formationAngle;
-
-			for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			{
-				validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
-
-				if (i < m_DirectionMarkers.Count && m_DirectionMarkers[i] != null)
-				{
-					Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[i];
-					LineRenderer lr = m_DirectionMarkers[i].GetComponent<LineRenderer>();
-					if (lr != null)
-					{
-						lr.SetPosition(0, dest + formationForward * 0.15f);
-						lr.SetPosition(1, dest + formationForward * 2f);
-					}
-				}
-			}
-		}
+		FormationLayoutUtility.FormationBuildResult built =
+			BuildFormationLayout(validUnits, m_PreviewCenterPoint, formationForward, _forceRebuildBindings: false);
+		m_PreviewOffsets = built.Offsets;
+		m_PreviewFormationFacingAngles = built.FacingAngles;
+		ApplyPreviewPathLines();
 	}
 
 	private RtsUnitMember.FacingArrowMode ResolveFacingArrowModeFromModifiers()
@@ -3810,42 +4092,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		ClearAllPathInteractions();
 	}
 
-	private List<Vector3> BuildLineOffsetsNoJitter(List<RtsUnitMember> _units, Vector3 _centerPoint, Vector3 _formationForward)
-	{
-		int count = _units.Count;
-		float spacing = m_CurrentFormationSpacing > 0f ? m_CurrentFormationSpacing : m_FormationLineSpacing;
-
-		Vector3 formationRight = Vector3.Cross(Vector3.up, _formationForward).normalized;
-
-		List<UnitProjEntry> projEntries = new List<UnitProjEntry>(count);
-		for (int i = 0; i < count; i++)
-		{
-			RtsUnitMember unit = _units[i];
-			if (unit == null)
-				continue;
-			float proj = Vector3.Dot(unit.transform.position, formationRight);
-			projEntries.Add(new UnitProjEntry { Index = i, Proj = proj });
-		}
-		projEntries.Sort((a, b) => a.Proj.CompareTo(b.Proj));
-
-		float totalWidth = (projEntries.Count - 1) * spacing;
-		float startX = -totalWidth * 0.5f;
-
-		Vector3[] offsets = new Vector3[count];
-		for (int i = 0; i < projEntries.Count; i++)
-		{
-			float localX = startX + i * spacing;
-			offsets[projEntries[i].Index] = formationRight * localX;
-		}
-
-		return new List<Vector3>(offsets);
-	}
-
 	private void EnsureFormationSyncGroup(List<RtsUnitMember> _units, List<Vector3> _offsets, Vector3 _center)
 	{
 		if (_units.Count < 2)
 			return;
-		if (GetDominantFormation(_units) != FormationType.Line)
+		if (!FormationLayoutUtility.IsGroupFormation(GetDominantFormation(_units), _units.Count))
 			return;
 
 		RtsUnitMember.FormationSyncGroup group = null;
@@ -3972,29 +4223,27 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		m_PreviewPending = false;
 		m_IsPreviewingMove = false;
-
 		m_LastRightClickTime = Time.unscaledTime;
 
-		List<Vector3> offsets = m_PreviewOffsets;
-		Vector3 center = m_PreviewCenterPoint;
-		bool cancelled = m_PreviewCancelled;
-		bool useMoveFacing = m_HasMoveFacingSet || m_IsQuickRotateFacing;
-		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
-			? RtsUnitMember.FacingArrowMode.TurnOverDistance
-			: null;
-		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
-
-		ClearPreviewMarkers();
-
-		if (cancelled)
+		if (m_PreviewCancelled)
+		{
+			ClearPreviewMarkers();
 			return;
+		}
 
-		if (offsets == null || offsets.Count == 0)
+		if (m_PreviewOffsets == null || m_PreviewOffsets.Count == 0)
+		{
+			ClearPreviewMarkers();
 			return;
+		}
 
-		m_LastWalkCenter = center;
-		m_LastWalkOffsets = new List<Vector3>(offsets);
-		ExecuteWalkOrder(offsets, center, facingAngles, IsAltHeld() ? -1 : 0, facingMode);
+		if (m_PreviewMoveTier == UnitClickToMove.MoveTier.Run)
+		{
+			CommitMovePreviewOrder();
+			return;
+		}
+
+		BeginAwaitingDoubleClickForRun();
 	}
 
 	private void ExecuteWalkOrder(
@@ -4002,7 +4251,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector3 _center,
 		List<float> _facingAngles,
 		int _waitGroup = 0,
-		RtsUnitMember.FacingArrowMode? _facingMode = null)
+		RtsUnitMember.FacingArrowMode? _facingMode = null,
+		List<float> _formationFacingAngles = null,
+		UnitClickToMove.MoveTier _moveTier = UnitClickToMove.MoveTier.Walk)
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
@@ -4010,13 +4261,26 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		bool shift = IsShiftHeld();
 		bool useWait = _waitGroup != 0;
+		bool isGroup = validUnits.Count >= 2;
+		bool isRunTier = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+		bool applyFormationFacing = isGroup
+		                              && _formationFacingAngles != null
+		                              && _formationFacingAngles.Count > 0;
 
 		RtsUnitMember.FacingArrowMode facingMode = _facingMode ?? RtsUnitMember.FacingArrowMode.TurnOverDistance;
 
 		if (shift)
 		{
-			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, UnitClickToMove.MoveTier.Walk, _waitGroup, facingMode);
+			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, _moveTier, _waitGroup, facingMode);
 			EnsureFormationSyncGroup(validUnits, _offsets, _center);
+			if (applyFormationFacing)
+				ApplyFormationFacingToUnits(validUnits, _formationFacingAngles);
+			else
+			{
+				for (int i = 0; i < validUnits.Count; i++)
+					validUnits[i]?.ClearFormationFacing();
+			}
+
 			return;
 		}
 
@@ -4030,14 +4294,40 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					: (float?)null;
 				validUnits[i].IssueDirectMoveOrderWithWait(
 					_center + _offsets[i],
-					UnitClickToMove.MoveTier.Walk,
+					_moveTier,
 					facing,
 					facingMode,
 					waitGroup);
 			}
 
 			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
+			if (applyFormationFacing)
+				ApplyFormationFacingToUnits(validUnits, _formationFacingAngles);
 			return;
+		}
+
+		if (isRunTier && isGroup)
+		{
+			bool allUpgraded = validUnits.Count > 0;
+			for (int i = 0; i < validUnits.Count; i++)
+			{
+				Vector3 dest = i < _offsets.Count ? _center + _offsets[i] : _center;
+				if (!validUnits[i].TryUpgradeMoveTargetToRun(dest))
+				{
+					allUpgraded = false;
+					break;
+				}
+			}
+
+			if (allUpgraded)
+				return;
+		}
+
+		if (isRunTier && !isGroup && validUnits.Count == 1 && _offsets.Count > 0)
+		{
+			Vector3 dest = _center + _offsets[0];
+			if (validUnits[0].TryUpgradeMoveTargetToRun(dest))
+				return;
 		}
 
 		for (int i = 0; i < validUnits.Count; i++)
@@ -4062,24 +4352,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
+		if (applyFormationFacing)
+			ApplyFormationFacingToUnits(validUnits, _formationFacingAngles);
 
-		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
-		bool needStagger = !isFormationSync && m_GroupMoveStaggerMax > 0f && validUnits.Count > 1;
-
-		if (needStagger)
+		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
 		{
-			m_StaggerCoroutine = StartCoroutine(
-				StaggeredMoveOrdersRoutine(validUnits, _offsets, _center, UnitClickToMove.MoveTier.Walk));
-		}
-		else
-		{
-			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
-			{
-				if (inPlaceFacing[i])
-					continue;
+			if (inPlaceFacing[i])
+				continue;
 
-				validUnits[i].IssueMoveOrder(_center + _offsets[i], UnitClickToMove.MoveTier.Walk);
-			}
+			validUnits[i].IssueMoveOrder(_center + _offsets[i], _moveTier);
 		}
 	}
 
@@ -4115,17 +4396,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CancelMovePreview()
 	{
-		if (!m_IsPreviewingMove && !m_PreviewPending)
+		if (!m_IsPreviewingMove && !m_PreviewPending && !m_IsAwaitingDoubleClick)
 			return;
 
+		StopPendingWalkCoroutine();
+		m_IsAwaitingDoubleClick = false;
 		m_PreviewPending = false;
 		m_IsPreviewingMove = false;
 		m_PreviewCancelled = true;
-		ClearPreviewMarkers();
+		ClearPreviewMarkers(_clearFormationFacing: false);
 	}
 
-	private void ClearPreviewMarkers()
+	private void ClearPreviewMarkers(bool _clearFormationFacing = true)
 	{
+		StopPendingWalkCoroutine();
+		m_IsAwaitingDoubleClick = false;
+
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count; i++)
 		{
@@ -4134,6 +4420,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 			if (!unit.HasActiveDestination && !unit.HasQueuedCommands)
 				unit.ClearWaypoints();
+			if (_clearFormationFacing)
+				unit.ClearFormationFacing();
 		}
 
 		for (int i = 0; i < m_DirectionMarkers.Count; i++)
@@ -4143,11 +4431,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 		m_DirectionMarkers.Clear();
 
+		ClearMovePreviewVisuals();
+		EndMovePreviewForUnits();
+
 		m_IsQuickRotateFacing = false;
 		m_HasMoveFacingSet = false;
 		m_RmbStartedOnSelectedUnit = false;
 		m_PreviewFacingAngles = null;
+		m_PreviewFormationFacingAngles = null;
+		m_PreviewFormationForwardOverride = null;
 		m_PreviewOffsets = null;
+		m_PreviewMoveTier = UnitClickToMove.MoveTier.Walk;
+		InvalidateFormationPreviewBindings();
 	}
 
 	private List<RtsUnitMember> GetValidSelectedUnits()
@@ -4202,7 +4497,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Keyboard.current.fKey.wasPressedThisFrame)
 		{
-			if (m_IsPreviewingMove)
+			if (m_IsPreviewingMove || m_IsAwaitingDoubleClick)
 				CancelMovePreview();
 			else
 				CommandSelectedHardStop();
@@ -4212,6 +4507,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Keyboard.current.eKey.wasPressedThisFrame)
 		{
 			ToggleSelectedReady();
+			if (m_IsPreviewingMove)
+				UpdateMovePreviewVisuals();
 			return;
 		}
 
@@ -4248,11 +4545,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Keyboard.current.vKey.wasPressedThisFrame)
 			CommandSelectedCycleWeaponFireMode();
+	}
+
+	private void HandleFormationKeyInput()
+	{
+		if (Keyboard.current == null || m_SelectedUnits.Count < 2)
+			return;
 
 		if (Keyboard.current.xKey.wasPressedThisFrame)
 		{
-			CycleSelectedFormation();
-			return;
+			m_IsFormationPickerKeyHeld = true;
+			m_FormationPickerKeyDownTime = Time.unscaledTime;
+			m_FormationDigitSelectedWhileHeld = false;
+		}
+
+		if (m_IsFormationPickerKeyHeld && Keyboard.current.xKey.isPressed)
+			TrySelectFormationByDigitWhileHeld();
+
+		if (m_IsFormationPickerKeyHeld && Keyboard.current.xKey.wasReleasedThisFrame)
+		{
+			m_IsFormationPickerKeyHeld = false;
+			if (!m_FormationDigitSelectedWhileHeld &&
+			    Time.unscaledTime - m_FormationPickerKeyDownTime <= c_FormationTapMaxSeconds)
+				CycleSelectedFormation();
 		}
 	}
 
@@ -4349,282 +4664,157 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CycleSelectedFormation()
 	{
-		FormationType current = m_SelectedUnits.Count > 0
-			? m_SelectedUnits[0].CurrentFormation
-			: FormationType.None;
+		if (m_SelectedUnits.Count < 2)
+			return;
 
-		FormationType next = current switch
+		FormationType current = GetDominantFormation(m_SelectedUnits);
+		FormationType next = FormationLayoutUtility.CycleFormation(current);
+		SetSelectedFormation(next, true);
+	}
+
+	private bool TrySelectFormationByDigitWhileHeld()
+	{
+		if (Keyboard.current == null || m_SelectedUnits.Count < 2)
+			return false;
+
+		for (int digit = 1; digit <= 7; digit++)
 		{
-			FormationType.None => FormationType.Line,
-			FormationType.Line => FormationType.None,
-			_ => FormationType.None
-		};
+			if (!IsDigitKeyPressed(digit))
+				continue;
 
+			SetSelectedFormation(FormationLayoutUtility.FormationFromHotkeyIndex(digit), true);
+			m_FormationDigitSelectedWhileHeld = true;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static bool IsDigitKeyPressed(int _digit)
+	{
+		if (Keyboard.current == null || _digit < 1 || _digit > 9)
+			return false;
+
+		return _digit switch
+		{
+			1 => Keyboard.current.digit1Key.wasPressedThisFrame,
+			2 => Keyboard.current.digit2Key.wasPressedThisFrame,
+			3 => Keyboard.current.digit3Key.wasPressedThisFrame,
+			4 => Keyboard.current.digit4Key.wasPressedThisFrame,
+			5 => Keyboard.current.digit5Key.wasPressedThisFrame,
+			6 => Keyboard.current.digit6Key.wasPressedThisFrame,
+			7 => Keyboard.current.digit7Key.wasPressedThisFrame,
+			8 => Keyboard.current.digit8Key.wasPressedThisFrame,
+			9 => Keyboard.current.digit9Key.wasPressedThisFrame,
+			_ => false,
+		};
+	}
+
+	private void SetSelectedFormation(FormationType _formation, bool _showMessage)
+	{
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
 			if (unit == null)
 				continue;
-			unit.CurrentFormation = next;
+			unit.CurrentFormation = _formation;
 		}
 
-		m_CurrentFormationSpacing = m_FormationLineSpacing;
-	}
+		if (m_CurrentFormationSpacing <= 0f)
+			m_CurrentFormationSpacing = m_FormationLineSpacing;
 
-	private void IssueScatteredMoveOrder(Vector3 _centerPoint, UnitClickToMove.MoveTier _moveTier,
-		List<Vector3> _prebuiltOffsets = null)
-	{
-		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (_showMessage)
+			ShowTransientMessage($"Формация: {FormationLayoutUtility.GetDisplayName(_formation)}");
 
-		if (validUnits.Count == 0)
-			return;
-
-		for (int i = 0; i < validUnits.Count; i++)
-			validUnits[i].ClearCommandQueue();
-
-		if (validUnits.Count == 1)
+		if (m_IsPreviewingMove)
 		{
-			validUnits[0].SetDestinationDirect(_centerPoint, _moveTier);
-			validUnits[0].BeginActiveRouteMovement(_moveTier);
-			return;
-		}
-
-		List<Vector3> offsets = _prebuiltOffsets ?? BuildFormationOffsets(validUnits, _centerPoint);
-
-		for (int i = 0; i < validUnits.Count; i++)
-			validUnits[i].SetDestinationDirect(_centerPoint + offsets[i], _moveTier);
-
-		ApplyFormationSyncSpeeds(validUnits, offsets, _centerPoint);
-
-		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
-		if (isFormationSync || m_GroupMoveStaggerMax <= 0f)
-		{
-			for (int i = 0; i < validUnits.Count; i++)
-				validUnits[i].BeginActiveRouteMovement(_moveTier);
-		}
-		else
-		{
-			m_StaggerCoroutine = StartCoroutine(StaggeredMoveOrdersRoutine(validUnits, offsets, _centerPoint, _moveTier));
+			List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+			if (validUnits.Count >= 2)
+			{
+				FormationLayoutUtility.FormationBuildResult built =
+					BuildFormationLayout(validUnits, m_PreviewCenterPoint, m_PreviewFormationForwardOverride, _forceRebuildBindings: true);
+				m_PreviewOffsets = built.Offsets;
+				m_PreviewFormationFacingAngles = built.FacingAngles;
+				ApplyPreviewPathLines();
+			}
 		}
 	}
 
-	private System.Collections.IEnumerator StaggeredMoveOrdersRoutine(
-		List<RtsUnitMember> _units, List<Vector3> _offsets,
-		Vector3 _centerPoint, UnitClickToMove.MoveTier _moveTier)
+	private void EnsureSelectedGroupFormation(List<RtsUnitMember> _units)
 	{
-		float minDelay = Mathf.Max(0f, m_GroupMoveStaggerMin);
-		float maxDelay = Mathf.Max(minDelay, m_GroupMoveStaggerMax);
+		if (_units == null || _units.Count < 2)
+			return;
 
+		FormationType dominant = GetDominantFormation(_units);
+		dominant = FormationLayoutUtility.NormalizeGroupFormation(dominant);
 		for (int i = 0; i < _units.Count; i++)
 		{
 			if (_units[i] != null)
-				_units[i].BeginActiveRouteMovement(_moveTier);
-
-			if (i < _units.Count - 1)
-				yield return new WaitForSecondsRealtime(Random.Range(minDelay, maxDelay));
+				_units[i].CurrentFormation = dominant;
 		}
-
-		m_StaggerCoroutine = null;
 	}
 
-	private List<Vector3> BuildFormationOffsets(List<RtsUnitMember> _units, Vector3 _centerPoint)
+	private FormationLayoutUtility.FormationBuildResult BuildFormationLayout(
+		List<RtsUnitMember> _units,
+		Vector3 _centerPoint,
+		Vector3? _formationForwardOverride,
+		bool _forceRebuildBindings = false)
 	{
+		if (_units == null || _units.Count == 0)
+			return new FormationLayoutUtility.FormationBuildResult(new List<Vector3>(), new List<float>());
+
+		if (_units.Count == 1)
+			return new FormationLayoutUtility.FormationBuildResult(new List<Vector3> { Vector3.zero }, new List<float>());
+
+		EnsureSelectedGroupFormation(_units);
 		FormationType formation = GetDominantFormation(_units);
+		float spacing = m_CurrentFormationSpacing > 0f ? m_CurrentFormationSpacing : m_FormationLineSpacing;
+		Vector3 forward = FormationLayoutUtility.ResolveFormationForward(_units, _centerPoint, _formationForwardOverride);
+		bool forwardChanged = !m_HasCachedFormationForward
+		                      || Vector3.Angle(forward, m_CachedFormationForward) > c_FormationForwardRebuildAngleDegrees;
 
-		if (formation == FormationType.Line && _units.Count >= 2)
-			return BuildLineOffsets(_units, _centerPoint);
+		bool needsRebuild = _forceRebuildBindings
+		                    || m_FormationPreviewBindings == null
+		                    || m_FormationPreviewBindings.Length != _units.Count
+		                    || m_CachedFormationType != formation
+		                    || !Mathf.Approximately(m_CachedFormationSpacing, spacing)
+		                    || forwardChanged;
 
-		return BuildScatteredOffsets(_units, _centerPoint);
+		if (needsRebuild)
+		{
+			m_FormationPreviewBindings = FormationLayoutUtility.CreateStableBindings(
+				formation,
+				_units,
+				_centerPoint,
+				spacing,
+				_formationForwardOverride);
+			m_CachedFormationType = formation;
+			m_CachedFormationSpacing = spacing;
+			m_CachedFormationForward = forward;
+			m_HasCachedFormationForward = true;
+		}
+
+		return FormationLayoutUtility.ApplyBindings(m_FormationPreviewBindings, forward);
 	}
 
-	private List<Vector3> BuildLineOffsets(List<RtsUnitMember> _units, Vector3 _centerPoint)
+	private void InvalidateFormationPreviewBindings()
 	{
-		int count = _units.Count;
-		float spacing = m_CurrentFormationSpacing > 0f ? m_CurrentFormationSpacing : m_FormationLineSpacing;
+		m_FormationPreviewBindings = null;
+		m_HasCachedFormationForward = false;
+	}
 
-		Vector3 avgUnitPos = Vector3.zero;
-		for (int i = 0; i < count; i++)
-		{
-			RtsUnitMember unit = _units[i];
-			if (unit != null)
-				avgUnitPos += unit.transform.position;
-		}
-		avgUnitPos /= count;
+	private void ApplyFormationFacingToUnits(List<RtsUnitMember> _units, List<float> _facingAngles)
+	{
+		if (_units == null || _facingAngles == null)
+			return;
 
-		Vector3 toTarget = _centerPoint - avgUnitPos;
-		toTarget.y = 0f;
-
-		Vector3 formationForward;
-		if (toTarget.sqrMagnitude > 0.01f)
-			formationForward = toTarget.normalized;
-		else
-			formationForward = Vector3.forward;
-
-		Vector3 formationRight = Vector3.Cross(Vector3.up, formationForward).normalized;
-
-		List<UnitProjEntry> projEntries = new List<UnitProjEntry>(count);
-		for (int i = 0; i < count; i++)
+		for (int i = 0; i < _units.Count && i < _facingAngles.Count; i++)
 		{
 			RtsUnitMember unit = _units[i];
 			if (unit == null)
 				continue;
-			float proj = Vector3.Dot(unit.transform.position, formationRight);
-			projEntries.Add(new UnitProjEntry { Index = i, Proj = proj });
+			unit.SetFormationFacingAngle(_facingAngles[i]);
 		}
-		projEntries.Sort((a, b) => a.Proj.CompareTo(b.Proj));
-
-		float totalWidth = (projEntries.Count - 1) * spacing;
-		float startX = -totalWidth * 0.5f;
-
-		Vector3[] offsets = new Vector3[count];
-		for (int i = 0; i < projEntries.Count; i++)
-		{
-			float localX = startX + i * spacing;
-			offsets[projEntries[i].Index] = formationRight * localX;
-		}
-
-		float jitter = Mathf.Min(m_GroupMoveFormationJitter, spacing * 0.3f);
-		if (jitter > 0.0001f)
-		{
-			for (int i = 0; i < count; i++)
-			{
-				offsets[i].x += Random.Range(-jitter, jitter);
-				offsets[i].z += Random.Range(-jitter, jitter);
-			}
-		}
-
-		return new List<Vector3>(offsets);
-	}
-
-	private List<Vector3> BuildScatteredOffsets(List<RtsUnitMember> _units, Vector3 _centerPoint)
-	{
-		int count = _units.Count;
-
-		float agentRadius = 0.5f;
-		for (int i = 0; i < count; i++)
-		{
-			UnityEngine.AI.NavMeshAgent agent = _units[i].GetComponent<UnityEngine.AI.NavMeshAgent>();
-			if (agent != null)
-			{
-				agentRadius = agent.radius;
-				break;
-			}
-		}
-
-		float spacing = agentRadius * 2f + m_GroupMoveUnitPadding;
-		float minSeparation = agentRadius * 2f + Mathf.Max(0.1f, m_GroupMoveUnitPadding * 0.5f);
-		float jitter = Mathf.Min(m_GroupMoveFormationJitter, spacing * 0.3f);
-
-		Vector3 avgUnitPos = Vector3.zero;
-		for (int i = 0; i < count; i++)
-		{
-			RtsUnitMember unit = _units[i];
-			if (unit != null)
-				avgUnitPos += unit.transform.position;
-		}
-		avgUnitPos /= count;
-
-		Vector3 toTarget = _centerPoint - avgUnitPos;
-		toTarget.y = 0f;
-
-		Vector3 formationForward;
-		if (toTarget.sqrMagnitude > 0.01f)
-			formationForward = toTarget.normalized;
-		else
-			formationForward = Vector3.forward;
-
-		// --- sort units by distance to target ---
-		List<UnitDistEntry> unitEntries = new List<UnitDistEntry>(count);
-		for (int i = 0; i < count; i++)
-		{
-			Vector3 toUnit = _units[i].transform.position - _centerPoint;
-			toUnit.y = 0f;
-			unitEntries.Add(new UnitDistEntry { Index = i, SqrDist = toUnit.sqrMagnitude });
-		}
-		unitEntries.Sort((a, b) => a.SqrDist.CompareTo(b.SqrDist));
-
-		// --- generate random positions with min separation ---
-		float scatterRadius = Mathf.Max(spacing, spacing * 0.6f * Mathf.Sqrt(count));
-		List<Vector3> positions = new List<Vector3>(count);
-
-		for (int i = 0; i < count; i++)
-		{
-			bool found = false;
-
-			for (int attempt = 0; attempt < 24; attempt++)
-			{
-				Vector2 c = Random.insideUnitCircle * scatterRadius;
-				Vector3 candidate = new Vector3(c.x, 0f, c.y);
-
-				bool overlaps = false;
-				for (int p = 0; p < positions.Count; p++)
-				{
-					if ((positions[p] - candidate).sqrMagnitude < minSeparation * minSeparation)
-					{
-						overlaps = true;
-						break;
-					}
-				}
-
-				if (overlaps)
-					continue;
-
-				positions.Add(candidate);
-				found = true;
-				break;
-			}
-
-			if (!found)
-			{
-				float angle = (float)i / count * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
-				float radius = scatterRadius * (0.5f + 0.5f * (float)i / count);
-				positions.Add(new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius));
-			}
-		}
-
-		// --- sort positions by depth along formationForward ---
-		List<PosDepthEntry> posEntries = new List<PosDepthEntry>(count);
-		for (int i = 0; i < count; i++)
-			posEntries.Add(new PosDepthEntry { Position = positions[i], Depth = Vector3.Dot(positions[i], formationForward) });
-		posEntries.Sort((a, b) => a.Depth.CompareTo(b.Depth));
-
-		// --- assign: closest unit → rear pos (index 0), furthest unit → front pos (index count-1) ---
-		Vector3[] offsets = new Vector3[count];
-		for (int i = 0; i < count; i++)
-		{
-			int unitOriginalIndex = unitEntries[i].Index;
-			offsets[unitOriginalIndex] = posEntries[count - 1 - i].Position;
-		}
-
-		// --- apply jitter ---
-		if (jitter > 0.0001f)
-		{
-			for (int i = 0; i < count; i++)
-			{
-				offsets[i].x += Random.Range(-jitter, jitter);
-				offsets[i].z += Random.Range(-jitter, jitter);
-			}
-		}
-
-		return new List<Vector3>(offsets);
-	}
-
-	private struct UnitDistEntry
-	{
-		public int Index;
-		public float SqrDist;
-	}
-
-	private struct UnitProjEntry
-	{
-		public int Index;
-		public float Proj;
-	}
-
-	private struct PosDepthEntry
-	{
-		public Vector3 Position;
-		public float Depth;
 	}
 
 	private void SyncFormationToSelection()
@@ -4632,7 +4822,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_SelectedUnits.Count < 2)
 			return;
 
-		FormationType dominant = GetDominantFormation(m_SelectedUnits);
+		FormationType dominant = FormationLayoutUtility.NormalizeGroupFormation(GetDominantFormation(m_SelectedUnits));
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
@@ -4644,29 +4834,34 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private FormationType GetDominantFormation(List<RtsUnitMember> _units)
 	{
-		int countNone = 0;
-		int countLine = 0;
+		int bestCount = 0;
+		FormationType bestType = FormationType.TacticalColumn;
 
-		for (int i = 0; i < _units.Count; i++)
+		for (int typeIndex = (int)FormationType.SingleFile; typeIndex <= (int)FormationType.Diamond; typeIndex++)
 		{
-			RtsUnitMember unit = _units[i];
-			if (unit == null)
-				continue;
-
-			switch (unit.CurrentFormation)
+			FormationType candidate = (FormationType)typeIndex;
+			int count = 0;
+			for (int i = 0; i < _units.Count; i++)
 			{
-				case FormationType.Line:
-					countLine++;
-					break;
-				default:
-					countNone++;
-					break;
+				RtsUnitMember unit = _units[i];
+				if (unit == null)
+					continue;
+
+				FormationType unitFormation = unit.CurrentFormation == FormationType.None
+					? FormationType.TacticalColumn
+					: unit.CurrentFormation;
+				if (unitFormation == candidate)
+					count++;
+			}
+
+			if (count > bestCount)
+			{
+				bestCount = count;
+				bestType = candidate;
 			}
 		}
 
-		if (countLine > countNone)
-			return FormationType.Line;
-		return FormationType.None;
+		return bestType;
 	}
 
 	private LocomotionStance GetNextZTargetStance()
@@ -5171,8 +5366,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
 			return;
 
-		const string c_HintText =
-			"ПКМ — перемещение · потянуть ПКМ — направление · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · X — удалить стрелку";
+		string hintText = m_SelectedUnits.Count >= 2
+			? "ПКМ — перемещение · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
+			: "ПКМ — перемещение · потянуть ПКМ — направление · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
 		const float pad = 10f;
 		const float height = 34f;
 
@@ -5187,8 +5383,49 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			s_RtsHintsGuiStyle.normal.textColor = new Color(0.95f, 0.95f, 0.95f, 1f);
 		}
 
-		float width = Mathf.Min(820f, Screen.width - pad * 2f);
-		GUI.Box(new Rect(pad, Screen.height - height - pad, width, height), c_HintText, s_RtsHintsGuiStyle);
+		float width = Mathf.Min(920f, Screen.width - pad * 2f);
+		GUI.Box(new Rect(pad, Screen.height - height - pad, width, height), hintText, s_RtsHintsGuiStyle);
+	}
+
+	private void DrawFormationPickerIfAny()
+	{
+		if (PauseMenuController.IsPaused)
+			return;
+		if (m_SelectedUnits == null || m_SelectedUnits.Count < 2)
+			return;
+		if (Keyboard.current == null || !Keyboard.current.xKey.isPressed)
+			return;
+
+		if (s_FormationPickerGuiStyle == null)
+		{
+			s_FormationPickerGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 13,
+				alignment = TextAnchor.UpperLeft,
+				wordWrap = false,
+				richText = true
+			};
+			s_FormationPickerGuiStyle.normal.textColor = new Color(0.92f, 0.92f, 0.98f, 1f);
+		}
+
+		FormationType current = GetDominantFormation(m_SelectedUnits);
+		var lines = new System.Text.StringBuilder(256);
+		for (int i = 1; i <= 7; i++)
+		{
+			FormationType type = FormationLayoutUtility.FormationFromHotkeyIndex(i);
+			bool selected = type == current;
+			string prefix = selected ? "<b>" : string.Empty;
+			string suffix = selected ? "</b>" : string.Empty;
+			lines.Append(prefix).Append(i).Append(". ").Append(FormationLayoutUtility.GetDisplayName(type)).Append(suffix);
+			if (i < 7)
+				lines.Append("   ");
+		}
+
+		const float pad = 10f;
+		const float height = 52f;
+		float width = Mathf.Min(980f, Screen.width - pad * 2f);
+		float y = Screen.height - height - pad - 40f;
+		GUI.Box(new Rect(pad, y, width, height), lines.ToString(), s_FormationPickerGuiStyle);
 	}
 
 	private static void ShowTransientMessage(string _message, float _durationSeconds = 3f)

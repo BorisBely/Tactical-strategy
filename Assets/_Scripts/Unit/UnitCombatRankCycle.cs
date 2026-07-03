@@ -17,6 +17,21 @@ public static class UnitCombatRankCycle
 	#endregion
 
 	#region Public Methods
+	public static int GetRankAssetNameIndex(UnitCombatRankDefinition _rank)
+	{
+		if (_rank == null)
+			return -1;
+
+		string rankName = _rank.name;
+		for (int i = 0; i < RankAssetNamesInOrder.Length; i++)
+		{
+			if (RankAssetNamesInOrder[i] == rankName)
+				return i;
+		}
+
+		return -1;
+	}
+
 	public static int GetRankIndex(UnitCombatRankDefinition _rank, UnitCombatRankDefinition[] _orderedRanks)
 	{
 		if (_rank == null || _orderedRanks == null || _orderedRanks.Length == 0)
