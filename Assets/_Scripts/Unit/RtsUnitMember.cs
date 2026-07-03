@@ -47,6 +47,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField, Range(5f, 175f)] private float m_CornerSmoothingMinAngle = 12f;
 	[SerializeField, Range(2, 24)] private int m_CornerSmoothingMaxSamples = 12;
 	[SerializeField, Min(0.1f)] private float m_CornerSmoothingNavMeshSampleRadius = 1.5f;
+	[SerializeField] private bool m_EnableCornerSmoothingMovement;
 	[SerializeField, Min(0.2f)] private float m_ContinuousRouteLookaheadDistance = 1.25f;
 	[Header("Segment Facing (ПКМ по отрезку маршрута)")]
 	[SerializeField, Min(0.5f)] private float m_FacingTurnOverDistance = 5f;
@@ -77,12 +78,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private float m_FacingTurnDistanceTraveled;
 	private Vector3 m_FacingLookPoint;
 	private FormationSyncGroup m_FormationSyncGroup;
-	private bool m_IsFormationSyncWaiting;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
 	private float m_NextWaypointCheckTime;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+	private float m_RouteDebugNextStateLogTime;
+	private bool m_RouteDebugLastSuppressEarlyStop;
+#endif
 	private readonly List<Vector3> m_SmoothingSubtargets = new List<Vector3>(16);
 	private int m_SmoothingSubtargetIndex;
 	private bool m_IsExecutingSmoothingArc;
+	private bool m_PreferContinuousNextMoveOrder;
 	private UnitClickToMove.MoveTier m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
 	private readonly List<Vector3> m_RawRoutePoints = new List<Vector3>(32);
 	private readonly List<Vector3> m_SmoothedRoutePoints = new List<Vector3>(64);
@@ -191,8 +196,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private int m_ActiveWaitGroup;
 	private bool m_IsWaitingAtRouteGate;
 	private const float FacingArrowActivationDistance = 1.5f;
-	private const float c_FacingArrowShaftStartOffset = 0.3f;
-	private const float c_FacingArrowFixedLength = 4f;
+	private const float c_FacingArrowShaftStartOffset = 0.15f;
+	private const float c_FacingArrowFixedLength = 2f;
 	#endregion
 
 	#region Public Properties
@@ -299,12 +304,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void OnDisable()
 	{
-		if (m_FormationSyncGroup != null && m_FormationSyncGroup.MemberCount > 1)
-		{
-			m_FormationSyncGroup.MemberCount--;
-			if (m_IsFormationSyncWaiting)
-				m_FormationSyncGroup.ReachedCount = Mathf.Max(0, m_FormationSyncGroup.ReachedCount - 1);
-		}
+		if (m_FormationSyncGroup != null)
+			m_FormationSyncGroup.Members.Remove(this);
 		CancelPendingCommand();
 		ClearWaypoints();
 		ResetAnimatorSpeed();
@@ -324,9 +325,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UpdateFacingArrows();
 		TryRemoveArrivedDestination();
 		TryAdvanceWaypointEarly();
-		if (m_IsFormationSyncWaiting)
-			TryAdvanceFormationSync();
 		UpdateFacingRotation();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		UpdateRouteDebugPeriodicState();
+#endif
 	}
 
 	private void TryAdvanceWaypointEarly()
@@ -337,7 +339,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		if (m_IsWaitingAtRouteGate)
 			return;
-		if (m_FormationSyncGroup != null)
+		if (m_IsExecutingSmoothingArc)
 			return;
 
 		bool isIntermediate = IsIntermediateRouteSegment();
@@ -363,15 +365,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (agent.remainingDistance > advanceDistance)
 			return;
 
-		if (m_IsExecutingSmoothingArc)
+		if (m_EnableRouteCornerSmoothing && m_Waypoints.Count >= 2)
 		{
-			AdvanceSmoothingArc();
-			return;
+			Vector3 corner = m_Waypoints[0];
+			float cornerProximity = m_ContinuousRouteLookaheadDistance + 0.25f;
+			if (!IsNearDestination(transform.position, corner, cornerProximity))
+				return;
+
+			if (TryBeginSmoothingArcMovement(m_ActiveMoveTier))
+				return;
 		}
 
 		if (m_CommandQueue.Count == 0)
 			return;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"EARLY_ADVANCE rem={agent.remainingDistance:F2} intermediate={isIntermediate} {BuildRouteDebugSnapshot()}");
+#endif
 		TryAdvanceRouteQueue();
 	}
 
@@ -380,6 +390,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_SmoothingSubtargetIndex++;
 		if (m_SmoothingSubtargetIndex < m_SmoothingSubtargets.Count)
 		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent(
+				$"ARC_SUBTARGET {m_SmoothingSubtargetIndex}/{m_SmoothingSubtargets.Count} {BuildRouteDebugSnapshot()}");
+#endif
 			m_DestinationSetTime = Time.time;
 			IssueRouteMoveOrder(m_SmoothingSubtargets[m_SmoothingSubtargetIndex], m_SmoothingMoveTier, _continuous: true);
 			return;
@@ -391,9 +405,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void CompleteSmoothingArcAndContinueQueue()
 	{
 		ClearSmoothingArcState();
+		m_PreferContinuousNextMoveOrder = true;
 
-		if (TryHandleFormationSyncArrival())
-			return;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"ARC_COMPLETE {BuildRouteDebugSnapshot()}");
+#endif
 
 		TryAdvanceRouteQueue();
 	}
@@ -450,9 +466,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_FacingSuppressedReady = false;
 			}
 
-			if (TryHandleFormationSyncArrival())
-				return;
-
 			TryAdvanceRouteQueue();
 			return;
 		}
@@ -495,14 +508,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!m_HasActiveDestination)
 			return;
-		if (m_IsFormationSyncWaiting)
-			return;
 		if (m_IsWaitingAtRouteGate)
 			return;
 
 		bool isIntermediate = IsIntermediateRouteSegment();
-		if (!isIntermediate &&
-		    m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.5f)
+		float arrivalGrace = isIntermediate ? 0.2f : 0.5f;
+		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < arrivalGrace)
 			return;
 
 		NavMeshAgent agent = GetComponent<NavMeshAgent>();
@@ -511,12 +522,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (agent.pathPending)
 			return;
 
-		if (agent.hasPath)
+		if (m_IsExecutingSmoothingArc)
+		{
+			if (!m_IsRotatingToFacing && HasReachedCurrentSmoothingSubtarget(agent))
+				AdvanceSmoothingArc();
 			return;
+		}
 
-		Vector3 v = agent.velocity;
-		v.y = 0f;
-		if (v.sqrMagnitude > 0.01f)
+		if (!HasReachedActiveDestination(agent))
 			return;
 
 		if (ShouldClearFacingOnLegArrival())
@@ -546,15 +559,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (!m_IsRotatingToFacing)
 		{
-			if (m_IsExecutingSmoothingArc)
-			{
-				AdvanceSmoothingArc();
-				return;
-			}
-
-			if (TryHandleFormationSyncArrival())
-				return;
-
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent($"ARRIVED fullStop intermediate={isIntermediate} {BuildRouteDebugSnapshot()}");
+#endif
 			TryAdvanceRouteQueue();
 		}
 
@@ -608,12 +615,22 @@ public sealed class RtsUnitMember : MonoBehaviour
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
 			if (selfStabilization != null &&
 			    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
+			{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteDebugEvent("NAV_BLOCKED selfHeal");
+#endif
 				return;
+			}
 
 			UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
 			if (stabilizeOther != null &&
 			    (stabilizeOther.IsStabilizingOther || stabilizeOther.IsHealPresentationActive))
+			{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteDebugEvent("NAV_BLOCKED stabilizeOther");
+#endif
 				return;
+			}
 
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				m_MagazineLoadingController?.StopLoading();
@@ -624,6 +641,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
 				ClearFacingOverride();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent(
+				$"NAV_ORDER mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
+#endif
 
 			if (m_ClickToMove != null)
 			{
@@ -830,6 +852,57 @@ public sealed class RtsUnitMember : MonoBehaviour
 	}
 
 	public int WaypointCount => m_Waypoints.Count;
+
+	/// <summary>
+	/// Оценка оставшегося маршрута: NavMesh до активной точки + длины следующих сегментов очереди.
+	/// Без аллокаций; используется для непрерывной синхронизации скорости формации.
+	/// </summary>
+	public float GetTotalRouteRemainingDistance()
+	{
+		if (m_Waypoints.Count == 0 && !m_HasActiveDestination)
+			return 0f;
+
+		float total = 0f;
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+
+		if (m_IsExecutingSmoothingArc && m_SmoothingSubtargets.Count > 0 &&
+		    m_SmoothingSubtargetIndex >= 0 && m_SmoothingSubtargetIndex < m_SmoothingSubtargets.Count)
+		{
+			Vector3 subtarget = m_SmoothingSubtargets[m_SmoothingSubtargetIndex];
+			if (agent != null && agent.isOnNavMesh && agent.hasPath && !agent.pathPending &&
+			    !float.IsPositiveInfinity(agent.remainingDistance))
+				total += agent.remainingDistance;
+			else
+				total += PlanarDistance(transform.position, subtarget);
+
+			for (int i = m_SmoothingSubtargetIndex + 1; i < m_SmoothingSubtargets.Count; i++)
+				total += PlanarDistance(m_SmoothingSubtargets[i - 1], m_SmoothingSubtargets[i]);
+		}
+		else if (m_HasActiveDestination)
+		{
+			if (agent != null && agent.isOnNavMesh && agent.hasPath && !agent.pathPending &&
+			    !float.IsPositiveInfinity(agent.remainingDistance))
+				total += agent.remainingDistance;
+			else if (m_Waypoints.Count > 0)
+				total += PlanarDistance(transform.position, m_Waypoints[0]);
+		}
+		else if (m_Waypoints.Count > 0)
+		{
+			total += PlanarDistance(transform.position, m_Waypoints[0]);
+		}
+
+		for (int i = 0; i < m_Waypoints.Count - 1; i++)
+			total += PlanarDistance(m_Waypoints[i], m_Waypoints[i + 1]);
+
+		return total;
+	}
+
+	private static float PlanarDistance(Vector3 _a, Vector3 _b)
+	{
+		float dx = _a.x - _b.x;
+		float dz = _a.z - _b.z;
+		return Mathf.Sqrt(dx * dx + dz * dz);
+	}
 
 	public Vector3 GetWaypointWorld(int _index)
 	{
@@ -1259,6 +1332,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (m_IsWaitingAtRouteGate && m_ActiveWaitGroup == normalizedGroup)
 		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent($"WAIT_CONTINUE group={normalizedGroup} {BuildRouteDebugSnapshot()}");
+#endif
 			m_IsWaitingAtRouteGate = false;
 			m_ActiveWaitGroup = 0;
 			ResumeAgentAfterRouteGate();
@@ -1807,7 +1883,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		QueuedCommand cmd = m_CommandQueue[0];
 		m_CommandQueue.RemoveAt(0);
 
-		m_ActiveFacingArrows = cmd.FacingArrows != null && cmd.FacingArrows.Count > 0 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"DEQUEUE tier={cmd.MoveTier} dest={FormatRoutePoint(cmd.Destination)} {BuildRouteDebugSnapshot()}");
+#endif
+
+		m_ActiveFacingArrows = cmd.FacingArrows != null && cmd.FacingArrows.Count > 0
 			? new List<FacingArrow>(cmd.FacingArrows) 
 			: null;
 		
@@ -1836,23 +1916,28 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (TryBeginSmoothingArcMovement(_moveTier))
 			return;
 
-		IssueRouteMoveOrder(_logicalDestination, _moveTier, ShouldUseContinuousRouteMovement());
+		bool continuous = m_PreferContinuousNextMoveOrder || ShouldUseContinuousRouteMovement();
+		m_PreferContinuousNextMoveOrder = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (!continuous && HasRouteAfterCurrentSegment())
+		{
+			NavMeshAgent agent = GetComponent<NavMeshAgent>();
+			float speed = agent != null
+				? new Vector3(agent.velocity.x, 0f, agent.velocity.z).magnitude
+				: 0f;
+			LogRouteDebugEvent(
+				$"CONTINUOUS_SKIPPED speed={speed:F2} dest={FormatRoutePoint(_logicalDestination)} {BuildRouteDebugSnapshot()}");
+		}
+#endif
+		IssueRouteMoveOrder(_logicalDestination, _moveTier, continuous);
 	}
 
 	private bool ShouldUseContinuousRouteMovement()
 	{
 		if (!m_HasActiveDestination)
 			return false;
-
-		NavMeshAgent agent = GetComponent<NavMeshAgent>();
-		if (agent == null || !agent.isOnNavMesh)
+		if (m_IsWaitingAtRouteGate)
 			return false;
-
-		Vector3 velocity = agent.velocity;
-		velocity.y = 0f;
-		if (velocity.sqrMagnitude < 0.04f)
-			return false;
-
 		return HasRouteAfterCurrentSegment();
 	}
 
@@ -1881,6 +1966,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void UpdateContinuousRouteLocomotionFlags()
 	{
 		bool suppressEarlyStop = IsIntermediateRouteSegment();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (suppressEarlyStop != m_RouteDebugLastSuppressEarlyStop)
+		{
+			m_RouteDebugLastSuppressEarlyStop = suppressEarlyStop;
+			LogRouteDebugEvent(
+				$"SUPPRESS_EARLY_STOP={(suppressEarlyStop ? "on" : "off")} intermediate={suppressEarlyStop} {BuildRouteDebugSnapshot()}");
+		}
+#endif
 		if (m_ClickToMove != null)
 			m_ClickToMove.SuppressEarlyArrivalStop = suppressEarlyStop;
 		if (m_LocomotionDriver != null)
@@ -1892,6 +1985,51 @@ public sealed class RtsUnitMember : MonoBehaviour
 		Vector3 flatA = FlattenToGround(_a);
 		Vector3 flatB = FlattenToGround(_b);
 		return (flatB - flatA).sqrMagnitude <= _epsilon * _epsilon;
+	}
+
+	private bool HasReachedActiveDestination(NavMeshAgent _agent)
+	{
+		if (_agent == null)
+			return false;
+
+		Vector3 velocity = _agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > 0.01f)
+			return false;
+
+		if (!_agent.hasPath)
+			return true;
+
+		if (float.IsPositiveInfinity(_agent.remainingDistance) || _agent.remainingDistance > 0.2f)
+			return false;
+
+		if (m_Waypoints.Count == 0)
+			return true;
+
+		return IsNearDestination(transform.position, m_Waypoints[0], 0.5f);
+	}
+
+	private bool HasReachedCurrentSmoothingSubtarget(NavMeshAgent _agent)
+	{
+		if (!m_IsExecutingSmoothingArc || m_SmoothingSubtargets.Count == 0)
+			return false;
+		if (m_SmoothingSubtargetIndex < 0 || m_SmoothingSubtargetIndex >= m_SmoothingSubtargets.Count)
+			return false;
+
+		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.25f)
+			return false;
+
+		Vector3 target = m_SmoothingSubtargets[m_SmoothingSubtargetIndex];
+		if (!IsNearDestination(transform.position, target, 0.35f))
+			return false;
+
+		if (_agent != null && _agent.hasPath && !float.IsPositiveInfinity(_agent.remainingDistance) &&
+		    _agent.remainingDistance > 0.25f)
+			return false;
+
+		Vector3 velocity = _agent != null ? _agent.velocity : Vector3.zero;
+		velocity.y = 0f;
+		return velocity.sqrMagnitude <= 0.0025f;
 	}
 
 	private static bool IsRunOrSprintMoveTier(UnitClickToMove.MoveTier _tier)
@@ -1930,18 +2068,30 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private bool TryBeginSmoothingArcMovement(UnitClickToMove.MoveTier _moveTier)
 	{
-		if (!m_EnableRouteCornerSmoothing || m_Waypoints.Count < 2)
+		if (!m_EnableCornerSmoothingMovement || !m_EnableRouteCornerSmoothing || m_Waypoints.Count < 2)
+			return false;
+
+		if (m_FormationSyncGroup != null && m_FormationSyncGroup.Members.Count > 1)
 			return false;
 
 		Vector3 previousPoint = transform.position;
 		Vector3 corner = m_Waypoints[0];
 		Vector3 nextPoint = m_Waypoints[1];
+
+		float distToCorner = (FlattenToGround(transform.position - corner)).magnitude;
+		if (distToCorner > m_ContinuousRouteLookaheadDistance + 0.25f)
+			return false;
+
 		if (!TryBuildMovementSubtargets(previousPoint, corner, nextPoint, m_SmoothingSubtargets))
 			return false;
 
 		m_IsExecutingSmoothingArc = true;
 		m_SmoothingMoveTier = _moveTier;
 		m_SmoothingSubtargetIndex = 0;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent(
+			$"ARC_BEGIN samples={m_SmoothingSubtargets.Count} corner={FormatRoutePoint(corner)} next={FormatRoutePoint(nextPoint)} {BuildRouteDebugSnapshot()}");
+#endif
 		IssueRouteMoveOrder(m_SmoothingSubtargets[0], _moveTier, ShouldUseContinuousRouteMovement());
 		return true;
 	}
@@ -2200,8 +2350,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		go.transform.SetParent(transform, false);
 		LineRenderer lr = go.AddComponent<LineRenderer>();
 		lr.positionCount = 2;
-		lr.startWidth = 0.04f;
-		lr.endWidth = 0.04f;
+		lr.startWidth = 0.02f;
+		lr.endWidth = 0.02f;
 		lr.sharedMaterial = s_PathLineMaterial;
 		lr.startColor = arrowColor;
 		lr.endColor = arrowColor;
@@ -2539,6 +2689,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void TryAdvanceRouteQueue()
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"ADVANCE_QUEUE {BuildRouteDebugSnapshot()}");
+#endif
 		if (m_Waypoints.Count > 0)
 		{
 			ShiftFacingArrowSegmentsAfterWaypointRemoved(0);
@@ -2641,6 +2794,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_CommandQueue.Count == 0)
 			return;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"WAIT_GATE group={_waitGroup} {BuildRouteDebugSnapshot()}");
+#endif
 		m_IsWaitingAtRouteGate = true;
 		m_ActiveWaitGroup = NormalizeWaitGroup(_waitGroup);
 		m_HasActiveDestination = false;
@@ -2664,6 +2820,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void ResumeAfterWaitGroupRemoved()
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"WAIT_RESUME_REMOVED {BuildRouteDebugSnapshot()}");
+#endif
 		m_IsWaitingAtRouteGate = false;
 		m_ActiveWaitGroup = 0;
 		ResumeAgentAfterRouteGate();
@@ -2862,23 +3021,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public sealed class FormationSyncGroup
 	{
-		public int MemberCount;
-		public int ReachedCount;
 		public float LastSpeedUpdateTime;
+		public readonly List<RtsUnitMember> Members = new List<RtsUnitMember>(8);
 	}
 
 	public FormationSyncGroup ActiveFormationSync => m_FormationSyncGroup;
 
 	public void AssignFormationSyncGroup(FormationSyncGroup _group)
 	{
-		if (m_IsFormationSyncWaiting && m_FormationSyncGroup != _group)
-		{
-			UnityEngine.AI.NavMeshAgent agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-			if (agent != null && agent.isOnNavMesh)
-				agent.isStopped = false;
-		}
+		if (m_FormationSyncGroup != null && m_FormationSyncGroup != _group)
+			m_FormationSyncGroup.Members.Remove(this);
+
 		m_FormationSyncGroup = _group;
-		m_IsFormationSyncWaiting = false;
+
+		if (_group != null && !_group.Members.Contains(this))
+			_group.Members.Add(this);
 	}
 
 	public void AssignFormationSpeedMultiplier(float _multiplier)
@@ -2892,43 +3049,122 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void ClearFormationSync()
 	{
+		if (m_FormationSyncGroup != null)
+			m_FormationSyncGroup.Members.Remove(this);
+
 		m_FormationSyncGroup = null;
-		m_IsFormationSyncWaiting = false;
 		AssignFormationSpeedMultiplier(1f);
 	}
 
-	private bool TryHandleFormationSyncArrival()
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+	[Header("Route Movement Debug")]
+	[SerializeField] private bool m_DrawRouteMovementDebug;
+
+	internal void NotifyRouteDebugEarlyStop(float _remainingDistance)
 	{
-		if (m_FormationSyncGroup == null || m_IsFormationSyncWaiting)
-			return false;
-
-		m_FormationSyncGroup.ReachedCount++;
-
-		if (m_FormationSyncGroup.ReachedCount >= m_FormationSyncGroup.MemberCount)
-		{
-			m_FormationSyncGroup.ReachedCount = 0;
-			return false;
-		}
-
-		m_IsFormationSyncWaiting = true;
-		return true;
+		LogRouteDebugEvent($"EARLY_STOP rem={_remainingDistance:F2} {BuildRouteDebugSnapshot()}");
 	}
 
-	private bool TryAdvanceFormationSync()
+	private void LogRouteDebugEvent(string _event)
 	{
-		if (m_FormationSyncGroup == null)
-			return false;
+		RouteMovementDebug.Log(this, _event);
+	}
 
-		if (m_FormationSyncGroup.ReachedCount == 0 && m_IsFormationSyncWaiting)
+	private void UpdateRouteDebugPeriodicState()
+	{
+		if (m_Waypoints.Count == 0 && m_CommandQueue.Count == 0 && !m_HasActiveDestination &&
+		    !m_IsWaitingAtRouteGate)
+			return;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		float speed = agent != null
+			? new Vector3(agent.velocity.x, 0f, agent.velocity.z).magnitude
+			: 0f;
+		bool stuckCandidate = m_HasActiveDestination &&
+		                      !m_IsWaitingAtRouteGate &&
+		                      !m_IsRotatingToFacing &&
+		                      !m_IsExecutingSmoothingArc &&
+		                      m_DestinationSetTime >= 0f &&
+		                      Time.time - m_DestinationSetTime >= 0.35f &&
+		                      agent != null &&
+		                      agent.isOnNavMesh &&
+		                      !agent.pathPending &&
+		                      !agent.hasPath &&
+		                      speed < 0.15f;
+
+		string prefix = stuckCandidate ? "STUCK?" : "STATE";
+		RouteMovementDebug.LogThrottled(
+			this,
+			ref m_RouteDebugNextStateLogTime,
+			$"{prefix} {BuildRouteDebugSnapshot()}");
+	}
+
+	private string BuildRouteDebugSnapshot()
+	{
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		float remaining = -1f;
+		float speed = 0f;
+		bool hasPath = false;
+		bool isStopped = false;
+		bool pathPending = false;
+		if (agent != null)
 		{
-			m_IsFormationSyncWaiting = false;
-
-			AssignFormationSpeedMultiplier(1f);
-
-			TryStartNextQueuedCommand();
-			return true;
+			hasPath = agent.hasPath;
+			isStopped = agent.isStopped;
+			pathPending = agent.pathPending;
+			speed = new Vector3(agent.velocity.x, 0f, agent.velocity.z).magnitude;
+			if (hasPath && !float.IsPositiveInfinity(agent.remainingDistance))
+				remaining = agent.remainingDistance;
 		}
 
-		return false;
+		bool suppressEarly = m_ClickToMove != null
+			? m_ClickToMove.SuppressEarlyArrivalStop
+			: m_LocomotionDriver != null && m_LocomotionDriver.SuppressEarlyArrivalStop;
+
+		string syncInfo = m_FormationSyncGroup != null
+			? $"syncMembers={m_FormationSyncGroup.Members.Count}"
+			: "sync=none";
+
+		string wp0 = m_Waypoints.Count > 0 ? FormatRoutePoint(m_Waypoints[0]) : "none";
+		string wp1 = m_Waypoints.Count > 1 ? FormatRoutePoint(m_Waypoints[1]) : "none";
+
+		return
+			$"wp={m_Waypoints.Count} q={m_CommandQueue.Count} active={m_HasActiveDestination} " +
+			$"gate={m_IsWaitingAtRouteGate} wg={m_ActiveWaitGroup} " +
+			$"intermediate={IsIntermediateRouteSegment()} suppressEarly={suppressEarly} " +
+			$"{syncInfo} rem={remaining:F2} spd={speed:F2} hasPath={hasPath} stopped={isStopped} pending={pathPending} " +
+			$"arc={m_IsExecutingSmoothingArc} rotate={m_IsRotatingToFacing} wp0={wp0} wp1={wp1}";
 	}
+
+	private static string FormatRoutePoint(Vector3 _point)
+	{
+		return $"({_point.x:F1},{_point.z:F1})";
+	}
+
+	private void OnGUI()
+	{
+		if (!m_DrawRouteMovementDebug || !m_IsSelected)
+			return;
+
+		DrawRouteMovementDebugPanel();
+	}
+
+	private void DrawRouteMovementDebugPanel()
+	{
+		int panelRow = 0;
+		for (int i = 0; i < s_Instances.Count; i++)
+		{
+			RtsUnitMember member = s_Instances[i];
+			if (member == null || !member.m_DrawRouteMovementDebug || !member.m_IsSelected)
+				continue;
+			if (member == this)
+				break;
+			panelRow++;
+		}
+
+		GUI.Box(
+			new Rect(10f, 10f + panelRow * 130f, 420f, 120f),
+			$"{name}\n{BuildRouteDebugSnapshot()}");
+	}
+#endif
 }

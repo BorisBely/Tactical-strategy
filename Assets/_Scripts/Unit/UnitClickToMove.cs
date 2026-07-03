@@ -529,6 +529,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (planarVel.magnitude > m_StopVelocityEpsilon)
 			return;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		m_CachedRtsMember?.NotifyRouteDebugEarlyStop(m_Agent.remainingDistance);
+#endif
+
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
 	}

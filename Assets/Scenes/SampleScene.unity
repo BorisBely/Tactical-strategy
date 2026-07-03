@@ -14623,7 +14623,7 @@ MonoBehaviour:
   m_BlockPointerOverUi: 1
   m_BoxSelectionMinDragPixels: 12
   m_DoubleRightClickSeconds: 0.25
-  m_QuickRotateDragThresholdPixels: 5
+  m_QuickRotateDragThresholdPixels: 15
   m_PathHoverDelay: 0.2
   m_PathHoverThresholdPixels: 30
   m_SelectFirstPlayerUnitOnStart: 1

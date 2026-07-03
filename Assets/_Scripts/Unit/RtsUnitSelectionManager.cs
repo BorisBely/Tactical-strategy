@@ -20,7 +20,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField] private bool m_BlockPointerOverUi = true;
 	[SerializeField, Min(2f)] private float m_BoxSelectionMinDragPixels = 12f;
 	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.12f;
-	[SerializeField, Min(1f)] private float m_QuickRotateDragThresholdPixels = 30f;
+	[SerializeField, Min(1f)] private float m_QuickRotateDragThresholdPixels = 90f;
 	[Header("Path Waypoint Hover")]
 	[SerializeField, Min(0.05f)] private float m_PathHoverDelay = 0.2f;
 	[SerializeField, Min(5f)] private float m_PathHoverThresholdPixels = 30f;
@@ -30,6 +30,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(5f)] private float m_RouteVertexSnapPixels = 40f;
 	[SerializeField, Min(20f)] private float m_ArrowDeleteButtonSize = 26f;
 	[SerializeField, Min(16f)] private float m_WaitPointIconSize = 22f;
+	[SerializeField, Min(0f)] private float m_WaitPointIconScreenOffsetY = 28f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
 	[Header("Group Move Formation")]
@@ -48,6 +49,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0.05f)] private float m_FormationLineSpacingStep = 0.25f;
 	[Tooltip("Минимальный множитель скорости для синхронизации формации.")]
 	[SerializeField, Range(0.1f, 1f)] private float m_FormationSyncMinSpeedMultiplier = 0.35f;
+	[Tooltip("Интервал пересчёта FormationSpeedMultiplier для активных групп (сек).")]
+	[SerializeField, Range(0.05f, 1f)] private float m_FormationSyncUpdateInterval = 0.25f;
 	[Header("Group Move Stagger")]
 	[Tooltip("Мин. задержка перед стартом следующего юнита (сек).")]
 	[SerializeField, Range(0f, 0.2f)] private float m_GroupMoveStaggerMin = 0.03f;
@@ -118,6 +121,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private readonly List<int> m_WaitPointIconWaypointIndices = new List<int>(16);
 	private static GUIStyle s_ArrowDeleteButtonGuiStyle;
 	private static GUIStyle s_WaitPointIconGuiStyle;
+	private const float c_WaitPointIconWorldYOffset = 0.03f;
 	private int m_EditingUnitIndex = -1;
 	private int m_EditingSegmentIndex = -1;
 	private float m_EditingWaypointAngle;
@@ -131,6 +135,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private static GUIStyle s_TransientMessageGuiStyle;
 	private static string s_TransientMessage;
 	private static float s_TransientMessageUntilUnscaledTime = -1f;
+	private static readonly HashSet<RtsUnitMember.FormationSyncGroup> s_ProcessedFormationSyncGroups =
+		new HashSet<RtsUnitMember.FormationSyncGroup>();
 
 	private enum RouteEditTargetKind
 	{
@@ -3019,6 +3025,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
+	private Rect BuildWaitPointIconScreenRect(Vector3 _worldPosition, float _iconSize, out bool _isVisible)
+	{
+		_isVisible = false;
+		if (m_SelectionCamera == null)
+			return default;
+
+		Vector3 iconWorld = _worldPosition + Vector3.up * c_WaitPointIconWorldYOffset;
+		Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(iconWorld);
+		if (screenPoint.z <= 0f)
+			return default;
+
+		_isVisible = true;
+		return new Rect(
+			screenPoint.x - _iconSize * 0.5f,
+			Screen.height - screenPoint.y - _iconSize * 0.5f + m_WaitPointIconScreenOffsetY,
+			_iconSize,
+			_iconSize);
+	}
+
 	private void DrawWaitPointIconsIfAny()
 	{
 		m_WaitPointIconScreenRects.Clear();
@@ -3051,16 +3076,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			for (int i = 0; i < m_WaitPointPickBuffer.Count; i++)
 			{
 				RtsUnitMember.WaitPointDescriptor descriptor = m_WaitPointPickBuffer[i];
-				Vector3 iconWorld = descriptor.WorldPosition + Vector3.up * 0.12f;
-				Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(iconWorld);
-				if (screenPoint.z <= 0f)
+				Rect iconRect = BuildWaitPointIconScreenRect(descriptor.WorldPosition, iconSize, out bool isVisible);
+				if (!isVisible)
 					continue;
-
-				Rect iconRect = new Rect(
-					screenPoint.x - iconSize * 0.5f,
-					Screen.height - screenPoint.y - iconSize * 0.5f,
-					iconSize,
-					iconSize);
 
 				m_WaitPointIconScreenRects.Add(iconRect);
 				m_WaitPointIconUnitIndices.Add(unitIndex);
@@ -3097,16 +3115,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			for (int i = 0; i < m_WaitPointPickBuffer.Count; i++)
 			{
 				RtsUnitMember.WaitPointDescriptor descriptor = m_WaitPointPickBuffer[i];
-				Vector3 iconWorld = descriptor.WorldPosition + Vector3.up * 0.12f;
-				Vector3 screenPoint = m_SelectionCamera.WorldToScreenPoint(iconWorld);
-				if (screenPoint.z <= 0f)
+				Rect iconRect = BuildWaitPointIconScreenRect(descriptor.WorldPosition, iconSize, out bool isVisible);
+				if (!isVisible)
 					continue;
-
-				Rect iconRect = new Rect(
-					screenPoint.x - iconSize * 0.5f,
-					Screen.height - screenPoint.y - iconSize * 0.5f,
-					iconSize,
-					iconSize);
 
 				if (!iconRect.Contains(guiMouse))
 					continue;
@@ -3181,6 +3192,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void ContinueSelectedRouteWaitGroup(int _waitGroup)
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (RouteMovementDebug.LoggingEnabled)
+			Debug.Log($"[RouteDbg:Manager] Continue wait group {_waitGroup} for all player units");
+#endif
 		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
 		for (int i = 0; i < instances.Count; i++)
 		{
@@ -3268,35 +3283,27 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsPreviewingMove && Mouse.current.rightButton.isPressed)
 		{
-			if (IsCtrlPressed())
+			if (CanPreviewMoveFacing())
 			{
-				if (!m_IsQuickRotateFacing)
-					EnterMoveFacingMode();
-				UpdateQuickRotateMode();
-			}
-			else
-			{
-				if (m_RmbStartedOnSelectedUnit && CanPreviewMoveFacing())
+				Vector2 mousePos = Mouse.current.position.ReadValue();
+				if (!m_IsQuickRotateFacing &&
+				    (mousePos - m_RmbDownMousePos).magnitude >= m_QuickRotateDragThresholdPixels)
 				{
-					Vector2 mousePos = Mouse.current.position.ReadValue();
-					if (!m_IsQuickRotateFacing &&
-					    (mousePos - m_RmbDownMousePos).magnitude >= m_QuickRotateDragThresholdPixels)
-					{
-						EnterQuickRotateMode();
-					}
-
-					if (m_IsQuickRotateFacing)
-					{
-						UpdateQuickRotateMode();
-						return;
-					}
+					EnterQuickRotateMode();
 				}
 
 				if (m_IsQuickRotateFacing)
-					ExitMoveFacingMode();
-				UpdateMovePreview();
-				HandleFormationScroll();
+				{
+					UpdateQuickRotateMode();
+					return;
+				}
 			}
+
+			if (m_IsQuickRotateFacing)
+				ExitMoveFacingMode();
+
+			UpdateMovePreview();
+			HandleFormationScroll();
 		}
 	}
 
@@ -3414,6 +3421,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (IsShiftHeld())
 			{
 				ShiftEnqueueMoveOrders(doubleUnits, runOffsets, runCenter, null, UnitClickToMove.MoveTier.Run);
+				EnsureFormationSyncGroup(doubleUnits, runOffsets, runCenter);
 			}
 			else
 			{
@@ -3549,8 +3557,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			GameObject arrowGo = new GameObject("FacingLine");
 			LineRenderer lr = arrowGo.AddComponent<LineRenderer>();
 			lr.positionCount = 2;
-			lr.startWidth = 0.04f;
-			lr.endWidth = 0.04f;
+			lr.startWidth = 0.02f;
+			lr.endWidth = 0.02f;
 			lr.material = new Material(Shader.Find("Sprites/Default"));
 			lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
 			lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
@@ -3631,8 +3639,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
 				if (lr != null)
 				{
-					lr.SetPosition(0, dest + dir * 0.3f);
-					lr.SetPosition(1, dest + dir * 4f);
+					lr.SetPosition(0, dest + dir * 0.15f);
+					lr.SetPosition(1, dest + dir * 2f);
 				}
 			}
 		}
@@ -3661,8 +3669,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					LineRenderer lr = m_DirectionMarkers[i].GetComponent<LineRenderer>();
 					if (lr != null)
 					{
-						lr.SetPosition(0, dest + formationForward * 0.3f);
-						lr.SetPosition(1, dest + formationForward * 4f);
+						lr.SetPosition(0, dest + formationForward * 0.15f);
+						lr.SetPosition(1, dest + formationForward * 2f);
 					}
 				}
 			}
@@ -3699,8 +3707,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			GameObject arrowGo = new GameObject("FacingLine");
 			LineRenderer lr = arrowGo.AddComponent<LineRenderer>();
 			lr.positionCount = 2;
-			lr.startWidth = 0.04f;
-			lr.endWidth = 0.04f;
+			lr.startWidth = 0.02f;
+			lr.endWidth = 0.02f;
 			lr.material = new Material(Shader.Find("Sprites/Default"));
 			Color initialColor = GetFacingArrowColor(m_EditingWaypointMode);
 			lr.startColor = initialColor;
@@ -3749,10 +3757,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
 		{
 			Vector3 dir = toCursor.sqrMagnitude > 0.01f ? toCursor.normalized : Vector3.forward;
-			Vector3 shaftStart = anchor + dir * 0.3f;
+			Vector3 shaftStart = anchor + dir * 0.15f;
 			Vector3 tip = m_EditingWaypointMode == RtsUnitMember.FacingArrowMode.LookAtPoint && toCursor.sqrMagnitude > 0.01f
 				? hit.point
-				: anchor + dir * 4f;
+				: anchor + dir * 2f;
 			LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
 			if (lr != null)
 			{
@@ -3851,52 +3859,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			}
 		}
 
-		if (group != null)
-		{
-			group.ReachedCount = 0;
-			group.MemberCount = _units.Count;
-		}
-
 		RecalcSyncSpeeds(_units, _offsets, _center, group);
 	}
 
 	private void RecalcSyncSpeeds(List<RtsUnitMember> _units, List<Vector3> _offsets, Vector3 _center,
 		RtsUnitMember.FormationSyncGroup _existingGroup)
 	{
-		float maxDist = 0f;
-		float[] distances = new float[_units.Count];
+		RtsUnitMember.FormationSyncGroup syncGroup = _existingGroup
+			?? new RtsUnitMember.FormationSyncGroup();
+
+		syncGroup.Members.Clear();
+
 		for (int i = 0; i < _units.Count; i++)
 		{
 			if (_units[i] == null)
 				continue;
-			UnityEngine.AI.NavMeshAgent agent = _units[i].GetComponent<UnityEngine.AI.NavMeshAgent>();
-			if (agent != null && agent.isOnNavMesh && agent.hasPath)
-				distances[i] = agent.remainingDistance;
-			else
-			{
-				Vector3 dest = _center + _offsets[i];
-				distances[i] = Vector3.Distance(_units[i].transform.position, dest);
-			}
-			if (distances[i] > maxDist)
-				maxDist = distances[i];
+			_units[i].AssignFormationSyncGroup(syncGroup);
 		}
 
-		RtsUnitMember.FormationSyncGroup syncGroup = _existingGroup
-			?? new RtsUnitMember.FormationSyncGroup { MemberCount = _units.Count };
+		if (syncGroup.Members.Count < 2)
+			return;
 
-		if (maxDist >= 0.1f)
-		{
-			syncGroup.LastSpeedUpdateTime = Time.time;
-
-			for (int i = 0; i < _units.Count; i++)
-			{
-				if (_units[i] == null)
-					continue;
-				float multiplier = Mathf.Clamp(distances[i] / maxDist, m_FormationSyncMinSpeedMultiplier, 1f);
-				_units[i].AssignFormationSpeedMultiplier(multiplier);
-				_units[i].AssignFormationSyncGroup(syncGroup);
-			}
-		}
+		syncGroup.LastSpeedUpdateTime = Time.time;
+		RecalcFormationSyncGroupSpeeds(syncGroup);
 	}
 
 	private void ApplyFormationSyncSpeeds(List<RtsUnitMember> _units, List<Vector3> _offsets, Vector3 _center)
@@ -3906,66 +3891,74 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void UpdateFormationSyncSpeeds()
 	{
-		if (m_SelectedUnits.Count < 2)
-			return;
+		s_ProcessedFormationSyncGroups.Clear();
+		float now = Time.time;
+		float updateInterval = Mathf.Max(0.05f, m_FormationSyncUpdateInterval);
 
-		Dictionary<RtsUnitMember.FormationSyncGroup, List<RtsUnitMember>> groups =
-			new Dictionary<RtsUnitMember.FormationSyncGroup, List<RtsUnitMember>>();
-
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
+		for (int i = 0; i < instances.Count; i++)
 		{
-			RtsUnitMember unit = m_SelectedUnits[i];
+			RtsUnitMember unit = instances[i];
 			if (unit == null)
 				continue;
+
 			RtsUnitMember.FormationSyncGroup group = unit.ActiveFormationSync;
-			if (group == null)
+			if (group == null || group.Members.Count < 2)
 				continue;
-			if (!unit.HasActiveDestination)
+			if (!s_ProcessedFormationSyncGroups.Add(group))
+				continue;
+			if (now - group.LastSpeedUpdateTime < updateInterval)
 				continue;
 
-			if (!groups.TryGetValue(group, out List<RtsUnitMember> list))
+			group.LastSpeedUpdateTime = now;
+			RecalcFormationSyncGroupSpeeds(group);
+		}
+	}
+
+	private void RecalcFormationSyncGroupSpeeds(RtsUnitMember.FormationSyncGroup _group)
+	{
+		List<RtsUnitMember> members = _group.Members;
+		float maxRemaining = 0f;
+		int activeMembers = 0;
+
+		for (int i = 0; i < members.Count; i++)
+		{
+			RtsUnitMember member = members[i];
+			if (member == null)
+				continue;
+			if (!member.HasActiveDestination && member.WaypointCount == 0)
 			{
-				list = new List<RtsUnitMember>(group.MemberCount);
-				groups[group] = list;
+				member.AssignFormationSpeedMultiplier(1f);
+				continue;
 			}
-			list.Add(unit);
+
+			float remaining = member.GetTotalRouteRemainingDistance();
+			if (remaining > maxRemaining)
+				maxRemaining = remaining;
+			activeMembers++;
 		}
 
-		foreach (KeyValuePair<RtsUnitMember.FormationSyncGroup, List<RtsUnitMember>> kvp in groups)
+		if (maxRemaining < 0.1f || activeMembers < 2)
 		{
-			RtsUnitMember.FormationSyncGroup group = kvp.Key;
-			List<RtsUnitMember> units = kvp.Value;
-			if (units.Count < 2)
+			for (int i = 0; i < members.Count; i++)
+				members[i]?.AssignFormationSpeedMultiplier(1f);
+			return;
+		}
+
+		for (int i = 0; i < members.Count; i++)
+		{
+			RtsUnitMember member = members[i];
+			if (member == null)
+				continue;
+			if (!member.HasActiveDestination && member.WaypointCount == 0)
 				continue;
 
-			float now = Time.time;
-			if (now - group.LastSpeedUpdateTime < 0.5f)
-				continue;
-			group.LastSpeedUpdateTime = now;
-
-			float maxRemaining = 0f;
-			float[] remaining = new float[units.Count];
-			for (int i = 0; i < units.Count; i++)
-			{
-				UnityEngine.AI.NavMeshAgent agent = units[i].GetComponent<UnityEngine.AI.NavMeshAgent>();
-				if (agent != null && agent.isOnNavMesh && agent.hasPath)
-					remaining[i] = agent.remainingDistance;
-				else
-					remaining[i] = 0f;
-
-				if (remaining[i] > maxRemaining)
-					maxRemaining = remaining[i];
-			}
-
-			if (maxRemaining < 0.1f)
-				continue;
-
-			for (int i = 0; i < units.Count; i++)
-			{
-				float multiplier = Mathf.Clamp(remaining[i] / maxRemaining,
-					m_FormationSyncMinSpeedMultiplier, 1f);
-				units[i].AssignFormationSpeedMultiplier(multiplier);
-			}
+			float remaining = member.GetTotalRouteRemainingDistance();
+			float multiplier = Mathf.Clamp(
+				remaining / maxRemaining,
+				m_FormationSyncMinSpeedMultiplier,
+				1f);
+			member.AssignFormationSpeedMultiplier(multiplier);
 		}
 	}
 
@@ -3987,7 +3980,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool cancelled = m_PreviewCancelled;
 		bool useMoveFacing = m_HasMoveFacingSet || m_IsQuickRotateFacing;
 		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
-			? ResolveFacingArrowModeFromModifiers()
+			? RtsUnitMember.FacingArrowMode.TurnOverDistance
 			: null;
 		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
 
@@ -4022,15 +4015,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (shift)
 		{
-			EnsureFormationSyncGroup(validUnits, _offsets, _center);
 			ShiftEnqueueMoveOrders(validUnits, _offsets, _center, _facingAngles, UnitClickToMove.MoveTier.Walk, _waitGroup, facingMode);
+			EnsureFormationSyncGroup(validUnits, _offsets, _center);
 			return;
 		}
 
 		if (useWait && !shift)
 		{
-			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
-
 			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
 			{
 				int waitGroup = _waitGroup > 0 ? _waitGroup : 1;
@@ -4045,13 +4036,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					waitGroup);
 			}
 
+			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 			return;
 		}
 
 		for (int i = 0; i < validUnits.Count; i++)
 			validUnits[i].ClearCommandQueue();
-
-		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 
 		bool[] inPlaceFacing = new bool[validUnits.Count];
 		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
@@ -4070,6 +4060,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (hasFacing)
 				validUnits[i].SetWaypointFacing(0, _facingAngles[i], dest, facingMode);
 		}
+
+		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 
 		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
 		bool needStagger = !isFormationSync && m_GroupMoveStaggerMax > 0f && validUnits.Count > 1;
@@ -4399,10 +4391,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		List<Vector3> offsets = _prebuiltOffsets ?? BuildFormationOffsets(validUnits, _centerPoint);
 
-		ApplyFormationSyncSpeeds(validUnits, offsets, _centerPoint);
-
 		for (int i = 0; i < validUnits.Count; i++)
 			validUnits[i].SetDestinationDirect(_centerPoint + offsets[i], _moveTier);
+
+		ApplyFormationSyncSpeeds(validUnits, offsets, _centerPoint);
 
 		bool isFormationSync = validUnits.Count >= 2 && GetDominantFormation(validUnits) == FormationType.Line;
 		if (isFormationSync || m_GroupMoveStaggerMax <= 0f)
@@ -5180,7 +5172,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		const string c_HintText =
-			"ПКМ — перемещение (линия сразу) · Ctrl при зажатом ПКМ — направление · отпуск Ctrl — снова двигать точку · маршрут: ЛКМ редактирование · X — удалить стрелку";
+			"ПКМ — перемещение · потянуть ПКМ — направление · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · X — удалить стрелку";
 		const float pad = 10f;
 		const float height = 34f;
 
