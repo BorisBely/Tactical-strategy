@@ -10,6 +10,10 @@ using UnityEngine;
 [DefaultExecutionOrder(62)]
 public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 {
+	#region Temporary
+	private const bool c_VisualKickEnabled = true;
+	#endregion
+
 	#region Serialized Fields
 	[Tooltip("Снаряжение: корень оружия в руке.")]
 	[SerializeField] private UnitEquipment m_Equipment;
@@ -92,6 +96,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		if (!c_VisualKickEnabled)
+			return;
+
 		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
 			return;
 
@@ -130,6 +137,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private void HandleShotFired(AmmoDefinition _ammoDefinition)
 	{
+		if (!c_VisualKickEnabled)
+			return;
+
 		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
 			return;
 		if (m_Equipment == null)
