@@ -110,6 +110,18 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 		_snapshot.ReplaceInventory(mainHand, head, back, bagItems);
 	}
 
+	public static void ApplyPresetEntryToInventory(
+		CharacterInventory _inventory,
+		MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
+	{
+		if (_inventory == null || _entry == null)
+			return;
+
+		var snapshot = new MissionPrepPresetSnapshot();
+		ApplyToSnapshot(snapshot, _entry);
+		snapshot.ApplyToInventory(_inventory);
+	}
+
 	public static bool EntryDefinesInventory(MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
 	{
 		if (_entry == null)

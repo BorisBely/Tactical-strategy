@@ -10,12 +10,18 @@ using UnityEngine.Pool;
 [RequireComponent(typeof(Rigidbody))]
 public sealed class ShellCasingBehaviour : MonoBehaviour
 {
+	#region Constants
+	private const float c_MinAirborneSecondsBeforeImpact = 0.15f;
+	#endregion
+
 	#region Private Fields
 	private ObjectPool<GameObject> m_Pool;
 	private GameObject m_PooledRoot;
 	private AudioSource m_SharedImpactAudio;
 	private AmmoDefinition m_Ammo;
+	private Transform m_IgnoreCollisionRoot;
 	private bool m_HasPlayedImpact;
+	private float m_SpawnedAtUnscaledTime;
 	private float m_ReleaseAtUnscaledTime = -1f;
 	private float m_AirborneExpireAtUnscaledTime = -1f;
 	private Rigidbody m_Rigidbody;
@@ -50,13 +56,16 @@ public sealed class ShellCasingBehaviour : MonoBehaviour
 		Vector3 _worldPosition,
 		Quaternion _worldRotation,
 		Vector3 _worldLinearVelocity,
-		Vector3 _worldAngularVelocity)
+		Vector3 _worldAngularVelocity,
+		Transform _ignoreCollisionRoot = null)
 	{
 		m_Pool = _pool;
 		m_PooledRoot = _pooledRoot != null ? _pooledRoot : gameObject;
 		m_SharedImpactAudio = _sharedImpactAudio;
 		m_Ammo = _ammo;
+		m_IgnoreCollisionRoot = _ignoreCollisionRoot;
 		m_HasPlayedImpact = false;
+		m_SpawnedAtUnscaledTime = Time.unscaledTime;
 		m_ReleaseAtUnscaledTime = -1f;
 		m_AirborneExpireAtUnscaledTime = Time.unscaledTime + Mathf.Max(0.5f, _ammo.ShellMaxAirborneSeconds);
 
@@ -78,6 +87,12 @@ public sealed class ShellCasingBehaviour : MonoBehaviour
 			return;
 
 		if (_collision.contactCount <= 0)
+			return;
+
+		if (Time.unscaledTime - m_SpawnedAtUnscaledTime < c_MinAirborneSecondsBeforeImpact)
+			return;
+
+		if (IsIgnoredCollision(_collision.collider.transform))
 			return;
 
 		if (m_Ammo.ShellImpactMinSpeedSqr > 0f &&
@@ -109,6 +124,7 @@ public sealed class ShellCasingBehaviour : MonoBehaviour
 		m_AirborneExpireAtUnscaledTime = -1f;
 		m_Ammo = null;
 		m_SharedImpactAudio = null;
+		m_IgnoreCollisionRoot = null;
 
 		if (m_Rigidbody != null)
 		{
@@ -125,6 +141,14 @@ public sealed class ShellCasingBehaviour : MonoBehaviour
 			m_Pool.Release(toRelease);
 		else
 			toRelease.SetActive(false);
+	}
+
+	private bool IsIgnoredCollision(Transform _otherTransform)
+	{
+		if (_otherTransform == null || m_IgnoreCollisionRoot == null)
+			return false;
+
+		return _otherTransform == m_IgnoreCollisionRoot || _otherTransform.IsChildOf(m_IgnoreCollisionRoot);
 	}
 	#endregion
 }

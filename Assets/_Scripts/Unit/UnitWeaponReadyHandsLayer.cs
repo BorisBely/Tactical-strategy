@@ -18,6 +18,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[SerializeField] private UnitVision m_Vision;
 	[Tooltip("Для повторного CrossFade базового idle в приседе при смене готов/не готов (там WeaponMode не переключается).")]
 	[SerializeField] private UnitAnimatorWeaponMode m_AnimatorWeaponMode;
 	[Tooltip("IK левой руки на объекте Animator; при переходе в «готов» проверяется, что зарядка магазина не блокирует IK.")]
@@ -221,6 +222,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
 		if (m_AnimatorWeaponMode == null)
 			m_AnimatorWeaponMode = GetComponent<UnitAnimatorWeaponMode>();
 		if (m_BusyState == null)
@@ -367,7 +370,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			ForceWalkMoveModeOnAllLocomotionDrivers();
 
 		if (_ready && didChange)
+		{
 			m_LeftHandIk?.OnWeaponReadyStateApplied();
+			m_Vision?.RequestImmediateScan();
+		}
 
 		if (didChange && _refreshImmediately)
 			ApplyVisualRefreshAfterReadyToggle();

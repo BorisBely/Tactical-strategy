@@ -440,6 +440,22 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		float traceDamage = damageApplied ? damage : 0f;
 		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
 
+		if (_hit.collider != null &&
+		    _hit.collider.GetComponentInParent<ShootingRangeTarget>() is ShootingRangeTarget rangeTarget &&
+		    rangeTarget.IsUserEnabled)
+		{
+			ShootingRangeHitLogger.LogHit(
+				this,
+				m_ShooterRoot,
+				m_Equipment,
+				m_WeaponRuntime,
+				this,
+				_ammo,
+				rangeTarget,
+				_hit,
+				_hit.distance);
+		}
+
 		return new WeaponShotOutcome
 		{
 			Result = hitVisibleTarget ? WeaponShotHitResult.HitTarget : WeaponShotHitResult.HitOther,

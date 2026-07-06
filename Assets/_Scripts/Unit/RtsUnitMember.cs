@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -61,6 +62,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private static readonly List<RtsUnitMember> s_Instances = new List<RtsUnitMember>(128);
 	private Coroutine m_PendingCommandCoroutine;
 	private int m_PendingCommandVersion;
+	private UnitCombatStats m_CombatStats;
 	private UnitRosterDisplayState m_RosterDisplay;
 	private Transform m_CachedCameraTransform;
 	private LineRenderer m_PathLine;
@@ -268,6 +270,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_CharacterInventory = GetComponent<CharacterInventory>();
 		if (m_SelectionCollider == null)
 			m_SelectionCollider = GetComponent<Collider>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
 
 		m_RuntimeMoveAnimatorSpeed = UnityEngine.Random.Range(
 			Mathf.Min(m_MoveAnimatorSpeedMin, m_MoveAnimatorSpeedMax),
@@ -660,9 +664,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_SelectionNameLabelRoot.SetActive(_selected);
 	}
 
-	public void IssueMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier)
+	public void IssueMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier, float _groupStaggerDelaySeconds = 0f)
 	{
-		IssueRouteMoveOrder(_worldPosition, _moveTier, _continuous: false);
+		IssueRouteMoveOrder(_worldPosition, _moveTier, _continuous: false, _groupStaggerDelaySeconds);
 	}
 
 	public void BeginActiveRouteMovement(UnitClickToMove.MoveTier _moveTier)
@@ -674,7 +678,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], _moveTier);
 	}
 
-	private void IssueRouteMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier, bool _continuous)
+	private void IssueRouteMoveOrder(
+		Vector3 _worldPosition,
+		UnitClickToMove.MoveTier _moveTier,
+		bool _continuous,
+		float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -735,7 +743,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				else
 					m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
 			}
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	public void BeginMovePreviewVisual()
@@ -820,7 +828,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		FacingArrowMode _mode,
 		int _waitGroup,
 		Vector3? _lookPoint = null,
-		bool _activateAtSegmentStart = false)
+		bool _activateAtSegmentStart = false,
+		float _groupStaggerDelaySeconds = 0f)
 	{
 		CancelPendingCommand();
 		ClearWaypoints();
@@ -858,7 +867,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 		RebuildPathLine();
 		MarkFacingArrowsDirty();
-		TryStartNextQueuedCommand();
+		TryStartNextQueuedCommand(_groupStaggerDelaySeconds);
 	}
 
 	public void EnqueueWaypoint(
@@ -868,7 +877,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
 		int _waitGroup = 0,
 		Vector3? _lookPoint = null,
-		bool _activateAtSegmentStart = false)
+		bool _activateAtSegmentStart = false,
+		float _groupStaggerDelaySeconds = 0f)
 	{
 		m_Waypoints.Add(_dest);
 
@@ -908,7 +918,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		bool isIdle = !m_HasActiveDestination && !m_IsRotatingToFacing && !m_IsWaitingAtRouteGate;
 		if (isIdle)
-			TryStartNextQueuedCommand();
+			TryStartNextQueuedCommand(_groupStaggerDelaySeconds);
 
 		MarkFacingArrowsDirty();
 	}
@@ -1728,7 +1738,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	}
 
 
-	public void IssueInPlaceFacingOrder(float _angle, FacingArrowMode _mode = FacingArrowMode.TurnOverDistance)
+	public void IssueInPlaceFacingOrder(
+		float _angle,
+		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
+		float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1752,7 +1765,132 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_LocomotionDriver.HardStop();
 
 			SetWantedFacingAngle(_angle);
-		});
+		}, _groupStaggerDelaySeconds);
+	}
+
+	public bool HasActiveMovementIntent => HasActiveLocomotionMovement();
+
+	public bool IsActiveRunOrSprintMovement
+	{
+		get
+		{
+			UnitClickToMove.MoveTier activeTier = m_IsExecutingSmoothingArc
+				? m_SmoothingMoveTier
+				: m_ActiveMoveTier;
+			return IsRunOrSprintMoveTier(activeTier);
+		}
+	}
+
+	/// <summary>
+	/// Команда направления по ЛКМ+Ctrl/Shift по земле: поворот на месте или взгляд во время движения.
+	/// </summary>
+	public void IssueGroundLookCommand(
+		Vector3 _lookPointWorld,
+		bool _withReady,
+		bool _trackLookPoint,
+		float _groupStaggerDelaySeconds = 0f)
+	{
+		ScheduleRtsCommand(() =>
+		{
+			float angle = ComputeHorizontalLookAngle(transform.position, _lookPointWorld);
+			FacingArrowMode mode = _trackLookPoint
+				? FacingArrowMode.LookAtPoint
+				: FacingArrowMode.HoldToEnd;
+
+			if (HasActiveLocomotionMovement())
+			{
+				if (_withReady)
+					ApplyReadyForGroundLookCommand();
+
+				ApplyFacingWhileMoving(_lookPointWorld, angle, mode);
+				return;
+			}
+
+			if (_withReady)
+				ApplyReadyForGroundLookCommand();
+
+			PerformInPlaceGroundFacing(angle);
+		}, _groupStaggerDelaySeconds);
+	}
+
+	private void ApplyReadyForGroundLookCommand()
+	{
+		UnitFiremanCarryController firemanCarry = ResolveFiremanCarryController();
+		if (firemanCarry != null && firemanCarry.IsCarryingFallen)
+			return;
+
+		if (m_ReadyHands != null)
+			m_ReadyHands.SetReadyWanted(true, false);
+
+		DowngradeActiveMovementTierForReady();
+	}
+
+	private void PerformInPlaceGroundFacing(float _angle)
+	{
+		ClearFacingTurn();
+		m_HasWantedFacing = true;
+		m_WantedFacingAngle = _angle;
+		m_IsRotatingToFacing = false;
+		SetWantedFacingAngle(_angle);
+	}
+
+	private void ApplyFacingWhileMoving(Vector3 _lookPointWorld, float _angle, FacingArrowMode _mode)
+	{
+		ClearFacingTurn();
+		m_HasWantedFacing = false;
+
+		if (IsActiveRunOrSprintMovement)
+			TransitionActiveMovementToWalk();
+
+		bool hasLookPoint = _mode == FacingArrowMode.LookAtPoint;
+		var arrowTemplate = new FacingArrow
+		{
+			Angle = _angle,
+			Mode = _mode,
+			ForceReadyOnActivation = false,
+			ActivateAtSegmentStart = true,
+			HasLookPoint = hasLookPoint,
+		};
+
+		if (m_HasActiveDestination)
+		{
+			if (m_ActiveFacingArrows == null)
+				m_ActiveFacingArrows = new List<FacingArrow>();
+			else
+				m_ActiveFacingArrows.Clear();
+
+			FacingArrow arrow = BindFacingArrowToRouteSegment(
+				arrowTemplate,
+				0,
+				transform.position,
+				hasLookPoint ? _lookPointWorld : null,
+				_useActiveSegmentStart: true);
+			arrow.ActivateAtSegmentStart = true;
+			m_ActiveFacingArrows.Add(arrow);
+			MarkFacingArrowsDirty();
+			TryActivateSegmentStartFacingArrows();
+			return;
+		}
+
+		FacingArrow directArrow = BindFacingArrowToRouteSegment(
+			arrowTemplate,
+			0,
+			transform.position,
+			hasLookPoint ? _lookPointWorld : null,
+			_useActiveSegmentStart: true);
+		directArrow.ActivateAtSegmentStart = false;
+		StartFacingTurn(directArrow, transform.position, _isActiveSegment: true);
+		MarkFacingArrowsDirty();
+	}
+
+	private static float ComputeHorizontalLookAngle(Vector3 _from, Vector3 _to)
+	{
+		Vector3 direction = _to - _from;
+		direction.y = 0f;
+		if (direction.sqrMagnitude < 0.0001f)
+			return 0f;
+
+		return Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
 	}
 
 	private void ClearFacingOverride()
@@ -1763,7 +1901,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_LocomotionDriver.OverrideFacingAngle = null;
 	}
 
-	public void SetReadyWanted(bool _ready)
+	public void SetReadyWanted(bool _ready, float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1786,7 +1924,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				DowngradeActiveMovementTierForReady();
 				ApplyCachedFormationFacing();
 			}
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	private void DowngradeActiveMovementTierForReady()
@@ -1804,7 +1942,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_LocomotionDriver.ForceWalkMoveMode();
 	}
 
-	public void RequestStance(LocomotionStance _stance)
+	public void RequestStance(LocomotionStance _stance, float _groupStaggerDelaySeconds = 0f)
 	{
 		if (_stance == LocomotionStance.Prone && !LocomotionProneFeature.Enabled)
 			return;
@@ -1816,7 +1954,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			if (m_Stance != null)
 				m_Stance.RequestStance(_stance);
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	public void HardStop()
@@ -1846,7 +1984,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			if (m_LocomotionDriver != null)
 				m_LocomotionDriver.HardStop();
-		});
+		}, _immediate: true);
 	}
 
 	public void StartFiring()
@@ -1879,7 +2017,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return result;
 	}
 
-	public void StartManualMagazineLoading()
+	public void StartManualMagazineLoading(float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1887,10 +2025,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 				return;
 
 			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes();
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
-	public void StartWeaponReload()
+	public void StartWeaponReload(float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1898,11 +2036,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 				return;
 
 			m_WeaponReloadController.TryStartReload();
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	/// <summary>Следующий доступный режим огня по <see cref="WeaponDefinition.AvailableFireModes"/>.</summary>
-	public void CycleWeaponFireMode()
+	public void CycleWeaponFireMode(float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1932,11 +2070,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 				$"{name}: режим огня {WeaponFireModeUtility.GetDisplayName(before)} → {afterLabel}.",
 				this);
 			PlayFireModeSwitchSound();
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	/// <summary>Следующий режим прицеливания юнита: полное, быстрое, на вскидку, авто.</summary>
-	public void CycleWeaponAimMode()
+	public void CycleWeaponAimMode(float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -1958,7 +2096,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				$"(порог выстрела: {WeaponAimModeUtility.GetRequiredAimProgress01(after, 0f):P0}; в авто порог зависит от дистанции).",
 				this);
 			PlayFireModeSwitchSound();
-		});
+		}, _groupStaggerDelaySeconds);
 	}
 
 	private void PlayFireModeSwitchSound()
@@ -2047,7 +2185,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return m_FiremanCarryController;
 	}
 
-	private void DequeueAndExecuteNextCommand()
+	private void DequeueAndExecuteNextCommand(float _groupStaggerDelaySeconds = 0f)
 	{
 		bool persistFacingTurn = ShouldPersistFacingTurnAcrossQueuedCommand();
 		if (!persistFacingTurn)
@@ -2084,7 +2222,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasLastArrivalMovementAngle = false;
 		m_DestinationSetTime = Time.time;
 
-		IssueMoveOrderForCurrentWaypoint(cmd.Destination, cmd.MoveTier);
+		IssueMoveOrderForCurrentWaypoint(cmd.Destination, cmd.MoveTier, _groupStaggerDelaySeconds);
 
 		TryActivateSegmentStartFacingArrows();
 
@@ -2123,7 +2261,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 	}
 
-	private void IssueMoveOrderForCurrentWaypoint(Vector3 _logicalDestination, UnitClickToMove.MoveTier _moveTier)
+	private void IssueMoveOrderForCurrentWaypoint(
+		Vector3 _logicalDestination,
+		UnitClickToMove.MoveTier _moveTier,
+		float _groupStaggerDelaySeconds = 0f)
 	{
 		if (TryBeginSmoothingArcMovement(_moveTier))
 			return;
@@ -2141,7 +2282,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				$"CONTINUOUS_SKIPPED speed={speed:F2} dest={FormatRoutePoint(_logicalDestination)} {BuildRouteDebugSnapshot()}");
 		}
 #endif
-		IssueRouteMoveOrder(_logicalDestination, _moveTier, continuous);
+		IssueRouteMoveOrder(_logicalDestination, _moveTier, continuous, _groupStaggerDelaySeconds);
 	}
 
 	private bool ShouldUseContinuousRouteMovement()
@@ -2409,13 +2550,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsInFacingTurn)
 			return;
 
-		if (!m_HasActiveDestination)
+		if (!m_HasActiveDestination && !IsExecutingMoveOrder())
 		{
 			ClearFacingTurn();
 			return;
 		}
 
-		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+		UnitClickToMove.MoveTier activeTier = m_IsExecutingSmoothingArc
+			? m_SmoothingMoveTier
+			: m_ActiveMoveTier;
+		if (IsRunOrSprintMoveTier(activeTier))
 			return;
 
 		switch (m_FacingTurnMode)
@@ -2908,18 +3052,52 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_FormationFacingArrowLine.SetPosition(1, anchor + dir * (c_FacingArrowFixedLength * 0.85f));
 	}
 
-	private void ScheduleRtsCommand(Action _command)
+	private void ScheduleRtsCommand(Action _command, float _groupStaggerDelaySeconds = 0f, bool _immediate = false)
 	{
 		if (_command == null)
 			return;
 
 		m_PendingCommandVersion++;
+		int version = m_PendingCommandVersion;
 
 		if (m_PendingCommandCoroutine != null)
 			StopCoroutine(m_PendingCommandCoroutine);
 
+		if (_immediate)
+		{
+			m_PendingCommandCoroutine = null;
+			_command();
+			return;
+		}
+
+		float totalDelay = ResolveCommandReactionDelaySeconds() + Mathf.Max(0f, _groupStaggerDelaySeconds);
+		if (totalDelay <= 0f)
+		{
+			m_PendingCommandCoroutine = null;
+			_command();
+			return;
+		}
+
+		m_PendingCommandCoroutine = StartCoroutine(ExecutePendingRtsCommandRoutine(version, totalDelay, _command));
+	}
+
+	private float ResolveCommandReactionDelaySeconds()
+	{
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
+
+		return m_CombatStats != null ? m_CombatStats.GetReactionDelaySeconds() : 0.35f;
+	}
+
+	private IEnumerator ExecutePendingRtsCommandRoutine(int _version, float _delaySeconds, Action _command)
+	{
+		yield return new WaitForSecondsRealtime(_delaySeconds);
+
+		if (_version != m_PendingCommandVersion)
+			yield break;
+
 		m_PendingCommandCoroutine = null;
-		_command();
+		_command?.Invoke();
 	}
 
 	private void CancelPendingCommand()
@@ -3272,7 +3450,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return _arrow;
 	}
 
-	private void TryStartNextQueuedCommand()
+	private void TryStartNextQueuedCommand(float _groupStaggerDelaySeconds = 0f)
 	{
 		if (m_CommandQueue.Count == 0)
 			return;
@@ -3286,7 +3464,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		DequeueAndExecuteNextCommand();
+		DequeueAndExecuteNextCommand(_groupStaggerDelaySeconds);
 	}
 
 	private void EnterWaitBeforeNextCommand(int _waitGroup)

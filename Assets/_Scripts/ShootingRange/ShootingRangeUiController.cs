@@ -11,7 +11,7 @@ public enum PlayerDebugInjuryType
 }
 
 /// <summary>
-/// UI полигона: сброс мишеней и включение/выключение по одной и всех сразу.
+/// UI полигона: сброс мишеней и включение/выключение всех сразу.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ShootingRangeUiController : MonoBehaviour
@@ -26,8 +26,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	{
 		public ShootingRangeTarget Target;
 		public TextMeshProUGUI Label;
-		public Button ResetButton;
 		public Button ToggleButton;
+		public Button ResetButton;
 		public System.Action<ShootingRangeTarget> StateChangedHandler;
 	}
 	#endregion
@@ -44,7 +44,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 	#region Private Fields
 	private readonly List<TargetRowUi> m_Rows = new List<TargetRowUi>(16);
-	private readonly List<Button> m_QuickResetButtons = new List<Button>(10);
+	private readonly List<Button> m_QuickToggleButtons = new List<Button>(10);
+	private readonly List<int> m_QuickToggleDistancesMeters = new List<int>(10);
 	private readonly List<Button> m_InjuryDebugButtons = new List<Button>(4);
 	private bool m_Built;
 	#endregion
@@ -74,6 +75,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		WireGlobalButtons();
 		RefreshAllRows();
+		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
 	}
 
@@ -101,6 +103,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		WireGlobalButtons();
 		RefreshAllRows();
+		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
 	}
 	#endregion
@@ -154,7 +157,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 			CreateTitle(m_PanelRoot, "Shooting Range");
 			CreateGlobalButtonsRow(m_PanelRoot);
-			CreateQuickResetButtonsGrid(m_PanelRoot);
+			CreateQuickToggleButtonsGrid(m_PanelRoot);
 			CreateRankButtonRow(m_PanelRoot);
 			CreateInjuryDebugButtonsGrid(m_PanelRoot);
 			m_TargetListRoot = CreateScrollList(m_PanelRoot);
@@ -197,20 +200,20 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		rowElement.minHeight = 30f;
 		rowElement.preferredHeight = 30f;
 
-		TextMeshProUGUI label = CreateText(rowGo.transform, _target.DisplayName, 110f, TextAlignmentOptions.MidlineLeft);
+		TextMeshProUGUI label = CreateText(rowGo.transform, _target.DisplayName, 140f, TextAlignmentOptions.MidlineLeft);
+		Button toggleButton = CreateButton(rowGo.transform, "Toggle", 64f);
 		Button resetButton = CreateButton(rowGo.transform, "Reset", 64f);
-		Button toggleButton = CreateButton(rowGo.transform, "ON", 56f);
 
 		var row = new TargetRowUi
 		{
 			Target = _target,
 			Label = label,
-			ResetButton = resetButton,
-			ToggleButton = toggleButton
+			ToggleButton = toggleButton,
+			ResetButton = resetButton
 		};
 
-		resetButton.onClick.AddListener(() => HandleResetTarget(row));
 		toggleButton.onClick.AddListener(() => HandleToggleTarget(row));
+		resetButton.onClick.AddListener(() => HandleResetTarget(row));
 		row.StateChangedHandler = _ => RefreshRow(row);
 		_target.StateChanged += row.StateChangedHandler;
 
@@ -222,7 +225,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_Manager == null || _row?.Target == null)
 			return;
 
-		m_Manager.ResetTarget(_row.Target);
+		m_Manager.ResetTargetHealth(_row.Target);
 		RefreshRow(_row);
 	}
 
@@ -231,9 +234,9 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_Manager == null || _row?.Target == null)
 			return;
 
-		bool next = !_row.Target.IsUserEnabled;
-		m_Manager.SetTargetEnabled(_row.Target, next);
+		m_Manager.ToggleTarget(_row.Target);
 		RefreshRow(_row);
+		RefreshQuickToggleButtons();
 	}
 
 	private void HandleTargetsChanged()
@@ -243,6 +246,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		UnwireRowButtons();
 		BuildTargetRows();
+		RefreshQuickToggleButtons();
 	}
 
 	private void RefreshAllRows()
@@ -257,19 +261,11 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			return;
 
 		ShootingRangeTarget target = _row.Target;
-		_row.Label.text = $"{target.DisplayName}  {target.HitCount}/{target.HitsToDefeat}";
-
-		string toggleLabel;
-		if (!target.IsUserEnabled)
-			toggleLabel = "OFF";
-		else if (target.IsDefeated)
-			toggleLabel = "DOWN";
-		else
-			toggleLabel = "ON";
-
-		SetButtonLabel(_row.ToggleButton, toggleLabel);
+		_row.Label.text = target.IsUserEnabled
+			? $"{target.DisplayName}  ON"
+			: $"{target.DisplayName}  OFF";
+		SetButtonLabel(_row.ToggleButton, target.IsUserEnabled ? "OFF" : "ON");
 		_row.ResetButton.interactable = true;
-		_row.ToggleButton.interactable = true;
 	}
 
 	private void WireGlobalButtons()
@@ -315,14 +311,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 	private void UnwireQuickResetButtons()
 	{
-		for (int i = 0; i < m_QuickResetButtons.Count; i++)
-		{
-			Button button = m_QuickResetButtons[i];
-			if (button != null)
-				button.onClick.RemoveAllListeners();
-		}
-
-		m_QuickResetButtons.Clear();
+		UnwireQuickToggleButtons();
 	}
 
 	private void UnwireRowButtons()
@@ -343,7 +332,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 	private void HandleResetAll()
 	{
-		m_Manager?.ResetAllTargets();
+		m_Manager?.ResetAllTargetsHealth();
 		RefreshAllRows();
 	}
 
@@ -351,18 +340,21 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	{
 		m_Manager?.SetAllTargetsEnabled(true);
 		RefreshAllRows();
+		RefreshQuickToggleButtons();
 	}
 
 	private void HandleDisableAll()
 	{
 		m_Manager?.SetAllTargetsEnabled(false);
 		RefreshAllRows();
+		RefreshQuickToggleButtons();
 	}
 
-	private void HandleQuickResetTarget(int _distanceMeters)
+	private void HandleToggleTarget(int _distanceMeters)
 	{
-		m_Manager?.ResetTargetByDistanceMeters(_distanceMeters);
+		m_Manager?.ToggleTargetByDistanceMeters(_distanceMeters);
 		RefreshAllRows();
+		RefreshQuickToggleButtons();
 	}
 
 	private void HandleCycleRank()
@@ -397,11 +389,11 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		SetButtonLabel(m_CycleRankButton, $"Rank: {m_Manager.GetPlayerUnitRankLabel()}");
 	}
 
-	private void CreateQuickResetButtonsGrid(Transform _parent)
+	private void CreateQuickToggleButtonsGrid(Transform _parent)
 	{
-		UnwireQuickResetButtons();
+		UnwireQuickToggleButtons();
 
-		GameObject rowGo = new GameObject("QuickResetButtons", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
+		GameObject rowGo = new GameObject("QuickToggleButtons", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
 		rowGo.transform.SetParent(_parent, false);
 
 		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
@@ -419,9 +411,44 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		{
 			int distanceMeters = c_QuickResetDistancesMeters[i];
 			Button button = CreateButton(rowGo.transform, $"{distanceMeters}m", 0f);
-			button.onClick.AddListener(() => HandleQuickResetTarget(distanceMeters));
-			m_QuickResetButtons.Add(button);
+			button.onClick.AddListener(() => HandleToggleTarget(distanceMeters));
+			m_QuickToggleButtons.Add(button);
+			m_QuickToggleDistancesMeters.Add(distanceMeters);
 		}
+
+		RefreshQuickToggleButtons();
+	}
+
+	private void RefreshQuickToggleButtons()
+	{
+		if (m_Manager == null)
+			return;
+
+		for (int i = 0; i < m_QuickToggleButtons.Count; i++)
+		{
+			Button button = m_QuickToggleButtons[i];
+			if (button == null || i >= m_QuickToggleDistancesMeters.Count)
+				continue;
+
+			int distanceMeters = m_QuickToggleDistancesMeters[i];
+			bool isEnabled = m_Manager.TryGetTargetByDistanceMeters(distanceMeters, out ShootingRangeTarget target)
+			                 && target != null
+			                 && target.IsUserEnabled;
+			SetButtonLabel(button, isEnabled ? $"{distanceMeters}m ON" : $"{distanceMeters}m OFF");
+		}
+	}
+
+	private void UnwireQuickToggleButtons()
+	{
+		for (int i = 0; i < m_QuickToggleButtons.Count; i++)
+		{
+			Button button = m_QuickToggleButtons[i];
+			if (button != null)
+				button.onClick.RemoveAllListeners();
+		}
+
+		m_QuickToggleButtons.Clear();
+		m_QuickToggleDistancesMeters.Clear();
 	}
 
 	private void CreateRankButtonRow(Transform _parent)

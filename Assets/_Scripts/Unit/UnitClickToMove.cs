@@ -106,6 +106,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 	[Tooltip("Не разворачивать корень на видимую цель (engage) во время перезарядки и передёргивания затвора.")]
 	[SerializeField] private bool m_BlockEngageFacingDuringReload = true;
+	[Tooltip("Половина конуса вокруг угла жёлтой стрелки (ПКМ): если видимая цель внутри — ручной поворот; иначе engage к цели в FOV.")]
+	[SerializeField, Range(5f, 90f)] private float m_ManualFacingTargetConeHalfAngle = 30f;
+	[Tooltip("Внутри конуса стрелки: пока ошибка yaw к цели больше этого угла, корень доворачивается engage-ом (точное наведение ствола).")]
+	[SerializeField, Range(0.5f, 15f)] private float m_ManualFacingEngageHandoffDegrees = 3f;
 
 	[Header("Боёвка: стабильная стойка при стрельбе")]
 	[Tooltip("При engage и активной команде огня, пока агент почти стоит — жёстко выставить NavSpeed=0 и NavForward=1, NavStrafe=0, чтобы blend tree не подмешивал шаг/страф к прицелу.")]
@@ -866,7 +870,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void UpdateFacing()
 	{
-		if (OverrideFacingAngle.HasValue)
+		if (ShouldApplyManualFacingOverride())
 		{
 			m_EngageYawVelocity = 0f;
 			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
@@ -958,6 +962,42 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool IsEngagingVisibleTarget()
 	{
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	private bool ShouldApplyManualFacingOverride()
+	{
+		if (!OverrideFacingAngle.HasValue)
+			return false;
+
+		if (!IsEngagingVisibleTarget())
+			return true;
+
+		if (!TryGetVisibleTargetBearingDegrees(out float targetBearing))
+			return true;
+
+		float deltaFromCommand = Mathf.Abs(Mathf.DeltaAngle(OverrideFacingAngle.Value, targetBearing));
+		if (deltaFromCommand > m_ManualFacingTargetConeHalfAngle)
+			return false;
+
+		if (deltaFromCommand > m_ManualFacingEngageHandoffDegrees)
+			return false;
+
+		return true;
+	}
+
+	private bool TryGetVisibleTargetBearingDegrees(out float _bearingDegrees)
+	{
+		_bearingDegrees = 0f;
+		if (m_Vision == null || m_Vision.VisibleTarget == null)
+			return false;
+
+		Vector3 toTarget = m_Vision.GetVisibleTargetAimPointWorld() - transform.position;
+		toTarget.y = 0f;
+		if (toTarget.sqrMagnitude < 1e-6f)
+			return false;
+
+		_bearingDegrees = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+		return true;
 	}
 
 	private bool IsConscious()

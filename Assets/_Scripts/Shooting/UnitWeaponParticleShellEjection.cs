@@ -52,17 +52,21 @@ public sealed class UnitWeaponParticleShellEjection : MonoBehaviour
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
 		WeaponVfxProfile profile = WeaponVfxUtility.GetCurrentProfile(m_WeaponRuntime);
-		if (profile == null || !profile.UseParticleShellEjection || profile.ShellParticlePrefab == null)
+		if (profile == null || profile.ShellParticlePrefab == null)
 			return;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		if (!WeaponVfxUtility.TryGetShellEjectionPose(weapon, out Vector3 position, out Vector3 direction))
 			return;
 
+		if (!WeaponVfxUtility.ShouldUseParticleShellEjection(profile, position))
+			return;
+
 		Quaternion rotation = WeaponVfxUtility.BuildParticleShellRotation(profile, direction);
 
 		GameObject prefab = profile.ShellParticlePrefab;
 		GameObject instance = GetOrCreatePool(prefab).Get();
+		instance.transform.SetParent(null, true);
 		instance.transform.SetPositionAndRotation(position, rotation);
 		instance.transform.localScale = Vector3.one * profile.ShellParticleScale;
 		WeaponVfxUtility.PlayShellParticles(instance);
@@ -76,7 +80,11 @@ public sealed class UnitWeaponParticleShellEjection : MonoBehaviour
 
 		ObjectPool<GameObject> pool = new ObjectPool<GameObject>(
 			createFunc: () => CreateShellInstance(_prefab),
-			actionOnGet: go => go.SetActive(true),
+			actionOnGet: go =>
+			{
+				go.transform.SetParent(null, true);
+				go.SetActive(true);
+			},
 			actionOnRelease: go => go.SetActive(false),
 			actionOnDestroy: Destroy,
 			collectionCheck: false,
@@ -97,17 +105,7 @@ public sealed class UnitWeaponParticleShellEjection : MonoBehaviour
 
 	private IEnumerator ReleaseAfter(GameObject _prefab, GameObject _instance, float _maxLifetimeSeconds)
 	{
-		yield return null;
-
-		float elapsed = 0f;
-		while (_instance != null && elapsed < _maxLifetimeSeconds)
-		{
-			if (!WeaponVfxUtility.IsParticleRootAlive(_instance))
-				break;
-
-			elapsed += Time.deltaTime;
-			yield return null;
-		}
+		yield return new WaitForSeconds(Mathf.Max(0.5f, _maxLifetimeSeconds));
 
 		if (_instance != null)
 			GetOrCreatePool(_prefab).Release(_instance);

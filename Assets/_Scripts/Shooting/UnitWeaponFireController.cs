@@ -61,8 +61,6 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private WeaponFireMode m_DebugEffectiveFireMode = WeaponFireMode.SemiAuto;
 	[SerializeField, Range(0f, 1f)] private float m_DebugCurrentAimProgress;
 	[SerializeField, Min(0f)] private float m_DebugLastBarrelAimErrorDegrees;
-	[Tooltip("Писать в консоль причину блокировки огня (не чаще ~1 раза/с).")]
-	[SerializeField] private bool m_LogFireBlockReasons;
 	#endregion
 
 	#region Private Fields
@@ -71,8 +69,6 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private float m_NextOutOfAmmoReloadAttemptTime;
 	private bool m_SemiShotConsumedForCurrentTrigger;
 	private Transform m_LastVisibleTargetForFire;
-	private string m_LastBlockReason;
-	private float m_LastBlockLogTime;
 	#endregion
 
 	#region Public Properties
@@ -163,134 +159,38 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	public bool ShouldHoldVirtualTrigger()
 	{
-		string blockReason = null;
-
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
-		{
-			blockReason = "WeaponRuntime/RuntimeState is null";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (!IsConscious())
-		{
-			blockReason = "Not conscious";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (m_WeaponRuntime.CurrentWeaponDefinition == null)
-		{
-			blockReason = "No weapon definition";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
 		bool canEventuallyFire = rs.HasRoundInChamber || (rs.HasMagazine && rs.HasAmmoInMagazine);
 		if (!canEventuallyFire)
-		{
-			blockReason = $"No ammo: inChamber={rs.HasRoundInChamber} hasMag={rs.HasMagazine} ammoInMag={rs.HasAmmoInMagazine}";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
-		{
-			bool equippedAndReady = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
-			bool wantsReady = m_ReadyHands != null && m_ReadyHands.WantsReady;
-			blockReason = $"Weapon not ready to fire (equippedAndReady={equippedAndReady} wantsReady={wantsReady})";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (m_BusyState != null &&
 		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
 		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
 		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
-		{
-			blockReason = $"Busy: reload={m_BusyState.HasReason(UnitBusyState.BusyReason.Reload)} stabilize={m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization)} stabilizeOther={m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)}";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
-		{
-			blockReason = "Reload controller busy";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
 		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
-		{
-			bool hasRawTarget = m_Vision != null && m_Vision.VisibleTarget != null;
-			string targetName = hasRawTarget ? m_Vision.VisibleTarget.name : "none";
-			blockReason = $"No engageable target | visibleTarget={targetName} distance={GetTargetDistanceStr()}";
-			LogFireBlock(blockReason);
 			return false;
-		}
 
-        EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
 		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
-
-		if (ShouldRequireAimProgressForNextShot() && !HasRequiredAimProgress(transientState))
-		{
-			float current = transientState != null ? transientState.AimProgress01 : 0f;
-			float required = GetRequiredAimProgressForLog();
-			WeaponAimMode aimMode = GetCurrentAimModeForLog();
-			string targetName = m_Vision != null && m_Vision.VisibleTarget != null ? m_Vision.VisibleTarget.name : "?";
-			blockReason = $"AimProgress too low | target='{targetName}' dist={GetTargetDistanceStr()} current={current:F2} required={required:F2} mode={aimMode} fireMode={ResolveEffectiveFireMode()}";
-			LogFireBlock(blockReason);
-			return false;
-		}
-
-		// All checks passed
-		m_LastBlockReason = null;
-		return true;
-	}
-
-	private void LogFireBlock(string _reason)
-	{
-		if (!m_LogFireBlockReasons)
-		{
-			m_LastBlockReason = _reason;
-			return;
-		}
-
-		if (_reason == m_LastBlockReason && Time.time - m_LastBlockLogTime < 0.8f)
-			return;
-
-		m_LastBlockReason = _reason;
-		m_LastBlockLogTime = Time.time;
-		Debug.Log($"[FireBlock] {name}: {_reason}", this);
-	}
-
-	private string GetTargetDistanceStr()
-	{
-		float dist = EstimateTargetDistanceMeters();
-		if (m_Vision == null || m_Vision.VisibleTarget == null)
-			return $"{dist:F1}m (no target)";
-		return $"{dist:F1}m";
-	}
-
-	private float GetRequiredAimProgressForLog()
-	{
-		WeaponAimMode effectiveAimMode = m_HitscanShooting != null &&
-			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
-			? selection.EffectiveAimMode
-			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
-		return WeaponAimModeUtility.GetRequiredAimProgress01(
-			effectiveAimMode,
-			EstimateTargetDistanceMeters(),
-			EstimateFullAimTimeSeconds());
-	}
-
-	private WeaponAimMode GetCurrentAimModeForLog()
-	{
-		return m_HitscanShooting != null &&
-			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
-			? selection.EffectiveAimMode
-			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
+		return IsAimedEnoughToFire();
 	}
 
 	public WeaponFireMode ResolveEffectiveFireMode()

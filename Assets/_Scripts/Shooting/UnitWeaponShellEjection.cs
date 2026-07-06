@@ -70,15 +70,15 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 			return;
 
 		WeaponVfxProfile profile = WeaponVfxUtility.GetCurrentProfile(m_WeaponRuntime);
-		if (profile != null && !profile.UsePhysicalShellEjection)
-			return;
-
 		GameObject prefab = _ammo.ShellPrefab;
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		if (weapon == null)
 			return;
 
 		if (!WeaponVfxUtility.TryGetShellEjectionPose(weapon, out Vector3 pos, out Vector3 dir))
+			return;
+
+		if (!WeaponVfxUtility.ShouldUsePhysicalShellEjection(profile, pos))
 			return;
 
 		float speed = _ammo.ShellEjectSpeed + Random.Range(-_ammo.ShellEjectSpeedVariance, _ammo.ShellEjectSpeedVariance);
@@ -99,7 +99,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 		}
 
 		Quaternion rot = Random.rotationUniform;
-		behaviour.ActivateFromPool(pool, shell, m_ImpactAudio, _ammo, pos, rot, vel, angVel);
+		behaviour.ActivateFromPool(pool, shell, m_ImpactAudio, _ammo, pos, rot, vel, angVel, transform);
 	}
 
 	private ObjectPool<GameObject> GetOrCreatePool(GameObject _prefab)

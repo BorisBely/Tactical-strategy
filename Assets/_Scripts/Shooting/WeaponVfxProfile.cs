@@ -25,6 +25,23 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Min(0.01f)] private float m_ShellParticleScale = 2f;
 	[SerializeField] private Vector3 m_ShellPrefabEjectionAxis = Vector3.right;
 	[SerializeField] private Vector3 m_ShellLocalEulerOffset;
+	[Tooltip("Hybrid: ближе этой дистанции до active camera — физическая гильза с mesh и звуком падения; дальше — только particle FX.")]
+	[SerializeField, Min(0f)] private float m_HybridPhysicalShellDistanceMeters = 18f;
+
+	[Header("Bullet Flight")]
+	[SerializeField] private bool m_EnableBulletFlight = true;
+	[SerializeField] private GameObject m_BulletFlightPrefab;
+	[Tooltip("Общий множитель scale корня FX (ширина/высота/длина streak).")]
+	[SerializeField, Min(0.01f)] private float m_BulletFlightScale = 1f;
+	[Tooltip("Дополнительный множитель длины streak вдоль локальной оси Z prefab.")]
+	[SerializeField, Min(0.01f)] private float m_BulletFlightLengthScale = 0.2f;
+	[Tooltip("Множитель к AmmoDefinition.Velocity только для визуала. Меньше 1 = медленнее полёт, заметнее на близкой дистанции.")]
+	[SerializeField, Range(0.05f, 2f)] private float m_BulletVisualSpeedMultiplier = 0.35f;
+	[Tooltip("Минимальная длительность полёта, чтобы пуля была заметна вблизи.")]
+	[SerializeField, Min(0f)] private float m_BulletMinFlightSeconds = 0.045f;
+	[Tooltip("Ограничение длительности полёта на дальних дистанциях.")]
+	[SerializeField, Min(0.01f)] private float m_BulletMaxFlightSeconds = 0.85f;
+	[SerializeField] private bool m_ShowBulletFlightOnMiss = true;
 
 	[Header("Body Impact FX")]
 	[SerializeField] private bool m_EnableBodyImpactFx = true;
@@ -58,11 +75,22 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public WeaponShellEjectionVisualMode ShellEjectionMode => m_ShellEjectionMode;
 	public bool UseParticleShellEjection => m_ShellEjectionMode == WeaponShellEjectionVisualMode.Particle;
 	public bool UsePhysicalShellEjection => m_ShellEjectionMode == WeaponShellEjectionVisualMode.Physical;
+	public bool UseHybridShellEjection => m_ShellEjectionMode == WeaponShellEjectionVisualMode.Hybrid;
 	public GameObject ShellParticlePrefab => m_ShellParticlePrefab;
 	public float ShellParticleLifetimeSeconds => m_ShellParticleLifetimeSeconds;
 	public float ShellParticleScale => m_ShellParticleScale;
 	public Vector3 ShellPrefabEjectionAxis => m_ShellPrefabEjectionAxis;
 	public Vector3 ShellLocalEulerOffset => m_ShellLocalEulerOffset;
+	public float HybridPhysicalShellDistanceMeters => m_HybridPhysicalShellDistanceMeters;
+
+	public bool EnableBulletFlight => m_EnableBulletFlight;
+	public GameObject BulletFlightPrefab => m_BulletFlightPrefab;
+	public float BulletFlightScale => m_BulletFlightScale;
+	public float BulletFlightLengthScale => m_BulletFlightLengthScale;
+	public float BulletVisualSpeedMultiplier => m_BulletVisualSpeedMultiplier;
+	public float BulletMinFlightSeconds => m_BulletMinFlightSeconds;
+	public float BulletMaxFlightSeconds => m_BulletMaxFlightSeconds;
+	public bool ShowBulletFlightOnMiss => m_ShowBulletFlightOnMiss;
 
 	public bool EnableBodyImpactFx => m_EnableBodyImpactFx;
 	public GameObject ArmorDeflectImpactPrefab => m_ArmorDeflectImpactPrefab;
@@ -82,6 +110,24 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	#endregion
 
 	#region Public Methods
+	public float ComputeBulletFlightSeconds(float _distanceMeters, float _ammoVelocityMetersPerSecond)
+	{
+		float distance = Mathf.Max(0f, _distanceMeters);
+		if (distance <= 0.0001f)
+			return 0f;
+
+		float velocity = Mathf.Max(0.1f, _ammoVelocityMetersPerSecond) * Mathf.Max(0.05f, m_BulletVisualSpeedMultiplier);
+		float seconds = distance / velocity;
+
+		if (m_BulletMinFlightSeconds > 0f)
+			seconds = Mathf.Max(seconds, m_BulletMinFlightSeconds);
+
+		if (m_BulletMaxFlightSeconds > 0f)
+			seconds = Mathf.Min(seconds, m_BulletMaxFlightSeconds);
+
+		return seconds;
+	}
+
 	public GameObject PickRandomConcreteImpactDecal()
 	{
 		if (m_ConcreteImpactDecalPrefabs == null || m_ConcreteImpactDecalPrefabs.Length == 0)

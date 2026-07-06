@@ -12,10 +12,10 @@ public sealed class ShootingRangeManager : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private ShootingRangeTargetRegistry m_TargetRegistry;
-	[SerializeField] private string m_TargetNamePattern = @"^Cube(10|20|30|40|50|60|70|80|90|100)$";
-	[SerializeField, Min(1)] private int m_HitsToDefeat = 10;
+	[SerializeField] private string m_TargetNamePattern = @"^Sphere(10|20|30|40|50|60|70|80|90|100)$";
 	[SerializeField, Min(10f)] private float m_PlayerVisionRange = 120f;
 	[SerializeField] private bool m_AutoDiscoverTargetsOnAwake = true;
+	[SerializeField] private bool m_StartWithTargetsEnabled = true;
 	[SerializeField] private int m_TargetLayer = 8;
 
 	[Header("Player Unit Rank")]
@@ -30,7 +30,6 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 	#region Public Properties
 	public IReadOnlyList<ShootingRangeTarget> Targets => m_Targets;
-	public int HitsToDefeat => m_HitsToDefeat;
 	#endregion
 
 	#region Public Events
@@ -61,6 +60,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		}
 
 		RefreshTargetList();
+		SetAllTargetsEnabled(m_StartWithTargetsEnabled);
 		NotifyShootingRangeUi();
 	}
 
@@ -113,6 +113,15 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		RequestVisionRescanForPlayers();
 	}
 
+	public void ResetAllTargetsHealth()
+	{
+		for (int i = 0; i < m_Targets.Count; i++)
+		{
+			if (m_Targets[i] != null)
+				m_Targets[i].ResetTargetHealth();
+		}
+	}
+
 	public void SetAllTargetsEnabled(bool _enabled)
 	{
 		for (int i = 0; i < m_Targets.Count; i++)
@@ -133,6 +142,23 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		RequestVisionRescanForPlayers();
 	}
 
+	public void ResetTargetHealth(ShootingRangeTarget _target)
+	{
+		if (_target == null)
+			return;
+
+		_target.ResetTargetHealth();
+	}
+
+	public void ToggleTarget(ShootingRangeTarget _target)
+	{
+		if (_target == null)
+			return;
+
+		_target.SetUserEnabled(!_target.IsUserEnabled);
+		RequestVisionRescanForPlayers();
+	}
+
 	public void SetTargetEnabled(ShootingRangeTarget _target, bool _enabled)
 	{
 		if (_target == null)
@@ -144,7 +170,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 	public bool TryGetTargetByDistanceMeters(int _distanceMeters, out ShootingRangeTarget _target)
 	{
-		string targetName = $"Cube{_distanceMeters}";
+		string targetName = $"Sphere{_distanceMeters}";
 		for (int i = 0; i < m_Targets.Count; i++)
 		{
 			ShootingRangeTarget candidate = m_Targets[i];
@@ -163,6 +189,18 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	{
 		if (TryGetTargetByDistanceMeters(_distanceMeters, out ShootingRangeTarget target))
 			ResetTarget(target);
+	}
+
+	public void ResetTargetHealthByDistanceMeters(int _distanceMeters)
+	{
+		if (TryGetTargetByDistanceMeters(_distanceMeters, out ShootingRangeTarget target))
+			ResetTargetHealth(target);
+	}
+
+	public void ToggleTargetByDistanceMeters(int _distanceMeters)
+	{
+		if (TryGetTargetByDistanceMeters(_distanceMeters, out ShootingRangeTarget target))
+			ToggleTarget(target);
 	}
 
 	public bool TryCyclePlayerUnitRank(out string _newRankLabel)
@@ -274,14 +312,25 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 		_go.layer = m_TargetLayer;
 
-		if (_go.GetComponent<BoxCollider>() == null)
-			_go.AddComponent<BoxCollider>();
+		SphereCollider sphereCollider = _go.GetComponent<SphereCollider>();
+		if (sphereCollider == null)
+		{
+			BoxCollider boxCollider = _go.GetComponent<BoxCollider>();
+			if (boxCollider != null)
+				Destroy(boxCollider);
+
+			sphereCollider = _go.AddComponent<SphereCollider>();
+		}
+
+		sphereCollider.radius = 0.5f;
+		sphereCollider.center = Vector3.zero;
 
 		ShootingRangeTarget target = _go.GetComponent<ShootingRangeTarget>();
 		if (target == null)
 			target = _go.AddComponent<ShootingRangeTarget>();
 
-		target.ResetTarget();
+		target.ResetTargetHealth();
+		target.SetUserEnabled(m_StartWithTargetsEnabled);
 	}
 
 	private void RefreshTargetList()
@@ -327,8 +376,8 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 		string name = _target.DisplayName;
 		if (name != null &&
-		    name.StartsWith("Cube") &&
-		    int.TryParse(name.Substring(4), out int distanceMeters))
+		    name.StartsWith("Sphere") &&
+		    int.TryParse(name.Substring(6), out int distanceMeters))
 		{
 			return distanceMeters;
 		}

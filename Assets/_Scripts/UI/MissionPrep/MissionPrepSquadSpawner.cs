@@ -38,6 +38,8 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 	[SerializeField] private bool m_DestroyRuntimeUiCellsWhenDisabled = true;
 	[SerializeField] private bool m_SpawnOnStart = true;
 	[SerializeField] private bool m_ClearCellBindingsBeforeSpawn = true;
+	[Tooltip("Каждый заспавненный юнит получает пресет с тем же индексом (0 = первый пресет каталога).")]
+	[SerializeField] private bool m_AssignPresetByUnitIndex = true;
 	[Tooltip("Не уничтожать player-юнитов при закрытии экрана mission prep.")]
 	[SerializeField] private bool m_DestroySpawnedWhenDisabled;
 	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(16);
@@ -123,8 +125,8 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		{
 			if (sharedStore != null && registry != null)
 			{
-				PrepareStandardPresetOnly(sharedStore, registry);
-				ApplyStandardPresetToSpawnedUnits();
+				PrepareBuiltInPresets(sharedStore, registry);
+				ApplyPresetsToSpawnedUnits();
 			}
 
 			RebindExistingSquad();
@@ -153,7 +155,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		if (sharedStore == null || registry == null)
 			return;
 
-		PrepareStandardPresetOnly(sharedStore, registry);
+		PrepareBuiltInPresets(sharedStore, registry);
 
 		int cellCount = m_UnitList.UnitCellCount;
 		if (cellCount <= 0)
@@ -175,8 +177,9 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 			DisableStarterLoadout(instance);
 			ApplyPlayerUnitRole(instance);
-			ConfigureUnitForStandardPreset(instance);
-			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(GenerateRandomCallsign());
+			int presetIndex = ResolvePresetIndexForUnit(i);
+			ConfigureUnitForPreset(instance, presetIndex);
+			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(ResolveCallsignForPreset(presetIndex));
 
 			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
 			if (cell != null)
@@ -200,17 +203,18 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		uiController?.RefreshPanelState();
 	}
 
-	private void PrepareStandardPresetOnly(MissionPrepSharedPresetStore _sharedStore, MissionPrepRuntimePresetRegistry _registry)
+	private void PrepareBuiltInPresets(MissionPrepSharedPresetStore _sharedStore, MissionPrepRuntimePresetRegistry _registry)
 	{
 		_registry.ClearAllUserPresets();
 
-		int builtInCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 1;
+		int builtInCount = ResolveBuiltInPresetCount();
 		_registry.ConfigureBuiltInPresetCount(builtInCount);
-		_sharedStore.EnsurePresetSnapshots(1);
-		_sharedStore.EnsureSnapshotDefaultsFromCatalog(c_StandardPresetIndex, m_PresetCatalog);
+		_sharedStore.EnsurePresetSnapshots(builtInCount);
+
+		_sharedStore.InitializeDefaultsFromCatalog(m_PresetCatalog, true);
 	}
 
-	private void ApplyStandardPresetToSpawnedUnits()
+	private void ApplyPresetsToSpawnedUnits()
 	{
 		PurgeNullSpawnedInstances();
 
@@ -218,22 +222,61 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		{
 			GameObject instance = m_SpawnedInstances[i];
 			if (instance != null)
-				ConfigureUnitForStandardPreset(instance);
+				ConfigureUnitForPreset(instance, ResolvePresetIndexForUnit(i));
 		}
 	}
 
-	private void ConfigureUnitForStandardPreset(GameObject _instance)
+	private int ResolveBuiltInPresetCount()
+	{
+		if (m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0)
+			return m_PresetCatalog.PresetCount;
+
+		return 1;
+	}
+
+	private int ResolvePresetIndexForUnit(int _unitIndex)
+	{
+		if (!m_AssignPresetByUnitIndex)
+			return c_StandardPresetIndex;
+
+		int presetCount = ResolveBuiltInPresetCount();
+		if (presetCount <= 0)
+			return c_StandardPresetIndex;
+
+		return Mathf.Clamp(_unitIndex, 0, presetCount - 1);
+	}
+
+	private string ResolveCallsignForPreset(int _presetIndex)
+	{
+		if (m_AssignPresetByUnitIndex && m_PresetCatalog != null)
+		{
+			string presetLabel = m_PresetCatalog.GetPresetLabel(_presetIndex);
+			if (!string.IsNullOrWhiteSpace(presetLabel))
+				return presetLabel;
+		}
+
+		return GenerateRandomCallsign();
+	}
+
+	private void ConfigureUnitForPreset(GameObject _instance, int _presetIndex)
 	{
 		if (_instance == null)
 			return;
 
-		MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(_instance, c_StandardPresetIndex);
-		presetState.SetActivePresetIndex(c_StandardPresetIndex, 1);
+		int presetCount = ResolveBuiltInPresetCount();
+		int clampedPresetIndex = Mathf.Clamp(_presetIndex, 0, Mathf.Max(presetCount - 1, 0));
+
+		MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(_instance, clampedPresetIndex);
+		presetState.SetActivePresetIndex(clampedPresetIndex, presetCount);
 
 		CharacterInventory inventory = _instance.GetComponentInChildren<CharacterInventory>(true);
 		if (inventory != null)
 		{
-			presetState.ApplyActivePresetToRuntime(inventory);
+			if (TryApplyCatalogPresetDirectly(inventory, clampedPresetIndex))
+				SyncSharedPresetFromInventory(clampedPresetIndex, inventory);
+			else
+				presetState.ApplyActivePresetToRuntime(inventory);
+
 			UnitWeaponRuntime weaponRuntime = inventory.GetComponentInChildren<UnitWeaponRuntime>(true);
 			if (weaponRuntime != null)
 			{
@@ -244,6 +287,40 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 		ApplyPresetVisualsToUnit(_instance, presetState);
 		UnitIndividualTraits.GetOrCreate(_instance);
+	}
+
+	private bool TryApplyCatalogPresetDirectly(CharacterInventory _inventory, int _presetIndex)
+	{
+		if (!m_AssignPresetByUnitIndex || m_PresetCatalog == null || _inventory == null)
+			return false;
+
+		MissionPrepEquipmentPresetCatalog.PresetEntry entry = m_PresetCatalog.GetPresetEntry(_presetIndex);
+		if (entry == null || !MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(entry))
+			return false;
+
+		MissionPrepPresetDefaultLoadoutUtility.ApplyPresetEntryToInventory(_inventory, entry);
+		return true;
+	}
+
+	private void SyncSharedPresetFromInventory(int _presetIndex, CharacterInventory _inventory)
+	{
+		if (_inventory == null || m_PresetCatalog == null)
+			return;
+
+		MissionPrepSharedPresetStore sharedStore = MissionPrepSharedPresetStore.GetOrCreate(this);
+		if (sharedStore == null)
+			return;
+
+		MissionPrepEquipmentPresetCatalog.PresetEntry entry = m_PresetCatalog.GetPresetEntry(_presetIndex);
+		int armorIndex = entry != null
+			? entry.DefaultArmorVisualIndex
+			: MissionPrepUnitArmorVisualController.LightArmorIndex;
+		sharedStore.SavePresetFromRuntime(_presetIndex, _inventory, armorIndex);
+	}
+
+	private void ConfigureUnitForStandardPreset(GameObject _instance)
+	{
+		ConfigureUnitForPreset(_instance, c_StandardPresetIndex);
 	}
 
 	private void RebindExistingSquad()

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -52,8 +53,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[Tooltip("Интервал пересчёта FormationSpeedMultiplier для активных групп (сек).")]
 	[SerializeField, Range(0.05f, 1f)] private float m_FormationSyncUpdateInterval = 0.25f;
 
+	[Header("Group Command Stagger")]
+	[Tooltip("Мин. дополнительная задержка между юнитами группы после базовой реакции (сек).")]
+	[SerializeField, Range(0f, 0.2f)] private float m_GroupCommandStaggerMin = 0.03f;
+	[Tooltip("Макс. дополнительная задержка между юнитами группы после базовой реакции (сек).")]
+	[SerializeField, Range(0f, 0.2f)] private float m_GroupCommandStaggerMax = 0.10f;
+
 	[Header("Destination Markers")]
 	[SerializeField] private GameObject m_DestinationMarkerPrefab;
+	[SerializeField, Min(0.1f)] private float m_ClickMarkerLifetimeSeconds = 1f;
 	[Tooltip("Маркер вдоль пути (каждые N метров).")]
 	[SerializeField] private GameObject m_PathMarkerPrefab;
 	[Tooltip("Интервал расстановки маркеров пути (метры).")]
@@ -74,7 +82,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_LeftMouseStartedOverUi;
 	private float m_LastRightClickTime = -1f;
 	private Coroutine m_ExchangeApproachCoroutine;
-	private Coroutine m_StaggerCoroutine;
 	private bool m_IsPreviewingMove;
 	private bool m_IsAwaitingDoubleClick;
 	private bool m_PreviewCancelled;
@@ -2103,6 +2110,77 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
+	private bool TryHandleLeftMouseGroundFacingCommand()
+	{
+		if (m_IsDraggingSelection)
+			return false;
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		if (validUnits.Count == 0)
+			return false;
+
+		bool shiftHeld = IsShiftHeld();
+		bool ctrlHeld = IsCtrlPressed();
+		if (!shiftHeld && !ctrlHeld)
+			return false;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
+
+		if (Physics.Raycast(ray, out RaycastHit unitHit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
+		{
+			RtsUnitMember clickedUnit = unitHit.collider.GetComponentInParent<RtsUnitMember>();
+			if (clickedUnit != null && clickedUnit.IsPlayerSelectable &&
+			    !MissionPrepSquadSpawner.IsMissionPrepPresentationMember(clickedUnit))
+				return false;
+		}
+
+		if (!Physics.Raycast(ray, out RaycastHit groundHit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return false;
+
+		Vector3 lookPoint = groundHit.point;
+		SpawnShortLivedClickMarker(lookPoint);
+
+		bool isGroup = validUnits.Count >= 2;
+		for (int i = 0; i < validUnits.Count; i++)
+		{
+			RtsUnitMember unit = validUnits[i];
+			if (unit == null)
+				continue;
+
+			bool unitMoving = unit.HasActiveMovementIntent;
+			bool withReady = shiftHeld || unitMoving;
+			bool trackLookPoint = shiftHeld && unitMoving;
+			float stagger = isGroup ? GetGroupCommandStaggerDelayForIndex(i) : 0f;
+			unit.IssueGroundLookCommand(lookPoint, withReady, trackLookPoint, stagger);
+		}
+
+		return true;
+	}
+
+	private void SpawnShortLivedClickMarker(Vector3 _worldPoint)
+	{
+		GameObject marker = CreatePreviewDestinationMarker();
+		if (marker == null)
+			return;
+
+		marker.name = "GroundClickMarker";
+		marker.transform.position = _worldPoint + Vector3.up * 0.05f;
+
+		Collider collider = marker.GetComponent<Collider>();
+		if (collider != null)
+			Destroy(collider);
+
+		StartCoroutine(DestroyClickMarkerAfter(marker, m_ClickMarkerLifetimeSeconds));
+	}
+
+	private static IEnumerator DestroyClickMarkerAfter(GameObject _marker, float _seconds)
+	{
+		yield return new WaitForSeconds(Mathf.Max(0.1f, _seconds));
+		if (_marker != null)
+			Destroy(_marker);
+	}
+
 	private void HandleLeftMouseSelection()
 	{
 		if (Mouse.current == null || m_SelectionCamera == null)
@@ -2200,6 +2278,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (m_LeftMouseStartedOverUi || IsPointerOverUi())
+		{
+			m_IsDraggingSelection = false;
+			m_LeftMouseStartedOverUi = false;
+			return;
+		}
+
+		if (TryHandleLeftMouseGroundFacingCommand())
 		{
 			m_IsDraggingSelection = false;
 			m_LeftMouseStartedOverUi = false;
@@ -4537,12 +4622,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				float? facing = (_facingAngles != null && i < _facingAngles.Count)
 					? _facingAngles[i]
 					: (float?)null;
+				float stagger = isGroup ? GetGroupCommandStaggerDelayForIndex(i) : 0f;
 				validUnits[i].IssueDirectMoveOrderWithWait(
 					_center + _offsets[i],
 					_moveTier,
 					facing,
 					facingMode,
-					waitGroup);
+					waitGroup,
+					_groupStaggerDelaySeconds: stagger);
 			}
 
 			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
@@ -4592,7 +4679,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			if (inPlaceFacing[i])
 			{
-				validUnits[i].IssueInPlaceFacingOrder(_facingAngles[i], facingMode);
+				float stagger = isGroup ? GetGroupCommandStaggerDelayForIndex(i) : 0f;
+				validUnits[i].IssueInPlaceFacingOrder(_facingAngles[i], facingMode, stagger);
 				continue;
 			}
 
@@ -4630,7 +4718,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (inPlaceFacing[i])
 				continue;
 
-			validUnits[i].IssueMoveOrder(_center + _offsets[i], _moveTier);
+			float moveStagger = isGroup ? GetGroupCommandStaggerDelayForIndex(i) : 0f;
+			validUnits[i].IssueMoveOrder(_center + _offsets[i], _moveTier, moveStagger);
 		}
 	}
 
@@ -4651,6 +4740,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector3? _lookPoint = null,
 		bool _activateAtSegmentStart = false)
 	{
+		bool useGroupStagger = _units.Count >= 2;
 		for (int i = 0; i < _units.Count && i < _offsets.Count; i++)
 		{
 			Vector3 dest = _center + _offsets[i];
@@ -4671,7 +4761,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				_facingMode,
 				waitGroup,
 				_lookPoint,
-				_activateAtSegmentStart);
+				_activateAtSegmentStart,
+				useGroupStagger ? GetGroupCommandStaggerDelayForIndex(i) : 0f);
 		}
 	}
 
@@ -4864,34 +4955,16 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_stance == LocomotionStance.Prone && !LocomotionProneFeature.Enabled)
 			return;
 
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit == null)
-				continue;
-			unit.RequestStance(_stance);
-		}
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.RequestStance(_stance, _stagger));
 	}
 
 	private void SetSelectedReady(bool _ready)
 	{
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit == null)
-				continue;
-			unit.SetReadyWanted(_ready);
-		}
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.SetReadyWanted(_ready, _stagger));
 	}
 
 	private void CommandSelectedHardStop()
 	{
-		if (m_StaggerCoroutine != null)
-		{
-			StopCoroutine(m_StaggerCoroutine);
-			m_StaggerCoroutine = null;
-		}
-
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
@@ -4904,50 +4977,62 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CommandSelectedManualMagazineLoading()
 	{
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit == null)
-				continue;
-
-			unit.StartManualMagazineLoading();
-		}
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartManualMagazineLoading(_stagger));
 	}
 
 	private void CommandSelectedWeaponReload()
 	{
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit == null)
-				continue;
-
-			unit.StartWeaponReload();
-		}
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartWeaponReload(_stagger));
 	}
 
 	private void CommandSelectedCycleWeaponFireMode()
 	{
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
-		{
-			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit == null)
-				continue;
-
-			unit.CycleWeaponFireMode();
-		}
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponFireMode(_stagger));
 	}
 
 	private void CommandSelectedCycleWeaponAimMode()
 	{
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponAimMode(_stagger));
+	}
+
+	private void ForEachSelectedUnitWithGroupStagger(Action<RtsUnitMember, float> _action)
+	{
+		if (_action == null)
+			return;
+
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		bool useGroupStagger = validUnits.Count >= 2;
+		for (int i = 0; i < validUnits.Count; i++)
 		{
-			RtsUnitMember unit = m_SelectedUnits[i];
+			RtsUnitMember unit = validUnits[i];
 			if (unit == null)
 				continue;
 
-			unit.CycleWeaponAimMode();
+			float stagger = useGroupStagger ? GetGroupCommandStaggerDelayForIndex(i) : 0f;
+			_action(unit, stagger);
 		}
+	}
+
+	private float SampleGroupCommandStaggerDelay()
+	{
+		if (m_GroupCommandStaggerMax <= 0f)
+			return 0f;
+
+		float minDelay = Mathf.Max(0f, m_GroupCommandStaggerMin);
+		float maxDelay = Mathf.Max(minDelay, m_GroupCommandStaggerMax);
+		return UnityEngine.Random.Range(minDelay, maxDelay);
+	}
+
+	private float GetGroupCommandStaggerDelayForIndex(int _unitIndex)
+	{
+		if (_unitIndex <= 0 || m_GroupCommandStaggerMax <= 0f)
+			return 0f;
+
+		float totalDelay = 0f;
+		for (int i = 0; i < _unitIndex; i++)
+			totalDelay += SampleGroupCommandStaggerDelay();
+
+		return totalDelay;
 	}
 
 	private void CycleSelectedFormation()
@@ -5406,10 +5491,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		_inventory.GetDropWorldPose(out Vector3 position, out Quaternion rotation);
 		position += Vector3.up * 0.08f;
 		// Не использовать Instantiate<GameObject>: у битой ссылки на префаб (неверный fileID в .asset) generic бросает InvalidCastException.
-		Object prefabObj = definition.DropWorldPrefab;
+		UnityEngine.Object prefabObj = definition.DropWorldPrefab;
 		if (prefabObj == null)
 			return null;
-		Object instanceObj = Object.Instantiate(prefabObj, position, rotation);
+		UnityEngine.Object instanceObj = UnityEngine.Object.Instantiate(prefabObj, position, rotation);
 		GameObject go = instanceObj as GameObject;
 		if (go == null && instanceObj is Component instanceComp)
 			go = instanceComp.gameObject;
@@ -5657,8 +5742,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		string hintText = m_SelectedUnits.Count >= 2
-			? "ПКМ — перемещение · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — смотреть в точку · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
-			: "ПКМ — перемещение · потянуть ПКМ — направление · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
+			? "ПКМ — перемещение · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — смотреть в точку · Ctrl+ЛКМ — взгляд · Shift+ЛКМ — готов + взгляд · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
+			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+ЛКМ — взгляд · Shift+ЛКМ — готов + взгляд · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
 		const float pad = 10f;
 		const float height = 34f;
 

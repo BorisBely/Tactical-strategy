@@ -7613,6 +7613,7 @@ GameObject:
   - component: {fileID: 8082661923994252123}
   - component: {fileID: 731300000000000001}
   - component: {fileID: 731300000000000002}
+  - component: {fileID: 731300000000000006}
   - component: {fileID: 731300000000000003}
   - component: {fileID: 3544168995589682661}
   - component: {fileID: 2876543210987654320}
@@ -8604,6 +8605,22 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_DefaultPoolCapacity: 24
   m_MaxPoolSize: 96
+--- !u!114 &731300000000000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41f50c1d20f4b5a9e0b7c7e89a10006, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponBulletFlightVfx
+  m_HitscanShooting: {fileID: 430373704858629585}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_DefaultPoolCapacity: 16
+  m_MaxPoolSize: 64
 --- !u!114 &731300000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0

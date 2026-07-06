@@ -2,6 +2,11 @@ using UnityEngine;
 
 public static class WeaponVfxUtility
 {
+	#region Private Fields
+	private static Camera s_CachedMainCamera;
+	#endregion
+
+	#region Public Methods
 	public static WeaponVfxProfile GetCurrentProfile(UnitWeaponRuntime _runtime)
 	{
 		WeaponDefinition weaponDefinition = _runtime != null ? _runtime.CurrentWeaponDefinition : null;
@@ -72,6 +77,40 @@ public static class WeaponVfxUtility
 		return rotation;
 	}
 
+	public static bool ShouldUsePhysicalShellEjection(WeaponVfxProfile _profile, Vector3 _shellWorldPosition)
+	{
+		if (_profile == null)
+			return true;
+
+		if (_profile.UsePhysicalShellEjection)
+			return true;
+
+		if (!_profile.UseHybridShellEjection)
+			return false;
+
+		float distance = Mathf.Max(0f, _profile.HybridPhysicalShellDistanceMeters);
+		if (distance <= 0f)
+			return false;
+
+		Camera camera = ResolveActiveCamera();
+		if (camera == null)
+			return false;
+
+		return (_shellWorldPosition - camera.transform.position).sqrMagnitude <= distance * distance;
+	}
+
+	/// <summary>Particle FX: чистый Particle или Hybrid на дистанции от камеры.</summary>
+	public static bool ShouldUseParticleShellEjection(WeaponVfxProfile _profile, Vector3 _shellWorldPosition)
+	{
+		if (_profile == null)
+			return false;
+
+		if (_profile.UseParticleShellEjection)
+			return true;
+
+		return _profile.UseHybridShellEjection && !ShouldUsePhysicalShellEjection(_profile, _shellWorldPosition);
+	}
+
 	public static void PlayParticleSystems(GameObject _root)
 	{
 		if (_root == null)
@@ -103,10 +142,15 @@ public static class WeaponVfxUtility
 		ParticleSystem[] systems = _instance.GetComponentsInChildren<ParticleSystem>(true);
 		for (int i = 0; i < systems.Length; i++)
 		{
-			ParticleSystem.MainModule main = systems[i].main;
+			ParticleSystem system = systems[i];
+			ParticleSystem.MainModule main = system.main;
 			main.loop = false;
 			main.playOnAwake = false;
 			main.stopAction = ParticleSystemStopAction.None;
+			main.simulationSpace = ParticleSystemSimulationSpace.World;
+			main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+			system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+			system.Clear(true);
 		}
 	}
 
@@ -137,5 +181,31 @@ public static class WeaponVfxUtility
 
 		return false;
 	}
+	#endregion
 
+	#region Private Methods
+	private static Camera ResolveActiveCamera()
+	{
+		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
+			return s_CachedMainCamera;
+
+		s_CachedMainCamera = Camera.main;
+		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
+			return s_CachedMainCamera;
+
+		Camera[] cameras = Camera.allCameras;
+		for (int i = 0; i < cameras.Length; i++)
+		{
+			Camera camera = cameras[i];
+			if (camera != null && camera.isActiveAndEnabled)
+			{
+				s_CachedMainCamera = camera;
+				return s_CachedMainCamera;
+			}
+		}
+
+		s_CachedMainCamera = null;
+		return null;
+	}
+	#endregion
 }

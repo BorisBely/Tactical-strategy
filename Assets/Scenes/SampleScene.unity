@@ -10135,14 +10135,14 @@ GameObject:
   - component: {fileID: 1032073190}
   - component: {fileID: 1032073189}
   m_Layer: 6
-  m_Name: Cube20
+  m_Name: Sphere20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1032073189
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1032073189
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -10160,7 +10160,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1032073190
 MeshRenderer:
@@ -10218,7 +10218,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1032073188}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1032073192
 Transform:
   m_ObjectHideFlags: 0
@@ -12670,6 +12670,7 @@ MonoBehaviour:
   m_StandUpNavSpeedAnimatorCeiling: 0.042
   m_RotateSpeed: 6
   m_FacingTargetYawSmoothTime: 0.18
+  m_ManualFacingTargetConeHalfAngle: 30
   m_SteadyAnimatorLocomotionWhileEngagingAndFiring: 1
   m_SteadyLocomotionRequiresFireCommand: 1
   m_SteadyLocomotionOnlyWhenNearlyStationary: 1
@@ -13523,7 +13524,7 @@ MonoBehaviour:
   m_PresetDropdown: {fileID: 1278898609}
   m_ArmorDropdown: {fileID: 0}
   m_CamouflageDropdown: {fileID: 0}
-  m_AppendCreateNewPresetEntry: 0
+  m_AppendCreateNewPresetEntry: 1
   m_AutoResolveArmorDropdownInUi: 1
   m_FallbackStubPresetRows: 1
 --- !u!114 &1278898609
@@ -13641,11 +13642,203 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionPrepEquipmentPresetCatalog
   m_Presets:
-  - m_DisplayName: Standard
-    m_LocalizationKey: mission_prep.equipment.preset.standard
+  - m_DisplayName: AK47
+    m_LocalizationKey: 
     m_DefaultArmorVisualIndex: 1
     m_WeaponItem: {fileID: 11400000, guid: d5f9a2b34c6e7f809293b4c5d6e7f809, type: 2}
-    m_HeadItem: {fileID: 11400000, guid: 1bc0a7bd18300e34684838075dec899d, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: AK47_1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 2a8d67a7932049d583af7d456a63cbfa, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: AK47MOD1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 2106f4d7c7fa46898bfb37aa471b698e, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: AK47S
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: bb804a75dd8145b99b7f8975d57fec8b, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 10c73be3a8da3c44fbb5cbef83e2c127, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: RPK47
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 9e1d6c07976144b791d00ca4bc3340be, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a067512bb17c4a841982de081c11aecb, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: RPK47MOD1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 65ec6d5d2dc649c2bb5a07fbde756a32, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a067512bb17c4a841982de081c11aecb, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
+  - m_DisplayName: AK74
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 8b7c4cc535174966b7dec072e9d2bd21, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 6efee77fed4758444a0f68c48d611993, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: AK74MOD1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 281e5fdbbf9249ebadb018d75a7f8533, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 6efee77fed4758444a0f68c48d611993, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: AK74U
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 80fe59bcbc634710b5f76052c109a778, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 6efee77fed4758444a0f68c48d611993, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: AK74UMOD1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: b86df04732784a289cf10baeca9dd412, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: 6efee77fed4758444a0f68c48d611993, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: RPK74
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 007c8395f59d47139da183e96fafda85, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: f8072fd977cdda9419909399b390697e, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: RPK74MOD1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 9312e5dea2ab4fb9aa24a063eaa02f37, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: f8072fd977cdda9419909399b390697e, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+    - {fileID: 11400000, guid: e2b3c4d5e6789012345678abcdef0123, type: 2}
+  - m_DisplayName: M4 ModA 1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 90a9c8702fe69c4409e22a39a9bb173a, type: 2}
+    m_HeadItem: {fileID: 0}
     m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
     m_ExtraHeadItemsInBag: []
     m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
@@ -13657,13 +13850,86 @@ MonoBehaviour:
     m_AmmoBoxItems:
     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+  - m_DisplayName: M4 ModA 2
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: 9caa70c7b86a9e441816f7e1e827f2a0, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
     - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
-    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-    - {fileID: 11400000, guid: ba77ef26fc251c8448e05790c518a9d6, type: 2}
-    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-    - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
-    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
-    - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+  - m_DisplayName: M16A ModA 1
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: a2d29810a14d409ba268cd3ccfd79931, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+  - m_DisplayName: M16A4 ModA 2
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: a273772e13ab49a2b0d63be14fe7ffe1, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+  - m_DisplayName: MK12
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: d5689e04549543b4b00cf6df84ba7d29, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+  - m_DisplayName: MK18
+    m_LocalizationKey: 
+    m_DefaultArmorVisualIndex: 1
+    m_WeaponItem: {fileID: 11400000, guid: a3a7722bed9645e6ba70a6702cd7c1c2, type: 2}
+    m_HeadItem: {fileID: 0}
+    m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
+    m_ExtraHeadItemsInBag: []
+    m_MagazineItem: {fileID: 11400000, guid: a41ed279008cc914683e324614a4dd7b, type: 2}
+    m_AmmoForMagazine: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
+    m_SpareLoadedMagazinesInBag: 8
+    m_SpareEmptyMagazinesInBag: 0
+    m_RoundsPerMagazine: -1
+    m_PutLoadedMagazineInWeapon: 1
+    m_AmmoBoxItems:
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
+    - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
   m_ArmorOptions:
   - m_DisplayName: Light armor
     m_LocalizationKey: mission_prep.equipment.armor.light
@@ -15717,17 +15983,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e88d09b942aeba4187cbc3b771ea285, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionPrepSquadSpawner
-  m_SquadSize: 5
+  m_SquadSize: 18
   m_UnitPrefab: {fileID: 9176879924895076622, guid: 4dd9db64368f5e442ae4f0d35723eea3, type: 3}
   m_SpawnedUnitsParent: {fileID: 2100000002}
-  m_SpawnAnchor: {fileID: 0}
-  m_AutoSpawnPositionStep: {x: 2, y: 0, z: 0}
-  m_SpawnPoints:
-  - {fileID: 516148408}
-  - {fileID: 1550196469}
-  - {fileID: 1554441475}
-  - {fileID: 837186666}
-  - {fileID: 1674851954}
+  m_SpawnAnchor: {fileID: 2100000005}
+  m_AutoSpawnPositionStep: {x: 1.5882353, y: 0, z: 0}
+  m_SpawnPoints: []
   m_UnitList: {fileID: 1673433301}
   m_PresetCatalog: {fileID: 1278898612}
   m_UnitCellPrefab: {fileID: 7664748771902186152, guid: 322fa7196dd3d6e4db0dff5282dff212, type: 3}
@@ -15735,6 +15996,7 @@ MonoBehaviour:
   m_DestroyRuntimeUiCellsWhenDisabled: 1
   m_SpawnOnStart: 1
   m_ClearCellBindingsBeforeSpawn: 1
+  m_AssignPresetByUnitIndex: 1
   m_DestroySpawnedWhenDisabled: 0
 --- !u!4 &1518585069
 Transform:
@@ -17646,14 +17908,14 @@ GameObject:
   - component: {fileID: 1717102756}
   - component: {fileID: 1717102755}
   m_Layer: 6
-  m_Name: Cube10
+  m_Name: Sphere10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1717102755
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1717102755
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -17671,7 +17933,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1717102756
 MeshRenderer:
@@ -17729,7 +17991,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1717102754}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1717102758
 Transform:
   m_ObjectHideFlags: 0
@@ -20493,14 +20755,14 @@ GameObject:
   - component: {fileID: 1992022202}
   - component: {fileID: 1992022201}
   m_Layer: 6
-  m_Name: Cube30
+  m_Name: Sphere30
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022201
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022201
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -20518,7 +20780,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022202
 MeshRenderer:
@@ -20576,7 +20838,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022200}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022204
 Transform:
   m_ObjectHideFlags: 0
@@ -20605,14 +20867,14 @@ GameObject:
   - component: {fileID: 1992022212}
   - component: {fileID: 1992022211}
   m_Layer: 6
-  m_Name: Cube40
+  m_Name: Sphere40
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022211
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022211
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -20630,7 +20892,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022212
 MeshRenderer:
@@ -20688,7 +20950,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022210}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022214
 Transform:
   m_ObjectHideFlags: 0
@@ -20717,14 +20979,14 @@ GameObject:
   - component: {fileID: 1992022222}
   - component: {fileID: 1992022221}
   m_Layer: 6
-  m_Name: Cube50
+  m_Name: Sphere50
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022221
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022221
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -20742,7 +21004,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022222
 MeshRenderer:
@@ -20800,7 +21062,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022220}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022224
 Transform:
   m_ObjectHideFlags: 0
@@ -20829,14 +21091,14 @@ GameObject:
   - component: {fileID: 1992022232}
   - component: {fileID: 1992022231}
   m_Layer: 6
-  m_Name: Cube60
+  m_Name: Sphere60
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022231
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022231
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -20854,7 +21116,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022232
 MeshRenderer:
@@ -20912,7 +21174,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022230}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022234
 Transform:
   m_ObjectHideFlags: 0
@@ -20941,14 +21203,14 @@ GameObject:
   - component: {fileID: 1992022242}
   - component: {fileID: 1992022241}
   m_Layer: 6
-  m_Name: Cube70
+  m_Name: Sphere70
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022241
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022241
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -20966,7 +21228,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022242
 MeshRenderer:
@@ -21024,7 +21286,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022240}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022244
 Transform:
   m_ObjectHideFlags: 0
@@ -21053,14 +21315,14 @@ GameObject:
   - component: {fileID: 1992022252}
   - component: {fileID: 1992022251}
   m_Layer: 6
-  m_Name: Cube80
+  m_Name: Sphere80
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022251
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022251
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -21078,7 +21340,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022252
 MeshRenderer:
@@ -21136,7 +21398,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022250}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022254
 Transform:
   m_ObjectHideFlags: 0
@@ -21165,14 +21427,14 @@ GameObject:
   - component: {fileID: 1992022262}
   - component: {fileID: 1992022261}
   m_Layer: 6
-  m_Name: Cube90
+  m_Name: Sphere90
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022261
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022261
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -21190,7 +21452,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022262
 MeshRenderer:
@@ -21248,7 +21510,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022260}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022264
 Transform:
   m_ObjectHideFlags: 0
@@ -21277,14 +21539,14 @@ GameObject:
   - component: {fileID: 1992022272}
   - component: {fileID: 1992022271}
   m_Layer: 6
-  m_Name: Cube100
+  m_Name: Sphere100
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &1992022271
-BoxCollider:
+  m_IsActive: 1
+--- !u!135 &1992022271
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -21302,7 +21564,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1992022272
 MeshRenderer:
@@ -21360,7 +21622,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022270}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1992022274
 Transform:
   m_ObjectHideFlags: 0
@@ -21436,10 +21698,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShootingRangeManager
   m_TargetRegistry: {fileID: 1992023002}
-  m_TargetNamePattern: ^Cube(10|20|30|40|50|60|70|80|90|100)$
-  m_HitsToDefeat: 10
+  m_TargetNamePattern: ^Sphere(10|20|30|40|50|60|70|80|90|100)$
   m_PlayerVisionRange: 120
   m_AutoDiscoverTargetsOnAwake: 1
+  m_StartWithTargetsEnabled: 1
   m_TargetLayer: 8
   m_RankCycleOrder:
   - {fileID: 11400000, guid: c1a2b3d4e5f60718293a4b5c6d7e8f90, type: 2}
@@ -23040,7 +23302,7 @@ Transform:
   m_GameObject: {fileID: 2100000004}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 12.36, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

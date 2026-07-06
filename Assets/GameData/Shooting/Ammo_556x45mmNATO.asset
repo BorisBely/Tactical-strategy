@@ -29,7 +29,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   m_ShellImpactMinSpeed: 0.35
-  m_ShellImpactSounds: []
+  m_ShellImpactSounds:
+  - {fileID: 8300000, guid: 3737ca4b89bdc3f4e83d916f018b8dee, type: 3}
+  - {fileID: 8300000, guid: 7eb0a5fdc52e0a54382f4f09366c388c, type: 3}
+  - {fileID: 8300000, guid: 22984e43cac25474e835d11ab9a30dd8, type: 3}
+  - {fileID: 8300000, guid: 8232a5c62d8f7584d83fb9338ce8d5d8, type: 3}
+  - {fileID: 8300000, guid: cbaa41fb340a738418b2609d64c74422, type: 3}
   m_ShellImpactVolume: 0.55
   m_ShellLifetimeAfterImpactSeconds: 3
   m_ShellMaxAirborneSeconds: 12
