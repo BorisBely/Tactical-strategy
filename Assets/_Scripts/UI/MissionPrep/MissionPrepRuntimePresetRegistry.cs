@@ -102,6 +102,15 @@ public sealed class MissionPrepRuntimePresetRegistry : MonoBehaviour
 		m_BuiltInPresetCount = Mathf.Max(0, _builtInPresetCount);
 	}
 
+	public void ClearAllUserPresets()
+	{
+		if (m_UserPresets == null || m_UserPresets.Count == 0)
+			return;
+
+		m_UserPresets.Clear();
+		RegistryChanged?.Invoke();
+	}
+
 	public bool IsUserPreset(int _presetIndex)
 	{
 		return _presetIndex >= BuiltInPresetCount;
@@ -211,6 +220,25 @@ public sealed class MissionPrepRuntimePresetRegistry : MonoBehaviour
 		m_UserPresets.RemoveAt(userIndex);
 		RegistryChanged?.Invoke();
 		return true;
+	}
+
+	/// <summary>
+	/// Создаёт user-presets до нужного количества слотов (например, по одному на каждого player-юнита).
+	/// </summary>
+	public void EnsureMinimumPresetCount(
+		int _minimumCount,
+		MissionPrepEquipmentPresetCatalog _catalog,
+		MissionPrepSharedPresetStore _sharedStore)
+	{
+		_minimumCount = Mathf.Max(0, _minimumCount);
+		while (TotalPresetCount < _minimumCount)
+		{
+			string proposedName = $"Player-{TotalPresetCount + 1:D2}";
+			if (!TryCreateUserPreset(proposedName, _catalog, out _, out _))
+				break;
+
+			_sharedStore?.EnsurePresetSnapshots(TotalPresetCount);
+		}
 	}
 	#endregion
 }

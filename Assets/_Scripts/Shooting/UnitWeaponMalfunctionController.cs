@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 /// <summary>
 /// Отказы и клины: двухканальная вероятность (износ / загрязнение, взаимоисключающе),
@@ -24,11 +23,6 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 	[Header("Передёргивание при клине (аниматор)")]
 	[Tooltip("После конца клипа затвора IsCyclingBolt сбрасывается в false; перед следующим rack ждём столько секунд, чтобы граф успел выйти в исходное состояние и снова принять переход по true. 0 = только конец кадра.")]
 	[SerializeField, Min(0f)] private float m_MalfunctionBoltRearmDelaySeconds = 0.08f;
-
-	[Header("Звук клина в момент «выстрела» (щелчок без выстрела)")]
-	[Tooltip("Один клип для лёгкого и тяжёлого клина. Позиция — ствол (или корень юнита).")]
-	[FormerlySerializedAs("m_LightMalfunctionClickSound")]
-	[SerializeField] private AudioClip m_MalfunctionClickSound;
 
 	[Header("Отладка")]
 	[SerializeField] private string m_DebugLastJamRoll;
@@ -517,10 +511,14 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 
 	private void PlayMalfunctionEntrySound()
 	{
-		if (m_MalfunctionClickSound == null)
+		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
+		if (weaponDefinition == null || !weaponDefinition.TryPickMalfunctionClickSound(out AudioClip clip))
 			return;
 
-		AudioSource.PlayClipAtPoint(m_MalfunctionClickSound, GetBarrelOrUnitWorldPosition(), 1f);
+		AudioSource.PlayClipAtPoint(
+			clip,
+			GetBarrelOrUnitWorldPosition(),
+			weaponDefinition.MalfunctionClickSoundVolume);
 	}
 
 	private Vector3 GetBarrelOrUnitWorldPosition()

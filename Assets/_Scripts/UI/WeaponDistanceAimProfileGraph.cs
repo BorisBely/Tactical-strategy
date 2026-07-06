@@ -23,6 +23,14 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	private const float c_DefaultMaxRecoilPreviewShot = 12f;
 	private const int c_MinRecoilPreviewSampleCount = 192;
 	private const float c_MinLineLengthSqr = 0.0001f;
+
+	// Mission Prep static Y-axis bounds — derived from Tools/scan_graph_quality_bounds.py over all weapons + mods.
+	private const float c_MissionPrepAccuracyMinQuality = 0.20f;
+	private const float c_MissionPrepAccuracyMaxQuality = 2.00f;
+	private const float c_MissionPrepAimMinQuality = 0.10f;
+	private const float c_MissionPrepAimMaxQuality = 1.55f;
+	private const float c_MissionPrepRecoilMinQuality = 0.02f;
+	private const float c_MissionPrepRecoilMaxQuality = 3.25f;
 	#endregion
 
 	#region Serialized Fields
@@ -258,13 +266,21 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 			EvaluatePreviewAimSpeedQuality,
 			m_MinDistanceMeters,
 			m_MaxDistanceMeters);
+		bool hasComparisonPreview = hasAccuracyPreview || hasAimTimePreview;
+		Color equippedLineColor = hasComparisonPreview ? m_CurrentLineColor : m_PreviewLineColor;
 		bool useAttachmentOnlyOpticScale = IsAttachmentOnlyOpticPreview();
+		// Keep equipped curve scale stable while comparing — preview must not rescale the baseline.
+		bool includePreviewInQualityBounds = !hasCurrentLoadout && hasComparisonPreview;
+		bool includePreviewInDistanceBounds = !hasCurrentLoadout;
 		ComputeDisplayBounds(
+			graphRect,
 			showAccuracy,
 			showAimTime,
 			hasCurrentLoadout,
-			hasAccuracyPreview,
-			hasAimTimePreview,
+			includePreviewInQualityBounds && hasAccuracyPreview,
+			includePreviewInQualityBounds && hasAimTimePreview,
+			includePreviewInDistanceBounds && hasAccuracyPreview,
+			includePreviewInDistanceBounds && hasAimTimePreview,
 			useRecoilMode,
 			useAttachmentOnlyOpticScale,
 			out float minDistanceMeters,
@@ -275,7 +291,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		int accuracySampleCount = GetCurveSampleCount(useRecoilMode);
 		if (hasCurrentLoadout && m_ShowAccuracy && showAccuracy)
 		{
-			DrawCurve(_vh, graphRect, evaluateCurrentAccuracy, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
+			DrawCurve(_vh, graphRect, evaluateCurrentAccuracy, equippedLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
 			if (hasAccuracyPreview)
 				DrawCurve(_vh, graphRect, evaluatePreviewAccuracy, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality, accuracySampleCount);
 		}
@@ -286,7 +302,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 
 		if (hasCurrentLoadout && m_ShowAimSpeed && showAimTime)
 		{
-			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, m_CurrentLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
+			DrawCurve(_vh, graphRect, EvaluateCurrentAimSpeedQuality, equippedLineColor, m_LineWidth, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 			if (hasAimTimePreview)
 				DrawCurve(_vh, graphRect, EvaluatePreviewAimSpeedQuality, m_PreviewLineColor, m_LineWidth * m_PreviewLineWidthMultiplier, minDistanceMeters, maxDistanceMeters, minQuality, maxQuality);
 		}
@@ -438,11 +454,13 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		}
 	}
 
+	private bool UseMissionPrepStaticBounds => m_AutoBindMissionPrepSelection;
+
 	private bool ShouldAutoFitQualityScale =>
-		m_AutoFitQualityScale || m_AutoBindMissionPrepSelection;
+		m_AutoFitQualityScale && !UseMissionPrepStaticBounds;
 
 	private bool ShouldAutoFitDistanceRange =>
-		m_AutoFitDistanceRange || m_AutoBindMissionPrepSelection;
+		m_AutoFitDistanceRange && !UseMissionPrepStaticBounds;
 
 	private bool IsRecoilPreviewActive()
 	{
@@ -490,11 +508,14 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	}
 
 	private void ComputeDisplayBounds(
+		Rect _graphRect,
 		bool _showAccuracy,
 		bool _showAimTime,
 		bool _hasCurrentLoadout,
 		bool _hasAccuracyPreview,
 		bool _hasAimTimePreview,
+		bool _includeAccuracyPreviewInDistanceBounds,
+		bool _includeAimTimePreviewInDistanceBounds,
 		bool _useRecoilAccuracy,
 		bool _useAttachmentOnlyOpticScale,
 		out float _minDistanceMeters,
@@ -509,9 +530,18 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 			_hasAccuracyPreview,
 			_hasAimTimePreview,
 			_useRecoilAccuracy,
-			out System.Func<float, float>[] evaluators);
+			out System.Func<float, float>[] qualityEvaluators);
 
-		if (evaluators.Length == 0)
+		CollectActiveEvaluators(
+			_showAccuracy,
+			_showAimTime,
+			_hasCurrentLoadout,
+			_includeAccuracyPreviewInDistanceBounds && _hasAccuracyPreview,
+			_includeAimTimePreviewInDistanceBounds && _hasAimTimePreview,
+			_useRecoilAccuracy,
+			out System.Func<float, float>[] distanceEvaluators);
+
+		if (qualityEvaluators.Length == 0)
 		{
 			_minDistanceMeters = m_MinDistanceMeters;
 			_maxDistanceMeters = m_MaxDistanceMeters;
@@ -520,34 +550,62 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 			return;
 		}
 
-		float minQuality = float.PositiveInfinity;
-		float maxQuality = float.NegativeInfinity;
 		float sampleMin = _useRecoilAccuracy ? m_MinRecoilPreviewShot : m_MinDistanceMeters;
 		float sampleMax = _useRecoilAccuracy ? m_MaxRecoilPreviewShot : m_MaxDistanceMeters;
 		int sampleCount = Mathf.Max(2, GetCurveSampleCount(_useRecoilAccuracy));
-		for (int i = 0; i < sampleCount; i++)
-		{
-			float t = sampleCount <= 1 ? 0f : i / (float)(sampleCount - 1);
-			float distance = Mathf.Lerp(sampleMin, sampleMax, t);
-			for (int j = 0; j < evaluators.Length; j++)
-				IncludeQualitySample(evaluators[j](distance), ref minQuality, ref maxQuality);
-		}
+		float minQuality = float.PositiveInfinity;
+		float maxQuality = float.NegativeInfinity;
+		SampleEvaluatorRange(
+			distanceEvaluators.Length > 0 ? distanceEvaluators : qualityEvaluators,
+			sampleMin,
+			sampleMax,
+			sampleCount,
+			ref minQuality,
+			ref maxQuality);
 
 		if (!_useRecoilAccuracy &&
 		    !_useAttachmentOnlyOpticScale &&
 		    ShouldAutoFitDistanceRange &&
+		    distanceEvaluators.Length > 0 &&
 		    minQuality <= maxQuality)
-			ComputeAutoFitDistanceRange(evaluators, minQuality, maxQuality, out _minDistanceMeters, out _maxDistanceMeters);
+		{
+			ComputeAutoFitDistanceRange(distanceEvaluators, minQuality, maxQuality, out _minDistanceMeters, out _maxDistanceMeters);
+		}
 		else
 		{
 			_minDistanceMeters = sampleMin;
 			_maxDistanceMeters = sampleMax;
 		}
 
+		minQuality = float.PositiveInfinity;
+		maxQuality = float.NegativeInfinity;
+		SampleEvaluatorRange(
+			qualityEvaluators,
+			_minDistanceMeters,
+			_maxDistanceMeters,
+			sampleCount,
+			ref minQuality,
+			ref maxQuality);
+
+		if (UseMissionPrepStaticBounds)
+		{
+			ResolveMissionPrepStaticQualityBounds(_useRecoilAccuracy, out _minQuality, out _maxQuality);
+			ApplyLineWidthQualityPadding(_graphRect, ref _minQuality, ref _maxQuality);
+			return;
+		}
+
 		if (_useAttachmentOnlyOpticScale)
 		{
 			_minQuality = m_MinDisplayedQuality;
 			_maxQuality = m_MaxDisplayedQuality;
+			ExpandQualityBoundsToFitEvaluators(
+				qualityEvaluators,
+				_minDistanceMeters,
+				_maxDistanceMeters,
+				sampleCount,
+				ref _minQuality,
+				ref _maxQuality);
+			ApplyLineWidthQualityPadding(_graphRect, ref _minQuality, ref _maxQuality);
 			return;
 		}
 
@@ -557,7 +615,83 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 		{
 			_minQuality = m_MinDisplayedQuality;
 			_maxQuality = m_MaxDisplayedQuality;
+			ExpandQualityBoundsToFitEvaluators(
+				qualityEvaluators,
+				_minDistanceMeters,
+				_maxDistanceMeters,
+				sampleCount,
+				ref _minQuality,
+				ref _maxQuality);
 		}
+
+		ApplyLineWidthQualityPadding(_graphRect, ref _minQuality, ref _maxQuality);
+	}
+
+	private void ResolveMissionPrepStaticQualityBounds(bool _useRecoilAccuracy, out float _minQuality, out float _maxQuality)
+	{
+		if (_useRecoilAccuracy)
+		{
+			_minQuality = c_MissionPrepRecoilMinQuality;
+			_maxQuality = c_MissionPrepRecoilMaxQuality;
+			return;
+		}
+
+		if (m_Metric == WeaponDistanceAimGraphMetric.AimTime)
+		{
+			_minQuality = c_MissionPrepAimMinQuality;
+			_maxQuality = c_MissionPrepAimMaxQuality;
+			return;
+		}
+
+		_minQuality = c_MissionPrepAccuracyMinQuality;
+		_maxQuality = c_MissionPrepAccuracyMaxQuality;
+	}
+
+	private static void SampleEvaluatorRange(
+		System.Func<float, float>[] _evaluators,
+		float _domainMin,
+		float _domainMax,
+		int _sampleCount,
+		ref float _minQuality,
+		ref float _maxQuality)
+	{
+		for (int i = 0; i < _sampleCount; i++)
+		{
+			float t = _sampleCount <= 1 ? 0f : i / (float)(_sampleCount - 1);
+			float domainValue = Mathf.Lerp(_domainMin, _domainMax, t);
+			for (int j = 0; j < _evaluators.Length; j++)
+				IncludeQualitySample(_evaluators[j](domainValue), ref _minQuality, ref _maxQuality);
+		}
+	}
+
+	private void ExpandQualityBoundsToFitEvaluators(
+		System.Func<float, float>[] _evaluators,
+		float _domainMin,
+		float _domainMax,
+		int _sampleCount,
+		ref float _minQuality,
+		ref float _maxQuality)
+	{
+		float minQuality = float.PositiveInfinity;
+		float maxQuality = float.NegativeInfinity;
+		SampleEvaluatorRange(_evaluators, _domainMin, _domainMax, _sampleCount, ref minQuality, ref maxQuality);
+		if (minQuality > maxQuality)
+			return;
+
+		_minQuality = Mathf.Min(_minQuality, minQuality);
+		_maxQuality = Mathf.Max(_maxQuality, maxQuality);
+	}
+
+	private void ApplyLineWidthQualityPadding(Rect _graphRect, ref float _minQuality, ref float _maxQuality)
+	{
+		float span = Mathf.Max(0.01f, _maxQuality - _minQuality);
+		float graphHeight = Mathf.Max(1f, _graphRect.height);
+		float maxLineWidth = m_LineWidth * m_PreviewLineWidthMultiplier;
+		float qualityPadding = span * (maxLineWidth / graphHeight);
+		_minQuality -= qualityPadding;
+		_maxQuality += qualityPadding;
+		_minQuality = Mathf.Max(0.01f, _minQuality);
+		_maxQuality = Mathf.Max(_minQuality + 0.01f, _maxQuality);
 	}
 
 	private void CollectActiveEvaluators(

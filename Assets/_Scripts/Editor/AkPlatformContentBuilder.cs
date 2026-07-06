@@ -236,6 +236,12 @@ public static class AkPlatformContentBuilder
 		var so = new SerializedObject(attachment);
 		attachment.name = _assetName;
 		so.FindProperty("m_RequiredSlot").enumValueIndex = (int)WeaponAttachmentSlotType.SideRail;
+		so.FindProperty("m_UseExplicitWeaponCompatibility").boolValue = true;
+		WeaponDefinition akWeapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(c_WeaponAkPath);
+		SerializedProperty weapons = so.FindProperty("m_CompatibleWeapons");
+		weapons.arraySize = akWeapon != null ? 1 : 0;
+		if (akWeapon != null)
+			weapons.GetArrayElementAtIndex(0).objectReferenceValue = akWeapon;
 		so.FindProperty("m_CompatibleSlots").arraySize = 1;
 		so.FindProperty("m_CompatibleSlots").GetArrayElementAtIndex(0).enumValueIndex = (int)WeaponAttachmentSlotType.SideRail;
 		var visual = AssetDatabase.LoadAssetAtPath<GameObject>(_visualPrefabPath);

@@ -6,7 +6,22 @@ public static class ItemWeightDefaults
 	{
 		{ "item.weapon.m4_moda_1", 3.0f },
 		{ "item.weapon.m4_moda_2", 3.1f },
+		{ "item.weapon.m16a_moda_1", 3.4f },
+		{ "item.weapon.m16a4_moda_2", 3.6f },
+		{ "item.weapon.mk12", 4.5f },
+		{ "item.weapon.mk18", 2.8f },
 		{ "item.weapon.ak47", 3.8f },
+		{ "item.weapon.ak47_1", 3.9f },
+		{ "item.weapon.ak47mod1", 4.1f },
+		{ "item.weapon.ak47s", 3.4f },
+		{ "item.weapon.ak74", 3.5f },
+		{ "item.weapon.ak74mod1", 3.8f },
+		{ "item.weapon.ak74u", 2.8f },
+		{ "item.weapon.ak74umod1", 3.1f },
+		{ "item.weapon.rpk47", 5.2f },
+		{ "item.weapon.rpk47mod1", 5.5f },
+		{ "item.weapon.rpk74", 4.8f },
+		{ "item.weapon.rpk74mod1", 5.1f },
 
 		{ "item.mag.m4_556_20", 0.5f },
 		{ "item.mag.m4_556_30", 0.7f },
@@ -52,6 +67,8 @@ public static class ItemWeightDefaults
 
 		{ "item.attachment.ak_silencer", 0.45f },
 		{ "item.attachment.ak_muzzle_brake", 0.18f },
+		{ "item.attachment.ak_silencer_545", 0.45f },
+		{ "item.attachment.ak_muzzle_brake_545", 0.18f },
 		{ "item.attachment.ak_reddot4_rail", 0.35f },
 		{ "item.attachment.ak_scope11", 0.55f },
 		{ "item.attachment.mosin_scope8", 0.7f },
@@ -69,6 +86,7 @@ public static class ItemWeightDefaults
 
 		{ "item.loot.ammo_box.556", 0.5f },
 		{ "item.loot.ammo_box.762", 0.6f },
+		{ "item.loot.ammo_box.545", 0.55f },
 
 		{ "item.backpack.1", 2.0f },
 		{ "item.backpack.2", 1.0f },

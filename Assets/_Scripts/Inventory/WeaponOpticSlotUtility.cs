@@ -8,7 +8,7 @@ public static class WeaponOpticSlotUtility
 {
 	public static bool HasAttachmentSlot(WeaponDefinition _weapon, WeaponAttachmentSlotType _slotType)
 	{
-		if (_weapon == null)
+		if (_weapon == null || !WeaponAttachmentSlotPolicy.IsSlotTypeEnabled(_weapon, _slotType))
 			return false;
 
 		WeaponAttachmentSlotDefinition[] slots = _weapon.AttachmentSlots;
@@ -85,6 +85,23 @@ public static class WeaponOpticSlotUtility
 		return !IsConflictingOpticSlotOccupied(_weapon, _weaponState, _slot.AttachmentSlotType);
 	}
 
+	public static int CountEquippedOpticAttachments(WeaponRuntimeState _weaponState)
+	{
+		if (_weaponState == null)
+			return 0;
+
+		WeaponDefinition weapon = _weaponState.WeaponDefinition;
+		if (weapon == null)
+			return 0;
+
+		int count = 0;
+		if (HasEquippedOpticInSlot(_weaponState, weapon, WeaponAttachmentSlotType.Optic))
+			count++;
+		if (HasEquippedOpticInSlot(_weaponState, weapon, WeaponAttachmentSlotType.SideRail))
+			count++;
+		return count;
+	}
+
 	public static void ClearConflictingOpticSlot(
 		WeaponDefinition _weapon,
 		WeaponAttachmentSlotType _installingSlotType,
@@ -125,5 +142,21 @@ public static class WeaponOpticSlotUtility
 			return false;
 
 		return attachments[slotIndex] != null;
+	}
+
+	private static bool HasEquippedOpticInSlot(
+		WeaponRuntimeState _weaponState,
+		WeaponDefinition _weapon,
+		WeaponAttachmentSlotType _slotType)
+	{
+		int slotIndex = FindWeaponSlotIndex(_weapon, _slotType);
+		if (slotIndex < 0)
+			return false;
+
+		WeaponAttachmentDefinition[] attachments = _weaponState.EquippedAttachments;
+		if (attachments == null || slotIndex >= attachments.Length || attachments[slotIndex] == null)
+			return false;
+
+		return attachments[slotIndex].AttachmentType == WeaponAttachmentType.Optic;
 	}
 }

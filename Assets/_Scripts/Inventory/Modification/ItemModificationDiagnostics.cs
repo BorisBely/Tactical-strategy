@@ -110,6 +110,12 @@ public static class ItemModificationDiagnostics
 		if (_slot.WeaponSlotIndex < 0)
 			return $"invalid weapon slot index {_slot.WeaponSlotIndex}";
 
+		if (!WeaponAttachmentSlotPolicy.IsModificationSlotEnabled(weapon, _slot))
+			return $"slot {_slot.AttachmentSlotType} is disabled for weapon '{weapon.name}'";
+
+		if (!WeaponAttachmentSlotPolicy.IsWeaponSlotEnabled(weapon, _slot.WeaponSlotIndex))
+			return $"weapon slot index {_slot.WeaponSlotIndex} is disabled for weapon '{weapon.name}'";
+
 		int railSocketIndex = ItemModificationUtility.ResolveRailSocketIndexForSlot(weapon, _slot);
 		if (!attachment.SupportsWeapon(weapon))
 			return $"attachment '{attachment.name}' not compatible with weapon '{weapon.name}' (SupportsWeapon=false, explicit={attachment.UseExplicitWeaponCompatibility})";
@@ -124,6 +130,11 @@ public static class ItemModificationDiagnostics
 
 			return $"attachment '{attachment.name}' rejected for slot {_slot.AttachmentSlotType} railIndex={railSocketIndex}";
 		}
+
+		if (attachment.AttachmentType == WeaponAttachmentType.Optic &&
+		    WeaponOpticSlotUtility.IsOpticSlotType(_slot.AttachmentSlotType) &&
+		    WeaponOpticSlotUtility.CountEquippedOpticAttachments(weaponState) >= 2)
+			return "weapon already has two optic mounts occupied (only one allowed)";
 
 		return AcceptedReason;
 	}

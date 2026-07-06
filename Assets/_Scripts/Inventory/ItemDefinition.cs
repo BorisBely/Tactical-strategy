@@ -81,6 +81,14 @@ public class ItemDefinition : ScriptableObject
 	[Tooltip("Данные аптечки: ёмкость ресурса и стоимость стабилизации по травмам.")]
 	[SerializeField] private MedkitDefinition m_MedkitDefinition;
 
+	[Header("Inventory Audio")]
+	[Tooltip("Добавление в инвентарь персонажа или экипировка в руку. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_InventoryAddSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_InventoryAddSoundVolume = 0.9f;
+	[Tooltip("Убирание из инвентаря персонажа (выброс на землю). Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_InventoryRemoveSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_InventoryRemoveSoundVolume = 0.85f;
+
 	#endregion
 
 	#region Public Properties
@@ -136,6 +144,8 @@ public class ItemDefinition : ScriptableObject
 	public MedkitDefinition MedkitDefinition => m_MedkitDefinition;
 	public bool IsMedkit => m_MedkitDefinition != null;
 	public int BackpackCapacity => m_BackpackCapacity;
+	public float InventoryAddSoundVolume => m_InventoryAddSoundVolume;
+	public float InventoryRemoveSoundVolume => m_InventoryRemoveSoundVolume;
 
 	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>
 	public float GetHeadBulletBlockChance()
@@ -177,5 +187,9 @@ public class ItemDefinition : ScriptableObject
 		_grenadeType = m_GrenadeType;
 		return IsGrenade;
 	}
+
+	public bool TryPickInventoryAddSound(out AudioClip _clip) => m_InventoryAddSounds.TryPickClip(out _clip);
+
+	public bool TryPickInventoryRemoveSound(out AudioClip _clip) => m_InventoryRemoveSounds.TryPickClip(out _clip);
 	#endregion
 }

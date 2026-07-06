@@ -61,7 +61,7 @@ public static class RailAttachmentDistanceCurveLibrary
 
 	/// <summary>Компактный ЛЦУ: лёгкий бонус точности до 15 м.</summary>
 	private static readonly RailDistanceCurves s_CompactLaser = Make("0–15 м",
-		new[] { K(0f, 0.92f), K(15f, 0.94f), K(25f, 1.00f), K(100f, 1.00f) });
+		new[] { K(0f, 0.90f), K(15f, 0.92f), K(25f, 1.00f), K(100f, 1.00f) });
 
 	/// <summary>Тактический ЛЦУ: лёгкий бонус точности до 25 м.</summary>
 	private static readonly RailDistanceCurves s_TacticalLaser = Make("0–25 м",

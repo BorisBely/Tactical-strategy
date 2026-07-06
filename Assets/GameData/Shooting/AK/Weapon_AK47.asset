@@ -42,19 +42,20 @@ MonoBehaviour:
   - SlotType: 2
     IsRequired: 0
     AnchorChildName: 
+  m_AttachmentSlotProfile: 1
   m_FireRateRpm: 600
   m_SemiAutoFireRateRpm: 0
-  m_AimTimeSeconds: 0.32
-  m_ReloadTimeSeconds: 2.4
-  m_EffectiveRangeMeters: 100
-  m_BaseShotDispersion: 1.15
+  m_AimTimeSeconds: 0.33
+  m_ReloadTimeSeconds: 2.45
+  m_EffectiveRangeMeters: 95
+  m_BaseShotDispersion: 1.18
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.75
+        value: 0.7234
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -63,7 +64,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 10
-        value: 0.82
+        value: 0.7703
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -72,7 +73,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 20
-        value: 0.9
+        value: 0.8119
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -81,7 +82,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 30
-        value: 1
+        value: 0.9184
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -90,7 +91,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 40
-        value: 1.12
+        value: 1.0551
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -99,7 +100,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 50
-        value: 1.26
+        value: 1.18
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -108,7 +109,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 60
-        value: 1.42
+        value: 1.4894
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -117,7 +118,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 70
-        value: 1.6
+        value: 1.7908
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -126,7 +127,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 80
-        value: 1.8
+        value: 2.1356
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -135,7 +136,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 90
-        value: 2.02
+        value: 2.536
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -144,7 +145,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 2.25
+        value: 2.9347
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -159,7 +160,7 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1.09
+        value: 0.96
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -168,7 +169,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 10
-        value: 1.42
+        value: 1.128
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -177,7 +178,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 20
-        value: 1.75
+        value: 1.296
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -186,7 +187,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 30
-        value: 2.08
+        value: 1.608
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -195,7 +196,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 40
-        value: 2.41
+        value: 2.064
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -204,7 +205,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 50
-        value: 2.74
+        value: 2.52
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -213,7 +214,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 60
-        value: 3.06
+        value: 3.032
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -222,7 +223,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 70
-        value: 3.39
+        value: 3.544
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -231,7 +232,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 80
-        value: 3.72
+        value: 4.052
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -240,7 +241,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 90
-        value: 4.05
+        value: 4.556
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -249,7 +250,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 4.38
+        value: 5.06
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -262,118 +263,98 @@ MonoBehaviour:
   m_AutoBurstSpreadMultiplierByShot:
     serializedVersion: 2
     m_Curve:
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 2
-      value: 1.15
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 3
-      value: 1.35
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 4
-      value: 1.65
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 5
-      value: 2
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 6
-      value: 2.35
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 7
-      value: 2.7
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 8
-      value: 3.05
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 9
-      value: 3.4
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 10
-      value: 3.75
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 3
+        value: 1.49
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 6
+        value: 2.72
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 10
+        value: 4.62
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  m_RecoilPerShot: 0.5
-  m_SemiAutoRecoilMultiplier: 0.85
-  m_AutoRecoilMultiplier: 1.25
-  m_RecoilRecoveryPerSecond: 3.5
+  m_RecoilPerShot: 0.54
+  m_SemiAutoRecoilMultiplier: 0.86
+  m_AutoRecoilMultiplier: 1.34
+  m_RecoilRecoveryPerSecond: 3.2
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12
-  m_FireSound: {fileID: 8300000, guid: bfab1c405ab111c4daf665a5d39351ab, type: 3}
+  m_FireSoundProfile:
+    m_FireClips:
+    - {fileID: 8300000, guid: 96434fb9d0ba9d14292e6d36365b6105, type: 3}
+    - {fileID: 8300000, guid: 245268b0b2a33fe4e9a4c408cf3847e2, type: 3}
+    - {fileID: 8300000, guid: 281bc55c831bbbf4988c238dddcfa67e, type: 3}
+    - {fileID: 8300000, guid: 7d84283298cdc324a8178122a73cf403, type: 3}
+    - {fileID: 8300000, guid: 8d6e7061cf1eb274e90f0ae132668092, type: 3}
+    m_MaxAudibleDistanceMeters: 125
   m_FireSoundVolume: 1
   m_FirePitchVariance: 0.04
-  m_FireModeSwitchSound: {fileID: 0}
+  m_FireModeSwitchSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 26c6943689d2192409bde405196bc53f, type: 3}
+    - {fileID: 8300000, guid: dd3e601c79eb96947bcc4bad75236fb3, type: 3}
   m_FireModeSwitchSoundVolume: 0.85
-  m_ReloadMagOutSound: {fileID: 0}
-  m_ReloadMagInSound: {fileID: 0}
-  m_BoltCycleSound: {fileID: 0}
+  m_ReloadMagOutSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 1c6a204a0e6007c40b201a6da5478ca9, type: 3}
+    - {fileID: 8300000, guid: def9941dc4665884b85fa08274c47b99, type: 3}
+    - {fileID: 8300000, guid: 7c589b2dc7df32143b7fb2310ae9b1ac, type: 3}
+    - {fileID: 8300000, guid: b3440f7c1cda7374683fa9f085a1626f, type: 3}
+    - {fileID: 8300000, guid: 21bdcf246a4335349bac41d68f81859e, type: 3}
+  m_ReloadMagInSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 9ed23e6ec2e7aac43bcc94821761a0ae, type: 3}
+    - {fileID: 8300000, guid: d57256dc33eb3df4da9a26b1f96ca77a, type: 3}
+    - {fileID: 8300000, guid: 17b94d1e9905f4343a2517ff0789c109, type: 3}
+    - {fileID: 8300000, guid: 72c74a39096ad2747b88ec3e49377e50, type: 3}
+  m_BoltCycleSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 169f28d310c3b564997c396ce394555f, type: 3}
+    - {fileID: 8300000, guid: 0588e8fc140b5804a820a7ce83a12ac9, type: 3}
+    - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
+    - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
   m_HasBoltHoldOpenDelay: 0
-  m_ReloadBoltHoldOpenDelaySound: {fileID: 0}
-  m_ReloadSoundsVolume: 1
+  m_ReloadBoltHoldOpenDelaySounds:
+    m_Clips: []
+  m_ReloadSoundsVolume: 0.5
+  m_MalfunctionClickSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: d7fc35c5f36149541aaa14c298df4636, type: 3}
+    - {fileID: 8300000, guid: 4dd11b639c1fe5c4581ecc69148712c3, type: 3}
+    - {fileID: 8300000, guid: 216cc2227d62b95419b199356fa1efcc, type: 3}
+    - {fileID: 8300000, guid: da2d74eab6f477c4a9e5c01b68a8965e, type: 3}
+  m_MalfunctionClickSoundVolume: 1
   m_VfxProfile: {fileID: 11400000, guid: a8d4f2b13c6e5d7091a2b3c4d5e6f708, type: 2}
-  m_Reliability: 0.8
+  m_Reliability: 0.86
   m_BaseDurability: 2000
   m_BaseFoulingBudget: 1500
   m_WearJamStartThreshold: 0

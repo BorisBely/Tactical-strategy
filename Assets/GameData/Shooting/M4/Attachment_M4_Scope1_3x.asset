@@ -21,14 +21,13 @@ MonoBehaviour:
   m_AimTimeModifier: 1.14
   m_EffectiveRangeModifier: 1.15
   m_RecoilModifier: 1
-  m_ReloadTimeModifier: 1
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1
+        value: 1.12
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -36,8 +35,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 30
-        value: 0.94
+        time: 15
+        value: 1.06
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -45,8 +44,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 35
-        value: 0.84
+        time: 20
+        value: 0.96
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -54,8 +53,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 45
-        value: 0.78
+        time: 40
+        value: 0.82
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -64,7 +63,16 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 55
-        value: 1
+        value: 0.88
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 75
+        value: 1.04
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -73,7 +81,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1
+        value: 1.12
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -88,7 +96,7 @@ MonoBehaviour:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1.14
+        value: 1.2
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -96,8 +104,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 30
-        value: 1.08
+        time: 15
+        value: 1.12
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -105,7 +113,16 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 45
+        time: 20
+        value: 1.04
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 40
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -115,7 +132,16 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 55
-        value: 1
+        value: 1.02
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 75
+        value: 1.08
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -124,7 +150,7 @@ MonoBehaviour:
         outWeight: 0
       - serializedVersion: 3
         time: 100
-        value: 1
+        value: 1.12
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -134,6 +160,7 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+  m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1

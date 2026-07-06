@@ -1,17 +1,18 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Спавн отряда на экране предмиссии: строки UI — из префаба ячейки (родитель = Content Scroll View) и/или из массива в <see cref="MissionPrepUnitListView"/>.
-/// Точки спавна юнитов в мире опциональны; если массив пуст — позиции <c>m_SpawnAnchor.position + i * m_AutoSpawnPositionStep</c>.
-/// Rank icon and preset label are left untouched. Display names are random placeholders until a real unit profile exists in the project.
-/// Заспавненные корни регистрируются как «только витрина»: отключаются ввод движения/стоек/готов, <see cref="UnitVision"/>;
-/// <see cref="RtsUnitSelectionManager"/> не выделяет таких юнитов (инвентарь по выбору к ним не привязывается).
+/// Спавн player-отряда для mission prep: каждый юнит получает свой preset index и runtime-инвентарь из snapshot.
+/// Изменения пресета или инвентаря в UI сразу применяются к юнитам через <see cref="MissionPrepLoadoutCoordinator"/>.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(-50)]
 public sealed class MissionPrepSquadSpawner : MonoBehaviour
 {
 	#region Constants
+	private const int c_StandardPresetIndex = 0;
+
 	private static readonly HashSet<GameObject> s_PresentationUnitRoots = new HashSet<GameObject>();
 
 	private static readonly string[] s_CallSignPrefixes =
@@ -23,10 +24,11 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 	#region Private Fields
 	[SerializeField, Min(1)] private int m_SquadSize = 5;
 	[SerializeField] private GameObject m_UnitPrefab;
+	[Tooltip("Родитель заспавненных юнитов в мире. Должен быть на активном объекте сцены.")]
 	[SerializeField] private Transform m_SpawnedUnitsParent;
 	[SerializeField] private Transform m_SpawnAnchor;
 	[SerializeField] private Vector3 m_AutoSpawnPositionStep = new Vector3(2f, 0f, 0f);
-	[SerializeField] private Transform[] m_SpawnPoints = System.Array.Empty<Transform>();
+	[SerializeField] private Transform[] m_SpawnPoints = Array.Empty<Transform>();
 	[SerializeField] private MissionPrepUnitListView m_UnitList;
 	[SerializeField] private MissionPrepEquipmentPresetCatalog m_PresetCatalog;
 	[Header("UI cells (optional)")]
@@ -36,9 +38,11 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 	[SerializeField] private bool m_DestroyRuntimeUiCellsWhenDisabled = true;
 	[SerializeField] private bool m_SpawnOnStart = true;
 	[SerializeField] private bool m_ClearCellBindingsBeforeSpawn = true;
-	[SerializeField] private bool m_DestroySpawnedWhenDisabled = true;
+	[Tooltip("Не уничтожать player-юнитов при закрытии экрана mission prep.")]
+	[SerializeField] private bool m_DestroySpawnedWhenDisabled;
 	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(16);
 	private readonly List<GameObject> m_RuntimeCellInstances = new List<GameObject>(16);
+	private static bool s_SceneLoadSpawnHandled;
 	#endregion
 
 	#region Unity Lifecycle
@@ -61,6 +65,27 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		if (m_DestroyRuntimeUiCellsWhenDisabled)
 			ClearRuntimeUiCells();
 	}
+
+	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+	private static void TrySpawnSquadAfterSceneLoad()
+	{
+		if (s_SceneLoadSpawnHandled)
+			return;
+
+		MissionPrepSquadSpawner[] spawners = FindObjectsByType<MissionPrepSquadSpawner>(
+			FindObjectsInactive.Include,
+			FindObjectsSortMode.None);
+		for (int i = 0; i < spawners.Length; i++)
+		{
+			MissionPrepSquadSpawner spawner = spawners[i];
+			if (spawner == null || !spawner.m_SpawnOnStart)
+				continue;
+
+			spawner.SpawnAndBind();
+			s_SceneLoadSpawnHandled = true;
+			return;
+		}
+	}
 	#endregion
 
 	#region Public Methods
@@ -80,12 +105,6 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 	public void SpawnAndBind()
 	{
-		if (m_UnitPrefab == null)
-		{
-			Debug.LogWarning($"{nameof(MissionPrepSquadSpawner)} on {name}: assign Unit Prefab.", this);
-			return;
-		}
-
 		if (m_UnitList == null)
 		{
 			Debug.LogWarning($"{nameof(MissionPrepSquadSpawner)} on {name}: assign Unit List.", this);
@@ -95,18 +114,46 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		if (!TryEnsureUnitCellsReady())
 			return;
 
-		DestroySpawnedInstances();
+		PurgeNullSpawnedInstances();
+
+		MissionPrepSharedPresetStore sharedStore = MissionPrepSharedPresetStore.GetOrCreate(this);
+		MissionPrepRuntimePresetRegistry registry = MissionPrepRuntimePresetRegistry.GetOrCreate(this);
+
+		if (HasLiveSquad())
+		{
+			if (sharedStore != null && registry != null)
+			{
+				PrepareStandardPresetOnly(sharedStore, registry);
+				ApplyStandardPresetToSpawnedUnits();
+			}
+
+			RebindExistingSquad();
+			return;
+		}
+
+		if (m_UnitPrefab == null)
+		{
+			Debug.LogWarning($"{nameof(MissionPrepSquadSpawner)} on {name}: assign Unit Prefab.", this);
+			return;
+		}
 
 		if (m_ClearCellBindingsBeforeSpawn)
 			m_UnitList.ClearAllUnitBindings();
 
+		DestroySpawnedInstances();
+		SpawnPlayerSquad();
+	}
+	#endregion
+
+	#region Private Methods
+	private void SpawnPlayerSquad()
+	{
 		MissionPrepSharedPresetStore sharedStore = MissionPrepSharedPresetStore.GetOrCreate(this);
-		if (sharedStore != null)
-		{
-			int presetCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 2;
-			sharedStore.EnsurePresetSnapshots(presetCount);
-			sharedStore.EnsureDefaultsFromCatalog(m_PresetCatalog);
-		}
+		MissionPrepRuntimePresetRegistry registry = MissionPrepRuntimePresetRegistry.GetOrCreate(this);
+		if (sharedStore == null || registry == null)
+			return;
+
+		PrepareStandardPresetOnly(sharedStore, registry);
 
 		int cellCount = m_UnitList.UnitCellCount;
 		if (cellCount <= 0)
@@ -116,14 +163,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		}
 
 		int slots = Mathf.Min(m_SquadSize, cellCount);
-		if (slots < m_SquadSize)
-		{
-			Debug.LogWarning(
-				$"{nameof(MissionPrepSquadSpawner)} on {name}: squad size {m_SquadSize} > cells {cellCount}; spawning {slots}.",
-				this);
-		}
-
-		Transform parent = m_SpawnedUnitsParent != null ? m_SpawnedUnitsParent : transform;
+		Transform parent = ResolveActiveSpawnParent();
 
 		for (int i = 0; i < slots; i++)
 		{
@@ -132,25 +172,11 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 			GameObject instance = Instantiate(m_UnitPrefab, position, rotation, parent);
 			m_SpawnedInstances.Add(instance);
-			s_PresentationUnitRoots.Add(instance);
+
+			DisableStarterLoadout(instance);
 			ApplyPlayerUnitRole(instance);
-			ApplyPresentationLockdown(instance);
-			MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(instance, 0);
-
-			CharacterInventory inventory = instance.GetComponentInChildren<CharacterInventory>(true);
-			if (inventory != null)
-				presetState.ApplyActivePresetToRuntime(inventory);
-
-			MissionPrepUnitArmorVisualController.GetOrCreate(instance, presetState.ArmorVisualIndex);
-			UnitArmor armor = instance.GetComponent<UnitArmor>() ?? instance.AddComponent<UnitArmor>();
-			armor.SetArmorFromPresetIndex(presetState.ArmorVisualIndex);
-
-			UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(instance);
-			if (materialAppearance != null)
-				materialAppearance.SetCamouflageIndex(presetState.GetCamouflageForPreset(presetState.PresetCatalogIndex));
-
+			ConfigureUnitForStandardPreset(instance);
 			UnitRosterDisplayState.GetOrCreate(instance)?.SetCallsign(GenerateRandomCallsign());
-			UnitIndividualTraits.GetOrCreate(instance);
 
 			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
 			if (cell != null)
@@ -159,10 +185,139 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 				cell.SetInteractionEnabled(true);
 			}
 		}
-	}
-	#endregion
 
-	#region Private Methods
+		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
+	}
+
+	private void PrepareStandardPresetOnly(MissionPrepSharedPresetStore _sharedStore, MissionPrepRuntimePresetRegistry _registry)
+	{
+		_registry.ClearAllUserPresets();
+
+		int builtInCount = m_PresetCatalog != null && m_PresetCatalog.PresetCount > 0 ? m_PresetCatalog.PresetCount : 1;
+		_registry.ConfigureBuiltInPresetCount(builtInCount);
+		_sharedStore.EnsurePresetSnapshots(1);
+		_sharedStore.EnsureSnapshotDefaultsFromCatalog(c_StandardPresetIndex, m_PresetCatalog);
+	}
+
+	private void ApplyStandardPresetToSpawnedUnits()
+	{
+		PurgeNullSpawnedInstances();
+
+		for (int i = 0; i < m_SpawnedInstances.Count; i++)
+		{
+			GameObject instance = m_SpawnedInstances[i];
+			if (instance != null)
+				ConfigureUnitForStandardPreset(instance);
+		}
+	}
+
+	private void ConfigureUnitForStandardPreset(GameObject _instance)
+	{
+		if (_instance == null)
+			return;
+
+		MissionPrepUnitPresetState presetState = MissionPrepUnitPresetState.GetOrCreate(_instance, c_StandardPresetIndex);
+		presetState.SetActivePresetIndex(c_StandardPresetIndex, 1);
+
+		CharacterInventory inventory = _instance.GetComponentInChildren<CharacterInventory>(true);
+		if (inventory != null)
+		{
+			presetState.ApplyActivePresetToRuntime(inventory);
+			UnitWeaponRuntime weaponRuntime = inventory.GetComponentInChildren<UnitWeaponRuntime>(true);
+			if (weaponRuntime != null)
+				weaponRuntime.RefreshFromEquipment();
+		}
+
+		ApplyPresetVisualsToUnit(_instance, presetState);
+		UnitIndividualTraits.GetOrCreate(_instance);
+	}
+
+	private void RebindExistingSquad()
+	{
+		PurgeNullSpawnedInstances();
+
+		int slots = Mathf.Min(m_SquadSize, m_UnitList.UnitCellCount, m_SpawnedInstances.Count);
+		for (int i = 0; i < slots; i++)
+		{
+			GameObject unitRoot = m_SpawnedInstances[i];
+			if (unitRoot == null)
+				continue;
+
+			MissionPrepUnitCellView cell = m_UnitList.GetUnitCell(i);
+			if (cell == null)
+				continue;
+
+			UnitCellDisplayBinder.Apply(cell, unitRoot);
+			cell.SetInteractionEnabled(true);
+		}
+	}
+
+	private bool HasLiveSquad()
+	{
+		PurgeNullSpawnedInstances();
+		return m_SpawnedInstances.Count >= Mathf.Min(m_SquadSize, m_UnitList != null ? m_UnitList.UnitCellCount : m_SquadSize);
+	}
+
+	private void PurgeNullSpawnedInstances()
+	{
+		for (int i = m_SpawnedInstances.Count - 1; i >= 0; i--)
+		{
+			if (m_SpawnedInstances[i] == null)
+				m_SpawnedInstances.RemoveAt(i);
+		}
+	}
+
+	private Transform ResolveActiveSpawnParent()
+	{
+		if (m_SpawnedUnitsParent != null && m_SpawnedUnitsParent.gameObject.activeInHierarchy)
+			return m_SpawnedUnitsParent;
+
+		if (m_SpawnPoints != null)
+		{
+			for (int i = 0; i < m_SpawnPoints.Length; i++)
+			{
+				Transform spawnPoint = m_SpawnPoints[i];
+				if (spawnPoint == null)
+					continue;
+
+				Transform root = spawnPoint.root;
+				if (root != null && root.gameObject.activeInHierarchy)
+					return root;
+			}
+		}
+
+		return null;
+	}
+
+	private static void DisableStarterLoadout(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		CharacterInventoryStarterLoadout[] starters = _root.GetComponentsInChildren<CharacterInventoryStarterLoadout>(true);
+		for (int i = 0; i < starters.Length; i++)
+		{
+			CharacterInventoryStarterLoadout starter = starters[i];
+			if (starter != null)
+				starter.enabled = false;
+		}
+	}
+
+	private static void ApplyPresetVisualsToUnit(GameObject _unitRoot, MissionPrepUnitPresetState _presetState)
+	{
+		if (_unitRoot == null || _presetState == null)
+			return;
+
+		int armorIndex = _presetState.ArmorVisualIndex;
+		MissionPrepUnitArmorVisualController.GetOrCreate(_unitRoot, armorIndex).ApplyArmorVisual(armorIndex);
+		UnitArmor armor = _unitRoot.GetComponent<UnitArmor>() ?? _unitRoot.AddComponent<UnitArmor>();
+		armor.SetArmorFromPresetIndex(armorIndex);
+
+		UnitCharacterMaterialAppearance materialAppearance = UnitCharacterMaterialAppearance.GetOrCreate(_unitRoot);
+		if (materialAppearance != null)
+			materialAppearance.SetCamouflageIndex(_presetState.GetCamouflageForPreset(_presetState.PresetCatalogIndex));
+	}
+
 	private bool TryEnsureUnitCellsReady()
 	{
 		bool wantRuntimeCells = m_UnitCellPrefab != null && m_CellsContentParent != null;
@@ -210,7 +365,7 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 
 		m_RuntimeCellInstances.Clear();
 		if (m_UnitList != null)
-			m_UnitList.SetUnitCells(System.Array.Empty<MissionPrepUnitCellView>());
+			m_UnitList.SetUnitCells(Array.Empty<MissionPrepUnitCellView>());
 	}
 
 	private Vector3 GetSpawnPosition(int _index)
@@ -257,32 +412,10 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		configurator.ApplyConfiguration();
 	}
 
-	private static void ApplyPresentationLockdown(GameObject _root)
-	{
-		if (_root == null)
-			return;
-
-		UnitClickToMove clickToMove = _root.GetComponentInChildren<UnitClickToMove>(true);
-		if (clickToMove != null)
-			clickToMove.SetDirectInputEnabled(false);
-
-		UnitAnimatorStance stance = _root.GetComponentInChildren<UnitAnimatorStance>(true);
-		if (stance != null)
-			stance.SetKeyboardInputEnabled(false);
-
-		UnitWeaponReadyHandsLayer ready = _root.GetComponentInChildren<UnitWeaponReadyHandsLayer>(true);
-		if (ready != null)
-			ready.SetKeyboardInputEnabled(false);
-
-		UnitVision vision = _root.GetComponentInChildren<UnitVision>(true);
-		if (vision != null)
-			vision.enabled = false;
-	}
-
 	private static string GenerateRandomCallsign()
 	{
-		string prefix = s_CallSignPrefixes[Random.Range(0, s_CallSignPrefixes.Length)];
-		int number = Random.Range(10, 100);
+		string prefix = s_CallSignPrefixes[UnityEngine.Random.Range(0, s_CallSignPrefixes.Length)];
+		int number = UnityEngine.Random.Range(10, 100);
 		return $"{prefix}-{number:D2}";
 	}
 	#endregion

@@ -370,6 +370,22 @@
       "value": "M4 ModA 2"
     },
     {
+      "key": "item.weapon.m16a_moda_1",
+      "value": "M16A ModA 1"
+    },
+    {
+      "key": "item.weapon.m16a4_moda_2",
+      "value": "M16A4 ModA 2"
+    },
+    {
+      "key": "item.weapon.mk12",
+      "value": "MK12 Mod 1"
+    },
+    {
+      "key": "item.weapon.mk18",
+      "value": "MK18 Mod 1"
+    },
+    {
       "key": "item.mag.m4_556_20",
       "value": "Магазин 5.56×45 (20 патр.)"
     },
@@ -510,12 +526,64 @@
       "value": "АК-47"
     },
     {
+      "key": "item.weapon.ak47_1",
+      "value": "АК-47 с деревянным цевьём"
+    },
+    {
+      "key": "item.weapon.ak47mod1",
+      "value": "АК-47 тактический (Mod.1)"
+    },
+    {
+      "key": "item.weapon.ak47s",
+      "value": "АК-47С (складной приклад)"
+    },
+    {
+      "key": "item.weapon.ak74",
+      "value": "АК-74"
+    },
+    {
+      "key": "item.weapon.ak74mod1",
+      "value": "АК-74 тактический (Mod.1)"
+    },
+    {
+      "key": "item.weapon.ak74u",
+      "value": "АК-74У"
+    },
+    {
+      "key": "item.weapon.ak74umod1",
+      "value": "АК-74У тактический (Mod.1)"
+    },
+    {
+      "key": "item.weapon.rpk47",
+      "value": "РПК-47"
+    },
+    {
+      "key": "item.weapon.rpk47mod1",
+      "value": "РПК-47 тактический (Mod.1)"
+    },
+    {
+      "key": "item.weapon.rpk74",
+      "value": "РПК-74"
+    },
+    {
+      "key": "item.weapon.rpk74mod1",
+      "value": "РПК-74 тактический (Mod.1)"
+    },
+    {
       "key": "item.attachment.ak_silencer",
       "value": "Глушитель АК"
     },
     {
       "key": "item.attachment.ak_muzzle_brake",
       "value": "Дульный тормоз АК"
+    },
+    {
+      "key": "item.attachment.ak_silencer_545",
+      "value": "Глушитель АК (5.45x39)"
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake_545",
+      "value": "Дульный тормоз АК (5.45x39)"
     },
     {
       "key": "item.attachment.m4_muzzle_brake",
@@ -550,12 +618,60 @@
       "value": "Коробка патронов 7.62x39"
     },
     {
+      "key": "item.loot.ammo_box.545",
+      "value": "Коробка патронов 5.45x39"
+    },
+    {
       "key": "item.attachment.mosin_scope8",
       "value": "Стандартный снайперский прицел"
     },
     {
       "key": "item.weapon.ak47.desc",
       "value": "Винтовка АК-47 под патрон 7.62x39."
+    },
+    {
+      "key": "item.weapon.ak47_1.desc",
+      "value": "АК-47 с деревянным цевьём. Чуть лучше контроль отдачи."
+    },
+    {
+      "key": "item.weapon.ak47mod1.desc",
+      "value": "Тактический АК-47 с верхней и боковой планками под прицелы, слотами M4-модулей."
+    },
+    {
+      "key": "item.weapon.ak47s.desc",
+      "value": "АК-47 со складным прикладом. Быстрее прицеливание, но хуже контроль очереди."
+    },
+    {
+      "key": "item.weapon.ak74.desc",
+      "value": "АК-74 под патрон 5.45x39. Мягче отдача и выше скорострельность."
+    },
+    {
+      "key": "item.weapon.ak74mod1.desc",
+      "value": "Тактический АК-74 с планками под прицелы и M4-модули."
+    },
+    {
+      "key": "item.weapon.ak74u.desc",
+      "value": "Укороченный АК-74У. Лёгкий и быстрый в наводке, но хуже контроль."
+    },
+    {
+      "key": "item.weapon.ak74umod1.desc",
+      "value": "Тактический АК-74У с планками и слотами под M4-модули."
+    },
+    {
+      "key": "item.weapon.rpk47.desc",
+      "value": "Ручной пулемёт РПК-47 под 7.62x39. Тяжёлый, но устойчив в длинной очереди."
+    },
+    {
+      "key": "item.weapon.rpk47mod1.desc",
+      "value": "Тактический РПК-47 с планками под прицелы и M4-модули."
+    },
+    {
+      "key": "item.weapon.rpk74.desc",
+      "value": "Ручной пулемёт РПК-74 под 5.45x39."
+    },
+    {
+      "key": "item.weapon.rpk74mod1.desc",
+      "value": "Тактический РПК-74 с планками и слотами под M4-модули."
     },
     {
       "key": "item.weapon.m4_moda_1.desc",
@@ -566,12 +682,32 @@
       "value": "Конфигурация M4 с рельсовым цевьём, сменным прицелом и прикладом."
     },
     {
+      "key": "item.weapon.m16a_moda_1.desc",
+      "value": "M16A с оптикой на цельнике. Длиннее M4, без слота приклада."
+    },
+    {
+      "key": "item.weapon.m16a4_moda_2.desc",
+      "value": "M16A4 — марксманская винтовка с рельсовым цевьём. Полный набор слотов M4, кроме приклада."
+    },
+    {
+      "key": "item.weapon.mk12.desc",
+      "value": "MK12 Mod 1 — DMR с длинным стволом 5.56 и полным набором слотов модулей."
+    },
+    {
+      "key": "item.weapon.mk18.desc",
+      "value": "MK18 Mod 1 — укороченный CQB-карабин 5.56 с полным тактическим набором слотов M4."
+    },
+    {
       "key": "item.loot.ammo_box.556.desc",
       "value": "Коробка патронов 5.56x45."
     },
     {
       "key": "item.loot.ammo_box.762.desc",
       "value": "Коробка патронов 7.62x39."
+    },
+    {
+      "key": "item.loot.ammo_box.545.desc",
+      "value": "Коробка патронов 5.45x39."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -736,6 +872,14 @@
     {
       "key": "item.attachment.ak_muzzle_brake.desc",
       "value": "Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди."
+    },
+    {
+      "key": "item.attachment.ak_silencer_545.desc",
+      "value": "Тише выстрел для АК под 5.45x39. Утяжеляет оружие и ускоряет загрязнение."
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake_545.desc",
+      "value": "Дульный тормоз для АК под 5.45x39. Быстрее выводит оружие на одиночный точный выстрел, но ухудшает контроль длинной очереди."
     },
     {
       "key": "item.attachment.ak_reddot4_rail.desc",

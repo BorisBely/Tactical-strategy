@@ -63,9 +63,27 @@ public static class WeaponAutoModeSelectionUtility
 		accuracyInput.FireMode = _fireMode;
 		accuracyInput.SelectedAimMode = _input.SelectedAimMode;
 		accuracyInput.AimMode = _aimMode;
-		accuracyInput.AimProgress01 = WeaponAimModeUtility.GetRequiredAimProgress01(_aimMode, _input.TargetDistanceMeters);
+		float fullAimTimeSeconds = EstimateFullAimTimeSeconds(accuracyInput, _input.TargetDistanceMeters);
+		accuracyInput.AimProgress01 = WeaponAimModeUtility.GetRequiredAimProgress01(
+			_aimMode,
+			_input.TargetDistanceMeters,
+			fullAimTimeSeconds);
 		accuracyInput.BurstShotIndex = GetRepresentativeShotIndex(_fireMode);
 		return WeaponShotAccuracyEvaluator.Evaluate(accuracyInput);
+	}
+
+	private static float EstimateFullAimTimeSeconds(WeaponShotAccuracyInput _accuracyInput, float _targetDistanceMeters)
+	{
+		float weaponAimTimeSeconds = WeaponDistanceAimEvaluator.GetRequiredAimTimeSeconds(
+			_accuracyInput.WeaponDefinition,
+			_accuracyInput.WeaponState != null ? _accuracyInput.WeaponState.EquippedAttachments : null,
+			_targetDistanceMeters);
+		float multiplier = 1f;
+		if (_accuracyInput.CombatStats != null)
+			multiplier *= _accuracyInput.CombatStats.GetAimTimeMultiplier();
+		if (_accuracyInput.IndividualTraits != null)
+			multiplier *= _accuracyInput.IndividualTraits.GetAimTimeMultiplier();
+		return Mathf.Max(0.01f, weaponAimTimeSeconds * multiplier);
 	}
 
 	private static WeaponAutoModeSelectionResult CreateFallbackFromCandidates(

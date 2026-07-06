@@ -27,6 +27,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
 	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
+	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 
 	[Header("Fire Conditions")]
@@ -94,6 +95,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_BusyState = GetComponent<UnitBusyState>();
 		if (m_HitscanShooting == null)
 			m_HitscanShooting = GetComponent<UnitWeaponHitscanShooting>();
+		if (m_AimProgressController == null)
+			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_Consciousness == null)
@@ -276,7 +279,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
 			? selection.EffectiveAimMode
 			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
-		return WeaponAimModeUtility.GetRequiredAimProgress01(effectiveAimMode, EstimateTargetDistanceMeters());
+		return WeaponAimModeUtility.GetRequiredAimProgress01(
+			effectiveAimMode,
+			EstimateTargetDistanceMeters(),
+			EstimateFullAimTimeSeconds());
 	}
 
 	private WeaponAimMode GetCurrentAimModeForLog()
@@ -448,8 +454,25 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
 			? selection.EffectiveAimMode
 			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
-		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(effectiveAimMode, EstimateTargetDistanceMeters());
+		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
+			effectiveAimMode,
+			EstimateTargetDistanceMeters(),
+			EstimateFullAimTimeSeconds());
 		return _transientState.AimProgress01 >= requiredProgress;
+	}
+
+	private float EstimateFullAimTimeSeconds()
+	{
+		if (m_AimProgressController != null)
+			return Mathf.Max(0.01f, m_AimProgressController.CurrentAimTimeSeconds);
+
+		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
+			return 0.25f;
+
+		return Mathf.Max(0.01f, WeaponDistanceAimEvaluator.GetRequiredAimTimeSeconds(
+			m_WeaponRuntime.CurrentWeaponDefinition,
+			m_WeaponRuntime.RuntimeState != null ? m_WeaponRuntime.RuntimeState.EquippedAttachments : null,
+			EstimateTargetDistanceMeters()));
 	}
 
 	/// <summary>Burst/FullAuto: порог прицела только перед 1-м выстрелом серии; SemiAuto — каждый выстрел.</summary>

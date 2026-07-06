@@ -226,6 +226,22 @@
       "value": "M4 ModA 2"
     },
     {
+      "key": "item.weapon.m16a_moda_1",
+      "value": "M16A ModA 1"
+    },
+    {
+      "key": "item.weapon.m16a4_moda_2",
+      "value": "M16A4 ModA 2"
+    },
+    {
+      "key": "item.weapon.mk12",
+      "value": "MK12 Mod 1"
+    },
+    {
+      "key": "item.weapon.mk18",
+      "value": "MK18 Mod 1"
+    },
+    {
       "key": "item.mag.m4_556_20",
       "value": "5.56×45 magazine (20 rds)"
     },
@@ -366,12 +382,64 @@
       "value": "AK-47"
     },
     {
+      "key": "item.weapon.ak47_1",
+      "value": "AK-47 wooden handguard"
+    },
+    {
+      "key": "item.weapon.ak47mod1",
+      "value": "AK-47 tactical (Mod.1)"
+    },
+    {
+      "key": "item.weapon.ak47s",
+      "value": "AK-47S (folding stock)"
+    },
+    {
+      "key": "item.weapon.ak74",
+      "value": "AK-74"
+    },
+    {
+      "key": "item.weapon.ak74mod1",
+      "value": "AK-74 tactical (Mod.1)"
+    },
+    {
+      "key": "item.weapon.ak74u",
+      "value": "AK-74U"
+    },
+    {
+      "key": "item.weapon.ak74umod1",
+      "value": "AK-74U tactical (Mod.1)"
+    },
+    {
+      "key": "item.weapon.rpk47",
+      "value": "RPK-47"
+    },
+    {
+      "key": "item.weapon.rpk47mod1",
+      "value": "RPK-47 tactical (Mod.1)"
+    },
+    {
+      "key": "item.weapon.rpk74",
+      "value": "RPK-74"
+    },
+    {
+      "key": "item.weapon.rpk74mod1",
+      "value": "RPK-74 tactical (Mod.1)"
+    },
+    {
       "key": "item.attachment.ak_silencer",
       "value": "AK suppressor"
     },
     {
       "key": "item.attachment.ak_muzzle_brake",
       "value": "AK muzzle brake"
+    },
+    {
+      "key": "item.attachment.ak_silencer_545",
+      "value": "AK suppressor (5.45x39)"
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake_545",
+      "value": "AK muzzle brake (5.45x39)"
     },
     {
       "key": "item.attachment.m4_muzzle_brake",
@@ -406,12 +474,60 @@
       "value": "7.62x39 ammo box"
     },
     {
+      "key": "item.loot.ammo_box.545",
+      "value": "5.45x39 ammo box"
+    },
+    {
       "key": "item.attachment.mosin_scope8",
       "value": "Standard sniper scope"
     },
     {
       "key": "item.weapon.ak47.desc",
       "value": "AK-47 rifle chambered in 7.62x39."
+    },
+    {
+      "key": "item.weapon.ak47_1.desc",
+      "value": "AK-47 with wooden handguard. Slightly better recoil control."
+    },
+    {
+      "key": "item.weapon.ak47mod1.desc",
+      "value": "Tactical AK-47 with top and side optic rails plus M4 accessory slots."
+    },
+    {
+      "key": "item.weapon.ak47s.desc",
+      "value": "AK-47S with folding stock. Faster aim, weaker automatic control."
+    },
+    {
+      "key": "item.weapon.ak74.desc",
+      "value": "AK-74 chambered in 5.45x39. Lower recoil and higher rate of fire."
+    },
+    {
+      "key": "item.weapon.ak74mod1.desc",
+      "value": "Tactical AK-74 with rails and M4 accessory slots."
+    },
+    {
+      "key": "item.weapon.ak74u.desc",
+      "value": "Compact AK-74U. Lightweight and fast to aim, harder to control."
+    },
+    {
+      "key": "item.weapon.ak74umod1.desc",
+      "value": "Tactical AK-74U with rails and M4 accessory slots."
+    },
+    {
+      "key": "item.weapon.rpk47.desc",
+      "value": "RPK-47 light machine gun in 7.62x39. Heavy but stable in sustained fire."
+    },
+    {
+      "key": "item.weapon.rpk47mod1.desc",
+      "value": "Tactical RPK-47 with rails and M4 accessory slots."
+    },
+    {
+      "key": "item.weapon.rpk74.desc",
+      "value": "RPK-74 light machine gun in 5.45x39."
+    },
+    {
+      "key": "item.weapon.rpk74mod1.desc",
+      "value": "Tactical RPK-74 with rails and M4 accessory slots."
     },
     {
       "key": "item.weapon.m4_moda_1.desc",
@@ -422,12 +538,32 @@
       "value": "M4 configuration with railed handguard, replaceable optic and stock."
     },
     {
+      "key": "item.weapon.m16a_moda_1.desc",
+      "value": "M16A rifle with carry handle optic. Longer barrel than M4, no stock slot."
+    },
+    {
+      "key": "item.weapon.m16a4_moda_2.desc",
+      "value": "M16A4 marksman rifle with railed handguard. Full M4 accessory layout except stock."
+    },
+    {
+      "key": "item.weapon.mk12.desc",
+      "value": "MK12 Mod 1 DMR. Long-barrel 5.56 marksman rifle with full accessory layout."
+    },
+    {
+      "key": "item.weapon.mk18.desc",
+      "value": "MK18 Mod 1 CQB carbine. Short 5.56 rifle with full M4 tactical slots."
+    },
+    {
       "key": "item.loot.ammo_box.556.desc",
       "value": "5.56x45 ammo box."
     },
     {
       "key": "item.loot.ammo_box.762.desc",
       "value": "7.62x39 ammo box."
+    },
+    {
+      "key": "item.loot.ammo_box.545.desc",
+      "value": "5.45x39 ammo box."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -592,6 +728,14 @@
     {
       "key": "item.attachment.ak_muzzle_brake.desc",
       "value": "Faster recovery for accurate single shots, but worse control during long bursts."
+    },
+    {
+      "key": "item.attachment.ak_silencer_545.desc",
+      "value": "Quieter shots for 5.45x39 AK-series weapons. Adds weight and increases fouling."
+    },
+    {
+      "key": "item.attachment.ak_muzzle_brake_545.desc",
+      "value": "Muzzle brake for 5.45x39 AK-series weapons. Faster recovery for accurate single shots, but worse control during long bursts."
     },
     {
       "key": "item.attachment.ak_reddot4_rail.desc",

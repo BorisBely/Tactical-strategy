@@ -14,6 +14,7 @@ public static class MissionPrepAvailableEquipmentBaker
 	private const string c_DefaultMagazineAmmoPath = "Assets/GameData/Shooting/Ammo_762x39mm.asset";
 	private const string c_MagazineAmmo556Path = "Assets/GameData/Shooting/Ammo_556x45mmNATO.asset";
 	private const string c_MagazineAmmo762Path = "Assets/GameData/Shooting/Ammo_762x39mm.asset";
+	private const string c_MagazineAmmo545Path = "Assets/GameData/Shooting/Ammo_545x39mm.asset";
 
 	[MenuItem("Polygone/Mission Prep/Rebuild Available Equipment Set")]
 	public static void RebuildAvailableEquipmentSet()
@@ -30,6 +31,7 @@ public static class MissionPrepAvailableEquipmentBaker
 		AmmoDefinition magazineAmmo = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_DefaultMagazineAmmoPath);
 		AmmoDefinition magazineAmmo556 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo556Path);
 		AmmoDefinition magazineAmmo762 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo762Path);
+		AmmoDefinition magazineAmmo545 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo545Path);
 
 		var so = new SerializedObject(set);
 		SerializedProperty array = so.FindProperty("m_Items");
@@ -40,6 +42,7 @@ public static class MissionPrepAvailableEquipmentBaker
 		so.FindProperty("m_MagazineAmmo").objectReferenceValue = magazineAmmo;
 		so.FindProperty("m_MagazineAmmo556").objectReferenceValue = magazineAmmo556;
 		so.FindProperty("m_MagazineAmmo762").objectReferenceValue = magazineAmmo762;
+		so.FindProperty("m_MagazineAmmo545").objectReferenceValue = magazineAmmo545;
 		so.FindProperty("m_RoundsPerMagazine").intValue = -1;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(set);

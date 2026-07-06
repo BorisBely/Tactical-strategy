@@ -31,7 +31,9 @@ public static class WeaponShotAccuracyEvaluator
 		float individualFactor = _input.IndividualTraits != null ? _input.IndividualTraits.GetDispersionMultiplier() : 1f;
 		float conditionFactor = _input.CombatCondition != null ? _input.CombatCondition.GetDispersionMultiplier() : 1f;
 		float aimProgressForSpread = ResolveAimProgressForSpread(_input);
-		float aimCompletionFactor = WeaponAimModeUtility.GetIncompleteAimSpreadMultiplier(aimProgressForSpread);
+		float aimCompletionFactor = WeaponAimModeUtility.GetIncompleteAimSpreadMultiplier(
+			aimProgressForSpread,
+			_input.TargetDistanceMeters);
 		float autoBurstFactor = GetAutoBurstSpreadMultiplier(_input);
 
 		float raw = baseDispersion *

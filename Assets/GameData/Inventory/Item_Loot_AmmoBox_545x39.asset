@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Loot_AmmoBox_545x39
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.loot.ammo_box.545
+  m_Description: 5.45x39 ammo box.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 130
+  m_WeightKg: 0
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 7722334455667788, guid: c35ac1cff4564c87ad5288489fa8430a, type: 3}
+  m_EquippedVisualPrefab: {fileID: 0}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 11400000, guid: f1a2b3c4d5e6789012345678abcdef01, type: 2}
+  m_InitialAmmoCount: 120
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_InventoryAddSounds:
+    m_Clips: []
+  m_InventoryAddSoundVolume: 0.9
+  m_InventoryRemoveSounds:
+    m_Clips: []
+  m_InventoryRemoveSoundVolume: 0.85

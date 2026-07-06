@@ -8,10 +8,13 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField, Min(0)] private int m_PresetCatalogIndex;
+	[Tooltip("Снимок пресета уже создан из runtime-инвентаря этого юнита; повторно не перезаписывать при открытии mission prep.")]
+	[SerializeField] private bool m_InitializedPresetFromRuntimeInventory;
 	#endregion
 
 	#region Public Properties
 	public int PresetCatalogIndex => m_PresetCatalogIndex;
+	public bool InitializedPresetFromRuntimeInventory => m_InitializedPresetFromRuntimeInventory;
 
 	public int ActivePresetArmorIndex => GetArmorForPreset(m_PresetCatalogIndex);
 
@@ -185,6 +188,11 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 	public void InitializeDefaultsFromCatalog(MissionPrepEquipmentPresetCatalog _catalog, bool _overwriteExistingInventory = false)
 	{
 		ResolveStore()?.InitializeDefaultsFromCatalog(_catalog, _overwriteExistingInventory);
+	}
+
+	public void MarkInitializedPresetFromRuntimeInventory()
+	{
+		m_InitializedPresetFromRuntimeInventory = true;
 	}
 
 	public static MissionPrepUnitPresetState GetOrCreate(GameObject _unitRoot, int _defaultPresetIndex = 0)

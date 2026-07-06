@@ -29,8 +29,8 @@ public sealed class AmmoDefinition : ScriptableObject
 	[SerializeField, Min(0.1f)] private float m_EffectiveRangeMeters = 100f;
 
 	[Header("Audio")]
-	[Tooltip("Если задан — полностью заменяет расчёт звука выстрела (оружие / глушитель / субсоник).")]
-	[SerializeField] private AudioClip m_FireSoundOverride;
+	[Tooltip("Профиль вариантов звука выстрела. Если заполнен — заменяет профиль оружия / глушителя.")]
+	[SerializeField] private WeaponFireSoundProfile m_FireSoundOverrideProfile = new WeaponFireSoundProfile();
 	[Tooltip("Субзвуковой патрон: при выстреле с глушителем громкость клипа глушителя умножается на коэффициент (см. UnitWeaponFireAudio).")]
 	[SerializeField] private bool m_IsSubsonic;
 
@@ -70,7 +70,7 @@ public sealed class AmmoDefinition : ScriptableObject
 
 	#region Public Properties
 	public CaliberType Caliber => m_Caliber;
-	public AudioClip FireSoundOverride => m_FireSoundOverride;
+	public WeaponFireSoundProfile FireSoundOverrideProfile => m_FireSoundOverrideProfile;
 	public bool IsSubsonic => m_IsSubsonic;
 	public bool HasShellPrefab => m_ShellPrefab != null;
 	public GameObject ShellPrefab => m_ShellPrefab;

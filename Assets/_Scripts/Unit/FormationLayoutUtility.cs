@@ -143,7 +143,6 @@ public static class FormationLayoutUtility
 			forward,
 			right,
 			_formation,
-			"BuildFormation",
 			out List<Vector3> offsets,
 			out List<float> facingAngles,
 			out int[] _);
@@ -186,7 +185,6 @@ public static class FormationLayoutUtility
 			forward,
 			right,
 			_formation,
-			"CreateStableBindings",
 			out List<Vector3> _,
 			out List<float> facingAngles,
 			out int[] unitToSlotIndex);
@@ -598,7 +596,6 @@ public static class FormationLayoutUtility
 		Vector3 _forward,
 		Vector3 _right,
 		FormationType _formation,
-		string _debugContext,
 		out List<Vector3> _offsets,
 		out List<float> _facingAngles,
 		out int[] _unitToSlotIndex)
@@ -629,7 +626,6 @@ public static class FormationLayoutUtility
 		List<int> leaderCandidates = CollectLeaderCandidates(_units);
 		int[] bestUnitToSlot = null;
 		float bestTravel = float.MaxValue;
-		var bestSteps = new List<PendingAssignmentStep>(assignCount);
 
 		for (int c = 0; c < leaderCandidates.Count; c++)
 		{
@@ -647,19 +643,17 @@ public static class FormationLayoutUtility
 				    leaderCandidates.Count > 1,
 				    out int[] candidateUnitToSlot,
 				    out float candidateTravel,
-				    out List<PendingAssignmentStep> candidateSteps)
+				    out List<PendingAssignmentStep> _)
 			    && candidateTravel < bestTravel)
 			{
 				bestTravel = candidateTravel;
 				bestUnitToSlot = candidateUnitToSlot;
-				bestSteps = candidateSteps;
 			}
 		}
 
 		if (bestUnitToSlot == null)
 			return;
 
-		int resolvedLeaderUnitIndex = bestUnitToSlot[0] >= 0 ? FindUnitIndexForSlot(bestUnitToSlot, 0) : 0;
 		for (int unitIndex = 0; unitIndex < count; unitIndex++)
 		{
 			int slotIndex = bestUnitToSlot[unitIndex];
@@ -677,33 +671,6 @@ public static class FormationLayoutUtility
 				_facingAngles,
 				_unitToSlotIndex);
 		}
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		var assignmentSteps = new List<FormationAssignmentDebug.AssignmentStep>(bestSteps.Count);
-		for (int i = 0; i < bestSteps.Count; i++)
-		{
-			PendingAssignmentStep step = bestSteps[i];
-			assignmentSteps.Add(new FormationAssignmentDebug.AssignmentStep(
-				i + 1,
-				step.UnitIndex,
-				step.SlotIndex,
-				step.DistanceMeters,
-				step.Reason));
-		}
-
-		FormationAssignmentDebug.LogAssignment(
-			_debugContext,
-			_formation,
-			_centerPoint,
-			_forward,
-			_units,
-			_slots,
-			slotWorldPositions,
-			resolvedLeaderUnitIndex,
-			_unitToSlotIndex,
-			sortMode,
-			assignmentSteps);
-#endif
 	}
 
 	private readonly struct PendingAssignmentStep

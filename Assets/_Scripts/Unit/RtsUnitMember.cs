@@ -1896,8 +1896,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void PlayFireModeSwitchSound()
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
-		AudioClip clip = weaponDefinition != null ? weaponDefinition.FireModeSwitchSound : null;
-		if (clip == null)
+		if (weaponDefinition == null || !weaponDefinition.TryPickFireModeSwitchSound(out AudioClip clip))
 			return;
 
 		Vector3 position = transform.position + Vector3.up * 1.35f;

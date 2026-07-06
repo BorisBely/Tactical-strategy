@@ -15,6 +15,7 @@ public sealed class MissionPrepAvailableEquipmentItemSet : ScriptableObject
 	[SerializeField] private AmmoDefinition m_MagazineAmmo;
 	[SerializeField] private AmmoDefinition m_MagazineAmmo556;
 	[SerializeField] private AmmoDefinition m_MagazineAmmo762;
+	[SerializeField] private AmmoDefinition m_MagazineAmmo545;
 	[Tooltip("-1 = заполнить магазин по вместимости MagazineDefinition.")]
 	[SerializeField] private int m_RoundsPerMagazine = -1;
 	#endregion
@@ -47,7 +48,7 @@ public sealed class MissionPrepAvailableEquipmentItemSet : ScriptableObject
 		{
 			CaliberType.Five56By45 => m_MagazineAmmo556 != null ? m_MagazineAmmo556 : m_MagazineAmmo,
 			CaliberType.Seven62By39 => m_MagazineAmmo762 != null ? m_MagazineAmmo762 : m_MagazineAmmo,
-			CaliberType.Five45By39 => m_MagazineAmmo762 != null ? m_MagazineAmmo762 : m_MagazineAmmo,
+			CaliberType.Five45By39 => m_MagazineAmmo545 != null ? m_MagazineAmmo545 : m_MagazineAmmo,
 			_ => m_MagazineAmmo
 		};
 	}

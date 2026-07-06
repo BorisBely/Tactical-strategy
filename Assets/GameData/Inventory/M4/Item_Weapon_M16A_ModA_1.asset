@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_M16A_ModA_1
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.m16a_moda_1
+  m_Description: M16A rifle with carry handle optic. Longer barrel than M4, no stock
+    slot.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 3000
+  m_WeightKg: 0
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 5418623541962261350, guid: deeb30beba7f40369ceb141957d563d2, type: 3}
+  m_EquippedVisualPrefab: {fileID: 6564167307585270312, guid: 1468d32f053a67d439cb99b7068e6002, type: 3}
+  m_RightHandLocalPosition: {x: 0.096, y: 0.046, z: -0.013}
+  m_RightHandLocalEulerAngles: {x: 8.7, y: 81.125, z: -89}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 11400000, guid: a52f2ab7b40c4dc29f3f3de4ab500ea0, type: 2}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_InventoryAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 628214ff5a54b414693cb0e7199eb3a3, type: 3}
+    - {fileID: 8300000, guid: 184ae5805f2ab574b97ffda43e4394bf, type: 3}
+  m_InventoryAddSoundVolume: 0.9
+  m_InventoryRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: ec92864f8a37e8143bbf4126159e5e9b, type: 3}
+  m_InventoryRemoveSoundVolume: 0.85

@@ -121,9 +121,14 @@ public enum WeaponAimMode
 public static class WeaponAimModeUtility
 {
 	#region Constants
-	public const float SnapShotAimProgress01 = 0.25f;
-	public const float QuickAimProgress01 = 0.60f;
+	public const float SnapShotAimProgress01 = 0.35f;
+	public const float QuickAimProgress01 = 0.68f;
 	public const float FullAimProgress01 = 1.00f;
+
+	public const float SnapShotMinAimTimeSeconds = 0.11f;
+	public const float QuickAimMinAimTimeSeconds = 0.22f;
+	public const float FullAimMinAimTimeSeconds = 0.32f;
+	private const float c_AbsurdFullAimTimeThresholdSeconds = 0.15f;
 	#endregion
 
 	#region Public Methods
@@ -135,7 +140,7 @@ public static class WeaponAimModeUtility
 		return WeaponAimMode.FullAim;
 	}
 
-	public static float GetRequiredAimProgress01(WeaponAimMode _mode, float _distanceMeters)
+	public static float GetBaseRequiredAimProgress01(WeaponAimMode _mode, float _distanceMeters)
 	{
 		switch (ResolveEffectiveMode(_mode, _distanceMeters))
 		{
@@ -148,10 +153,46 @@ public static class WeaponAimModeUtility
 		}
 	}
 
-	/// <summary>Время до выстрела при линейном накоплении AimProgress: полное время × порог режима.</summary>
+	/// <summary>
+	/// Порог AimProgress с учётом минимального времени до выстрела для режима.
+	/// </summary>
+	public static float GetRequiredAimProgress01(
+		WeaponAimMode _mode,
+		float _distanceMeters,
+		float _fullAimTimeSeconds)
+	{
+		if (_fullAimTimeSeconds <= 0.01f)
+			return GetBaseRequiredAimProgress01(_mode, _distanceMeters);
+
+		float requiredTimeSeconds = GetRequiredAimTimeSeconds(_fullAimTimeSeconds, _mode, _distanceMeters);
+		return Mathf.Clamp01(requiredTimeSeconds / _fullAimTimeSeconds);
+	}
+
+	public static float GetRequiredAimProgress01(WeaponAimMode _mode, float _distanceMeters) =>
+		GetBaseRequiredAimProgress01(_mode, _distanceMeters);
+
+	/// <summary>
+	/// Время до выстрела: progress × full aim, затем пол минимального времени режима.
+	/// FullAim не замедляется полом, если full aim уже медленнее sanity floor.
+	/// </summary>
 	public static float GetRequiredAimTimeSeconds(float _fullAimTimeSeconds, WeaponAimMode _mode, float _distanceMeters)
 	{
-		return Mathf.Max(0f, _fullAimTimeSeconds * GetRequiredAimProgress01(_mode, _distanceMeters));
+		if (_fullAimTimeSeconds <= 0f)
+			return 0f;
+
+		WeaponAimMode effectiveMode = ResolveEffectiveMode(_mode, _distanceMeters);
+		if (effectiveMode == WeaponAimMode.FullAim)
+		{
+			return _fullAimTimeSeconds < c_AbsurdFullAimTimeThresholdSeconds
+				? FullAimMinAimTimeSeconds
+				: _fullAimTimeSeconds;
+		}
+
+		float scaledTimeSeconds = _fullAimTimeSeconds * GetBaseRequiredAimProgress01(_mode, _distanceMeters);
+		float minimumTimeSeconds = effectiveMode == WeaponAimMode.SnapShot
+			? SnapShotMinAimTimeSeconds
+			: QuickAimMinAimTimeSeconds;
+		return Mathf.Max(scaledTimeSeconds, minimumTimeSeconds);
 	}
 
 	public static string GetDisplayName(WeaponAimMode _mode)
@@ -166,7 +207,23 @@ public static class WeaponAimModeUtility
 		};
 	}
 
-	public static float GetIncompleteAimSpreadMultiplier(float _aimProgress01)
+	public static float GetIncompleteAimSpreadMultiplier(float _aimProgress01) =>
+		GetIncompleteAimSpreadMultiplier(_aimProgress01, 25f);
+
+	public static float GetIncompleteAimSpreadMultiplier(float _aimProgress01, float _distanceMeters)
+	{
+		float baseMultiplier = GetIncompleteAimSpreadMultiplierByProgress(_aimProgress01);
+		if (baseMultiplier <= 1f)
+			return 1f;
+
+		float excess = baseMultiplier - 1f;
+		float distanceScale = GetIncompleteAimDistancePenaltyScale(_distanceMeters);
+		return 1f + excess * distanceScale;
+	}
+	#endregion
+
+	#region Private Methods
+	private static float GetIncompleteAimSpreadMultiplierByProgress(float _aimProgress01)
 	{
 		float progress = Mathf.Clamp01(_aimProgress01);
 		if (progress >= FullAimProgress01)
@@ -180,6 +237,21 @@ public static class WeaponAimModeUtility
 			return Mathf.Lerp(2.20f, 1.45f, Mathf.InverseLerp(SnapShotAimProgress01, QuickAimProgress01, progress));
 
 		return Mathf.Lerp(3.00f, 2.20f, Mathf.InverseLerp(0f, SnapShotAimProgress01, progress));
+	}
+
+	private static float GetIncompleteAimDistancePenaltyScale(float _distanceMeters)
+	{
+		float distance = Mathf.Max(0f, _distanceMeters);
+		if (distance <= 10f)
+			return 0.60f;
+		if (distance <= 25f)
+			return Mathf.Lerp(0.60f, 1.00f, Mathf.InverseLerp(10f, 25f, distance));
+		if (distance <= 50f)
+			return Mathf.Lerp(1.00f, 1.25f, Mathf.InverseLerp(25f, 50f, distance));
+		if (distance <= 100f)
+			return Mathf.Lerp(1.25f, 1.50f, Mathf.InverseLerp(50f, 100f, distance));
+
+		return 1.50f;
 	}
 	#endregion
 }
@@ -208,6 +280,23 @@ public enum MagazineType
 	ShotgunTube = 3,
 	Drum = 4,
 	Internal = 5
+}
+
+/// <summary>
+/// Профиль доступных слотов модулей на оружейной платформе (runtime/UI; сокеты на префабе не трогаем).
+/// </summary>
+public enum WeaponAttachmentSlotProfile
+{
+	/// <summary>Все слоты из WeaponDefinition доступны.</summary>
+	Full = 0,
+	/// <summary>Стоковый АК: дуло + боковая планка (+ магазин).</summary>
+	StockAk = 1,
+	/// <summary>Тактический АК Mod.1: дуло, верхняя и боковая планка прицела, под стволом, три rail (+ магазин).</summary>
+	Mod1Ak = 2,
+	/// <summary>M16A: дуло + оптика, без приклада и без rail/underbarrel.</summary>
+	M4BasicOpticNoStock = 3,
+	/// <summary>M16A4 tactical: дуло, оптика, underbarrel, rail x3; без приклада.</summary>
+	M4TacticalNoStock = 4
 }
 
 /// <summary>

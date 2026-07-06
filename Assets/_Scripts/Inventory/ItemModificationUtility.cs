@@ -70,6 +70,9 @@ public static class ItemModificationUtility
 		for (int i = 0; i < slots.Length; i++)
 		{
 			WeaponAttachmentSlotType slotType = slots[i].SlotType;
+			if (!WeaponAttachmentSlotPolicy.IsSlotTypeEnabled(weapon, slotType))
+				continue;
+
 			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Attachment, slotType, i, displayIndex++));
 		}
 	}

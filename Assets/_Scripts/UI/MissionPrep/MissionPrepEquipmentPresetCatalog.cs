@@ -71,8 +71,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private PresetEntry[] m_Presets =
 	{
-		new PresetEntry(),
-		new PresetEntry("Heavy", "mission_prep.equipment.preset.heavy")
+		new PresetEntry()
 	};
 
 	[Header("Дропдаун брони")]

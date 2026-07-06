@@ -357,6 +357,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(inventory, forInventory);
+
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
 
@@ -676,6 +678,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (!inventory.TryAdd(forInventory))
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(inventory, forInventory);
 
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
@@ -1861,6 +1865,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			RepaintExchangePanels();
 			return false;
 		}
+
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(player, forInventory);
 
 		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
 		RepaintExchangePanels();
@@ -5058,6 +5064,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return false;
 			}
 
+			ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(_inventory, forPlayer);
+
 			RepaintExchangePanels();
 			return true;
 		}
@@ -5073,6 +5081,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			_slot.SetItem(dataNormal);
 			return false;
 		}
+
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(_inventory, forInventory);
 
 		if (dataNormal.WorldSource != null)
 			dataNormal.WorldSource.OnTransferredToCharacterInventory();
@@ -5178,6 +5188,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_inventory, _data, spawned);
 		return true;
 	}
 
@@ -5224,6 +5235,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_inventory, _data, spawned);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
@@ -5290,6 +5302,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_partnerInventory, _data, spawned);
 		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_GroundPanel);
 		RepaintExchangePanels();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();

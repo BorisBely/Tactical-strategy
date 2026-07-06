@@ -3,31 +3,57 @@ using UnityEngine;
 
 /// <summary>
 /// Дистанционные кривые оружейных платформ и множители автоматической очереди.
-/// Источник: Assets/Docs/CombatBalance/CombatBalanceTables.md
+/// Роли по дистанции аналогичны OpticDistanceCurveLibrary: sweet spot, пересечение, деградация вне роли.
 /// </summary>
 public static class WeaponDistanceCurveLibrary
 {
 	#region Nested Types
 	public enum WeaponBalanceKind
 	{
-		Ak47,
-		M4Mod2
+		CqbShort,
+		CqbControlled,
+		Carbine,
+		CarbineModA1,
+		CarbineModA2,
+		BattleRifle762,
+		BattleRifle762Default,
+		BattleRifle762WoodHandguard,
+		BattleRifle762Mod1,
+		Intermediate545,
+		MidRifle,
+		Marksman,
+		Dmr,
+		Support762,
+		Support545,
+
+		// Legacy aliases
+		Ak47 = BattleRifle762Default,
+		Ak47WoodHandguard = BattleRifle762WoodHandguard,
+		Ak47FoldingStock = CqbControlled,
+		Ak74 = Intermediate545,
+		Ak74Short = CqbShort,
+		Rpk47 = Support762,
+		Rpk74 = Support545,
+		M4Carbine = CarbineModA1,
+		Mk18Cqb = CqbShort,
+		M16Rifle = MidRifle,
+		M16A4Marksman = Marksman,
+		Mk12Dmr = Dmr,
+		M16Marksman = Marksman,
+		M4Mod2 = CarbineModA2
 	}
 
 	public readonly struct WeaponBalanceCurves
 	{
-		public readonly float BaseShotDispersion;
 		public readonly OpticDistanceCurveLibrary.DistanceKeyframe[] DispersionKeyframes;
 		public readonly OpticDistanceCurveLibrary.DistanceKeyframe[] AimTimeKeyframes;
 		public readonly OpticDistanceCurveLibrary.DistanceKeyframe[] AutoBurstSpreadKeyframes;
 
 		public WeaponBalanceCurves(
-			float _baseShotDispersion,
 			OpticDistanceCurveLibrary.DistanceKeyframe[] _dispersionKeyframes,
 			OpticDistanceCurveLibrary.DistanceKeyframe[] _aimTimeKeyframes,
 			OpticDistanceCurveLibrary.DistanceKeyframe[] _autoBurstSpreadKeyframes)
 		{
-			BaseShotDispersion = _baseShotDispersion;
 			DispersionKeyframes = _dispersionKeyframes;
 			AimTimeKeyframes = _aimTimeKeyframes;
 			AutoBurstSpreadKeyframes = _autoBurstSpreadKeyframes;
@@ -39,20 +65,57 @@ public static class WeaponDistanceCurveLibrary
 	public static WeaponBalanceKind ResolveKind(WeaponDefinition _weapon)
 	{
 		if (_weapon == null)
-			return WeaponBalanceKind.M4Mod2;
+			return WeaponBalanceKind.Carbine;
 
 		string name = _weapon.name ?? string.Empty;
-		if (name.Contains("AK"))
-			return WeaponBalanceKind.Ak47;
+		if (TryResolveKindByName(name, out WeaponBalanceKind namedKind))
+			return namedKind;
 
-		return WeaponBalanceKind.M4Mod2;
+		if (name.Contains("RPK74"))
+			return WeaponBalanceKind.Support545;
+		if (name.Contains("RPK47"))
+			return WeaponBalanceKind.Support762;
+		if (name.Contains("AK74U"))
+			return WeaponBalanceKind.CqbShort;
+		if (name.Contains("AK74"))
+			return WeaponBalanceKind.Intermediate545;
+		if (name.Contains("AK47S"))
+			return WeaponBalanceKind.CqbControlled;
+		if (name.Contains("AK47") || name.Contains("AK"))
+			return WeaponBalanceKind.BattleRifle762;
+		if (name.Contains("MK12"))
+			return WeaponBalanceKind.Dmr;
+		if (name.Contains("MK18"))
+			return WeaponBalanceKind.CqbShort;
+		if (name.Contains("M16A4"))
+			return WeaponBalanceKind.Marksman;
+		if (name.Contains("M16A"))
+			return WeaponBalanceKind.MidRifle;
+		if (name.Contains("M4"))
+			return WeaponBalanceKind.Carbine;
+
+		return WeaponBalanceKind.Carbine;
 	}
 
 	public static WeaponBalanceCurves GetCurves(WeaponBalanceKind _kind) =>
 		_kind switch
 		{
-			WeaponBalanceKind.Ak47 => s_Ak47,
-			_ => s_M4Mod2
+			WeaponBalanceKind.CqbShort => s_CqbShort,
+			WeaponBalanceKind.CqbControlled => s_CqbControlled,
+			WeaponBalanceKind.Carbine => s_Carbine,
+			WeaponBalanceKind.CarbineModA1 => s_CarbineModA1,
+			WeaponBalanceKind.CarbineModA2 => s_CarbineModA2,
+			WeaponBalanceKind.BattleRifle762 => s_BattleRifle762,
+			WeaponBalanceKind.BattleRifle762Default => s_BattleRifle762Default,
+			WeaponBalanceKind.BattleRifle762WoodHandguard => s_BattleRifle762WoodHandguard,
+			WeaponBalanceKind.BattleRifle762Mod1 => s_BattleRifle762Mod1,
+			WeaponBalanceKind.Intermediate545 => s_Intermediate545,
+			WeaponBalanceKind.MidRifle => s_MidRifle,
+			WeaponBalanceKind.Marksman => s_Marksman,
+			WeaponBalanceKind.Dmr => s_Dmr,
+			WeaponBalanceKind.Support762 => s_Support762,
+			WeaponBalanceKind.Support545 => s_Support545,
+			_ => s_Carbine
 		};
 
 	public static void ApplyToWeapon(WeaponDefinition _weapon)
@@ -62,63 +125,144 @@ public static class WeaponDistanceCurveLibrary
 
 		WeaponBalanceCurves curves = GetCurves(ResolveKind(_weapon));
 		_weapon.SetCombatBalanceData(
-			curves.BaseShotDispersion,
+			_weapon.BaseShotDispersion,
 			OpticDistanceCurveLibrary.BuildCurve(curves.DispersionKeyframes),
 			OpticDistanceCurveLibrary.BuildCurve(curves.AimTimeKeyframes),
 			OpticDistanceCurveLibrary.BuildCurve(curves.AutoBurstSpreadKeyframes));
 	}
+
+	public static bool TryResolveKindByName(string _assetName, out WeaponBalanceKind _kind) =>
+		s_NamedWeapons.TryGetValue(_assetName, out _kind);
 	#endregion
 
 	#region Curve Data
 	private static OpticDistanceCurveLibrary.DistanceKeyframe K(float _distanceMeters, float _value) =>
 		new OpticDistanceCurveLibrary.DistanceKeyframe(_distanceMeters, _value);
 
-	private static readonly WeaponBalanceCurves s_Ak47 = new WeaponBalanceCurves(
-		1.15f,
-		new[]
-		{
-			K(0f, 0.75f), K(10f, 0.82f), K(20f, 0.90f), K(30f, 1.00f), K(40f, 1.12f),
-			K(50f, 1.26f), K(60f, 1.42f), K(70f, 1.60f), K(80f, 1.80f), K(90f, 2.02f), K(100f, 2.25f)
-		},
-		new[]
-		{
-			K(0f, 1.09f), K(10f, 1.42f), K(20f, 1.75f), K(30f, 2.08f), K(40f, 2.41f),
-			K(50f, 2.74f), K(60f, 3.06f), K(70f, 3.39f), K(80f, 3.72f), K(90f, 4.05f), K(100f, 4.38f)
-		},
-		new[]
-		{
-			K(1f, 1.00f), K(2f, 1.15f), K(3f, 1.35f), K(4f, 1.65f), K(5f, 2.00f),
-			K(6f, 2.35f), K(7f, 2.70f), K(8f, 3.05f), K(9f, 3.40f), K(10f, 3.75f)
-		});
+	private static OpticDistanceCurveLibrary.DistanceKeyframe[] DispRole(
+		float _d0, float _d25, float _d50, float _d75, float _d100) =>
+		new[] { K(0f, _d0), K(25f, _d25), K(50f, _d50), K(75f, _d75), K(100f, _d100) };
 
-	private static readonly WeaponBalanceCurves s_M4Mod2 = new WeaponBalanceCurves(
-		0.90f,
-		new[]
-		{
-			K(0f, 0.68f), K(10f, 0.74f), K(20f, 0.82f), K(30f, 0.92f), K(40f, 1.03f),
-			K(50f, 1.15f), K(60f, 1.29f), K(70f, 1.44f), K(80f, 1.60f), K(90f, 1.78f), K(100f, 1.98f)
-		},
-		new[]
-		{
-			K(0f, 1.07f), K(10f, 1.39f), K(20f, 1.71f), K(30f, 2.04f), K(40f, 2.36f),
-			K(50f, 2.68f), K(60f, 3.00f), K(70f, 3.32f), K(80f, 3.65f), K(90f, 3.97f), K(100f, 4.29f)
-		},
-		new[]
-		{
-			K(1f, 1.00f), K(2f, 1.10f), K(3f, 1.25f), K(4f, 1.45f), K(5f, 1.68f),
-			K(6f, 1.92f), K(7f, 2.16f), K(8f, 2.40f), K(9f, 2.64f), K(10f, 2.88f)
-		});
+	private static OpticDistanceCurveLibrary.DistanceKeyframe[] AimRole(
+		float _d0, float _d25, float _d50, float _d75, float _d100) =>
+		new[] { K(0f, _d0), K(25f, _d25), K(50f, _d50), K(75f, _d75), K(100f, _d100) };
+
+	private static OpticDistanceCurveLibrary.DistanceKeyframe[] BurstRole(
+		float _b1, float _b3, float _b6, float _b10) =>
+		new[] { K(1f, _b1), K(3f, _b3), K(6f, _b6), K(10f, _b10) };
+
+	// CqbShort: close aim toned down — reddot helps but not instant ADS
+	private static readonly WeaponBalanceCurves s_CqbShort = new WeaponBalanceCurves(
+		DispRole(0.58f, 0.78f, 1.75f, 3.25f, 5.00f),
+		AimRole(0.92f, 1.08f, 2.55f, 4.15f, 5.85f),
+		BurstRole(1.00f, 1.50f, 3.10f, 6.00f));
+
+	// CqbControlled: tactical short — slightly slower snap than raw CQB
+	private static readonly WeaponBalanceCurves s_CqbControlled = new WeaponBalanceCurves(
+		DispRole(0.62f, 0.82f, 1.55f, 2.80f, 4.30f),
+		AimRole(0.84f, 1.10f, 2.36f, 3.79f, 5.33f),
+		BurstRole(1.00f, 1.42f, 2.75f, 5.20f));
+
+	// Carbine: Disp 0.72/0.86/1.12/1.70/2.50, Aim softened mid-long, Burst 1.00/1.25/1.90/3.20
+	private static readonly WeaponBalanceCurves s_Carbine = new WeaponBalanceCurves(
+		DispRole(0.72f, 0.86f, 1.12f, 1.70f, 2.50f),
+		AimRole(0.85f, 1.15f, 2.14f, 3.29f, 4.46f),
+		BurstRole(1.00f, 1.25f, 1.90f, 3.20f));
+
+	// CarbineModA1: light M4 carbine - cleaner 50m handling, still not a rifle at 100m
+	private static readonly WeaponBalanceCurves s_CarbineModA1 = new WeaponBalanceCurves(
+		DispRole(0.73f, 0.86f, 1.08f, 1.64f, 2.42f),
+		AimRole(0.87f, 1.13f, 2.05f, 3.17f, 4.34f),
+		BurstRole(1.00f, 1.24f, 1.84f, 3.08f));
+
+	// CarbineModA2: railed M4 - a bit heavier up close, steadier through medium distance
+	private static readonly WeaponBalanceCurves s_CarbineModA2 = new WeaponBalanceCurves(
+		DispRole(0.75f, 0.84f, 1.03f, 1.57f, 2.35f),
+		AimRole(0.90f, 1.12f, 1.98f, 3.05f, 4.20f),
+		BurstRole(1.00f, 1.23f, 1.82f, 3.02f));
+
+	// BattleRifle762: Disp 0.78/0.95/1.25/2.00/3.00, Aim softened mid-long, Burst 1.00/1.45/2.60/4.40
+	private static readonly WeaponBalanceCurves s_BattleRifle762 = new WeaponBalanceCurves(
+		DispRole(0.78f, 0.95f, 1.25f, 2.00f, 3.00f),
+		AimRole(0.95f, 1.35f, 2.45f, 3.69f, 4.93f),
+		BurstRole(1.00f, 1.45f, 2.60f, 4.40f));
+
+	// BattleRifle762Default: plain AK-47 - rougher past medium range than the platform average
+	private static readonly WeaponBalanceCurves s_BattleRifle762Default = new WeaponBalanceCurves(
+		DispRole(0.80f, 0.98f, 1.32f, 2.12f, 3.18f),
+		AimRole(0.96f, 1.38f, 2.52f, 3.80f, 5.06f),
+		BurstRole(1.00f, 1.49f, 2.72f, 4.62f));
+
+	// BattleRifle762WoodHandguard: fuller AK-47 layout - modest medium-range improvement
+	private static readonly WeaponBalanceCurves s_BattleRifle762WoodHandguard = new WeaponBalanceCurves(
+		DispRole(0.79f, 0.94f, 1.22f, 1.92f, 2.88f),
+		AimRole(0.98f, 1.34f, 2.38f, 3.58f, 4.78f),
+		BurstRole(1.00f, 1.42f, 2.48f, 4.12f));
+
+	// BattleRifle762Mod1: railed AK-47 - slower to bring up, better controlled once settled
+	private static readonly WeaponBalanceCurves s_BattleRifle762Mod1 = new WeaponBalanceCurves(
+		DispRole(0.82f, 0.93f, 1.18f, 1.82f, 2.72f),
+		AimRole(1.02f, 1.36f, 2.34f, 3.48f, 4.62f),
+		BurstRole(1.00f, 1.40f, 2.38f, 3.92f));
+
+	// Intermediate545: Disp 0.74/0.88/1.10/1.65/2.35, Aim softened mid-long, Burst 1.00/1.30/2.10/3.50
+	private static readonly WeaponBalanceCurves s_Intermediate545 = new WeaponBalanceCurves(
+		DispRole(0.74f, 0.88f, 1.10f, 1.65f, 2.35f),
+		AimRole(0.90f, 1.25f, 2.16f, 3.22f, 4.29f),
+		BurstRole(1.00f, 1.30f, 2.10f, 3.50f));
+
+	// MidRifle: Disp 0.90/0.75/0.65/1.00/1.70, Aim softened mid-long (keeps rifle edge), Burst 1.00/1.15/1.65/2.60
+	private static readonly WeaponBalanceCurves s_MidRifle = new WeaponBalanceCurves(
+		DispRole(0.90f, 0.75f, 0.65f, 1.00f, 1.70f),
+		AimRole(1.25f, 1.12f, 1.62f, 2.24f, 2.99f),
+		BurstRole(1.00f, 1.15f, 1.65f, 2.60f));
+
+	// Marksman: Disp 1.00/0.82/0.58/0.70/1.20, Aim softened mid-long (keeps marksman edge), Burst 1.00/1.10/1.45/2.20
+	private static readonly WeaponBalanceCurves s_Marksman = new WeaponBalanceCurves(
+		DispRole(1.00f, 0.82f, 0.58f, 0.70f, 1.20f),
+		AimRole(1.50f, 1.30f, 1.64f, 1.91f, 2.47f),
+		BurstRole(1.00f, 1.10f, 1.45f, 2.20f));
+
+	// Dmr: Disp 1.15/1.00/0.70/0.50/0.62, Aim softened mid-long (keeps DMR edge), Burst 1.00/1.08/1.32/1.90
+	private static readonly WeaponBalanceCurves s_Dmr = new WeaponBalanceCurves(
+		DispRole(1.15f, 1.00f, 0.70f, 0.50f, 0.62f),
+		AimRole(1.80f, 1.60f, 1.74f, 1.65f, 1.84f),
+		BurstRole(1.00f, 1.08f, 1.32f, 1.90f));
+
+	// Support762: Disp 1.05/0.90/0.74/0.82/1.30, Aim softened mid-long, Burst 1.00/1.18/1.55/2.50
+	private static readonly WeaponBalanceCurves s_Support762 = new WeaponBalanceCurves(
+		DispRole(1.05f, 0.90f, 0.74f, 0.82f, 1.30f),
+		AimRole(1.55f, 1.35f, 1.69f, 2.00f, 2.59f),
+		BurstRole(1.00f, 1.18f, 1.55f, 2.50f));
+
+	// Support545: Disp 1.00/0.85/0.66/0.70/1.05, Aim softened mid-long, Burst 1.00/1.12/1.42/2.20
+	private static readonly WeaponBalanceCurves s_Support545 = new WeaponBalanceCurves(
+		DispRole(1.00f, 0.85f, 0.66f, 0.70f, 1.05f),
+		AimRole(1.50f, 1.28f, 1.61f, 1.86f, 2.37f),
+		BurstRole(1.00f, 1.12f, 1.42f, 2.20f));
 	#endregion
 
 	#region Named Lookup
 	private static readonly Dictionary<string, WeaponBalanceKind> s_NamedWeapons = new Dictionary<string, WeaponBalanceKind>
 	{
-		["Weapon_AK47"] = WeaponBalanceKind.Ak47,
-		["Weapon_M4_ModA_1"] = WeaponBalanceKind.M4Mod2,
-		["Weapon_M4_ModA_2"] = WeaponBalanceKind.M4Mod2
+		["Weapon_AK47"] = WeaponBalanceKind.BattleRifle762Default,
+		["Weapon_AK47_1"] = WeaponBalanceKind.BattleRifle762WoodHandguard,
+		["Weapon_AK47MOD1"] = WeaponBalanceKind.BattleRifle762Mod1,
+		["Weapon_AK47S"] = WeaponBalanceKind.CqbControlled,
+		["Weapon_AK74"] = WeaponBalanceKind.Intermediate545,
+		["Weapon_AK74MOD1"] = WeaponBalanceKind.Intermediate545,
+		["Weapon_AK74U"] = WeaponBalanceKind.CqbShort,
+		["Weapon_AK74UMOD1"] = WeaponBalanceKind.CqbControlled,
+		["Weapon_RPK47"] = WeaponBalanceKind.Support762,
+		["Weapon_RPK47MOD1"] = WeaponBalanceKind.Support762,
+		["Weapon_RPK74"] = WeaponBalanceKind.Support545,
+		["Weapon_RPK74MOD1"] = WeaponBalanceKind.Support545,
+		["Weapon_M4_ModA_1"] = WeaponBalanceKind.CarbineModA1,
+		["Weapon_M4_ModA_2"] = WeaponBalanceKind.CarbineModA2,
+		["Weapon_M16A_ModA_1"] = WeaponBalanceKind.MidRifle,
+		["Weapon_M16A4_ModA_2"] = WeaponBalanceKind.Marksman,
+		["Weapon_MK12"] = WeaponBalanceKind.Dmr,
+		["Weapon_MK18"] = WeaponBalanceKind.CqbShort
 	};
-
-	public static bool TryResolveKindByName(string _assetName, out WeaponBalanceKind _kind) =>
-		s_NamedWeapons.TryGetValue(_assetName, out _kind);
 	#endregion
 }

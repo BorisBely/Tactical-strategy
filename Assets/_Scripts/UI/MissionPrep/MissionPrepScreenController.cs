@@ -11,6 +11,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	[SerializeField] private MissionPrepEquipmentPanelView m_EquipmentPanel;
 	[SerializeField] private MissionPrepEquipmentPresetCatalog m_PresetCatalog;
 	[SerializeField] private MissionPrepLoadoutCoordinator m_LoadoutCoordinator;
+	[SerializeField] private MissionPrepSquadSpawner m_SquadSpawner;
 	[SerializeField] private bool m_HideEquipmentUntilSelection = false;
 	[SerializeField] private GameObject m_ScreenRoot;
 
@@ -47,6 +48,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void OnEnable()
 	{
+		TryRefreshSquadBindings();
+
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected += HandleUnitSelected;
 
@@ -165,6 +168,14 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void TryRefreshSquadBindings()
+	{
+		if (m_SquadSpawner == null)
+			m_SquadSpawner = GetComponentInChildren<MissionPrepSquadSpawner>(true);
+
+		m_SquadSpawner?.SpawnAndBind();
+	}
+
 	private void EnsureLoadoutCoordinator()
 	{
 		if (m_LoadoutCoordinator == null)

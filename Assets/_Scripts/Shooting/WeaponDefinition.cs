@@ -25,6 +25,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private WeaponFireMode m_DefaultFireMode = WeaponFireMode.SemiAuto;
 	[Tooltip("Слоты модулей, доступные на этой оружейной платформе.")]
 	[SerializeField] private WeaponAttachmentSlotDefinition[] m_AttachmentSlots;
+	[Tooltip("Какие слоты из Attachment Slots реально доступны в UI и при установке модулей.")]
+	[SerializeField] private WeaponAttachmentSlotProfile m_AttachmentSlotProfile = WeaponAttachmentSlotProfile.Full;
 
 	[Header("Combat")]
 	[Tooltip("Скорострельность для FullAuto и Burst (и для Semi, если Semi Auto Fire Rate Rpm = 0).")]
@@ -57,26 +59,31 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_BurstPauseSeconds = 0.12f;
 
 	[Header("Fire Audio")]
-	[Tooltip("Звук выстрела (воспроизводит UnitWeaponFireAudio на юните; можно переопределить на патроне).")]
-	[SerializeField] private AudioClip m_FireSound;
+	[Tooltip("Набор вариантов звука выстрела и опциональная дальность слышимости. Затухание делает 3D AudioSource.")]
+	[SerializeField] private WeaponFireSoundProfile m_FireSoundProfile = new WeaponFireSoundProfile();
 	[SerializeField, Range(0f, 1f)] private float m_FireSoundVolume = 1f;
 	[SerializeField, Range(0f, 0.3f)] private float m_FirePitchVariance = 0.04f;
-	[Tooltip("Короткий щелчок селектора при смене режима огня (Semi / Burst / Auto).")]
-	[SerializeField] private AudioClip m_FireModeSwitchSound;
+	[Tooltip("Щелчок селектора при смене режима огня (Semi / Burst / Auto) или режима прицеливания. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_FireModeSwitchSounds = new WeaponRandomAudioClipSet();
 	[SerializeField, Range(0f, 1f)] private float m_FireModeSwitchSoundVolume = 0.85f;
 
 	[Header("Reload Audio")]
-	[Tooltip("Звук снятия магазина — AnimationEvent_EjectCurrentWeaponMagazineToInventory.")]
-	[SerializeField] private AudioClip m_ReloadMagOutSound;
-	[Tooltip("Звук вставки магазина — AnimationEvent_InsertPendingMagazineIntoWeapon.")]
-	[SerializeField] private AudioClip m_ReloadMagInSound;
-	[Tooltip("Звук передёргивания затвора — только ивент AnimationEvent_FinishWeaponReload (клип затвора или legacy один клип с досылом в конце).")]
-	[SerializeField] private AudioClip m_BoltCycleSound;
-	[Tooltip("Если включено: после вставки магазина патрон в патронник досылается ивентом ReloadBoltHoldOpenDelay в конце клипа перезарядки (звук + досыл). Иначе после вставки Animator получает IsCyclingBolt и досыл по FinishWeaponReload в клипе затвора.")]
+	[Tooltip("Снятие магазина — AnimationEvent_EjectCurrentWeaponMagazineToInventory. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_ReloadMagOutSounds = new WeaponRandomAudioClipSet();
+	[Tooltip("Вставка магазина — AnimationEvent_InsertPendingMagazineIntoWeapon. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_ReloadMagInSounds = new WeaponRandomAudioClipSet();
+	[Tooltip("Передёргивание рукоятки затвора — FinishWeaponReload в bolt-клипе (AK и rack-only).")]
+	[SerializeField] private WeaponRandomAudioClipSet m_BoltCycleSounds = new WeaponRandomAudioClipSet();
+	[Tooltip("M4/AR: bolt catch держит затвор после последнего выстрела — досыл ивентом ReloadBoltHoldOpenDelay в конце reload-клипа. AK: выкл — после mag in отдельный IsCyclingBolt и FinishWeaponReload.")]
 	[SerializeField] private bool m_HasBoltHoldOpenDelay;
-	[Tooltip("Звук затворной задержки / отпускания затвора — только при включённой затворной задержке, ивент ReloadBoltHoldOpenDelay на контроллере перезарядки.")]
-	[SerializeField] private AudioClip m_ReloadBoltHoldOpenDelaySound;
-	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 1f;
+	[Tooltip("Отпускание bolt catch / короткий досыл — только при Has Bolt Hold Open Delay, ивент ReloadBoltHoldOpenDelay (M4).")]
+	[SerializeField] private WeaponRandomAudioClipSet m_ReloadBoltHoldOpenDelaySounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 0.5f;
+
+	[Header("Malfunction Audio")]
+	[Tooltip("Щелчок при клине (выстрел без выстрела). Случайный клип из списка. Позиция — ствол.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_MalfunctionClickSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_MalfunctionClickSoundVolume = 1f;
 
 	[Header("Visual FX")]
 	[Tooltip("Профиль muzzle / shell / trail / impact для этого оружия. Без профиля юнит не спавнит weapon-specific FX.")]
@@ -106,6 +113,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public WeaponFireMode[] AvailableFireModes => m_AvailableFireModes;
 	public WeaponFireMode DefaultFireMode => m_DefaultFireMode;
 	public WeaponAttachmentSlotDefinition[] AttachmentSlots => m_AttachmentSlots;
+	public WeaponAttachmentSlotProfile AttachmentSlotProfile => m_AttachmentSlotProfile;
 	public float FireRateRpm => m_FireRateRpm;
 	public float SemiAutoFireRateRpm => m_SemiAutoFireRateRpm;
 	public float AimTimeSeconds => m_AimTimeSeconds;
@@ -119,17 +127,13 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
 	public int BurstRounds => m_BurstRounds;
 	public float BurstPauseSeconds => m_BurstPauseSeconds;
-	public AudioClip FireSound => m_FireSound;
+	public WeaponFireSoundProfile FireSoundProfile => m_FireSoundProfile;
 	public float FireSoundVolume => m_FireSoundVolume;
 	public float FirePitchVariance => m_FirePitchVariance;
-	public AudioClip FireModeSwitchSound => m_FireModeSwitchSound;
 	public float FireModeSwitchSoundVolume => m_FireModeSwitchSoundVolume;
-	public AudioClip ReloadMagOutSound => m_ReloadMagOutSound;
-	public AudioClip ReloadMagInSound => m_ReloadMagInSound;
-	public AudioClip BoltCycleSound => m_BoltCycleSound;
-	public bool HasBoltHoldOpenDelay => m_HasBoltHoldOpenDelay;
-	public AudioClip ReloadBoltHoldOpenDelaySound => m_ReloadBoltHoldOpenDelaySound;
 	public float ReloadSoundsVolume => m_ReloadSoundsVolume;
+	public float MalfunctionClickSoundVolume => m_MalfunctionClickSoundVolume;
+	public bool HasBoltHoldOpenDelay => m_HasBoltHoldOpenDelay;
 	public float Reliability => m_Reliability;
 	public float BaseDurability => m_BaseDurability;
 	public float BaseFoulingBudget => m_BaseFoulingBudget;
@@ -138,6 +142,19 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float WearJamInfluence => m_WearJamInfluence;
 	public float FoulingJamInfluence => m_FoulingJamInfluence;
 	public WeaponVfxProfile VfxProfile => m_VfxProfile;
+
+	public bool TryPickFireModeSwitchSound(out AudioClip _clip) => m_FireModeSwitchSounds.TryPickClip(out _clip);
+
+	public bool TryPickReloadMagOutSound(out AudioClip _clip) => m_ReloadMagOutSounds.TryPickClip(out _clip);
+
+	public bool TryPickReloadMagInSound(out AudioClip _clip) => m_ReloadMagInSounds.TryPickClip(out _clip);
+
+	public bool TryPickBoltCycleSound(out AudioClip _clip) => m_BoltCycleSounds.TryPickClip(out _clip);
+
+	public bool TryPickReloadBoltHoldOpenDelaySound(out AudioClip _clip) =>
+		m_ReloadBoltHoldOpenDelaySounds.TryPickClip(out _clip);
+
+	public bool TryPickMalfunctionClickSound(out AudioClip _clip) => m_MalfunctionClickSounds.TryPickClip(out _clip);
 	#endregion
 
 	#region Public Methods

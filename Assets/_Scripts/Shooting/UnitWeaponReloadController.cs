@@ -6,8 +6,11 @@ using UnityEngine;
 /// <summary>
 /// Перезарядка: фаза смены магазина (<c>IsReloadingWeapon</c>) и отдельно фаза передёргивания затвора (<c>IsCyclingBolt</c>).
 /// Патронник: выстрел только при <see cref="WeaponRuntimeState.HasRoundInChamber"/>; подача из магазина —
-/// для оружия с <see cref="WeaponDefinition.HasBoltHoldOpenDelay"/> ивентом <c>AnimationEvent_ReloadBoltHoldOpenDelay</c> в конце клипа перезарядки,
-/// иначе <c>AnimationEvent_FinishWeaponReload</c> в клипе передёргивания затвора (после вставки магазина Animator получает <c>IsCyclingBolt</c>).
+/// для оружия с <see cref="WeaponDefinition.HasBoltHoldOpenDelay"/> (M4 / AR: bolt catch) ивентом
+/// <c>AnimationEvent_ReloadBoltHoldOpenDelay</c> в конце клипа перезарядки;
+/// иначе (AK: затвор закрыт на пустом патроннике) после вставки магазина Animator получает <c>IsCyclingBolt</c>,
+/// досыл — <c>AnimationEvent_FinishWeaponReload</c> в клипе передёргивания.
+/// Tactical reload (патронник уже занят): после mag in перезарядка завершается без bolt release / rack.
 /// Если магазин уже в оружии с патронами, но патронник пуст — <see cref="TryStartReload"/> запускает только затвор (<see cref="TryStartBoltCycleOnly"/>).
 /// </summary>
 [DisallowMultipleComponent]
@@ -519,7 +522,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_UiMagazineInstallOnly)
 			return;
 
-		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagOutSound);
+		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadMagOutSound(out AudioClip clip) ? clip : null);
 
 		if (m_MalfunctionStripReinsertReloadActive)
 		{
@@ -611,7 +614,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		m_MagazineInsertCompletedThisReload = true;
-		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadMagInSound);
+		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadMagInSound(out AudioClip clip) ? clip : null);
 
 		if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
 			m_MalfunctionController.OnMalfunctionStripReloadInsertComplete();
@@ -629,6 +632,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (ShouldSkipBoltCycleAfterUiMagazineInstall())
 		{
 			FinalizeUiMagazineInstallOnlyWithoutBolt();
+			return;
+		}
+
+		if (!NeedsChamberingAfterMagazineInsert())
+		{
+			FinalizeReloadSequenceAndMaybeChainManualLoad();
 			return;
 		}
 
@@ -663,14 +672,20 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 		}
 
-		TryPlayReloadSoundFromWeaponDefinition(wd => wd.ReloadBoltHoldOpenDelaySound);
+		if (!NeedsChamberingAfterMagazineInsert())
+		{
+			FinalizeReloadSequenceAndMaybeChainManualLoad();
+			return;
+		}
+
+		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadBoltHoldOpenDelaySound(out AudioClip clip) ? clip : null);
 		m_WeaponRuntime.TryChamberRoundFromMagazine();
 		FinalizeReloadSequenceAndMaybeChainManualLoad();
 	}
 
 	/// <summary>
 	/// Конец досыла: клип передёргивания затвора (<c>IsCyclingBolt</c>) или legacy один клип при <c>IsReloadingWeapon</c>.
-	/// Звук — только <see cref="WeaponDefinition.BoltCycleSound"/>.
+	/// Звук — <see cref="WeaponDefinition.TryPickBoltCycleSound"/>.
 	/// Хвост анимации: см. <see cref="m_BoltPresentationFireTailSeconds"/> и опционально <see cref="AnimationEvent_BoltMotionPresentationFinished"/>.
 	/// </summary>
 	public void AnimationEvent_FinishWeaponReload()
@@ -744,6 +759,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
 		return rs.HasMagazine && rs.HasAmmoInMagazine && !rs.HasRoundInChamber;
 	}
+
+	private bool NeedsChamberingAfterMagazineInsert()
+	{
+		if (m_WeaponRuntime?.RuntimeState == null)
+			return false;
+
+		return !m_WeaponRuntime.RuntimeState.HasRoundInChamber;
+	}
+
 	private bool TryTakeBestReplacementMagazine(int _preferredBagIndex, out int _bagIndex, out InventorySlotRuntimeData _magazineItem)
 	{
 		_bagIndex = -1;
@@ -1194,7 +1218,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void TryPlayBoltCycleSound()
 	{
-		TryPlayReloadSoundFromWeaponDefinition(wd => wd.BoltCycleSound);
+		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickBoltCycleSound(out AudioClip clip) ? clip : null);
 	}
 
 	private bool ShouldDeferReplacementMagazineHandVisualUntilEject()

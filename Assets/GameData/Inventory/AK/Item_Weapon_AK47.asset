@@ -16,16 +16,32 @@ MonoBehaviour:
   m_Description: AK-47 rifle chambered in 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2400
+  m_WeightKg: 0
   m_Category: 1
-  m_DropWorldPrefab: {fileID: 2979549775684822698, guid: 476ae17177d2dec468a68bcbfde24d3a, type: 3}
+  m_DropWorldPrefab: {fileID: 635631653511875059, guid: a5fb85aa8016a4044b2e69a9ed0d8659, type: 3}
   m_EquippedVisualPrefab: {fileID: 6059082158046521582, guid: d3d879d1d6bb6e64b88b8e3b35048c7e, type: 3}
   m_RightHandLocalPosition: {x: 0.4233, y: 0.006, z: -0.2814}
   m_RightHandLocalEulerAngles: {x: 8.7, y: 81.125, z: -89}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 11400000, guid: c4e8f1a23b5d6e709182a3b4c5d6e7f8, type: 2}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_InventoryAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 628214ff5a54b414693cb0e7199eb3a3, type: 3}
+    - {fileID: 8300000, guid: 184ae5805f2ab574b97ffda43e4394bf, type: 3}
+  m_InventoryAddSoundVolume: 0.9
+  m_InventoryRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: ec92864f8a37e8143bbf4126159e5e9b, type: 3}
+  m_InventoryRemoveSoundVolume: 0.85

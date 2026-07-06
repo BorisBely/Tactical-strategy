@@ -18,14 +18,71 @@ MonoBehaviour:
   m_CompatibleWeapons:
   - {fileID: 11400000, guid: f5b8c44e3f183b14c9d5550a0440a6d4, type: 2}
   - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
+  - {fileID: 11400000, guid: a52f2ab7b40c4dc29f3f3de4ab500ea0, type: 2}
+  - {fileID: 11400000, guid: a7f6ae83d98640da9da303ff9d5c9122, type: 2}
+  - {fileID: 11400000, guid: b0d4e7d9b8904fa990faf29fe8084763, type: 2}
+  - {fileID: 11400000, guid: 47826c67f39642fab278e5be557d0f92, type: 2}
   m_CompatibleSlots: 00000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.05
   m_EffectiveRangeModifier: 1.1
   m_RecoilModifier: 1
+  m_SemiAutoRecoilModifier: 1
+  m_AutomaticRecoilModifier: 1
   m_ReloadTimeModifier: 1
+  m_DistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 100
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
   m_WearPerShotMultiplier: 1.08
   m_FoulingPerShotMultiplier: 1.15
   m_JamRiskModifier: 1.06
-  m_SuppressedFireSound: {fileID: 0}
+  m_SuppressedFireSoundProfile:
+    m_FireClips: []
+    m_MaxAudibleDistanceMeters: 0
   m_EquippedVisualPrefab: {fileID: 4688285746590471711, guid: 6272a7cd01eb9f147b343a1f54c1084e, type: 3}

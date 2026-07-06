@@ -80,22 +80,30 @@ public sealed class MissionPrepPresetSnapshot
 		if (_inventory == null)
 			return;
 
-		_inventory.Clear();
-
-		if (!m_MainHandEquipment.IsEmpty)
-			_inventory.RestoreAfterFailedDrop(true, MissionPrepInventoryCopyUtility.CloneSlot(m_MainHandEquipment));
-
-		if (!m_HeadEquipment.IsEmpty)
-			_inventory.RestoreAfterFailedDrop(false, true, MissionPrepInventoryCopyUtility.CloneSlot(m_HeadEquipment));
-
-		if (!m_BackEquipment.IsEmpty)
-			_inventory.RestoreAfterFailedDrop(false, false, true, MissionPrepInventoryCopyUtility.CloneSlot(m_BackEquipment));
-
-		for (int i = 0; i < m_BagItems.Count; i++)
+		_inventory.BeginBatchInventoryChanges();
+		try
 		{
-			InventorySlotRuntimeData bagSlot = MissionPrepInventoryCopyUtility.CloneSlot(m_BagItems[i]);
-			if (!bagSlot.IsEmpty)
-				_inventory.TryAdd(bagSlot);
+			_inventory.Clear();
+
+			if (!m_MainHandEquipment.IsEmpty)
+				_inventory.RestoreAfterFailedDrop(true, MissionPrepInventoryCopyUtility.CloneSlot(m_MainHandEquipment));
+
+			if (!m_HeadEquipment.IsEmpty)
+				_inventory.RestoreAfterFailedDrop(false, true, MissionPrepInventoryCopyUtility.CloneSlot(m_HeadEquipment));
+
+			if (!m_BackEquipment.IsEmpty)
+				_inventory.RestoreAfterFailedDrop(false, false, true, MissionPrepInventoryCopyUtility.CloneSlot(m_BackEquipment));
+
+			for (int i = 0; i < m_BagItems.Count; i++)
+			{
+				InventorySlotRuntimeData bagSlot = MissionPrepInventoryCopyUtility.CloneSlot(m_BagItems[i]);
+				if (!bagSlot.IsEmpty)
+					_inventory.TryAdd(bagSlot);
+			}
+		}
+		finally
+		{
+			_inventory.EndBatchInventoryChanges();
 		}
 	}
 

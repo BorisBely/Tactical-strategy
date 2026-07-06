@@ -26,6 +26,8 @@ public class CharacterInventory : MonoBehaviour
 	[SerializeField] private InventorySlotRuntimeData m_BackEquipment;
 	[FormerlySerializedAs("m_Items")]
 	[SerializeField] private List<InventorySlotRuntimeData> m_BagItems = new List<InventorySlotRuntimeData>();
+	private int m_InventoryChangeBatchDepth;
+	private bool m_HasPendingInventoryChange;
 	#endregion
 
 	#region Public Properties
@@ -342,6 +344,7 @@ public class CharacterInventory : MonoBehaviour
 
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
 		NotifyInventoryChanged();
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
 		return true;
 	}
 
@@ -357,6 +360,7 @@ public class CharacterInventory : MonoBehaviour
 		m_MainHandEquipment = _item;
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
 		NotifyInventoryChanged();
+		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
 		return true;
 	}
 
@@ -384,6 +388,30 @@ public class CharacterInventory : MonoBehaviour
 		ClearHeadEquipmentVisual();
 		ClearBackEquipmentVisual();
 		NotifyInventoryChanged();
+	}
+
+	/// <summary>
+	/// Группирует несколько мутаций инвентаря в одно событие <see cref="InventoryChanged"/>.
+	/// </summary>
+	public void BeginBatchInventoryChanges()
+	{
+		m_InventoryChangeBatchDepth++;
+	}
+
+	/// <summary>
+	/// Завершает batch и отправляет одно событие, если за время batch были изменения.
+	/// </summary>
+	public void EndBatchInventoryChanges()
+	{
+		if (m_InventoryChangeBatchDepth <= 0)
+			return;
+
+		m_InventoryChangeBatchDepth--;
+		if (m_InventoryChangeBatchDepth > 0 || !m_HasPendingInventoryChange)
+			return;
+
+		m_HasPendingInventoryChange = false;
+		InventoryChanged?.Invoke(this);
 	}
 
 	/// <summary>Синхронизировать панель рюкзака (слоты экипировки + сумка).</summary>
@@ -682,6 +710,12 @@ public class CharacterInventory : MonoBehaviour
 
 	private void NotifyInventoryChanged()
 	{
+		if (m_InventoryChangeBatchDepth > 0)
+		{
+			m_HasPendingInventoryChange = true;
+			return;
+		}
+
 		InventoryChanged?.Invoke(this);
 	}
 
