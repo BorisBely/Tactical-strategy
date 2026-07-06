@@ -187,6 +187,17 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 		}
 
 		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
+		NotifyShootingRangeUiAfterSpawn();
+	}
+
+	private static void NotifyShootingRangeUiAfterSpawn()
+	{
+#if UNITY_2023_1_OR_NEWER
+		ShootingRangeUiController uiController = UnityEngine.Object.FindAnyObjectByType<ShootingRangeUiController>(FindObjectsInactive.Exclude);
+#else
+		ShootingRangeUiController uiController = UnityEngine.Object.FindObjectOfType<ShootingRangeUiController>();
+#endif
+		uiController?.RefreshPanelState();
 	}
 
 	private void PrepareStandardPresetOnly(MissionPrepSharedPresetStore _sharedStore, MissionPrepRuntimePresetRegistry _registry)
@@ -225,7 +236,10 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			presetState.ApplyActivePresetToRuntime(inventory);
 			UnitWeaponRuntime weaponRuntime = inventory.GetComponentInChildren<UnitWeaponRuntime>(true);
 			if (weaponRuntime != null)
+			{
 				weaponRuntime.RefreshFromEquipment();
+				weaponRuntime.RuntimeState?.EnsureValidSelectedFireMode();
+			}
 		}
 
 		ApplyPresetVisualsToUnit(_instance, presetState);

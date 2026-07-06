@@ -161,6 +161,33 @@ public sealed class WeaponRuntimeState
 		m_EquippedAttachmentItems = null;
 		ClearInsertedMagazineFields();
 		ClearChamber();
+		EnsureValidSelectedFireMode();
+	}
+
+	/// <summary>
+	/// Сбрасывает режим огня на допустимый для текущего <see cref="WeaponDefinition"/>.
+	/// Нужно после восстановления оружия из preset snapshot, если в state остался режим другого оружия.
+	/// </summary>
+	public void EnsureValidSelectedFireMode()
+	{
+		if (m_WeaponDefinition == null)
+		{
+			m_SelectedFireMode = WeaponFireMode.SemiAuto;
+			return;
+		}
+
+		if (IsFireModeSupported(m_SelectedFireMode))
+			return;
+
+		m_SelectedFireMode = m_WeaponDefinition.DefaultFireMode;
+		if (IsFireModeSupported(m_SelectedFireMode))
+			return;
+
+		WeaponFireMode[] availableModes = m_WeaponDefinition.AvailableFireModes;
+		if (availableModes != null && availableModes.Length > 0)
+			m_SelectedFireMode = availableModes[0];
+		else
+			m_SelectedFireMode = WeaponFireMode.SemiAuto;
 	}
 
 	public void SetEquippedAttachments(WeaponAttachmentDefinition[] _attachments)

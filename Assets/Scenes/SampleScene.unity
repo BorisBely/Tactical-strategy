@@ -10140,7 +10140,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1032073189
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17651,7 +17651,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1717102755
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20245,6 +20245,7 @@ MonoBehaviour:
   m_EquipmentPanel: {fileID: 1278898608}
   m_PresetCatalog: {fileID: 1278898612}
   m_LoadoutCoordinator: {fileID: 1971120519}
+  m_SquadSpawner: {fileID: 0}
   m_HideEquipmentUntilSelection: 0
   m_ScreenRoot: {fileID: 0}
   m_PresetInventoryPanel: {fileID: 1836356201}
@@ -20497,7 +20498,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022201
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20609,7 +20610,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022211
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20721,7 +20722,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022221
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20833,7 +20834,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022231
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20945,7 +20946,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022241
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21057,7 +21058,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022251
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21169,7 +21170,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022261
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21281,7 +21282,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &1992022271
 BoxCollider:
   m_ObjectHideFlags: 0

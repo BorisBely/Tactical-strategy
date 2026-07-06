@@ -62,6 +62,7 @@ public static class FormationLayoutUtility
 		}
 
 		public Vector2 LocalOffset { get; }
+		/// <summary>Секторный сдвиг взгляда относительно направления движения юнита к слоту (не фронта формации).</summary>
 		public float FacingOffsetFromForward { get; }
 	}
 	#endregion
@@ -205,7 +206,7 @@ public static class FormationLayoutUtility
 		return bindings;
 	}
 
-	/// <summary>Поворачивает кэшированное строение: позиции и сектора взгляда относительно нового фронта.</summary>
+	/// <summary>Поворачивает кэшированное строение: позиции относительно фронта; сектора — смещения относительно направления движения юнита.</summary>
 	public static FormationBuildResult ApplyBindings(
 		FormationUnitSlotBinding[] _bindings,
 		Vector3 _formationForward)
@@ -220,7 +221,6 @@ public static class FormationLayoutUtility
 		forward.Normalize();
 
 		Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
-		float baseAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
 
 		var offsets = new List<Vector3>(_bindings.Length);
 		var facings = new List<float>(_bindings.Length);
@@ -228,7 +228,7 @@ public static class FormationLayoutUtility
 		{
 			Vector2 local = _bindings[i].LocalOffset;
 			offsets.Add(right * local.x + forward * local.y);
-			facings.Add(baseAngle + _bindings[i].FacingOffsetFromForward);
+			facings.Add(_bindings[i].FacingOffsetFromForward);
 		}
 
 		return new FormationBuildResult(offsets, facings);

@@ -18,6 +18,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 {
 	#region Constants
 	private static readonly int[] c_QuickResetDistancesMeters = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+	private const int c_PanelCanvasSortingOrder = 500;
 	#endregion
 
 	#region Private Types
@@ -86,6 +87,24 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Methods
+	/// <summary>Перестраивает список мишеней и подписи после позднего спавна player-юнитов.</summary>
+	public void RefreshPanelState()
+	{
+		if (m_Manager == null)
+			m_Manager = GetComponent<ShootingRangeManager>();
+
+		BuildUiIfNeeded();
+
+		if (m_Manager != null && m_TargetListRoot != null && m_Rows.Count != m_Manager.Targets.Count)
+			BuildTargetRows();
+
+		WireGlobalButtons();
+		RefreshAllRows();
+		RefreshRankButtonLabel();
+	}
+	#endregion
+
 	#region Private Methods
 	private void BuildUiIfNeeded()
 	{
@@ -100,9 +119,17 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			if (canvas == null)
 				return;
 
+			if (canvas.GetComponent<GraphicRaycaster>() == null)
+				canvas.gameObject.AddComponent<GraphicRaycaster>();
+
 			GameObject panelGo = new GameObject("ShootingRangePanel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
 			panelGo.transform.SetParent(canvas.transform, false);
 			m_PanelRoot = panelGo.GetComponent<RectTransform>();
+
+			Canvas panelCanvas = panelGo.AddComponent<Canvas>();
+			panelCanvas.overrideSorting = true;
+			panelCanvas.sortingOrder = c_PanelCanvasSortingOrder;
+			panelGo.AddComponent<GraphicRaycaster>();
 			m_PanelRoot.anchorMin = new Vector2(1f, 1f);
 			m_PanelRoot.anchorMax = new Vector2(1f, 1f);
 			m_PanelRoot.pivot = new Vector2(1f, 1f);
@@ -250,13 +277,28 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		UnwireGlobalButtons();
 
 		if (m_ResetAllButton != null)
+		{
+			m_ResetAllButton.onClick.RemoveAllListeners();
 			m_ResetAllButton.onClick.AddListener(HandleResetAll);
+		}
+
 		if (m_EnableAllButton != null)
+		{
+			m_EnableAllButton.onClick.RemoveAllListeners();
 			m_EnableAllButton.onClick.AddListener(HandleEnableAll);
+		}
+
 		if (m_DisableAllButton != null)
+		{
+			m_DisableAllButton.onClick.RemoveAllListeners();
 			m_DisableAllButton.onClick.AddListener(HandleDisableAll);
+		}
+
 		if (m_CycleRankButton != null)
+		{
+			m_CycleRankButton.onClick.RemoveAllListeners();
 			m_CycleRankButton.onClick.AddListener(HandleCycleRank);
+		}
 	}
 
 	private void UnwireGlobalButtons()

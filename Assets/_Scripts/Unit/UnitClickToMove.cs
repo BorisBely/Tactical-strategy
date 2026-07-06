@@ -866,6 +866,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void UpdateFacing()
 	{
+		if (OverrideFacingAngle.HasValue)
+		{
+			m_EngageYawVelocity = 0f;
+			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
+			ApplyFacingDirection(overrideDir);
+			return;
+		}
+
 		if (IsRunActive() || IsSprintActive())
 		{
 			m_EngageYawVelocity = 0f;
@@ -873,9 +881,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 				ApplyFacingDirection(moveDirection);
 			return;
 		}
-
-		Vector3 dir = Vector3.zero;
-		bool visionFacing = false;
 
 		if (IsEngagingVisibleTarget())
 		{
@@ -889,9 +894,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude < 1e-6f)
 				return;
-			dir = toTarget.normalized;
-			visionFacing = true;
 
+			Vector3 dir = toTarget.normalized;
 			float yawError = Vector3.SignedAngle(facingForwardXZ, dir, Vector3.up);
 			HandleTurnReady(Mathf.Abs(yawError));
 			float currentYaw = transform.eulerAngles.y;
@@ -900,53 +904,38 @@ public sealed class UnitClickToMove : MonoBehaviour
 			transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
 			return;
 		}
-		else
+
+		m_EngageYawVelocity = 0f;
+
+		Vector3 moveDir = Vector3.zero;
+		Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		float planarSpeed = vel.magnitude;
+
+		if (planarSpeed > m_StopVelocityEpsilon)
+			moveDir = vel.normalized;
+		else if (NavAgentHasIncompletePath())
 		{
-			m_EngageYawVelocity = 0f;
-
-			if (OverrideFacingAngle.HasValue)
-			{
-				dir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
-			}
-			else
-			{
-				Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-				float planarSpeed = vel.magnitude;
-
-				if (planarSpeed > m_StopVelocityEpsilon)
-					dir = vel.normalized;
-				else if (NavAgentHasIncompletePath())
-				{
-					Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-					toSteer.y = 0f;
-					if (toSteer.sqrMagnitude < 1e-6f)
-						return;
-					dir = toSteer.normalized;
-				}
-				else
-				{
-					m_ReadyHands?.TryRestoreReadyAfterTurn(false);
-					m_TurnSuppressedReady = false;
-					return;
-				}
-			}
+			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+			toSteer.y = 0f;
+			if (toSteer.sqrMagnitude < 1e-6f)
+				return;
+			moveDir = toSteer.normalized;
 		}
-
-		if (dir.sqrMagnitude < 1e-6f)
+		else
 		{
 			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 			m_TurnSuppressedReady = false;
 			return;
 		}
 
-		if (visionFacing)
+		if (moveDir.sqrMagnitude < 1e-6f)
 		{
-			Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
-			transform.rotation = q;
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
 			return;
 		}
 
-		ApplyFacingDirection(dir);
+		ApplyFacingDirection(moveDir);
 	}
 
 	private void HandleTurnReady(float _angleDegrees)

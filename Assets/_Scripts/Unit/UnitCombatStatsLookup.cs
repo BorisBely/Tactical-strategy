@@ -22,9 +22,30 @@ public static class UnitCombatStatsLookup
 		_combatStats = null;
 
 #if UNITY_2023_1_OR_NEWER
-		UnitCombatStats[] allStats = Object.FindObjectsByType<UnitCombatStats>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		RtsUnitMember[] rtsMembers = UnityEngine.Object.FindObjectsByType<RtsUnitMember>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
-		UnitCombatStats[] allStats = Object.FindObjectsOfType<UnitCombatStats>();
+		RtsUnitMember[] rtsMembers = UnityEngine.Object.FindObjectsOfType<RtsUnitMember>();
+#endif
+		for (int i = 0; i < rtsMembers.Length; i++)
+		{
+			RtsUnitMember member = rtsMembers[i];
+			if (member == null || !member.IsPlayerSelectable)
+				continue;
+
+			UnitCombatStats stats = member.GetComponent<UnitCombatStats>();
+			if (stats == null)
+				stats = member.GetComponentInChildren<UnitCombatStats>(true);
+			if (stats == null)
+				continue;
+
+			_combatStats = stats;
+			return true;
+		}
+
+#if UNITY_2023_1_OR_NEWER
+		UnitCombatStats[] allStats = UnityEngine.Object.FindObjectsByType<UnitCombatStats>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+#else
+		UnitCombatStats[] allStats = UnityEngine.Object.FindObjectsOfType<UnitCombatStats>();
 #endif
 		for (int i = 0; i < allStats.Length; i++)
 		{

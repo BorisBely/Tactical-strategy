@@ -79,6 +79,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 		if (ReferenceEquals(m_BoundWeaponState, weaponState))
 		{
+			weaponState.EnsureValidSelectedFireMode();
 			SyncInsertedMagazineVisual();
 			SyncAttachmentVisuals();
 			return;
@@ -86,6 +87,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 		m_BoundItemState = itemState;
 		m_BoundWeaponState = weaponState;
+		weaponState.EnsureValidSelectedFireMode();
 		m_TransientState.Clear();
 		SyncInsertedMagazineVisual();
 		SyncAttachmentVisuals();

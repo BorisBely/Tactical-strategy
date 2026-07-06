@@ -49,6 +49,9 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 		if (PauseMenuController.IsPaused)
 			return;
 
+		if (GameInputGate.ShouldBlockGameplayInput())
+			return;
+
 		if (m_BlockInputOverUi && IsPointerOverUi())
 			return;
 
@@ -143,9 +146,10 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 			move += transform.right;
 		if (keyboard.aKey.isPressed)
 			move -= transform.right;
-		if (keyboard.eKey.isPressed)
+		bool allowVerticalFly = !HasSelectedUnits() || keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
+		if (allowVerticalFly && keyboard.eKey.isPressed)
 			move += Vector3.up;
-		if (keyboard.qKey.isPressed)
+		if (allowVerticalFly && keyboard.qKey.isPressed)
 			move -= Vector3.up;
 
 		if (move.sqrMagnitude <= 0f)

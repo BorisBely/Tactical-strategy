@@ -61,6 +61,17 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		}
 
 		RefreshTargetList();
+		NotifyShootingRangeUi();
+	}
+
+	private static void NotifyShootingRangeUi()
+	{
+#if UNITY_2023_1_OR_NEWER
+		ShootingRangeUiController uiController = UnityEngine.Object.FindAnyObjectByType<ShootingRangeUiController>(FindObjectsInactive.Exclude);
+#else
+		ShootingRangeUiController uiController = UnityEngine.Object.FindObjectOfType<ShootingRangeUiController>();
+#endif
+		uiController?.RefreshPanelState();
 	}
 
 	private void OnEnable()

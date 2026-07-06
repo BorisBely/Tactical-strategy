@@ -86,6 +86,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private FormationSyncGroup m_FormationSyncGroup;
 	private bool m_HasFormationFacingAngle;
 	private float m_FormationFacingAngle;
+	private float m_FormationFrontFacingAngle;
+	private bool m_HasLastArrivalMovementAngle;
+	private float m_LastArrivalMovementAngle;
 	private LineRenderer m_FormationFacingArrowLine;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
 	private float m_NextWaypointCheckTime;
@@ -176,6 +179,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		public float Angle;
 		public FacingArrowMode Mode;
+		public bool ForceReadyOnActivation;
+		public bool ActivateAtSegmentStart;
 		public bool HasLookPoint;
 		public int RouteSegmentIndex;
 		public float RouteSegmentT;
@@ -218,6 +223,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public bool WantsReady => m_ReadyHands != null && m_ReadyHands.WantsReady;
 	public bool HasQueuedCommands => m_CommandQueue.Count > 0;
 	public bool HasActiveDestination => m_HasActiveDestination;
+	public bool HasWantedFacing => m_HasWantedFacing;
 	public bool IsWaitingAtRouteGate => m_IsWaitingAtRouteGate;
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
@@ -773,6 +779,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasActiveDestination = true;
 		m_ActiveMoveTier = _moveTier;
 		m_ActiveRouteSegmentStart = transform.position;
+		m_HasLastArrivalMovementAngle = false;
 		m_DestinationSetTime = Time.time;
 		m_IsRotatingToFacing = false;
 		m_HasWantedFacing = false;
@@ -805,7 +812,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UnitClickToMove.MoveTier _tier,
 		float? _facing,
 		FacingArrowMode _mode,
-		int _waitGroup)
+		int _waitGroup,
+		Vector3? _lookPoint = null,
+		bool _activateAtSegmentStart = false)
 	{
 		CancelPendingCommand();
 		ClearWaypoints();
@@ -821,11 +830,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (_facing.HasValue && !float.IsNaN(_facing.Value))
 		{
+			bool hasLookPoint = _mode == FacingArrowMode.LookAtPoint && _lookPoint.HasValue;
 			cmd.FacingArrows.Add(BindFacingArrowToRouteSegment(new FacingArrow
 			{
 				Angle = _facing.Value,
 				Mode = _mode,
-			}, 0, _dest));
+				ForceReadyOnActivation = false,
+				ActivateAtSegmentStart = _activateAtSegmentStart,
+				HasLookPoint = hasLookPoint,
+			}, 0, _dest, hasLookPoint ? _lookPoint : null));
 		}
 
 		AssignWaitMetadata(ref cmd, _waitGroup, _iconAtWaypoint: false);
@@ -847,7 +860,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UnitClickToMove.MoveTier _tier,
 		float? _facing,
 		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
-		int _waitGroup = 0)
+		int _waitGroup = 0,
+		Vector3? _lookPoint = null,
+		bool _activateAtSegmentStart = false)
 	{
 		m_Waypoints.Add(_dest);
 
@@ -862,11 +877,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (_facing.HasValue && !float.IsNaN(_facing.Value))
 		{
 			int waypointIndex = m_Waypoints.Count - 1;
+			bool hasLookPoint = _mode == FacingArrowMode.LookAtPoint && _lookPoint.HasValue;
 			cmd.FacingArrows.Add(BindFacingArrowToRouteSegment(new FacingArrow
 			{
 				Angle = _facing.Value,
 				Mode = _mode,
-			}, waypointIndex, m_Waypoints[waypointIndex]));
+				ForceReadyOnActivation = false,
+				ActivateAtSegmentStart = _activateAtSegmentStart,
+				HasLookPoint = hasLookPoint,
+			}, waypointIndex, m_Waypoints[waypointIndex], hasLookPoint ? _lookPoint : null));
 		}
 
 		AssignWaitMetadata(ref cmd, _waitGroup, _iconAtWaypoint: false);
@@ -1570,16 +1589,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 		float _angle,
 		Vector3 _anchor,
 		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
-		Vector3? _lookPoint = null)
+		Vector3? _lookPoint = null,
+		bool _forceReadyOnActivation = true,
+		bool _activateAtSegmentStart = false)
 	{
 		bool hasLookPoint = _mode == FacingArrowMode.LookAtPoint && _lookPoint.HasValue;
 		bool bindToActiveSegment = m_HasActiveDestination && _index == 0;
+		Vector3 bindAnchor = _activateAtSegmentStart && bindToActiveSegment
+			? transform.position
+			: _anchor;
 		var facingArrow = BindFacingArrowToRouteSegment(new FacingArrow
 		{
 			Angle = _angle,
 			Mode = _mode,
+			ForceReadyOnActivation = _forceReadyOnActivation,
+			ActivateAtSegmentStart = _activateAtSegmentStart,
 			HasLookPoint = hasLookPoint,
-		}, _index, _anchor, hasLookPoint ? _lookPoint : null, bindToActiveSegment);
+		}, _index, bindAnchor, hasLookPoint ? _lookPoint : null, bindToActiveSegment || _activateAtSegmentStart);
 
 		int cmdIndex = _index;
 		if (m_HasActiveDestination)
@@ -1610,8 +1636,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 		
 		m_ActiveFacingArrows.Add(_arrow);
 		
-		if (m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
+		if (_arrow.ForceReadyOnActivation &&
+		    m_ReadyHands != null &&
+		    m_ReadyHands.IsWeaponEquipped() &&
+		    !m_ReadyHands.WantsReady)
 			m_ReadyHands.SetReadyWanted(true, false);
+
+		if (_arrow.ActivateAtSegmentStart && m_HasActiveDestination)
+			TryActivateSegmentStartFacingArrows();
 		
 		MarkFacingArrowsDirty();
 	}
@@ -1640,16 +1672,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ClearFormationFacing();
 	}
 
-	public void SetFormationFacingAngle(float _angleDegrees)
+	public void SetFormationFacingAngle(float _sectorOffsetDegrees, float _frontAngleDegrees)
 	{
 		m_HasFormationFacingAngle = true;
-		m_FormationFacingAngle = _angleDegrees;
+		m_FormationFacingAngle = _sectorOffsetDegrees;
+		m_FormationFrontFacingAngle = _frontAngleDegrees;
 		EnsureFormationFacingVisual();
+		ApplyFormationFacingIfNeeded();
 	}
 
 	public void ClearFormationFacing()
 	{
 		m_HasFormationFacingAngle = false;
+		m_HasLastArrivalMovementAngle = false;
 		if (m_FormationFacingArrowLine != null)
 		{
 			Destroy(m_FormationFacingArrowLine.gameObject);
@@ -1674,6 +1709,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		else
 			m_IsRotatingToFacing = true;
 	}
+
 
 	public void IssueInPlaceFacingOrder(float _angle, FacingArrowMode _mode = FacingArrowMode.TurnOverDistance)
 	{
@@ -1721,8 +1757,18 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_ReadyHands != null)
 				m_ReadyHands.SetReadyWanted(_ready);
 
+			if (!_ready && HasActiveLocomotionMovement() && !HasManualRouteFacingActive())
+			{
+				ClearFacingOverride();
+				if (m_IsInFacingTurn)
+					ClearFacingTurn();
+			}
+
 			if (_ready)
+			{
 				DowngradeActiveMovementTierForReady();
+				ApplyFormationFacingIfNeeded();
+			}
 		});
 	}
 
@@ -1734,6 +1780,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
 		if (m_IsExecutingSmoothingArc)
 			m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
+
+		if (m_ClickToMove != null)
+			m_ClickToMove.ForceWalkMoveMode();
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.ForceWalkMoveMode();
 	}
 
 	public void RequestStance(LocomotionStance _stance)
@@ -2000,7 +2051,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			? new List<FacingArrow>(cmd.FacingArrows) 
 			: null;
 		
-		if (m_ActiveFacingArrows != null && m_ActiveFacingArrows.Count > 0
+		if (m_ActiveFacingArrows != null && HasReadyForcingFacingArrow(m_ActiveFacingArrows)
 		    && m_ReadyHands != null && m_ReadyHands.IsWeaponEquipped() && !m_ReadyHands.WantsReady)
 			m_ReadyHands.SetReadyWanted(true, false);
 
@@ -2013,11 +2064,46 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasActiveDestination = true;
 		m_ActiveMoveTier = cmd.MoveTier;
 		m_ActiveRouteSegmentStart = transform.position;
+		m_HasLastArrivalMovementAngle = false;
 		m_DestinationSetTime = Time.time;
-		
+
 		IssueMoveOrderForCurrentWaypoint(cmd.Destination, cmd.MoveTier);
 
+		TryActivateSegmentStartFacingArrows();
+
 		MarkFacingArrowsDirty();
+	}
+
+	private void TryActivateSegmentStartFacingArrows()
+	{
+		if (!m_HasActiveDestination || m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0)
+			return;
+
+		for (int i = m_ActiveFacingArrows.Count - 1; i >= 0; i--)
+		{
+			FacingArrow arrow = m_ActiveFacingArrows[i];
+			if (!arrow.ActivateAtSegmentStart)
+				continue;
+
+			Vector3? lookWorld = arrow.HasLookPoint
+				? ResolveFacingArrowLookPoint(arrow, _isActiveSegment: true)
+				: (Vector3?)null;
+
+			m_ActiveFacingArrows.RemoveAt(i);
+
+			FacingArrow rebound = BindFacingArrowToRouteSegment(
+				arrow,
+				0,
+				transform.position,
+				lookWorld,
+				_useActiveSegmentStart: true);
+			rebound.ActivateAtSegmentStart = false;
+
+			if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
+				TransitionActiveMovementToWalk();
+
+			StartFacingTurn(rebound, transform.position, _isActiveSegment: true);
+		}
 	}
 
 	private void IssueMoveOrderForCurrentWaypoint(Vector3 _logicalDestination, UnitClickToMove.MoveTier _moveTier)
@@ -2305,6 +2391,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!m_IsInFacingTurn)
 			return;
+
 		if (!m_HasActiveDestination)
 		{
 			ClearFacingTurn();
@@ -2373,6 +2460,40 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_ClickToMove.OverrideFacingAngle = _angle;
 		else if (m_LocomotionDriver != null)
 			m_LocomotionDriver.OverrideFacingAngle = _angle;
+	}
+
+	private bool HasActiveLocomotionMovement()
+	{
+		if (m_HasActiveDestination)
+			return true;
+
+		if (IsExecutingMoveOrder())
+			return true;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent != null && agent.enabled)
+		{
+			Vector3 velocity = agent.velocity;
+			velocity.y = 0f;
+			if (velocity.sqrMagnitude > 0.01f)
+				return true;
+		}
+
+		return false;
+	}
+
+	private static bool HasReadyForcingFacingArrow(List<FacingArrow> _arrows)
+	{
+		if (_arrows == null)
+			return false;
+
+		for (int i = 0; i < _arrows.Count; i++)
+		{
+			if (_arrows[i].ForceReadyOnActivation)
+				return true;
+		}
+
+		return false;
 	}
 
 	private bool ShouldPersistFacingTurnAcrossQueuedCommand()
@@ -2552,20 +2673,56 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!m_HasFormationFacingAngle)
 			return false;
-		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
-			return false;
-		if (!WantsReady)
+		if (IsRunOrSprintMoveTier(m_ActiveMoveTier) && !WantsReady)
 			return false;
 		if (HasManualRouteFacingActive())
+			return false;
+		// Sector formation front applies on arrival, not while moving to the destination.
+		if (m_HasActiveDestination)
 			return false;
 		return true;
 	}
 
+	private void ApplyFormationFacingIfNeeded()
+	{
+		if (!ShouldApplyFormationFacing())
+			return;
+
+		float facingAngle = WantsReady
+			? ResolveReadyFormationSectorWorldAngle()
+			: m_FormationFrontFacingAngle;
+		ApplyLocomotionFacingOverride(facingAngle);
+	}
+
+	private float ResolveReadyFormationSectorWorldAngle()
+	{
+		return ResolveMovementFacingBaseAngle() + m_FormationFacingAngle;
+	}
+
+	private float ResolveMovementFacingBaseAngle()
+	{
+		if (!m_HasActiveDestination && m_HasLastArrivalMovementAngle)
+			return m_LastArrivalMovementAngle;
+
+		if (m_HasActiveDestination && m_Waypoints.Count > 0)
+		{
+			Vector3 dest = m_Waypoints[0];
+			Vector3 moveDir = dest - m_ActiveRouteSegmentStart;
+			moveDir.y = 0f;
+			if (moveDir.sqrMagnitude > 0.01f)
+				return Mathf.Atan2(moveDir.x, moveDir.z) * Mathf.Rad2Deg;
+		}
+
+		return transform.eulerAngles.y;
+	}
+
 	private void UpdateFormationFacing()
 	{
-		bool shouldApply = ShouldApplyFormationFacing();
-		if (shouldApply)
-			ApplyLocomotionFacingOverride(m_FormationFacingAngle);
+		if (ShouldApplyFormationFacing())
+			ApplyFormationFacingIfNeeded();
+		else if (HasActiveLocomotionMovement() && !HasManualRouteFacingActive() && !m_HasWantedFacing &&
+		         !m_HasFormationFacingAngle)
+			ClearFacingOverride();
 
 		bool showVisual = m_HasFormationFacingAngle
 		                  && m_IsSelected
@@ -2610,7 +2767,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!show)
 			return;
 
-		Vector3 dir = Quaternion.Euler(0f, m_FormationFacingAngle, 0f) * Vector3.forward;
+		float worldSectorAngle = ResolveReadyFormationSectorWorldAngle();
+		Vector3 dir = Quaternion.Euler(0f, worldSectorAngle, 0f) * Vector3.forward;
 		Vector3 anchor = transform.position + s_FacingArrowYOffset;
 		m_FormationFacingArrowLine.SetPosition(0, anchor + dir * c_FacingArrowShaftStartOffset);
 		m_FormationFacingArrowLine.SetPosition(1, anchor + dir * (c_FacingArrowFixedLength * 0.85f));
@@ -2893,6 +3051,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 #endif
 		if (m_Waypoints.Count > 0)
 		{
+			Vector3 dest = m_Waypoints[0];
+			Vector3 moveDir = dest - m_ActiveRouteSegmentStart;
+			moveDir.y = 0f;
+			if (moveDir.sqrMagnitude > 0.01f)
+			{
+				m_HasLastArrivalMovementAngle = true;
+				m_LastArrivalMovementAngle = Mathf.Atan2(moveDir.x, moveDir.z) * Mathf.Rad2Deg;
+			}
+
 			ShiftFacingArrowSegmentsAfterWaypointRemoved(0);
 			ShiftWaitHoldSegmentsAfterWaypointRemoved(0);
 			m_Waypoints.RemoveAt(0);
@@ -2901,6 +3068,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasActiveDestination = false;
 		ClearSmoothingArcState();
 		TryStartNextQueuedCommand();
+		if (!m_HasActiveDestination && m_CommandQueue.Count == 0)
+			ApplyFormationFacingIfNeeded();
 	}
 
 	private void ShiftFacingArrowSegmentsAfterWaypointRemoved(int _removedWaypointIndex)

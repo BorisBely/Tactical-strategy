@@ -739,6 +739,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		bool wasMirrorAnimationOnly = m_UiMagazineMirrorAnimationOnly;
 		InventorySlotRuntimeData uiEjectedMagazine = m_UiLastEjectedMagazine;
 		StopReloadInternal(false);
+		m_WeaponRuntime?.RuntimeState?.EnsureValidSelectedFireMode();
 
 		if (wasUiMagazineModification && !wasMirrorAnimationOnly)
 			UiMagazineModificationCompleted?.Invoke(uiEjectedMagazine);

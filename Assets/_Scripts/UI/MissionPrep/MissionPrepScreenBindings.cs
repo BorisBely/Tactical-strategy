@@ -101,6 +101,11 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 			m_ScreenController?.RefreshInventoryPanel();
 			RefreshEquipmentTitle();
 		}
+		else
+		{
+			GameInputGate.ReleaseUiInputCapture();
+			RtsUnitSelectionManager.Instance?.CancelRouteEditInputState();
+		}
 	}
 
 	public void RefreshEquipmentTitle()

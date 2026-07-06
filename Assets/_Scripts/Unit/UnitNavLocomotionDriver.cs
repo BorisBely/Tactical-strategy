@@ -680,6 +680,14 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private void UpdateFacing()
 	{
+		if (OverrideFacingAngle.HasValue)
+		{
+			m_EngageYawVelocity = 0f;
+			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
+			ApplyFacingDirection(overrideDir);
+			return;
+		}
+
 		if (IsRunActive() || IsSprintActive())
 		{
 			m_EngageYawVelocity = 0f;
@@ -687,8 +695,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 				ApplyFacingDirection(moveDirection);
 			return;
 		}
-
-		Vector3 direction = Vector3.zero;
 
 		if (IsEngagingVisibleTarget())
 		{
@@ -703,8 +709,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			if (toTarget.sqrMagnitude < 1e-6f)
 				return;
 
-			direction = toTarget.normalized;
-			float yawError = Vector3.SignedAngle(facingForwardXZ, direction, Vector3.up);
+			Vector3 engageDir = toTarget.normalized;
+			float yawError = Vector3.SignedAngle(facingForwardXZ, engageDir, Vector3.up);
 			HandleTurnReady(Mathf.Abs(yawError));
 			float currentYaw = transform.eulerAngles.y;
 			float targetYaw = currentYaw + yawError;
@@ -715,34 +721,26 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		m_EngageYawVelocity = 0f;
 
-		if (OverrideFacingAngle.HasValue)
+		Vector3 direction = Vector3.zero;
+		Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		float planarSpeed = velocity.magnitude;
+
+		if (planarSpeed > m_StopVelocityEpsilon)
+			direction = velocity.normalized;
+		else if (NavAgentHasIncompletePath())
 		{
-			direction = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
+			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+			toSteer.y = 0f;
+			if (toSteer.sqrMagnitude < 1e-6f)
+				return;
+			direction = toSteer.normalized;
 		}
 		else
 		{
-			Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-			float planarSpeed = velocity.magnitude;
-
-			if (planarSpeed > m_StopVelocityEpsilon)
-				direction = velocity.normalized;
-			else if (NavAgentHasIncompletePath())
-			{
-				Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-				toSteer.y = 0f;
-				if (toSteer.sqrMagnitude < 1e-6f)
-					return;
-				direction = toSteer.normalized;
-			}
-			else
-			{
-				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
-				m_TurnSuppressedReady = false;
-				return;
-			}
+			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+			m_TurnSuppressedReady = false;
+			return;
 		}
-
-
 
 		ApplyFacingDirection(direction);
 	}
