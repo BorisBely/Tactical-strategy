@@ -8,9 +8,10 @@ using UnityEngine;
 public static class FormationLayoutUtility
 {
 	#region Constants
-	private const float c_SectorAlternateDegrees = 42f;
-	private const float c_SectorFlankDegrees = 55f;
-	private const float c_SectorSideBiasDegrees = 38f;
+	private const float c_CenterBandSpacingFraction = 0.34f;
+	private const float c_MinCenterBandRadiusMeters = 0.45f;
+	private const float c_FlankYawOffsetDegrees = 38f;
+	private const float c_MaxFlankYawOffsetDegrees = 52f;
 
 	/// <summary>Порядок X / X+1..7: частые → специализированные. Не совпадает с numeric enum.</summary>
 	private static readonly FormationType[] s_FormationHotkeyOrder =
@@ -62,7 +63,7 @@ public static class FormationLayoutUtility
 		}
 
 		public Vector2 LocalOffset { get; }
-		/// <summary>Секторный сдвиг взгляда относительно направления движения юнита к слоту (не фронта формации).</summary>
+		/// <summary>Устарело: сектор вычисляется в рантайме по боковому положению юнита в строю.</summary>
 		public float FacingOffsetFromForward { get; }
 	}
 	#endregion
@@ -199,14 +200,58 @@ public static class FormationLayoutUtility
 
 			FormationSlotLayout slot = slots[slotIndex];
 			Vector2 local = new Vector2(slot.LocalOffset.x, slot.LocalOffset.z);
-			float facingOffset = Mathf.DeltaAngle(baseAngle, facingAngles[unitIndex]);
-			bindings[unitIndex] = new FormationUnitSlotBinding(local, facingOffset);
+			bindings[unitIndex] = new FormationUnitSlotBinding(local, 0f);
 		}
 
 		return bindings;
 	}
 
-	/// <summary>Поворачивает кэшированное строение: позиции относительно фронта; сектора — смещения относительно направления движения юнита.</summary>
+	/// <summary>Поворачивает кэшированное строение: только позиции слотов; сектора — в рантайме.</summary>
+	public static float GetCenterBandRadiusMeters(float _spacing)
+	{
+		return Mathf.Max(c_MinCenterBandRadiusMeters, Mathf.Max(0.1f, _spacing) * c_CenterBandSpacingFraction);
+	}
+
+	/// <summary>
+	/// Сектор взгляда по боковому положению в строю: центр — по ходу, края — вперёд с лёгким уводом наружу.
+	/// Бок выбирается по положению относительно центра группы (без перекрёстного огня при развороте).
+	/// </summary>
+	public static float ResolveRuntimeSectorWorldAngle(
+		Vector3 _unitWorldPos,
+		Vector3 _formationCenterWorld,
+		Vector3 _movementForwardXZ,
+		float _centerBandRadiusMeters)
+	{
+		Vector3 forward = _movementForwardXZ;
+		forward.y = 0f;
+		if (forward.sqrMagnitude < 1e-6f)
+			forward = Vector3.forward;
+		else
+			forward.Normalize();
+
+		Vector3 toUnit = _unitWorldPos - _formationCenterWorld;
+		toUnit.y = 0f;
+		float alongMarch = Vector3.Dot(toUnit, forward);
+		Vector3 lateral = toUnit - forward * alongMarch;
+		float lateralSqr = lateral.sqrMagnitude;
+		float bandSqr = _centerBandRadiusMeters * _centerBandRadiusMeters;
+
+		float baseYaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+		if (lateralSqr < bandSqr)
+			return baseYaw;
+
+		Vector3 right = Vector3.Cross(Vector3.up, forward);
+		float side = Mathf.Sign(Vector3.Dot(lateral, right));
+		if (Mathf.Approximately(side, 0f))
+			return baseYaw;
+
+		float lateralMag = Mathf.Sqrt(lateralSqr);
+		float flankT = Mathf.Clamp01(
+			(lateralMag - _centerBandRadiusMeters) / Mathf.Max(0.01f, _centerBandRadiusMeters));
+		float yawOffset = Mathf.Lerp(c_FlankYawOffsetDegrees, c_MaxFlankYawOffsetDegrees, flankT);
+		return baseYaw + side * yawOffset;
+	}
+
 	public static FormationBuildResult ApplyBindings(
 		FormationUnitSlotBinding[] _bindings,
 		Vector3 _formationForward)
@@ -228,7 +273,7 @@ public static class FormationLayoutUtility
 		{
 			Vector2 local = _bindings[i].LocalOffset;
 			offsets.Add(right * local.x + forward * local.y);
-			facings.Add(_bindings[i].FacingOffsetFromForward);
+			facings.Add(0f);
 		}
 
 		return new FormationBuildResult(offsets, facings);
@@ -354,8 +399,7 @@ public static class FormationLayoutUtility
 		for (int i = 0; i < localPoints.Count; i++)
 		{
 			Vector2 p = localPoints[i];
-			float facing = ComputeSlotFacing(_formation, i, localPoints.Count, _baseAngle, p.x, p.y);
-			slots.Add(new FormationSlotLayout(new Vector3(p.x, 0f, p.y), facing, i));
+			slots.Add(new FormationSlotLayout(new Vector3(p.x, 0f, p.y), 0f, i));
 		}
 
 		return slots;
@@ -507,84 +551,6 @@ public static class FormationLayoutUtility
 			float angle = t * Mathf.PI * 2f - Mathf.PI * 0.5f;
 			_out.Add(new Vector2(Mathf.Cos(angle) * radiusX, Mathf.Sin(angle) * radiusZ));
 		}
-	}
-	#endregion
-
-	#region Facing
-	private static float ComputeSlotFacing(
-		FormationType _formation,
-		int _slotIndex,
-		int _slotCount,
-		float _baseAngle,
-		float _localX,
-		float _localZ)
-	{
-		switch (_formation)
-		{
-			case FormationType.Line:
-				return _baseAngle;
-
-			case FormationType.SingleFile:
-				if (_slotIndex == 0)
-					return _baseAngle;
-				return _baseAngle + ((_slotIndex & 1) == 1 ? -c_SectorAlternateDegrees : c_SectorAlternateDegrees);
-
-			case FormationType.DoubleFile:
-				if (_slotIndex <= 1)
-					return _baseAngle;
-				if (Mathf.Abs(_localX) < 0.01f)
-					return _baseAngle;
-				return _baseAngle + (_localX > 0f ? c_SectorSideBiasDegrees : -c_SectorSideBiasDegrees);
-
-			case FormationType.TacticalColumn:
-				if (Mathf.Abs(_localX) < 0.01f)
-					return _baseAngle;
-				return _baseAngle + (_localX > 0f ? c_SectorSideBiasDegrees : -c_SectorSideBiasDegrees);
-
-			case FormationType.Wedge:
-			case FormationType.WideReconWedge:
-				if (Mathf.Abs(_localX) < GetFlankThreshold(_formation))
-					return _baseAngle;
-				return _baseAngle + (_localX > 0f ? c_SectorFlankDegrees : -c_SectorFlankDegrees);
-
-			case FormationType.Diamond:
-				return ComputePolygonFacing(_baseAngle, _slotIndex, _slotCount, _localX, _localZ);
-
-			default:
-				return _baseAngle;
-		}
-	}
-
-	private static float GetFlankThreshold(FormationType _formation)
-	{
-		return _formation == FormationType.WideReconWedge ? 0.5f : 0.25f;
-	}
-
-	private static float ComputePolygonFacing(
-		float _baseAngle,
-		int _slotIndex,
-		int _slotCount,
-		float _localX,
-		float _localZ)
-	{
-		if (_slotCount <= 4)
-		{
-			if (_slotIndex == 0)
-				return _baseAngle;
-			if (_localZ <= -0.01f && _slotCount == 4)
-				return _baseAngle;
-			if (Mathf.Abs(_localX) > 0.01f)
-				return _baseAngle + (_localX > 0f ? c_SectorSideBiasDegrees : -c_SectorSideBiasDegrees);
-			return _baseAngle;
-		}
-
-		float sector = 360f / _slotCount;
-		float angle = _baseAngle + _slotIndex * sector;
-		float rearLimit = _baseAngle + 180f;
-		float delta = Mathf.DeltaAngle(_baseAngle, angle);
-		if (Mathf.Abs(delta) > 120f)
-			angle = _baseAngle + Mathf.Sign(delta) * 60f;
-		return angle;
 	}
 	#endregion
 

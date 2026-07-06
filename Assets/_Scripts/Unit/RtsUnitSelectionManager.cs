@@ -3690,7 +3690,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				: RtsUnitMember.FacingArrowMode.HoldToEnd;
 		}
 
-		if (isGroup && (isGroupManualFacing || formationFacingAngles != null) && ShouldForceWalkForGroupFormationFacing(validUnits))
+		if (isGroup && (isGroupManualFacing || formationFacingAngles != null) && ShouldForceWalkForGroupFormationFacing(validUnits)
+		    && moveTier != UnitClickToMove.MoveTier.Run && moveTier != UnitClickToMove.MoveTier.Sprint)
 			moveTier = UnitClickToMove.MoveTier.Walk;
 
 		m_LastWalkCenter = center;
@@ -4494,13 +4495,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool useWait = _waitGroup != 0;
 		bool isGroup = validUnits.Count >= 2;
 		bool isRunTier = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+
 		bool applyFormationFacing = isGroup
 		                              && !_isGroupManualFormationFacing
 		                              && _formationFacingAngles != null
-		                              && _formationFacingAngles.Count > 0;
-		float formationFrontFacingAngle = applyFormationFacing
-			? ResolveFormationFrontFacingAngle(validUnits, _center, _formationForwardOverride)
-			: 0f;
+		                              && _formationFacingAngles.Count > 0
+		                              && !isRunTier;
 
 		RtsUnitMember.FacingArrowMode facingMode = _facingMode ?? RtsUnitMember.FacingArrowMode.TurnOverDistance;
 		bool activateFacingAtSegmentStart = _isGroupManualFormationFacing;
@@ -4519,8 +4519,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				activateFacingAtSegmentStart);
 			EnsureFormationSyncGroup(validUnits, _offsets, _center);
 			if (applyFormationFacing)
-				ApplyFormationFacingToUnits(validUnits, _formationFacingAngles, formationFrontFacingAngle);
-			else
+				ApplyFormationFacingToUnits(validUnits);
+			else if (!isRunTier)
 			{
 				for (int i = 0; i < validUnits.Count; i++)
 					validUnits[i]?.ClearFormationFacing();
@@ -4547,7 +4547,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 			if (applyFormationFacing)
-				ApplyFormationFacingToUnits(validUnits, _formationFacingAngles, formationFrontFacingAngle);
+				ApplyFormationFacingToUnits(validUnits);
 			return;
 		}
 
@@ -4565,7 +4565,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			}
 
 			if (allUpgraded)
+			{
+				ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 				return;
+			}
 		}
 
 		if (isRunTier && !isGroup && validUnits.Count == 1 && _offsets.Count > 0)
@@ -4615,7 +4618,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 		if (applyFormationFacing)
-			ApplyFormationFacingToUnits(validUnits, _formationFacingAngles, formationFrontFacingAngle);
+			ApplyFormationFacingToUnits(validUnits);
 		else if (_isGroupManualFormationFacing)
 		{
 			for (int i = 0; i < validUnits.Count; i++)
@@ -5088,31 +5091,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_HasCachedFormationForward = false;
 	}
 
-	private float ResolveFormationFrontFacingAngle(
-		List<RtsUnitMember> _units,
-		Vector3 _center,
-		Vector3? _formationForwardOverride = null)
+	private void ApplyFormationFacingToUnits(List<RtsUnitMember> _units)
 	{
-		Vector3 forward = FormationLayoutUtility.ResolveFormationForward(_units, _center, _formationForwardOverride);
-		forward.y = 0f;
-		if (forward.sqrMagnitude < 0.0001f)
-			forward = Vector3.forward;
-		forward.Normalize();
-		return Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
-	}
-
-	private void ApplyFormationFacingToUnits(List<RtsUnitMember> _units, List<float> _sectorOffsets, float _frontFacingAngle)
-	{
-		if (_units == null || _sectorOffsets == null)
+		if (_units == null)
 			return;
 
-		for (int i = 0; i < _units.Count && i < _sectorOffsets.Count; i++)
-		{
-			RtsUnitMember unit = _units[i];
-			if (unit == null)
-				continue;
-			unit.SetFormationFacingAngle(_sectorOffsets[i], _frontFacingAngle);
-		}
+		for (int i = 0; i < _units.Count; i++)
+			_units[i]?.EnableFormationSectorFacing();
 	}
 
 	private void SyncFormationToSelection()
