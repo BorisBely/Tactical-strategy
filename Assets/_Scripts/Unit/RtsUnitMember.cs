@@ -31,6 +31,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private Collider m_SelectionCollider;
 	[SerializeField] private GameObject m_SelectionVisualRoot;
 	[SerializeField] private bool m_DisableDirectInputForRts = true;
+	private UnitConsciousness m_Consciousness;
+	private UnitHealth m_Health;
 	[Header("Selection Name Label")]
 	[SerializeField] private GameObject m_SelectionNameLabelRoot;
 	[SerializeField] private TextMeshProUGUI m_SelectionNameText;
@@ -95,6 +97,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private bool m_WasFormationRouteMoving;
 	private const float c_FormationSectorRecalcIntervalSeconds = 3f;
 	private const float c_FormationSectorTurnThresholdDegrees = 22f;
+	private static readonly bool s_ShowFormationFacingArrowVisual = false;
 	private bool m_HasLastArrivalMovementAngle;
 	private float m_LastArrivalMovementAngle;
 	private LineRenderer m_FormationFacingArrowLine;
@@ -118,6 +121,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		TurnOverDistance,
 		HoldToEnd,
 		LookAtPoint,
+		/// <summary>Поворот на месте только после полной остановки в точке назначения.</summary>
+		TurnOnArrival,
 	}
 
 	public readonly struct WaitPointDescriptor
@@ -321,6 +326,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_PathLine == null)
 			return;
 
+		if (UnitFallenStateUtility.IsFallenOrDead(this))
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
+			return;
+		}
+
 		if (m_IsMovePreviewVisualActive)
 		{
 			RefreshMovePreviewPathLine();
@@ -346,10 +358,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 			s_Instances.Add(this);
 		SetSelected(false);
 		ApplyAnimatorSpeedVariation();
+		SubscribeFallenStateListeners();
+		ApplyFallenRtsIsolationIfNeeded();
 	}
 
 	private void OnDisable()
 	{
+		UnsubscribeFallenStateListeners();
 		if (m_FormationSyncGroup != null)
 			m_FormationSyncGroup.Members.Remove(this);
 		CancelPendingCommand();
@@ -357,6 +372,46 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ResetAnimatorSpeed();
 		s_Instances.Remove(this);
 		SetSelected(false);
+	}
+
+	private void SubscribeFallenStateListeners()
+	{
+		if (m_Consciousness == null)
+			m_Consciousness = GetComponentInChildren<UnitConsciousness>(true);
+		if (m_Health == null)
+			m_Health = GetComponentInChildren<UnitHealth>(true);
+
+		if (m_Consciousness != null)
+			m_Consciousness.ConsciousnessChanged += HandleFallenStateChangedForRts;
+		if (m_Health != null)
+			m_Health.Changed += HandleFallenStateChangedForRts;
+	}
+
+	private void UnsubscribeFallenStateListeners()
+	{
+		if (m_Consciousness != null)
+			m_Consciousness.ConsciousnessChanged -= HandleFallenStateChangedForRts;
+		if (m_Health != null)
+			m_Health.Changed -= HandleFallenStateChangedForRts;
+	}
+
+	private void HandleFallenStateChangedForRts(bool _isConscious)
+	{
+		ApplyFallenRtsIsolationIfNeeded();
+	}
+
+	private void HandleFallenStateChangedForRts()
+	{
+		ApplyFallenRtsIsolationIfNeeded();
+	}
+
+	private void ApplyFallenRtsIsolationIfNeeded()
+	{
+		if (!UnitFallenStateUtility.IsFallenOrDead(this))
+			return;
+
+		ClearWaypoints();
+		RtsUnitSelectionManager.Instance?.NotifyUnitBecameNonControllable(this);
 	}
 
 	private void Update()
@@ -601,6 +656,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!HasReachedActiveDestination(agent))
 			return;
 
+		if (TryActivateTurnOnArrivalFacing())
+			return;
+
 		if (ShouldClearFacingOnLegArrival())
 		{
 			if (m_IsInFacingTurn)
@@ -684,6 +742,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		bool _continuous,
 		float _groupStaggerDelaySeconds = 0f)
 	{
+		if (UnitFallenStateUtility.IsFallenOrDead(this))
+			return;
+
 		ScheduleRtsCommand(() =>
 		{
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
@@ -774,6 +835,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (m_PathLine == null)
 			return;
+		if (UnitFallenStateUtility.IsFallenOrDead(this))
+		{
+			m_PathLine.positionCount = 0;
+			m_PathLine.enabled = false;
+			return;
+		}
 
 		if (!m_IsMovePreviewVisualActive)
 			BeginMovePreviewVisual();
@@ -1693,7 +1760,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		m_HasFormationFacingAngle = true;
 		InvalidateFormationSectorCache();
-		EnsureFormationFacingVisual();
+		if (s_ShowFormationFacingArrowVisual)
+			EnsureFormationFacingVisual();
 	}
 
 	public void SetFormationSectorOffset(float _sectorOffsetDegrees)
@@ -1716,6 +1784,56 @@ public sealed class RtsUnitMember : MonoBehaviour
 		{
 			Destroy(m_FormationFacingArrowLine.gameObject);
 			m_FormationFacingArrowLine = null;
+		}
+	}
+
+	/// <summary>
+	/// Завершает «застрявший» приказ у точки назначения (после формации и т.п.):
+	/// активирует TurnOnArrival или снимает destination/стрелки, если юнит уже стоит на месте.
+	/// </summary>
+	public void TryFinalizeIdleNearDestination()
+	{
+		if (m_IsWaitingAtRouteGate || m_IsExecutingSmoothingArc)
+			return;
+		if (!m_HasActiveDestination || m_Waypoints.Count == 0)
+			return;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh || agent.pathPending)
+			return;
+
+		Vector3 velocity = agent.velocity;
+		velocity.y = 0f;
+		if (velocity.sqrMagnitude > 0.01f)
+			return;
+		if (!IsNearDestination(transform.position, m_Waypoints[0], 0.75f))
+			return;
+
+		if (TryActivateTurnOnArrivalFacing())
+			return;
+
+		if (ShouldClearFacingOnLegArrival())
+		{
+			if (m_IsInFacingTurn)
+				ClearFacingTurn();
+			else if (m_HasWantedFacing)
+			{
+				if (!m_IsRotatingToFacing)
+					ClearFacingOverride();
+				m_HasWantedFacing = false;
+				m_ActiveFacingArrows = null;
+				MarkFacingArrowsDirty();
+			}
+		}
+
+		if (!m_IsRotatingToFacing)
+			TryAdvanceRouteQueue();
+
+		if (!m_HasActiveDestination && m_Waypoints.Count == 0)
+		{
+			ResetActiveMoveTierWhenIdle();
+			if (m_PathLine != null)
+				m_PathLine.enabled = false;
 		}
 	}
 
@@ -2109,8 +2227,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_UnitEquipment != null && m_UnitEquipment.MainWeaponRoot != null)
 			position = m_UnitEquipment.MainWeaponRoot.position;
 
-		float volume = weaponDefinition.FireModeSwitchSoundVolume;
-		AudioSource.PlayClipAtPoint(clip, position, volume);
+		UnitNonFireAudioUtility.PlayAtPoint(
+			clip,
+			position,
+			weaponDefinition.FireModeSwitchSoundVolume,
+			40f);
 	}
 
 	public bool TryGetCurrentStance(out LocomotionStance _stance)
@@ -2481,6 +2602,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
 		{
+			if (m_ActiveFacingArrows[i].Mode == FacingArrowMode.TurnOnArrival)
+				continue;
+
 			Vector3 arrowPos = ResolveFacingArrowAnchor(m_ActiveFacingArrows[i], _isActiveSegment: true);
 			float dx = unitPos.x - arrowPos.x;
 			float dz = unitPos.z - arrowPos.z;
@@ -2542,7 +2666,36 @@ public sealed class RtsUnitMember : MonoBehaviour
 					  Quaternion.Euler(0f, _arrow.Angle, 0f) * Vector3.forward * c_FacingArrowFixedLength;
 				m_IsInFacingTurn = true;
 				break;
+
+			case FacingArrowMode.TurnOnArrival:
+				break;
 		}
+	}
+
+	private bool TryActivateTurnOnArrivalFacing()
+	{
+		if (m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0)
+			return false;
+
+		for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+		{
+			if (m_ActiveFacingArrows[i].Mode != FacingArrowMode.TurnOnArrival)
+				continue;
+
+			FacingArrow arrow = m_ActiveFacingArrows[i];
+			m_ActiveFacingArrows.RemoveAt(i);
+			MarkFacingArrowsDirty();
+
+			ClearFacingTurn();
+			ClearFacingOverride();
+			m_HasWantedFacing = true;
+			m_WantedFacingAngle = arrow.Angle;
+			m_IsRotatingToFacing = true;
+			m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
+			return true;
+		}
+
+		return false;
 	}
 
 	private void UpdateFacingTurn()
@@ -2666,6 +2819,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private bool ShouldClearFacingOnLegArrival()
 	{
+		if (m_IsRotatingToFacing)
+			return false;
+
 		if (m_IsInFacingTurn)
 		{
 			if (m_FacingTurnMode == FacingArrowMode.HoldToEnd ||
@@ -3000,13 +3156,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 		else if (HasActiveLocomotionMovement() && !HasManualRouteFacingActive() && !m_HasWantedFacing)
 			ClearFacingOverride();
 
-		bool showVisual = m_HasFormationFacingAngle
-		                  && m_IsSelected
-		                  && WantsReady
-		                  && !IsRunOrSprintMoveTier(m_ActiveMoveTier)
-		                  && routeActive
-		                  && m_HasCachedFormationSectorYaw;
-		UpdateFormationFacingVisual(showVisual);
+		if (s_ShowFormationFacingArrowVisual)
+		{
+			bool showVisual = m_HasFormationFacingAngle
+			                  && m_IsSelected
+			                  && WantsReady
+			                  && !IsRunOrSprintMoveTier(m_ActiveMoveTier)
+			                  && routeActive
+			                  && m_HasCachedFormationSectorYaw;
+			UpdateFormationFacingVisual(showVisual);
+		}
+		else if (m_FormationFacingArrowLine != null)
+		{
+			m_FormationFacingArrowLine.enabled = false;
+		}
 	}
 
 	private void EnsureFormationFacingVisual()

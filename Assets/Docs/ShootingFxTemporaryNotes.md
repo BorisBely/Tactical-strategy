@@ -21,7 +21,7 @@
 - Позиция и направление particle-гильз совпадают с физическим выбросом:
   `ShellEject.position` + `ShellEject.forward` (см. `WeaponVfxUtility.TryGetShellEjectionPose`).
 - В профиле только визуальная подстройка mesh FX:
-  - `Shell Prefab Ejection Axis` — локальная ось FX-префаба (`+X` для `FX_Bullet_Ejection_01`)
+  - `Shell Prefab Ejection Axis` — локальная ось FX-префаба (`+X` для `FX_ShellEjection_Particle`)
   - `Shell Local Euler Offset` — финальный поворот mesh
 
 ## Что ещё сделать позже

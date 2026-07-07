@@ -111,7 +111,7 @@ public sealed class ShellCasingBehaviour : MonoBehaviour
 		if (m_SharedImpactAudio != null && m_Ammo.TryPickShellImpactSound(out AudioClip clip, out float volume))
 		{
 			m_SharedImpactAudio.transform.position = playPos;
-			m_SharedImpactAudio.PlayOneShot(clip, volume);
+			m_SharedImpactAudio.PlayOneShot(clip, UnitNonFireAudioUtility.ScaleVolume(volume));
 		}
 
 		float lifetime = Mathf.Max(0.05f, m_Ammo.ShellLifetimeAfterImpactSeconds);

@@ -12,6 +12,16 @@ public static class FormationLayoutUtility
 	private const float c_MinCenterBandRadiusMeters = 0.45f;
 	private const float c_FlankYawOffsetDegrees = 38f;
 	private const float c_MaxFlankYawOffsetDegrees = 52f;
+	private const float c_DoubleFileFlankYawDegrees = 40f;
+	private const float c_TacticalColumnFlankYawDegrees = 42f;
+	private const float c_WideReconScoutYawDegrees = 30f;
+	private const float c_WideReconRearFlankMinYawDegrees = 45f;
+	private const float c_WideReconScoutForwardDepthFraction = 0.25f;
+	private const float c_WideReconFrontToCenterDepthFraction = 0.60f;
+	private const float c_WideReconFrontToBackDepthFraction = 1.10f;
+	private const float c_WideReconBackRowDepthStepFraction = 0.95f;
+	private const float c_WideReconFrontRearDepthGapMultiplier = 2f;
+	private const float c_DiamondSmallCountThreshold = 5;
 
 	/// <summary>Порядок X / X+1..7: частые → специализированные. Не совпадает с numeric enum.</summary>
 	private static readonly FormationType[] s_FormationHotkeyOrder =
@@ -63,7 +73,7 @@ public static class FormationLayoutUtility
 		}
 
 		public Vector2 LocalOffset { get; }
-		/// <summary>Устарело: сектор вычисляется в рантайме по боковому положению юнита в строю.</summary>
+		/// <summary>Смещение взгляда относительно фронта формации (жёлтой стрелки), градусы.</summary>
 		public float FacingOffsetFromForward { get; }
 	}
 	#endregion
@@ -200,13 +210,65 @@ public static class FormationLayoutUtility
 
 			FormationSlotLayout slot = slots[slotIndex];
 			Vector2 local = new Vector2(slot.LocalOffset.x, slot.LocalOffset.z);
-			bindings[unitIndex] = new FormationUnitSlotBinding(local, 0f);
+			bindings[unitIndex] = new FormationUnitSlotBinding(local, slot.FacingAngleDegrees);
 		}
 
 		return bindings;
 	}
 
-	/// <summary>Поворачивает кэшированное строение: только позиции слотов; сектора — в рантайме.</summary>
+	/// <summary>Конечный угол взгляда слота относительно фронта формации (0° = жёлтая стрелка).</summary>
+	public static float ResolveSlotFacingOffsetDegrees(
+		FormationType _formation,
+		float _localX,
+		float _localZ,
+		float _spacing,
+		int _slotCount = 0)
+	{
+		float spacing = Mathf.Max(0.1f, _spacing);
+		float centerBand = GetCenterBandRadiusMeters(spacing);
+
+		switch (_formation)
+		{
+			case FormationType.Line:
+			case FormationType.SingleFile:
+				return 0f;
+
+			case FormationType.DoubleFile:
+				return ResolveSignedFlankYaw(_localX, centerBand, c_DoubleFileFlankYawDegrees, c_DoubleFileFlankYawDegrees);
+
+			case FormationType.TacticalColumn:
+				return ResolveSignedFlankYaw(_localX, centerBand, c_TacticalColumnFlankYawDegrees, c_TacticalColumnFlankYawDegrees);
+
+			case FormationType.Wedge:
+				return ResolveWedgeSlotFacingOffset(_localX, _localZ, centerBand);
+
+			case FormationType.WideReconWedge:
+				return ResolveWideReconWedgeSlotFacingOffset(_localX, _localZ, centerBand);
+
+			case FormationType.Diamond:
+				return ResolveDiamondSlotFacingOffset(_localX, _localZ, _slotCount);
+
+			default:
+				return 0f;
+		}
+	}
+
+	public static float ResolveSlotWorldFacingAngle(float _formationForwardYawDegrees, float _slotFacingOffsetDegrees)
+	{
+		return Mathf.Repeat(_formationForwardYawDegrees + _slotFacingOffsetDegrees + 180f, 360f) - 180f;
+	}
+
+	public static float ResolveFormationForwardYawDegrees(Vector3 _formationForward)
+	{
+		Vector3 forward = _formationForward;
+		forward.y = 0f;
+		if (forward.sqrMagnitude < 0.0001f)
+			return 0f;
+
+		return Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+	}
+
+	/// <summary>Поворачивает кэшированное строение: позиции слотов и сохранённые углы взгляда.</summary>
 	public static float GetCenterBandRadiusMeters(float _spacing)
 	{
 		return Mathf.Max(c_MinCenterBandRadiusMeters, Mathf.Max(0.1f, _spacing) * c_CenterBandSpacingFraction);
@@ -269,11 +331,12 @@ public static class FormationLayoutUtility
 
 		var offsets = new List<Vector3>(_bindings.Length);
 		var facings = new List<float>(_bindings.Length);
+		float formationYaw = ResolveFormationForwardYawDegrees(forward);
 		for (int i = 0; i < _bindings.Length; i++)
 		{
 			Vector2 local = _bindings[i].LocalOffset;
 			offsets.Add(right * local.x + forward * local.y);
-			facings.Add(0f);
+			facings.Add(ResolveSlotWorldFacingAngle(formationYaw, _bindings[i].FacingOffsetFromForward));
 		}
 
 		return new FormationBuildResult(offsets, facings);
@@ -399,7 +462,8 @@ public static class FormationLayoutUtility
 		for (int i = 0; i < localPoints.Count; i++)
 		{
 			Vector2 p = localPoints[i];
-			slots.Add(new FormationSlotLayout(new Vector3(p.x, 0f, p.y), 0f, i));
+			float facing = ResolveSlotFacingOffsetDegrees(_formation, p.x, p.y, _spacing, _count);
+			slots.Add(new FormationSlotLayout(new Vector3(p.x, 0f, p.y), facing, i));
 		}
 
 		return slots;
@@ -470,6 +534,10 @@ public static class FormationLayoutUtility
 		float _depthSpacing)
 	{
 		float wide = _widthSpacing * (2.4f / 1.45f);
+		float scoutZ = _depthSpacing * c_WideReconScoutForwardDepthFraction;
+		float centerGap = _depthSpacing * c_WideReconFrontToCenterDepthFraction * c_WideReconFrontRearDepthGapMultiplier;
+		float firstBackGap = _depthSpacing * c_WideReconFrontToBackDepthFraction * c_WideReconFrontRearDepthGapMultiplier;
+		float backRowStep = _depthSpacing * c_WideReconBackRowDepthStepFraction * c_WideReconFrontRearDepthGapMultiplier;
 		int placed = 0;
 		int row = 0;
 		while (placed < _count)
@@ -478,12 +546,12 @@ public static class FormationLayoutUtility
 			{
 				if (placed < _count)
 				{
-					_out.Add(new Vector2(-wide, _depthSpacing * 0.25f));
+					_out.Add(new Vector2(-wide, scoutZ));
 					placed++;
 				}
 				if (placed < _count)
 				{
-					_out.Add(new Vector2(wide, _depthSpacing * 0.25f));
+					_out.Add(new Vector2(wide, scoutZ));
 					placed++;
 				}
 			}
@@ -491,13 +559,13 @@ public static class FormationLayoutUtility
 			{
 				if (placed < _count)
 				{
-					_out.Add(new Vector2(0f, -_depthSpacing * 0.35f));
+					_out.Add(new Vector2(0f, scoutZ - centerGap));
 					placed++;
 				}
 			}
 			else
 			{
-				float backZ = -_depthSpacing * (0.85f + (row - 2) * 0.95f);
+				float backZ = scoutZ - firstBackGap - (row - 2) * backRowStep;
 				if (placed < _count)
 				{
 					_out.Add(new Vector2(-wide, backZ));
@@ -551,6 +619,80 @@ public static class FormationLayoutUtility
 			float angle = t * Mathf.PI * 2f - Mathf.PI * 0.5f;
 			_out.Add(new Vector2(Mathf.Cos(angle) * radiusX, Mathf.Sin(angle) * radiusZ));
 		}
+	}
+	#endregion
+
+	#region Slot Facing
+	private static float ResolveSignedFlankYaw(
+		float _localX,
+		float _centerBand,
+		float _minYawDegrees,
+		float _maxYawDegrees)
+	{
+		if (Mathf.Abs(_localX) < _centerBand)
+			return 0f;
+
+		float side = Mathf.Sign(_localX);
+		if (Mathf.Approximately(side, 0f))
+			return 0f;
+
+		float lateralMag = Mathf.Abs(_localX);
+		float flankT = Mathf.Clamp01((lateralMag - _centerBand) / Mathf.Max(0.01f, _centerBand));
+		float yawOffset = Mathf.Lerp(_minYawDegrees, _maxYawDegrees, flankT);
+		return side * yawOffset;
+	}
+
+	private static float ResolveWedgeSlotFacingOffset(float _localX, float _localZ, float _centerBand)
+	{
+		if (Mathf.Abs(_localX) < _centerBand && _localZ >= -0.01f)
+			return 0f;
+
+		return ResolveSignedFlankYaw(_localX, _centerBand, c_FlankYawOffsetDegrees, c_MaxFlankYawOffsetDegrees);
+	}
+
+	private static float ResolveWideReconWedgeSlotFacingOffset(float _localX, float _localZ, float _centerBand)
+	{
+		if (_localZ > 0.01f)
+		{
+			if (_localX < -_centerBand)
+				return -c_WideReconScoutYawDegrees;
+			if (_localX > _centerBand)
+				return c_WideReconScoutYawDegrees;
+			return 0f;
+		}
+
+		if (Mathf.Abs(_localX) < _centerBand)
+			return 0f;
+
+		return ResolveSignedFlankYaw(
+			_localX,
+			_centerBand,
+			c_WideReconRearFlankMinYawDegrees,
+			c_MaxFlankYawOffsetDegrees);
+	}
+
+	private static float ResolveDiamondSlotFacingOffset(float _localX, float _localZ, int _slotCount)
+	{
+		if (_slotCount <= 0)
+			return 0f;
+
+		if (_slotCount < c_DiamondSmallCountThreshold)
+		{
+			const float c_AxisEpsilon = 0.05f;
+			if (_localZ > c_AxisEpsilon && Mathf.Abs(_localX) <= c_AxisEpsilon)
+				return 0f;
+			if (_localX < -c_AxisEpsilon && Mathf.Abs(_localZ) <= c_AxisEpsilon)
+				return -90f;
+			if (_localX > c_AxisEpsilon && Mathf.Abs(_localZ) <= c_AxisEpsilon)
+				return 90f;
+			if (_localZ < -c_AxisEpsilon && Mathf.Abs(_localX) <= c_AxisEpsilon)
+				return 180f;
+		}
+
+		if (Mathf.Abs(_localX) < 0.001f && Mathf.Abs(_localZ) < 0.001f)
+			return 0f;
+
+		return Mathf.Atan2(_localX, _localZ) * Mathf.Rad2Deg;
 	}
 	#endregion
 

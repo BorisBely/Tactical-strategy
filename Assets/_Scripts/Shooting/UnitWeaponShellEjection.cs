@@ -179,11 +179,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	private static void ConfigureImpactAudio(AudioSource _source)
 	{
 		_source.playOnAwake = false;
-		_source.spatialBlend = 1f;
-		_source.minDistance = 1f;
-		_source.maxDistance = 35f;
-		_source.rolloffMode = AudioRolloffMode.Linear;
-		_source.dopplerLevel = 0f;
+		UnitNonFireAudioUtility.ConfigureSpatial(_source, 35f);
 	}
 	#endregion
 }

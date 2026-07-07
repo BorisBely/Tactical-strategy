@@ -5,6 +5,16 @@ using UnityEngine;
 /// </summary>
 public static class UnitFallenStateUtility
 {
+	public static bool IsRtsControllable(RtsUnitMember _unit)
+	{
+		if (_unit == null || !_unit.isActiveAndEnabled || !_unit.IsPlayerSelectable)
+			return false;
+		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
+			return false;
+
+		return !IsFallenOrDead(_unit);
+	}
+
 	public static bool IsFallenOrDead(RtsUnitMember _unit)
 	{
 		return TryDescribeFallenState(_unit, out _);

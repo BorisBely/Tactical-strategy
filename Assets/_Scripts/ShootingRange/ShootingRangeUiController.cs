@@ -40,6 +40,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	[SerializeField] private Button m_EnableAllButton;
 	[SerializeField] private Button m_DisableAllButton;
 	[SerializeField] private Button m_CycleRankButton;
+	[SerializeField] private Button m_CycleHitCounterButton;
 	#endregion
 
 	#region Private Fields
@@ -66,6 +67,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		RefreshAllRows();
 		RefreshRankButtonLabel();
+		RefreshHitCounterButtonLabel();
 	}
 
 	private void OnEnable()
@@ -77,6 +79,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshAllRows();
 		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
+		RefreshHitCounterButtonLabel();
 	}
 
 	private void OnDisable()
@@ -105,6 +108,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshAllRows();
 		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
+		RefreshHitCounterButtonLabel();
 	}
 	#endregion
 
@@ -159,6 +163,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			CreateGlobalButtonsRow(m_PanelRoot);
 			CreateQuickToggleButtonsGrid(m_PanelRoot);
 			CreateRankButtonRow(m_PanelRoot);
+			CreateHitCounterButtonRow(m_PanelRoot);
 			CreateInjuryDebugButtonsGrid(m_PanelRoot);
 			m_TargetListRoot = CreateScrollList(m_PanelRoot);
 		}
@@ -200,7 +205,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		rowElement.minHeight = 30f;
 		rowElement.preferredHeight = 30f;
 
-		TextMeshProUGUI label = CreateText(rowGo.transform, _target.DisplayName, 140f, TextAlignmentOptions.MidlineLeft);
+		TextMeshProUGUI label = CreateText(rowGo.transform, _target.DisplayName, 190f, TextAlignmentOptions.MidlineLeft);
 		Button toggleButton = CreateButton(rowGo.transform, "Toggle", 64f);
 		Button resetButton = CreateButton(rowGo.transform, "Reset", 64f);
 
@@ -214,7 +219,11 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		toggleButton.onClick.AddListener(() => HandleToggleTarget(row));
 		resetButton.onClick.AddListener(() => HandleResetTarget(row));
-		row.StateChangedHandler = _ => RefreshRow(row);
+		row.StateChangedHandler = _ =>
+		{
+			RefreshRow(row);
+			RefreshQuickToggleButtons();
+		};
 		_target.StateChanged += row.StateChangedHandler;
 
 		return row;
@@ -261,9 +270,11 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			return;
 
 		ShootingRangeTarget target = _row.Target;
-		_row.Label.text = target.IsUserEnabled
-			? $"{target.DisplayName}  ON"
-			: $"{target.DisplayName}  OFF";
+		string statusLabel = target.IsUserEnabled ? "ON" : "OFF";
+		if (target.HasHitCounter)
+			_row.Label.text = $"{target.DisplayName}  {statusLabel}  {target.CurrentHitCount}/{target.RequiredHitCount}";
+		else
+			_row.Label.text = $"{target.DisplayName}  {statusLabel}";
 		SetButtonLabel(_row.ToggleButton, target.IsUserEnabled ? "OFF" : "ON");
 		_row.ResetButton.interactable = true;
 	}
@@ -295,6 +306,12 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			m_CycleRankButton.onClick.RemoveAllListeners();
 			m_CycleRankButton.onClick.AddListener(HandleCycleRank);
 		}
+
+		if (m_CycleHitCounterButton != null)
+		{
+			m_CycleHitCounterButton.onClick.RemoveAllListeners();
+			m_CycleHitCounterButton.onClick.AddListener(HandleCycleHitCounter);
+		}
 	}
 
 	private void UnwireGlobalButtons()
@@ -307,6 +324,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			m_DisableAllButton.onClick.RemoveListener(HandleDisableAll);
 		if (m_CycleRankButton != null)
 			m_CycleRankButton.onClick.RemoveListener(HandleCycleRank);
+		if (m_CycleHitCounterButton != null)
+			m_CycleHitCounterButton.onClick.RemoveListener(HandleCycleHitCounter);
 	}
 
 	private void UnwireQuickResetButtons()
@@ -371,6 +390,18 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		Debug.LogWarning("[Полигон] Не удалось сменить ранг: не найден UnitCombatStats у активного игрока или не задан Rank Cycle Order.", m_Manager);
 	}
 
+	private void HandleCycleHitCounter()
+	{
+		if (m_Manager == null)
+			return;
+
+		if (m_Manager.TryCycleHitCounterMode(out _))
+		{
+			RefreshHitCounterButtonLabel();
+			RefreshAllRows();
+		}
+	}
+
 	private void HandleAddPlayerInjury(PlayerDebugInjuryType _injuryType)
 	{
 		m_Manager?.TryAddPlayerDebugInjury(_injuryType);
@@ -387,6 +418,14 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			return;
 
 		SetButtonLabel(m_CycleRankButton, $"Rank: {m_Manager.GetPlayerUnitRankLabel()}");
+	}
+
+	private void RefreshHitCounterButtonLabel()
+	{
+		if (m_CycleHitCounterButton == null || m_Manager == null)
+			return;
+
+		SetButtonLabel(m_CycleHitCounterButton, $"Hits: {m_Manager.GetHitCounterModeLabel()}");
 	}
 
 	private void CreateQuickToggleButtonsGrid(Transform _parent)
@@ -469,6 +508,26 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		rowElement.preferredHeight = 32f;
 
 		m_CycleRankButton = CreateButton(rowGo.transform, "Rank: —", 0f);
+	}
+
+	private void CreateHitCounterButtonRow(Transform _parent)
+	{
+		GameObject rowGo = new GameObject("HitCounterButtonRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+		rowGo.transform.SetParent(_parent, false);
+
+		HorizontalLayoutGroup layout = rowGo.GetComponent<HorizontalLayoutGroup>();
+		layout.spacing = 6f;
+		layout.childAlignment = TextAnchor.MiddleCenter;
+		layout.childControlWidth = true;
+		layout.childControlHeight = true;
+		layout.childForceExpandWidth = true;
+		layout.childForceExpandHeight = false;
+
+		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
+		rowElement.minHeight = 32f;
+		rowElement.preferredHeight = 32f;
+
+		m_CycleHitCounterButton = CreateButton(rowGo.transform, "Hits: Off", 0f);
 	}
 
 	private void CreateInjuryDebugButtonsGrid(Transform _parent)

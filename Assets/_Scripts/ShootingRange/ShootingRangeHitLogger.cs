@@ -54,11 +54,12 @@ public static class ShootingRangeHitLogger
 		string fireModeLabel = FormatFireModeLabel(selectedFireMode, effectiveFireMode);
 		string aimModeLabel = FormatAimModeLabel(selectedAimMode, effectiveAimMode);
 		string accuracyLabel = FormatAccuracyLabel(accuracy);
+		string hitCounterLabel = FormatHitCounterLabel(_target);
 
 		Debug.Log(
 			$"[Полигон] Попадание | юнит: {unitName} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +
 			$"огонь: {fireModeLabel} | прицел: {aimModeLabel} | мишень: {_target.DisplayName} | " +
-			$"{accuracyLabel} | дистанция: {_shotDistanceMeters:F1} м",
+			$"{accuracyLabel}{hitCounterLabel} | дистанция: {_shotDistanceMeters:F1} м",
 			_context);
 	}
 	#endregion
@@ -143,6 +144,14 @@ public static class ShootingRangeHitLogger
 			$"(гориз. {_accuracy.OffsetHorizontalMeters:+#.000;-#.000;0} м, " +
 			$"верт. {_accuracy.OffsetVerticalMeters:+#.000;-#.000;0} м, " +
 			$"R={_accuracy.FaceHalfExtentMeters:F2} м)";
+	}
+
+	private static string FormatHitCounterLabel(ShootingRangeTarget _target)
+	{
+		if (_target == null || !_target.HasHitCounter)
+			return string.Empty;
+
+		return $" | счётчик: {_target.CurrentHitCount}/{_target.RequiredHitCount}";
 	}
 	#endregion
 }

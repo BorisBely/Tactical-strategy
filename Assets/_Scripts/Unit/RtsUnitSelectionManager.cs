@@ -22,6 +22,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(2f)] private float m_BoxSelectionMinDragPixels = 12f;
 	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.28f;
 	[SerializeField, Min(1f)] private float m_QuickRotateDragThresholdPixels = 90f;
+	[SerializeField, Min(1f)] private float m_InPlaceFacingDragThresholdPixels = 5f;
 	[Header("Path Waypoint Hover")]
 	[SerializeField, Min(0.05f)] private float m_PathHoverDelay = 0.2f;
 	[SerializeField, Min(5f)] private float m_PathHoverThresholdPixels = 30f;
@@ -34,11 +35,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_WaitPointIconScreenOffsetY = 28f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
-	[Header("Group Move Formation")]
-	[Tooltip("Добавочные метры к диаметру агента (NavMeshAgent.radius * 2) для расстояния между юнитами в строю.")]
-	[SerializeField, Min(0f)] private float m_GroupMoveUnitPadding = 0.5f;
-	[Tooltip("Максимальный случайный сдвиг позиции юнита в формации для естественности.")]
-	[SerializeField, Range(0f, 0.5f)] private float m_GroupMoveFormationJitter = 0.10f;
 	[Header("Formation Spacing")]
 	[Tooltip("Базовый интервал между юнитами в формации (метры).")]
 	[SerializeField, Min(0.1f)] private float m_FormationLineSpacing = 2f;
@@ -64,8 +60,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_ClickMarkerLifetimeSeconds = 1f;
 	[Tooltip("Маркер вдоль пути (каждые N метров).")]
 	[SerializeField] private GameObject m_PathMarkerPrefab;
-	[Tooltip("Интервал расстановки маркеров пути (метры).")]
-	[SerializeField, Min(0.5f)] private float m_PathMarkerInterval = 1f;
 
 	[Header("Inventory UI")]
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
@@ -96,6 +90,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_HasMoveFacingSet;
 	private bool m_HasFormationFacingSet;
 	private bool m_RmbStartedOnSelectedUnit;
+	private bool m_IsInPlaceFacingPreview;
 	private Vector2 m_RmbDownMousePos;
 	private List<float> m_PreviewFacingAngles;
 	private List<float> m_PreviewFormationFacingAngles;
@@ -112,6 +107,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Coroutine m_PendingWalkCoroutine;
 	private readonly List<GameObject> m_DirectionMarkers = new List<GameObject>();
 	private readonly List<GameObject> m_PreviewDestinationMarkers = new List<GameObject>();
+	private readonly List<GameObject> m_PreviewUnitFacingArrows = new List<GameObject>();
 	private GameObject m_MovePreviewFacingArrow;
 	private bool m_IsFormationPickerKeyHeld;
 	private float m_FormationPickerKeyDownTime;
@@ -2319,7 +2315,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		RtsUnitMember unit = hit.collider.GetComponentInParent<RtsUnitMember>();
 		RtsUnitMember fallenTarget = ResolveFallenUnitFromRay(ray, hit);
-		if (unit == null || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
+		if (unit == null || !UnitFallenStateUtility.IsRtsControllable(unit))
 		{
 			if (fallenTarget != null)
 				return;
@@ -2482,13 +2478,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private static bool TryGetControllablePlayerUnit(RtsUnitMember _unit, out RtsUnitMember _controllable)
 	{
 		_controllable = null;
-		if (_unit == null || !_unit.isActiveAndEnabled || !_unit.IsPlayerSelectable)
-			return false;
-		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
-			return false;
-
-		UnitConsciousness consciousness = _unit.GetComponentInChildren<UnitConsciousness>(true);
-		if (consciousness != null && !consciousness.IsConscious)
+		if (!UnitFallenStateUtility.IsRtsControllable(_unit))
 			return false;
 
 		_controllable = _unit;
@@ -2536,7 +2526,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < units.Count; i++)
 		{
 			RtsUnitMember unit = units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
+			if (unit == null || !UnitFallenStateUtility.IsRtsControllable(unit))
 				continue;
 			if (!unit.TryGetSelectionBounds(out Bounds bounds))
 				continue;
@@ -3514,8 +3504,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (CanPreviewMoveFacing())
 			{
 				Vector2 mousePos = Mouse.current.position.ReadValue();
+				float facingDragThreshold = GetMoveFacingDragThresholdPixels();
 				if (!m_IsQuickRotateFacing &&
-				    (mousePos - m_RmbDownMousePos).magnitude >= m_QuickRotateDragThresholdPixels)
+				    (mousePos - m_RmbDownMousePos).magnitude >= facingDragThreshold)
 				{
 					EnterQuickRotateMode();
 				}
@@ -3526,6 +3517,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					return;
 				}
 			}
+
+			if (m_IsInPlaceFacingPreview && GetValidSelectedUnits().Count == 1)
+				return;
 
 			if (m_IsQuickRotateFacing)
 				ExitMoveFacingMode();
@@ -3743,13 +3737,17 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool isGroupManualFacing = isGroup
 		                             && groupFacingMode != GroupFormationFacingMode.Sector
 		                             && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
+		bool isGroupFormationSlotFacing = isGroup
+		                                  && groupFacingMode == GroupFormationFacingMode.Sector
+		                                  && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
+		FormationLayoutUtility.FormationBuildResult rebuiltFormation = default;
 		if (isGroup && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet))
 		{
-			FormationLayoutUtility.FormationBuildResult rebuilt =
+			rebuiltFormation =
 				BuildFormationLayout(validUnits, center, m_PreviewFormationForwardOverride, _forceRebuildBindings: true);
-			offsets = rebuilt.Offsets;
+			offsets = rebuiltFormation.Offsets;
 			m_PreviewOffsets = offsets;
-			m_PreviewFormationFacingAngles = isGroupManualFacing ? null : rebuilt.FacingAngles;
+			m_PreviewFormationFacingAngles = isGroupManualFacing ? null : rebuiltFormation.FacingAngles;
 		}
 
 		bool useMoveFacing = !isGroup && (m_HasMoveFacingSet || m_IsQuickRotateFacing);
@@ -3757,13 +3755,23 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			? RtsUnitMember.FacingArrowMode.TurnOverDistance
 			: null;
 		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
-		List<float> formationFacingAngles = isGroup && !isGroupManualFacing ? m_PreviewFormationFacingAngles : null;
+		List<float> formationFacingAngles = isGroup && !isGroupManualFacing && !isGroupFormationSlotFacing
+			? m_PreviewFormationFacingAngles
+			: null;
 		Vector3? formationForwardOverride = m_PreviewFormationForwardOverride;
 		Vector3? groupManualLookPoint = isGroupManualFacing && groupFacingMode == GroupFormationFacingMode.LookAtPoint
 			? m_PreviewFormationManualLookPoint
 			: null;
 		UnitClickToMove.MoveTier moveTier = m_PreviewMoveTier;
 		bool startedOnSelectedUnit = m_RmbStartedOnSelectedUnit;
+
+		if (isGroupFormationSlotFacing
+		    && rebuiltFormation.FacingAngles != null
+		    && rebuiltFormation.FacingAngles.Count > 0)
+		{
+			facingAngles = new List<float>(rebuiltFormation.FacingAngles);
+			facingMode = RtsUnitMember.FacingArrowMode.TurnOnArrival;
+		}
 
 		if (isGroupManualFacing)
 		{
@@ -3775,7 +3783,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				: RtsUnitMember.FacingArrowMode.HoldToEnd;
 		}
 
-		if (isGroup && (isGroupManualFacing || formationFacingAngles != null) && ShouldForceWalkForGroupFormationFacing(validUnits)
+		if (isGroup && (isGroupManualFacing || isGroupFormationSlotFacing || formationFacingAngles != null)
+		    && ShouldForceWalkForGroupFormationFacing(validUnits)
 		    && moveTier != UnitClickToMove.MoveTier.Run && moveTier != UnitClickToMove.MoveTier.Sprint)
 			moveTier = UnitClickToMove.MoveTier.Walk;
 
@@ -3863,6 +3872,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		BeginMovePreviewForUnits();
 		ApplyPreviewPathLines();
+
+		m_IsInPlaceFacingPreview = _rmbStartedOnSelectedUnit
+		                           && validUnits.Count == 1
+		                           && IsInPlaceMovePreview(validUnits, _centerPoint, m_PreviewOffsets);
+		if (m_IsInPlaceFacingPreview)
+			validUnits[0]?.TryFinalizeIdleNearDestination();
 	}
 
 	private void BeginMovePreviewForUnits()
@@ -3946,9 +3961,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				m_PreviewDestinationMarkers[i].SetActive(false);
 		}
 
+		UpdatePreviewUnitFacingArrows(validUnits);
+
 		if (!m_IsQuickRotateFacing)
 		{
 			SetMovePreviewFacingArrowVisible(false);
+			SetPreviewUnitFacingArrowsVisible(false);
 			return;
 		}
 
@@ -3960,6 +3978,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				: 0f;
 			Vector3 dir = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
 			SetMovePreviewFacingArrow(dest, dir, true);
+			SetPreviewUnitFacingArrowsVisible(false);
 			return;
 		}
 
@@ -3969,7 +3988,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			{
 				GroupFormationFacingMode.HoldToEnd => RtsUnitMember.FacingArrowMode.HoldToEnd,
 				GroupFormationFacingMode.LookAtPoint => RtsUnitMember.FacingArrowMode.LookAtPoint,
-				_ => RtsUnitMember.FacingArrowMode.TurnOverDistance,
+				_ => RtsUnitMember.FacingArrowMode.TurnOnArrival,
 			};
 			Color previewColor = GetFacingArrowColor(previewMode);
 			Vector3? lookPoint = m_PreviewGroupFormationFacingMode == GroupFormationFacingMode.LookAtPoint
@@ -3982,14 +4001,101 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				previewColor,
 				previewMode,
 				lookPoint);
+
+			bool showUnitArrows = m_PreviewGroupFormationFacingMode == GroupFormationFacingMode.Sector
+			                      && m_PreviewFormationFacingAngles != null
+			                      && m_PreviewFormationFacingAngles.Count > 0;
+			SetPreviewUnitFacingArrowsVisible(showUnitArrows);
 			return;
 		}
+
+		SetPreviewUnitFacingArrowsVisible(false);
 
 		Vector3 forward = FormationLayoutUtility.ResolveFormationForward(
 			validUnits,
 			m_PreviewCenterPoint,
 			null);
 		SetMovePreviewFacingArrow(m_PreviewCenterPoint, forward, true);
+		SetPreviewUnitFacingArrowsVisible(false);
+	}
+
+	private void UpdatePreviewUnitFacingArrows(List<RtsUnitMember> _validUnits)
+	{
+		if (_validUnits == null || m_PreviewOffsets == null)
+			return;
+
+		EnsurePreviewUnitFacingArrows(_validUnits.Count);
+
+		Color arrowColor = GetFacingArrowColor(RtsUnitMember.FacingArrowMode.TurnOnArrival);
+		for (int i = 0; i < m_PreviewUnitFacingArrows.Count; i++)
+		{
+			GameObject arrowGo = m_PreviewUnitFacingArrows[i];
+			if (arrowGo == null)
+				continue;
+
+			bool active = i < _validUnits.Count && i < m_PreviewOffsets.Count;
+			arrowGo.SetActive(active);
+			if (!active)
+				continue;
+
+			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[i];
+			float angle = m_PreviewFormationFacingAngles != null && i < m_PreviewFormationFacingAngles.Count
+				? m_PreviewFormationFacingAngles[i]
+				: FormationLayoutUtility.ResolveFormationForwardYawDegrees(
+					m_PreviewFormationForwardOverride ?? Vector3.forward);
+			Vector3 dir = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
+			LineRenderer lr = arrowGo.GetComponent<LineRenderer>();
+			if (lr == null)
+				continue;
+
+			lr.startColor = arrowColor;
+			lr.endColor = arrowColor;
+			Vector3 yOffset = Vector3.up * 0.08f;
+			Vector3 shaftStart = dest + dir * 0.12f + yOffset;
+			Vector3 tip = dest + dir * 1.35f + yOffset;
+			lr.SetPosition(0, shaftStart);
+			lr.SetPosition(1, tip);
+		}
+	}
+
+	private void EnsurePreviewUnitFacingArrows(int _count)
+	{
+		while (m_PreviewUnitFacingArrows.Count < _count)
+			m_PreviewUnitFacingArrows.Add(CreatePreviewUnitFacingArrow());
+
+		for (int i = 0; i < m_PreviewUnitFacingArrows.Count; i++)
+		{
+			if (m_PreviewUnitFacingArrows[i] != null)
+				m_PreviewUnitFacingArrows[i].SetActive(i < _count);
+		}
+	}
+
+	private static GameObject CreatePreviewUnitFacingArrow()
+	{
+		GameObject arrow = new GameObject("MovePreviewUnitFacingArrow");
+		LineRenderer lr = arrow.AddComponent<LineRenderer>();
+		lr.positionCount = 2;
+		lr.startWidth = 0.02f;
+		lr.endWidth = 0.02f;
+		lr.material = new Material(Shader.Find("Sprites/Default"));
+		lr.startColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+		lr.endColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+		lr.enabled = false;
+		return arrow;
+	}
+
+	private void SetPreviewUnitFacingArrowsVisible(bool _visible)
+	{
+		for (int i = 0; i < m_PreviewUnitFacingArrows.Count; i++)
+		{
+			GameObject arrowGo = m_PreviewUnitFacingArrows[i];
+			if (arrowGo == null)
+				continue;
+
+			LineRenderer lr = arrowGo.GetComponent<LineRenderer>();
+			if (lr != null)
+				lr.enabled = _visible && arrowGo.activeSelf;
+		}
 	}
 
 	private void EnsurePreviewDestinationMarkers(int _count)
@@ -4012,22 +4118,26 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private GameObject CreatePreviewDestinationMarker()
 	{
-		if (m_DestinationMarkerPrefab != null)
-			return Instantiate(m_DestinationMarkerPrefab);
+		GameObject marker = m_DestinationMarkerPrefab != null
+			? Instantiate(m_DestinationMarkerPrefab)
+			: null;
 
-		GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-		marker.name = "MovePreviewDestinationMarker";
-		Collider col = marker.GetComponent<Collider>();
-		if (col != null)
-			Destroy(col);
-
-		marker.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
-		Renderer renderer = marker.GetComponent<Renderer>();
-		if (renderer != null)
+		if (marker == null)
 		{
-			renderer.material = new Material(Shader.Find("Sprites/Default"));
-			renderer.material.color = new Color(0.2f, 0.85f, 1f, 0.55f);
+			marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+			marker.name = "MovePreviewDestinationMarker";
+			marker.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
+			Renderer renderer = marker.GetComponent<Renderer>();
+			if (renderer != null)
+			{
+				renderer.material = new Material(Shader.Find("Sprites/Default"));
+				renderer.material.color = new Color(0.2f, 0.85f, 1f, 0.55f);
+			}
 		}
+
+		Collider[] colliders = marker.GetComponentsInChildren<Collider>();
+		for (int i = 0; i < colliders.Length; i++)
+			Destroy(colliders[i]);
 
 		return marker;
 	}
@@ -4100,6 +4210,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				Destroy(m_PreviewDestinationMarkers[i]);
 		}
 		m_PreviewDestinationMarkers.Clear();
+
+		for (int i = 0; i < m_PreviewUnitFacingArrows.Count; i++)
+		{
+			if (m_PreviewUnitFacingArrows[i] != null)
+				Destroy(m_PreviewUnitFacingArrows[i]);
+		}
+		m_PreviewUnitFacingArrows.Clear();
 
 		if (m_MovePreviewFacingArrow != null)
 		{
@@ -4201,9 +4318,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[0];
 			Vector3 toCursor = hit.point - dest;
 			toCursor.y = 0f;
-			float angle = toCursor.sqrMagnitude > 0.01f
-				? Mathf.Atan2(toCursor.x, toCursor.z) * Mathf.Rad2Deg
-				: 0f;
+			float angle;
+			if (toCursor.sqrMagnitude > 0.05f)
+				angle = Mathf.Atan2(toCursor.x, toCursor.z) * Mathf.Rad2Deg;
+			else
+				angle = ScreenDragToWorldYaw(Mouse.current.position.ReadValue() - m_RmbDownMousePos, dest);
 			m_PreviewFacingAngles[0] = angle;
 			ApplyPreviewPathLines();
 			return;
@@ -4580,14 +4699,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool useWait = _waitGroup != 0;
 		bool isGroup = validUnits.Count >= 2;
 		bool isRunTier = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+		RtsUnitMember.FacingArrowMode facingMode = _facingMode ?? RtsUnitMember.FacingArrowMode.TurnOverDistance;
 
 		bool applyFormationFacing = isGroup
 		                              && !_isGroupManualFormationFacing
+		                              && facingMode != RtsUnitMember.FacingArrowMode.TurnOnArrival
 		                              && _formationFacingAngles != null
 		                              && _formationFacingAngles.Count > 0
 		                              && !isRunTier;
 
-		RtsUnitMember.FacingArrowMode facingMode = _facingMode ?? RtsUnitMember.FacingArrowMode.TurnOverDistance;
 		bool activateFacingAtSegmentStart = _isGroupManualFormationFacing;
 
 		if (enqueue)
@@ -4635,6 +4755,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 			if (applyFormationFacing)
 				ApplyFormationFacingToUnits(validUnits);
+			else if (facingMode == RtsUnitMember.FacingArrowMode.TurnOnArrival)
+			{
+				for (int i = 0; i < validUnits.Count; i++)
+					validUnits[i]?.ClearFormationFacing();
+			}
 			return;
 		}
 
@@ -4707,7 +4832,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
 		if (applyFormationFacing)
 			ApplyFormationFacingToUnits(validUnits);
-		else if (_isGroupManualFormationFacing)
+		else if (_isGroupManualFormationFacing || facingMode == RtsUnitMember.FacingArrowMode.TurnOnArrival)
 		{
 			for (int i = 0; i < validUnits.Count; i++)
 				validUnits[i]?.ClearFormationFacing();
@@ -4810,6 +4935,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_HasMoveFacingSet = false;
 		m_HasFormationFacingSet = false;
 		m_RmbStartedOnSelectedUnit = false;
+		m_IsInPlaceFacingPreview = false;
 		m_PreviewFacingAngles = null;
 		m_PreviewFormationFacingAngles = null;
 		m_PreviewFormationForwardOverride = null;
@@ -4827,10 +4953,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
-			if (unit != null)
+			if (unit != null && UnitFallenStateUtility.IsRtsControllable(unit))
 				validUnits.Add(unit);
 		}
 		return validUnits;
+	}
+
+	public void NotifyUnitBecameNonControllable(RtsUnitMember _unit)
+	{
+		if (_unit == null || !m_SelectedUnits.Contains(_unit))
+			return;
+
+		_unit.SetSelected(false);
+		m_SelectedUnits.Remove(_unit);
+		RefreshSelectionState();
 	}
 
 	private bool TryRaycastAnyUnit(Ray _ray, out RaycastHit _hit)
@@ -5273,6 +5409,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		if (_unit == null || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
 			return;
+		if (!m_SelectedUnits.Contains(_unit) && !UnitFallenStateUtility.IsRtsControllable(_unit))
+			return;
 
 		if (m_SelectedUnits.Contains(_unit))
 			m_SelectedUnits.Remove(_unit);
@@ -5292,7 +5430,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < _units.Count; i++)
 		{
 			RtsUnitMember unit = _units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
+			if (unit == null || !UnitFallenStateUtility.IsRtsControllable(unit))
 				continue;
 			if (m_SelectedUnits.Contains(unit))
 				continue;
@@ -5315,11 +5453,78 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		m_SelectedUnits.RemoveAll(_unit =>
-			_unit == null || !_unit.isActiveAndEnabled || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit));
+			_unit == null || !UnitFallenStateUtility.IsRtsControllable(_unit));
 
 		SyncFormationToSelection();
-
+		PrepareSoloSelectedUnitState();
 		SyncActiveInventoryToSelection();
+	}
+
+	private void PrepareSoloSelectedUnitState()
+	{
+		if (m_SelectedUnits.Count != 1)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[0];
+		if (unit == null)
+			return;
+
+		unit.TryFinalizeIdleNearDestination();
+		unit.ClearFormationSync();
+		unit.ClearFormationFacing();
+
+		if (!m_IsPreviewingMove)
+			InvalidateFormationPreviewBindings();
+	}
+
+	private float GetMoveFacingDragThresholdPixels()
+	{
+		if (m_IsInPlaceFacingPreview && GetValidSelectedUnits().Count == 1)
+			return m_InPlaceFacingDragThresholdPixels;
+
+		return m_QuickRotateDragThresholdPixels;
+	}
+
+	private static bool IsInPlaceMovePreview(
+		List<RtsUnitMember> _units,
+		Vector3 _center,
+		List<Vector3> _offsets)
+	{
+		if (_units == null || _offsets == null || _units.Count != 1 || _offsets.Count < 1)
+			return false;
+
+		RtsUnitMember unit = _units[0];
+		if (unit == null)
+			return false;
+
+		Vector3 dest = _center + _offsets[0];
+		return IsNearMoveDestination(unit.transform.position, dest);
+	}
+
+	private float ScreenDragToWorldYaw(Vector2 _screenDelta, Vector3 _worldAnchor)
+	{
+		if (_screenDelta.sqrMagnitude < 0.0001f || m_SelectionCamera == null)
+			return 0f;
+
+		Vector3 anchorScreen = m_SelectionCamera.WorldToScreenPoint(_worldAnchor);
+		Vector3 fromScreen = new Vector3(anchorScreen.x, anchorScreen.y, anchorScreen.z);
+		Vector3 toScreen = fromScreen + new Vector3(_screenDelta.x, _screenDelta.y, 0f);
+
+		Ray fromRay = m_SelectionCamera.ScreenPointToRay(fromScreen);
+		Ray toRay = m_SelectionCamera.ScreenPointToRay(toScreen);
+		Plane groundPlane = new Plane(Vector3.up, new Vector3(0f, _worldAnchor.y, 0f));
+
+		if (!groundPlane.Raycast(fromRay, out float enterFrom) || !groundPlane.Raycast(toRay, out float enterTo))
+			return 0f;
+
+		Vector3 fromWorld = fromRay.GetPoint(enterFrom);
+		Vector3 toWorld = toRay.GetPoint(enterTo);
+		Vector3 direction = toWorld - fromWorld;
+		direction.y = 0f;
+		if (direction.sqrMagnitude < 0.0001f)
+			return 0f;
+
+		return Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
 	}
 
 	private void ClearSelectionVisualsOnly()
@@ -5713,7 +5918,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		for (int i = 0; i < units.Count; i++)
 		{
 			RtsUnitMember unit = units[i];
-			if (unit == null || !unit.isActiveAndEnabled || !unit.IsPlayerSelectable || MissionPrepSquadSpawner.IsMissionPrepPresentationMember(unit))
+			if (unit == null || !UnitFallenStateUtility.IsRtsControllable(unit))
 				continue;
 
 			SetSelection(new List<RtsUnitMember> { unit });

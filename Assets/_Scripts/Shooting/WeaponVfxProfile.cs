@@ -21,7 +21,7 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField] private WeaponShellEjectionVisualMode m_ShellEjectionMode = WeaponShellEjectionVisualMode.Physical;
 	[SerializeField] private GameObject m_ShellParticlePrefab;
 	[SerializeField, Min(0.05f)] private float m_ShellParticleLifetimeSeconds = 2.5f;
-	[Tooltip("Множитель scale корня FX поверх startSize префаба (у FX_Bullet_Ejection_01 startSize=0.5).")]
+	[Tooltip("Множитель scale корня FX поверх startSize префаба (у FX_ShellEjection_Particle startSize=0.5).")]
 	[SerializeField, Min(0.01f)] private float m_ShellParticleScale = 2f;
 	[SerializeField] private Vector3 m_ShellPrefabEjectionAxis = Vector3.right;
 	[SerializeField] private Vector3 m_ShellLocalEulerOffset;

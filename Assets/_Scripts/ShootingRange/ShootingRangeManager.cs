@@ -21,6 +21,10 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	[Header("Player Unit Rank")]
 	[Tooltip("Ранги от худшего к лучшему для кнопки смены ранга на полигоне.")]
 	[SerializeField] private UnitCombatRankDefinition[] m_RankCycleOrder;
+
+	[Header("Target Hit Counter")]
+	[Tooltip("Режим счётчика попаданий для всех мишеней: Off, 1, 2, 3, 5 или 10 попаданий до авто-выключения.")]
+	[SerializeField] private ShootingRangeTargetHitCounterMode m_HitCounterMode = ShootingRangeTargetHitCounterMode.None;
 	#endregion
 
 	#region Private Fields
@@ -30,6 +34,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 	#region Public Properties
 	public IReadOnlyList<ShootingRangeTarget> Targets => m_Targets;
+	public ShootingRangeTargetHitCounterMode HitCounterMode => m_HitCounterMode;
 	#endregion
 
 	#region Public Events
@@ -61,6 +66,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 		RefreshTargetList();
 		SetAllTargetsEnabled(m_StartWithTargetsEnabled);
+		ApplyHitCounterModeToAllTargets();
 		NotifyShootingRangeUi();
 	}
 
@@ -234,6 +240,29 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		return UnitCombatRankCycle.ResolveRankLabel(combatStats.RankPreset);
 	}
 
+	public string GetHitCounterModeLabel()
+	{
+		return ShootingRangeTargetHitCounterModeUtility.GetDisplayLabel(m_HitCounterMode);
+	}
+
+	public bool TryCycleHitCounterMode(out string _newModeLabel)
+	{
+		m_HitCounterMode = ShootingRangeTargetHitCounterModeUtility.GetNextMode(m_HitCounterMode);
+		ApplyHitCounterModeToAllTargets();
+		_newModeLabel = GetHitCounterModeLabel();
+		Debug.Log($"[Полигон] Счётчик попаданий: {_newModeLabel}", this);
+		return true;
+	}
+
+	public void ApplyHitCounterModeToAllTargets()
+	{
+		for (int i = 0; i < m_Targets.Count; i++)
+		{
+			if (m_Targets[i] != null)
+				m_Targets[i].SetHitCounterMode(m_HitCounterMode);
+		}
+	}
+
 	public bool TryAddPlayerDebugInjury(PlayerDebugInjuryType _injuryType)
 	{
 		if (!TryFindPlayerUnitHealth(out UnitHealth health))
@@ -330,6 +359,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 			target = _go.AddComponent<ShootingRangeTarget>();
 
 		target.ResetTargetHealth();
+		target.SetHitCounterMode(m_HitCounterMode);
 		target.SetUserEnabled(m_StartWithTargetsEnabled);
 	}
 

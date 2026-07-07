@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 198476229333165050}
   - component: {fileID: 199667042813759926}
   m_Layer: 0
-  m_Name: FX_Bullet_Ejection_01
+  m_Name: FX_ShellEjection_Particle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

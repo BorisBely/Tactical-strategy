@@ -36,8 +36,8 @@ public sealed class UnitFootsteps : MonoBehaviour
 
 	[Header("3D звук")]
 	[SerializeField] private bool m_ApplySpatialPreset = true;
-	[SerializeField, Min(0.01f)] private float m_SpatialMinDistance = 0.6f;
-	[SerializeField, Min(0.1f)] private float m_SpatialMaxDistance = 22f;
+	[SerializeField, Min(0.01f)] private float m_SpatialMinDistance = 2.5f;
+	[SerializeField, Min(0.1f)] private float m_SpatialMaxDistance = 18f;
 	[SerializeField] private AudioRolloffMode m_VolumeRolloff = AudioRolloffMode.Logarithmic;
 	[SerializeField, Range(0f, 5f)] private float m_DopplerLevel;
 	[SerializeField] private bool m_SyncAudioSourceWorldPositionToEmitPoint = true;
@@ -207,10 +207,7 @@ public sealed class UnitFootsteps : MonoBehaviour
 		if (!m_ApplySpatialPreset)
 			return;
 
-		m_AudioSource.spatialBlend = 1f;
-		m_AudioSource.minDistance = m_SpatialMinDistance;
-		m_AudioSource.maxDistance = m_SpatialMaxDistance;
-		m_AudioSource.rolloffMode = m_VolumeRolloff;
+		UnitNonFireAudioUtility.ConfigureSpatial(m_AudioSource, m_SpatialMaxDistance);
 		m_AudioSource.dopplerLevel = m_DopplerLevel;
 	}
 
@@ -352,7 +349,8 @@ public sealed class UnitFootsteps : MonoBehaviour
 		if (clip == null)
 			return;
 
-		float vol = Mathf.Clamp01(1f + Random.Range(-m_VolumeJitter, m_VolumeJitter));
+		float baseVol = Mathf.Clamp01(1f + Random.Range(-m_VolumeJitter, m_VolumeJitter));
+		float vol = UnitNonFireAudioUtility.ScaleVolume(baseVol);
 		float pitch = Mathf.Clamp(1f + Random.Range(-m_PitchJitter, m_PitchJitter), 0.5f, 1.5f);
 
 		if (m_AudioSource != null)
@@ -365,7 +363,7 @@ public sealed class UnitFootsteps : MonoBehaviour
 			return;
 		}
 
-		AudioSource.PlayClipAtPoint(clip, GetEmitWorldPosition(), vol);
+		UnitNonFireAudioUtility.PlayAtPoint(clip, GetEmitWorldPosition(), baseVol, m_SpatialMaxDistance);
 	}
 	#endregion
 }

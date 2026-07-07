@@ -1461,11 +1461,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (_source == null)
 			return;
 
-		_source.spatialBlend = 1f;
-		_source.minDistance = m_ReloadSoundSpatialMinDistance;
-		_source.maxDistance = m_ReloadSoundSpatialMaxDistance;
-		_source.rolloffMode = AudioRolloffMode.Linear;
-		_source.dopplerLevel = 0f;
+		UnitNonFireAudioUtility.ConfigureSpatial(_source, m_ReloadSoundSpatialMaxDistance);
 	}
 
 	private void TryPlayReloadSoundFromWeaponDefinition(Func<WeaponDefinition, AudioClip> _pickClip)
@@ -1488,7 +1484,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
 
 		m_ReloadAudioSource.transform.position = pos;
-		m_ReloadAudioSource.PlayOneShot(clip, weaponDefinition.ReloadSoundsVolume);
+		m_ReloadAudioSource.PlayOneShot(
+			clip,
+			UnitNonFireAudioUtility.ScaleVolume(weaponDefinition.ReloadSoundsVolume));
 	}
 
 	private WeaponDefinition ResolveWeaponDefinitionForReloadAudio()

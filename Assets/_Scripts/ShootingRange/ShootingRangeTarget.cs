@@ -23,6 +23,8 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 	private static readonly int s_ColorId = Shader.PropertyToID("_Color");
 
 	private bool m_IsUserEnabled;
+	private ShootingRangeTargetHitCounterMode m_HitCounterMode = ShootingRangeTargetHitCounterMode.None;
+	private int m_CurrentHitCount;
 	#endregion
 
 	#region Public Properties
@@ -30,6 +32,10 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 	public bool IsUserEnabled => m_IsUserEnabled;
 	public bool IsAvailableForTargeting => isActiveAndEnabled && m_IsUserEnabled;
 	public Collider TargetCollider => m_Collider;
+	public ShootingRangeTargetHitCounterMode HitCounterMode => m_HitCounterMode;
+	public int CurrentHitCount => m_CurrentHitCount;
+	public int RequiredHitCount => ShootingRangeTargetHitCounterModeUtility.GetRequiredHits(m_HitCounterMode);
+	public bool HasHitCounter => ShootingRangeTargetHitCounterModeUtility.HasCounter(m_HitCounterMode);
 	#endregion
 
 	#region Public Events
@@ -74,7 +80,13 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 
 	public void SetUserEnabled(bool _enabled)
 	{
+		if (m_IsUserEnabled == _enabled)
+			return;
+
 		m_IsUserEnabled = _enabled;
+		if (_enabled)
+			m_CurrentHitCount = 0;
+
 		ApplyColliderState();
 		ApplyVisualState();
 		NotifyStateChanged();
@@ -83,6 +95,7 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 	public void ResetTarget()
 	{
 		m_IsUserEnabled = false;
+		m_CurrentHitCount = 0;
 		m_Damageable?.ResetHealth();
 		ApplyColliderState();
 		ApplyVisualState();
@@ -91,8 +104,36 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 
 	public void ResetTargetHealth()
 	{
+		m_CurrentHitCount = 0;
 		m_Damageable?.ResetHealth();
 		NotifyStateChanged();
+	}
+
+	public void SetHitCounterMode(ShootingRangeTargetHitCounterMode _mode)
+	{
+		if (m_HitCounterMode == _mode)
+			return;
+
+		m_HitCounterMode = _mode;
+		m_CurrentHitCount = 0;
+		NotifyStateChanged();
+	}
+
+	public bool TryRegisterHit()
+	{
+		if (!m_IsUserEnabled || !HasHitCounter)
+			return false;
+
+		m_CurrentHitCount++;
+		if (m_CurrentHitCount >= RequiredHitCount)
+		{
+			SetUserEnabled(false);
+			ResolveRegistry();
+			m_Registry?.NotifyTargetEliminated(this);
+		}
+
+		NotifyStateChanged();
+		return true;
 	}
 
 	public bool TryEvaluateFaceHitAccuracy(

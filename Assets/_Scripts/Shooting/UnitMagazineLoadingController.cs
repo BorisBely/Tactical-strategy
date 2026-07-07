@@ -569,11 +569,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		if (_source == null)
 			return;
 
-		_source.spatialBlend = 1f;
-		_source.minDistance = m_RoundLoadSoundSpatialMinDistance;
-		_source.maxDistance = m_RoundLoadSoundSpatialMaxDistance;
-		_source.rolloffMode = AudioRolloffMode.Linear;
-		_source.dopplerLevel = 0f;
+		UnitNonFireAudioUtility.ConfigureSpatial(_source, m_RoundLoadSoundSpatialMaxDistance);
 	}
 
 	private void PrepareRoundLoadSoundShuffle(MagazineDefinition _definition)
@@ -638,7 +634,9 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 		Vector3 pos = m_LeftHandAnchor != null ? m_LeftHandAnchor.position : transform.position;
 		m_RoundLoadAudioSource.transform.position = pos;
-		m_RoundLoadAudioSource.PlayOneShot(clip, _definition.RoundLoadSoundsVolume);
+		m_RoundLoadAudioSource.PlayOneShot(
+			clip,
+			UnitNonFireAudioUtility.ScaleVolume(_definition.RoundLoadSoundsVolume));
 	}
 
 	private static void ShuffleIntArrayInPlace(int[] _indices)

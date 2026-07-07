@@ -11,7 +11,7 @@ using UnityEngine;
 public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 {
 	#region Temporary
-	private const bool c_VisualKickEnabled = true;
+	private static readonly bool s_VisualKickEnabled = true;
 	#endregion
 
 	#region Serialized Fields
@@ -96,7 +96,7 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		if (!c_VisualKickEnabled)
+		if (!s_VisualKickEnabled)
 			return;
 
 		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
@@ -137,7 +137,7 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private void HandleShotFired(AmmoDefinition _ammoDefinition)
 	{
-		if (!c_VisualKickEnabled)
+		if (!s_VisualKickEnabled)
 			return;
 
 		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)

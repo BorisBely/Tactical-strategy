@@ -3266,6 +3266,7 @@ GameObject:
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
+  - component: {fileID: 330585549}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -3414,6 +3415,42 @@ MonoBehaviour:
   m_MaxSpeedMultiplier: 4
   m_ScrollSpeedStep: 0.15
   m_BlockInputOverUi: 1
+--- !u!114 &330585549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7e3f1a2b8c6497081f5e4d3c2b1a098, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraBulletWhizListener
+  m_WhizRadius: 15
+  m_WhizZoneCollider: {fileID: 0}
+  m_WhizClips:
+    m_Clips:
+    - {fileID: 8300000, guid: b55004f26156b274b8e1326c1a555be2, type: 3}
+    - {fileID: 8300000, guid: 7d4e185760290a4408b1cac60579bf35, type: 3}
+    - {fileID: 8300000, guid: 00953433506211e44ae5d3043643a4cd, type: 3}
+    - {fileID: 8300000, guid: 69de2b790df39b94e9e9e84bdff89f80, type: 3}
+    - {fileID: 8300000, guid: 798557495e504334982202045cb4b586, type: 3}
+    - {fileID: 8300000, guid: 5d4c058dc5a4af245ae279cb51298d4f, type: 3}
+    - {fileID: 8300000, guid: f6fd1927e8cd00b409f6b1b9c6ef2745, type: 3}
+    - {fileID: 8300000, guid: b65f31152d2ab4c468efe3c273b41892, type: 3}
+    - {fileID: 8300000, guid: dabdb3051dab85046811cc802172d599, type: 3}
+    - {fileID: 8300000, guid: 91d386716a11e464f8d63aeadf0e496f, type: 3}
+    - {fileID: 8300000, guid: 3950999c621a0034a98eda0b99d11c71, type: 3}
+    - {fileID: 8300000, guid: ab4b94f352dfe1a4cab96dfd60cb1dee, type: 3}
+    - {fileID: 8300000, guid: 3fd80c56e2588ae419ff37ea9bdf4fc6, type: 3}
+    - {fileID: 8300000, guid: d9ae0e10030d090418e0dd4730efc422, type: 3}
+    - {fileID: 8300000, guid: b9a2132be617c12488ab70d417e959b1, type: 3}
+  m_BaseVolume: 1
+  m_EdgeVolumeMultiplier: 0.14
+  m_DistanceFalloffPower: 1.45
+  m_PitchVariance: 0.06
+  m_VoiceCount: 5
 --- !u!1 &332745177
 GameObject:
   m_ObjectHideFlags: 0

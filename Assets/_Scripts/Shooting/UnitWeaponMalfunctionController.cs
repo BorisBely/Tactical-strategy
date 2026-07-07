@@ -515,10 +515,11 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 		if (weaponDefinition == null || !weaponDefinition.TryPickMalfunctionClickSound(out AudioClip clip))
 			return;
 
-		AudioSource.PlayClipAtPoint(
+		UnitNonFireAudioUtility.PlayAtPoint(
 			clip,
 			GetBarrelOrUnitWorldPosition(),
-			weaponDefinition.MalfunctionClickSoundVolume);
+			weaponDefinition.MalfunctionClickSoundVolume,
+			40f);
 	}
 
 	private Vector3 GetBarrelOrUnitWorldPosition()

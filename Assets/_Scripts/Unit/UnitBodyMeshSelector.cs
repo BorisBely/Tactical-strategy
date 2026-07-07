@@ -13,7 +13,6 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 	private UnitBodyMeshArchetype m_CurrentArchetype;
 	private CharacterGender m_CurrentGender;
 	private string m_CurrentMeshName;
-	private bool m_IsInitialized;
 	#endregion
 
 	#region Public Properties
@@ -82,7 +81,6 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 		m_CurrentArchetype = _archetype;
 		m_CurrentGender = _gender;
 		m_CurrentMeshName = meshName;
-		m_IsInitialized = true;
 	}
 	#endregion
 

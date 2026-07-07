@@ -164,6 +164,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void RaiseShotTrace(WeaponShotTraceInfo _trace)
+	{
+		ShotTrace?.Invoke(_trace);
+		WeaponShotTraceBroadcast.Publish(_trace);
+	}
+
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
 		if (_ammo == null || m_Equipment == null || m_WeaponRuntime == null)
@@ -341,7 +347,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				Debug.DrawRay(_origin, dir * maxDist, Color.yellow, m_DebugRayDuration);
 			m_DebugLastHitName = "";
 			m_DebugLastDamage = 0f;
-			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
+			RaiseShotTrace(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
 			return WeaponShotOutcome.Miss();
 		}
 
@@ -381,7 +387,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			RaycastHit selfHit = firstSelfHit.Value;
 			if (m_DrawDebugRays)
 				Debug.DrawRay(_origin, dir * selfHit.distance, new Color(1f, 0.5f, 0f), m_DebugRayDuration);
-			ShotTrace?.Invoke(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, selfHit, _ammo));
+			RaiseShotTrace(WeaponShotTraceInfo.CreateBlockedBySelf(_origin, dir, selfHit, _ammo));
 			return WeaponShotOutcome.BlockedBySelf(selfHit.collider.name, selfHit.distance);
 		}
 
@@ -389,7 +395,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			Debug.DrawRay(_origin, dir * maxDist, Color.yellow, m_DebugRayDuration);
 		m_DebugLastHitName = "";
 		m_DebugLastDamage = 0f;
-		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
+		RaiseShotTrace(WeaponShotTraceInfo.CreateMiss(_origin, dir, _origin + dir * maxDist, _ammo));
 		return WeaponShotOutcome.Miss();
 	}
 
@@ -438,7 +444,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		WeaponShotImpactVfxKind impactVfxKind = ResolveImpactVfxKind(target, hitZone, armorFullyBlocked);
 		float traceDamage = damageApplied ? damage : 0f;
-		ShotTrace?.Invoke(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
+		RaiseShotTrace(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
 
 		if (_hit.collider != null &&
 		    _hit.collider.GetComponentInParent<ShootingRangeTarget>() is ShootingRangeTarget rangeTarget &&
@@ -454,6 +460,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				rangeTarget,
 				_hit,
 				_hit.distance);
+			rangeTarget.TryRegisterHit();
 		}
 
 		return new WeaponShotOutcome

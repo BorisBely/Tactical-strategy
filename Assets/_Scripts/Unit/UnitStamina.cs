@@ -36,8 +36,10 @@ public class UnitStamina : MonoBehaviour
 	[SerializeField, Range(0f, 1f)] private float m_LoadRatio;
 	[SerializeField] private float m_CurrentDrainRate;
 	[SerializeField] private float m_CurrentRecoveryRate;
+#pragma warning disable CS0414 // Assigned for Inspector display only.
 	[SerializeField] private bool m_IsRunning;
 	[SerializeField] private bool m_IsRecovering;
+#pragma warning restore CS0414
 	[SerializeField] private float m_CargoWeightDebug;
 	[SerializeField] private float m_MaxWeightDebug;
 

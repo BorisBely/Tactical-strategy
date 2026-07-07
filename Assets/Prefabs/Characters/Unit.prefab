@@ -8710,8 +8710,8 @@ MonoBehaviour:
   m_RtsEconomyMode: 0
   m_RtsMaxPlanarDistanceFromListener: 0
   m_ApplySpatialPreset: 1
-  m_SpatialMinDistance: 0.6
-  m_SpatialMaxDistance: 22
+  m_SpatialMinDistance: 2.5
+  m_SpatialMaxDistance: 18
   m_VolumeRolloff: 1
   m_DopplerLevel: 0
   m_SyncAudioSourceWorldPositionToEmitPoint: 1
