@@ -15,11 +15,11 @@ public static class UnitCombatRankAssetBaker
 	{
 		EnsureFolder(c_OutputFolder);
 
-		CreateOrUpdate("Rank_Recruit", "combat.rank.recruit", "Recruit", 35f, 40f, 35f, 0.38f);
-		CreateOrUpdate("Rank_Soldier", "combat.rank.soldier", "Soldier", 50f, 50f, 50f, 0.32f);
-		CreateOrUpdate("Rank_Veteran", "combat.rank.veteran", "Corporal", 58f, 56f, 58f, 0.27f);
-		CreateOrUpdate("Rank_Specialist", "combat.rank.specialist", "Veteran", 61f, 68f, 60f, 0.23f);
-		CreateOrUpdate("Rank_Elite", "combat.rank.elite", "Elite", 65f, 63f, 66f, 0.20f);
+		CreateOrUpdate("Rank_Recruit", "combat.rank.recruit", "Recruit", 35f, 40f, 35f, 0.38f, 0.65f, 0.9f);
+		CreateOrUpdate("Rank_Soldier", "combat.rank.soldier", "Soldier", 50f, 50f, 50f, 0.32f, 0.45f, 0.6f);
+		CreateOrUpdate("Rank_Veteran", "combat.rank.veteran", "Corporal", 58f, 56f, 58f, 0.27f, 0.28f, 0.42f);
+		CreateOrUpdate("Rank_Specialist", "combat.rank.specialist", "Veteran", 61f, 68f, 60f, 0.23f, 0.22f, 0.35f);
+		CreateOrUpdate("Rank_Elite", "combat.rank.elite", "Elite", 65f, 63f, 66f, 0.20f, 0.16f, 0.28f);
 
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
@@ -33,7 +33,9 @@ public static class UnitCombatRankAssetBaker
 		float _marksmanship,
 		float _handling,
 		float _recoilControl,
-		float _reactionTime)
+		float _reactionTime,
+		float _visionScanMin,
+		float _visionScanMax)
 	{
 		string path = $"{c_OutputFolder}/{_assetName}.asset";
 		var rank = AssetDatabase.LoadAssetAtPath<UnitCombatRankDefinition>(path);
@@ -50,6 +52,8 @@ public static class UnitCombatRankAssetBaker
 		so.FindProperty("m_WeaponHandling").floatValue = _handling;
 		so.FindProperty("m_RecoilControl").floatValue = _recoilControl;
 		so.FindProperty("m_ReactionTimeSeconds").floatValue = _reactionTime;
+		so.FindProperty("m_VisionScanIntervalMinSeconds").floatValue = _visionScanMin;
+		so.FindProperty("m_VisionScanIntervalMaxSeconds").floatValue = _visionScanMax;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(rank);
 	}

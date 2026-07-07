@@ -12,6 +12,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 {
 	#region Constants
 	private const int c_RailSocketCount = 3;
+	public const string MuzzleExitTransformName = "MuzzleExit";
 	#endregion
 
 	#region Serialized Fields — уже используются геймплеем
@@ -80,6 +81,11 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// <summary>Точка выстрела: позиция и <c>forward</c> — направление ствола.</summary>
 	public Transform BarrelTransform => m_Barrel != null ? m_Barrel : (m_MuzzleModuleVisualSocket != null ? m_MuzzleModuleVisualSocket : transform);
 
+	/// <summary>
+	/// Точка вылета пули/звука/VFX: <see cref="MuzzleExitTransformName"/> на визуале дульного модуля, иначе <see cref="BarrelTransform"/>.
+	/// </summary>
+	public Transform FireOriginTransform => ResolveFireOriginTransform();
+
 	/// <summary>Точка выброса гильзы; null — эвристика от ствола.</summary>
 	public Transform ShellEjectTransform => m_ShellEject;
 
@@ -134,6 +140,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	private ItemDefinition m_CurrentMagazineVisualDefinition;
 	private readonly List<GameObject> m_AttachmentVisualInstances = new List<GameObject>(8);
 	private GameObject m_UnderBarrelForegripVisualInstance;
+	private GameObject m_MuzzleAttachmentVisualInstance;
 	#endregion
 
 	#region Public Methods
@@ -280,6 +287,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 			DisablePhysicsOnEquippedVisual(inst);
 			m_AttachmentVisualInstances.Add(inst);
 
+			if (slotType == WeaponAttachmentSlotType.Muzzle)
+				m_MuzzleAttachmentVisualInstance = inst;
+
 			if (slotType == WeaponAttachmentSlotType.UnderBarrel &&
 			    (def.AttachmentType == WeaponAttachmentType.Foregrip || def.AttachmentType == WeaponAttachmentType.Bipod))
 				m_UnderBarrelForegripVisualInstance = inst;
@@ -378,7 +388,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (!m_DrawBarrelDebugRay || !Application.isPlaying)
 			return;
 
-		Transform barrel = BarrelTransform;
+		Transform barrel = Application.isPlaying ? FireOriginTransform : BarrelTransform;
 		if (barrel == null)
 			return;
 
@@ -390,7 +400,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (!m_DrawBarrelDebugRay)
 			return;
 
-		Transform barrel = BarrelTransform;
+		Transform barrel = Application.isPlaying ? FireOriginTransform : BarrelTransform;
 		if (barrel == null)
 			return;
 
@@ -490,6 +500,21 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 		m_AttachmentVisualInstances.Clear();
 		m_UnderBarrelForegripVisualInstance = null;
+		m_MuzzleAttachmentVisualInstance = null;
+	}
+
+	private Transform ResolveFireOriginTransform()
+	{
+		Transform muzzleExit = ResolveMuzzleExitTransform();
+		return muzzleExit != null ? muzzleExit : BarrelTransform;
+	}
+
+	private Transform ResolveMuzzleExitTransform()
+	{
+		if (m_MuzzleAttachmentVisualInstance == null)
+			return null;
+
+		return FindChildRecursive(m_MuzzleAttachmentVisualInstance.transform, MuzzleExitTransformName);
 	}
 
 	private static Transform FindChildRecursive(Transform _root, string _name)

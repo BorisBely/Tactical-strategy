@@ -132,6 +132,8 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 	private float m_CurrentInjuryProgressTotalDuration;
 
+	private MedkitDefinition m_ActiveMedkitDefinition;
+
 	#endregion
 
 
@@ -341,6 +343,8 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 
 		m_DebugCompletedHealCycles++;
+
+		TryPlayBandageUseCycleSound();
 
 	}
 
@@ -994,6 +998,8 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 		m_ActiveMedkitInventory = _medkitInventory;
 
+		m_ActiveMedkitDefinition = _medkitSlot.InstanceState?.MedkitState?.Definition;
+
 		m_CurrentInjuryProgressTotalDuration = m_CurrentInjuryUsesHealStart
 
 			? SelfHealPresentationTiming.HealStartDuration +
@@ -1115,6 +1121,24 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 		m_VictimHealth.TryMarkInjuryStabilized(_injuryIndex);
 
 	}
+
+
+
+	private void TryPlayBandageUseCycleSound()
+	{
+		if (m_ActiveMedkitDefinition == null)
+			return;
+
+		m_ActiveMedkitDefinition.TryPlayBandageUseCycleSound(ResolveHealAudioPosition());
+	}
+
+	private Vector3 ResolveHealAudioPosition()
+	{
+		if (m_LeftHandAnchor != null)
+			return m_LeftHandAnchor.position;
+
+		return transform.position + Vector3.up * 1.2f;
+	}
 	#endregion
 
 
@@ -1226,6 +1250,8 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 		m_ActiveMedkitBagIndex = -1;
 
 		m_ActiveMedkitInventory = null;
+
+		m_ActiveMedkitDefinition = null;
 
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.StabilizeOther, false);
 

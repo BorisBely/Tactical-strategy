@@ -56,7 +56,13 @@ public sealed class ShootingRangeTargetRegistry : MonoBehaviour
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif
 		for (int i = 0; i < visions.Length; i++)
-			visions[i]?.RequestImmediateScan();
+		{
+			UnitVision vision = visions[i];
+			if (vision == null || !vision.IsTrackingTarget(_target.transform))
+				continue;
+
+			vision.ClearVisibleTargetAndWaitForNextScan();
+		}
 	}
 	#endregion
 }

@@ -51,3 +51,12 @@ MonoBehaviour:
     ResourceCost: 35
   - MaxSortPriority: 999
     ResourceCost: 25
+  m_BandageUseCycleSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 3056fd1f04810a442b27137c056e5f1c, type: 3}
+    - {fileID: 8300000, guid: 10fc1447eae224a42a284738aad076e5, type: 3}
+    - {fileID: 8300000, guid: 0468b6b9b6bf25c4195a9d333c2246ac, type: 3}
+    - {fileID: 8300000, guid: 6782073c173deed40be6ec3789c94087, type: 3}
+    - {fileID: 8300000, guid: 6efc92bdaad52414b84c565ae1dba9f6, type: 3}
+  m_BandageUseCycleSoundVolume: 0.85
+  m_BandageUseCycleSoundMaxDistance: 25

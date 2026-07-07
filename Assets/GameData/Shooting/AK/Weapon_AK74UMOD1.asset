@@ -310,11 +310,19 @@ MonoBehaviour:
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: 3d6ee6e0515410c4c838911546c78c4a, type: 3}
-    - {fileID: 8300000, guid: 40a9276065d69f04ebe73021676f7fc6, type: 3}
-    - {fileID: 8300000, guid: 7833cce12c063c545abdb01ac6003730, type: 3}
-    - {fileID: 8300000, guid: d81bebac9cee217409b15b76e7011fc6, type: 3}
+    - {fileID: 8300000, guid: de9b13afdf983ef45a54f6c37ef8e6ac, type: 3}
+    - {fileID: 8300000, guid: b1a34570d02c4cf4fbf6706b3366428a, type: 3}
+    - {fileID: 8300000, guid: 1b184e940d617b94f91630ab7b31bd46, type: 3}
+    - {fileID: 8300000, guid: d4ad635fd5540334790e3a2a7ec42636, type: 3}
+    - {fileID: 8300000, guid: 1a29aed0e1cc36f4aa56a8c04cf38299, type: 3}
     m_MaxAudibleDistanceMeters: 125
+  m_SuppressedFireSoundProfile:
+    m_FireClips:
+    - {fileID: 8300000, guid: fe86194627d6f4443b8ab58f6c133988, type: 3}
+    - {fileID: 8300000, guid: 706536c6d4c168f41be1b512b825ea82, type: 3}
+    - {fileID: 8300000, guid: 35d992a84279e8a4e919a58ca03018c1, type: 3}
+    - {fileID: 8300000, guid: 01c5a9c148aee8645a04e4ab43882719, type: 3}
+    m_MaxAudibleDistanceMeters: 0
   m_FireSoundVolume: 1
   m_FirePitchVariance: 0.04
   m_FireModeSwitchSounds:

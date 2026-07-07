@@ -368,7 +368,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (clone.IsEmpty || !snapshot.TryAddToBag(clone))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(clone, m_BoundInventory);
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(clone, m_BoundInventory);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
@@ -399,16 +399,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
-		ItemDefinition weaponDefinition = null;
-		ItemInstanceState weaponInstance = null;
-		if (!snapshot.MainHandEquipment.IsEmpty)
-		{
-			weaponDefinition = snapshot.MainHandEquipment.Definition;
-			weaponInstance = snapshot.MainHandEquipment.InstanceState;
-		}
+		InventorySlotRuntimeData removedMainHand = snapshot.MainHandEquipment;
+		ItemDefinition weaponDefinition = removedMainHand.Definition;
+		ItemInstanceState weaponInstance = removedMainHand.InstanceState;
 
 		if (!snapshot.TryUnequipMainHandToBag())
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayEquipmentRemoveSoundFromSlot(removedMainHand, m_BoundInventory, _useMainHandPosition: true);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		RemapModificationSelectionAfterWeaponSlotChange(
@@ -428,8 +426,11 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		InventorySlotRuntimeData removedHead = snapshot.HeadEquipment;
 		if (!snapshot.TryUnequipHeadToBag())
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(removedHead, m_BoundInventory);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
@@ -445,8 +446,11 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		InventorySlotRuntimeData removedBack = snapshot.BackEquipment;
 		if (!snapshot.TryUnequipBackToBag())
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(removedBack, m_BoundInventory);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
@@ -474,7 +478,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!snapshot.TryMoveBagItemToMainHand(_bagIndex))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(snapshot.MainHandEquipment, m_BoundInventory, _useMainHandPosition: true);
+		ItemInventoryAudioUtility.TryPlayEquipmentAddSoundFromSlot(snapshot.MainHandEquipment, m_BoundInventory, _useMainHandPosition: true);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		RemapModificationSelectionAfterWeaponSlotChange(
@@ -497,6 +501,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!snapshot.TryMoveBagItemToHead(_bagIndex))
 			return false;
 
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(snapshot.HeadEquipment, m_BoundInventory);
+
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
 		NotifyInventoryMutated();
@@ -513,6 +519,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		if (!snapshot.TryMoveBagItemToBack(_bagIndex))
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(snapshot.BackEquipment, m_BoundInventory);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
@@ -542,7 +550,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!snapshot.TrySetInventorySlot(_isMainHandEquipmentSlot: true, _bagIndex: -1, clone))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(clone, m_BoundInventory, _useMainHandPosition: true);
+		ItemInventoryAudioUtility.TryPlayEquipmentAddSoundFromSlot(clone, m_BoundInventory, _useMainHandPosition: true);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
@@ -570,6 +578,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (!snapshot.TryEquipExternalItemToHead(clone))
 			return false;
 
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(clone, m_BoundInventory);
+
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
 		NotifyInventoryMutated();
@@ -595,6 +605,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		if (!snapshot.TryEquipExternalItemToBack(clone))
 			return false;
+
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(clone, m_BoundInventory);
 
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		ClearModificationUiSelection();
@@ -649,7 +661,11 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			    out InventorySlotRuntimeData removed))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(removed, m_BoundInventory);
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(
+			removed,
+			m_BoundInventory,
+			_spawnedOrNull: null,
+			_fromMainHandEquipmentSlot: _isMainHandEquipmentSlot);
 
 		NotifyInventoryMutated();
 		return true;
@@ -834,7 +850,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 		ItemDefinition weaponDefinition = null;
 		ItemInstanceState weaponInstance = null;
-		if (snapshot.TryGetInventorySlot(isMainHand, isHead, isBack, bagIndex, out InventorySlotRuntimeData clickedWeapon))
+		InventorySlotRuntimeData clickedWeapon = default;
+		if (snapshot.TryGetInventorySlot(isMainHand, isHead, isBack, bagIndex, out clickedWeapon))
 		{
 			weaponDefinition = clickedWeapon.Definition;
 			weaponInstance = clickedWeapon.InstanceState;
@@ -842,23 +859,43 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		bool changed;
 		bool playMainHandAddSound = false;
+		bool playMainHandRemoveSound = false;
+		bool playHeadAddSound = false;
+		bool playHeadRemoveSound = false;
+		bool playBackAddSound = false;
+		bool playBackRemoveSound = false;
 
 		if (isMainHand)
+		{
 			changed = snapshot.TryUnequipMainHandToBag();
+			playMainHandRemoveSound = changed;
+		}
 		else if (isHead)
+		{
 			changed = snapshot.TryUnequipHeadToBag();
+			playHeadRemoveSound = changed;
+		}
 		else if (isBack)
+		{
 			changed = snapshot.TryUnequipBackToBag();
+			playBackRemoveSound = changed;
+		}
 		else if (bagIndex >= 0 &&
 		         bagIndex < snapshot.BagCount &&
 		         snapshot.TryGetInventorySlot(false, false, bagIndex, out InventorySlotRuntimeData bagItem) &&
 		         MissionPrepHelmetEquipUtility.CanEquipToHead(bagItem))
+		{
 			changed = snapshot.TryMoveBagItemToHead(bagIndex);
+			playHeadAddSound = changed;
+		}
 		else if (bagIndex >= 0 &&
 		         bagIndex < snapshot.BagCount &&
 		         snapshot.TryGetInventorySlot(false, false, bagIndex, out InventorySlotRuntimeData bagBackpack) &&
 		         MissionPrepBackpackEquipUtility.CanEquipToBack(bagBackpack))
+		{
 			changed = snapshot.TryMoveBagItemToBack(bagIndex);
+			playBackAddSound = changed;
+		}
 		else
 		{
 			changed = snapshot.TryMoveBagItemToMainHand(bagIndex);
@@ -869,7 +906,22 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return false;
 
 		if (playMainHandAddSound)
-			ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(snapshot.MainHandEquipment, m_BoundInventory, _useMainHandPosition: true);
+			ItemInventoryAudioUtility.TryPlayEquipmentAddSoundFromSlot(snapshot.MainHandEquipment, m_BoundInventory, _useMainHandPosition: true);
+
+		if (playMainHandRemoveSound)
+			ItemInventoryAudioUtility.TryPlayEquipmentRemoveSoundFromSlot(clickedWeapon, m_BoundInventory, _useMainHandPosition: true);
+
+		if (playHeadAddSound)
+			ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(snapshot.HeadEquipment, m_BoundInventory);
+
+		if (playHeadRemoveSound)
+			ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(clickedWeapon, m_BoundInventory);
+
+		if (playBackAddSound)
+			ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(snapshot.BackEquipment, m_BoundInventory);
+
+		if (playBackRemoveSound)
+			ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(clickedWeapon, m_BoundInventory);
 
 		RemapModificationSelectionAfterWeaponSlotChange(
 			weaponDefinition,
@@ -1351,6 +1403,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		MissionPrepModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
 		ScheduleForcedExpandedModificationRepaint(expandedIsMainHand, expandedBagIndex);
+		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
+		{
+			WeaponModificationAudioUtility.TryPlayAttachmentAttachSound(
+				m_BoundInventory,
+				_useMainHandPosition: resolvedIsMainHand);
+		}
+
 		ItemModificationDiagnostics.LogInstallAccepted(context, _slotDescriptor, weaponSlot, payload.Item);
 		return true;
 	}
@@ -1441,6 +1500,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		NotifyInventoryMutated(_saveSnapshotFromRuntime: false);
 		ScheduleForcedExpandedModificationRepaint(expandedIsMainHand, expandedBagIndex);
+		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
+		{
+			WeaponModificationAudioUtility.TryPlayAttachmentDetachSound(
+				m_BoundInventory,
+				_useMainHandPosition: resolvedIsMainHand);
+		}
+
 		ItemModificationDiagnostics.LogClearAccepted(context, _slotDescriptor, weaponSlot, removedItem);
 		return true;
 	}

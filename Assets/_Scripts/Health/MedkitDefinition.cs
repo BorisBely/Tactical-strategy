@@ -44,6 +44,12 @@ public sealed class MedkitDefinition : ScriptableObject
 	[Header("Fallback By Severity")]
 	[Tooltip("Если ключ травмы не найден — стоимость по SortPriority (меньше = тяжелее).")]
 	[SerializeField] private SeverityFallbackEntry[] m_SeverityFallbackCosts = CreateDefaultIfakSeverityFallbacks();
+
+	[Header("Heal Audio")]
+	[Tooltip("Звук перевязывания на каждый цикл использования аптечки (animation event).")]
+	[SerializeField] private WeaponRandomAudioClipSet m_BandageUseCycleSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_BandageUseCycleSoundVolume = 0.85f;
+	[SerializeField, Min(1f)] private float m_BandageUseCycleSoundMaxDistance = 25f;
 	#endregion
 
 	#region Public Properties
@@ -94,6 +100,19 @@ public sealed class MedkitDefinition : ScriptableObject
 		}
 
 		return Mathf.Max(1, bestCost);
+	}
+
+	public bool TryPlayBandageUseCycleSound(Vector3 _position)
+	{
+		if (!m_BandageUseCycleSounds.TryPickClip(out AudioClip clip))
+			return false;
+
+		UnitNonFireAudioUtility.PlayAtPoint(
+			clip,
+			_position,
+			m_BandageUseCycleSoundVolume,
+			m_BandageUseCycleSoundMaxDistance);
+		return true;
 	}
 	#endregion
 

@@ -61,6 +61,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[Header("Fire Audio")]
 	[Tooltip("Набор вариантов звука выстрела и опциональная дальность слышимости. Затухание делает 3D AudioSource.")]
 	[SerializeField] private WeaponFireSoundProfile m_FireSoundProfile = new WeaponFireSoundProfile();
+	[Tooltip("Опциональные клипы выстрела с глушителем для этого оружия. Приоритетнее профиля глушителя; если пусто — берётся профиль глушителя или основные клипы тише.")]
+	[SerializeField] private WeaponFireSoundProfile m_SuppressedFireSoundProfile = new WeaponFireSoundProfile();
 	[SerializeField, Range(0f, 1f)] private float m_FireSoundVolume = 1f;
 	[SerializeField, Range(0f, 0.3f)] private float m_FirePitchVariance = 0.04f;
 	[Tooltip("Щелчок селектора при смене режима огня (Semi / Burst / Auto) или режима прицеливания. Случайный клип из списка.")]
@@ -128,6 +130,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public int BurstRounds => m_BurstRounds;
 	public float BurstPauseSeconds => m_BurstPauseSeconds;
 	public WeaponFireSoundProfile FireSoundProfile => m_FireSoundProfile;
+	public WeaponFireSoundProfile SuppressedFireSoundProfile => m_SuppressedFireSoundProfile;
 	public float FireSoundVolume => m_FireSoundVolume;
 	public float FirePitchVariance => m_FirePitchVariance;
 	public float FireModeSwitchSoundVolume => m_FireModeSwitchSoundVolume;

@@ -14,7 +14,7 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 {
 	#region Constants
 	private const string c_ZoneObjectName = "BulletWhizZone";
-	private const float c_DefaultWhizRadiusMeters = 15f;
+	private const float c_DefaultWhizRadiusMeters = 10f;
 	private const float c_DefaultAmmoVelocityMetersPerSecond = 400f;
 	private const float c_MuzzleSkipDistanceMeters = 0.45f;
 	private const float c_PendingWhizExpireSeconds = 0.35f;

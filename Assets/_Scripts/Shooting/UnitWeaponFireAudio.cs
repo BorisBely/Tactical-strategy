@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Звук выстрела по событию <see cref="UnitWeaponFireController.ShotFired"/>:
 /// случайный клип из <see cref="WeaponFireSoundProfile"/> с 3D-затуханием Unity.
-/// Позиция — <see cref="EquippedWeapon.BarrelTransform"/>. Пул <see cref="AudioSource"/> (round-robin),
+/// Позиция — <see cref="EquippedWeapon.FireOriginTransform"/>. Пул <see cref="AudioSource"/> (round-robin),
 /// чтобы очередь не забивала один источник.
 /// </summary>
 [DisallowMultipleComponent]
@@ -156,7 +156,8 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		WeaponDefinition weapon = m_WeaponRuntime.CurrentWeaponDefinition;
 		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
 		float volumeMultiplier = 1f;
-		WeaponFireSoundProfile profile = ResolveFireSoundProfile(_ammo, weapon, runtimeState, ref volumeMultiplier);
+		WeaponAttachmentDefinition suppressor = TryGetEquippedSuppressor(runtimeState);
+		WeaponFireSoundProfile profile = ResolveFireSoundProfile(_ammo, weapon, suppressor, ref volumeMultiplier);
 
 		Vector3 pos = ResolveBarrelPosition();
 		float baseVolume = (weapon != null ? weapon.FireSoundVolume : 1f) * volumeMultiplier;
@@ -201,8 +202,8 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 	{
 		Vector3 pos = transform.position;
 		EquippedWeapon equipped = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		if (equipped != null && equipped.BarrelTransform != null)
-			pos = equipped.BarrelTransform.position;
+		if (equipped != null && equipped.FireOriginTransform != null)
+			pos = equipped.FireOriginTransform.position;
 
 		return pos;
 	}
@@ -210,29 +211,52 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 	private static WeaponFireSoundProfile ResolveFireSoundProfile(
 		AmmoDefinition _ammo,
 		WeaponDefinition _weapon,
-		WeaponRuntimeState _runtimeState,
+		WeaponAttachmentDefinition _suppressor,
 		ref float _volumeMultiplier)
 	{
 		if (_ammo != null && _ammo.FireSoundOverrideProfile != null && _ammo.FireSoundOverrideProfile.HasAnyClips)
 			return _ammo.FireSoundOverrideProfile;
 
-		WeaponAttachmentDefinition suppressor = TryGetEquippedSuppressor(_runtimeState);
-		if (suppressor != null)
+		if (_suppressor != null)
 		{
-			if (suppressor.SuppressedFireSoundProfile != null && suppressor.SuppressedFireSoundProfile.HasAnyClips)
+			WeaponFireSoundProfile dedicatedSuppressedProfile = ResolveDedicatedSuppressedFireSoundProfile(_weapon, _suppressor);
+			if (dedicatedSuppressedProfile != null)
 			{
 				if (_ammo != null && _ammo.IsSubsonic)
-					_volumeMultiplier = c_SubsonicSuppressedVolumeMultiplier;
+					_volumeMultiplier *= c_SubsonicSuppressedVolumeMultiplier;
 
-				return suppressor.SuppressedFireSoundProfile;
+				return dedicatedSuppressedProfile;
 			}
 
+			_volumeMultiplier *= _suppressor.SuppressedFireVolumeMultiplier;
+
 			if (_ammo != null && _ammo.IsSubsonic)
-				_volumeMultiplier = c_SubsonicSuppressedVolumeMultiplier;
+				_volumeMultiplier *= c_SubsonicSuppressedVolumeMultiplier;
 		}
 
 		if (_weapon != null && _weapon.FireSoundProfile != null && _weapon.FireSoundProfile.HasAnyClips)
 			return _weapon.FireSoundProfile;
+
+		return null;
+	}
+
+	private static WeaponFireSoundProfile ResolveDedicatedSuppressedFireSoundProfile(
+		WeaponDefinition _weapon,
+		WeaponAttachmentDefinition _suppressor)
+	{
+		if (_weapon != null)
+		{
+			WeaponFireSoundProfile weaponSuppressedProfile = _weapon.SuppressedFireSoundProfile;
+			if (weaponSuppressedProfile != null && weaponSuppressedProfile.HasAnyClips)
+				return weaponSuppressedProfile;
+		}
+
+		if (_suppressor != null)
+		{
+			WeaponFireSoundProfile suppressorProfile = _suppressor.SuppressedFireSoundProfile;
+			if (suppressorProfile != null && suppressorProfile.HasAnyClips)
+				return suppressorProfile;
+		}
 
 		return null;
 	}

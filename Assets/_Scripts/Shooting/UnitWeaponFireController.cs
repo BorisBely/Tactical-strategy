@@ -44,10 +44,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Header("Aiming Gate")]
 	[Tooltip("Запрещать выстрел, пока не достигнут порог выбранного режима прицеливания. Для Burst/FullAuto — только 1-й выстрел серии или очереди.")]
 	[SerializeField] private bool m_RequireFullAimToFire = true;
-	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Для SemiAuto используется тугой допуск; для Burst/FullAuto — более широкий (см. MaxBarrelAimErrorDegreesAuto).")]
+	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Для RTS auto-fire одиночный и очередь используют один допуск (см. Max Barrel Aim Error Degrees Auto).")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
-	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 1.5f;
-	[Tooltip("Допуск угла ствола для авто-режимов (Burst/FullAuto). Шире чем для полуавтомата, чтобы не блокировать очередь при развороте на новую цель.")]
+	[Tooltip("Legacy / будущая настройка: сейчас для проверки ствола используется Max Barrel Aim Error Degrees Auto.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 10f;
+	[Tooltip("Допуск угла ствола (градусы) для выстрела и виртуального «курка» во всех режимах огня.")]
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesAuto = 10f;
 
 	[Header("Debug")]
@@ -118,6 +119,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private void Update()
 	{
 		TrySyncEngagementTarget();
+		TryReleaseSemiTriggerForReAim();
 
 		if (!m_IsFiringCommandActive || !m_EnableAutomaticFireLoop)
 			return;
@@ -322,27 +324,56 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (!m_RequireBarrelAlignedToFire || !HasEngageableVisibleTarget())
 			return true;
 
-		bool isAutoMode = WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode());
+		if (ShouldSkipBarrelAlignmentForBoltCycle())
+			return true;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		Transform barrel = weapon != null ? weapon.BarrelTransform : null;
-		if (barrel == null)
+		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : null;
+		if (fireOrigin == null)
 			return false;
 
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = m_Vision.GetEngageableVisibleTarget().position;
 
-		Vector3 toTarget = targetPoint - barrel.position;
+		Vector3 toTarget = targetPoint - fireOrigin.position;
 		if (toTarget.sqrMagnitude < 1e-6f)
 		{
 			m_DebugLastBarrelAimErrorDegrees = 0f;
 			return true;
 		}
 
-		float maxError = isAutoMode ? m_MaxBarrelAimErrorDegreesAuto : m_MaxBarrelAimErrorDegrees;
-		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(barrel.forward, toTarget.normalized);
+		float maxError = m_MaxBarrelAimErrorDegreesAuto;
+		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, toTarget.normalized);
 		return m_DebugLastBarrelAimErrorDegrees <= maxError;
+	}
+
+	private bool ShouldSkipBarrelAlignmentForBoltCycle()
+	{
+		WeaponRuntimeState runtimeState = m_WeaponRuntime != null ? m_WeaponRuntime.RuntimeState : null;
+		if (runtimeState == null)
+			return false;
+
+		return !runtimeState.HasRoundInChamber &&
+		       runtimeState.HasMagazine &&
+		       runtimeState.HasAmmoInMagazine;
+	}
+
+	/// <summary>
+	/// После одиночного выстрела при удержании «курка» сбрасывает блок повторного выстрела,
+	/// когда прицел снова набран (AimProgressController сбрасывает прогресс после выстрела).
+	/// </summary>
+	private void TryReleaseSemiTriggerForReAim()
+	{
+		if (!m_SemiShotConsumedForCurrentTrigger || m_WeaponRuntime == null)
+			return;
+
+		if (WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
+			return;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		if (transientState == null || !HasRequiredAimProgress(transientState))
+			m_SemiShotConsumedForCurrentTrigger = false;
 	}
 
 	private bool HasRequiredAimProgress(EquippedWeaponTransientState _transientState)
@@ -398,12 +429,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return 0f;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		Transform barrel = weapon != null ? weapon.BarrelTransform : transform;
+		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : transform;
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 
-		return Vector3.Distance(barrel.position, targetPoint);
+		return Vector3.Distance(fireOrigin.position, targetPoint);
 	}
 
 	private void UpdateBurstFire(float _time)

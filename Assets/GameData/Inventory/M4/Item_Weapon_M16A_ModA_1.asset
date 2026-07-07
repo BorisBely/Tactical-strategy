@@ -37,12 +37,20 @@ MonoBehaviour:
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
   m_MedkitDefinition: {fileID: 0}
-  m_InventoryAddSounds:
+  m_BagAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: f722f4191bc97a94b98f6b442477a756, type: 3}
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 364e53936f5d4c34890a5e760caa3fc7, type: 3}
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
     m_Clips:
     - {fileID: 8300000, guid: 628214ff5a54b414693cb0e7199eb3a3, type: 3}
     - {fileID: 8300000, guid: 184ae5805f2ab574b97ffda43e4394bf, type: 3}
-  m_InventoryAddSoundVolume: 0.9
-  m_InventoryRemoveSounds:
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
     m_Clips:
     - {fileID: 8300000, guid: ec92864f8a37e8143bbf4126159e5e9b, type: 3}
-  m_InventoryRemoveSoundVolume: 0.85
+  m_EquipmentRemoveSoundVolume: 0.85

@@ -29,6 +29,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 	#region Private Fields
 	private readonly List<ShootingRangeTarget> m_Targets = new List<ShootingRangeTarget>(16);
+	private readonly List<UnitCombatStats> m_SelectedCombatStatsBuffer = new List<UnitCombatStats>(16);
 	private Regex m_NameRegex;
 	#endregion
 
@@ -213,31 +214,53 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	{
 		_newRankLabel = "—";
 
-		if (!TryFindPlayerUnitCombatStats(out UnitCombatStats combatStats))
+		if (!TryCollectSelectedPlayerCombatStats(out IReadOnlyList<UnitCombatStats> combatStatsList))
 			return false;
 
 		UnitCombatRankDefinition[] rankOrder = ResolveRankCycleOrder();
 		if (rankOrder == null || rankOrder.Length == 0)
 			return false;
 
-		UnitCombatRankDefinition nextRank = UnitCombatRankCycle.GetNextRank(combatStats.RankPreset, rankOrder);
-		if (nextRank == null)
+		bool changedAny = false;
+		for (int i = 0; i < combatStatsList.Count; i++)
+		{
+			UnitCombatStats combatStats = combatStatsList[i];
+			if (combatStats == null)
+				continue;
+
+			UnitCombatRankDefinition nextRank = UnitCombatRankCycle.GetNextRank(combatStats.RankPreset, rankOrder);
+			if (nextRank == null)
+				continue;
+
+			combatStats.ApplyRankPreset(nextRank);
+			changedAny = true;
+			Debug.Log(
+				$"[Полигон] Ранг юнита: {UnitCombatRankCycle.ResolveRankLabel(nextRank)} | меткость {combatStats.Marksmanship:F0} | handling {combatStats.WeaponHandling:F0} | отдача {combatStats.RecoilControl:F0} | юнит: {ResolveUnitDisplayName(combatStats)}",
+				this);
+		}
+
+		if (!changedAny)
 			return false;
 
-		combatStats.ApplyRankPreset(nextRank);
-		_newRankLabel = UnitCombatRankCycle.ResolveRankLabel(nextRank);
-		Debug.Log(
-			$"[Полигон] Ранг юнита: {_newRankLabel} | меткость {combatStats.Marksmanship:F0} | handling {combatStats.WeaponHandling:F0} | отдача {combatStats.RecoilControl:F0} | юнит: {combatStats.gameObject.name}",
-			this);
+		_newRankLabel = BuildSelectedUnitRankLabel(combatStatsList);
 		return true;
+	}
+
+	public bool CanCyclePlayerUnitRank()
+	{
+		if (!TryCollectSelectedPlayerCombatStats(out _))
+			return false;
+
+		UnitCombatRankDefinition[] rankOrder = ResolveRankCycleOrder();
+		return rankOrder != null && rankOrder.Length > 0;
 	}
 
 	public string GetPlayerUnitRankLabel()
 	{
-		if (!TryFindPlayerUnitCombatStats(out UnitCombatStats combatStats))
-			return "—";
+		if (!TryCollectSelectedPlayerCombatStats(out IReadOnlyList<UnitCombatStats> combatStatsList))
+			return "— (select unit)";
 
-		return UnitCombatRankCycle.ResolveRankLabel(combatStats.RankPreset);
+		return BuildSelectedUnitRankLabel(combatStatsList);
 	}
 
 	public string GetHitCounterModeLabel()
@@ -428,6 +451,66 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		}
 
 		return assignedCount > 0 ? m_RankCycleOrder : null;
+	}
+
+	private bool TryCollectSelectedPlayerCombatStats(out IReadOnlyList<UnitCombatStats> _combatStatsList)
+	{
+		m_SelectedCombatStatsBuffer.Clear();
+
+		RtsUnitSelectionManager selection = RtsUnitSelectionManager.Instance;
+		if (selection == null || selection.CollectSelectedPlayerCombatStats(m_SelectedCombatStatsBuffer) == 0)
+		{
+			_combatStatsList = null;
+			return false;
+		}
+
+		_combatStatsList = m_SelectedCombatStatsBuffer;
+		return true;
+	}
+
+	private static string BuildSelectedUnitRankLabel(IReadOnlyList<UnitCombatStats> _combatStatsList)
+	{
+		if (_combatStatsList == null || _combatStatsList.Count == 0)
+			return "— (select unit)";
+
+		if (_combatStatsList.Count == 1)
+		{
+			UnitCombatStats combatStats = _combatStatsList[0];
+			string rankLabel = UnitCombatRankCycle.ResolveRankLabel(combatStats.RankPreset);
+			return $"{rankLabel} · {ResolveUnitDisplayName(combatStats)}";
+		}
+
+		UnitCombatRankDefinition sharedRank = _combatStatsList[0]?.RankPreset;
+		for (int i = 1; i < _combatStatsList.Count; i++)
+		{
+			if (_combatStatsList[i]?.RankPreset != sharedRank)
+			{
+				return $"mixed · ×{_combatStatsList.Count}";
+			}
+		}
+
+		return $"{UnitCombatRankCycle.ResolveRankLabel(sharedRank)} · ×{_combatStatsList.Count}";
+	}
+
+	private static string ResolveUnitDisplayName(UnitCombatStats _combatStats)
+	{
+		if (_combatStats == null)
+			return "—";
+
+		RtsUnitMember member = _combatStats.GetComponent<RtsUnitMember>();
+		if (member == null)
+			member = _combatStats.GetComponentInParent<RtsUnitMember>();
+
+		if (member != null)
+		{
+			UnitRosterDisplayState roster = UnitRosterDisplayState.GetOrCreate(member.gameObject);
+			if (roster != null && !string.IsNullOrWhiteSpace(roster.FullName))
+				return roster.FullName;
+
+			return member.gameObject.name;
+		}
+
+		return _combatStats.gameObject.name;
 	}
 
 	private bool TryFindPlayerUnitCombatStats(out UnitCombatStats _combatStats)

@@ -31,6 +31,12 @@ public sealed class UnitCombatStats : MonoBehaviour
 	[Tooltip("Задержка реакции при обнаружении цели (сек).")]
 	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
 
+	[Header("Vision Scan")]
+	[Tooltip("Минимальный интервал между сканами целей (сек). Меньше — быстрее переключение на новую цель.")]
+	[SerializeField, Min(0.05f)] private float m_VisionScanIntervalMinSeconds = 0.25f;
+	[Tooltip("Максимальный интервал между сканами целей (сек).")]
+	[SerializeField, Min(0.05f)] private float m_VisionScanIntervalMaxSeconds = 0.45f;
+
 	[Header("Skill Ranges")]
 	[Tooltip("Множитель разброса при Marksmanship = 0.")]
 	[SerializeField, Min(0.01f)] private float m_WorstMarksmanshipDispersionMultiplier = 1.25f;
@@ -56,6 +62,8 @@ public sealed class UnitCombatStats : MonoBehaviour
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
 	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
+	public float VisionScanIntervalMinSeconds => m_VisionScanIntervalMinSeconds;
+	public float VisionScanIntervalMaxSeconds => m_VisionScanIntervalMaxSeconds;
 	#endregion
 
 	#region Unity Lifecycle
@@ -90,9 +98,25 @@ public sealed class UnitCombatStats : MonoBehaviour
 		m_ReactionTimeSeconds = Mathf.Clamp(_seconds, 0.05f, 1.5f);
 	}
 
+	public void SetVisionScanIntervals(float _minSeconds, float _maxSeconds)
+	{
+		m_VisionScanIntervalMinSeconds = Mathf.Max(0.05f, _minSeconds);
+		m_VisionScanIntervalMaxSeconds = Mathf.Max(m_VisionScanIntervalMinSeconds, _maxSeconds);
+	}
+
 	public float GetReactionDelaySeconds()
 	{
 		return m_ReactionTimeSeconds;
+	}
+
+	public float GetVisionScanIntervalMinSeconds()
+	{
+		return m_VisionScanIntervalMinSeconds;
+	}
+
+	public float GetVisionScanIntervalMaxSeconds()
+	{
+		return m_VisionScanIntervalMaxSeconds;
 	}
 
 	public float GetDispersionMultiplier()

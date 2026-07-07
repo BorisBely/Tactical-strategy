@@ -347,6 +347,7 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 		ApplyPanelImageStyle(itemBackground, m_Style.ItemNormal);
 
 		Button button = itemObject.AddComponent<Button>();
+		UiInteractionAudioUtility.EnsureHoverSoundOn(itemObject);
 		button.targetGraphic = itemBackground;
 		ColorBlock colors = button.colors;
 		colors.normalColor = m_Style.ItemNormal;

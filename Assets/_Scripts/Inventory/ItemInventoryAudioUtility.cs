@@ -12,7 +12,7 @@ public static class ItemInventoryAudioUtility
 	#endregion
 
 	#region Public Methods
-	public static void TryPlayAddSound(ItemDefinition _definition, Vector3 _position)
+	public static void TryPlayInventoryAddSound(ItemDefinition _definition, Vector3 _position)
 	{
 		if (_definition == null || !_definition.TryPickInventoryAddSound(out AudioClip clip))
 			return;
@@ -20,7 +20,7 @@ public static class ItemInventoryAudioUtility
 		AudioSource.PlayClipAtPoint(clip, _position, _definition.InventoryAddSoundVolume);
 	}
 
-	public static void TryPlayRemoveSound(ItemDefinition _definition, Vector3 _position)
+	public static void TryPlayInventoryRemoveSound(ItemDefinition _definition, Vector3 _position)
 	{
 		if (_definition == null || !_definition.TryPickInventoryRemoveSound(out AudioClip clip))
 			return;
@@ -28,15 +28,31 @@ public static class ItemInventoryAudioUtility
 		AudioSource.PlayClipAtPoint(clip, _position, _definition.InventoryRemoveSoundVolume);
 	}
 
-	public static void TryPlayAddSoundFromSlot(
+	public static void TryPlayEquipmentAddSound(ItemDefinition _definition, Vector3 _position)
+	{
+		if (_definition == null || !_definition.TryPickEquipmentAddSound(out AudioClip clip))
+			return;
+
+		AudioSource.PlayClipAtPoint(clip, _position, _definition.EquipmentAddSoundVolume);
+	}
+
+	public static void TryPlayEquipmentRemoveSound(ItemDefinition _definition, Vector3 _position)
+	{
+		if (_definition == null || !_definition.TryPickEquipmentRemoveSound(out AudioClip clip))
+			return;
+
+		AudioSource.PlayClipAtPoint(clip, _position, _definition.EquipmentRemoveSoundVolume);
+	}
+
+	public static void TryPlayInventoryAddSoundFromSlot(
 		CharacterInventory _inventory,
 		InventorySlotRuntimeData _data,
 		bool _useMainHandPosition = false)
 	{
-		TryPlayAddSoundFromSlot(_data, _inventory, _useMainHandPosition);
+		TryPlayInventoryAddSoundFromSlot(_data, _inventory, _useMainHandPosition);
 	}
 
-	public static void TryPlayAddSoundFromSlot(
+	public static void TryPlayInventoryAddSoundFromSlot(
 		InventorySlotRuntimeData _data,
 		CharacterInventory _inventoryOrNull,
 		bool _useMainHandPosition = false)
@@ -44,18 +60,18 @@ public static class ItemInventoryAudioUtility
 		if (_data.IsEmpty || _data.Definition == null)
 			return;
 
-		TryPlayAddSound(_data.Definition, ResolveAddAudioPosition(_inventoryOrNull, _useMainHandPosition));
+		TryPlayInventoryAddSound(_data.Definition, ResolveAddAudioPosition(_inventoryOrNull, _useMainHandPosition));
 	}
 
-	public static void TryPlayRemoveSoundFromSlot(
+	public static void TryPlayInventoryRemoveSoundFromSlot(
 		CharacterInventory _inventory,
 		InventorySlotRuntimeData _data,
 		WorldPickupItem _spawnedOrNull)
 	{
-		TryPlayRemoveSoundFromSlot(_data, _inventory, _spawnedOrNull);
+		TryPlayInventoryRemoveSoundFromSlot(_data, _inventory, _spawnedOrNull);
 	}
 
-	public static void TryPlayRemoveSoundFromSlot(
+	public static void TryPlayInventoryRemoveSoundFromSlot(
 		InventorySlotRuntimeData _data,
 		CharacterInventory _inventoryOrNull,
 		WorldPickupItem _spawnedOrNull = null)
@@ -63,7 +79,61 @@ public static class ItemInventoryAudioUtility
 		if (_data.IsEmpty || _data.Definition == null)
 			return;
 
-		TryPlayRemoveSound(_data.Definition, ResolveRemoveAudioPosition(_inventoryOrNull, _spawnedOrNull));
+		TryPlayInventoryRemoveSound(_data.Definition, ResolveRemoveAudioPosition(_inventoryOrNull, _spawnedOrNull));
+	}
+
+	public static void TryPlayEquipmentAddSoundFromSlot(
+		CharacterInventory _inventory,
+		InventorySlotRuntimeData _data,
+		bool _useMainHandPosition = false)
+	{
+		TryPlayEquipmentAddSoundFromSlot(_data, _inventory, _useMainHandPosition);
+	}
+
+	public static void TryPlayEquipmentAddSoundFromSlot(
+		InventorySlotRuntimeData _data,
+		CharacterInventory _inventoryOrNull,
+		bool _useMainHandPosition = false)
+	{
+		if (_data.IsEmpty || _data.Definition == null)
+			return;
+
+		TryPlayEquipmentAddSound(_data.Definition, ResolveAddAudioPosition(_inventoryOrNull, _useMainHandPosition));
+	}
+
+	public static void TryPlayEquipmentRemoveSoundFromSlot(
+		CharacterInventory _inventory,
+		InventorySlotRuntimeData _data,
+		WorldPickupItem _spawnedOrNull = null,
+		bool _useMainHandPosition = false)
+	{
+		TryPlayEquipmentRemoveSoundFromSlot(_data, _inventory, _spawnedOrNull, _useMainHandPosition);
+	}
+
+	public static void TryPlayEquipmentRemoveSoundFromSlot(
+		InventorySlotRuntimeData _data,
+		CharacterInventory _inventoryOrNull,
+		WorldPickupItem _spawnedOrNull = null,
+		bool _useMainHandPosition = false)
+	{
+		if (_data.IsEmpty || _data.Definition == null)
+			return;
+
+		TryPlayEquipmentRemoveSound(
+			_data.Definition,
+			ResolveRemoveAudioPosition(_inventoryOrNull, _spawnedOrNull, _useMainHandPosition));
+	}
+
+	public static void TryPlayRemoveSoundFromSlot(
+		InventorySlotRuntimeData _data,
+		CharacterInventory _inventoryOrNull,
+		WorldPickupItem _spawnedOrNull,
+		bool _fromMainHandEquipmentSlot)
+	{
+		if (_fromMainHandEquipmentSlot)
+			TryPlayEquipmentRemoveSoundFromSlot(_data, _inventoryOrNull, _spawnedOrNull, _useMainHandPosition: true);
+		else
+			TryPlayInventoryRemoveSoundFromSlot(_data, _inventoryOrNull, _spawnedOrNull);
 	}
 	#endregion
 
@@ -85,13 +155,23 @@ public static class ItemInventoryAudioUtility
 		return ResolveFallbackAudioPosition();
 	}
 
-	private static Vector3 ResolveRemoveAudioPosition(CharacterInventory _inventoryOrNull, WorldPickupItem _spawnedOrNull)
+	private static Vector3 ResolveRemoveAudioPosition(
+		CharacterInventory _inventoryOrNull,
+		WorldPickupItem _spawnedOrNull,
+		bool _useMainHandPosition = false)
 	{
 		if (_spawnedOrNull != null)
 			return _spawnedOrNull.transform.position;
 
 		if (_inventoryOrNull != null)
 		{
+			if (_useMainHandPosition)
+			{
+				UnitEquipment equipment = _inventoryOrNull.GetComponentInChildren<UnitEquipment>(true);
+				if (equipment != null && equipment.MainWeaponRoot != null)
+					return equipment.MainWeaponRoot.position;
+			}
+
 			_inventoryOrNull.GetDropWorldPose(out Vector3 position, out _);
 			return position + Vector3.up * c_RemoveAudioHeightOffset;
 		}

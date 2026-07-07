@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Статические данные предмета. Один asset на тип предмета.
@@ -82,12 +83,24 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private MedkitDefinition m_MedkitDefinition;
 
 	[Header("Inventory Audio")]
-	[Tooltip("Добавление в инвентарь персонажа или экипировка в руку. Случайный клип из списка.")]
-	[SerializeField] private WeaponRandomAudioClipSet m_InventoryAddSounds = new WeaponRandomAudioClipSet();
-	[SerializeField, Range(0f, 1f)] private float m_InventoryAddSoundVolume = 0.9f;
-	[Tooltip("Убирание из инвентаря персонажа (выброс на землю). Случайный клип из списка.")]
-	[SerializeField] private WeaponRandomAudioClipSet m_InventoryRemoveSounds = new WeaponRandomAudioClipSet();
-	[SerializeField, Range(0f, 1f)] private float m_InventoryRemoveSoundVolume = 0.85f;
+	[Tooltip("Подбор / перенос в сумку. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_BagAddSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_BagAddSoundVolume = 0.9f;
+	[Tooltip("Выброс из сумки на землю. Случайный клип из списка.")]
+	[SerializeField] private WeaponRandomAudioClipSet m_BagRemoveSounds = new WeaponRandomAudioClipSet();
+	[SerializeField, Range(0f, 1f)] private float m_BagRemoveSoundVolume = 0.85f;
+
+	[Header("Equipment Audio")]
+	[Tooltip("Экипировка в слот оружия (main hand). Случайный клип из списка.")]
+	[FormerlySerializedAs("m_InventoryAddSounds")]
+	[SerializeField] private WeaponRandomAudioClipSet m_EquipmentAddSounds = new WeaponRandomAudioClipSet();
+	[FormerlySerializedAs("m_InventoryAddSoundVolume")]
+	[SerializeField, Range(0f, 1f)] private float m_EquipmentAddSoundVolume = 0.9f;
+	[Tooltip("Снятие из слота оружия или выброс экипированного оружия. Случайный клип из списка.")]
+	[FormerlySerializedAs("m_InventoryRemoveSounds")]
+	[SerializeField] private WeaponRandomAudioClipSet m_EquipmentRemoveSounds = new WeaponRandomAudioClipSet();
+	[FormerlySerializedAs("m_InventoryRemoveSoundVolume")]
+	[SerializeField, Range(0f, 1f)] private float m_EquipmentRemoveSoundVolume = 0.85f;
 
 	#endregion
 
@@ -144,8 +157,10 @@ public class ItemDefinition : ScriptableObject
 	public MedkitDefinition MedkitDefinition => m_MedkitDefinition;
 	public bool IsMedkit => m_MedkitDefinition != null;
 	public int BackpackCapacity => m_BackpackCapacity;
-	public float InventoryAddSoundVolume => m_InventoryAddSoundVolume;
-	public float InventoryRemoveSoundVolume => m_InventoryRemoveSoundVolume;
+	public float InventoryAddSoundVolume => m_BagAddSoundVolume;
+	public float InventoryRemoveSoundVolume => m_BagRemoveSoundVolume;
+	public float EquipmentAddSoundVolume => m_EquipmentAddSoundVolume;
+	public float EquipmentRemoveSoundVolume => m_EquipmentRemoveSoundVolume;
 
 	/// <summary>Шанс поглощения пули в голову (только для шлемов).</summary>
 	public float GetHeadBulletBlockChance()
@@ -188,8 +203,12 @@ public class ItemDefinition : ScriptableObject
 		return IsGrenade;
 	}
 
-	public bool TryPickInventoryAddSound(out AudioClip _clip) => m_InventoryAddSounds.TryPickClip(out _clip);
+	public bool TryPickInventoryAddSound(out AudioClip _clip) => m_BagAddSounds.TryPickClip(out _clip);
 
-	public bool TryPickInventoryRemoveSound(out AudioClip _clip) => m_InventoryRemoveSounds.TryPickClip(out _clip);
+	public bool TryPickInventoryRemoveSound(out AudioClip _clip) => m_BagRemoveSounds.TryPickClip(out _clip);
+
+	public bool TryPickEquipmentAddSound(out AudioClip _clip) => m_EquipmentAddSounds.TryPickClip(out _clip);
+
+	public bool TryPickEquipmentRemoveSound(out AudioClip _clip) => m_EquipmentRemoveSounds.TryPickClip(out _clip);
 	#endregion
 }

@@ -28,6 +28,8 @@ public sealed class UnitFootsteps : MonoBehaviour
 
 	[Header("Клипы по умолчанию")]
 	[SerializeField] private AudioClip[] m_FootstepClips;
+	[Tooltip("Базовая громкость шага до общего множителя UnitNonFireAudioUtility (как ReloadSoundsVolume).")]
+	[SerializeField, Range(0f, 1f)] private float m_FootstepBaseVolume = 0.6f;
 
 	[Header("RTS / экономия")]
 	[Tooltip("Без Raycast по поверхности — только клипы по умолчанию.")]
@@ -349,8 +351,8 @@ public sealed class UnitFootsteps : MonoBehaviour
 		if (clip == null)
 			return;
 
-		float baseVol = Mathf.Clamp01(1f + Random.Range(-m_VolumeJitter, m_VolumeJitter));
-		float vol = UnitNonFireAudioUtility.ScaleVolume(baseVol);
+		float jitteredVolume = m_FootstepBaseVolume * (1f + Random.Range(-m_VolumeJitter, m_VolumeJitter));
+		float vol = UnitNonFireAudioUtility.ScaleVolume(Mathf.Clamp01(jitteredVolume));
 		float pitch = Mathf.Clamp(1f + Random.Range(-m_PitchJitter, m_PitchJitter), 0.5f, 1.5f);
 
 		if (m_AudioSource != null)
@@ -363,7 +365,7 @@ public sealed class UnitFootsteps : MonoBehaviour
 			return;
 		}
 
-		UnitNonFireAudioUtility.PlayAtPoint(clip, GetEmitWorldPosition(), baseVol, m_SpatialMaxDistance);
+		UnitNonFireAudioUtility.PlayAtPoint(clip, GetEmitWorldPosition(), Mathf.Clamp01(jitteredVolume), m_SpatialMaxDistance);
 	}
 	#endregion
 }

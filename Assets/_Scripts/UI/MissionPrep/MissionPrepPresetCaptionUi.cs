@@ -512,6 +512,7 @@ public sealed class MissionPrepPresetCaptionUi : MonoBehaviour
 		_label.color = Color.white;
 
 		Button button = root.GetComponent<Button>();
+		UiInteractionAudioUtility.EnsureHoverSoundOn(root);
 		button.targetGraphic = image;
 		return button;
 	}

@@ -83,6 +83,11 @@ MonoBehaviour:
   m_FoulingPerShotMultiplier: 1.15
   m_JamRiskModifier: 1.06
   m_SuppressedFireSoundProfile:
-    m_FireClips: []
+    m_FireClips:
+    - {fileID: 8300000, guid: fceb5287f3bc30a489db6fc76d547242, type: 3}
+    - {fileID: 8300000, guid: ef92e69ee59092e4ca0036672bf762de, type: 3}
+    - {fileID: 8300000, guid: 3b5f61e23cf4b004fa89bb90999c0d3a, type: 3}
+    - {fileID: 8300000, guid: d0cadd5df23f848479a3b6932c475433, type: 3}
+    - {fileID: 8300000, guid: 146cd3a2d76d9dc45ad9a1b6cd783b84, type: 3}
     m_MaxAudibleDistanceMeters: 0
   m_EquippedVisualPrefab: {fileID: 4688285746590471711, guid: 6272a7cd01eb9f147b343a1f54c1084e, type: 3}

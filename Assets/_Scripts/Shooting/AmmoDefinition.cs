@@ -31,7 +31,7 @@ public sealed class AmmoDefinition : ScriptableObject
 	[Header("Audio")]
 	[Tooltip("Профиль вариантов звука выстрела. Если заполнен — заменяет профиль оружия / глушителя.")]
 	[SerializeField] private WeaponFireSoundProfile m_FireSoundOverrideProfile = new WeaponFireSoundProfile();
-	[Tooltip("Субзвуковой патрон: при выстреле с глушителем громкость клипа глушителя умножается на коэффициент (см. UnitWeaponFireAudio).")]
+	[Tooltip("Субзвуковой патрон: при выстреле с глушителем громкость дополнительно умножается на коэффициент (см. UnitWeaponFireAudio).")]
 	[SerializeField] private bool m_IsSubsonic;
 
 	[Header("Гильза (выброс после выстрела)")]

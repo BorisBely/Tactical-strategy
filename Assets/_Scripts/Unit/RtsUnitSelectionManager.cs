@@ -178,6 +178,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Events
+	public event Action SelectionChanged;
+	#endregion
+
 	#region Public Properties
 	public static RtsUnitSelectionManager Instance => s_Instance;
 	public int SelectedUnitCount => m_SelectedUnits != null ? m_SelectedUnits.Count : 0;
@@ -211,6 +215,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		return false;
+	}
+
+	public int CollectSelectedPlayerCombatStats(List<UnitCombatStats> _buffer)
+	{
+		if (_buffer == null || m_SelectedUnits == null || m_SelectedUnits.Count == 0)
+			return 0;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null || !unit.IsPlayerSelectable)
+				continue;
+
+			UnitCombatStats combatStats = unit.GetComponent<UnitCombatStats>();
+			if (combatStats == null)
+				combatStats = unit.GetComponentInChildren<UnitCombatStats>(true);
+			if (combatStats == null || _buffer.Contains(combatStats))
+				continue;
+
+			_buffer.Add(combatStats);
+		}
+
+		return _buffer.Count;
 	}
 	#endregion
 
@@ -373,7 +400,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(inventory, forInventory);
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
 
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
@@ -695,7 +722,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!inventory.TryAdd(forInventory))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(inventory, forInventory);
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
 
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
@@ -1882,7 +1909,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(player, forInventory);
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(player, forInventory);
 
 		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
 		RepaintExchangePanels();
@@ -5458,6 +5485,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		SyncFormationToSelection();
 		PrepareSoloSelectedUnitState();
 		SyncActiveInventoryToSelection();
+		SelectionChanged?.Invoke();
 	}
 
 	private void PrepareSoloSelectedUnitState()
@@ -5631,7 +5659,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return false;
 			}
 
-			ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(_inventory, forPlayer);
+			ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forPlayer);
 
 			RepaintExchangePanels();
 			return true;
@@ -5649,7 +5677,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayAddSoundFromSlot(_inventory, forInventory);
+		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forInventory);
 
 		if (dataNormal.WorldSource != null)
 			dataNormal.WorldSource.OnTransferredToCharacterInventory();
@@ -5755,7 +5783,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_inventory, _data, spawned);
+		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(_inventory, _data, spawned);
 		return true;
 	}
 
@@ -5802,7 +5830,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_inventory, _data, spawned);
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_data, _inventory, spawned, _removedFromMainHandSlot);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
@@ -5869,7 +5897,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_partnerInventory, _data, spawned);
+		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_data, _partnerInventory, spawned, _removedFromMainHandSlot);
 		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_GroundPanel);
 		RepaintExchangePanels();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
@@ -5905,11 +5933,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void FinalizeGroundPanelPlacement(WorldPickupItem _spawned)
 	{
 		if (_spawned != null)
+		{
 			_spawned.RegisterListedInGroundUi();
+			RegisterSpawnedPickupWithZone(_spawned);
+		}
 
 		m_GroundPanel.RebuildContentLayout();
 		RuntimeInventoryModificationCoordinator.Instance?.EnsureGroundPanelUiHooks();
 		RuntimeInventoryModificationCoordinator.Instance?.OnGroundPanelRepopulated();
+	}
+
+	private static void RegisterSpawnedPickupWithZone(WorldPickupItem _spawned)
+	{
+		if (_spawned == null)
+			return;
+
+		CharacterInventory inventory = InventoryScreenBindings.Instance != null
+			? InventoryScreenBindings.Instance.GetActiveCharacterInventoryForUi()
+			: null;
+		if (inventory == null)
+			return;
+
+		InventoryPickupZone zone = inventory.GetComponentInChildren<InventoryPickupZone>(true);
+		zone?.RegisterPickupOverlap(_spawned);
 	}
 
 	private void TrySelectFirstPlayerUnit()

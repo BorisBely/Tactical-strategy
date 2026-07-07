@@ -26,6 +26,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitCombatStats m_CombatStats;
 
 	[Header("Зрение")]
 	[SerializeField, Min(0.5f)] private float m_VisionRange = 18f;
@@ -86,6 +87,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private RaycastHit[] m_Hits;
 	private float m_NextScanTime;
+	private float m_NextImmediateRescanAllowedTime;
 	private Transform m_VisibleTarget;
 	private bool m_HasVisibleTargetAimPoint;
 	private Vector3 m_VisibleTargetAimPointWorld;
@@ -187,6 +189,35 @@ public sealed class UnitVision : MonoBehaviour
 
 		RunVisionScan();
 		ScheduleNextScan(0f);
+	}
+
+	/// <summary>
+	/// Сбрасывает текущую видимую цель и ждёт следующего планового скана по ранговому интервалу.
+	/// Используется после поражения цели или потери engageable-цели, чтобы full auto не перескакивал мгновенно.
+	/// </summary>
+	public void ClearVisibleTargetAndWaitForNextScan()
+	{
+		if (!isActiveAndEnabled)
+			return;
+
+		bool hadTarget = m_VisibleTarget != null;
+		ClearVisibleTargetState();
+
+		if (hadTarget)
+			VisibleTargetChanged?.Invoke(null);
+
+		ScheduleNextScan(0f);
+	}
+
+	/// <summary>Отслеживает ли зрение указанный корень цели (или его потомка/родителя).</summary>
+	public bool IsTrackingTarget(Transform _targetRoot)
+	{
+		if (_targetRoot == null || m_VisibleTarget == null)
+			return false;
+
+		return m_VisibleTarget == _targetRoot ||
+		       m_VisibleTarget.IsChildOf(_targetRoot) ||
+		       _targetRoot.IsChildOf(m_VisibleTarget);
 	}
 
 	public void RefreshBodyHitZones()
@@ -360,6 +391,8 @@ public sealed class UnitVision : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
 	}
 
 	private void OnEnable()
@@ -439,9 +472,36 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void ScheduleNextScan(float _delayOffset)
 	{
-		float min = Mathf.Min(m_ScanIntervalMin, m_ScanIntervalMax);
-		float max = Mathf.Max(m_ScanIntervalMin, m_ScanIntervalMax);
+		float min = ResolveScanIntervalMinSeconds();
+		float max = ResolveScanIntervalMaxSeconds();
 		m_NextScanTime = Time.time + _delayOffset + UnityEngine.Random.Range(min, max);
+	}
+
+	private float ResolveScanIntervalMinSeconds()
+	{
+		if (m_CombatStats != null)
+			return m_CombatStats.GetVisionScanIntervalMinSeconds();
+
+		return Mathf.Min(m_ScanIntervalMin, m_ScanIntervalMax);
+	}
+
+	private float ResolveScanIntervalMaxSeconds()
+	{
+		if (m_CombatStats != null)
+			return m_CombatStats.GetVisionScanIntervalMaxSeconds();
+
+		return Mathf.Max(m_ScanIntervalMin, m_ScanIntervalMax);
+	}
+
+	private void ClearVisibleTargetState()
+	{
+		m_VisibleTarget = null;
+		m_HasVisibleTargetAimPoint = false;
+		m_VisibleTargetAimPointWorld = Vector3.zero;
+		m_VelocityTrackedTarget = null;
+		m_TargetVelocityEstimate = Vector3.zero;
+		m_LastVelocityRaw = Vector3.zero;
+		m_PreviousAimPointForVelocity = Vector3.zero;
 	}
 
 	private void RunVisionScan()
@@ -808,11 +868,18 @@ public sealed class UnitVision : MonoBehaviour
 		if (m_ImmediateRescanAngleDegrees <= 0f)
 			return false;
 
+		if (Time.time < m_NextImmediateRescanAllowedTime)
+			return false;
+
 		Vector3 forward = GetVisionForwardXZForGameplay();
 		if (forward.sqrMagnitude < 1e-6f || m_LastScanForwardXZ.sqrMagnitude < 1e-6f)
 			return false;
 
-		return Vector3.Angle(m_LastScanForwardXZ, forward) >= m_ImmediateRescanAngleDegrees;
+		if (Vector3.Angle(m_LastScanForwardXZ, forward) < m_ImmediateRescanAngleDegrees)
+			return false;
+
+		m_NextImmediateRescanAllowedTime = Time.time + ResolveScanIntervalMinSeconds();
+		return true;
 	}
 
 	private void UpdateSmoothedVisionForward()

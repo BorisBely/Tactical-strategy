@@ -56,8 +56,8 @@ public sealed class UnitWeaponMuzzleVfx : MonoBehaviour
 			return;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		Transform barrel = weapon != null ? weapon.BarrelTransform : null;
-		if (barrel == null)
+		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : null;
+		if (fireOrigin == null)
 			return;
 
 		bool suppressed = WeaponVfxUtility.HasSuppressor(m_WeaponRuntime);
@@ -69,7 +69,7 @@ public sealed class UnitWeaponMuzzleVfx : MonoBehaviour
 
 		float scale = suppressed ? profile.SuppressedMuzzleScale : profile.UnsuppressedMuzzleScale;
 		float lifetime = suppressed ? profile.SuppressedMuzzleLifetimeSeconds : profile.UnsuppressedMuzzleLifetimeSeconds;
-		SpawnEffect(prefab, barrel.position, barrel.rotation, Vector3.one * scale, lifetime);
+		SpawnEffect(prefab, fireOrigin.position, fireOrigin.rotation, Vector3.one * scale, lifetime);
 	}
 
 	private void SpawnEffect(GameObject _prefab, Vector3 _position, Quaternion _rotation, Vector3 _scale, float _lifetime)

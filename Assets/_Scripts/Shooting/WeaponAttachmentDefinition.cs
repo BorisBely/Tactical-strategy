@@ -46,7 +46,9 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
 
 	[Header("Audio")]
-	[Tooltip("Профиль вариантов звука выстрела с глушителем. Если пуст — используется профиль оружия.")]
+	[Tooltip("Множитель громкости основных клипов выстрела оружия при установленном глушителе (1 = без изменений).")]
+	[SerializeField, Range(0f, 1f)] private float m_SuppressedFireVolumeMultiplier = 0.35f;
+	[Tooltip("Опциональная макс. дистанция слышимости (м) с глушителем. 0 = как у профиля оружия.")]
 	[SerializeField] private WeaponFireSoundProfile m_SuppressedFireSoundProfile = new WeaponFireSoundProfile();
 
 	[Header("Визуал на оружии")]
@@ -71,6 +73,7 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float WearPerShotMultiplier => m_WearPerShotMultiplier;
 	public float FoulingPerShotMultiplier => m_FoulingPerShotMultiplier;
 	public float JamRiskModifier => m_JamRiskModifier;
+	public float SuppressedFireVolumeMultiplier => m_SuppressedFireVolumeMultiplier;
 	public WeaponFireSoundProfile SuppressedFireSoundProfile => m_SuppressedFireSoundProfile;
 	public GameObject EquippedVisualPrefab => m_EquippedVisualPrefab;
 	#endregion

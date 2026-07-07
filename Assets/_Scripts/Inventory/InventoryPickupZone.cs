@@ -12,6 +12,10 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class InventoryPickupZone : MonoBehaviour
 {
+	#region Constants
+	private const int c_OverlapBufferSize = 48;
+	#endregion
+
 	#region Serialized Fields
 	[Tooltip("Если задано — подбирать только объекты на этих слоях.")]
 	[SerializeField] private LayerMask m_ItemLayerMask;
@@ -19,6 +23,8 @@ public class InventoryPickupZone : MonoBehaviour
 	#endregion
 
 	#region Private Fields
+	private static readonly Collider[] s_OverlapBuffer = new Collider[c_OverlapBufferSize];
+
 	/// <summary>Сколько коллайдеров лута сейчас внутри зоны (несколько коллайдеров на одном объекте — один предмет).</summary>
 	private readonly Dictionary<WorldPickupItem, int> m_OverlapRefCount = new Dictionary<WorldPickupItem, int>();
 	#endregion
@@ -38,6 +44,17 @@ public class InventoryPickupZone : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	/// <summary>Зарегистрировать лут, появившийся внутри зоны без OnTriggerEnter (выброс из инвентаря и т.п.).</summary>
+	public void RegisterPickupOverlap(WorldPickupItem _pickup)
+	{
+		if (_pickup == null)
+			return;
+
+		if (!m_OverlapRefCount.TryGetValue(_pickup, out int count))
+			count = 0;
+		m_OverlapRefCount[_pickup] = count + 1;
+	}
+
 	/// <summary>Очистить панель «земля» и снова заполнить по объектам, сейчас пересекающим эту зону (вызывать при открытии инвентаря).</summary>
 	public void RepopulateGroundPanelFromCurrentOverlaps()
 	{
@@ -50,6 +67,7 @@ public class InventoryPickupZone : MonoBehaviour
 		if (groundPanel == null)
 			return;
 
+		SyncOverlapsFromPhysics();
 		PurgeDestroyedOverlaps();
 
 		groundPanel.ClearAllSlots();
@@ -60,8 +78,6 @@ public class InventoryPickupZone : MonoBehaviour
 		{
 			WorldPickupItem pickup = snapshot[i];
 			if (pickup == null)
-				continue;
-			if (pickup.IsListedInGroundUi)
 				continue;
 
 			InventorySlotRuntimeData data = pickup.BuildSlotData();
@@ -216,6 +232,55 @@ public class InventoryPickupZone : MonoBehaviour
 			return;
 		for (int i = 0; i < toRemove.Count; i++)
 			m_OverlapRefCount.Remove(toRemove[i]);
+	}
+
+	/// <summary>
+	/// Перестроить учёт пересечений по физике: выброшенный лут часто появляется уже внутри триггера,
+	/// и Unity не вызывает OnTriggerEnter для таких объектов.
+	/// </summary>
+	private void SyncOverlapsFromPhysics()
+	{
+		if (!TryGetComponent(out SphereCollider sphereCollider))
+			return;
+
+		Vector3 center = transform.TransformPoint(sphereCollider.center);
+		float radius = GetWorldSphereRadius(sphereCollider);
+		int hitCount = Physics.OverlapSphereNonAlloc(
+			center,
+			radius,
+			s_OverlapBuffer,
+			GetOverlapLayerMask(),
+			QueryTriggerInteraction.Collide);
+
+		m_OverlapRefCount.Clear();
+		for (int i = 0; i < hitCount; i++)
+		{
+			Collider hit = s_OverlapBuffer[i];
+			if (hit == null || hit == sphereCollider)
+				continue;
+
+			if (!TryGetPickup(hit, out WorldPickupItem pickup))
+				continue;
+
+			if (!m_OverlapRefCount.TryGetValue(pickup, out int count))
+				count = 0;
+			m_OverlapRefCount[pickup] = count + 1;
+		}
+	}
+
+	private int GetOverlapLayerMask()
+	{
+		if (m_UseLayerMask && m_ItemLayerMask.value != 0)
+			return m_ItemLayerMask.value;
+
+		return Physics.AllLayers;
+	}
+
+	private static float GetWorldSphereRadius(SphereCollider _sphereCollider)
+	{
+		Vector3 lossyScale = _sphereCollider.transform.lossyScale;
+		float maxAxis = Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y), Mathf.Abs(lossyScale.z));
+		return _sphereCollider.radius * maxAxis;
 	}
 	#endregion
 }

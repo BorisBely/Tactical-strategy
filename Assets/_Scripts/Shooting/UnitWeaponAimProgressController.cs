@@ -255,7 +255,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_LastVisibleTarget != null && engageableTarget == null && m_Vision.VisibleTarget != null)
 		{
 			m_LastVisibleTarget = null;
-			m_Vision.RequestImmediateScan();
+			m_Vision.ClearVisibleTargetAndWaitForNextScan();
 			return;
 		}
 

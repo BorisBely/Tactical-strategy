@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Вызывается из <see cref="UnitWeaponFireController"/> после расхода патрона; бросает hitscan из <see cref="EquippedWeapon.BarrelTransform"/> до события <c>ShotFired</c>.
+/// Вызывается из <see cref="UnitWeaponFireController"/> после расхода патрона; бросает hitscan из <see cref="EquippedWeapon.FireOriginTransform"/> до события <c>ShotFired</c>.
 /// Настрой на сцене: слой попаданий, дистанция; на целях — <see cref="DamageableTarget"/> и коллайдер.
 /// </summary>
 [DisallowMultipleComponent]
@@ -179,9 +179,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (weapon == null)
 			return;
 
-		Transform barrel = weapon.BarrelTransform;
-		Vector3 origin = barrel.position + barrel.forward * m_BarrelRayStartOffset;
-		Vector3 baseDirection = GetGameplayShotDirection(origin, barrel, _ammo);
+		Transform fireOrigin = weapon.FireOriginTransform;
+		Vector3 origin = fireOrigin.position + fireOrigin.forward * m_BarrelRayStartOffset;
+		Vector3 baseDirection = GetGameplayShotDirection(origin, fireOrigin, _ammo);
 		WeaponShotAccuracyContext accuracyContext = BuildAccuracyContext(_ammo);
 		ProceduralRecoilPatternResult patternResult = ApplyProceduralRecoilPattern(baseDirection, accuracyContext);
 		Vector3 patternedDirection = patternResult.Direction;
@@ -586,18 +586,18 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			return 0f;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		Transform barrel = weapon != null ? weapon.BarrelTransform : transform;
+		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : transform;
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
-		return Vector3.Distance(barrel.position, targetPoint);
+		return Vector3.Distance(fireOrigin.position, targetPoint);
 	}
 
-	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _barrel, AmmoDefinition _ammo)
+	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _fireOrigin, AmmoDefinition _ammo)
 	{
 		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
 		if (target == null)
-			return _barrel.forward;
+			return _fireOrigin != null ? _fireOrigin.forward : Vector3.forward;
 
 		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
 		if (targetPoint == Vector3.zero)
@@ -621,7 +621,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		}
 
 		Vector3 toTarget = targetPoint - _origin;
-		return toTarget.sqrMagnitude > 1e-6f ? toTarget.normalized : _barrel.forward;
+		return toTarget.sqrMagnitude > 1e-6f ? toTarget.normalized : (_fireOrigin != null ? _fireOrigin.forward : Vector3.forward);
 	}
 
 	private LocomotionStance GetCurrentStance()

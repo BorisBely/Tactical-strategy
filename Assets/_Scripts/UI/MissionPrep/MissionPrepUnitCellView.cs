@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
@@ -24,8 +25,10 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	[Header("Выделение строки")]
 	[SerializeField] private Graphic m_SelectionBackground;
 	[SerializeField] private Color m_NormalBackgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.85f);
+	[SerializeField] private Color m_HoverBackgroundColor = new Color(0.38f, 0.38f, 0.38f, 0.95f);
 	[SerializeField] private Color m_SelectedBackgroundColor = new Color(0.28f, 0.45f, 0.65f, 1f);
 
+	private bool m_IsHovered;
 	private bool m_InteractionEnabled = true;
 	#endregion
 
@@ -80,7 +83,7 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 	public void SetSelected(bool _selected)
 	{
 		IsSelected = _selected;
-		ApplySelectionVisual();
+		ApplyBackgroundVisual();
 	}
 
 	public void SetInteractionEnabled(bool _enabled)
@@ -88,11 +91,17 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 		m_InteractionEnabled = _enabled;
 		if (m_ClickArea != null)
 			m_ClickArea.interactable = _enabled;
+
+		if (!_enabled)
+			SetHovered(false);
+		else
+			ApplyBackgroundVisual();
 	}
 
 	public void ClearBinding()
 	{
 		SetSelected(false);
+		SetHovered(false);
 		BoundUnitRoot = null;
 		if (m_UnitNameText != null)
 			m_UnitNameText.text = string.Empty;
@@ -123,7 +132,8 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 				armorTextTransform.TryGetComponent(out m_ArmorStatusText);
 		}
 
-		ApplySelectionVisual();
+		ApplyBackgroundVisual();
+		EnsureHoverRelay();
 	}
 
 	private void OnEnable()
@@ -148,12 +158,66 @@ public sealed class MissionPrepUnitCellView : MonoBehaviour
 		Clicked?.Invoke(this);
 	}
 
-	private void ApplySelectionVisual()
+	internal void SetHovered(bool _hovered)
+	{
+		if (m_IsHovered == _hovered)
+			return;
+
+		m_IsHovered = _hovered;
+		ApplyBackgroundVisual();
+	}
+
+	private void ApplyBackgroundVisual()
 	{
 		if (m_SelectionBackground == null)
 			return;
 
-		m_SelectionBackground.color = IsSelected ? m_SelectedBackgroundColor : m_NormalBackgroundColor;
+		if (IsSelected)
+			m_SelectionBackground.color = m_SelectedBackgroundColor;
+		else if (m_IsHovered && m_InteractionEnabled)
+			m_SelectionBackground.color = m_HoverBackgroundColor;
+		else
+			m_SelectionBackground.color = m_NormalBackgroundColor;
+	}
+
+	private void EnsureHoverRelay()
+	{
+		if (m_ClickArea == null)
+			return;
+
+		if (m_ClickArea.GetComponent<UnitCellHoverRelay>() != null)
+			return;
+
+		m_ClickArea.gameObject.AddComponent<UnitCellHoverRelay>().Initialize(this);
 	}
 	#endregion
+
+	private sealed class UnitCellHoverRelay : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+	{
+		#region Private Fields
+		private MissionPrepUnitCellView m_Owner;
+		#endregion
+
+		#region Public Methods
+		public void Initialize(MissionPrepUnitCellView _owner)
+		{
+			m_Owner = _owner;
+		}
+		#endregion
+
+		#region Event Handlers
+		public void OnPointerEnter(PointerEventData _eventData)
+		{
+			if (_eventData == null || _eventData.dragging)
+				return;
+
+			m_Owner?.SetHovered(true);
+		}
+
+		public void OnPointerExit(PointerEventData _eventData)
+		{
+			m_Owner?.SetHovered(false);
+		}
+		#endregion
+	}
 }

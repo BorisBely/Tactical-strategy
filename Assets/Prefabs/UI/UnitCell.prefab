@@ -312,6 +312,7 @@ MonoBehaviour:
   m_ArmorStatusText: {fileID: 5583366974884203777}
   m_SelectionBackground: {fileID: 7978348466422646176}
   m_NormalBackgroundColor: {r: 0.3018868, g: 0.3018868, b: 0.3018868, a: 0.85}
+  m_HoverBackgroundColor: {r: 0.39607844, g: 0.39607844, b: 0.39607844, a: 0.95}
   m_SelectedBackgroundColor: {r: 0.25490198, g: 0.25490198, b: 0.25490198, a: 1}
 --- !u!1 &696852560352749291
 GameObject:

@@ -1938,7 +1938,7 @@ BlendTree:
   m_Name: RifleStandWalkRelax
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: b9076fe714ede244d80765f9f07accbc, type: 2}
+    m_Motion: {fileID: 7400000, guid: 573714b1707d3534aa82fc7f22f2d896, type: 2}
     m_Threshold: 0
     m_Position: {x: 0, y: 1}
     m_TimeScale: 1
@@ -2175,7 +2175,7 @@ BlendTree:
   m_Name: RifleStandRunRelax
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: b192b0cf77cc38847b7e8603caf03edf, type: 2}
+    m_Motion: {fileID: 7400000, guid: ce3bd578ab6fa044db2cb1c063410371, type: 2}
     m_Threshold: 0
     m_Position: {x: 0, y: 1}
     m_TimeScale: 1

@@ -4146,7 +4146,7 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.68
+  m_Radius: 1
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &854036200513631767
 MonoBehaviour:
@@ -7618,6 +7618,7 @@ GameObject:
   - component: {fileID: 3544168995589682661}
   - component: {fileID: 2876543210987654320}
   - component: {fileID: 9123456789012345678}
+  - component: {fileID: 9123456789012345679}
   - component: {fileID: 3408199974750778793}
   - component: {fileID: 1357371775586804989}
   - component: {fileID: 731400000000000200}
@@ -7637,6 +7638,7 @@ GameObject:
   - component: {fileID: 7912499842099294813}
   - component: {fileID: 7912499842099294814}
   - component: {fileID: 7912499842099294815}
+  - component: {fileID: 731500000000000100}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -7819,6 +7821,8 @@ MonoBehaviour:
   m_RotateSpeed: 6
   m_FacingTargetYawSmoothTime: 0.18
   m_BlockEngageFacingDuringReload: 1
+  m_ManualFacingTargetConeHalfAngle: 30
+  m_ManualFacingEngageHandoffDegrees: 3
   m_SteadyAnimatorLocomotionWhileEngagingAndFiring: 1
   m_SteadyLocomotionRequiresFireCommand: 1
   m_SteadyLocomotionOnlyWhenNearlyStationary: 1
@@ -7837,9 +7841,12 @@ MonoBehaviour:
   m_StartNavSpeedFloor: 0.88
   m_StartNavSpeedFloorMaxLeadOverVelocity: 0.1
   m_BrakeAnimLeadDistance: 0.9
+  m_EarlyArrivalDistance: 0.5
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  FormationSpeedMultiplier: 1
+  StaminaSpeedMultiplier: 1
 --- !u!114 &3503617795371132269
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7877,6 +7884,16 @@ MonoBehaviour:
   m_MoveAnimatorSpeedMax: 1.03
   m_RuntimeMoveAnimatorSpeed: 1
   m_IsSelected: 0
+  m_EnableRouteCornerSmoothing: 1
+  m_CornerSmoothingMaxRadius: 2.5
+  m_CornerSmoothingSegmentFraction: 0.35
+  m_CornerSmoothingMinAngle: 12
+  m_CornerSmoothingMaxSamples: 12
+  m_CornerSmoothingNavMeshSampleRadius: 1.5
+  m_EnableCornerSmoothingMovement: 0
+  m_ContinuousRouteLookaheadDistance: 1.25
+  m_FacingTurnOverDistance: 5
+  m_DrawRouteMovementDebug: 0
 --- !u!114 &6826918016596314260
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7914,6 +7931,8 @@ MonoBehaviour:
   m_StandUpNavSpeedAnimatorCeiling: 0.042
   m_RotateSpeed: 6
   m_FacingTargetYawSmoothTime: 0.18
+  m_ManualFacingTargetConeHalfAngle: 30
+  m_ManualFacingEngageHandoffDegrees: 3
   m_SteadyAnimatorLocomotionWhileEngagingAndFiring: 1
   m_SteadyLocomotionRequiresFireCommand: 1
   m_SteadyLocomotionOnlyWhenNearlyStationary: 1
@@ -7926,9 +7945,12 @@ MonoBehaviour:
   m_StartNavSpeedFloor: 0.88
   m_StartNavSpeedFloorMaxLeadOverVelocity: 0.1
   m_BrakeAnimLeadDistance: 0.9
+  m_EarlyArrivalDistance: 0.5
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  FormationSpeedMultiplier: 1
+  StaminaSpeedMultiplier: 1
 --- !u!114 &3741241907743255212
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8113,6 +8135,7 @@ MonoBehaviour:
   m_Team: {fileID: 7069730870354710805}
   m_MagazineLoadingController: {fileID: 0}
   m_WeaponReloadController: {fileID: 0}
+  m_Vision: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
   m_LeftHandIk: {fileID: 2876543210987654320}
   m_BusyState: {fileID: 0}
@@ -8152,6 +8175,7 @@ MonoBehaviour:
   m_Animator: {fileID: 5771954729034314130}
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_CombatStats: {fileID: 0}
   m_VisionRange: 18
   m_FieldOfViewDegrees: 90
   m_TrackingHalfFovExtraDegrees: 12
@@ -8410,6 +8434,7 @@ MonoBehaviour:
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
   m_HitscanShooting: {fileID: 430373704858629585}
+  m_AimProgressController: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
@@ -8418,7 +8443,7 @@ MonoBehaviour:
   m_OutOfAmmoReloadRetrySeconds: 0.35
   m_RequireFullAimToFire: 1
   m_RequireBarrelAlignedToFire: 1
-  m_MaxBarrelAimErrorDegrees: 1.5
+  m_MaxBarrelAimErrorDegrees: 10
   m_MaxBarrelAimErrorDegreesAuto: 10
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
@@ -8430,7 +8455,6 @@ MonoBehaviour:
   m_DebugEffectiveFireMode: 0
   m_DebugCurrentAimProgress: 0
   m_DebugLastBarrelAimErrorDegrees: 0
-  m_LogFireBlockReasons: 0
 --- !u!114 &731300000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8679,6 +8703,31 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
+  m_EquipBlendDuration: 0.35
+  m_EquipBlendCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   m_UseLeftElbowHint: 0
   m_LeftElbowHint: {fileID: 0}
   m_LeftElbowHintWeight: 1
@@ -8702,11 +8751,111 @@ MonoBehaviour:
     m_Bits: 4294967295
   m_GroundRayUpOffset: 0.35
   m_GroundRayLength: 2
-  m_SurfaceRules: []
+  m_SurfaceRules:
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: ab799ee90a1751e4b992a300db7d1682, type: 3}
+    - {fileID: 8300000, guid: 6175ab7c4c8d5eb4a92c28999b4cf1c6, type: 3}
+    - {fileID: 8300000, guid: 34dc3de4254246d4b9129da1f6280a52, type: 3}
+    - {fileID: 8300000, guid: de8ccf9d722430b41a86f0f7f70a7d56, type: 3}
+    - {fileID: 8300000, guid: 80d7777f3cc856d4fbd3ac2cacd5ea7f, type: 3}
+    - {fileID: 8300000, guid: 0c252bb43c1a1804ebbaffd56f799f4c, type: 3}
+    - {fileID: 8300000, guid: 917e2fd3d36343c44880f799a11e3786, type: 3}
+    - {fileID: 8300000, guid: 13c895b4f2a4ce5489eb2edb2ed7ec55, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f602, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: 70be30ffb0dcccd48a7ffe9953d7ac8b, type: 3}
+    - {fileID: 8300000, guid: 2a9b07987c873c146bccf329feca585c, type: 3}
+    - {fileID: 8300000, guid: 5e0dc5d2b724ddc4299a43d7c82797c4, type: 3}
+    - {fileID: 8300000, guid: a42d8432e241fda499454b9e9588ca63, type: 3}
+    - {fileID: 8300000, guid: 32527e1a78dd24b4da4e5be203ae218a, type: 3}
+    - {fileID: 8300000, guid: 1e2245c1f7efb4842a3e7e3b467555c6, type: 3}
+    - {fileID: 8300000, guid: 27d5fbe19f6f3e94eb7c5a38a2e149b2, type: 3}
+    - {fileID: 8300000, guid: 9c46c245f9c4af646bce224224ef1634, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f603, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: 640fb1ed9e5fc1041beb1fd252a48f83, type: 3}
+    - {fileID: 8300000, guid: 241a0b13ffbccef4eaf87569a369f473, type: 3}
+    - {fileID: 8300000, guid: 24a37d6d84bec3c43a71e9872e0f03ad, type: 3}
+    - {fileID: 8300000, guid: b8cda9e0082b581489e9ce1d75b332ae, type: 3}
+    - {fileID: 8300000, guid: 0b728998ad1bb3444a73694edb8f1f86, type: 3}
+    - {fileID: 8300000, guid: 947a89c77e850dd4584444deddc3a582, type: 3}
+    - {fileID: 8300000, guid: 9b4556f7f607b8d44ba32e131c080d0b, type: 3}
+    - {fileID: 8300000, guid: 637bea8442035fb4187ec1b38614d0f9, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f604, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: d36726a12165f5f40b4fc0361736eb2c, type: 3}
+    - {fileID: 8300000, guid: 2ddde02b4d939d94ab77ed673b4f58b7, type: 3}
+    - {fileID: 8300000, guid: c40d0417a4550e9428ded69b007b79ba, type: 3}
+    - {fileID: 8300000, guid: de9d515754742184bad5f660a4e9e036, type: 3}
+    - {fileID: 8300000, guid: 6a17360fef018ae4a9ed00a5a5d03041, type: 3}
+    - {fileID: 8300000, guid: 7c655edb0925c794c857ee8ef09dbd39, type: 3}
+    - {fileID: 8300000, guid: 5eed5b2e3afaadd41b29d1628ed580ea, type: 3}
+    - {fileID: 8300000, guid: cae9f8bd57dc16544a831252c64449b5, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: ab955df4b24469540b074a48f1f982cc, type: 3}
+    - {fileID: 8300000, guid: 4054b6281dc2be941b6f7a412b777469, type: 3}
+    - {fileID: 8300000, guid: d2dd301e617a0e844a511b92c955983c, type: 3}
+    - {fileID: 8300000, guid: 1d7149ebeb060864fb8e9bc7b05ccf5b, type: 3}
+    - {fileID: 8300000, guid: 6a74dc076d420604e8363b34d6ca9bd8, type: 3}
+    - {fileID: 8300000, guid: 9394aa46942115e47b726d82ffede5b6, type: 3}
+    - {fileID: 8300000, guid: 22e4be4ac565b1b4787471e3fc0cf173, type: 3}
+    - {fileID: 8300000, guid: 07b8576268624664f89400da2fdd1743, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f607, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: f6590ac8b9ce3e14ead02ead7bddb8a9, type: 3}
+    - {fileID: 8300000, guid: be7a328ba47aa604f93babedf9bd904e, type: 3}
+    - {fileID: 8300000, guid: 4108223ab7ad3f04f9465acdead4bbfb, type: 3}
+    - {fileID: 8300000, guid: 187b3d2ae4d4081418aa4ac9fc42f446, type: 3}
+    - {fileID: 8300000, guid: ccc19c38599299147a6f348a822c16ae, type: 3}
+    - {fileID: 8300000, guid: 44d06b8f20d48d149badbb107a0afa39, type: 3}
+    - {fileID: 8300000, guid: e5a61438984815b42aa502d6cee71122, type: 3}
+    - {fileID: 8300000, guid: 52f3d0c2108e4654e976099b2356f75c, type: 3}
+  - Layers:
+      serializedVersion: 2
+      m_Bits: 0
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f60a, type: 2}
+    Clips:
+    - {fileID: 8300000, guid: c1de4b4090de91e43bf06119e135a93c, type: 3}
+    - {fileID: 8300000, guid: c309ae5fd65d70242917680242057e4b, type: 3}
+    - {fileID: 8300000, guid: 17e5423575058d94daf035cafbb005bb, type: 3}
+    - {fileID: 8300000, guid: 394624eceb0e4fb49b84cb3663eff50f, type: 3}
+    - {fileID: 8300000, guid: 49d5fda798bbb674ba0c920dae842f7d, type: 3}
+    - {fileID: 8300000, guid: 4bb1ab2b1dd47a148a29af3358b008bd, type: 3}
+    - {fileID: 8300000, guid: f9db67ee9a1707e4b965d441e8564b21, type: 3}
+    - {fileID: 8300000, guid: 663f0fa2a149d4f4594972c507fd5f1a, type: 3}
   m_SurfaceRayMinIntervalSeconds: 0.15
   m_SurfaceRayReusePlanarMeters: 0.3
   m_SurfaceRayReuseVerticalMeters: 0.35
-  m_FootstepClips: []
+  m_FootstepClips:
+  - {fileID: 8300000, guid: ab799ee90a1751e4b992a300db7d1682, type: 3}
+  - {fileID: 8300000, guid: 6175ab7c4c8d5eb4a92c28999b4cf1c6, type: 3}
+  - {fileID: 8300000, guid: 34dc3de4254246d4b9129da1f6280a52, type: 3}
+  - {fileID: 8300000, guid: de8ccf9d722430b41a86f0f7f70a7d56, type: 3}
+  - {fileID: 8300000, guid: 80d7777f3cc856d4fbd3ac2cacd5ea7f, type: 3}
+  - {fileID: 8300000, guid: 0c252bb43c1a1804ebbaffd56f799f4c, type: 3}
+  - {fileID: 8300000, guid: 917e2fd3d36343c44880f799a11e3786, type: 3}
+  - {fileID: 8300000, guid: 13c895b4f2a4ce5489eb2edb2ed7ec55, type: 3}
+  m_FootstepBaseVolume: 0.6
   m_RtsEconomyMode: 0
   m_RtsMaxPlanarDistanceFromListener: 0
   m_ApplySpatialPreset: 1
@@ -8721,6 +8870,46 @@ MonoBehaviour:
   m_StopVelocityEpsilon: 0.08
   m_LimitOneFootstepPerFrame: 1
   m_FootstepMinIntervalSeconds: 0.14
+--- !u!114 &9123456789012345679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8e7d6c5b4a392817061554433221100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitGearRattleAudio
+  m_AudioSource: {fileID: 0}
+  m_EmitFrom: {fileID: 6544963493894048048}
+  m_Agent: {fileID: 1240021153989011070}
+  m_StanceSource: {fileID: 3741241907743255212}
+  m_ClickToMove: {fileID: 4256334534260426623}
+  m_LocomotionDriver: {fileID: 6826918016596314260}
+  m_LoopClips:
+  - {fileID: 8300000, guid: b538b3024055ea741877fbda479eef88, type: 3}
+  - {fileID: 8300000, guid: 1400aa8adacb4414da91f65a3ed13857, type: 3}
+  - {fileID: 8300000, guid: c87591962fce82741b72b6fc74ede9aa, type: 3}
+  - {fileID: 8300000, guid: 167c12a727eb5ef438779b0e4ab1c608, type: 3}
+  - {fileID: 8300000, guid: b0257f433b9d54941b550c08988948b1, type: 3}
+  m_StandToCrouchClip: {fileID: 8300000, guid: c87591962fce82741b72b6fc74ede9aa, type: 3}
+  m_CrouchToStandClip: {fileID: 8300000, guid: b538b3024055ea741877fbda479eef88, type: 3}
+  m_RunIntervalMinSeconds: 0.22
+  m_RunIntervalMaxSeconds: 0.48
+  m_RunBaseVolume: 0.42
+  m_WalkIntervalMinSeconds: 0.55
+  m_WalkIntervalMaxSeconds: 0.95
+  m_WalkBaseVolume: 0.22
+  m_StanceTransitionVolume: 0.5
+  m_StopVelocityEpsilon: 0.08
+  m_RequireNavAgentMoving: 1
+  m_ApplySpatialPreset: 1
+  m_SpatialMaxDistance: 14
+  m_SyncAudioSourceWorldPositionToEmitPoint: 1
+  m_VolumeJitter: 0.05
+  m_PitchJitter: 0.035
 --- !u!114 &3408199974750778793
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8739,6 +8928,8 @@ MonoBehaviour:
   m_WeaponHandling: 50
   m_RecoilControl: 50
   m_ReactionTimeSeconds: 0.35
+  m_VisionScanIntervalMinSeconds: 0.25
+  m_VisionScanIntervalMaxSeconds: 0.45
   m_WorstMarksmanshipDispersionMultiplier: 1.25
   m_BestMarksmanshipDispersionMultiplier: 0.75
   m_WorstHandlingAimTimeMultiplier: 1.25
@@ -8774,24 +8965,8 @@ MonoBehaviour:
   m_ArmsWoundedRecoilRecoveryMultiplier: 0.85
   m_HeavyPainRecoilAddedMultiplier: 1.1
   m_HeavyPainRecoilRecoveryMultiplier: 0.9
---- !u!114 &731500000000000100
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9176879924895076622}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42440ae50a272a348afec67a66733318, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UnitStamina
-  m_Stamina: 100
-  m_LoadRatio: 0
-  m_CurrentDrainRate: 0
-  m_CurrentRecoveryRate: 0
-  m_IsRunning: 0
-  m_IsRecovering: 0
+  m_ReadyStaminaDispersionMultiplier: 1.2
+  m_ReadyStaminaRecoilMultiplier: 1.5
 --- !u!114 &731400000000000200
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9411,6 +9586,29 @@ MonoBehaviour:
   m_SnapToGroundOnRelease: 1
   m_RootSyncIntervalSeconds: 0.35
   m_LogDragFollow: 0
+--- !u!114 &731500000000000100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42440ae50a272a348afec67a66733318, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitStamina
+  m_Stamina: 100
+  m_LoadRatio: 0
+  m_CurrentDrainRate: 0
+  m_CurrentRecoveryRate: 0
+  m_IsRunning: 0
+  m_IsRecovering: 0
+  m_CargoWeightDebug: 0
+  m_MaxWeightDebug: 0
+  m_ReadyStamina: 100
+  m_ReadyStaminaDrainRate: 0
+  m_IsReadyStaminaExhausted: 0
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

@@ -533,6 +533,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		RefreshEquippedMainHandVisualsIfNeeded(resolvedIsMainHand);
 		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
 		NotifyInventoryMutated();
+		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
+		{
+			WeaponModificationAudioUtility.TryPlayAttachmentAttachSound(
+				ActiveInventory,
+				_useMainHandPosition: resolvedIsMainHand && !resolvedIsOnGroundPanel);
+		}
+
 		ItemModificationDiagnostics.LogInstallAccepted(context, _slotDescriptor, weaponSlot, payload.Item);
 		return true;
 	}
@@ -668,6 +675,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		RefreshEquippedMainHandVisualsIfNeeded(resolvedIsMainHand);
 		NotifyInventoryMutated();
+		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
+		{
+			WeaponModificationAudioUtility.TryPlayAttachmentDetachSound(
+				ActiveInventory,
+				_useMainHandPosition: resolvedIsMainHand && !resolvedIsOnGroundPanel);
+		}
+
 		ItemModificationDiagnostics.LogClearAccepted(context, _slotDescriptor, weaponSlot, removedItem);
 		return true;
 	}

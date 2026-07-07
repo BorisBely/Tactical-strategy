@@ -65,6 +65,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_Manager != null && m_TargetListRoot != null && m_Rows.Count != m_Manager.Targets.Count)
 			BuildTargetRows();
 
+		SubscribeSelectionChanges();
 		RefreshAllRows();
 		RefreshRankButtonLabel();
 		RefreshHitCounterButtonLabel();
@@ -75,6 +76,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_Manager != null)
 			m_Manager.TargetsChanged += HandleTargetsChanged;
 
+		SubscribeSelectionChanges();
 		WireGlobalButtons();
 		RefreshAllRows();
 		RefreshQuickToggleButtons();
@@ -87,6 +89,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_Manager != null)
 			m_Manager.TargetsChanged -= HandleTargetsChanged;
 
+		UnsubscribeSelectionChanges();
 		UnwireGlobalButtons();
 		UnwireRowButtons();
 	}
@@ -105,6 +108,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			BuildTargetRows();
 
 		WireGlobalButtons();
+		SubscribeSelectionChanges();
 		RefreshAllRows();
 		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
@@ -387,7 +391,29 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			return;
 		}
 
-		Debug.LogWarning("[Полигон] Не удалось сменить ранг: не найден UnitCombatStats у активного игрока или не задан Rank Cycle Order.", m_Manager);
+		Debug.LogWarning("[Полигон] Не удалось сменить ранг: выделите юнита игрока или задайте Rank Cycle Order.", m_Manager);
+	}
+
+	private void HandleSelectionChanged()
+	{
+		RefreshRankButtonLabel();
+	}
+
+	private void SubscribeSelectionChanges()
+	{
+		RtsUnitSelectionManager selection = RtsUnitSelectionManager.Instance;
+		if (selection == null)
+			return;
+
+		selection.SelectionChanged -= HandleSelectionChanged;
+		selection.SelectionChanged += HandleSelectionChanged;
+	}
+
+	private void UnsubscribeSelectionChanges()
+	{
+		RtsUnitSelectionManager selection = RtsUnitSelectionManager.Instance;
+		if (selection != null)
+			selection.SelectionChanged -= HandleSelectionChanged;
 	}
 
 	private void HandleCycleHitCounter()
@@ -417,6 +443,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		if (m_CycleRankButton == null || m_Manager == null)
 			return;
 
+		bool canCycle = m_Manager.CanCyclePlayerUnitRank();
+		m_CycleRankButton.interactable = canCycle;
 		SetButtonLabel(m_CycleRankButton, $"Rank: {m_Manager.GetPlayerUnitRankLabel()}");
 	}
 
@@ -713,6 +741,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		image.color = new Color(0.2f, 0.28f, 0.36f, 1f);
 
 		Button button = buttonGo.GetComponent<Button>();
+		UiInteractionAudioUtility.EnsureHoverSoundOn(buttonGo);
 		CreateText(buttonGo.transform, _label, 0f, TextAlignmentOptions.Center, 14f);
 		return button;
 	}
