@@ -119,6 +119,16 @@ public sealed class UnitCombatStats : MonoBehaviour
 		return m_VisionScanIntervalMaxSeconds;
 	}
 
+	public float SampleVisionScanIntervalSeconds()
+	{
+		return UnityEngine.Random.Range(m_VisionScanIntervalMinSeconds, m_VisionScanIntervalMaxSeconds);
+	}
+
+	public float GetCommandVisionStaggerDelaySeconds()
+	{
+		return SampleVisionScanIntervalSeconds() * 0.5f;
+	}
+
 	public float GetDispersionMultiplier()
 	{
 		return EvaluateSkillMultiplier(

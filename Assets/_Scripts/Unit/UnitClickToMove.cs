@@ -870,8 +870,19 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void UpdateFacing()
 	{
+		if (m_CachedRtsMember != null && m_CachedRtsMember.IsRotatingToRouteFacing)
+			return;
+
 		if (ShouldApplyManualFacingOverride())
 		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			if (m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady)
+			{
+				FormationSectorDebug.Log(
+					m_CachedRtsMember,
+					$"BUG_OVERRIDE_APPLIED_WHILE_NOT_READY yaw={OverrideFacingAngle.Value:F1}");
+			}
+#endif
 			m_EngageYawVelocity = 0f;
 			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
 			ApplyFacingDirection(overrideDir);
@@ -968,6 +979,24 @@ public sealed class UnitClickToMove : MonoBehaviour
 	{
 		if (!OverrideFacingAngle.HasValue)
 			return false;
+
+		bool moving = IsPlanarMoving();
+		bool hasIntent = m_CachedRtsMember != null && m_CachedRtsMember.HasActiveMovementIntent;
+		if (m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady &&
+		    (moving || hasIntent) &&
+		    !m_CachedRtsMember.AllowsInMovementManualFacingOverride)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			FormationSectorDebug.LogLocomotionGate(
+				m_CachedRtsMember,
+				this,
+				OverrideFacingAngle.Value,
+				false,
+				moving,
+				hasIntent);
+#endif
+			return false;
+		}
 
 		if (!IsEngagingVisibleTarget())
 			return true;
@@ -1207,17 +1236,29 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		int wm = m_Animator.GetInteger(s_WeaponMode);
 		bool axisFwdOnly = navSpeedOut > 0.02f;
+		bool rtsMarchIntent = m_CachedRtsMember != null && m_CachedRtsMember.HasActiveMovementIntent;
+		bool rtsNotReadyFwdOnly = m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady &&
+		                          (axisFwdOnly || rtsMarchIntent);
 		bool unarmedStandFwdOnly = wm == (int)LocomotionWeaponMode.Unarmed && stance == LocomotionStance.Standing && axisFwdOnly;
 		bool rifleSprintFwdOnly = (wm == (int)LocomotionWeaponMode.Rifle || wm == (int)LocomotionWeaponMode.Pistol) &&
 		                          stance == LocomotionStance.Standing &&
 		                          locomotionTier == (int)MoveTier.Sprint &&
 		                          axisFwdOnly;
 
-		if (unarmedStandFwdOnly || rifleSprintFwdOnly)
+		if (rtsNotReadyFwdOnly || unarmedStandFwdOnly || rifleSprintFwdOnly)
 		{
 			m_SmoothDir = new Vector2(0f, 1f);
 			m_SmoothDirVel = Vector2.zero;
 		}
+	}
+
+	private bool IsPlanarMoving()
+	{
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
+			return HasActiveMoveIntent();
+
+		Vector3 planarVel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+		return planarVel.sqrMagnitude > m_StopVelocityEpsilon * m_StopVelocityEpsilon || HasActiveMoveIntent();
 	}
 
 	private void PushAnimator()
