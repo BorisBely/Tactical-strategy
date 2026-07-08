@@ -84,6 +84,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_HasMoveFacingSet;
 	private bool m_HasFormationFacingSet;
 	private bool m_PreviewCtrlFormationFacingLatched;
+	private bool m_PreviewShiftEnqueueLatched;
 	private bool m_RmbStartedOnSelectedUnit;
 	private bool m_IsInPlaceFacingPreview;
 	private Vector2 m_RmbDownMousePos;
@@ -289,6 +290,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UpdatePathInteractions();
 		HandleRightMouseCommand();
 		UpdatePreviewCtrlFormationLatch();
+		UpdatePreviewShiftEnqueueLatch();
 		HandleFormationKeyInput();
 		HandleKeyboardCommands();
 		UpdateFormationSyncSpeeds();
@@ -3707,6 +3709,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_PreviewCancelled = false;
 		m_HasMoveFacingSet = false;
 		m_IsQuickRotateFacing = false;
+		m_PreviewShiftEnqueueLatched |= IsShiftHeld();
 		m_RmbDownMousePos = _mouseDownScreen;
 		m_LastRightClickTime = -1f;
 
@@ -3789,7 +3792,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UnitClickToMove.MoveTier moveTier = m_PreviewMoveTier;
 		bool startedOnSelectedUnit = m_RmbStartedOnSelectedUnit;
 
-		if (IsCtrlShiftHeld() && hasGroupFormationFacing)
+		bool shiftEnqueue = m_PreviewShiftEnqueueLatched || IsShiftHeld();
+		if (shiftEnqueue && hasGroupFormationFacing && IsPreviewCtrlFormationFacingActive())
 			isGroupCtrlFormationSector = true;
 
 		float? formationCtrlBaseYaw = isGroupCtrlFormationSector
@@ -3828,7 +3832,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			formationForwardOverride,
 			isGroupCtrlFormationSector,
 			formationCtrlBaseYaw,
-			allowArrivalFormationFacing);
+			allowArrivalFormationFacing,
+			shiftEnqueue);
 	}
 
 	private void StartMovePreview(
@@ -3857,6 +3862,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_HasMoveFacingSet = false;
 		m_HasFormationFacingSet = false;
 		m_PreviewCtrlFormationFacingLatched = IsCtrlPressed();
+		m_PreviewShiftEnqueueLatched = IsShiftHeld();
 		m_PreviewFormationForwardOverride = null;
 		m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.TurnOnArrival;
 		m_PreviewFormationManualFacingAngle = 0f;
@@ -4622,6 +4628,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		m_PreviewShiftEnqueueLatched |= IsShiftHeld();
+
 		if (m_PreviewMoveTier == UnitClickToMove.MoveTier.Run)
 		{
 			PreserveFormationFacingSetFromQuickRotate();
@@ -4672,15 +4680,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector3? _formationForwardOverride = null,
 		bool _isGroupCtrlFormationFacing = false,
 		float? _formationCtrlBaseYaw = null,
-		bool _allowNotReadyArrivalFormationFacing = false)
+		bool _allowNotReadyArrivalFormationFacing = false,
+		bool _shiftEnqueue = false)
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
 			return;
 
-		bool shift = IsShiftHeld();
 		bool altWaitEnqueue = _waitGroup < 0;
-		bool enqueue = shift || altWaitEnqueue;
+		bool enqueue = _shiftEnqueue || altWaitEnqueue;
 		bool useWait = _waitGroup != 0;
 		bool isGroup = validUnits.Count >= 2;
 		bool isRunTier = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
@@ -4981,6 +4989,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_HasMoveFacingSet = false;
 		m_HasFormationFacingSet = false;
 		m_PreviewCtrlFormationFacingLatched = false;
+		m_PreviewShiftEnqueueLatched = false;
 		m_RmbStartedOnSelectedUnit = false;
 		m_IsInPlaceFacingPreview = false;
 		m_PreviewFacingAngles = null;
@@ -5382,6 +5391,17 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool IsPreviewCtrlFormationFacingActive()
 	{
 		return m_PreviewCtrlFormationFacingLatched || IsCtrlPressed() || IsCtrlShiftHeld();
+	}
+
+	private void UpdatePreviewShiftEnqueueLatch()
+	{
+		if (!IsShiftHeld())
+			return;
+
+		if (!m_IsPreviewingMove && !m_IsAwaitingDoubleClick)
+			return;
+
+		m_PreviewShiftEnqueueLatched = true;
 	}
 
 	private void UpdatePreviewCtrlFormationLatch()
