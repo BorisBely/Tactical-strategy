@@ -21,8 +21,8 @@ MonoBehaviour:
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: ae91e625ac0645638f2051c47e26e946, type: 3}
   m_EquippedVisualPrefab: {fileID: 5529438276011619585, guid: 79ec93845dc3de149a91d1e36426c8c5, type: 3}
-  m_RightHandLocalPosition: {x: 0.096, y: 0.046, z: -0.013}
-  m_RightHandLocalEulerAngles: {x: 8.7, y: 81.125, z: -89}
+  m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}

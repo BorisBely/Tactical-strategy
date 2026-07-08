@@ -111,6 +111,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private readonly List<Vector3> m_RawRoutePoints = new List<Vector3>(32);
 	private readonly List<Vector3> m_SmoothedRoutePoints = new List<Vector3>(64);
 	private readonly List<Vector3> m_CornerArcSamples = new List<Vector3>(16);
+	private NavMeshPath m_ReusableNavMeshPath;
+	private readonly List<Vector3> m_RouteSegmentPolylineBuffer = new List<Vector3>(32);
 
 	public enum FacingArrowMode
 	{
@@ -357,8 +359,17 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: !IsAtFirstWaypoint(), previewDestination: null);
-		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		BuildNavMeshRoutePoints(
+			m_SmoothedRoutePoints,
+			includeUnitStart: true,
+			previewDestination: null,
+			useLiveAgentPathForActiveLeg: false);
+		if (m_SmoothedRoutePoints.Count > 0)
+			m_SmoothedRoutePoints[0] = transform.position;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent(
+			$"PATH_REBUILD points={m_SmoothedRoutePoints.Count} preview={m_IsMovePreviewVisualActive} {BuildRouteDebugSnapshot()}");
+#endif
 		ApplyPathLinePoints(m_SmoothedRoutePoints);
 		m_PathLine.enabled = m_IsSelected;
 	}
@@ -558,8 +569,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_PathLine.enabled || m_Waypoints.Count == 0)
 			return;
 
-		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: true, previewDestination: null);
-		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		BuildNavMeshRoutePoints(
+			m_SmoothedRoutePoints,
+			includeUnitStart: true,
+			previewDestination: null,
+			useLiveAgentPathForActiveLeg: true);
 		if (m_SmoothedRoutePoints.Count > 0)
 			m_SmoothedRoutePoints[0] = transform.position;
 		ApplyPathLinePoints(m_SmoothedRoutePoints);
@@ -570,8 +584,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsMovePreviewVisualActive || !m_MovePreviewDestination.HasValue || m_PathLine == null)
 			return;
 
-		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart: true, previewDestination: m_MovePreviewDestination);
-		BuildSmoothedPathPoints(m_RawRoutePoints, m_SmoothedRoutePoints);
+		BuildNavMeshRoutePoints(
+			m_SmoothedRoutePoints,
+			includeUnitStart: true,
+			previewDestination: m_MovePreviewDestination,
+			useLiveAgentPathForActiveLeg: false);
 		if (m_SmoothedRoutePoints.Count > 0)
 			m_SmoothedRoutePoints[0] = transform.position;
 		ApplyPathLinePoints(m_SmoothedRoutePoints);
@@ -751,6 +768,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void IssueMoveOrder(Vector3 _worldPosition, UnitClickToMove.MoveTier _moveTier, float _groupStaggerDelaySeconds = 0f)
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (UnitFallenStateUtility.IsFallenOrDead(this))
+			LogRouteDebugEvent($"MOVE_ORDER_BLOCKED fallen dest={FormatRoutePoint(_worldPosition)}");
+#endif
 		IssueRouteMoveOrder(_worldPosition, _moveTier, _continuous: false, _groupStaggerDelaySeconds);
 	}
 
@@ -770,7 +791,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		float _groupStaggerDelaySeconds = 0f)
 	{
 		if (UnitFallenStateUtility.IsFallenOrDead(this))
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent($"NAV_BLOCKED fallen dest={FormatRoutePoint(_worldPosition)}");
+#endif
 			return;
+		}
 
 		ScheduleRtsCommand(() =>
 		{
@@ -812,16 +838,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 				$"NAV_ORDER mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
 #endif
 
+			bool issued = false;
 			if (m_ClickToMove != null)
 			{
-				if (_continuous)
-					m_ClickToMove.IssueNavOrderContinuous(_worldPosition, _moveTier);
-				else
-					m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
-				return;
+				issued = _continuous
+					? m_ClickToMove.IssueNavOrderContinuous(_worldPosition, _moveTier)
+					: m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
 			}
-
-			if (m_LocomotionDriver != null)
+			else if (m_LocomotionDriver != null)
 			{
 				UnitNavLocomotionDriver.MoveTier navTier = _moveTier switch
 				{
@@ -829,11 +853,18 @@ public sealed class RtsUnitMember : MonoBehaviour
 					UnitClickToMove.MoveTier.Sprint => UnitNavLocomotionDriver.MoveTier.Sprint,
 					_ => UnitNavLocomotionDriver.MoveTier.Walk
 				};
-				if (_continuous)
-					m_LocomotionDriver.IssueNavOrderContinuous(_worldPosition, navTier);
-				else
-					m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
+				issued = _continuous
+					? m_LocomotionDriver.IssueNavOrderContinuous(_worldPosition, navTier)
+					: m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
 			}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			if (!issued)
+			{
+				LogRouteDebugEvent(
+					$"NAV_ORDER_FAILED mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
+			}
+#endif
 		}, _groupStaggerDelaySeconds);
 	}
 
@@ -898,6 +929,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ClearFacingOverride();
 		m_ActiveFacingArrows = null;
 		MarkFacingArrowsDirty();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"ROUTE_SET_DIRECT tier={_moveTier} dest={FormatRoutePoint(_dest)} {BuildRouteDebugSnapshot()}");
+#endif
 	}
 
 	public int GetNextAutoWaitGroup()
@@ -980,6 +1014,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		float? _formationSlotArrivalYaw = null)
 	{
 		m_Waypoints.Add(_dest);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteDebugEvent($"ROUTE_ENQUEUE tier={_tier} dest={FormatRoutePoint(_dest)} wait={_waitGroup} {BuildRouteDebugSnapshot()}");
+#endif
 
 		int commandIndex = m_CommandQueue.Count;
 		var cmd = new QueuedCommand
@@ -1070,6 +1108,96 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public int WaypointCount => m_Waypoints.Count;
 
 	/// <summary>
+	/// Собирает NavMesh-полилинию логического сегмента маршрута (0 = юнит→wp0, i = wp[i-1]→wp[i]).
+	/// </summary>
+	public bool CollectRouteSegmentPolyline(int _segmentIndex, List<Vector3> _output, bool _useLiveAgentPathForActiveLeg = true)
+	{
+		_output.Clear();
+		if (_segmentIndex < 0 || _segmentIndex >= m_Waypoints.Count)
+			return false;
+
+		Vector3 segStart = _segmentIndex == 0 ? transform.position : m_Waypoints[_segmentIndex - 1];
+		Vector3 segEnd = m_Waypoints[_segmentIndex];
+		bool isActiveLeg = _segmentIndex == 0 && m_HasActiveDestination && _useLiveAgentPathForActiveLeg;
+
+		if (isActiveLeg && TryAppendActiveAgentPathPolyline(_output))
+			return _output.Count >= 2;
+
+		if (TryAppendCalculatedNavMeshPath(segStart, segEnd, _output))
+			return _output.Count >= 2;
+
+		AppendStraightSegmentFallback(segStart, segEnd, _output);
+		return _output.Count >= 2;
+	}
+
+	/// <summary>
+	/// Выбор точки на видимой NavMesh-полилинии сегмента (для hover/insert/edit).
+	/// </summary>
+	public bool TryPickRouteSegment(
+		Camera _camera,
+		int _segmentIndex,
+		Vector2 _mouseScreen,
+		float _thresholdPixels,
+		bool _hasMouseWorld,
+		Vector3 _mouseWorld,
+		out Vector3 _worldPoint,
+		out float _segmentT,
+		out float _screenDistSqr)
+	{
+		_worldPoint = Vector3.zero;
+		_segmentT = 0f;
+		_screenDistSqr = float.MaxValue;
+		if (_camera == null || !CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer))
+			return false;
+
+		float thresholdSqr = _thresholdPixels * _thresholdPixels;
+		float bestDistSqr = thresholdSqr;
+		bool found = false;
+		Vector3 bestWorld = Vector3.zero;
+
+		for (int i = 1; i < m_RouteSegmentPolylineBuffer.Count; i++)
+		{
+			Vector3 segmentStart = m_RouteSegmentPolylineBuffer[i - 1];
+			Vector3 segmentEnd = m_RouteSegmentPolylineBuffer[i];
+			Vector2 startScreen = _camera.WorldToScreenPoint(segmentStart);
+			Vector2 endScreen = _camera.WorldToScreenPoint(segmentEnd);
+			float distSqr = DistPointToSegmentSqrScreen(
+				_mouseScreen,
+				startScreen,
+				endScreen,
+				out Vector2 closestScreen,
+				out _);
+
+			if (distSqr >= bestDistSqr)
+				continue;
+
+			bestDistSqr = distSqr;
+			found = true;
+			if (_hasMouseWorld)
+			{
+				bestWorld = ClosestPointOnLineSegment3D(_mouseWorld, segmentStart, segmentEnd);
+			}
+			else
+			{
+				Vector2 segmentScreen = endScreen - startScreen;
+				float segmentScreenLenSqr = segmentScreen.sqrMagnitude;
+				float t = segmentScreenLenSqr > 0.0001f
+					? Vector2.Dot(closestScreen - startScreen, segmentScreen) / segmentScreenLenSqr
+					: 0f;
+				bestWorld = Vector3.Lerp(segmentStart, segmentEnd, Mathf.Clamp01(t));
+			}
+		}
+
+		if (!found)
+			return false;
+
+		_worldPoint = bestWorld;
+		_segmentT = ComputeRouteSegmentTAlongPolyline(m_RouteSegmentPolylineBuffer, bestWorld);
+		_screenDistSqr = bestDistSqr;
+		return true;
+	}
+
+	/// <summary>
 	/// Оценка оставшегося маршрута: NavMesh до активной точки + длины следующих сегментов очереди.
 	/// Без аллокаций; используется для непрерывной синхронизации скорости формации.
 	/// </summary>
@@ -1104,11 +1232,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 		else if (m_Waypoints.Count > 0)
 		{
-			total += PlanarDistance(transform.position, m_Waypoints[0]);
+			total += GetNavMeshSegmentLengthOrPlanar(transform.position, m_Waypoints[0]);
 		}
 
 		for (int i = 0; i < m_Waypoints.Count - 1; i++)
-			total += PlanarDistance(m_Waypoints[i], m_Waypoints[i + 1]);
+			total += GetNavMeshSegmentLengthOrPlanar(m_Waypoints[i], m_Waypoints[i + 1]);
 
 		return total;
 	}
@@ -1279,6 +1407,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private Vector3 ResolveRouteSegmentPoint(int _segmentIndex, float _segmentT)
 	{
+		bool useLiveAgent = _segmentIndex == 0 && m_HasActiveDestination;
+		if (CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
+		    m_RouteSegmentPolylineBuffer.Count >= 2)
+			return EvaluatePolylineAtT(m_RouteSegmentPolylineBuffer, _segmentT);
+
 		if (TryGetRouteSegmentEndpoints(_segmentIndex, out Vector3 segmentStart, out Vector3 segmentEnd))
 			return Vector3.Lerp(segmentStart, segmentEnd, _segmentT);
 
@@ -1413,6 +1546,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private Vector3 ResolveFacingArrowAnchor(in FacingArrow _arrow, bool _isActiveSegment = false)
 	{
+		bool useLiveAgent = _isActiveSegment && m_HasActiveDestination;
+		if (CollectRouteSegmentPolyline(_arrow.RouteSegmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
+		    m_RouteSegmentPolylineBuffer.Count >= 2)
+			return EvaluatePolylineAtT(m_RouteSegmentPolylineBuffer, _arrow.RouteSegmentT);
+
 		if (TryGetRouteSegmentEndpoints(_arrow.RouteSegmentIndex, _isActiveSegment, out Vector3 segmentStart, out Vector3 segmentEnd))
 			return Vector3.Lerp(segmentStart, segmentEnd, _arrow.RouteSegmentT);
 
@@ -1477,7 +1615,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		bool _useActiveSegmentStart = false)
 	{
 		_arrow.RouteSegmentIndex = _segmentIndex;
-		if (TryGetRouteSegmentEndpoints(_segmentIndex, _useActiveSegmentStart, out Vector3 segmentStart, out Vector3 segmentEnd))
+		bool useLiveAgent = _useActiveSegmentStart && m_HasActiveDestination;
+		if (CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
+		    m_RouteSegmentPolylineBuffer.Count >= 2)
+			_arrow.RouteSegmentT = ComputeRouteSegmentTAlongPolyline(m_RouteSegmentPolylineBuffer, _anchorWorld);
+		else if (TryGetRouteSegmentEndpoints(_segmentIndex, _useActiveSegmentStart, out Vector3 segmentStart, out Vector3 segmentEnd))
 			_arrow.RouteSegmentT = ComputeRouteSegmentT(_anchorWorld, segmentStart, segmentEnd);
 		else
 			_arrow.RouteSegmentT = 0f;
@@ -1587,7 +1729,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		UnitClickToMove.MoveTier tier = ResolveMoveTierForWaypointInsert(_segmentIndex);
 		float insertSegmentT = 1f;
-		if (TryGetRouteSegmentEndpoints(_segmentIndex, out Vector3 insertSegmentStart, out Vector3 insertSegmentEnd))
+		bool useLiveAgent = m_HasActiveDestination && _segmentIndex == 0;
+		if (CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent))
+			insertSegmentT = ComputeRouteSegmentTAlongPolyline(m_RouteSegmentPolylineBuffer, _worldPoint);
+		else if (TryGetRouteSegmentEndpoints(_segmentIndex, out Vector3 insertSegmentStart, out Vector3 insertSegmentEnd))
 			insertSegmentT = ComputeRouteSegmentT(_worldPoint, insertSegmentStart, insertSegmentEnd);
 		ShiftFacingArrowSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
 		ShiftWaitHoldSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
@@ -3235,6 +3380,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 
 		float totalDelay = ResolveCommandReactionDelaySeconds() + Mathf.Max(0f, _groupStaggerDelaySeconds);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (totalDelay > 0f)
+		{
+			LogRouteDebugEvent($"CMD_SCHEDULED delay={totalDelay:F2}s version={version}");
+		}
+#endif
 		if (totalDelay <= 0f)
 		{
 			m_PendingCommandCoroutine = null;
@@ -3258,7 +3409,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		yield return new WaitForSecondsRealtime(_delaySeconds);
 
 		if (_version != m_PendingCommandVersion)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent($"CMD_CANCELLED staleVersion={_version} current={m_PendingCommandVersion}");
+#endif
 			yield break;
+		}
 
 		m_PendingCommandCoroutine = null;
 		_command?.Invoke();
@@ -3610,7 +3766,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_CommandQueue.Count == 0)
 			return;
 		if (m_IsWaitingAtRouteGate)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteDebugEvent($"QUEUE_BLOCKED waitGate group={m_ActiveWaitGroup} {BuildRouteDebugSnapshot()}");
+#endif
 			return;
+		}
 
 		QueuedCommand next = m_CommandQueue[0];
 		if (next.WaitGroup >= 1)
@@ -3670,6 +3831,226 @@ public sealed class RtsUnitMember : MonoBehaviour
 		float dx = transform.position.x - m_Waypoints[0].x;
 		float dz = transform.position.z - m_Waypoints[0].z;
 		return dx * dx + dz * dz < 0.25f;
+	}
+
+	private void BuildNavMeshRoutePoints(
+		List<Vector3> _output,
+		bool includeUnitStart,
+		Vector3? previewDestination,
+		bool useLiveAgentPathForActiveLeg)
+	{
+		_output.Clear();
+		if (m_Waypoints.Count == 0 && !previewDestination.HasValue)
+			return;
+
+		BuildRawRoutePoints(m_RawRoutePoints, includeUnitStart, previewDestination);
+		if (m_RawRoutePoints.Count < 2)
+		{
+			if (m_RawRoutePoints.Count == 1)
+				_output.Add(m_RawRoutePoints[0]);
+			return;
+		}
+
+		for (int i = 0; i < m_RawRoutePoints.Count - 1; i++)
+		{
+			Vector3 segStart = m_RawRoutePoints[i];
+			Vector3 segEnd = m_RawRoutePoints[i + 1];
+			bool isActiveLeg = i == 0 && includeUnitStart && m_HasActiveDestination && useLiveAgentPathForActiveLeg;
+
+			if (isActiveLeg && TryAppendActiveAgentPathPolyline(_output))
+				continue;
+
+			if (!TryAppendCalculatedNavMeshPath(segStart, segEnd, _output))
+				AppendStraightSegmentFallback(segStart, segEnd, _output);
+		}
+	}
+
+	private bool TryAppendActiveAgentPathPolyline(List<Vector3> _output)
+	{
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent == null || !agent.isOnNavMesh || agent.pathPending || !agent.hasPath)
+			return false;
+		if (!m_HasActiveDestination || m_Waypoints.Count == 0)
+			return false;
+
+		Vector3 expectedDestination = m_Waypoints[0];
+		Vector3 agentDestination = agent.destination;
+		float destDx = agentDestination.x - expectedDestination.x;
+		float destDz = agentDestination.z - expectedDestination.z;
+		if (destDx * destDx + destDz * destDz > 0.36f)
+			return false;
+
+		NavMeshPath path = agent.path;
+		if (path.status != NavMeshPathStatus.PathComplete && path.status != NavMeshPathStatus.PathPartial)
+			return false;
+
+		Vector3[] corners = path.corners;
+		if (corners == null || corners.Length < 2)
+			return false;
+
+		AppendPathCornersDeduped(_output, corners);
+		return _output.Count >= 2;
+	}
+
+	private bool TryAppendCalculatedNavMeshPath(Vector3 _start, Vector3 _end, List<Vector3> _output)
+	{
+		if (!TrySampleNavMeshPoint(_start, out Vector3 sampledStart))
+			sampledStart = _start;
+		if (!TrySampleNavMeshPoint(_end, out Vector3 sampledEnd))
+			sampledEnd = _end;
+
+		if (m_ReusableNavMeshPath == null)
+			m_ReusableNavMeshPath = new NavMeshPath();
+
+		if (!NavMesh.CalculatePath(sampledStart, sampledEnd, NavMesh.AllAreas, m_ReusableNavMeshPath))
+			return false;
+		if (m_ReusableNavMeshPath.status != NavMeshPathStatus.PathComplete)
+			return false;
+
+		Vector3[] corners = m_ReusableNavMeshPath.corners;
+		if (corners == null || corners.Length < 2)
+			return false;
+
+		AppendPathCornersDeduped(_output, corners);
+		return true;
+	}
+
+	private static void AppendPathCornersDeduped(List<Vector3> _output, Vector3[] _corners)
+	{
+		for (int i = 0; i < _corners.Length; i++)
+		{
+			if (_output.Count > 0 && (_output[_output.Count - 1] - _corners[i]).sqrMagnitude < 0.0001f)
+				continue;
+
+			_output.Add(_corners[i]);
+		}
+	}
+
+	private static void AppendStraightSegmentFallback(Vector3 _start, Vector3 _end, List<Vector3> _output)
+	{
+		if (_output.Count == 0 || (_output[_output.Count - 1] - _start).sqrMagnitude > 0.0001f)
+			_output.Add(_start);
+		if ((_output[_output.Count - 1] - _end).sqrMagnitude > 0.0001f)
+			_output.Add(_end);
+	}
+
+	private float GetNavMeshSegmentLengthOrPlanar(Vector3 _start, Vector3 _end)
+	{
+		m_RouteSegmentPolylineBuffer.Clear();
+		if (TryAppendCalculatedNavMeshPath(_start, _end, m_RouteSegmentPolylineBuffer) &&
+		    m_RouteSegmentPolylineBuffer.Count >= 2)
+			return ComputePolylineLength(m_RouteSegmentPolylineBuffer);
+
+		return PlanarDistance(_start, _end);
+	}
+
+	private static float ComputePolylineLength(IReadOnlyList<Vector3> _polyline)
+	{
+		float total = 0f;
+		for (int i = 1; i < _polyline.Count; i++)
+			total += PlanarDistance(_polyline[i - 1], _polyline[i]);
+		return total;
+	}
+
+	private static float ComputeRouteSegmentTAlongPolyline(IReadOnlyList<Vector3> _polyline, Vector3 _point)
+	{
+		if (_polyline == null || _polyline.Count < 2)
+			return 0f;
+
+		float totalLength = ComputePolylineLength(_polyline);
+		if (totalLength < 0.001f)
+			return 0f;
+
+		float bestDistSqr = float.MaxValue;
+		float bestAccumulated = 0f;
+		float accumulated = 0f;
+
+		for (int i = 1; i < _polyline.Count; i++)
+		{
+			Vector3 segmentStart = _polyline[i - 1];
+			Vector3 segmentEnd = _polyline[i];
+			float segmentLength = PlanarDistance(segmentStart, segmentEnd);
+			Vector3 closest = ClosestPointOnLineSegment3D(_point, segmentStart, segmentEnd);
+			Vector3 planarClosest = FlattenToGround(closest);
+			Vector3 planarPoint = FlattenToGround(_point);
+			float distSqr = (planarPoint - planarClosest).sqrMagnitude;
+			if (distSqr < bestDistSqr)
+			{
+				bestDistSqr = distSqr;
+				float segmentT = segmentLength > 0.001f
+					? PlanarDistance(segmentStart, closest) / segmentLength
+					: 0f;
+				bestAccumulated = accumulated + segmentT * segmentLength;
+			}
+
+			accumulated += segmentLength;
+		}
+
+		return Mathf.Clamp01(bestAccumulated / totalLength);
+	}
+
+	private static Vector3 EvaluatePolylineAtT(IReadOnlyList<Vector3> _polyline, float _t)
+	{
+		if (_polyline == null || _polyline.Count == 0)
+			return Vector3.zero;
+		if (_polyline.Count == 1)
+			return _polyline[0];
+
+		float totalLength = ComputePolylineLength(_polyline);
+		if (totalLength < 0.001f)
+			return _polyline[0];
+
+		float targetDistance = Mathf.Clamp01(_t) * totalLength;
+		float accumulated = 0f;
+		for (int i = 1; i < _polyline.Count; i++)
+		{
+			Vector3 segmentStart = _polyline[i - 1];
+			Vector3 segmentEnd = _polyline[i];
+			float segmentLength = PlanarDistance(segmentStart, segmentEnd);
+			if (accumulated + segmentLength >= targetDistance)
+			{
+				float segmentT = segmentLength > 0.001f
+					? (targetDistance - accumulated) / segmentLength
+					: 0f;
+				return Vector3.Lerp(segmentStart, segmentEnd, segmentT);
+			}
+
+			accumulated += segmentLength;
+		}
+
+		return _polyline[_polyline.Count - 1];
+	}
+
+	private static Vector3 ClosestPointOnLineSegment3D(Vector3 _point, Vector3 _start, Vector3 _end)
+	{
+		Vector3 segment = _end - _start;
+		float segmentSqr = segment.sqrMagnitude;
+		if (segmentSqr < 1e-9f)
+			return _start;
+
+		float t = Mathf.Clamp01(Vector3.Dot(_point - _start, segment) / segmentSqr);
+		return _start + segment * t;
+	}
+
+	private static float DistPointToSegmentSqrScreen(
+		Vector2 _point,
+		Vector2 _segmentStart,
+		Vector2 _segmentEnd,
+		out Vector2 _closest,
+		out float _t)
+	{
+		Vector2 segment = _segmentEnd - _segmentStart;
+		float segmentLenSqr = segment.sqrMagnitude;
+		if (segmentLenSqr < 0.0001f)
+		{
+			_closest = _segmentStart;
+			_t = 0f;
+			return (_point - _segmentStart).sqrMagnitude;
+		}
+
+		_t = Mathf.Clamp01(Vector2.Dot(_point - _segmentStart, segment) / segmentLenSqr);
+		_closest = _segmentStart + segment * _t;
+		return (_point - _closest).sqrMagnitude;
 	}
 
 	private void BuildRawRoutePoints(List<Vector3> _output, bool includeUnitStart, Vector3? previewDestination)

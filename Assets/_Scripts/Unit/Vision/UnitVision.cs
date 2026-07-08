@@ -69,7 +69,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	[Header("Переход в готов")]
 	[Tooltip("При входе в «готов» плавно доворачивать корень так, чтобы ствол смотрел туда, куда юнит смотрел до перехода.")]
-	[SerializeField] private bool m_PreserveBoreForwardDuringReadyTransition = true;
+	[SerializeField] private bool m_PreserveBoreForwardDuringReadyTransition = false;
 	[SerializeField, Min(0.01f)] private float m_ReadyBoreRootTurnDuration = 0.22f;
 	[SerializeField, Range(0f, 120f)] private float m_MaxReadyBoreRootTurnDegrees = 90f;
 	[SerializeField, Range(0f, 10f)] private float m_MinReadyBoreRootTurnDegrees = 0.5f;

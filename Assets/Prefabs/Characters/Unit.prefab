@@ -8195,7 +8195,7 @@ MonoBehaviour:
   m_MinHalfFovDegreesWhenWeaponNotReady: 70
   m_SightPivotOverride: {fileID: 0}
   m_SightPivotChildName: 
-  m_PreserveBoreForwardDuringReadyTransition: 1
+  m_PreserveBoreForwardDuringReadyTransition: 0
   m_ReadyBoreRootTurnDuration: 0.22
   m_MaxReadyBoreRootTurnDegrees: 90
   m_MinReadyBoreRootTurnDegrees: 0.5
@@ -8206,6 +8206,7 @@ MonoBehaviour:
   m_DrawEyeLookDebugRay: 0
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
+  m_LogReadyForwardShift: 0
 --- !u!114 &1955663392430061257
 MonoBehaviour:
   m_ObjectHideFlags: 0

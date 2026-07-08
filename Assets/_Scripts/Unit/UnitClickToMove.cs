@@ -294,12 +294,27 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _mode)
 	{
 		if (m_Agent == null)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("no_agent", _worldPosition);
+#endif
 			return false;
+		}
 		if (!IsConscious())
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("unconscious", _worldPosition);
+#endif
 			return false;
+		}
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("navmesh_sample_failed", _worldPosition);
+#endif
 			return false;
+		}
 
 		if (_mode != MoveTier.Walk)
 		{
@@ -315,6 +330,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_HasPendingRightClick = true;
 			m_PendingRightClickTime = Time.time;
 			m_PendingRightClickDestination = hit.position;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug($"deferred_walk currentMode={m_Mode}", hit.position);
+#endif
 			return true;
 		}
 
@@ -325,12 +343,27 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public bool IssueNavOrderContinuous(Vector3 _worldPosition, MoveTier _mode)
 	{
 		if (m_Agent == null)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("no_agent_continuous", _worldPosition);
+#endif
 			return false;
+		}
 		if (!IsConscious())
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("unconscious_continuous", _worldPosition);
+#endif
 			return false;
+		}
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug("navmesh_sample_failed_continuous", _worldPosition);
+#endif
 			return false;
+		}
 
 		IssueNavOrderContinuousInternal(hit.position, _mode);
 		return true;
@@ -610,6 +643,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_PendingNavOverridesMode = true;
 			m_PendingNavMode = _mode;
 			m_HasPendingNavOrder = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug($"pending_stance mode={_mode}", _destination);
+#endif
 			if (_mode != MoveTier.Sprint)
 				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 			if (_mode != MoveTier.Run)
@@ -623,6 +659,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 		ApplyTierSpeed();
 		m_Agent.ResetPath();
 		m_Agent.SetDestination(_destination);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogNavDebug($"set_destination mode={_mode}", _destination);
+#endif
 		PrimeAnimatorForMoveStart();
 		if (_mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
@@ -650,6 +689,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_PendingNavOverridesMode = true;
 			m_PendingNavMode = _mode;
 			m_HasPendingNavOrder = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogNavDebug($"pending_stance_continuous mode={_mode}", _destination);
+#endif
 			if (_mode != MoveTier.Sprint)
 				m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 			if (_mode != MoveTier.Run)
@@ -666,11 +708,26 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		m_Agent.SetDestination(_destination);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogNavDebug($"set_destination_continuous mode={_mode}", _destination);
+#endif
 		if (_mode != MoveTier.Sprint)
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		if (_mode != MoveTier.Run)
 			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+	private void LogNavDebug(string _reason, Vector3 _destination)
+	{
+		if (m_CachedRtsMember == null)
+			m_CachedRtsMember = GetComponent<RtsUnitMember>();
+
+		RouteMovementDebug.Log(
+			m_CachedRtsMember,
+			$"NAV_CLICK {_reason} dest=({_destination.x:F1},{_destination.z:F1})");
+	}
+#endif
 
 	private void TryRightClick()
 	{

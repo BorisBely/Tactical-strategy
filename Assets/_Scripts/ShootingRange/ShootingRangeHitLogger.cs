@@ -6,6 +6,11 @@ using UnityEngine;
 /// </summary>
 public static class ShootingRangeHitLogger
 {
+	#region Public Fields
+	/// <summary>Включить логи попаданий по мишеням полигона.</summary>
+	public static bool LoggingEnabled;
+	#endregion
+
 	#region Public Methods
 	public static void LogHit(
 		Object _context,
@@ -55,6 +60,9 @@ public static class ShootingRangeHitLogger
 		string aimModeLabel = FormatAimModeLabel(selectedAimMode, effectiveAimMode);
 		string accuracyLabel = FormatAccuracyLabel(accuracy);
 		string hitCounterLabel = FormatHitCounterLabel(_target);
+
+		if (!LoggingEnabled)
+			return;
 
 		Debug.Log(
 			$"[Полигон] Попадание | юнит: {unitName} | оружие: {weaponLabel} | модули: {attachmentsLabel} | " +

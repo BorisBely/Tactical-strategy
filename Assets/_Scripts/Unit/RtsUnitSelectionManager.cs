@@ -48,6 +48,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Range(0.1f, 1f)] private float m_FormationSyncMinSpeedMultiplier = 0.35f;
 	[Tooltip("Интервал пересчёта FormationSpeedMultiplier для активных групп (сек).")]
 	[SerializeField, Range(0.05f, 1f)] private float m_FormationSyncUpdateInterval = 0.25f;
+	[Tooltip("Радиус поиска ближайшей точки NavMesh для слотов формации.")]
+	[SerializeField, Min(0.5f)] private float m_FormationNavMeshSampleRadius = 3f;
 
 	[Header("Destination Markers")]
 	[SerializeField] private GameObject m_DestinationMarkerPrefab;
@@ -2836,37 +2838,27 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null || unit.WaypointCount == 0)
 				continue;
 
-			Vector3 unitWorldPos = unit.transform.position;
-			Vector3 waypointZero = unit.GetWaypointWorld(0);
-			Vector2 unitScreen = m_SelectionCamera.WorldToScreenPoint(unitWorldPos);
-			Vector2 waypointZeroScreen = m_SelectionCamera.WorldToScreenPoint(waypointZero);
-			float distSqr = DistPointToSegmentSqr(_mouseScreen, unitScreen, waypointZeroScreen, out _, out float segmentT);
-			if (distSqr < bestDistSqr)
+			for (int segmentIndex = 0; segmentIndex < unit.WaypointCount; segmentIndex++)
 			{
-				bestDistSqr = distSqr;
-				_unitIndex = unitIndex;
-				_segmentIndex = 0;
-				_worldPoint = hasMouseWorld
-					? ClosestPointOnLineSegment(mouseWorld, unitWorldPos, waypointZero)
-					: Vector3.Lerp(unitWorldPos, waypointZero, segmentT);
-			}
+				if (!unit.TryPickRouteSegment(
+					    m_SelectionCamera,
+					    segmentIndex,
+					    _mouseScreen,
+					    m_PathHoverThresholdPixels,
+					    hasMouseWorld,
+					    mouseWorld,
+					    out Vector3 worldPoint,
+					    out _,
+					    out float screenDistSqr))
+					continue;
 
-			for (int waypointIndex = 1; waypointIndex < unit.WaypointCount; waypointIndex++)
-			{
-				Vector3 segmentStart = unit.GetWaypointWorld(waypointIndex - 1);
-				Vector3 segmentEnd = unit.GetWaypointWorld(waypointIndex);
-				Vector2 startScreen = m_SelectionCamera.WorldToScreenPoint(segmentStart);
-				Vector2 endScreen = m_SelectionCamera.WorldToScreenPoint(segmentEnd);
-				distSqr = DistPointToSegmentSqr(_mouseScreen, startScreen, endScreen, out _, out segmentT);
-				if (distSqr < bestDistSqr)
-				{
-					bestDistSqr = distSqr;
-					_unitIndex = unitIndex;
-					_segmentIndex = waypointIndex;
-					_worldPoint = hasMouseWorld
-						? ClosestPointOnLineSegment(mouseWorld, segmentStart, segmentEnd)
-						: Vector3.Lerp(segmentStart, segmentEnd, segmentT);
-				}
+				if (screenDistSqr >= bestDistSqr)
+					continue;
+
+				bestDistSqr = screenDistSqr;
+				_unitIndex = unitIndex;
+				_segmentIndex = segmentIndex;
+				_worldPoint = worldPoint;
 			}
 		}
 
@@ -3931,7 +3923,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+			validUnits[i].SetPreviewLine(ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[i]));
 
 		UpdateMovePreviewVisuals();
 	}
@@ -3965,7 +3957,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
-			validUnits[i].SetPreviewLine(m_PreviewCenterPoint + m_PreviewOffsets[i]);
+			validUnits[i].SetPreviewLine(ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[i]));
 
 		UpdateMovePreviewVisuals();
 	}
@@ -3980,7 +3972,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
 		{
-			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[i];
+			Vector3 dest = ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[i]);
 			if (i < m_PreviewDestinationMarkers.Count && m_PreviewDestinationMarkers[i] != null)
 				m_PreviewDestinationMarkers[i].transform.position = dest;
 		}
@@ -4015,8 +4007,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (validUnits.Count == 1 || m_IsInPlaceFacingPreview)
 		{
 			Vector3 dest = m_IsInPlaceFacingPreview
-				? m_PreviewCenterPoint
-				: m_PreviewCenterPoint + m_PreviewOffsets[0];
+				? FormationLayoutUtility.SnapDestinationToNavMesh(m_PreviewCenterPoint, m_FormationNavMeshSampleRadius)
+				: ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[0]);
 			float angle = m_PreviewFacingAngles != null && m_PreviewFacingAngles.Count > 0
 				? m_PreviewFacingAngles[0]
 				: 0f;
@@ -4301,7 +4293,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (m_PreviewFacingAngles == null)
 				m_PreviewFacingAngles = new List<float>(1) { 0f };
 
-			Vector3 dest = m_PreviewCenterPoint + m_PreviewOffsets[0];
+			Vector3 dest = ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[0]);
 			Vector3 toCursor = hit.point - dest;
 			toCursor.y = 0f;
 			float angle;
@@ -4732,7 +4724,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
 			{
 				int waitGroup = _waitGroup > 0 ? _waitGroup : 1;
-				Vector3 dest = _center + _offsets[i];
+				Vector3 dest = ResolveFormationDestination(_center, _offsets[i]);
 				float? facing = (facingAngles != null && i < facingAngles.Count)
 					? facingAngles[i]
 					: (float?)null;
@@ -4783,7 +4775,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			bool allUpgraded = validUnits.Count > 0;
 			for (int i = 0; i < validUnits.Count; i++)
 			{
-				Vector3 dest = i < _offsets.Count ? _center + _offsets[i] : _center;
+				Vector3 dest = i < _offsets.Count
+					? ResolveFormationDestination(_center, _offsets[i])
+					: FormationLayoutUtility.SnapDestinationToNavMesh(_center, m_FormationNavMeshSampleRadius);
 				if (!validUnits[i].TryUpgradeMoveTargetToRun(dest))
 				{
 					allUpgraded = false;
@@ -4800,7 +4794,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (isRunTier && !isGroup && validUnits.Count == 1 && _offsets.Count > 0)
 		{
-			Vector3 dest = _center + _offsets[0];
+			Vector3 dest = ResolveFormationDestination(_center, _offsets[0]);
 			if (validUnits[0].TryUpgradeMoveTargetToRun(dest))
 				return;
 		}
@@ -4815,7 +4809,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			                    : IsGroupIdleForInPlaceFacing(validUnits));
 		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
 		{
-			Vector3 dest = _center + _offsets[i];
+			Vector3 dest = ResolveFormationDestination(_center, _offsets[i]);
 			bool hasFacing = facingAngles != null && i < facingAngles.Count;
 			inPlaceFacing[i] = hasFacing &&
 			                   (forceInPlace || IsNearMoveDestination(validUnits[i].transform.position, dest));
@@ -4865,7 +4859,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 
 			float moveStagger = isGroup ? ResolveUnitGroupCommandStaggerDelay(validUnits[i]) : 0f;
-			validUnits[i].IssueMoveOrder(_center + _offsets[i], _moveTier, moveStagger);
+			validUnits[i].IssueMoveOrder(ResolveFormationDestination(_center, _offsets[i]), _moveTier, moveStagger);
 		}
 	}
 
@@ -4891,7 +4885,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool useGroupStagger = _units.Count >= 2;
 		for (int i = 0; i < _units.Count && i < _offsets.Count; i++)
 		{
-			Vector3 dest = _center + _offsets[i];
+			Vector3 dest = ResolveFormationDestination(_center, _offsets[i]);
 			if (_tier == UnitClickToMove.MoveTier.Run && _units[i].TryUpgradeMoveTargetToRun(dest))
 				continue;
 
@@ -5299,6 +5293,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
+	private Vector3 ResolveFormationDestination(Vector3 _center, Vector3 _offset)
+	{
+		return FormationLayoutUtility.SnapDestinationToNavMesh(
+			_center + _offset,
+			m_FormationNavMeshSampleRadius);
+	}
+
 	private FormationLayoutUtility.FormationBuildResult BuildFormationLayout(
 		List<RtsUnitMember> _units,
 		Vector3 _centerPoint,
@@ -5703,7 +5704,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return offsets;
 	}
 
-	private static bool IsInPlaceFacingPreviewContext(
+	private bool IsInPlaceFacingPreviewContext(
 		List<RtsUnitMember> _units,
 		Vector3 _center,
 		List<Vector3> _offsets)
@@ -5717,7 +5718,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null)
 				return false;
 
-			Vector3 dest = _center + _offsets[i];
+			Vector3 dest = ResolveFormationDestination(_center, _offsets[i]);
 			if (!IsNearMoveDestination(unit.transform.position, dest))
 				return false;
 		}

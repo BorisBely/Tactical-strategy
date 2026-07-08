@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Генерация локальных слотов формации и назначение юнитов по текущим позициям.
@@ -70,6 +71,17 @@ public static class FormationLayoutUtility
 	#endregion
 
 	#region Public Methods
+	/// <summary>
+	/// Подгоняет точку назначения к ближайшей позиции на NavMesh в заданном радиусе.
+	/// </summary>
+	public static Vector3 SnapDestinationToNavMesh(Vector3 _worldPoint, float _sampleRadius = 3f)
+	{
+		if (NavMesh.SamplePosition(_worldPoint, out NavMeshHit hit, _sampleRadius, NavMesh.AllAreas))
+			return hit.position;
+
+		return _worldPoint;
+	}
+
 	public static bool IsGroupFormation(FormationType _formation, int _unitCount)
 	{
 		return _unitCount >= 2 && _formation != FormationType.None;
