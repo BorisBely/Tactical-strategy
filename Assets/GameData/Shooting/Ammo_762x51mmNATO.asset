@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bf6fe5bbae3e5b45a7a7c86f80b5050, type: 3}
+  m_Name: Ammo_762x51mmNATO
+  m_EditorClassIdentifier: Assembly-CSharp::AmmoDefinition
+  m_Caliber: 6
+  m_BaseDamage: 55
+  m_Penetration: 28
+  m_ArmorDamage: 14
+  m_ProjectileCount: 1
+  m_Velocity: 850
+  m_EffectiveRangeMeters: 500
+  m_FireSoundOverrideProfile:
+    m_FireClips: []
+    m_MaxAudibleDistanceMeters: 0
+  m_IsSubsonic: 0
+  m_ShellPrefab: {fileID: 8877665500000001, guid: f8e7d6c5b4a392817161514131211009, type: 3}
+  m_ShellEjectSpeed: 5.5
+  m_ShellEjectSpeedVariance: 0.75
+  m_ShellEjectUpSpeed: 1.2
+  m_ShellAngularVelocity: 18
+  m_ShellImpactLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ShellImpactMinSpeed: 0.35
+  m_ShellImpactSounds:
+  - {fileID: 8300000, guid: 3737ca4b89bdc3f4e83d916f018b8dee, type: 3}
+  - {fileID: 8300000, guid: 7eb0a5fdc52e0a54382f4f09366c388c, type: 3}
+  - {fileID: 8300000, guid: 22984e43cac25474e835d11ab9a30dd8, type: 3}
+  - {fileID: 8300000, guid: 8232a5c62d8f7584d83fb9338ce8d5d8, type: 3}
+  - {fileID: 8300000, guid: cbaa41fb340a738418b2609d64c74422, type: 3}
+  m_ShellImpactVolume: 0.55
+  m_ShellLifetimeAfterImpactSeconds: 3
+  m_ShellMaxAirborneSeconds: 12
+  m_SpreadModifier: 0.92
+  m_RecoilModifier: 1.15
+  m_WearPerShot: 1
+  m_FoulingPerShot: 1
+  m_JamRiskModifier: 1

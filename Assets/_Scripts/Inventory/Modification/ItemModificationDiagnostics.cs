@@ -91,6 +91,9 @@ public static class ItemModificationDiagnostics
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 		{
+			if (WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weaponState.WeaponDefinition))
+				return "built-in magazine cannot be replaced";
+
 			return weaponState.CanAcceptMagazineItem(_candidate)
 				? AcceptedReason
 				: "magazine incompatible (type/caliber/ammo)";

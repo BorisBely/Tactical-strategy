@@ -60,7 +60,8 @@ public static class ItemModificationUtility
 			return;
 
 		int displayIndex = 0;
-		if (weapon.SupportedMagazineType != MagazineType.None)
+		if (weapon.SupportedMagazineType != MagazineType.None &&
+		    !WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weapon))
 			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Magazine, default, -1, displayIndex++));
 
 		WeaponAttachmentSlotDefinition[] slots = weapon.AttachmentSlots;
@@ -303,7 +304,15 @@ public static class ItemModificationUtility
 		}
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
+		{
+			if (WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weaponState.WeaponDefinition))
+			{
+				ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "built-in magazine cannot be removed");
+				return false;
+			}
+
 			return weaponState.TryEjectMagazine(out _removedItem);
+		}
 
 		if (!TryGetInstalledItem(_slot, _weaponSlot, out _removedItem))
 		{

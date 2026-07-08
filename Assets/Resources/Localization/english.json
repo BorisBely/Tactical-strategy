@@ -426,6 +426,30 @@
       "value": "RPK-74 tactical (Mod.1)"
     },
     {
+      "key": "item.weapon.mosin",
+      "value": "Mosin-Nagant"
+    },
+    {
+      "key": "item.weapon.benelli_m4",
+      "value": "Benelli M4"
+    },
+    {
+      "key": "item.weapon.m249",
+      "value": "M249 SAW"
+    },
+    {
+      "key": "item.weapon.sniper_762x51",
+      "value": "7.62x51 Sniper Rifle"
+    },
+    {
+      "key": "item.weapon.pkm",
+      "value": "PKM"
+    },
+    {
+      "key": "item.weapon.svd",
+      "value": "SVD"
+    },
+    {
       "key": "item.attachment.ak_silencer",
       "value": "AK suppressor"
     },
@@ -470,12 +494,48 @@
       "value": "7.62x39 AK coupled magazine (30 rds)"
     },
     {
+      "key": "item.mag.mosin_762_54r_5",
+      "value": "Mosin internal magazine (5 rds)"
+    },
+    {
+      "key": "item.mag.benelli_12g_7",
+      "value": "Benelli M4 tube magazine (7 rds)"
+    },
+    {
+      "key": "item.mag.m249_556_200",
+      "value": "M249 belt box (200 rds)"
+    },
+    {
+      "key": "item.mag.sniper_762x51_10",
+      "value": "7.62x51 magazine (10 rds)"
+    },
+    {
+      "key": "item.mag.pkm_762_54r_100",
+      "value": "PKM belt box (100 rds)"
+    },
+    {
+      "key": "item.mag.svd_762_54r_10",
+      "value": "SVD magazine (10 rds)"
+    },
+    {
       "key": "item.loot.ammo_box.762",
       "value": "7.62x39 ammo box"
     },
     {
       "key": "item.loot.ammo_box.545",
       "value": "5.45x39 ammo box"
+    },
+    {
+      "key": "item.loot.ammo_box.12g",
+      "value": "12 gauge ammo box"
+    },
+    {
+      "key": "item.loot.ammo_box.762x51",
+      "value": "7.62x51 NATO ammo box"
+    },
+    {
+      "key": "item.loot.ammo_box.762x54r",
+      "value": "7.62x54R ammo box"
     },
     {
       "key": "item.attachment.mosin_scope8",
@@ -530,6 +590,30 @@
       "value": "Tactical RPK-74 with rails and M4 accessory slots."
     },
     {
+      "key": "item.weapon.mosin.desc",
+      "value": "Mosin-Nagant bolt-action rifle in 7.62x54R. Slow but accurate at long range."
+    },
+    {
+      "key": "item.weapon.benelli_m4.desc",
+      "value": "Benelli M4 semi-automatic 12 gauge shotgun. Devastating at close range."
+    },
+    {
+      "key": "item.weapon.m249.desc",
+      "value": "M249 SAW light machine gun in 5.56x45 NATO with belt feed."
+    },
+    {
+      "key": "item.weapon.sniper_762x51.desc",
+      "value": "Bolt-action precision rifle in 7.62x51 NATO for long-range engagements."
+    },
+    {
+      "key": "item.weapon.pkm.desc",
+      "value": "PKM general-purpose machine gun in 7.62x54R with belt feed."
+    },
+    {
+      "key": "item.weapon.svd.desc",
+      "value": "SVD semi-automatic marksman rifle in 7.62x54R."
+    },
+    {
       "key": "item.weapon.m4_moda_1.desc",
       "value": "M4 configuration with standard handguard, fixed stock and iron sights."
     },
@@ -564,6 +648,18 @@
     {
       "key": "item.loot.ammo_box.545.desc",
       "value": "5.45x39 ammo box."
+    },
+    {
+      "key": "item.loot.ammo_box.12g.desc",
+      "value": "12 gauge buckshot ammo box."
+    },
+    {
+      "key": "item.loot.ammo_box.762x51.desc",
+      "value": "7.62x51 NATO ammo box."
+    },
+    {
+      "key": "item.loot.ammo_box.762x54r.desc",
+      "value": "7.62x54R ammo box."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -608,6 +704,30 @@
     {
       "key": "item.mag.ak_762_75.desc",
       "value": "75-round 7.62x39 AK drum magazine."
+    },
+    {
+      "key": "item.mag.mosin_762_54r_5.desc",
+      "value": "5-round internal magazine for Mosin rifle."
+    },
+    {
+      "key": "item.mag.benelli_12g_7.desc",
+      "value": "7-round tube magazine for Benelli M4."
+    },
+    {
+      "key": "item.mag.m249_556_200.desc",
+      "value": "200-round belt box for M249 SAW."
+    },
+    {
+      "key": "item.mag.sniper_762x51_10.desc",
+      "value": "10-round 7.62x51 NATO magazine."
+    },
+    {
+      "key": "item.mag.pkm_762_54r_100.desc",
+      "value": "100-round belt box for PKM."
+    },
+    {
+      "key": "item.mag.svd_762_54r_10.desc",
+      "value": "10-round 7.62x54R SVD magazine."
     },
     {
       "key": "item.attachment.m4_silencer_556.desc",

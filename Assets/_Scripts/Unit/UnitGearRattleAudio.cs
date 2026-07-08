@@ -82,10 +82,18 @@ public sealed class UnitGearRattleAudio : MonoBehaviour
 			m_WalkIntervalMaxSeconds = m_WalkIntervalMinSeconds;
 
 		if (m_AudioSource == null)
-			EnsureAudioSource();
+			UnityEditor.EditorApplication.delayCall += DeferredEnsureAudioSourceInEditor;
 
 		if (!Application.isPlaying && m_AudioSource != null)
 			ApplySpatialPresetIfNeeded();
+	}
+
+	private void DeferredEnsureAudioSourceInEditor()
+	{
+		if (this == null || m_AudioSource != null)
+			return;
+
+		EnsureAudioSource();
 	}
 #endif
 

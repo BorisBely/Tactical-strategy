@@ -3,7 +3,8 @@ using UnityEngine;
 using UnityEngine.Serialization;
 
 /// <summary>
-/// Визуальное снаряжение на юните. Оружие — дочерний объект правой руки; цель IK левой руки берётся с префаба оружия.
+/// Визуальное снаряжение на юните. Оружие — дочерний объект правой руки; цели IK рук берутся с префаба оружия.
+/// Локальная поза оружия (relaxed/ready) — <see cref="UnitEquippedWeaponPose"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public class UnitEquipment : MonoBehaviour
@@ -24,6 +25,8 @@ public class UnitEquipment : MonoBehaviour
 	private GameObject m_DetachedWeaponInstance;
 	private ItemDefinition m_EquippedDefinition;
 	private Transform m_LeftHandIkTarget;
+	private Transform m_RightHandIkTarget;
+	private Transform m_RightHandIkTargetNotReady;
 	private EquippedWeapon m_EquippedWeapon;
 	#endregion
 
@@ -34,8 +37,14 @@ public class UnitEquipment : MonoBehaviour
 	/// <summary>Скрипт на инстансе экипированного оружия (ствол, позже патроны и т.д.). Null если на префабе нет компонента.</summary>
 	public EquippedWeapon EquippedWeapon => m_EquippedWeapon;
 
-	/// <summary>Трансформ цели IK на инстансе оружия (дочерний по имени из ItemDefinition). Иначе null.</summary>
+	/// <summary>Трансформ цели IK левой руки на инстансе оружия. Иначе null.</summary>
 	public Transform LeftHandIkTargetTransform => m_LeftHandIkTarget;
+
+	/// <summary>Трансформ цели IK правой руки (готов) на инстансе оружия. Иначе null.</summary>
+	public Transform RightHandIkTargetTransform => m_RightHandIkTarget;
+
+	/// <summary>Трансформ цели IK правой руки (не готов) на инстансе оружия. Иначе null.</summary>
+	public Transform RightHandIkTargetNotReadyTransform => m_RightHandIkTargetNotReady;
 
 	/// <summary>Корень инстанса визуала в руке. Null если нет префаба или слот пуст.</summary>
 	public Transform MainWeaponRoot => m_MainWeaponInstance != null ? m_MainWeaponInstance.transform : null;
@@ -76,13 +85,13 @@ public class UnitEquipment : MonoBehaviour
 		}
 
 		m_MainWeaponInstance = Instantiate(prefab, m_RightHand);
-		m_MainWeaponInstance.transform.localPosition = _item.RightHandLocalPosition;
-		m_MainWeaponInstance.transform.localRotation = _item.RightHandLocalRotation;
+		m_MainWeaponInstance.transform.localPosition = Vector3.zero;
+		m_MainWeaponInstance.transform.localRotation = Quaternion.identity;
 		DisablePhysicsOnEquippedVisual(m_MainWeaponInstance);
 
 		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 
-		RefreshLeftHandIkTarget();
+		RefreshHandIkTargets();
 
 		NotifyEquipmentChanged();
 		return true;
@@ -99,6 +108,15 @@ public class UnitEquipment : MonoBehaviour
 			return;
 
 		m_MainWeaponInstance.SetActive(_active);
+	}
+
+	/// <summary>
+	/// Пересчитать цели IK обеих рук (например после установки/снятия рукоятки).
+	/// </summary>
+	public void RefreshHandIkTargets()
+	{
+		RefreshLeftHandIkTarget();
+		RefreshRightHandIkTarget();
 	}
 
 	/// <summary>
@@ -119,6 +137,33 @@ public class UnitEquipment : MonoBehaviour
 			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, ikName);
 	}
 
+	/// <summary>Пересчитать цели IK правой руки (готов / не готов).</summary>
+	public void RefreshRightHandIkTarget()
+	{
+		if (m_MainWeaponInstance == null)
+		{
+			m_RightHandIkTarget = null;
+			m_RightHandIkTargetNotReady = null;
+			return;
+		}
+
+		string readyName = m_EquippedDefinition != null ? m_EquippedDefinition.RightHandIkTargetChildName : null;
+		if (string.IsNullOrWhiteSpace(readyName))
+			m_RightHandIkTarget = null;
+		else if (m_EquippedWeapon != null)
+			m_RightHandIkTarget = m_EquippedWeapon.ResolveRightHandIkTargetTransform(readyName);
+		else
+			m_RightHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, readyName);
+
+		string notReadyName = m_EquippedDefinition != null ? m_EquippedDefinition.RightHandIkTargetNotReadyChildName : null;
+		if (string.IsNullOrWhiteSpace(notReadyName))
+			m_RightHandIkTargetNotReady = null;
+		else if (m_EquippedWeapon != null)
+			m_RightHandIkTargetNotReady = m_EquippedWeapon.ResolveRightHandIkTargetTransform(notReadyName);
+		else
+			m_RightHandIkTargetNotReady = FindChildRecursive(m_MainWeaponInstance.transform, notReadyName);
+	}
+
 	/// <summary>
 	/// Отцепляет визуал оружия от руки и оставляет его в мире с физикой.
 	/// Слот инвентаря и <see cref="EquippedDefinition"/> не меняются.
@@ -132,6 +177,8 @@ public class UnitEquipment : MonoBehaviour
 		m_MainWeaponInstance = null;
 		m_EquippedWeapon = m_DetachedWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 		m_LeftHandIkTarget = null;
+		m_RightHandIkTarget = null;
+		m_RightHandIkTargetNotReady = null;
 
 		Transform detachedTransform = m_DetachedWeaponInstance.transform;
 		detachedTransform.SetParent(null, true);
@@ -159,11 +206,11 @@ public class UnitEquipment : MonoBehaviour
 			return;
 
 		m_MainWeaponInstance = Instantiate(prefab, m_RightHand);
-		m_MainWeaponInstance.transform.localPosition = m_EquippedDefinition.RightHandLocalPosition;
-		m_MainWeaponInstance.transform.localRotation = m_EquippedDefinition.RightHandLocalRotation;
+		m_MainWeaponInstance.transform.localPosition = Vector3.zero;
+		m_MainWeaponInstance.transform.localRotation = Quaternion.identity;
 		DisablePhysicsOnEquippedVisual(m_MainWeaponInstance);
 		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
-		RefreshLeftHandIkTarget();
+		RefreshHandIkTargets();
 		NotifyEquipmentChanged();
 	}
 	#endregion
@@ -179,6 +226,8 @@ public class UnitEquipment : MonoBehaviour
 
 		m_EquippedDefinition = null;
 		m_LeftHandIkTarget = null;
+		m_RightHandIkTarget = null;
+		m_RightHandIkTargetNotReady = null;
 		m_EquippedWeapon = null;
 		if (m_MainWeaponInstance != null)
 		{

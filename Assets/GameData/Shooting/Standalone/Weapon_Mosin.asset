@@ -1,0 +1,241 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc046679fd84d7e48a9da9021c9ece51, type: 3}
+  m_Name: Weapon_Mosin
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  m_WeaponClass: 2
+  m_SupportedCaliber: 7
+  m_SupportedMagazineType: 5
+  m_UsesShellByShellReload: 0
+  m_BuiltInMagazineDefinition: {fileID: 0}
+  m_BuiltInMagazineItem: {fileID: 0}
+  m_BuiltInMagazineDefaultAmmo: {fileID: 0}
+  m_AvailableFireModes: 00000000
+  m_DefaultFireMode: 0
+  m_AttachmentSlots:
+  - SlotType: 3
+    IsRequired: 0
+    AnchorChildName: 
+  m_AttachmentSlotProfile: 0
+  m_FireRateRpm: 50
+  m_SemiAutoFireRateRpm: 50
+  m_AimTimeSeconds: 0.55
+  m_ReloadTimeSeconds: 3.2
+  m_EffectiveRangeMeters: 200
+  m_BaseShotDispersion: 0.48
+  m_DistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1.15
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 0.7
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 0.5
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 0.62
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1.8
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1.6
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 1.74
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 1.65
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 1.84
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  m_AutoBurstSpreadMultiplierByShot:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 3
+      value: 1.08
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 6
+      value: 1.32
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 1.9
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_RecoilPerShot: 0.42
+  m_SemiAutoRecoilMultiplier: 0.78
+  m_AutoRecoilMultiplier: 1
+  m_RecoilRecoveryPerSecond: 4.2
+  m_BurstRounds: 3
+  m_BurstPauseSeconds: 0.12
+  m_FireSoundProfile:
+    m_FireClips:
+    - {fileID: 8300000, guid: 645a78324c4493f4f8e27bccaf5aa9f6, type: 3}
+    - {fileID: 8300000, guid: c2d174f6204a5dc408f5524acd0ea189, type: 3}
+    - {fileID: 8300000, guid: 0bad816f84e3ce3429b3bb6b9f587ba8, type: 3}
+    - {fileID: 8300000, guid: f2ce0654efac51047927fad4ec959448, type: 3}
+    - {fileID: 8300000, guid: 131b40c43cb0bce4f8d1acb64b1df7f3, type: 3}
+    m_MaxAudibleDistanceMeters: 625
+  m_SuppressedFireSoundProfile:
+    m_FireClips: []
+    m_MaxAudibleDistanceMeters: 0
+  m_FireSoundVolume: 1
+  m_FirePitchVariance: 0.04
+  m_FireModeSwitchSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 26c6943689d2192409bde405196bc53f, type: 3}
+    - {fileID: 8300000, guid: dd3e601c79eb96947bcc4bad75236fb3, type: 3}
+  m_FireModeSwitchSoundVolume: 0.85
+  m_ReloadMagOutSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 1c6a204a0e6007c40b201a6da5478ca9, type: 3}
+    - {fileID: 8300000, guid: def9941dc4665884b85fa08274c47b99, type: 3}
+    - {fileID: 8300000, guid: 7c589b2dc7df32143b7fb2310ae9b1ac, type: 3}
+    - {fileID: 8300000, guid: b3440f7c1cda7374683fa9f085a1626f, type: 3}
+    - {fileID: 8300000, guid: 21bdcf246a4335349bac41d68f81859e, type: 3}
+  m_ReloadMagInSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 9ed23e6ec2e7aac43bcc94821761a0ae, type: 3}
+    - {fileID: 8300000, guid: d57256dc33eb3df4da9a26b1f96ca77a, type: 3}
+    - {fileID: 8300000, guid: 17b94d1e9905f4343a2517ff0789c109, type: 3}
+    - {fileID: 8300000, guid: 72c74a39096ad2747b88ec3e49377e50, type: 3}
+  m_BoltCycleSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 169f28d310c3b564997c396ce394555f, type: 3}
+    - {fileID: 8300000, guid: 0588e8fc140b5804a820a7ce83a12ac9, type: 3}
+    - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
+    - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
+  m_HasBoltHoldOpenDelay: 0
+  m_ReloadBoltHoldOpenDelaySounds:
+    m_Clips: []
+  m_ReloadSoundsVolume: 0.5
+  m_MalfunctionClickSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: d7fc35c5f36149541aaa14c298df4636, type: 3}
+    - {fileID: 8300000, guid: 4dd11b639c1fe5c4581ecc69148712c3, type: 3}
+    - {fileID: 8300000, guid: 216cc2227d62b95419b199356fa1efcc, type: 3}
+    - {fileID: 8300000, guid: da2d74eab6f477c4a9e5c01b68a8965e, type: 3}
+  m_MalfunctionClickSoundVolume: 1
+  m_VfxProfile: {fileID: 11400000, guid: a8d4f2b13c6e5d7091a2b3c4d5e6f708, type: 2}
+  m_Reliability: 0.92
+  m_BaseDurability: 2000
+  m_BaseFoulingBudget: 1500
+  m_WearJamStartThreshold: 0
+  m_FoulingJamStartThreshold: 0
+  m_WearJamInfluence: 1
+  m_FoulingJamInfluence: 1

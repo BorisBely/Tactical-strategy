@@ -15,6 +15,9 @@ public static class MissionPrepAvailableEquipmentBaker
 	private const string c_MagazineAmmo556Path = "Assets/GameData/Shooting/Ammo_556x45mmNATO.asset";
 	private const string c_MagazineAmmo762Path = "Assets/GameData/Shooting/Ammo_762x39mm.asset";
 	private const string c_MagazineAmmo545Path = "Assets/GameData/Shooting/Ammo_545x39mm.asset";
+	private const string c_MagazineAmmo762x51Path = "Assets/GameData/Shooting/Ammo_762x51mmNATO.asset";
+	private const string c_MagazineAmmo762x54RPath = "Assets/GameData/Shooting/Ammo_762x54mmR.asset";
+	private const string c_MagazineAmmo12GaugePath = "Assets/GameData/Shooting/Ammo_12Gauge.asset";
 
 	[MenuItem("Polygone/Mission Prep/Rebuild Available Equipment Set")]
 	public static void RebuildAvailableEquipmentSet()
@@ -32,6 +35,9 @@ public static class MissionPrepAvailableEquipmentBaker
 		AmmoDefinition magazineAmmo556 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo556Path);
 		AmmoDefinition magazineAmmo762 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo762Path);
 		AmmoDefinition magazineAmmo545 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo545Path);
+		AmmoDefinition magazineAmmo762x51 = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo762x51Path);
+		AmmoDefinition magazineAmmo762x54R = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo762x54RPath);
+		AmmoDefinition magazineAmmo12Gauge = AssetDatabase.LoadAssetAtPath<AmmoDefinition>(c_MagazineAmmo12GaugePath);
 
 		var so = new SerializedObject(set);
 		SerializedProperty array = so.FindProperty("m_Items");
@@ -43,6 +49,9 @@ public static class MissionPrepAvailableEquipmentBaker
 		so.FindProperty("m_MagazineAmmo556").objectReferenceValue = magazineAmmo556;
 		so.FindProperty("m_MagazineAmmo762").objectReferenceValue = magazineAmmo762;
 		so.FindProperty("m_MagazineAmmo545").objectReferenceValue = magazineAmmo545;
+		so.FindProperty("m_MagazineAmmo762x51").objectReferenceValue = magazineAmmo762x51;
+		so.FindProperty("m_MagazineAmmo762x54R").objectReferenceValue = magazineAmmo762x54R;
+		so.FindProperty("m_MagazineAmmo12Gauge").objectReferenceValue = magazineAmmo12Gauge;
 		so.FindProperty("m_RoundsPerMagazine").intValue = -1;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(set);

@@ -16,6 +16,7 @@ MonoBehaviour:
   m_Description: 
   m_Icon: {fileID: 0}
   m_BasePrice: 100
+  m_WeightKg: 0
   m_Category: 1
   m_DropWorldPrefab: {fileID: 7130429662053524580, guid: 170aae062ea802446abcf7b05b1ec7ae, type: 3}
   m_EquippedVisualPrefab: {fileID: 2114999290215747139, guid: ec9de389d2df490429b6acf822798086, type: 3}
@@ -34,6 +35,7 @@ MonoBehaviour:
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:
     - {fileID: 8300000, guid: dfc6cd0b876db3a43a345c6122d66a1f, type: 3}

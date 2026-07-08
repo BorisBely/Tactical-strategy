@@ -158,6 +158,12 @@ public sealed class EquippedWeapon : MonoBehaviour
 			return;
 		}
 
+		if (_magazineDefinition.MagazineDefinition != null && _magazineDefinition.MagazineDefinition.IsNonRemovable)
+		{
+			ClearInsertedMagazineVisual();
+			return;
+		}
+
 		if (m_InsertedMagazineVisualInstance != null && ReferenceEquals(m_CurrentMagazineVisualDefinition, _magazineDefinition))
 			return;
 
@@ -313,6 +319,15 @@ public sealed class EquippedWeapon : MonoBehaviour
 			if (onForegrip != null)
 				return onForegrip;
 		}
+
+		return FindChildRecursive(transform, _childName);
+	}
+
+	/// <summary>Цель IK правой кисти на инстансе оружия. Иначе null.</summary>
+	public Transform ResolveRightHandIkTargetTransform(string _childName)
+	{
+		if (string.IsNullOrWhiteSpace(_childName))
+			return null;
 
 		return FindChildRecursive(transform, _childName);
 	}

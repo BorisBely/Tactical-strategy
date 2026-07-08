@@ -18,7 +18,7 @@ MonoBehaviour:
   m_ArmorDamage: 8
   m_ProjectileCount: 1
   m_Velocity: 940
-  m_EffectiveRangeMeters: 100
+  m_EffectiveRangeMeters: 500
   m_IsSubsonic: 0
   m_ShellPrefab: {fileID: 8877665500000001, guid: f8e7d6c5b4a392817161514131211009, type: 3}
   m_ShellEjectSpeed: 5.5

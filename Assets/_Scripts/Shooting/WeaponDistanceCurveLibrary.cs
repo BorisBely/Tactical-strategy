@@ -141,11 +141,11 @@ public static class WeaponDistanceCurveLibrary
 
 	private static OpticDistanceCurveLibrary.DistanceKeyframe[] DispRole(
 		float _d0, float _d25, float _d50, float _d75, float _d100) =>
-		new[] { K(0f, _d0), K(25f, _d25), K(50f, _d50), K(75f, _d75), K(100f, _d100) };
+		new[] { K(0f, _d0), K(125f, _d25), K(250f, _d50), K(375f, _d75), K(500f, _d100) };
 
 	private static OpticDistanceCurveLibrary.DistanceKeyframe[] AimRole(
 		float _d0, float _d25, float _d50, float _d75, float _d100) =>
-		new[] { K(0f, _d0), K(25f, _d25), K(50f, _d50), K(75f, _d75), K(100f, _d100) };
+		new[] { K(0f, _d0), K(125f, _d25), K(250f, _d50), K(375f, _d75), K(500f, _d100) };
 
 	private static OpticDistanceCurveLibrary.DistanceKeyframe[] BurstRole(
 		float _b1, float _b3, float _b6, float _b10) =>
@@ -163,57 +163,57 @@ public static class WeaponDistanceCurveLibrary
 		AimRole(0.84f, 1.10f, 2.36f, 3.79f, 5.33f),
 		BurstRole(1.00f, 1.42f, 2.75f, 5.20f));
 
-	// Carbine: Disp 0.72/0.86/1.12/1.70/2.50, Aim softened mid-long, Burst 1.00/1.25/1.90/3.20
+	// Carbine: softened 375-500 m for realism after distance stretch
 	private static readonly WeaponBalanceCurves s_Carbine = new WeaponBalanceCurves(
-		DispRole(0.72f, 0.86f, 1.12f, 1.70f, 2.50f),
+		DispRole(0.72f, 0.86f, 1.05f, 1.22f, 1.50f),
 		AimRole(0.85f, 1.15f, 2.14f, 3.29f, 4.46f),
 		BurstRole(1.00f, 1.25f, 1.90f, 3.20f));
 
 	// CarbineModA1: light M4 carbine - cleaner 50m handling, still not a rifle at 100m
 	private static readonly WeaponBalanceCurves s_CarbineModA1 = new WeaponBalanceCurves(
-		DispRole(0.73f, 0.86f, 1.08f, 1.64f, 2.42f),
+		DispRole(0.73f, 0.86f, 1.02f, 1.18f, 1.45f),
 		AimRole(0.87f, 1.13f, 2.05f, 3.17f, 4.34f),
 		BurstRole(1.00f, 1.24f, 1.84f, 3.08f));
 
-	// CarbineModA2: railed M4 - a bit heavier up close, steadier through medium distance
+	// CarbineModA2: railed M4 - steadier through medium distance, softer far-end penalty
 	private static readonly WeaponBalanceCurves s_CarbineModA2 = new WeaponBalanceCurves(
-		DispRole(0.75f, 0.84f, 1.03f, 1.57f, 2.35f),
+		DispRole(0.75f, 0.84f, 1.00f, 1.10f, 1.40f),
 		AimRole(0.90f, 1.12f, 1.98f, 3.05f, 4.20f),
 		BurstRole(1.00f, 1.23f, 1.82f, 3.02f));
 
-	// BattleRifle762: Disp 0.78/0.95/1.25/2.00/3.00, Aim softened mid-long, Burst 1.00/1.45/2.60/4.40
+	// BattleRifle762: softened 375-500 m, still rougher than 5.56 carbines
 	private static readonly WeaponBalanceCurves s_BattleRifle762 = new WeaponBalanceCurves(
-		DispRole(0.78f, 0.95f, 1.25f, 2.00f, 3.00f),
+		DispRole(0.78f, 0.95f, 1.20f, 1.48f, 1.95f),
 		AimRole(0.95f, 1.35f, 2.45f, 3.69f, 4.93f),
 		BurstRole(1.00f, 1.45f, 2.60f, 4.40f));
 
 	// BattleRifle762Default: plain AK-47 - rougher past medium range than the platform average
 	private static readonly WeaponBalanceCurves s_BattleRifle762Default = new WeaponBalanceCurves(
-		DispRole(0.80f, 0.98f, 1.32f, 2.12f, 3.18f),
+		DispRole(0.80f, 0.98f, 1.22f, 1.52f, 1.95f),
 		AimRole(0.96f, 1.38f, 2.52f, 3.80f, 5.06f),
 		BurstRole(1.00f, 1.49f, 2.72f, 4.62f));
 
 	// BattleRifle762WoodHandguard: fuller AK-47 layout - modest medium-range improvement
 	private static readonly WeaponBalanceCurves s_BattleRifle762WoodHandguard = new WeaponBalanceCurves(
-		DispRole(0.79f, 0.94f, 1.22f, 1.92f, 2.88f),
+		DispRole(0.79f, 0.94f, 1.12f, 1.38f, 1.72f),
 		AimRole(0.98f, 1.34f, 2.38f, 3.58f, 4.78f),
 		BurstRole(1.00f, 1.42f, 2.48f, 4.12f));
 
 	// BattleRifle762Mod1: railed AK-47 - slower to bring up, better controlled once settled
 	private static readonly WeaponBalanceCurves s_BattleRifle762Mod1 = new WeaponBalanceCurves(
-		DispRole(0.82f, 0.93f, 1.18f, 1.82f, 2.72f),
+		DispRole(0.82f, 0.93f, 1.10f, 1.30f, 1.65f),
 		AimRole(1.02f, 1.36f, 2.34f, 3.48f, 4.62f),
 		BurstRole(1.00f, 1.40f, 2.38f, 3.92f));
 
-	// Intermediate545: Disp 0.74/0.88/1.10/1.65/2.35, Aim softened mid-long, Burst 1.00/1.30/2.10/3.50
+	// Intermediate545: AK-74 family - softer far-end than 7.62, still worse than M4 at 500 m
 	private static readonly WeaponBalanceCurves s_Intermediate545 = new WeaponBalanceCurves(
-		DispRole(0.74f, 0.88f, 1.10f, 1.65f, 2.35f),
+		DispRole(0.74f, 0.88f, 1.02f, 1.12f, 1.40f),
 		AimRole(0.90f, 1.25f, 2.16f, 3.22f, 4.29f),
 		BurstRole(1.00f, 1.30f, 2.10f, 3.50f));
 
-	// MidRifle: Disp 0.90/0.75/0.65/1.00/1.70, Aim softened mid-long (keeps rifle edge), Burst 1.00/1.15/1.65/2.60
+	// MidRifle: M16 - slight far-end soften, keeps rifle edge at 250-375 m
 	private static readonly WeaponBalanceCurves s_MidRifle = new WeaponBalanceCurves(
-		DispRole(0.90f, 0.75f, 0.65f, 1.00f, 1.70f),
+		DispRole(0.90f, 0.75f, 0.65f, 0.88f, 1.45f),
 		AimRole(1.25f, 1.12f, 1.62f, 2.24f, 2.99f),
 		BurstRole(1.00f, 1.15f, 1.65f, 2.60f));
 
@@ -262,7 +262,13 @@ public static class WeaponDistanceCurveLibrary
 		["Weapon_M16A_ModA_1"] = WeaponBalanceKind.MidRifle,
 		["Weapon_M16A4_ModA_2"] = WeaponBalanceKind.Marksman,
 		["Weapon_MK12"] = WeaponBalanceKind.Dmr,
-		["Weapon_MK18"] = WeaponBalanceKind.CqbShort
+		["Weapon_MK18"] = WeaponBalanceKind.CqbShort,
+		["Weapon_Mosin"] = WeaponBalanceKind.Dmr,
+		["Weapon_BenelliM4"] = WeaponBalanceKind.CqbShort,
+		["Weapon_M249"] = WeaponBalanceKind.Support545,
+		["Weapon_Sniper762x51"] = WeaponBalanceKind.Dmr,
+		["Weapon_PKM"] = WeaponBalanceKind.Support762,
+		["Weapon_SVD"] = WeaponBalanceKind.Marksman
 	};
 	#endregion
 }

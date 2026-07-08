@@ -63,15 +63,24 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 		{
 			mainHand = InventorySlotRuntimeData.FromDefinition(_entry.WeaponItem);
 
-			if (_entry.PutLoadedMagazineInWeapon &&
-			    _entry.MagazineItem != null &&
-			    TryBuildLoadedMagazineSlot(
-				    _entry.MagazineItem,
-				    _entry.AmmoForMagazine,
-				    _entry.RoundsPerMagazine,
-				    out InventorySlotRuntimeData weaponMagazine))
+			WeaponRuntimeState weaponState = mainHand.InstanceState?.WeaponState;
+			if (weaponState != null && weaponState.WeaponDefinition != null &&
+			    weaponState.WeaponDefinition.UsesShellByShellReload)
 			{
-				WeaponRuntimeState weaponState = mainHand.InstanceState?.WeaponState;
+				AmmoDefinition ammo = _entry.AmmoForMagazine ?? weaponState.WeaponDefinition.BuiltInMagazineDefaultAmmo;
+				WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+					weaponState,
+					ammo,
+					_entry.RoundsPerMagazine);
+			}
+			else if (_entry.PutLoadedMagazineInWeapon &&
+			         _entry.MagazineItem != null &&
+			         TryBuildLoadedMagazineSlot(
+				         _entry.MagazineItem,
+				         _entry.AmmoForMagazine,
+				         _entry.RoundsPerMagazine,
+				         out InventorySlotRuntimeData weaponMagazine))
+			{
 				if (weaponState != null && weaponState.TryInsertMagazine(weaponMagazine))
 					weaponState.TryChamberRoundFromMagazine();
 				else

@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Отдача визуала после позы аниматора: в LateUpdate берётся локальный поворот (прицел/IK),
-/// затем умножается накопленный kick. Позицию <c>localPosition</c> не меняем — сдвиг по осям давал накопление и конфликт с анимацией.
+/// Отдача визуала после позы аниматора: в LateUpdate берётся локальный поворот и позиция (прицел/IK),
+/// затем накладывается накопленный kick (подъём ствола + сдвиг назад в плечо и чуть вверх).
 /// Цель: override на юните, иначе <see cref="EquippedWeapon.VisualRecoilKickPivot"/>, иначе корень инстанса.
 /// Импульс — <see cref="WeaponDefinition.ComputeAddedRecoilPenalty"/>; потолок pitch привязан к <see cref="UnitWeaponRecoilController.MaxRecoilPenalty"/>.
 /// </summary>
@@ -27,9 +27,19 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	[Header("Импульс от штрафа отдачи")]
 	[Tooltip("Градусы подъёма (локальный Euler X) на единицу добавленного RecoilPenalty за выстрел. Ограничивается потолком штрафа из RecoilController.")]
-	[SerializeField, Min(0f)] private float m_PitchDegreesPerPenaltyUnit = 1f;
+	[SerializeField, Min(0f)] private float m_PitchDegreesPerPenaltyUnit = 1.35f;
 	[Tooltip("Случайный yaw (локальный Y) как доля от pitch-импульса этого выстрела.")]
 	[SerializeField, Range(0f, 1f)] private float m_YawJitterFraction = 0.55f;
+
+	[Header("Kick в плечо")]
+	[Tooltip("Сдвиг назад в плечо (локальная -Z) на единицу RecoilPenalty за выстрел, метры.")]
+	[SerializeField, Min(0f)] private float m_ShoulderRecoilBackMetersPerPenaltyUnit = 0.007f;
+	[Tooltip("Сдвиг вверх (локальная +Y) на единицу RecoilPenalty за выстрел, метры.")]
+	[SerializeField, Min(0f)] private float m_ShoulderRecoilUpMetersPerPenaltyUnit = 0.0025f;
+
+	[Header("Одиночный огонь")]
+	[Tooltip("Дополнительный множитель визуального kick только для SemiAuto. Burst/FullAuto не затрагивает.")]
+	[SerializeField, Min(1f)] private float m_SingleShotVisualKickMultiplier = 1.28f;
 
 	[Header("Full Auto Visual Compensation")]
 	[Tooltip("С какого выстрела очереди визуальный kick начинает ослаблять вертикаль (как в hitscan-паттерне).")]
@@ -51,16 +61,24 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	[SerializeField] private UnitCombatStats m_CombatStats;
 
 	[Header("Возврат")]
-	[Tooltip("Множитель к WeaponDefinition.RecoilRecoveryPerSecond для затухания kick.")]
-	[SerializeField, Min(0.01f)] private float m_VisualRecoveryFromWeaponScale = 0.85f;
-	[Tooltip("Множитель восстановления kick, пока удерживается огонь (как у штрафа отдачи).")]
+	[Tooltip("Скорость затухания kick между выстрелами / после отпускания огня (экспоненциально).")]
+	[SerializeField, Min(0.01f)] private float m_VisualRecoveryPerSecond = 1.05f;
+	[Tooltip("Скорость затухания kick, пока удерживается огонь (очередь / авто).")]
+	[SerializeField, Min(0.01f)] private float m_VisualRecoveryWhileFiringPerSecond = 3.6f;
+	[Tooltip("Пауза перед началом возврата после одиночного SemiAuto — kick дольше держится на пике.")]
+	[SerializeField, Min(0f)] private float m_SingleShotRecoveryDelaySeconds = 0.14f;
+	[Tooltip("Устаревший путь: множитель к WeaponDefinition.RecoilRecoveryPerSecond, если Visual Recovery Per Second ≤ 0.")]
+	[SerializeField, Min(0f)] private float m_VisualRecoveryFromWeaponScale = 0.25f;
+	[Tooltip("Устаревший путь: множитель восстановления kick, пока удерживается огонь.")]
 	[SerializeField, Min(0f)] private float m_RecoveryWhileFiringMultiplier = 0.7f;
-	[Tooltip("Если нет WeaponDefinition — скорость затухания kick.")]
-	[SerializeField, Min(0.01f)] private float m_FallbackVisualRecovery = 14f;
+	[Tooltip("Если нет WeaponDefinition и Visual Recovery Per Second ≤ 0.")]
+	[SerializeField, Min(0.01f)] private float m_FallbackVisualRecovery = 1.05f;
 
 	[Header("Стабилизация")]
-	[Tooltip("Если локальный поворот совпадает с прошлым кадром после нашего kick — вычитаем отображённый kick (иначе накапливается ошибка). Только угол; поза позиции не трогается.")]
+	[Tooltip("Если локальный поворот совпадает с прошлым кадром после нашего kick — вычитаем отображённый kick (иначе накапливается ошибка).")]
 	[SerializeField, Min(0.01f)] private float m_AnimatorReplaceAngleSlopDegrees = 0.35f;
+	[Tooltip("Тот же допуск для localPosition, если аниматор перезаписал позу узла.")]
+	[SerializeField, Min(0.0001f)] private float m_AnimatorReplacePositionSlopMeters = 0.0015f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_LogVisualKick;
@@ -70,9 +88,14 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	private Transform m_KickTarget;
 	private float m_KickPitchDegrees;
 	private float m_KickYawDegrees;
+	private float m_KickBackMeters;
+	private float m_KickUpMeters;
 	private bool m_AppliedKickLastFrame;
 	private Quaternion m_LastRotationAfterOurApply = Quaternion.identity;
 	private Quaternion m_LastDisplayedKickRotation = Quaternion.identity;
+	private Vector3 m_LastPositionAfterOurApply = Vector3.zero;
+	private Vector3 m_LastDisplayedKickPosition = Vector3.zero;
+	private float m_RecoveryDelayRemainingSeconds;
 	#endregion
 
 	#region Unity Lifecycle
@@ -127,25 +150,43 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			return;
 
 		Quaternion rawRot = m_KickTarget.localRotation;
+		Vector3 rawPos = m_KickTarget.localPosition;
 
 		bool sameRotationAsLastApply = m_AppliedKickLastFrame
 			&& Quaternion.Angle(rawRot, m_LastRotationAfterOurApply) < m_AnimatorReplaceAngleSlopDegrees;
+		bool samePositionAsLastApply = m_AppliedKickLastFrame
+			&& Vector3.Distance(rawPos, m_LastPositionAfterOurApply) < m_AnimatorReplacePositionSlopMeters;
 
 		Quaternion animRot = sameRotationAsLastApply
 			? rawRot * Quaternion.Inverse(m_LastDisplayedKickRotation)
 			: rawRot;
+		Vector3 animPos = samePositionAsLastApply
+			? rawPos - m_LastDisplayedKickPosition
+			: rawPos;
 
 		float recovery = ResolveVisualRecoveryPerSecond();
-		float damp = 1f - Mathf.Exp(-recovery * Time.deltaTime);
-		m_KickPitchDegrees = Mathf.Lerp(m_KickPitchDegrees, 0f, damp);
-		m_KickYawDegrees = Mathf.Lerp(m_KickYawDegrees, 0f, damp);
+		if (m_RecoveryDelayRemainingSeconds > 0f)
+			m_RecoveryDelayRemainingSeconds = Mathf.Max(0f, m_RecoveryDelayRemainingSeconds - Time.deltaTime);
+		else
+		{
+			float damp = 1f - Mathf.Exp(-recovery * Time.deltaTime);
+			m_KickPitchDegrees = Mathf.Lerp(m_KickPitchDegrees, 0f, damp);
+			m_KickYawDegrees = Mathf.Lerp(m_KickYawDegrees, 0f, damp);
+			m_KickBackMeters = Mathf.Lerp(m_KickBackMeters, 0f, damp);
+			m_KickUpMeters = Mathf.Lerp(m_KickUpMeters, 0f, damp);
+		}
+
 		ClampKickToGameplayCap();
 
 		Quaternion kickRotation = Quaternion.Euler(-m_KickPitchDegrees, m_KickYawDegrees, 0f);
+		Vector3 kickPosition = new Vector3(0f, m_KickUpMeters, -m_KickBackMeters);
 		m_KickTarget.localRotation = animRot * kickRotation;
+		m_KickTarget.localPosition = animPos + kickPosition;
 
 		m_LastRotationAfterOurApply = m_KickTarget.localRotation;
+		m_LastPositionAfterOurApply = m_KickTarget.localPosition;
 		m_LastDisplayedKickRotation = kickRotation;
+		m_LastDisplayedKickPosition = kickPosition;
 		m_AppliedKickLastFrame = true;
 	}
 	#endregion
@@ -216,31 +257,55 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			yaw = CreateRandomYawImpulse(pitch, m_YawJitterFraction);
 		}
 
+		float impulseScale = basePitch > 0.0001f ? pitch / basePitch : 1f;
+		float back = penaltyAdded * m_ShoulderRecoilBackMetersPerPenaltyUnit * impulseScale;
+		float up = penaltyAdded * m_ShoulderRecoilUpMetersPerPenaltyUnit * impulseScale;
+
+		if (fireMode == WeaponFireMode.SemiAuto && m_SingleShotVisualKickMultiplier > 1.001f)
+		{
+			pitch *= m_SingleShotVisualKickMultiplier;
+			yaw *= m_SingleShotVisualKickMultiplier;
+			back *= m_SingleShotVisualKickMultiplier;
+			up *= m_SingleShotVisualKickMultiplier;
+		}
+
+		if (fireMode == WeaponFireMode.SemiAuto && m_SingleShotRecoveryDelaySeconds > 0f)
+			m_RecoveryDelayRemainingSeconds = Mathf.Max(
+				m_RecoveryDelayRemainingSeconds,
+				m_SingleShotRecoveryDelaySeconds);
+
 		m_KickPitchDegrees += pitch;
 		m_KickYawDegrees += yaw;
+		m_KickBackMeters += back;
+		m_KickUpMeters += up;
 		ClampKickToGameplayCap();
 
 		if (m_LogVisualKick)
 		{
 			Debug.Log(
-				$"[VisualKick] shot={shotIndex} mode={fireMode} penalty={penaltyAdded:F3} pitch+={pitch:F2} yaw+={yaw:F2} totalPitch={m_KickPitchDegrees:F2} target={m_KickTarget.name}",
+				$"[VisualKick] shot={shotIndex} mode={fireMode} penalty={penaltyAdded:F3} pitch+={pitch:F2} yaw+={yaw:F2} back+={back * 1000f:F1}mm up+={up * 1000f:F1}mm totalPitch={m_KickPitchDegrees:F2} target={m_KickTarget.name}",
 				this);
 		}
 	}
 
 	private void ClampKickToGameplayCap()
 	{
-		float maxPitch = ResolveMaxVisualPitchDegrees();
+		float maxPenalty = ResolveMaxRecoilPenalty();
+		float maxPitch = ResolveMaxVisualPitchDegrees(maxPenalty);
 		if (maxPitch <= 0f)
 		{
 			m_KickPitchDegrees = 0f;
 			m_KickYawDegrees = 0f;
+			m_KickBackMeters = 0f;
+			m_KickUpMeters = 0f;
 			return;
 		}
 
 		ResolveEffectiveKickCap(maxPitch, out float effectiveMaxPitch, out float effectiveMaxYaw);
 		m_KickPitchDegrees = Mathf.Clamp(m_KickPitchDegrees, 0f, effectiveMaxPitch);
 		m_KickYawDegrees = Mathf.Clamp(m_KickYawDegrees, -effectiveMaxYaw, effectiveMaxYaw);
+		m_KickBackMeters = Mathf.Clamp(m_KickBackMeters, 0f, maxPenalty * m_ShoulderRecoilBackMetersPerPenaltyUnit);
+		m_KickUpMeters = Mathf.Clamp(m_KickUpMeters, 0f, maxPenalty * m_ShoulderRecoilUpMetersPerPenaltyUnit);
 	}
 
 	private void ResolveEffectiveKickCap(float _maxPitch, out float _effectiveMaxPitch, out float _effectiveMaxYaw)
@@ -265,16 +330,21 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		_effectiveMaxYaw = _effectiveMaxPitch * yawFraction * yawBoost;
 	}
 
-	private float ResolveMaxVisualPitchDegrees()
+	private float ResolveMaxRecoilPenalty()
 	{
 		float maxPenalty = m_RecoilController != null ? m_RecoilController.MaxRecoilPenalty : 0f;
 		if (maxPenalty <= 0f && m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null)
 			maxPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
 
-		if (maxPenalty <= 0f)
+		return maxPenalty;
+	}
+
+	private float ResolveMaxVisualPitchDegrees(float _maxPenalty)
+	{
+		if (_maxPenalty <= 0f)
 			return 0f;
 
-		return maxPenalty * m_PitchDegreesPerPenaltyUnit;
+		return _maxPenalty * m_PitchDegreesPerPenaltyUnit;
 	}
 
 	private Transform ResolveKickTarget()
@@ -363,12 +433,16 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 
 	private float ResolveVisualRecoveryPerSecond()
 	{
+		bool isFiring = m_FireController != null && m_FireController.IsFiringCommandActive;
+		if (m_VisualRecoveryPerSecond > 0.001f)
+			return isFiring ? m_VisualRecoveryWhileFiringPerSecond : m_VisualRecoveryPerSecond;
+
 		WeaponDefinition wd = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
 		float recovery = wd != null
 			? Mathf.Max(0.01f, wd.RecoilRecoveryPerSecond * m_VisualRecoveryFromWeaponScale)
 			: m_FallbackVisualRecovery;
 
-		if (m_FireController != null && m_FireController.IsFiringCommandActive)
+		if (isFiring)
 			recovery *= m_RecoveryWhileFiringMultiplier;
 
 		return recovery;
@@ -380,6 +454,7 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			return;
 
 		_target.localRotation = _target.localRotation * Quaternion.Inverse(m_LastDisplayedKickRotation);
+		_target.localPosition = _target.localPosition - m_LastDisplayedKickPosition;
 	}
 
 	public void ResetVisualKick()
@@ -394,7 +469,11 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	{
 		m_KickPitchDegrees = 0f;
 		m_KickYawDegrees = 0f;
+		m_KickBackMeters = 0f;
+		m_KickUpMeters = 0f;
+		m_RecoveryDelayRemainingSeconds = 0f;
 		m_LastDisplayedKickRotation = Quaternion.identity;
+		m_LastDisplayedKickPosition = Vector3.zero;
 		m_AppliedKickLastFrame = false;
 	}
 	#endregion

@@ -20,9 +20,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	#region Constants
 	public const string ParamIsReloadingWeapon = "IsReloadingWeapon";
 	public const string ParamIsCyclingBolt = "IsCyclingBolt";
+	public const string ParamIsShellByShellReload = "IsShellByShellReload";
 	public const string AimReloadLayerName = "Aim_Point_U90-D90";
 	private static readonly int s_IsReloadingWeapon = Animator.StringToHash(ParamIsReloadingWeapon);
 	private static readonly int s_IsCyclingBolt = Animator.StringToHash(ParamIsCyclingBolt);
+	private static readonly int s_IsShellByShellReload = Animator.StringToHash(ParamIsShellByShellReload);
 	private static readonly int s_WeaponReady = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponReady);
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_AimRelaxedIdleStateHash = Animator.StringToHash("Stand_Relaxed_Idle");
@@ -30,6 +32,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_AimRelaxedBoltStateHash = Animator.StringToHash("Stand_Relaxed__CyclingBolt");
 	private static readonly int s_AimReloadStateHash = Animator.StringToHash("Stand_Aim_Reload");
 	private static readonly int s_AimBoltStateHash = Animator.StringToHash("Stand_CyclingBolt");
+	private static readonly int s_AimRelaxedShellReloadStateHash = Animator.StringToHash("Stand_Relaxed_ShellReload");
+	private static readonly int s_AimShellReloadStateHash = Animator.StringToHash("Stand_Aim_ShellReload");
 	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
 	private const float c_ReloadClipDurationSeconds = 2.966667f;
 	private const float c_ReloadClipSampleRate = 30f;
@@ -91,6 +95,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private bool m_UiMagazineInstallOnly;
 	/// <summary>Только анимация на зеркальных юнитах пресета — без мутации сумки и без <see cref="UiMagazineModificationCompleted"/>.</summary>
 	private bool m_UiMagazineMirrorAnimationOnly;
+	private bool m_IsShellByShellReloadActive;
 	private InventorySlotRuntimeData m_UiLastEjectedMagazine;
 	private int m_AimReloadLayerIndex = -1;
 	private int m_MagazineLoadingLayerIndex = -1;
@@ -442,6 +447,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
+		if (UsesShellByShellReloadWeapon())
+		{
+			m_DebugLastFailureReason = "Built-in magazine cannot be modified";
+			return false;
+		}
+
 		if (m_BusyState != null && m_BusyState.IsBusy)
 		{
 			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
@@ -449,6 +460,182 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		return true;
+	}
+
+	private bool UsesShellByShellReloadWeapon()
+	{
+		return m_WeaponRuntime?.CurrentWeaponDefinition != null &&
+		       m_WeaponRuntime.CurrentWeaponDefinition.UsesShellByShellReload;
+	}
+
+	private bool TryStartShellByShellReload()
+	{
+		m_DebugLastFailureReason = null;
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+		{
+			m_DebugLastFailureReason = "Missing runtime references";
+			return false;
+		}
+
+		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
+		WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+			runtimeState,
+			runtimeState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
+
+		if (!runtimeState.HasMagazine)
+		{
+			m_DebugLastFailureReason = "No built-in magazine";
+			return false;
+		}
+
+		MagazineRuntimeState magazineState = runtimeState.CurrentMagazine;
+		if (magazineState == null || magazineState.Definition == null)
+		{
+			m_DebugLastFailureReason = "No magazine state";
+			return false;
+		}
+
+		if (magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity)
+		{
+			if (TryStartBoltCycleOnly())
+				return true;
+
+			m_DebugLastFailureReason = "Tube is full";
+			return false;
+		}
+
+		if (!HasAmmoBoxForCaliber(magazineState.Definition.SupportedCaliber))
+		{
+			m_DebugLastFailureReason = "No ammo box with matching caliber";
+			return false;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_IsShellByShellReloadActive = true;
+		m_IsReloadingWeapon = true;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		m_HasEjectedCurrentMagazine = true;
+		m_MagazineInsertCompletedThisReload = false;
+		m_PendingReplacementMagazine = default;
+		m_ShouldStartManualMagazineLoadingAfterReload = false;
+		m_DebugSourceBagIndex = -1;
+		m_DebugFallbackMagazineBagIndex = -1;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
+		return true;
+	}
+
+	private bool CanLoadAnotherShellIntoWeapon()
+	{
+		if (m_WeaponRuntime?.RuntimeState == null)
+			return false;
+
+		MagazineRuntimeState magazineState = m_WeaponRuntime.CurrentMagazine;
+		if (magazineState == null || magazineState.Definition == null)
+			return false;
+		if (magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity)
+			return false;
+
+		return HasAmmoBoxForCaliber(magazineState.Definition.SupportedCaliber);
+	}
+
+	private void FinalizeShellByShellReload(bool _completedNaturally)
+	{
+		bool shouldBoltCycle = _completedNaturally &&
+		                       m_WeaponRuntime?.RuntimeState != null &&
+		                       m_WeaponRuntime.RuntimeState.HasAmmoInMagazine &&
+		                       !m_WeaponRuntime.RuntimeState.HasRoundInChamber;
+
+		m_IsShellByShellReloadActive = false;
+		StopReloadInternal(false);
+
+		if (shouldBoltCycle)
+			TryStartBoltCycleOnly();
+	}
+
+	private bool TryConsumeRoundFromAmmoBox(CaliberType _caliber, out AmmoDefinition _ammoDefinition)
+	{
+		_ammoDefinition = null;
+		if (m_CharacterInventory == null || !TryFindBestAmmoBoxIndex(_caliber, out int bagIndex))
+			return false;
+
+		InventorySlotRuntimeData bagItem = m_CharacterInventory.BagItems[bagIndex];
+		AmmoContainerRuntimeState ammoContainerState = bagItem.InstanceState != null ? bagItem.InstanceState.AmmoContainerState : null;
+		if (ammoContainerState == null || !ammoContainerState.HasAmmo)
+			return false;
+
+		_ammoDefinition = ammoContainerState.AmmoDefinition;
+		if (!ammoContainerState.TryConsumeRound())
+			return false;
+
+		if (!ammoContainerState.HasAmmo)
+			m_CharacterInventory.TryRemoveBagAt(bagIndex, out _);
+		else
+			m_CharacterInventory.TrySetBagItemAt(bagIndex, bagItem);
+
+		return _ammoDefinition != null;
+	}
+
+	private bool TryFindBestAmmoBoxIndex(CaliberType _caliber, out int _bagIndex)
+	{
+		_bagIndex = -1;
+		if (m_CharacterInventory == null)
+			return false;
+
+		int bestAmmoCount = -1;
+		for (int i = 0; i < m_CharacterInventory.BagCount; i++)
+		{
+			InventorySlotRuntimeData item = m_CharacterInventory.BagItems[i];
+			AmmoContainerRuntimeState ammoContainerState = item.InstanceState != null ? item.InstanceState.AmmoContainerState : null;
+			AmmoDefinition ammoDefinition = item.Definition != null ? item.Definition.AmmoDefinition : null;
+			if (ammoContainerState == null || ammoDefinition == null)
+				continue;
+			if (!ammoContainerState.HasAmmo)
+				continue;
+			if (ammoDefinition.Caliber != _caliber)
+				continue;
+			if (ammoContainerState.CurrentAmmoCount <= bestAmmoCount)
+				continue;
+
+			bestAmmoCount = ammoContainerState.CurrentAmmoCount;
+			_bagIndex = i;
+		}
+
+		return _bagIndex >= 0;
+	}
+
+	private void TryPlayShellLoadSound(MagazineDefinition _definition)
+	{
+		if (_definition == null || m_ReloadAudioSource == null)
+			return;
+
+		AudioClip[] clips = _definition.RoundLoadSounds;
+		if (clips == null || clips.Length == 0)
+			return;
+
+		AudioClip clip = null;
+		for (int i = 0; i < clips.Length; i++)
+		{
+			if (clips[i] != null)
+			{
+				clip = clips[i];
+				break;
+			}
+		}
+
+		if (clip == null)
+			return;
+
+		Vector3 pos = transform.position;
+		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
+			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
+
+		m_ReloadAudioSource.transform.position = pos;
+		m_ReloadAudioSource.PlayOneShot(clip, UnitNonFireAudioUtility.ScaleVolume(_definition.RoundLoadSoundsVolume));
 	}
 
 	private bool TryStartReloadInternal(int _preferredBagIndex)
@@ -475,6 +662,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (_preferredBagIndex < 0 && ShouldUseBoltCycleOnlyInsteadOfFullReload())
 			return TryStartBoltCycleOnly();
+
+		if (UsesShellByShellReloadWeapon())
+			return TryStartShellByShellReload();
 
 		int fallbackMagazineBagIndex = -1;
 		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(_preferredBagIndex, out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
@@ -516,6 +706,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// </summary>
 	public void AnimationEvent_EjectCurrentWeaponMagazineToInventory()
 	{
+		if (m_IsShellByShellReloadActive)
+			return;
+
 		if (!m_IsReloadingWeapon || m_HasEjectedCurrentMagazine || m_WeaponRuntime == null)
 			return;
 
@@ -587,6 +780,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// </summary>
 	public void AnimationEvent_InsertPendingMagazineIntoWeapon()
 	{
+		if (m_IsShellByShellReloadActive)
+			return;
+
 		if (!m_IsReloadingWeapon || m_WeaponRuntime == null)
 			return;
 
@@ -656,6 +852,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// </summary>
 	public void AnimationEvent_ReloadBoltHoldOpenDelay()
 	{
+		if (m_IsShellByShellReloadActive)
+			return;
+
 		if (!m_IsReloadingWeapon || m_WeaponRuntime == null)
 			return;
 
@@ -688,6 +887,44 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// Звук — <see cref="WeaponDefinition.TryPickBoltCycleSound"/>.
 	/// Хвост анимации: см. <see cref="m_BoltPresentationFireTailSeconds"/> и опционально <see cref="AnimationEvent_BoltMotionPresentationFinished"/>.
 	/// </summary>
+	/// <summary>Один патрон в трубку/встроенный магазин (дробовик). Один цикл анимации = один патрон.</summary>
+	public void AnimationEvent_LoadOneShellIntoWeapon()
+	{
+		if (!m_IsShellByShellReloadActive || !m_IsReloadingWeapon || m_WeaponRuntime == null)
+			return;
+
+		MagazineRuntimeState magazineState = m_WeaponRuntime.CurrentMagazine;
+		if (magazineState == null || magazineState.Definition == null)
+		{
+			FinalizeShellByShellReload(false);
+			return;
+		}
+
+		if (magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity)
+		{
+			FinalizeShellByShellReload(true);
+			return;
+		}
+
+		if (!TryConsumeRoundFromAmmoBox(magazineState.Definition.SupportedCaliber, out AmmoDefinition ammoDefinition))
+		{
+			FinalizeShellByShellReload(magazineState.CurrentAmmoCount > 0);
+			return;
+		}
+
+		if (!m_WeaponRuntime.TryLoadRoundIntoInsertedMagazine(ammoDefinition))
+		{
+			FinalizeShellByShellReload(magazineState.CurrentAmmoCount > 0);
+			return;
+		}
+
+		TryPlayShellLoadSound(magazineState.Definition);
+		RefreshInventoryUiIfActive();
+
+		if (!CanLoadAnotherShellIntoWeapon())
+			FinalizeShellByShellReload(true);
+	}
+
 	public void AnimationEvent_FinishWeaponReload()
 	{
 		if (!m_IsReloadingWeapon && !m_IsCyclingBolt)
@@ -986,6 +1223,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_UiMagazineEjectOnly = false;
 		m_UiMagazineInstallOnly = false;
 		m_UiMagazineMirrorAnimationOnly = false;
+		m_IsShellByShellReloadActive = false;
 		m_UiLastEjectedMagazine = default;
 		m_PendingReplacementMagazine = default;
 		m_IsReloadingWeapon = false;
@@ -1034,6 +1272,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		{
 			m_Animator.SetBool(s_IsReloadingWeapon, m_IsReloadingWeapon);
 			m_Animator.SetBool(s_IsCyclingBolt, m_IsCyclingBolt);
+			m_Animator.SetBool(s_IsShellByShellReload, m_IsShellByShellReloadActive);
 		}
 
 		ApplyReloadAnimatorLayerWeightsIfBusy();
@@ -1093,6 +1332,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		AnimatorStateInfo stateInfo = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
 		if (stateInfo.shortNameHash == s_AimRelaxedIdleStateHash ||
 		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed_Reload") ||
+		    stateInfo.shortNameHash == s_AimRelaxedShellReloadStateHash ||
 		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed__CyclingBolt"))
 			return;
 
@@ -1124,11 +1364,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		int currentHash = stateInfo.shortNameHash;
 		float normalizedTime = Mathf.Repeat(stateInfo.normalizedTime, 1f);
 
-		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, cyclingBolt, reloading);
+		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, cyclingBolt, reloading, m_IsShellByShellReloadActive);
 		if (targetHash == 0 || currentHash == targetHash)
 			return;
 
-		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash;
+		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash ||
+		                           currentHash == s_AimShellReloadStateHash || currentHash == s_AimRelaxedShellReloadStateHash;
 		bool currentIsBoltClip = currentHash == s_AimBoltStateHash || currentHash == s_AimRelaxedBoltStateHash;
 		bool targetIsBoltClip = cyclingBolt;
 
@@ -1148,12 +1389,17 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_Animator.Play(targetHash, m_AimReloadLayerIndex, normalizedTime);
 	}
 
-	private static int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading)
+	private static int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload)
 	{
 		if (_cyclingBolt)
 			return _weaponReady ? s_AimBoltStateHash : s_AimRelaxedBoltStateHash;
 		if (_reloading)
+		{
+			if (_shellReload)
+				return _weaponReady ? s_AimShellReloadStateHash : s_AimRelaxedShellReloadStateHash;
+
 			return _weaponReady ? s_AimReloadStateHash : s_AimRelaxedReloadStateHash;
+		}
 
 		return 0;
 	}

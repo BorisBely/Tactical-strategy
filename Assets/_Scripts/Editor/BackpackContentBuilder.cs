@@ -2,15 +2,14 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Сборка рюкзаков: equipped prefab, loot prefab, ItemDefinition и wiring Unit.prefab.
+/// Использует уже созданные Equipped_Backpack_* prefab'ы (без зависимости от открытой сцены).
 /// </summary>
 public static class BackpackContentBuilder
 {
 	#region Constants
-	private const string c_SceneReferenceRootName = "SM_Chr_Soldier_Male_02_Alt_01";
 	private const string c_BackAnchorName = "Spine_02";
 	private const string c_UnitPrefabPath = "Assets/Prefabs/Characters/Unit.prefab";
 
@@ -23,7 +22,6 @@ public static class BackpackContentBuilder
 	#region Specs
 	private sealed class BackpackBuildSpec
 	{
-		public string SceneObjectName;
 		public string AssetSuffix;
 		public string LocalizationKey;
 		public string FallbackPrefabPath;
@@ -34,7 +32,6 @@ public static class BackpackContentBuilder
 	{
 		new BackpackBuildSpec
 		{
-			SceneObjectName = "Backpack_1",
 			AssetSuffix = "Backpack_1",
 			LocalizationKey = "item.backpack.1",
 			FallbackPrefabPath = c_FallbackRoot + "/SM_Chr_Attach_Backpack_01.prefab",
@@ -42,7 +39,6 @@ public static class BackpackContentBuilder
 		},
 		new BackpackBuildSpec
 		{
-			SceneObjectName = "Backpack_2",
 			AssetSuffix = "Backpack_2",
 			LocalizationKey = "item.backpack.2",
 			FallbackPrefabPath = c_FallbackRoot + "/SM_Chr_Attach_Backpack_02.prefab",
@@ -52,41 +48,36 @@ public static class BackpackContentBuilder
 	#endregion
 
 	#region Menu
-	[MenuItem("Polygone/Equipment/Build Backpack Content From Scene Reference")]
-	public static void BuildBackpackContentFromSceneReference()
+	[MenuItem("Polygone/Equipment/Build Backpack Content")]
+	public static void BuildBackpackContent()
 	{
-		Transform spine02 = FindSceneBackReference();
-		if (spine02 == null)
-		{
-			Debug.LogError($"[BackpackContentBuilder] Не найден '{c_SceneReferenceRootName}/{c_BackAnchorName}' в открытых сценах.");
-			return;
-		}
-
 		EnsureDirectory(c_EquippedRoot);
 		EnsureDirectory(c_LootRoot);
 		EnsureDirectory(c_ItemRoot);
 
 		for (int i = 0; i < s_Specs.Length; i++)
-			BuildBackpackEntry(spine02, s_Specs[i]);
+			BuildBackpackEntry(s_Specs[i]);
 
 		SetupUnitBackComponents();
 		MissionPrepAvailableEquipmentBaker.RebuildAvailableEquipmentSet();
 
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
-		Debug.Log("[BackpackContentBuilder] Backpack content built and mission prep set rebuilt.");
+		Debug.Log("[BackpackContentBuilder] Backpack content built from equipped prefabs and mission prep set rebuilt.");
+	}
+
+	[MenuItem("Polygone/Equipment/Build Backpack Content From Scene Reference")]
+	public static void BuildBackpackContentFromSceneReference()
+	{
+		BuildBackpackContent();
 	}
 	#endregion
 
 	#region Build Steps
-	private static void BuildBackpackEntry(Transform _spine02, BackpackBuildSpec _spec)
+	private static void BuildBackpackEntry(BackpackBuildSpec _spec)
 	{
-		Transform source = _spine02.Find(_spec.SceneObjectName);
-		if (source == null)
-			source = FindChildByName(_spine02, _spec.SceneObjectName);
-
 		string equippedPath = $"{c_EquippedRoot}/Equipped_{_spec.AssetSuffix}.prefab";
-		GameObject equippedPrefab = BuildEquippedPrefab(source, _spec, equippedPath);
+		GameObject equippedPrefab = BuildEquippedPrefab(_spec, equippedPath);
 
 		string lootPath = $"{c_LootRoot}/Loot_{_spec.AssetSuffix}.prefab";
 		GameObject lootPrefab = BuildLootPrefab(equippedPrefab, lootPath, _spec.AssetSuffix);
@@ -96,42 +87,47 @@ public static class BackpackContentBuilder
 		AssignLootPickupDefinition(lootPrefab, item);
 	}
 
-	private static GameObject BuildEquippedPrefab(Transform _source, BackpackBuildSpec _spec, string _outputPath)
+	private static GameObject BuildEquippedPrefab(BackpackBuildSpec _spec, string _outputPath)
 	{
-		GameObject clone;
-		if (_source != null)
+		GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(_outputPath);
+		if (existing != null)
 		{
-			_source.gameObject.SetActive(true);
-			SetActiveRecursively(_source);
-			clone = Object.Instantiate(_source.gameObject);
-			clone.name = $"Equipped_{_spec.AssetSuffix}";
-			clone.transform.SetParent(null, false);
-			clone.transform.localPosition = _source.localPosition;
-			clone.transform.localRotation = _source.localRotation;
-			clone.transform.localScale = _source.localScale;
-		}
-		else
-		{
-			GameObject fallback = AssetDatabase.LoadAssetAtPath<GameObject>(_spec.FallbackPrefabPath);
-			if (fallback == null)
+			GameObject clone = (GameObject)PrefabUtility.InstantiatePrefab(existing);
+			try
 			{
-				Debug.LogError($"[BackpackContentBuilder] Не найден '{_spec.SceneObjectName}' и fallback '{_spec.FallbackPrefabPath}'.");
-				return AssetDatabase.LoadAssetAtPath<GameObject>(_outputPath);
+				clone.name = $"Equipped_{_spec.AssetSuffix}";
+				PrepareVisual(clone);
+				return PrefabUtility.SaveAsPrefabAsset(clone, _outputPath);
 			}
-
-			clone = PrefabUtility.InstantiatePrefab(fallback) as GameObject;
-			clone.name = $"Equipped_{_spec.AssetSuffix}";
-			clone.transform.SetParent(null, false);
-			clone.transform.localPosition = Vector3.zero;
-			clone.transform.localRotation = Quaternion.identity;
-			clone.transform.localScale = Vector3.one;
-			Debug.LogWarning($"[BackpackContentBuilder] Референс '{_spec.SceneObjectName}' не найден. Использован fallback с нулевой позой.");
+			finally
+			{
+				Object.DestroyImmediate(clone);
+			}
 		}
 
-		PrepareVisual(clone);
-		GameObject prefab = PrefabUtility.SaveAsPrefabAsset(clone, _outputPath);
-		Object.DestroyImmediate(clone);
-		return prefab;
+		GameObject fallback = AssetDatabase.LoadAssetAtPath<GameObject>(_spec.FallbackPrefabPath);
+		if (fallback == null)
+		{
+			Debug.LogError($"[BackpackContentBuilder] Не найден equipped prefab и fallback '{_spec.FallbackPrefabPath}'.");
+			return null;
+		}
+
+		GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(fallback);
+		try
+		{
+			instance.name = $"Equipped_{_spec.AssetSuffix}";
+			instance.transform.SetParent(null, false);
+			instance.transform.localPosition = Vector3.zero;
+			instance.transform.localRotation = Quaternion.identity;
+			instance.transform.localScale = Vector3.one;
+			PrepareVisual(instance);
+			Debug.LogWarning($"[BackpackContentBuilder] Equipped prefab '{_outputPath}' не найден. Создан из fallback с нулевой позой.");
+			return PrefabUtility.SaveAsPrefabAsset(instance, _outputPath);
+		}
+		finally
+		{
+			Object.DestroyImmediate(instance);
+		}
 	}
 
 	private static GameObject BuildLootPrefab(GameObject _equippedPrefab, string _outputPath, string _assetSuffix)
@@ -154,14 +150,20 @@ public static class BackpackContentBuilder
 
 		root.AddComponent<WorldPickupItem>();
 
-		GameObject visual = PrefabUtility.InstantiatePrefab(_equippedPrefab, root.transform) as GameObject;
-		if (visual != null)
+		GameObject visual = (GameObject)PrefabUtility.InstantiatePrefab(_equippedPrefab);
+		try
 		{
+			visual.transform.SetParent(root.transform, false);
 			visual.name = "Visual";
 			visual.transform.localPosition = Vector3.zero;
 			visual.transform.localRotation = Quaternion.identity;
 			visual.transform.localScale = Vector3.one;
 			CharacterDecorationSpawnUtility.StripPickupAndPhysics(visual);
+		}
+		catch
+		{
+			Object.DestroyImmediate(visual);
+			throw;
 		}
 
 		GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, _outputPath);
@@ -276,31 +278,6 @@ public static class BackpackContentBuilder
 				break;
 			}
 		}
-	}
-
-	private static Transform FindSceneBackReference()
-	{
-		for (int s = 0; s < SceneManager.sceneCount; s++)
-		{
-			Scene scene = SceneManager.GetSceneAt(s);
-			if (!scene.isLoaded)
-				continue;
-
-			GameObject[] roots = scene.GetRootGameObjects();
-			for (int r = 0; r < roots.Length; r++)
-			{
-				Transform[] children = roots[r].GetComponentsInChildren<Transform>(true);
-				for (int c = 0; c < children.Length; c++)
-				{
-					if (children[c].name != c_SceneReferenceRootName)
-						continue;
-
-					return FindChildByName(children[c], c_BackAnchorName);
-				}
-			}
-		}
-
-		return null;
 	}
 
 	private static Transform FindChildByName(Transform _root, string _name)

@@ -200,8 +200,14 @@ public static class AkPlatformWeaponsBuilder
 			templateSo.FindProperty("m_RightHandLocalPosition").vector3Value;
 		so.FindProperty("m_RightHandLocalEulerAngles").vector3Value =
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
+		CopyReadyHandPoseFields(so, templateSo);
+		CopyRightHandIkFields(so, templateSo);
 		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
 			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
+		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
+			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
+		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
+			templateSo.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(item);
 		return item;
@@ -649,6 +655,39 @@ public static class AkPlatformWeaponsBuilder
 		public float Reliability;
 		public WeaponDistanceCurveLibrary.WeaponBalanceKind CurveKind;
 		public int BasePrice;
+	}
+
+	private static void CopyReadyHandPoseFields(SerializedObject _so, SerializedObject _templateSo)
+	{
+		SerializedProperty readyPos = _templateSo.FindProperty("m_RightHandReadyLocalPosition");
+		SerializedProperty readyEuler = _templateSo.FindProperty("m_RightHandReadyLocalEulerAngles");
+		bool hasReadyPose = readyPos != null && readyEuler != null
+		                    && (readyPos.vector3Value != Vector3.zero || readyEuler.vector3Value != Vector3.zero);
+
+		if (hasReadyPose)
+		{
+			_so.FindProperty("m_RightHandReadyLocalPosition").vector3Value = readyPos.vector3Value;
+			_so.FindProperty("m_RightHandReadyLocalEulerAngles").vector3Value = readyEuler.vector3Value;
+		}
+		else
+		{
+			_so.FindProperty("m_RightHandReadyLocalPosition").vector3Value =
+				_templateSo.FindProperty("m_RightHandLocalPosition").vector3Value;
+			_so.FindProperty("m_RightHandReadyLocalEulerAngles").vector3Value =
+				_templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
+		}
+	}
+
+	private static void CopyRightHandIkFields(SerializedObject _so, SerializedObject _templateSo)
+	{
+		_so.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value;
+		_so.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
 	}
 
 }

@@ -35,12 +35,29 @@ public class ItemDefinition : ScriptableObject
 	[Header("Снаряжение (Category = Equipment)")]
 	[Tooltip("Префаб модели в правой руке (без физики лута). Родитель — якорь правой руки в UnitEquipment.")]
 	[SerializeField] private GameObject m_EquippedVisualPrefab;
-	[Tooltip("Локальная позиция префаба оружия относительно правой руки.")]
+	[Tooltip("Локальная позиция префаба оружия относительно правой руки (режим «не готов» / relaxed).")]
 	[SerializeField] private Vector3 m_RightHandLocalPosition;
-	[Tooltip("Локальные углы Эйлера оружия относительно правой руки.")]
+	[Tooltip("Локальные углы Эйлера оружия относительно правой руки (режим «не готов» / relaxed).")]
 	[SerializeField] private Vector3 m_RightHandLocalEulerAngles;
+	[Tooltip("Локальная позиция префаба оружия относительно правой руки (режим «готов»).")]
+	[SerializeField] private Vector3 m_RightHandReadyLocalPosition;
+	[Tooltip("Локальные углы Эйлера оружия относительно правой руки (режим «готов»).")]
+	[SerializeField] private Vector3 m_RightHandReadyLocalEulerAngles;
+	[Header("Правая рука — IK кисти (локально на оружии)")]
+	[Tooltip("Локальная позиция цели IK правой кисти на оружии (режим «не готов»).")]
+	[SerializeField] private Vector3 m_RightHandIkNotReadyLocalPosition;
+	[Tooltip("Локальные углы Эйлера цели IK правой кисти на оружии (режим «не готов»).")]
+	[SerializeField] private Vector3 m_RightHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Локальная позиция цели IK правой кисти на оружии (режим «готов»). Нули — взять с пустышки на префабе.")]
+	[SerializeField] private Vector3 m_RightHandIkReadyLocalPosition;
+	[Tooltip("Локальные углы Эйлера цели IK правой кисти на оружии (режим «готов»). Нули — взять с пустышки на префабе.")]
+	[SerializeField] private Vector3 m_RightHandIkReadyLocalEulerAngles;
 	[Tooltip("Имя дочернего объекта на префабе оружия: мировая позиция/поворот для IK левой кисти. Пусто — левая рука без IK.")]
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
+	[Tooltip("Пустышка IK правой кисти в режиме «готов», если Ik Ready Local не задан. Пусто — только координаты из asset.")]
+	[SerializeField] private string m_RightHandIkTargetChildName = "RightHandIkTarget";
+	[Tooltip("Пустышка IK правой кисти в режиме «не готов», если Ik Not Ready Local не задан.")]
+	[SerializeField] private string m_RightHandIkTargetNotReadyChildName = "RightHandIkTarget_NotReady";
 
 	[Header("Снаряжение (Equipment)")]
 	[Tooltip("Подтип снаряжения: оружие, шлем или другой экипируемый предмет.")]
@@ -138,7 +155,18 @@ public class ItemDefinition : ScriptableObject
 	public GameObject EquippedVisualPrefab => m_EquippedVisualPrefab;
 	public Vector3 RightHandLocalPosition => m_RightHandLocalPosition;
 	public Quaternion RightHandLocalRotation => Quaternion.Euler(m_RightHandLocalEulerAngles);
+	public Vector3 RightHandReadyLocalPosition => m_RightHandReadyLocalPosition;
+	public Vector3 RightHandReadyLocalEulerAngles => m_RightHandReadyLocalEulerAngles;
+	public Quaternion RightHandReadyLocalRotation => Quaternion.Euler(m_RightHandReadyLocalEulerAngles);
+	public Vector3 RightHandIkNotReadyLocalPosition => m_RightHandIkNotReadyLocalPosition;
+	public Vector3 RightHandIkNotReadyLocalEulerAngles => m_RightHandIkNotReadyLocalEulerAngles;
+	public Quaternion RightHandIkNotReadyLocalRotation => Quaternion.Euler(m_RightHandIkNotReadyLocalEulerAngles);
+	public Vector3 RightHandIkReadyLocalPosition => m_RightHandIkReadyLocalPosition;
+	public Vector3 RightHandIkReadyLocalEulerAngles => m_RightHandIkReadyLocalEulerAngles;
+	public Quaternion RightHandIkReadyLocalRotation => Quaternion.Euler(m_RightHandIkReadyLocalEulerAngles);
 	public string LeftHandIkTargetChildName => m_LeftHandIkTargetChildName;
+	public string RightHandIkTargetChildName => m_RightHandIkTargetChildName;
+	public string RightHandIkTargetNotReadyChildName => m_RightHandIkTargetNotReadyChildName;
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
 	/// <summary>Подтип снаряжения (для Equipment).</summary>

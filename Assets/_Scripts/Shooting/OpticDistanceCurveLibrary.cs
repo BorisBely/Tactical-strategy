@@ -73,7 +73,7 @@ public static class OpticDistanceCurveLibrary
 	public static AnimationCurve BuildCurve(IReadOnlyList<DistanceKeyframe> _keyframes)
 	{
 		if (_keyframes == null || _keyframes.Count == 0)
-			return AnimationCurve.Linear(0f, 1f, 100f, 1f);
+			return AnimationCurve.Linear(0f, 1f, 500f, 1f);
 
 		var keys = new Keyframe[_keyframes.Count];
 		for (int i = 0; i < _keyframes.Count; i++)
@@ -151,76 +151,76 @@ public static class OpticDistanceCurveLibrary
 
 	#region Curve Data
 	private static readonly OpticDistanceCurves s_FlatNeutral = Make("нейтральный",
-		new[] { K(0f, 1f), K(100f, 1f) },
-		new[] { K(0f, 1f), K(100f, 1f) });
+		new[] { K(0f, 1f), K(500f, 1f) },
+		new[] { K(0f, 1f), K(500f, 1f) });
 
-	private static readonly OpticDistanceCurves s_CollimatorMod1 = Make("0–15 м, пересечение 25 м",
-		new[] { K(0f, 0.91f), K(10f, 0.90f), K(15f, 0.92f), K(25f, 1.00f), K(40f, 1.06f), K(100f, 1.10f) },
-		new[] { K(0f, 0.96f), K(15f, 0.98f), K(25f, 1.00f), K(40f, 1.06f), K(100f, 1.08f) });
+	private static readonly OpticDistanceCurves s_CollimatorMod1 = Make("0–75 м, пересечение 125 м",
+		new[] { K(0f, 0.91f), K(50f, 0.90f), K(75f, 0.92f), K(125f, 1.00f), K(200f, 1.06f), K(500f, 1.10f) },
+		new[] { K(0f, 0.96f), K(75f, 0.98f), K(125f, 1.00f), K(200f, 1.06f), K(500f, 1.08f) });
 
-	private static readonly OpticDistanceCurves s_CollimatorMod2 = Make("0–15 м, пересечение 30 м",
-		new[] { K(0f, 0.92f), K(10f, 0.91f), K(15f, 0.91f), K(30f, 1.00f), K(45f, 1.06f), K(100f, 1.10f) },
-		new[] { K(0f, 0.96f), K(15f, 0.98f), K(30f, 1.00f), K(45f, 1.06f), K(100f, 1.08f) });
+	private static readonly OpticDistanceCurves s_CollimatorMod2 = Make("0–75 м, пересечение 150 м",
+		new[] { K(0f, 0.92f), K(50f, 0.91f), K(75f, 0.91f), K(150f, 1.00f), K(225f, 1.06f), K(500f, 1.10f) },
+		new[] { K(0f, 0.96f), K(75f, 0.98f), K(150f, 1.00f), K(225f, 1.06f), K(500f, 1.08f) });
 
-	private static readonly OpticDistanceCurves s_CollimatorMod3 = Make("10–20 м, пересечение 30 м",
-		new[] { K(0f, 0.92f), K(10f, 0.90f), K(20f, 0.90f), K(30f, 1.00f), K(100f, 1.06f) },
-		new[] { K(0f, 0.96f), K(10f, 0.98f), K(20f, 1.00f), K(35f, 1.04f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_CollimatorMod3 = Make("50–100 м, пересечение 150 м",
+		new[] { K(0f, 0.92f), K(50f, 0.90f), K(100f, 0.90f), K(150f, 1.00f), K(500f, 1.06f) },
+		new[] { K(0f, 0.96f), K(50f, 0.98f), K(100f, 1.00f), K(175f, 1.04f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_Optic2x = Make("20–45 м, пересечение 45 м",
-		new[] { K(0f, 0.98f), K(20f, 0.92f), K(35f, 0.90f), K(45f, 1.00f), K(100f, 1.04f) },
-		new[] { K(0f, 0.98f), K(20f, 1.00f), K(35f, 0.98f), K(45f, 1.00f), K(100f, 1.04f) });
+	private static readonly OpticDistanceCurves s_Optic2x = Make("100–225 м, пересечение 225 м",
+		new[] { K(0f, 0.98f), K(100f, 0.92f), K(175f, 0.90f), K(225f, 1.00f), K(500f, 1.04f) },
+		new[] { K(0f, 0.98f), K(100f, 1.00f), K(175f, 0.98f), K(225f, 1.00f), K(500f, 1.04f) });
 
-	private static readonly OpticDistanceCurves s_HolographicMod1 = Make("0–20 м, пересечение 35 м",
-		new[] { K(0f, 0.92f), K(20f, 0.93f), K(35f, 1.00f), K(100f, 1.06f) },
-		new[] { K(0f, 0.96f), K(20f, 0.98f), K(35f, 1.02f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_HolographicMod1 = Make("0–100 м, пересечение 175 м",
+		new[] { K(0f, 0.92f), K(100f, 0.93f), K(175f, 1.00f), K(500f, 1.06f) },
+		new[] { K(0f, 0.96f), K(100f, 0.98f), K(175f, 1.02f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_HybridSight = Make("0–20 и 35–55 м, пересечение 55 м",
-		new[] { K(0f, 0.92f), K(20f, 0.94f), K(35f, 1.04f), K(45f, 0.92f), K(55f, 0.90f), K(75f, 0.96f), K(100f, 1.04f) },
-		new[] { K(0f, 1.02f), K(20f, 1.08f), K(35f, 1.12f), K(45f, 1.08f), K(55f, 1.02f), K(75f, 1.06f), K(100f, 1.10f) });
+	private static readonly OpticDistanceCurves s_HybridSight = Make("0–20 и 175–275 м, пересечение 275 м",
+		new[] { K(0f, 0.92f), K(100f, 0.94f), K(175f, 1.04f), K(225f, 0.92f), K(275f, 0.90f), K(375f, 0.96f), K(500f, 1.04f) },
+		new[] { K(0f, 1.02f), K(100f, 1.08f), K(175f, 1.12f), K(225f, 1.08f), K(275f, 1.02f), K(375f, 1.06f), K(500f, 1.10f) });
 
-	private static readonly OpticDistanceCurves s_Optic1To6x = Make("0–60 м, пересечение 65 м",
-		new[] { K(0f, 1.06f), K(10f, 1.03f), K(25f, 0.96f), K(40f, 0.94f), K(60f, 0.92f), K(80f, 0.98f), K(100f, 1.06f) },
-		new[] { K(0f, 1.22f), K(10f, 1.13f), K(25f, 1.07f), K(40f, 1.03f), K(60f, 1.03f), K(80f, 1.09f), K(100f, 1.13f) });
+	private static readonly OpticDistanceCurves s_Optic1To6x = Make("0–300 м, пересечение 325 м",
+		new[] { K(0f, 1.06f), K(50f, 1.03f), K(125f, 0.96f), K(200f, 0.94f), K(300f, 0.92f), K(400f, 0.98f), K(500f, 1.06f) },
+		new[] { K(0f, 1.22f), K(50f, 1.13f), K(125f, 1.07f), K(200f, 1.03f), K(300f, 1.03f), K(400f, 1.09f), K(500f, 1.13f) });
 
-	private static readonly OpticDistanceCurves s_Optic1To4xMod1 = Make("0–50 м, пересечение 60 м",
-		new[] { K(0f, 1.04f), K(20f, 0.98f), K(45f, 0.86f), K(60f, 0.88f), K(80f, 0.96f), K(100f, 1.06f) },
-		new[] { K(0f, 1.16f), K(20f, 1.10f), K(45f, 0.98f), K(60f, 1.00f), K(80f, 1.06f), K(100f, 1.10f) });
+	private static readonly OpticDistanceCurves s_Optic1To4xMod1 = Make("0–250 м, пересечение 300 м",
+		new[] { K(0f, 1.04f), K(100f, 0.98f), K(225f, 0.86f), K(300f, 0.88f), K(400f, 0.96f), K(500f, 1.06f) },
+		new[] { K(0f, 1.16f), K(100f, 1.10f), K(225f, 0.98f), K(300f, 1.00f), K(400f, 1.06f), K(500f, 1.10f) });
 
-	private static readonly OpticDistanceCurves s_Optic3x = Make("35–55 м, пересечение 55 м",
-		new[] { K(0f, 1.12f), K(20f, 0.96f), K(40f, 0.82f), K(55f, 0.88f), K(100f, 1.04f) },
-		new[] { K(0f, 1.20f), K(20f, 1.04f), K(40f, 0.98f), K(55f, 1.02f), K(100f, 1.08f) });
+	private static readonly OpticDistanceCurves s_Optic3x = Make("175–275 м, пересечение 275 м",
+		new[] { K(0f, 1.12f), K(100f, 0.96f), K(200f, 0.82f), K(275f, 0.88f), K(500f, 1.04f) },
+		new[] { K(0f, 1.20f), K(100f, 1.04f), K(200f, 0.98f), K(275f, 1.02f), K(500f, 1.08f) });
 
-	private static readonly OpticDistanceCurves s_Optic4x = Make("40–50 м, пересечение 60 м",
-		new[] { K(0f, 1.12f), K(40f, 0.88f), K(50f, 0.84f), K(60f, 0.90f), K(100f, 1.02f) },
-		new[] { K(0f, 1.24f), K(40f, 1.04f), K(50f, 0.98f), K(65f, 1.00f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_Optic4x = Make("40–250 м, пересечение 300 м",
+		new[] { K(0f, 1.12f), K(200f, 0.88f), K(250f, 0.84f), K(300f, 0.90f), K(500f, 1.02f) },
+		new[] { K(0f, 1.24f), K(200f, 1.04f), K(250f, 0.98f), K(325f, 1.00f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_Optic4xMod1 = Make("0–15 и 40–50 м, пересечение 60 м",
-		new[] { K(0f, 1.10f), K(15f, 1.04f), K(30f, 1.04f), K(40f, 0.90f), K(50f, 0.86f), K(60f, 0.88f), K(100f, 1.00f) },
-		new[] { K(0f, 1.22f), K(13f, 1.14f), K(40f, 1.06f), K(50f, 1.00f), K(55f, 1.02f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_Optic4xMod1 = Make("0–15 и 40–250 м, пересечение 300 м",
+		new[] { K(0f, 1.10f), K(75f, 1.04f), K(150f, 1.04f), K(200f, 0.90f), K(250f, 0.86f), K(300f, 0.88f), K(500f, 1.00f) },
+		new[] { K(0f, 1.22f), K(65f, 1.14f), K(200f, 1.06f), K(250f, 1.00f), K(275f, 1.02f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_Optic3_5x = Make("30–50 м, пересечение 60 м",
-		new[] { K(0f, 0.98f), K(20f, 0.94f), K(40f, 0.88f), K(50f, 0.84f), K(65f, 0.88f), K(100f, 1.02f) },
-		new[] { K(0f, 1.08f), K(20f, 1.02f), K(40f, 1.04f), K(50f, 0.98f), K(65f, 1.02f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_Optic3_5x = Make("30–250 м, пересечение 300 м",
+		new[] { K(0f, 0.98f), K(100f, 0.94f), K(200f, 0.88f), K(250f, 0.84f), K(325f, 0.88f), K(500f, 1.02f) },
+		new[] { K(0f, 1.08f), K(100f, 1.02f), K(200f, 1.04f), K(250f, 0.98f), K(325f, 1.02f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_SniperScopeMod0 = Make("60–70 м",
-		new[] { K(0f, 1.28f), K(40f, 1.08f), K(60f, 0.88f), K(70f, 0.86f), K(85f, 0.92f), K(100f, 0.94f) },
-		new[] { K(0f, 1.40f), K(40f, 1.24f), K(60f, 1.08f), K(70f, 1.02f), K(100f, 1.06f) });
+	private static readonly OpticDistanceCurves s_SniperScopeMod0 = Make("300–350 м",
+		new[] { K(0f, 1.28f), K(200f, 1.08f), K(300f, 0.88f), K(350f, 0.86f), K(425f, 0.92f), K(500f, 0.94f) },
+		new[] { K(0f, 1.40f), K(200f, 1.24f), K(300f, 1.08f), K(350f, 1.02f), K(500f, 1.06f) });
 
-	private static readonly OpticDistanceCurves s_SniperScopeMod1 = Make("70–80 м",
-		new[] { K(0f, 1.34f), K(50f, 1.06f), K(70f, 0.86f), K(80f, 0.84f), K(95f, 0.90f), K(100f, 0.82f) },
-		new[] { K(0f, 1.44f), K(50f, 1.18f), K(70f, 1.04f), K(80f, 0.98f), K(100f, 0.94f) });
+	private static readonly OpticDistanceCurves s_SniperScopeMod1 = Make("350–400 м",
+		new[] { K(0f, 1.34f), K(250f, 1.06f), K(350f, 0.86f), K(400f, 0.84f), K(475f, 0.90f), K(500f, 0.82f) },
+		new[] { K(0f, 1.44f), K(250f, 1.18f), K(350f, 1.04f), K(400f, 0.98f), K(500f, 0.94f) });
 
-	private static readonly OpticDistanceCurves s_SniperScopeMod2 = Make("80–100 м",
-		new[] { K(0f, 1.40f), K(60f, 1.06f), K(80f, 0.88f), K(100f, 0.86f) },
-		new[] { K(0f, 1.39f), K(60f, 1.12f), K(80f, 1.02f), K(100f, 0.97f) });
+	private static readonly OpticDistanceCurves s_SniperScopeMod2 = Make("400–500 м",
+		new[] { K(0f, 1.40f), K(300f, 1.06f), K(400f, 0.88f), K(500f, 0.86f) },
+		new[] { K(0f, 1.39f), K(300f, 1.12f), K(400f, 1.02f), K(500f, 0.97f) });
 
 	private static readonly OpticDistanceCurves s_StandardAkCollimator = Make("быстрая вскидка, хуже на дальности",
-		new[] { K(0f, 1.00f), K(25f, 1.00f), K(60f, 1.06f), K(100f, 1.10f) },
-		new[] { K(0f, 0.90f), K(25f, 0.94f), K(60f, 1.04f), K(100f, 1.08f) });
+		new[] { K(0f, 1.00f), K(125f, 1.00f), K(300f, 1.06f), K(500f, 1.10f) },
+		new[] { K(0f, 0.90f), K(125f, 0.94f), K(300f, 1.04f), K(500f, 1.08f) });
 
-	private static readonly OpticDistanceCurves s_AkSideRailOptic = Make("40–50 м, пересечение 60 м",
-		new[] { K(0f, 1.06f), K(35f, 0.98f), K(50f, 0.86f), K(60f, 0.84f), K(100f, 0.94f) },
-		new[] { K(0f, 1.22f), K(35f, 1.10f), K(50f, 1.00f), K(60f, 0.98f), K(100f, 1.04f) });
+	private static readonly OpticDistanceCurves s_AkSideRailOptic = Make("40–250 м, пересечение 300 м",
+		new[] { K(0f, 1.06f), K(175f, 0.98f), K(250f, 0.86f), K(300f, 0.84f), K(500f, 0.94f) },
+		new[] { K(0f, 1.22f), K(175f, 1.10f), K(250f, 1.00f), K(300f, 0.98f), K(500f, 1.04f) });
 
 	// Named lookup must be initialized after all curve static fields above.
 	private static readonly Dictionary<string, OpticDistanceCurves> s_NamedCurves = BuildNamedCurves();
@@ -254,7 +254,7 @@ public static class OpticDistanceCurveLibrary
 
 	#region Helpers
 	private const float c_MinDistanceMeters = 0f;
-	private const float c_MaxDistanceMeters = 100f;
+	private const float c_MaxDistanceMeters = 500f;
 	private const float c_MinMultiplier = 0.01f;
 
 	private static float EvaluateKeyframes(IReadOnlyList<DistanceKeyframe> _keyframes, float _distanceMeters)

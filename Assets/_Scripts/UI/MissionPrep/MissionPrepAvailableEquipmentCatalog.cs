@@ -215,6 +215,17 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 	{
 		InventorySlotRuntimeData slot = InventorySlotRuntimeData.FromDefinition(_definition);
 
+		WeaponDefinition weaponDefinition = _definition.WeaponDefinition;
+		if (weaponDefinition != null && weaponDefinition.UsesShellByShellReload)
+		{
+			AmmoDefinition ammo = _ammoForMagazine ?? weaponDefinition.BuiltInMagazineDefaultAmmo;
+			WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+				slot.InstanceState?.WeaponState,
+				ammo,
+				_roundsPerMagazine);
+			return slot;
+		}
+
 		if (_definition.MagazineDefinition == null || _ammoForMagazine == null)
 			return slot;
 

@@ -10,7 +10,7 @@ public enum WeaponDistanceAimGraphMetric
 }
 
 /// <summary>
-/// UI-график дистанционного поведения оружия: точность и скорость прицеливания на 0..100 м.
+/// UI-график дистанционного поведения оружия: точность и скорость прицеливания на 0..500 м.
 /// Формулы — Assets/Docs/CombatBalance/OpticDistanceBalance.md, расчёт — <see cref="WeaponDistanceAimEvaluator"/>.
 /// </summary>
 [DisallowMultipleComponent]
@@ -18,7 +18,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 {
 	#region Constants
 	private const float c_DefaultMinDistanceMeters = 0f;
-	private const float c_DefaultMaxDistanceMeters = 100f;
+	private const float c_DefaultMaxDistanceMeters = 500f;
 	private const float c_DefaultMinRecoilPreviewShot = 1f;
 	private const float c_DefaultMaxRecoilPreviewShot = 12f;
 	private const int c_MinRecoilPreviewSampleCount = 192;
@@ -46,7 +46,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[Header("Distance")]
 	[SerializeField, Min(0f)] private float m_MinDistanceMeters = c_DefaultMinDistanceMeters;
 	[SerializeField, Min(1f)] private float m_MaxDistanceMeters = c_DefaultMaxDistanceMeters;
-	[SerializeField, Range(8, 128)] private int m_SampleCount = 64;
+	[SerializeField, Range(8, 160)] private int m_SampleCount = 128;
 
 	[Header("Value Scale")]
 	[Tooltip("Подгоняет вертикальную шкалу под min/max отображаемых линий. В Mission Prep включается автоматически.")]
@@ -64,7 +64,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 	[Tooltip("Сужает ось дистанции к диапазону, где линии заметно меняются. В Mission Prep включается автоматически.")]
 	[SerializeField] private bool m_AutoFitDistanceRange = true;
 	[Tooltip("Минимальная ширина окна дистанции при auto-fit.")]
-	[SerializeField, Min(5f)] private float m_AutoFitMinDistanceSpanMeters = 30f;
+	[SerializeField, Min(5f)] private float m_AutoFitMinDistanceSpanMeters = 100f;
 	[Tooltip("Доля отступа слева/справа относительно найденного диапазона дистанции.")]
 	[SerializeField, Range(0f, 0.25f)] private float m_AutoFitDistancePaddingRatio = 0.08f;
 

@@ -11,7 +11,9 @@ public enum CaliberType
 	Five45By39 = 2,
 	Five56By45 = 3,
 	TwelveGauge = 4,
-	Seven62By39 = 5
+	Seven62By39 = 5,
+	Seven62By51 = 6,
+	Seven62By54R = 7
 }
 
 /// <summary>
@@ -249,7 +251,7 @@ public static class WeaponAimModeUtility
 
 	private static float GetIncompleteAimDistancePenaltyScale(float _distanceMeters)
 	{
-		float distance = Mathf.Max(0f, _distanceMeters);
+		float distance = Mathf.Max(0f, _distanceMeters * 0.2f);
 		if (distance <= 10f)
 			return 0.60f;
 		if (distance <= 25f)
@@ -423,7 +425,7 @@ public struct WeaponAttachmentSlotDefinition
 }
 
 /// <summary>
-/// Дистанционный профиль качества прицеливания на диапазоне 0..100 м.
+/// Дистанционный профиль качества прицеливания на диапазоне 0..500 м.
 /// Кривые поддерживают любое количество ключей, например 8-10 точек баланса по дистанции.
 /// Множитель разброса: меньше 1 = точнее. Множитель времени прицеливания: меньше 1 = быстрее.
 /// </summary>
@@ -432,14 +434,14 @@ public sealed class WeaponDistanceAimProfile
 {
 	#region Constants
 	private const float c_MinDistanceMeters = 0f;
-	private const float c_MaxDistanceMeters = 100f;
+	private const float c_MaxDistanceMeters = 500f;
 	private const float c_MinMultiplier = 0.01f;
 	#endregion
 
 	#region Private Fields
-	[Tooltip("Множитель разброса по дистанции 0..100 м. Можно добавить 8-10 ключей. Меньше 1 = точнее, больше 1 = хуже.")]
+	[Tooltip("Множитель разброса по дистанции 0..500 м. Можно добавить 8-10 ключей. Меньше 1 = точнее, больше 1 = хуже.")]
 	[SerializeField] private AnimationCurve m_DispersionMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
-	[Tooltip("Множитель времени прицеливания по дистанции 0..100 м. Можно добавить 8-10 ключей. Меньше 1 = быстрее, больше 1 = медленнее.")]
+	[Tooltip("Множитель времени прицеливания по дистанции 0..500 м. Можно добавить 8-10 ключей. Меньше 1 = быстрее, больше 1 = медленнее.")]
 	[SerializeField] private AnimationCurve m_AimTimeMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
 	#endregion
 

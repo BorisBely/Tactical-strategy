@@ -12,8 +12,8 @@ public sealed class ShootingRangeManager : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private ShootingRangeTargetRegistry m_TargetRegistry;
-	[SerializeField] private string m_TargetNamePattern = @"^Sphere(10|20|30|40|50|60|70|80|90|100)$";
-	[SerializeField, Min(10f)] private float m_PlayerVisionRange = 120f;
+	[SerializeField] private string m_TargetNamePattern = @"^Sphere(50|100|150|200|250|300|350|400|450|500)$";
+	[SerializeField, Min(10f)] private float m_PlayerVisionRange = 550f;
 	[SerializeField] private bool m_AutoDiscoverTargetsOnAwake = true;
 	[SerializeField] private bool m_StartWithTargetsEnabled = true;
 	[SerializeField] private int m_TargetLayer = 8;

@@ -26,6 +26,8 @@ public sealed class MagazineDefinition : ScriptableObject
 	[Header("Reliability")]
 	[Tooltip("Как этот магазин влияет на риск задержки или клина.")]
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
+	[Tooltip("Нельзя снять с оружия (встроенная трубка / internal box).")]
+	[SerializeField] private bool m_IsNonRemovable;
 
 	[Header("Audio (ручная зарядка)")]
 	[Tooltip("Звуки вставки патрона в магазин — по одному на ивент AnimationEvent_LoadOneRoundIntoMagazine; порядок без повторов до круга.")]
@@ -40,6 +42,7 @@ public sealed class MagazineDefinition : ScriptableObject
 	public float RoundLoadTimeSeconds => m_RoundLoadTimeSeconds;
 	public float ReloadTimeModifier => m_ReloadTimeModifier;
 	public float JamRiskModifier => m_JamRiskModifier;
+	public bool IsNonRemovable => m_IsNonRemovable;
 	public AudioClip[] RoundLoadSounds => m_RoundLoadSounds;
 	public float RoundLoadSoundsVolume => m_RoundLoadSoundsVolume;
 	#endregion

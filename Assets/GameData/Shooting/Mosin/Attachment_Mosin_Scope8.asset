@@ -14,13 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponAttachmentDefinition
   m_AttachmentType: 0
   m_RequiredSlot: 3
-  m_UseExplicitWeaponCompatibility: 0
-  m_CompatibleWeapons: []
+  m_UseExplicitWeaponCompatibility: 1
+  m_CompatibleWeapons:
+  - {fileID: 11400000, guid: b39ed766f654d4344b4d0032cbc1a461, type: 2}
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.22
   m_EffectiveRangeModifier: 1.2
   m_RecoilModifier: 1
+  m_SemiAutoRecoilModifier: 1
+  m_AutomaticRecoilModifier: 1
+  m_ReloadTimeModifier: 1
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
@@ -35,7 +39,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 30
+        time: 150
         value: 1.06
         inSlope: 0
         outSlope: 0
@@ -44,7 +48,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 40
+        time: 200
         value: 0.9
         inSlope: 0
         outSlope: 0
@@ -53,7 +57,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50
+        time: 250
         value: 0.84
         inSlope: 0
         outSlope: 0
@@ -62,7 +66,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 65
+        time: 325
         value: 0.82
         inSlope: 0
         outSlope: 0
@@ -71,7 +75,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 85
+        time: 425
         value: 0.88
         inSlope: 0
         outSlope: 0
@@ -80,7 +84,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 100
+        time: 500
         value: 0.92
         inSlope: 0
         outSlope: 0
@@ -104,7 +108,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 30
+        time: 150
         value: 1.16
         inSlope: 0
         outSlope: 0
@@ -113,7 +117,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 40
+        time: 200
         value: 1.06
         inSlope: 0
         outSlope: 0
@@ -122,7 +126,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50
+        time: 250
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -131,7 +135,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 65
+        time: 325
         value: 0.96
         inSlope: 0
         outSlope: 0
@@ -140,7 +144,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 85
+        time: 425
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -149,7 +153,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 100
+        time: 500
         value: 1.02
         inSlope: 0
         outSlope: 0
@@ -160,9 +164,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1
-  m_SuppressedFireSound: {fileID: 0}
+  m_SuppressedFireVolumeMultiplier: 0.35
+  m_SuppressedFireSoundProfile:
+    m_FireClips: []
+    m_MaxAudibleDistanceMeters: 0
   m_EquippedVisualPrefab: {fileID: 3270636581391031681, guid: 2d2bf194f8e746c489805116e538c3bc, type: 3}

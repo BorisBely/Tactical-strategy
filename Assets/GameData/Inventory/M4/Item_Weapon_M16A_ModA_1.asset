@@ -23,7 +23,15 @@ MonoBehaviour:
   m_EquippedVisualPrefab: {fileID: 6564167307585270312, guid: 1468d32f053a67d439cb99b7068e6002, type: 3}
   m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
   m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

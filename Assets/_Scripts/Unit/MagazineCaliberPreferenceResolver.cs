@@ -73,6 +73,8 @@ public static class MagazineCaliberPreferenceResolver
 				break;
 			case CaliberType.Five45By39:
 			case CaliberType.Seven62By39:
+			case CaliberType.Seven62By51:
+			case CaliberType.Seven62By54R:
 				_akCount++;
 				break;
 		}
@@ -98,6 +100,8 @@ public static class MagazineCaliberPreferenceResolver
 			CaliberType.Five56By45 => MagazineCaliberVisualPreference.Five56,
 			CaliberType.Five45By39 => MagazineCaliberVisualPreference.Ak,
 			CaliberType.Seven62By39 => MagazineCaliberVisualPreference.Ak,
+			CaliberType.Seven62By51 => MagazineCaliberVisualPreference.Ak,
+			CaliberType.Seven62By54R => MagazineCaliberVisualPreference.Ak,
 			_ => MagazineCaliberVisualPreference.Undefined
 		};
 	}

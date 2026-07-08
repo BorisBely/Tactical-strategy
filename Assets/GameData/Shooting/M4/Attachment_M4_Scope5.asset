@@ -26,7 +26,7 @@ MonoBehaviour:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
+        time: 0.0
         value: 1.34
         inSlope: 0
         outSlope: 0
@@ -35,7 +35,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50
+        time: 250.0
         value: 1.06
         inSlope: 0
         outSlope: 0
@@ -44,7 +44,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 70
+        time: 350.0
         value: 0.86
         inSlope: 0
         outSlope: 0
@@ -53,7 +53,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 80
+        time: 400.0
         value: 0.84
         inSlope: 0
         outSlope: 0
@@ -62,7 +62,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 95
+        time: 475.0
         value: 0.9
         inSlope: 0
         outSlope: 0
@@ -71,7 +71,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 100
+        time: 500.0
         value: 0.82
         inSlope: 0
         outSlope: 0
@@ -86,7 +86,7 @@ MonoBehaviour:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
+        time: 0.0
         value: 1.44
         inSlope: 0
         outSlope: 0
@@ -95,7 +95,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50
+        time: 250.0
         value: 1.18
         inSlope: 0
         outSlope: 0
@@ -104,7 +104,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 70
+        time: 350.0
         value: 1.04
         inSlope: 0
         outSlope: 0
@@ -113,7 +113,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 80
+        time: 400.0
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -122,7 +122,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 100
+        time: 500.0
         value: 0.94
         inSlope: 0
         outSlope: 0

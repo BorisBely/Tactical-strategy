@@ -18,7 +18,7 @@ MonoBehaviour:
   m_ArmorDamage: 9
   m_ProjectileCount: 1
   m_Velocity: 900
-  m_EffectiveRangeMeters: 100
+  m_EffectiveRangeMeters: 500
   m_FireSoundOverrideProfile:
     m_FireClips: []
     m_MaxAudibleDistanceMeters: 0

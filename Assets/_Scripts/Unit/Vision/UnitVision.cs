@@ -76,11 +76,10 @@ public sealed class UnitVision : MonoBehaviour
 
 	[Header("Отладка")]
 	[SerializeField] private bool m_DrawVisionGizmos;
-	[SerializeField] private Color m_GizmoFovColor = new Color(0.2f, 0.8f, 0.3f, 0.9f);
 	[SerializeField] private Color m_GizmoRayHitColor = new Color(1f, 0.3f, 0.1f, 0.9f);
 	[SerializeField] private Color m_GizmoRayMissColor = new Color(0.4f, 0.4f, 0.9f, 0.6f);
 
-	[Tooltip("Play Mode + Gizmos: луч из точки конуса (глаза или прицел в «готов»), направление = ось FOV по горизонтали.")]
+	[Tooltip("Scene Gizmos + Game view: направление взгляда юнита (горизонталь оси зрения).")]
 	[SerializeField] private bool m_DrawEyeLookDebugRay;
 	[SerializeField, Min(0.1f)] private float m_EyeLookDebugRayLength = 5f;
 	[SerializeField] private Color m_EyeLookDebugRayColor = new Color(1f, 0.35f, 0.9f, 1f);
@@ -1180,70 +1179,50 @@ public sealed class UnitVision : MonoBehaviour
 	#endregion
 
 	#region Gizmos
-	private void OnDrawGizmosSelected()
-	{
-		DrawVisionSectorGizmos(false);
-	}
-
 	private void OnDrawGizmos()
 	{
+		DrawLookDirectionGizmo();
+
 		if (!m_DrawVisionGizmos)
 			return;
 
-		DrawVisionSectorGizmos(true);
+		DrawVisionDebugGizmos();
 	}
 
-	private void DrawVisionSectorGizmos(bool _includeDebugRays)
+	private void DrawLookDirectionGizmo()
 	{
-		// Конус FOV всегда из текущего положения/оси (торс/корень), иначе в Play Mode он «застывает»
-		// до следующего RunVisionScan — юнит уже повернулся, а зелёные линии остаются старыми.
+		if (!m_DrawEyeLookDebugRay)
+			return;
+
+		Vector3 origin = Application.isPlaying ? GetVisionConeOriginWorld() : GetEyeWorldPosition();
+		Vector3 direction = ResolveLookDirectionForGizmo();
+		if (direction.sqrMagnitude < 1e-8f)
+			return;
+
+		GizmoDirectionDrawUtility.DrawArrow(origin, direction, m_EyeLookDebugRayLength, m_EyeLookDebugRayColor);
+	}
+
+	private Vector3 ResolveLookDirectionForGizmo()
+	{
+		if (Application.isPlaying)
+		{
+			Vector3 fwdXz = GetVisionForwardXZForGameplay();
+			return new Vector3(fwdXz.x, 0f, fwdXz.z);
+		}
+
+		Vector3 rootForward = transform.forward;
+		rootForward.y = 0f;
+		return rootForward.sqrMagnitude > 1e-8f ? rootForward.normalized : Vector3.forward;
+	}
+
+	private void DrawVisionDebugGizmos()
+	{
+		if (!Application.isPlaying)
+			return;
+
 		Vector3 origin = GetVisionConeOriginWorld();
-		Vector3 fwd = GetVisionForwardXZForGameplay();
-		if (fwd.sqrMagnitude < 1e-6f)
-			return;
 
-		float range = m_VisionRange;
-		float half = ResolveHalfFovDegreesForScan();
-		float baseHalf = m_FieldOfViewDegrees * 0.5f;
-
-		Gizmos.color = m_GizmoFovColor;
-		Gizmos.DrawWireSphere(origin, 0.12f);
-
-		Vector3 centerEnd = origin + fwd * range;
-		Gizmos.DrawLine(origin, centerEnd);
-		DrawGizmoArrowHead(centerEnd, fwd, Mathf.Clamp(range * 0.08f, 0.25f, 1.2f));
-
-		Vector3 leftDir = (Quaternion.AngleAxis(-half, Vector3.up) * fwd).normalized;
-		Vector3 rightDir = (Quaternion.AngleAxis(half, Vector3.up) * fwd).normalized;
-		Vector3 leftEnd = origin + leftDir * range;
-		Vector3 rightEnd = origin + rightDir * range;
-		Gizmos.DrawLine(origin, leftEnd);
-		Gizmos.DrawLine(origin, rightEnd);
-
-		Vector3 prev = leftEnd;
-		const int arcSeg = 24;
-		for (int i = 1; i <= arcSeg; i++)
-		{
-			float a = -half + (2f * half * i / arcSeg);
-			Vector3 next = origin + (Quaternion.AngleAxis(a, Vector3.up) * fwd).normalized * range;
-			Gizmos.DrawLine(prev, next);
-			prev = next;
-		}
-
-		if (Mathf.Abs(half - baseHalf) > 0.01f)
-		{
-			Color widenedColor = new Color(m_GizmoFovColor.r, m_GizmoFovColor.g, m_GizmoFovColor.b, m_GizmoFovColor.a * 0.35f);
-			Gizmos.color = widenedColor;
-			Vector3 baseLeftEnd = origin + (Quaternion.AngleAxis(-baseHalf, Vector3.up) * fwd).normalized * range;
-			Vector3 baseRightEnd = origin + (Quaternion.AngleAxis(baseHalf, Vector3.up) * fwd).normalized * range;
-			Gizmos.DrawLine(origin, baseLeftEnd);
-			Gizmos.DrawLine(origin, baseRightEnd);
-		}
-
-		if (!_includeDebugRays)
-			return;
-
-		if (Application.isPlaying && m_DebugRays.Count > 0)
+		if (m_DebugRays.Count > 0)
 		{
 			for (int i = 0; i < m_DebugRays.Count; i++)
 			{
@@ -1253,28 +1232,13 @@ public sealed class UnitVision : MonoBehaviour
 			}
 		}
 
-		if (m_VisibleTarget != null && Application.isPlaying)
+		if (m_VisibleTarget != null)
 		{
 			Gizmos.color = Color.yellow;
 			Vector3 aimPoint = GetVisibleTargetAimPointWorld();
 			Gizmos.DrawLine(origin, aimPoint);
 			Gizmos.DrawWireSphere(aimPoint, 0.08f);
 		}
-	}
-
-	private static void DrawGizmoArrowHead(Vector3 _tip, Vector3 _forward, float _size)
-	{
-		Vector3 fwd = _forward;
-		fwd.y = 0f;
-		if (fwd.sqrMagnitude < 1e-6f)
-			return;
-		fwd.Normalize();
-
-		Vector3 back = _tip - fwd * _size;
-		Vector3 leftWing = back + (Quaternion.AngleAxis(-28f, Vector3.up) * fwd) * _size;
-		Vector3 rightWing = back + (Quaternion.AngleAxis(28f, Vector3.up) * fwd) * _size;
-		Gizmos.DrawLine(_tip, leftWing);
-		Gizmos.DrawLine(_tip, rightWing);
 	}
 	#endregion
 }

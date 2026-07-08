@@ -21,7 +21,15 @@ MonoBehaviour:
   m_EquippedVisualPrefab: {fileID: 785686033622066019, guid: 5972bf6f718f8fd49bb52ade8db32d19, type: 3}
   m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
   m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 11400000, guid: f5b8c44e3f183b14c9d5550a0440a6d4, type: 2}

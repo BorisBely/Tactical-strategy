@@ -121,6 +121,9 @@ MonoBehaviour:
     m_AmmoContainerState:
       m_AmmoDefinition: {fileID: 0}
       m_CurrentAmmoCount: 0
+    m_MedkitState:
+      m_Definition: {fileID: 0}
+      m_CurrentResourcePoints: 0
   m_EquippedAttachments: []
 --- !u!1001 &8360195064465394404
 PrefabInstance:

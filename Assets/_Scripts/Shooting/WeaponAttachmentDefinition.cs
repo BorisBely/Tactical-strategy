@@ -34,7 +34,7 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_AutomaticRecoilModifier = 1f;
 	[Tooltip("Как модуль меняет скорость смены магазина в оружии.")]
 	[SerializeField, Min(0f)] private float m_ReloadTimeModifier = 1f;
-	[Tooltip("Как модуль меняет точность и скорость прицеливания на дистанции 0..100 м.")]
+	[Tooltip("Как модуль меняет точность и скорость прицеливания на дистанции 0..500 м.")]
 	[SerializeField] private WeaponDistanceAimProfile m_DistanceAimProfile = new WeaponDistanceAimProfile();
 
 	[Header("Weapon condition (за выстрел)")]

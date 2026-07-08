@@ -66,13 +66,16 @@ public sealed class ItemInstanceState
 		{
 			m_WeaponState = new WeaponRuntimeState();
 			m_WeaponState.SetWeaponDefinition(_definition.WeaponDefinition);
+			WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+				m_WeaponState,
+				_definition.WeaponDefinition.BuiltInMagazineDefaultAmmo);
 		}
 	}
 
 	/// <summary>
 	/// Обёртка для слота магазина без WeaponRuntimeState (вставка в оружие не должна сериализовать вложенное оружие).
 	/// </summary>
-	internal static ItemInstanceState CreateMagazineSlotOwner(ItemDefinition _magazineDefinition, MagazineRuntimeState _magazineRuntimeState)
+	internal static ItemInstanceState CreateMagazineSlotOwner(MagazineRuntimeState _magazineRuntimeState)
 	{
 		ItemInstanceState state = new ItemInstanceState();
 		state.m_WeaponState = null;

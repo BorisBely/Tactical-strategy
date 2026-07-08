@@ -57,15 +57,15 @@ public static class RailAttachmentDistanceCurveLibrary
 
 	#region Curve Data
 	private static readonly RailDistanceCurves s_FlatNeutral = Make("нейтральный",
-		new[] { K(0f, 1f), K(100f, 1f) });
+		new[] { K(0f, 1f), K(500f, 1f) });
 
 	/// <summary>Компактный ЛЦУ: лёгкий бонус точности до 15 м.</summary>
-	private static readonly RailDistanceCurves s_CompactLaser = Make("0–15 м",
-		new[] { K(0f, 0.90f), K(15f, 0.92f), K(25f, 1.00f), K(100f, 1.00f) });
+	private static readonly RailDistanceCurves s_CompactLaser = Make("0–75 м",
+		new[] { K(0f, 0.90f), K(75f, 0.92f), K(125f, 1.00f), K(500f, 1.00f) });
 
 	/// <summary>Тактический ЛЦУ: лёгкий бонус точности до 25 м.</summary>
 	private static readonly RailDistanceCurves s_TacticalLaser = Make("0–25 м",
-		new[] { K(0f, 0.90f), K(15f, 0.88f), K(25f, 0.92f), K(35f, 1.00f), K(100f, 1.00f) });
+		new[] { K(0f, 0.90f), K(75f, 0.88f), K(125f, 0.92f), K(175f, 1.00f), K(500f, 1.00f) });
 
 	private static readonly Dictionary<string, RailDistanceCurves> s_NamedCurves = BuildNamedCurves();
 
@@ -81,7 +81,7 @@ public static class RailAttachmentDistanceCurveLibrary
 
 	#region Helpers
 	private const float c_MinDistanceMeters = 0f;
-	private const float c_MaxDistanceMeters = 100f;
+	private const float c_MaxDistanceMeters = 500f;
 	private const float c_MinMultiplier = 0.01f;
 
 	private static float EvaluateKeyframes(IReadOnlyList<DistanceKeyframe> _keyframes, float _distanceMeters)

@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Loot_AmmoBox_762x51
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.loot.ammo_box.762x51
+  m_Description: 7.62x51 NATO ammo box.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 40
+  m_WeightKg: 0
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 2137418201807770771, guid: 9f4981ffddd783641bad5f4e266b9b5f, type: 3}
+  m_EquippedVisualPrefab: {fileID: 0}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 11400000, guid: 4296c5f3353784149b6b54053b55491d, type: 2}
+  m_InitialAmmoCount: 100
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_BagAddSounds:
+    m_Clips: []
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips: []
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
+    m_Clips: []
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
+    m_Clips: []
+  m_EquipmentRemoveSoundVolume: 0.85

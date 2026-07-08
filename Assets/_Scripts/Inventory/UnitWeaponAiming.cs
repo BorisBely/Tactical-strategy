@@ -24,6 +24,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
@@ -86,6 +87,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField, Range(0f, 1f)] private float m_DebugAimLayerWeight;
 
 	[Header("Отладка лучей")]
+	[Tooltip("Scene Gizmos + Game view: куда смотрит ствол оружия (Barrel.forward).")]
 	[SerializeField] private bool m_DrawBarrelForwardRay;
 	[SerializeField, Min(0.1f)] private float m_BarrelForwardRayLength = 4f;
 	[SerializeField] private Color m_BarrelForwardRayColor = new Color(1f, 0.85f, 0f, 0.95f);
@@ -122,6 +124,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponent<UnitEquippedWeaponPose>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponentInParent<UnitEquippedWeaponPose>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponent<UnitBusyState>();
 		if (m_ReloadController == null)
@@ -215,9 +221,44 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_DrawBarrelForwardRay)
 			Debug.DrawRay(m_BarrelTransform.position, m_BarrelTransform.forward * m_BarrelForwardRayLength, m_BarrelForwardRayColor);
 	}
+
+	private void OnDrawGizmos()
+	{
+		if (!m_DrawBarrelForwardRay || !TryGetBarrelGizmoRay(out Vector3 origin, out Vector3 direction))
+			return;
+
+		GizmoDirectionDrawUtility.DrawArrow(origin, direction, m_BarrelForwardRayLength, m_BarrelForwardRayColor, 0.1f);
+	}
 	#endregion
 
 	#region Private Methods
+	private bool TryGetBarrelGizmoRay(out Vector3 _origin, out Vector3 _direction)
+	{
+		_origin = Vector3.zero;
+		_direction = Vector3.forward;
+
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponent<UnitEquipment>();
+
+		Transform weaponRoot = m_UnitEquipment != null ? m_UnitEquipment.MainWeaponRoot : null;
+		if (weaponRoot == null)
+			return false;
+
+		Transform barrel = m_BarrelTransform;
+		if (barrel == null)
+		{
+			EquippedWeapon equippedWeapon = m_UnitEquipment.EquippedWeapon;
+			barrel = equippedWeapon != null ? equippedWeapon.BarrelTransform : weaponRoot;
+		}
+
+		if (barrel == null)
+			return false;
+
+		_origin = barrel.position;
+		_direction = barrel.forward;
+		return _direction.sqrMagnitude > 1e-8f;
+	}
+
 	private bool IsBlockedByRagdoll()
 	{
 		return m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts;
@@ -307,12 +348,19 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (_def != m_LastEquippedDefinition)
 		{
 			m_LastEquippedDefinition = _def;
-			m_BaseWeaponLocalRotation = _def.RightHandLocalRotation;
 			ResolveBarrelTransform(_weaponRoot);
-			_weaponRoot.localRotation = m_BaseWeaponLocalRotation;
 		}
 
+		m_BaseWeaponLocalRotation = ResolveBaseWeaponLocalRotation(_def);
 		return m_BarrelTransform != null;
+	}
+
+	private Quaternion ResolveBaseWeaponLocalRotation(ItemDefinition _def)
+	{
+		if (m_EquippedWeaponPose != null)
+			return m_EquippedWeaponPose.CurrentBaseWeaponLocalRotation;
+
+		return _def != null ? _def.RightHandLocalRotation : Quaternion.identity;
 	}
 
 	private void ApplyAnimatorAimParameters()

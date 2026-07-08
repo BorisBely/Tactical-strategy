@@ -570,6 +570,30 @@
       "value": "РПК-74 тактический (Mod.1)"
     },
     {
+      "key": "item.weapon.mosin",
+      "value": "Винтовка Мосина"
+    },
+    {
+      "key": "item.weapon.benelli_m4",
+      "value": "Benelli M4"
+    },
+    {
+      "key": "item.weapon.m249",
+      "value": "M249 SAW"
+    },
+    {
+      "key": "item.weapon.sniper_762x51",
+      "value": "Снайперская винтовка 7,62×51"
+    },
+    {
+      "key": "item.weapon.pkm",
+      "value": "ПКМ"
+    },
+    {
+      "key": "item.weapon.svd",
+      "value": "СВД"
+    },
+    {
       "key": "item.attachment.ak_silencer",
       "value": "Глушитель АК"
     },
@@ -614,12 +638,48 @@
       "value": "Сдвоенный магазин АК 7.62x39 (30 патр.)"
     },
     {
+      "key": "item.mag.mosin_762_54r_5",
+      "value": "Встроенный магазин Мосина (5 патр.)"
+    },
+    {
+      "key": "item.mag.benelli_12g_7",
+      "value": "Трубчатый магазин Benelli M4 (7 патр.)"
+    },
+    {
+      "key": "item.mag.m249_556_200",
+      "value": "Короб с лентой M249 (200 патр.)"
+    },
+    {
+      "key": "item.mag.sniper_762x51_10",
+      "value": "Магазин 7,62×51 (10 патр.)"
+    },
+    {
+      "key": "item.mag.pkm_762_54r_100",
+      "value": "Короб с лентой ПКМ (100 патр.)"
+    },
+    {
+      "key": "item.mag.svd_762_54r_10",
+      "value": "Магазин СВД (10 патр.)"
+    },
+    {
       "key": "item.loot.ammo_box.762",
       "value": "Коробка патронов 7.62x39"
     },
     {
       "key": "item.loot.ammo_box.545",
       "value": "Коробка патронов 5.45x39"
+    },
+    {
+      "key": "item.loot.ammo_box.12g",
+      "value": "Коробка патронов 12 калибр"
+    },
+    {
+      "key": "item.loot.ammo_box.762x51",
+      "value": "Коробка патронов 7,62×51 NATO"
+    },
+    {
+      "key": "item.loot.ammo_box.762x54r",
+      "value": "Коробка патронов 7,62×54 мм R"
     },
     {
       "key": "item.attachment.mosin_scope8",
@@ -674,6 +734,30 @@
       "value": "Тактический РПК-74 с планками и слотами под M4-модули."
     },
     {
+      "key": "item.weapon.mosin.desc",
+      "value": "Винтовка Мосина под 7,62×54 мм R. Медленная, но точная на дальней дистанции."
+    },
+    {
+      "key": "item.weapon.benelli_m4.desc",
+      "value": "Самозарядный дробовик Benelli M4 калибра 12 калибр. Разрушительная мощь вблизи."
+    },
+    {
+      "key": "item.weapon.m249.desc",
+      "value": "Ручной пулемёт M249 SAW под 5,56×45 NATO с ленточным питанием."
+    },
+    {
+      "key": "item.weapon.sniper_762x51.desc",
+      "value": "Снайперская винтовка с продольно-скользящим затвором под 7,62×51 NATO для дальних дистанций."
+    },
+    {
+      "key": "item.weapon.pkm.desc",
+      "value": "Пулемёт ПКМ под 7,62×54 мм R с ленточным питанием."
+    },
+    {
+      "key": "item.weapon.svd.desc",
+      "value": "Самозарядная снайперская винтовка СВД под 7,62×54 мм R."
+    },
+    {
       "key": "item.weapon.m4_moda_1.desc",
       "value": "Конфигурация M4 со стандартным цевьём, прикладом и механическим прицелом."
     },
@@ -708,6 +792,18 @@
     {
       "key": "item.loot.ammo_box.545.desc",
       "value": "Коробка патронов 5.45x39."
+    },
+    {
+      "key": "item.loot.ammo_box.12g.desc",
+      "value": "Коробка дроби 12 калибр."
+    },
+    {
+      "key": "item.loot.ammo_box.762x51.desc",
+      "value": "Коробка патронов 7,62×51 NATO."
+    },
+    {
+      "key": "item.loot.ammo_box.762x54r.desc",
+      "value": "Коробка патронов 7,62×54 мм R."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -752,6 +848,30 @@
     {
       "key": "item.mag.ak_762_75.desc",
       "value": "Барабанный магазин АК на 75 патронов 7.62x39."
+    },
+    {
+      "key": "item.mag.mosin_762_54r_5.desc",
+      "value": "Встроенный магазин Мосина на 5 патронов."
+    },
+    {
+      "key": "item.mag.benelli_12g_7.desc",
+      "value": "Трубчатый магазин Benelli M4 на 7 патронов."
+    },
+    {
+      "key": "item.mag.m249_556_200.desc",
+      "value": "Короб с лентой M249 на 200 патронов."
+    },
+    {
+      "key": "item.mag.sniper_762x51_10.desc",
+      "value": "Магазин на 10 патронов 7,62×51 NATO."
+    },
+    {
+      "key": "item.mag.pkm_762_54r_100.desc",
+      "value": "Короб с лентой ПКМ на 100 патронов."
+    },
+    {
+      "key": "item.mag.svd_762_54r_10.desc",
+      "value": "Магазин СВД на 10 патронов 7,62×54 мм R."
     },
     {
       "key": "item.attachment.m4_silencer_556.desc",

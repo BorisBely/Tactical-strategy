@@ -125,7 +125,10 @@ public sealed class WeaponRuntimeState
 	public MagazineRuntimeState CurrentMagazine => m_CurrentMagazineRuntimeState;
 	public AmmoDefinition CurrentAmmoDefinition => CurrentMagazine != null ? CurrentMagazine.LoadedAmmoDefinition : null;
 	public int CurrentAmmoCount => CurrentMagazine != null ? CurrentMagazine.CurrentAmmoCount : 0;
-	public bool HasMagazine => m_CurrentMagazineDefinition != null && CurrentMagazine != null && CurrentMagazine.HasMagazine;
+	public bool HasMagazine => CurrentMagazine != null && CurrentMagazine.HasMagazine;
+	public bool IsMagazineNonRemovable =>
+		(m_WeaponDefinition != null && m_WeaponDefinition.UsesShellByShellReload) ||
+		(CurrentMagazine != null && CurrentMagazine.Definition != null && CurrentMagazine.Definition.IsNonRemovable);
 	public bool HasAmmoInMagazine => CurrentMagazine != null && CurrentMagazine.HasAmmo;
 	public bool HasRoundInChamber => m_HasRoundInChamber && m_ChamberedAmmoDefinition != null;
 	public AmmoDefinition ChamberedAmmoDefinition => m_ChamberedAmmoDefinition;
@@ -376,9 +379,31 @@ public sealed class WeaponRuntimeState
 		return true;
 	}
 
+	public bool TryInsertBuiltInMagazine(MagazineDefinition _magazineDefinition, AmmoDefinition _ammo, int _roundCount)
+	{
+		if (_magazineDefinition == null || HasMagazine)
+			return false;
+
+		MagazineRuntimeState magazineState = new MagazineRuntimeState();
+		magazineState.Configure(_magazineDefinition, _ammo, _roundCount);
+
+		m_CurrentMagazineDefinition = null;
+		m_CurrentMagazineDisplayName = null;
+		m_CurrentMagazineLocalizationKey = null;
+		m_CurrentMagazineRuntimeState = magazineState;
+		m_CachedMagazineSlotOwner = null;
+		return true;
+	}
+
 	public bool TryEjectMagazine(out InventorySlotRuntimeData _magazineItem)
 	{
 		if (!HasMagazine)
+		{
+			_magazineItem = default;
+			return false;
+		}
+
+		if (IsMagazineNonRemovable)
 		{
 			_magazineItem = default;
 			return false;
@@ -524,7 +549,7 @@ public sealed class WeaponRuntimeState
 			return default;
 
 		if (m_CachedMagazineSlotOwner == null)
-			m_CachedMagazineSlotOwner = ItemInstanceState.CreateMagazineSlotOwner(m_CurrentMagazineDefinition, m_CurrentMagazineRuntimeState);
+			m_CachedMagazineSlotOwner = ItemInstanceState.CreateMagazineSlotOwner(m_CurrentMagazineRuntimeState);
 
 		return new InventorySlotRuntimeData
 		{

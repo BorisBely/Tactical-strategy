@@ -1,9 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// IK левой кисти к цели на экипированном оружии (<see cref="UnitEquipment.LeftHandIkTargetTransform"/>).
-/// Компонент нужно повесить на тот же GameObject, где висит <see cref="Animator"/> (Humanoid).
-/// В Animator Controller у слоя с движением должен быть включён <b>IK Pass</b> (сейчас: Aim_Point_U90-D90).
+/// IK левой и правой кисти к целям на экипированном оружии.
+/// Правая рука: координаты relaxed/ready из <see cref="ItemDefinition"/> + вес по <see cref="UnitEquippedWeaponPose"/>.
+/// Компонент на том же GameObject, что <see cref="Animator"/> (Humanoid). В Animator Controller нужен <b>IK Pass</b>.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
@@ -12,26 +12,29 @@ public class AnimatorHandIk : MonoBehaviour
 	#region Serialized Fields
 	[Tooltip("Снаряжение на корне юнита (родитель или сам юнит с CharacterInventory).")]
 	[SerializeField] private UnitEquipment m_UnitEquipment;
-	[Tooltip("Пока идёт ручная зарядка магазина (T), IK левой руки отключается.")]
+	[Tooltip("Поза оружия relaxed/ready; вес IK правой руки берётся отсюда.")]
+	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
+	[Tooltip("Пока идёт ручная зарядка магазина (T), IK рук отключается.")]
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoading;
-	[Tooltip("Пока идёт перезарядка оружия (R), IK левой руки отключается.")]
+	[Tooltip("Пока идёт перезарядка оружия (R), IK рук отключается.")]
 	[SerializeField] private UnitWeaponReloadController m_WeaponReload;
-	[Tooltip("Пока идёт самостабилизация IFAK, IK левой руки отключается.")]
+	[Tooltip("Пока идёт самостабилизация IFAK, IK рук отключается.")]
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
-	[Tooltip("Пока идёт стабилизация другого юнита, IK левой руки отключается.")]
+	[Tooltip("Пока идёт стабилизация другого юнита, IK рук отключается.")]
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
-	[Tooltip("Пока юнит тащит сражённого, IK левой руки отключается (рука уходит на drag-слой).")]
+	[Tooltip("Пока юнит тащит сражённого, IK рук отключается (рука уходит на drag-слой).")]
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandPositionWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandRotationWeight = 1f;
+	[SerializeField, Range(0f, 1f)] private float m_RightHandPositionWeight = 1f;
+	[SerializeField, Range(0f, 1f)] private float m_RightHandRotationWeight = 1f;
+	[Tooltip("Вес IK правой кисти в режиме «не готов». 0 — только анимация (как в уроке).")]
+	[SerializeField, Range(0f, 1f)] private float m_RightHandNotReadyIkWeight;
 	[Header("Экипировка")]
-	[Tooltip("Длительность плавного подтягивания левой руки к IK-точке после появления оружия. 0 — мгновенно.")]
 	[SerializeField, Min(0f)] private float m_EquipBlendDuration = 0.35f;
-	[Tooltip("Кривая веса IK при экипировке. Пустая — SmoothStep.")]
 	[SerializeField] private AnimationCurve m_EquipBlendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 	[Header("Локоть (подсказка IK)")]
 	[SerializeField] private bool m_UseLeftElbowHint;
-	[Tooltip("Пустой объект перед локтем слева (в пространстве персонажа), чтобы сгиб был естественнее.")]
 	[SerializeField] private Transform m_LeftElbowHint;
 	[SerializeField, Range(0f, 1f)] private float m_LeftElbowHintWeight = 1f;
 	[Header("Отладка")]
@@ -40,8 +43,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 	#region Private Fields
 	private Animator m_Animator;
-	/// <summary>Запрошен сброс IK из кода вне <see cref="OnAnimatorIK"/> (например при «готов», пока идёт зарядка/перезарядка).</summary>
-	private bool m_ClearLeftHandIkOnNextAnimatorIkPass;
+	private bool m_ClearHandIkOnNextAnimatorIkPass;
 	private bool m_IsEquipBlendActive;
 	private float m_EquipBlendElapsed;
 	private int m_LastEquipBlendAdvanceFrame = -1;
@@ -51,18 +53,7 @@ public class AnimatorHandIk : MonoBehaviour
 	private void Awake()
 	{
 		m_Animator = GetComponent<Animator>();
-		if (m_UnitEquipment == null)
-			m_UnitEquipment = GetComponentInParent<UnitEquipment>();
-		if (m_MagazineLoading == null)
-			m_MagazineLoading = GetComponentInParent<UnitMagazineLoadingController>();
-		if (m_WeaponReload == null)
-			m_WeaponReload = GetComponentInParent<UnitWeaponReloadController>();
-		if (m_SelfStabilization == null)
-			m_SelfStabilization = GetComponentInParent<UnitSelfStabilizationController>();
-		if (m_StabilizeOther == null)
-			m_StabilizeOther = GetComponentInParent<UnitStabilizeOtherController>();
-		if (m_BusyState == null)
-			m_BusyState = GetComponentInParent<UnitBusyState>();
+		ResolveReferences();
 	}
 
 	private void OnEnable()
@@ -81,36 +72,39 @@ public class AnimatorHandIk : MonoBehaviour
 		if (!m_DrawIkTargetGizmo || !Application.isPlaying)
 			return;
 
-		Transform ikTarget = ResolveLiveLeftHandIkTarget();
-		if (ikTarget == null)
-			return;
+		Transform leftTarget = ResolveLiveLeftHandIkTarget();
+		if (leftTarget != null)
+		{
+			Gizmos.color = new Color(0.2f, 0.95f, 1f, 0.95f);
+			Gizmos.DrawSphere(leftTarget.position, 0.015f);
+			Gizmos.DrawLine(leftTarget.position, leftTarget.position + leftTarget.forward * 0.06f);
+		}
 
-		Gizmos.color = new Color(0.2f, 0.95f, 1f, 0.95f);
-		Gizmos.DrawSphere(ikTarget.position, 0.015f);
-		Gizmos.DrawLine(ikTarget.position, ikTarget.position + ikTarget.forward * 0.06f);
+		if (TryResolveRightHandIkWorldPose(out Vector3 rightPos, out Quaternion rightRot))
+		{
+			Gizmos.color = new Color(1f, 0.55f, 0.2f, 0.95f);
+			Gizmos.DrawSphere(rightPos, 0.015f);
+			Gizmos.DrawLine(rightPos, rightPos + rightRot * Vector3.forward * 0.06f);
+		}
 	}
 	#endregion
 
 	#region Public Methods
-	/// <summary>
-	/// При переходе в «готов»: если IK должен быть выключен (зарядка/перезарядка), запрашиваем сброс в ближайшем
-	/// <see cref="OnAnimatorIK"/> — вызывать SetIK* из Update/LateUpdate нельзя (требование Unity).
-	/// Если блокировок нет, ничего не делаем: тот же кадр или следующий <see cref="OnAnimatorIK"/> сам выставит IK.
-	/// </summary>
-	public void OnWeaponReadyStateApplied()
+	public void OnWeaponReadyStateChanged()
 	{
-		if (IsLeftHandIkBlocked())
-		{
-			StopEquipBlend();
-			m_ClearLeftHandIkOnNextAnimatorIkPass = true;
-		}
+		if (IsHandIkBlocked())
+			m_ClearHandIkOnNextAnimatorIkPass = true;
 	}
 
-	/// <summary>Сбросить IK в ближайшем <see cref="OnAnimatorIK"/> (вызов вне IK-pass).</summary>
+	public void OnWeaponReadyStateApplied()
+	{
+		OnWeaponReadyStateChanged();
+	}
+
 	public void RequestClearLeftHandIk()
 	{
 		StopEquipBlend();
-		m_ClearLeftHandIkOnNextAnimatorIkPass = true;
+		m_ClearHandIkOnNextAnimatorIkPass = true;
 	}
 	#endregion
 
@@ -120,29 +114,47 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_Animator == null)
 			return;
 
-		if (m_ClearLeftHandIkOnNextAnimatorIkPass)
+		if (m_ClearHandIkOnNextAnimatorIkPass)
 		{
-			m_ClearLeftHandIkOnNextAnimatorIkPass = false;
+			m_ClearHandIkOnNextAnimatorIkPass = false;
 			StopEquipBlend();
 			ClearLeftHandIk();
+			ClearRightHandIk();
 		}
 
-		if (IsLeftHandIkBlocked())
+		if (IsHandIkBlocked())
 		{
 			StopEquipBlend();
 			ClearLeftHandIk();
+			ClearRightHandIk();
 			return;
 		}
 
 		ApplyLeftHandIkInternal();
+		ApplyRightHandIkInternal();
 	}
 
-	private bool IsLeftHandIkBlocked()
+	private void ResolveReferences()
 	{
-		return IsLeftHandIkTemporarilyDisabled();
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponentInParent<UnitEquipment>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponent<UnitEquippedWeaponPose>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponentInParent<UnitEquippedWeaponPose>();
+		if (m_MagazineLoading == null)
+			m_MagazineLoading = GetComponentInParent<UnitMagazineLoadingController>();
+		if (m_WeaponReload == null)
+			m_WeaponReload = GetComponentInParent<UnitWeaponReloadController>();
+		if (m_SelfStabilization == null)
+			m_SelfStabilization = GetComponentInParent<UnitSelfStabilizationController>();
+		if (m_StabilizeOther == null)
+			m_StabilizeOther = GetComponentInParent<UnitStabilizeOtherController>();
+		if (m_BusyState == null)
+			m_BusyState = GetComponentInParent<UnitBusyState>();
 	}
 
-	private bool IsLeftHandIkTemporarilyDisabled()
+	private bool IsHandIkBlocked()
 	{
 		if (m_MagazineLoading != null && m_MagazineLoading.IsLoadingMagazine)
 			return true;
@@ -164,6 +176,12 @@ public class AnimatorHandIk : MonoBehaviour
 		m_Animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0f);
 	}
 
+	private void ClearRightHandIk()
+	{
+		m_Animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+		m_Animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+	}
+
 	private void SubscribeEquipmentEvents()
 	{
 		if (m_UnitEquipment == null)
@@ -181,7 +199,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 	private void HandleEquipmentChanged()
 	{
-		if (IsLeftHandIkBlocked() || ResolveLiveLeftHandIkTarget() == null)
+		if (IsHandIkBlocked() || ResolveLiveLeftHandIkTarget() == null)
 		{
 			StopEquipBlend();
 			return;
@@ -237,6 +255,15 @@ public class AnimatorHandIk : MonoBehaviour
 		return Mathf.SmoothStep(0f, 1f, normalizedTime);
 	}
 
+	private float GetRightHandIkWeightMultiplier()
+	{
+		if (m_EquippedWeaponPose == null)
+			return 0f;
+
+		float readyBlend = Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01);
+		return Mathf.Lerp(m_RightHandNotReadyIkWeight, 1f, readyBlend);
+	}
+
 	private void ApplyLeftHandIkInternal()
 	{
 		Transform ikTarget = ResolveLiveLeftHandIkTarget();
@@ -263,6 +290,103 @@ public class AnimatorHandIk : MonoBehaviour
 		}
 		else
 			m_Animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0f);
+	}
+
+	private void ApplyRightHandIkInternal()
+	{
+		if (!TryResolveRightHandIkWorldPose(out Vector3 position, out Quaternion rotation))
+		{
+			ClearRightHandIk();
+			return;
+		}
+
+		float ikBlend = GetRightHandIkWeightMultiplier();
+		if (ikBlend <= 0f)
+		{
+			ClearRightHandIk();
+			return;
+		}
+
+		float positionWeight = m_RightHandPositionWeight * ikBlend;
+		float rotationWeight = m_RightHandRotationWeight * ikBlend;
+
+		m_Animator.SetIKPositionWeight(AvatarIKGoal.RightHand, positionWeight);
+		m_Animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rotationWeight);
+		m_Animator.SetIKPosition(AvatarIKGoal.RightHand, position);
+		m_Animator.SetIKRotation(AvatarIKGoal.RightHand, rotation);
+	}
+
+	private bool TryResolveRightHandIkWorldPose(out Vector3 _position, out Quaternion _rotation)
+	{
+		_position = Vector3.zero;
+		_rotation = Quaternion.identity;
+
+		if (m_UnitEquipment == null)
+			return false;
+
+		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
+		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
+			return false;
+
+		ItemDefinition equipped = m_UnitEquipment.EquippedDefinition;
+		if (equipped == null)
+			return false;
+
+		float readyBlend = m_EquippedWeaponPose != null
+			? Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01)
+			: 0f;
+
+		if (!TryResolveRightHandIkLocalPose(equipped, weaponRoot, readyBlend, out Vector3 localPosition, out Quaternion localRotation))
+			return false;
+
+		_position = weaponRoot.TransformPoint(localPosition);
+		_rotation = weaponRoot.rotation * localRotation;
+		return true;
+	}
+
+	private bool TryResolveRightHandIkLocalPose(
+		ItemDefinition _equipped,
+		Transform _weaponRoot,
+		float _readyBlend01,
+		out Vector3 _localPosition,
+		out Quaternion _localRotation)
+	{
+		_localPosition = Vector3.zero;
+		_localRotation = Quaternion.identity;
+
+		Vector3 notReadyLocalPosition = _equipped.RightHandIkNotReadyLocalPosition;
+		Quaternion notReadyLocalRotation = _equipped.RightHandIkNotReadyLocalRotation;
+		Vector3 readyLocalPosition = _equipped.RightHandIkReadyLocalPosition;
+		Quaternion readyLocalRotation = _equipped.RightHandIkReadyLocalRotation;
+
+		if (!HasConfiguredIkLocalPose(notReadyLocalPosition, _equipped.RightHandIkNotReadyLocalEulerAngles))
+		{
+			Transform notReadyChild = m_UnitEquipment.RightHandIkTargetNotReadyTransform;
+			if (notReadyChild != null)
+			{
+				notReadyLocalPosition = _weaponRoot.InverseTransformPoint(notReadyChild.position);
+				notReadyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * notReadyChild.rotation;
+			}
+		}
+
+		if (!HasConfiguredIkLocalPose(readyLocalPosition, _equipped.RightHandIkReadyLocalEulerAngles))
+		{
+			Transform readyChild = m_UnitEquipment.RightHandIkTargetTransform;
+			if (readyChild != null)
+			{
+				readyLocalPosition = _weaponRoot.InverseTransformPoint(readyChild.position);
+				readyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * readyChild.rotation;
+			}
+		}
+
+		_localPosition = Vector3.Lerp(notReadyLocalPosition, readyLocalPosition, _readyBlend01);
+		_localRotation = Quaternion.Slerp(notReadyLocalRotation, readyLocalRotation, _readyBlend01);
+		return true;
+	}
+
+	private static bool HasConfiguredIkLocalPose(Vector3 _localPosition, Vector3 _localEulerAngles)
+	{
+		return _localPosition != Vector3.zero || _localEulerAngles != Vector3.zero;
 	}
 
 	private Transform ResolveLiveLeftHandIkTarget()

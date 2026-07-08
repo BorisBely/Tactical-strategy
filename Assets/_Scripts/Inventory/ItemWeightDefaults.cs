@@ -23,6 +23,23 @@ public static class ItemWeightDefaults
 		{ "item.weapon.rpk74", 4.8f },
 		{ "item.weapon.rpk74mod1", 5.1f },
 
+		{ "item.weapon.mosin", 4.0f },
+		{ "item.weapon.benelli_m4", 3.6f },
+		{ "item.weapon.m249", 7.5f },
+		{ "item.weapon.sniper_762x51", 5.8f },
+		{ "item.weapon.pkm", 8.2f },
+		{ "item.weapon.svd", 4.3f },
+
+		{ "item.mag.mosin_762_54r_5", 0.1f },
+		{ "item.mag.m249_556_200", 2.8f },
+		{ "item.mag.sniper_762x51_10", 0.5f },
+		{ "item.mag.pkm_762_54r_100", 2.5f },
+		{ "item.mag.svd_762_54r_10", 0.4f },
+
+		{ "item.loot.ammo_box.12g", 0.7f },
+		{ "item.loot.ammo_box.762x51", 0.65f },
+		{ "item.loot.ammo_box.762x54r", 0.65f },
+
 		{ "item.mag.m4_556_20", 0.5f },
 		{ "item.mag.m4_556_30", 0.7f },
 		{ "item.mag.m4_556_40", 1.0f },

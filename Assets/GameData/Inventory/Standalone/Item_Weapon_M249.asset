@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_M249
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.m249
+  m_Description: M249 SAW light machine gun chambered in 5.56x45 NATO.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 4800
+  m_WeightKg: 7.5
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 4438268750496209352, guid: af1f01fdf318c6b43865b597ec6858ee, type: 3}
+  m_EquippedVisualPrefab: {fileID: 7374150380365498123, guid: 1d398e0be090dcb4497a44090bccacf5, type: 3}
+  m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 11400000, guid: 95ce21645aaa636479224559123b2b68, type: 2}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_BagAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: f722f4191bc97a94b98f6b442477a756, type: 3}
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 364e53936f5d4c34890a5e760caa3fc7, type: 3}
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 628214ff5a54b414693cb0e7199eb3a3, type: 3}
+    - {fileID: 8300000, guid: 184ae5805f2ab574b97ffda43e4394bf, type: 3}
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: ec92864f8a37e8143bbf4126159e5e9b, type: 3}
+  m_EquipmentRemoveSoundVolume: 0.85

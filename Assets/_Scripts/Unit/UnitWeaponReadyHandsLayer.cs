@@ -21,8 +21,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitVision m_Vision;
 	[Tooltip("Для повторного CrossFade базового idle в приседе при смене готов/не готов (там WeaponMode не переключается).")]
 	[SerializeField] private UnitAnimatorWeaponMode m_AnimatorWeaponMode;
-	[Tooltip("IK левой руки на объекте Animator; при переходе в «готов» проверяется, что зарядка магазина не блокирует IK.")]
+	[Tooltip("IK левой/правой руки на объекте Animator.")]
 	[SerializeField] private AnimatorHandIk m_LeftHandIk;
+	[Tooltip("Поза оружия relaxed/ready при переключении «готов».")]
+	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 	[SerializeField] private UnitBusyState m_BusyState;
 
 	[Header("Ввод")]
@@ -257,6 +259,13 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_LeftHandIk = m_Animator.GetComponent<AnimatorHandIk>();
 		if (m_Animator != null && m_LeftHandIk == null)
 			m_LeftHandIk = m_Animator.gameObject.AddComponent<AnimatorHandIk>();
+
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponent<UnitEquippedWeaponPose>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponentInParent<UnitEquippedWeaponPose>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = gameObject.AddComponent<UnitEquippedWeaponPose>();
 	}
 
 	private void OnEnable()
@@ -396,8 +405,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (_ready && _forceWalkIfNeeded && IsFastMoveModeNow())
 			ForceWalkMoveModeOnAllLocomotionDrivers();
 
-		if (_ready && didChange)
-			m_LeftHandIk?.OnWeaponReadyStateApplied();
+		if (didChange)
+		{
+			m_EquippedWeaponPose?.OnWeaponReadyStateChanged();
+			m_LeftHandIk?.OnWeaponReadyStateChanged();
+		}
 
 		if (didChange)
 			m_Vision?.NotifyWeaponReadyChanged(_ready);

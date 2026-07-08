@@ -6423,6 +6423,198 @@ CharacterJoint:
   m_EnablePreprocessing: 0
   m_MassScale: 1
   m_ConnectedMassScale: 1
+--- !u!1 &8010748706212707654
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3188316741313195188}
+  - component: {fileID: 4454208963826257349}
+  m_Layer: 0
+  m_Name: GearRattleAudioSource
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3188316741313195188
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8010748706212707654}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6544963493894048048}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &4454208963826257349
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8010748706212707654}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 2.5
+  MaxDistance: 14
+  Pan2D: 0
+  rolloffMode: 2
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.125
+      value: 0.81340194
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.25
+      value: 0.6421668
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.375
+      value: 0.48727742
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.5
+      value: 0.34998065
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.625
+      value: 0.23193973
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.75
+      value: 0.13555425
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.875
+      value: 0.06481992
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &8020209259999748143
 GameObject:
   m_ObjectHideFlags: 0
@@ -7595,6 +7787,7 @@ GameObject:
   - component: {fileID: 3741241907743255212}
   - component: {fileID: 6875159727817653897}
   - component: {fileID: 5322687323565292150}
+  - component: {fileID: 731500000000000200}
   - component: {fileID: 1703047740406568110}
   - component: {fileID: 3806570450536705422}
   - component: {fileID: 1773384317962348157}
@@ -7695,6 +7888,7 @@ Transform:
   - {fileID: 4750781666698284124}
   - {fileID: 8464494342794956717}
   - {fileID: 1448371348042524217}
+  - {fileID: 3188316741313195188}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5771954729034314130
@@ -8116,6 +8310,51 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitEquipment
   m_RightHand: {fileID: 8403052341617244588}
+--- !u!114 &731500000000000200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8f3c2e1b9d0476e9f2a1b3c4d5e6f70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitEquippedWeaponPose
+  m_UnitEquipment: {fileID: 5322687323565292150}
+  m_ReadyHands: {fileID: 1703047740406568110}
+  m_MagazineLoading: {fileID: 2625859228613252192}
+  m_WeaponReload: {fileID: 4859917004016156609}
+  m_SelfStabilization: {fileID: 0}
+  m_StabilizeOther: {fileID: 0}
+  m_BusyState: {fileID: 383407823447829567}
+  m_RagdollController: {fileID: 0}
+  m_ReadyPoseBlendDuration: 0.28
+  m_ReadyPoseBlendCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!114 &1703047740406568110
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8138,6 +8377,7 @@ MonoBehaviour:
   m_Vision: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
   m_LeftHandIk: {fileID: 2876543210987654320}
+  m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_BusyState: {fileID: 0}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
@@ -8176,7 +8416,7 @@ MonoBehaviour:
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 0}
-  m_VisionRange: 18
+  m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
   m_EyeHeight: 1.6
@@ -8199,11 +8439,10 @@ MonoBehaviour:
   m_ReadyBoreRootTurnDuration: 0.22
   m_MaxReadyBoreRootTurnDegrees: 90
   m_MinReadyBoreRootTurnDegrees: 0.5
-  m_DrawVisionGizmos: 1
-  m_GizmoFovColor: {r: 0.2, g: 0.8, b: 0.3, a: 0.9}
+  m_DrawVisionGizmos: 0
   m_GizmoRayHitColor: {r: 1, g: 0.3, b: 0.1, a: 0.9}
   m_GizmoRayMissColor: {r: 0.4, g: 0.4, b: 0.9, a: 0.6}
-  m_DrawEyeLookDebugRay: 0
+  m_DrawEyeLookDebugRay: 1
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
   m_LogReadyForwardShift: 0
@@ -8224,6 +8463,7 @@ MonoBehaviour:
   m_UnitForwardSource: {fileID: 6544963493894048048}
   m_Animator: {fileID: 5771954729034314130}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_BusyState: {fileID: 0}
   m_ReloadController: {fileID: 4859917004016156609}
   m_MagazineLoadingController: {fileID: 0}
@@ -8383,7 +8623,7 @@ MonoBehaviour:
   m_HitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_MaxDistance: 500
+  m_MaxDistance: 650
   m_BarrelRayStartOffset: 0.08
   m_TriggerInteraction: 1
   m_TargetLeadFactor: 1
@@ -8488,7 +8728,7 @@ MonoBehaviour:
   m_AudioSource: {fileID: 0}
   m_FireVoiceCount: 4
   m_SpatialMinDistance: 1
-  m_SpatialMaxDistance: 125
+  m_SpatialMaxDistance: 625
 --- !u!114 &365107933097138229
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8585,8 +8825,11 @@ MonoBehaviour:
   m_RecoilController: {fileID: 2745828861811900171}
   m_RagdollController: {fileID: 0}
   m_KickTransformOverride: {fileID: 0}
-  m_PitchDegreesPerPenaltyUnit: 1
+  m_PitchDegreesPerPenaltyUnit: 1.55
   m_YawJitterFraction: 0.55
+  m_ShoulderRecoilBackMetersPerPenaltyUnit: 0.012
+  m_ShoulderRecoilUpMetersPerPenaltyUnit: 0.004
+  m_SingleShotVisualKickMultiplier: 1.35
   m_FullAutoRecoilControlStartShot: 5
   m_FullAutoRecoilControlEndShot: 10
   m_FullAutoControlledPitchScale: 0.38
@@ -8596,10 +8839,14 @@ MonoBehaviour:
   m_FullAutoYawChaosFraction: 0.22
   m_FullAutoRecoilControlSkillInfluence: 0.65
   m_CombatStats: {fileID: 3408199974750778793}
-  m_VisualRecoveryFromWeaponScale: 0.85
+  m_VisualRecoveryPerSecond: 1.05
+  m_VisualRecoveryWhileFiringPerSecond: 3.6
+  m_SingleShotRecoveryDelaySeconds: 0.14
+  m_VisualRecoveryFromWeaponScale: 0.25
   m_RecoveryWhileFiringMultiplier: 0.7
-  m_FallbackVisualRecovery: 14
+  m_FallbackVisualRecovery: 1.05
   m_AnimatorReplaceAngleSlopDegrees: 0.35
+  m_AnimatorReplacePositionSlopMeters: 0.0015
   m_LogVisualKick: 0
 --- !u!114 &8082661923994252123
 MonoBehaviour:
@@ -8720,6 +8967,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimatorHandIk
   m_UnitEquipment: {fileID: 5322687323565292150}
+  m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_MagazineLoading: {fileID: 0}
   m_WeaponReload: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
@@ -8727,6 +8975,8 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
+  m_RightHandPositionWeight: 1
+  m_RightHandRotationWeight: 1
   m_EquipBlendDuration: 0.35
   m_EquipBlendCurve:
     serializedVersion: 2
@@ -8768,7 +9018,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5aec503fd23ffb94da9cd79b228d5497, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitFootsteps
-  m_AudioSource: {fileID: 0}
+  m_AudioSource: {fileID: 4454208963826257349}
   m_EmitFrom: {fileID: 6544963493894048048}
   m_GroundLayers:
     serializedVersion: 2
@@ -8906,7 +9156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8e7d6c5b4a392817061554433221100, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitGearRattleAudio
-  m_AudioSource: {fileID: 0}
+  m_AudioSource: {fileID: 4454208963826257349}
   m_EmitFrom: {fileID: 6544963493894048048}
   m_Agent: {fileID: 1240021153989011070}
   m_StanceSource: {fileID: 3741241907743255212}

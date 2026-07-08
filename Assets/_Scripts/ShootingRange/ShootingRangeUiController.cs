@@ -17,7 +17,7 @@ public enum PlayerDebugInjuryType
 public sealed class ShootingRangeUiController : MonoBehaviour
 {
 	#region Constants
-	private static readonly int[] c_QuickResetDistancesMeters = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+	private static readonly int[] c_QuickResetDistancesMeters = { 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 };
 	private const int c_PanelCanvasSortingOrder = 500;
 	#endregion
 

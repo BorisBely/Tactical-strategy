@@ -80,6 +80,9 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (ReferenceEquals(m_BoundWeaponState, weaponState))
 		{
 			weaponState.EnsureValidSelectedFireMode();
+			WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+				weaponState,
+				weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
 			SyncInsertedMagazineVisual();
 			SyncAttachmentVisuals();
 			return;
@@ -88,6 +91,9 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		m_BoundItemState = itemState;
 		m_BoundWeaponState = weaponState;
 		weaponState.EnsureValidSelectedFireMode();
+		WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
+			weaponState,
+			weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
 		m_TransientState.Clear();
 		SyncInsertedMagazineVisual();
 		SyncAttachmentVisuals();
@@ -314,6 +320,12 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (equippedWeapon == null)
 			return;
 
+		if (m_BoundWeaponState != null && m_BoundWeaponState.IsMagazineNonRemovable)
+		{
+			equippedWeapon.ClearInsertedMagazineVisual();
+			return;
+		}
+
 		InventorySlotRuntimeData currentMagazineItem = m_BoundWeaponState != null
 			? m_BoundWeaponState.CurrentMagazineItem
 			: default;
@@ -343,7 +355,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		equippedWeapon.RefreshAttachmentVisualsFromState(m_BoundWeaponState.WeaponDefinition, m_BoundWeaponState);
 
 		if (m_UnitEquipment != null)
-			m_UnitEquipment.RefreshLeftHandIkTarget();
+			m_UnitEquipment.RefreshHandIkTargets();
 	}
 
 	private void ClearInsertedMagazineVisual()

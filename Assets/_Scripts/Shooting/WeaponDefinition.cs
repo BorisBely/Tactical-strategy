@@ -16,6 +16,12 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private CaliberType m_SupportedCaliber = CaliberType.None;
 	[Tooltip("Тип магазина, который можно вставить в это оружие.")]
 	[SerializeField] private MagazineType m_SupportedMagazineType = MagazineType.None;
+	[Tooltip("Встроенный магазин (трубка дробовика и т.п.): зарядка по одному патрону из коробок, слот магазина в UI заблокирован.")]
+	[SerializeField] private bool m_UsesShellByShellReload;
+	[Tooltip("Данные встроенного магазина для Uses Shell By Shell Reload.")]
+	[SerializeField] private MagazineDefinition m_BuiltInMagazineDefinition;
+	[Tooltip("Патроны по умолчанию для встроенного магазина при выдаче из пресета / доступного снаряжения.")]
+	[SerializeField] private AmmoDefinition m_BuiltInMagazineDefaultAmmo;
 	[Tooltip("Режимы огня, которые поддерживает это оружие.")]
 	[SerializeField] private WeaponFireMode[] m_AvailableFireModes =
 	{
@@ -41,7 +47,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0.1f)] private float m_EffectiveRangeMeters = 100f;
 	[Tooltip("Базовый разброс оружейной платформы до модификаторов патрона, стойки, движения и отдачи.")]
 	[SerializeField, Min(0f)] private float m_BaseShotDispersion = 1f;
-	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..100 м.")]
+	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..500 м.")]
 	[SerializeField] private WeaponDistanceAimProfile m_DistanceAimProfile = new WeaponDistanceAimProfile();
 	[Tooltip("Множитель разброса по номеру выстрела в непрерывной автоматической очереди. Ось X = номер выстрела (1 = без штрафа).")]
 	[SerializeField] private AnimationCurve m_AutoBurstSpreadMultiplierByShot = AnimationCurve.Linear(1f, 1f, 10f, 1f);
@@ -112,6 +118,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	public WeaponClassType WeaponClass => m_WeaponClass;
 	public CaliberType SupportedCaliber => m_SupportedCaliber;
 	public MagazineType SupportedMagazineType => m_SupportedMagazineType;
+	public bool UsesShellByShellReload => m_UsesShellByShellReload;
+	public MagazineDefinition BuiltInMagazineDefinition => m_BuiltInMagazineDefinition;
+	public AmmoDefinition BuiltInMagazineDefaultAmmo => m_BuiltInMagazineDefaultAmmo;
 	public WeaponFireMode[] AvailableFireModes => m_AvailableFireModes;
 	public WeaponFireMode DefaultFireMode => m_DefaultFireMode;
 	public WeaponAttachmentSlotDefinition[] AttachmentSlots => m_AttachmentSlots;
