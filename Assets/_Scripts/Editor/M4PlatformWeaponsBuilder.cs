@@ -49,6 +49,8 @@ public static class M4PlatformWeaponsBuilder
 	private const string c_LootWeaponsRoot = "Assets/Prefabs/World/Loot/M4/Weapons";
 	private const string c_SilencerAttachmentPath = "Assets/GameData/Shooting/M4/Attachment_M4_Silencer_556.asset";
 	private const string c_MuzzleBrakeAttachmentPath = "Assets/GameData/Shooting/M4/Attachment_M4_MuzzleBrakeM4.asset";
+	private const string c_Stock1AttachmentPath = "Assets/GameData/Shooting/M4/Attachment_M4_Stock1.asset";
+	private const string c_Stock2AttachmentPath = "Assets/GameData/Shooting/M4/Attachment_M4_Stock2.asset";
 	private const string c_ExistingWeaponModA1Path = "Assets/GameData/Shooting/M4/Weapon_M4_ModA_1.asset";
 	private const string c_ExistingWeaponModA2Path = "Assets/GameData/Shooting/M4/Weapon_M4_ModA_2.asset";
 
@@ -247,6 +249,24 @@ public static class M4PlatformWeaponsBuilder
 
 		SetAttachmentCompatibleWeapons(c_SilencerAttachmentPath, compatibleWeapons.ToArray());
 		SetAttachmentCompatibleWeapons(c_MuzzleBrakeAttachmentPath, compatibleWeapons.ToArray());
+
+		var stockCompatibleWeapons = new List<WeaponDefinition>();
+		if (modA2 != null)
+			stockCompatibleWeapons.Add(modA2);
+
+		for (int i = 0; i < _builtWeapons.Count; i++)
+		{
+			WeaponDefinition weapon = _builtWeapons[i];
+			if (weapon == null)
+				continue;
+
+			if (weapon.name == "Weapon_MK12" || weapon.name == "Weapon_MK18")
+				stockCompatibleWeapons.Add(weapon);
+		}
+
+		WeaponDefinition[] stockWeapons = stockCompatibleWeapons.ToArray();
+		SetAttachmentCompatibleWeapons(c_Stock1AttachmentPath, stockWeapons);
+		SetAttachmentCompatibleWeapons(c_Stock2AttachmentPath, stockWeapons);
 	}
 
 	private static void SetAttachmentCompatibleWeapons(string _assetPath, WeaponDefinition[] _weapons)

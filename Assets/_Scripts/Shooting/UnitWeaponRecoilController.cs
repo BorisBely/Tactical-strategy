@@ -110,6 +110,16 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	public float ComputeRecoilAddedPerShot(AmmoDefinition _ammoDefinition) =>
 		CalculateRecoilAddedPerShot(_ammoDefinition);
 
+	public void ResetRecoilPenalty()
+	{
+		if (m_WeaponRuntime == null)
+			return;
+
+		m_WeaponRuntime.SetRecoilPenalty(0f);
+		m_DebugLastRecoilAdded = 0f;
+		m_DebugLastRecoveryPerSecond = 0f;
+	}
+
 	private float CalculateRecoilAddedPerShot(AmmoDefinition _ammoDefinition)
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;

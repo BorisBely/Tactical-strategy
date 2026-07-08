@@ -8,23 +8,11 @@ using UnityEngine;
 public static class FormationLayoutUtility
 {
 	#region Constants
-	private const float c_CenterBandSpacingFraction = 0.34f;
-	private const float c_MinCenterBandRadiusMeters = 0.45f;
-	private const float c_FlankYawOffsetDegrees = 38f;
-	private const float c_MaxFlankYawOffsetDegrees = 52f;
-	private const float c_DoubleFileFlankYawDegrees = 40f;
-	private const float c_TacticalColumnFlankYawDegrees = 42f;
-	private const float c_WideReconScoutYawDegrees = 30f;
-	private const float c_WideReconRearFlankMinYawDegrees = 45f;
 	private const float c_WideReconScoutForwardDepthFraction = 0.25f;
 	private const float c_WideReconFrontToCenterDepthFraction = 0.60f;
 	private const float c_WideReconFrontToBackDepthFraction = 1.10f;
 	private const float c_WideReconBackRowDepthStepFraction = 0.95f;
 	private const float c_WideReconFrontRearDepthGapMultiplier = 2f;
-	private const float c_DiamondSmallCountThreshold = 5;
-
-	/// <summary>Временно: индивидуальные сектора слотов (live sector + per-slot прибытие/превью).</summary>
-	public static bool IndividualSlotSectorsEnabled = false;
 
 	/// <summary>Порядок X / X+1..7: частые → специализированные. Не совпадает с numeric enum.</summary>
 	private static readonly FormationType[] s_FormationHotkeyOrder =
@@ -219,7 +207,7 @@ public static class FormationLayoutUtility
 		return bindings;
 	}
 
-	/// <summary>Конечный угол взгляда слота относительно фронта формации (0° = жёлтая стрелка).</summary>
+	/// <summary>Смещение взгляда слота относительно фронта формации (0° = жёлтая стрелка).</summary>
 	public static float ResolveSlotFacingOffsetDegrees(
 		FormationType _formation,
 		float _localX,
@@ -227,36 +215,7 @@ public static class FormationLayoutUtility
 		float _spacing,
 		int _slotCount = 0)
 	{
-		if (!IndividualSlotSectorsEnabled)
-			return 0f;
-
-		float spacing = Mathf.Max(0.1f, _spacing);
-		float centerBand = GetCenterBandRadiusMeters(spacing);
-
-		switch (_formation)
-		{
-			case FormationType.Line:
-			case FormationType.SingleFile:
-				return 0f;
-
-			case FormationType.DoubleFile:
-				return ResolveSignedFlankYaw(_localX, centerBand, c_DoubleFileFlankYawDegrees, c_DoubleFileFlankYawDegrees);
-
-			case FormationType.TacticalColumn:
-				return ResolveSignedFlankYaw(_localX, centerBand, c_TacticalColumnFlankYawDegrees, c_TacticalColumnFlankYawDegrees);
-
-			case FormationType.Wedge:
-				return ResolveWedgeSlotFacingOffset(_localX, _localZ, centerBand);
-
-			case FormationType.WideReconWedge:
-				return ResolveWideReconWedgeSlotFacingOffset(_localX, _localZ, centerBand);
-
-			case FormationType.Diamond:
-				return ResolveDiamondSlotFacingOffset(_localX, _localZ, _slotCount);
-
-			default:
-				return 0f;
-		}
+		return 0f;
 	}
 
 	public static float ResolveSlotWorldFacingAngle(float _formationForwardYawDegrees, float _slotFacingOffsetDegrees)
@@ -272,52 +231,6 @@ public static class FormationLayoutUtility
 			return 0f;
 
 		return Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
-	}
-
-	/// <summary>Поворачивает кэшированное строение: позиции слотов и сохранённые углы взгляда.</summary>
-	public static float GetCenterBandRadiusMeters(float _spacing)
-	{
-		return Mathf.Max(c_MinCenterBandRadiusMeters, Mathf.Max(0.1f, _spacing) * c_CenterBandSpacingFraction);
-	}
-
-	/// <summary>
-	/// Сектор взгляда по боковому положению в строю: центр — по ходу, края — вперёд с лёгким уводом наружу.
-	/// Бок выбирается по положению относительно центра группы (без перекрёстного огня при развороте).
-	/// </summary>
-	public static float ResolveRuntimeSectorWorldAngle(
-		Vector3 _unitWorldPos,
-		Vector3 _formationCenterWorld,
-		Vector3 _movementForwardXZ,
-		float _centerBandRadiusMeters)
-	{
-		Vector3 forward = _movementForwardXZ;
-		forward.y = 0f;
-		if (forward.sqrMagnitude < 1e-6f)
-			forward = Vector3.forward;
-		else
-			forward.Normalize();
-
-		Vector3 toUnit = _unitWorldPos - _formationCenterWorld;
-		toUnit.y = 0f;
-		float alongMarch = Vector3.Dot(toUnit, forward);
-		Vector3 lateral = toUnit - forward * alongMarch;
-		float lateralSqr = lateral.sqrMagnitude;
-		float bandSqr = _centerBandRadiusMeters * _centerBandRadiusMeters;
-
-		float baseYaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
-		if (lateralSqr < bandSqr)
-			return baseYaw;
-
-		Vector3 right = Vector3.Cross(Vector3.up, forward);
-		float side = Mathf.Sign(Vector3.Dot(lateral, right));
-		if (Mathf.Approximately(side, 0f))
-			return baseYaw;
-
-		float lateralMag = Mathf.Sqrt(lateralSqr);
-		float flankT = Mathf.Clamp01(
-			(lateralMag - _centerBandRadiusMeters) / Mathf.Max(0.01f, _centerBandRadiusMeters));
-		float yawOffset = Mathf.Lerp(c_FlankYawOffsetDegrees, c_MaxFlankYawOffsetDegrees, flankT);
-		return baseYaw + side * yawOffset;
 	}
 
 	public static FormationBuildResult ApplyBindings(
@@ -625,80 +538,6 @@ public static class FormationLayoutUtility
 			float angle = t * Mathf.PI * 2f - Mathf.PI * 0.5f;
 			_out.Add(new Vector2(Mathf.Cos(angle) * radiusX, Mathf.Sin(angle) * radiusZ));
 		}
-	}
-	#endregion
-
-	#region Slot Facing
-	private static float ResolveSignedFlankYaw(
-		float _localX,
-		float _centerBand,
-		float _minYawDegrees,
-		float _maxYawDegrees)
-	{
-		if (Mathf.Abs(_localX) < _centerBand)
-			return 0f;
-
-		float side = Mathf.Sign(_localX);
-		if (Mathf.Approximately(side, 0f))
-			return 0f;
-
-		float lateralMag = Mathf.Abs(_localX);
-		float flankT = Mathf.Clamp01((lateralMag - _centerBand) / Mathf.Max(0.01f, _centerBand));
-		float yawOffset = Mathf.Lerp(_minYawDegrees, _maxYawDegrees, flankT);
-		return side * yawOffset;
-	}
-
-	private static float ResolveWedgeSlotFacingOffset(float _localX, float _localZ, float _centerBand)
-	{
-		if (Mathf.Abs(_localX) < _centerBand && _localZ >= -0.01f)
-			return 0f;
-
-		return ResolveSignedFlankYaw(_localX, _centerBand, c_FlankYawOffsetDegrees, c_MaxFlankYawOffsetDegrees);
-	}
-
-	private static float ResolveWideReconWedgeSlotFacingOffset(float _localX, float _localZ, float _centerBand)
-	{
-		if (_localZ > 0.01f)
-		{
-			if (_localX < -_centerBand)
-				return -c_WideReconScoutYawDegrees;
-			if (_localX > _centerBand)
-				return c_WideReconScoutYawDegrees;
-			return 0f;
-		}
-
-		if (Mathf.Abs(_localX) < _centerBand)
-			return 0f;
-
-		return ResolveSignedFlankYaw(
-			_localX,
-			_centerBand,
-			c_WideReconRearFlankMinYawDegrees,
-			c_MaxFlankYawOffsetDegrees);
-	}
-
-	private static float ResolveDiamondSlotFacingOffset(float _localX, float _localZ, int _slotCount)
-	{
-		if (_slotCount <= 0)
-			return 0f;
-
-		if (_slotCount < c_DiamondSmallCountThreshold)
-		{
-			const float c_AxisEpsilon = 0.05f;
-			if (_localZ > c_AxisEpsilon && Mathf.Abs(_localX) <= c_AxisEpsilon)
-				return 0f;
-			if (_localX < -c_AxisEpsilon && Mathf.Abs(_localZ) <= c_AxisEpsilon)
-				return -90f;
-			if (_localX > c_AxisEpsilon && Mathf.Abs(_localZ) <= c_AxisEpsilon)
-				return 90f;
-			if (_localZ < -c_AxisEpsilon && Mathf.Abs(_localX) <= c_AxisEpsilon)
-				return 180f;
-		}
-
-		if (Mathf.Abs(_localX) < 0.001f && Mathf.Abs(_localZ) < 0.001f)
-			return 0f;
-
-		return Mathf.Atan2(_localX, _localZ) * Mathf.Rad2Deg;
 	}
 	#endregion
 

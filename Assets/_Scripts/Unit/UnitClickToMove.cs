@@ -165,6 +165,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private Vector2 m_SmoothDirVel;
 	private float m_EngageYawVelocity;
 	private bool m_TurnSuppressedReady;
+	private Vector3 m_LastLocomotionWorldDirection;
 
 	private float m_PostStandLowNavSpeedUntil = -1f;
 
@@ -242,6 +243,26 @@ public sealed class UnitClickToMove : MonoBehaviour
 			ApplyTierSpeed();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		m_ReadyHands?.TryRestoreReadyAfterRun(false);
+	}
+
+	/// <summary>
+	/// После снятия ручного facing override в «не готов»: плавный разворот корня через обычный UpdateFacing.
+	/// </summary>
+	public void BeginNotReadyMovementFacingRealign()
+	{
+		m_TurnSuppressedReady = false;
+		m_EngageYawVelocity = 0f;
+		m_SmoothDirVel = Vector2.zero;
+
+		if (!TryGetMovementFacingDirection(out Vector3 worldDirection))
+		{
+			m_SmoothDir = new Vector2(0f, 1f);
+			return;
+		}
+
+		Vector3 localDirection = transform.InverseTransformDirection(worldDirection);
+		Vector2 targetDir = new Vector2(localDirection.x, localDirection.z);
+		m_SmoothDir = targetDir.sqrMagnitude > 1e-6f ? targetDir.normalized : new Vector2(0f, 1f);
 	}
 
 	public bool TrySetDestination(Vector3 _worldPosition)
@@ -875,14 +896,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (ShouldApplyManualFacingOverride())
 		{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			if (m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady)
-			{
-				FormationSectorDebug.Log(
-					m_CachedRtsMember,
-					$"BUG_OVERRIDE_APPLIED_WHILE_NOT_READY yaw={OverrideFacingAngle.Value:F1}");
-			}
-#endif
 			m_EngageYawVelocity = 0f;
 			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
 			ApplyFacingDirection(overrideDir);
@@ -986,15 +999,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 		    (moving || hasIntent) &&
 		    !m_CachedRtsMember.AllowsInMovementManualFacingOverride)
 		{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			FormationSectorDebug.LogLocomotionGate(
-				m_CachedRtsMember,
-				this,
-				OverrideFacingAngle.Value,
-				false,
-				moving,
-				hasIntent);
-#endif
 			return false;
 		}
 
@@ -1223,6 +1227,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 			locomotionTier = Mathf.Min(locomotionTier, (int)MoveTier.Walk);
 	}
 
+	private bool IsBodyAlignedWithLocomotionDirection(float _maxAngleDegrees = 20f)
+	{
+		if (m_LastLocomotionWorldDirection.sqrMagnitude < 1e-6f)
+			return true;
+
+		Vector3 flatForward = transform.forward;
+		flatForward.y = 0f;
+		if (flatForward.sqrMagnitude < 1e-6f)
+			return true;
+
+		float angle = Vector3.Angle(flatForward.normalized, m_LastLocomotionWorldDirection);
+		return angle < _maxAngleDegrees;
+	}
+
 	private void ApplyAnimatorLocomotionDirectionConstraints(ref int locomotionTier, float navSpeedOut)
 	{
 		ApplyAnimatorLocomotionTierCap(ref locomotionTier);
@@ -1238,7 +1256,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		bool axisFwdOnly = navSpeedOut > 0.02f;
 		bool rtsMarchIntent = m_CachedRtsMember != null && m_CachedRtsMember.HasActiveMovementIntent;
 		bool rtsNotReadyFwdOnly = m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady &&
-		                          (axisFwdOnly || rtsMarchIntent);
+		                          (axisFwdOnly || rtsMarchIntent) &&
+		                          IsBodyAlignedWithLocomotionDirection();
 		bool unarmedStandFwdOnly = wm == (int)LocomotionWeaponMode.Unarmed && stance == LocomotionStance.Standing && axisFwdOnly;
 		bool rifleSprintFwdOnly = (wm == (int)LocomotionWeaponMode.Rifle || wm == (int)LocomotionWeaponMode.Pistol) &&
 		                          stance == LocomotionStance.Standing &&
@@ -1301,6 +1320,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		bool moving = planarSpeed > m_StopVelocityEpsilon || hasMoveIntent;
+		m_LastLocomotionWorldDirection = moving ? worldDir : Vector3.zero;
 
 		Vector3 local = moving
 			? transform.InverseTransformDirection(worldDir)

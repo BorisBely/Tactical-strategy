@@ -52,7 +52,8 @@ public static class WeaponShotAccuracyEvaluator
 
 		float autoSpreadMultiplier = _input.AutoSpreadMultiplier > 0f ? _input.AutoSpreadMultiplier : 1f;
 		if (autoSpreadMultiplier < 0.999f &&
-		    WeaponFireModeUtility.IsAutomaticEffectiveMode(_input.FireMode))
+		    WeaponFireModeUtility.IsAutomaticEffectiveMode(_input.FireMode) &&
+		    !WeaponFireModeUtility.IsFirstShotInAutomaticSeries(_input.FireMode, _input.BurstShotIndex))
 			raw *= autoSpreadMultiplier;
 
 		float halfAngle = Mathf.Clamp(raw, _input.MinHalfAngleDegrees, _input.MaxHalfAngleDegrees);
@@ -95,6 +96,9 @@ public static class WeaponShotAccuracyEvaluator
 
 	private static float GetAutoBurstSpreadMultiplier(WeaponShotAccuracyInput _input)
 	{
+		if (WeaponFireModeUtility.IsFirstShotInAutomaticSeries(_input.FireMode, _input.BurstShotIndex))
+			return 1f;
+
 		if (_input.FireMode != WeaponFireMode.FullAuto && _input.FireMode != WeaponFireMode.Burst)
 			return 1f;
 

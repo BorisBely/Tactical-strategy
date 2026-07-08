@@ -28,6 +28,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
 	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
+	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
+	[SerializeField] private UnitWeaponVisualRecoilKick m_VisualRecoilKick;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 
 	[Header("Fire Conditions")]
@@ -96,6 +98,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_RecoilController == null)
+			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
+		if (m_VisualRecoilKick == null)
+			m_VisualRecoilKick = GetComponent<UnitWeaponVisualRecoilKick>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (GetComponent<UnitStanceCombatModifiers>() == null)
@@ -297,6 +303,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_NextBurstWaveTime = 0f;
 		m_SemiShotConsumedForCurrentTrigger = false;
 		ResetBurstSpreadCounter();
+		ResetRecoilAfterStopFiring();
+	}
+
+	private void ResetRecoilAfterStopFiring()
+	{
+		m_RecoilController?.ResetRecoilPenalty();
+		m_VisualRecoilKick?.ResetVisualKick();
 	}
 
 	/// <summary>

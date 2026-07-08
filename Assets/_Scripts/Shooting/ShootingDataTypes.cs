@@ -47,6 +47,14 @@ public static class WeaponFireModeUtility
 		return _mode == WeaponFireMode.FullAuto || _mode == WeaponFireMode.Burst;
 	}
 
+	/// <summary>
+	/// Первый выстрел серии Burst/FullAuto: точность как у одиночного, дальше — штрафы автоматического огня.
+	/// </summary>
+	public static bool IsFirstShotInAutomaticSeries(WeaponFireMode _fireMode, int _burstShotIndex)
+	{
+		return IsAutomaticEffectiveMode(_fireMode) && _burstShotIndex <= 1;
+	}
+
 	public static bool IsModeSupported(WeaponFireMode _mode, WeaponFireMode[] _availableModes)
 	{
 		if (_availableModes == null || _availableModes.Length == 0)

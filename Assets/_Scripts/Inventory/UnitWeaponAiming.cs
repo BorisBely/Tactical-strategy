@@ -429,13 +429,25 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		return m_FireController != null && m_FireController.IsFiringCommandActive;
 	}
 
-	private void ApplyWeaponModelAimCorrection(Transform _weaponRoot, Vector3 _aimPointWorld, bool _useFiringStability, Quaternion _baseLocalRotation)
+	private void ApplyWeaponModelAimCorrection(
+		Transform _weaponRoot,
+		Vector3 _aimPointWorld,
+		bool _useFiringStability,
+		Quaternion _baseLocalRotation,
+		float _yawLimitOverride = -1f,
+		float _pitchUpOverride = -1f,
+		float _pitchDownOverride = -1f,
+		float _smoothTimeOverride = -1f)
 	{
 		if (!m_EnableWeaponModelAimCorrection || _weaponRoot == null || _weaponRoot.parent == null)
 		{
 			ResetWeaponModelCorrectionDebug();
 			return;
 		}
+
+		float yawLimit = _yawLimitOverride >= 0f ? _yawLimitOverride : m_WeaponModelYawLimitDegrees;
+		float pitchUpLimit = _pitchUpOverride >= 0f ? _pitchUpOverride : m_WeaponModelPitchUpLimitDegrees;
+		float pitchDownLimit = _pitchDownOverride >= 0f ? _pitchDownOverride : m_WeaponModelPitchDownLimitDegrees;
 
 		Vector3 desiredWorldDir = _aimPointWorld - m_BarrelTransform.position;
 		if (desiredWorldDir.sqrMagnitude < 1e-6f)
@@ -450,19 +462,21 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		Vector3 currentRightParent = parent.InverseTransformDirection(m_BarrelTransform.right).normalized;
 
 		float rawYawError = SignedAngleOnPlane(currentForwardParent, desiredDirParent, Vector3.up);
-		float targetYaw = Mathf.Clamp(rawYawError, -m_WeaponModelYawLimitDegrees, m_WeaponModelYawLimitDegrees);
+		float targetYaw = Mathf.Clamp(rawYawError, -yawLimit, yawLimit);
 
 		Quaternion yawRotation = Quaternion.AngleAxis(targetYaw, Vector3.up);
 		Vector3 yawedForwardParent = yawRotation * currentForwardParent;
 		Vector3 yawedRightParent = (yawRotation * currentRightParent).normalized;
 		float rawPitchError = SignedAngleOnPlane(yawedForwardParent, desiredDirParent, yawedRightParent);
-		float targetPitch = Mathf.Clamp(rawPitchError, -m_WeaponModelPitchDownLimitDegrees, m_WeaponModelPitchUpLimitDegrees);
+		float targetPitch = Mathf.Clamp(rawPitchError, -pitchDownLimit, pitchUpLimit);
 
-		float baselineSmooth = m_WeaponModelCorrectionSmoothTime;
-		if (m_SofterWeaponModelCorrectionWhileFiring && _useFiringStability)
+		float baselineSmooth = _smoothTimeOverride >= 0f
+			? _smoothTimeOverride
+			: m_WeaponModelCorrectionSmoothTime;
+		if (_smoothTimeOverride < 0f && m_SofterWeaponModelCorrectionWhileFiring && _useFiringStability)
 			baselineSmooth = Mathf.Max(baselineSmooth, m_WeaponModelCorrectionSmoothTimeWhileFiring);
 		float smoothTime = Mathf.Max(0.0001f, baselineSmooth);
-		if (m_WeaponModelCorrectionSmoothTime <= 0.0001f)
+		if (baselineSmooth <= 0.0001f)
 		{
 			m_SmoothedWeaponYawDegrees = targetYaw;
 			m_SmoothedWeaponPitchDegrees = targetPitch;

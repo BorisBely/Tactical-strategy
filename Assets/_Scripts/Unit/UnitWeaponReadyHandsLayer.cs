@@ -88,6 +88,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public bool WantsReady => m_UserWantsReady;
 
+	/// <summary>Есть отложенное восстановление «готов» после спринта/бега/поворота.</summary>
+	public bool HasPendingReadyRestore =>
+		m_RestoreReadyAfterSprint || m_RestoreReadyAfterRun || m_RestoreReadyAfterTurn;
+
 	/// <summary>
 	/// Нажатие Z (смена стойки): при экипированном оружии включает «на готове» (как перевод E в состояние готов, без переключения).
 	/// При спринте сбрасывает заказ скорости на шаг — как при включении готов по E.
@@ -109,7 +113,18 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public void SetReadyWanted(bool _ready, bool _forceWalkIfNeeded = true)
 	{
+		if (!_ready)
+			CancelDeferredReadyRestores();
+
 		ApplyReadyWanted(_ready, _forceWalkIfNeeded, true);
+	}
+
+	/// <summary>Сбрасывает отложенное восстановление «готов» после спринта/бега/поворота.</summary>
+	public void CancelDeferredReadyRestores()
+	{
+		m_RestoreReadyAfterSprint = false;
+		m_RestoreReadyAfterRun = false;
+		m_RestoreReadyAfterTurn = false;
 	}
 
 	/// <summary>
@@ -126,8 +141,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!m_UserWantsReady)
 			return;
 
+		ApplyTemporaryReadySuppression();
 		m_RestoreReadyAfterSprint = true;
-		ApplyReadyWanted(false, false, true);
 	}
 
 	/// <summary>
@@ -144,8 +159,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!m_UserWantsReady)
 			return;
 
+		ApplyTemporaryReadySuppression();
 		m_RestoreReadyAfterRun = true;
-		ApplyReadyWanted(false, false, true);
 	}
 
 	/// <summary>
@@ -179,7 +194,16 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!IsWeaponEquipped() || !m_UserWantsReady)
 			return;
 
+		ApplyTemporaryReadySuppression();
 		m_RestoreReadyAfterTurn = true;
+	}
+
+	/// <summary>Временно снимает «готов» без сброса отложенного восстановления (поворот на месте и т.п.).</summary>
+	public void ApplyTemporaryReadySuppression()
+	{
+		if (!IsWeaponEquipped() || !m_UserWantsReady)
+			return;
+
 		ApplyReadyWanted(false, false, true);
 	}
 
@@ -273,6 +297,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return;
+
+		if (!nextReady)
+			CancelDeferredReadyRestores();
 
 		ApplyReadyWanted(nextReady, nextReady, true);
 	}
@@ -370,10 +397,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			ForceWalkMoveModeOnAllLocomotionDrivers();
 
 		if (_ready && didChange)
-		{
 			m_LeftHandIk?.OnWeaponReadyStateApplied();
-			m_Vision?.RequestImmediateScan();
-		}
+
+		if (didChange)
+			m_Vision?.NotifyWeaponReadyChanged(_ready);
 
 		if (didChange && _refreshImmediately)
 			ApplyVisualRefreshAfterReadyToggle();
@@ -395,7 +422,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
 			return false;
 
-		return true;
+		// В стоя переход Aim↔Relaxed уже на bool WeaponReady; CrossFade сбрасывает normalizedTime и дёргает позу.
+		int stance = m_Animator.GetInteger(s_Stance);
+		return stance == (int)LocomotionStance.Crouch || stance == (int)LocomotionStance.Prone;
 	}
 
 	private void ForceWalkMoveModeOnAllLocomotionDrivers()

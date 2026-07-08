@@ -63,6 +63,22 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[Tooltip("Небольшая процедурная неровность бокового увода, чтобы длинная очередь не была идеально синусоидальной.")]
 	[SerializeField, Range(0f, 1f)] private float m_RecoilPatternChaosFraction = 0.22f;
 
+	[Header("Full Auto Recoil Control")]
+	[Tooltip("С какого выстрела очереди юнит начинает компенсировать отдачу (первые выстрелы — как раньше, в основном вверх).")]
+	[SerializeField, Min(1)] private int m_FullAutoRecoilControlStartShot = 5;
+	[Tooltip("К какому номеру выстрела компенсация выходит на полную силу.")]
+	[SerializeField, Min(1)] private int m_FullAutoRecoilControlEndShot = 10;
+	[Tooltip("Оставшаяся доля вертикального подъёма при полной компенсации.")]
+	[SerializeField, Range(0.1f, 1f)] private float m_FullAutoControlledPitchScale = 0.38f;
+	[Tooltip("Боковой увод при полной компенсации считается от полной отдачи (не от ослабленного pitch), чтобы траектория уходила в стороны сильнее, чем вверх.")]
+	[SerializeField, Range(0.5f, 1.5f)] private float m_FullAutoControlledYawReferenceScale = 1f;
+	[Tooltip("Множитель бокового увода при полной компенсации.")]
+	[SerializeField, Min(0.5f)] private float m_FullAutoControlledYawBoost = 1.2f;
+	[Tooltip("Доля бокового увода от вертикальной отдачи при полной компенсации (> Recoil Pattern Yaw Fraction — доминирует горизонталь).")]
+	[SerializeField, Range(0f, 2f)] private float m_FullAutoControlledYawFraction = 1.05f;
+	[Tooltip("Насколько RecoilControl юнита усиливает компенсацию (0 = одинаково для всех).")]
+	[SerializeField, Range(0f, 1f)] private float m_FullAutoRecoilControlSkillInfluence = 0.65f;
+
 	[Header("Advanced Spread Multipliers")]
 	[Tooltip("Прямой множитель финального разброса стоя.")]
 	[SerializeField, Min(0.01f)] private float m_StandingSpreadMultiplier = 1f;
@@ -100,6 +116,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_DebugLastRecoilPenalty;
 	[SerializeField, Min(0f)] private float m_DebugLastPatternPitchDegrees;
 	[SerializeField, Min(0f)] private float m_DebugLastPatternVerticalOffsetMeters;
+	[SerializeField, Range(0f, 1f)] private float m_DebugLastFullAutoRecoilControlBlend;
 	#endregion
 
 	#region Private Fields
@@ -307,6 +324,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		Vector3 normalizedBase = _baseDirection.normalized;
 		if (!WeaponFireModeUtility.IsAutomaticEffectiveMode(_accuracyContext.EffectiveFireMode))
 			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
+		if (WeaponFireModeUtility.IsFirstShotInAutomaticSeries(
+			    _accuracyContext.EffectiveFireMode,
+			    _accuracyContext.BurstShotIndex))
+			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 		if (m_WeaponRuntime == null || m_WeaponRuntime.TransientState == null)
 			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 
@@ -315,8 +336,16 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			return ProceduralRecoilPatternResult.CreateUnchanged(normalizedBase);
 
 		int shotIndex = Mathf.Max(1, _accuracyContext.BurstShotIndex);
-		float pitchDegrees = recoilPenalty * m_RecoilPatternPitchDegreesPerPenaltyUnit * m_AutoSpreadMultiplier;
-		float yawDegrees = CalculateProceduralPatternYaw(shotIndex, pitchDegrees);
+		float basePitchDegrees = recoilPenalty * m_RecoilPatternPitchDegreesPerPenaltyUnit * m_AutoSpreadMultiplier;
+		float controlBlend = CalculateFullAutoRecoilControlBlend(_accuracyContext.EffectiveFireMode, shotIndex);
+		float pitchScale = Mathf.Lerp(1f, m_FullAutoControlledPitchScale, controlBlend);
+		float pitchDegrees = basePitchDegrees * pitchScale;
+
+		float yawReferencePitch = basePitchDegrees * Mathf.Lerp(1f, m_FullAutoControlledYawReferenceScale, controlBlend);
+		float yawFraction = Mathf.Lerp(m_RecoilPatternYawFraction, m_FullAutoControlledYawFraction, controlBlend);
+		float yawBoost = Mathf.Lerp(1f, m_FullAutoControlledYawBoost, controlBlend);
+		float yawDegrees = CalculateProceduralPatternYaw(shotIndex, yawReferencePitch, yawFraction) * yawBoost;
+		m_DebugLastFullAutoRecoilControlBlend = controlBlend;
 
 		Vector3 forward = normalizedBase;
 		Vector3 up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > 0.98f ? Vector3.forward : Vector3.up;
@@ -326,13 +355,41 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return new ProceduralRecoilPatternResult(direction, recoilPenalty, pitchDegrees, yawDegrees, true);
 	}
 
-	private float CalculateProceduralPatternYaw(int _shotIndex, float _pitchDegrees)
+	private float CalculateProceduralPatternYaw(int _shotIndex, float _pitchDegrees, float _yawFraction)
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
 		float seed = weaponDefinition != null ? Mathf.Abs(weaponDefinition.GetInstanceID() % 997) * 0.01f : 0f;
 		float mainWave = Mathf.Sin(_shotIndex * 1.73f + seed);
 		float chaosWave = Mathf.Sin(_shotIndex * 0.47f + seed * 2.31f) * m_RecoilPatternChaosFraction;
-		return (mainWave + chaosWave) * _pitchDegrees * m_RecoilPatternYawFraction;
+		return (mainWave + chaosWave) * _pitchDegrees * _yawFraction;
+	}
+
+	private float CalculateFullAutoRecoilControlBlend(WeaponFireMode _effectiveFireMode, int _shotIndex)
+	{
+		if (_effectiveFireMode != WeaponFireMode.FullAuto)
+			return 0f;
+
+		int startShot = Mathf.Max(1, m_FullAutoRecoilControlStartShot);
+		int endShot = Mathf.Max(startShot + 1, m_FullAutoRecoilControlEndShot);
+		if (_shotIndex <= startShot)
+			return 0f;
+
+		float shotBlend = Mathf.InverseLerp(startShot, endShot, _shotIndex);
+		if (shotBlend <= 0f)
+			return 0f;
+
+		float skill01 = ResolveRecoilControlSkill01();
+		float skillInfluence = Mathf.Clamp01(m_FullAutoRecoilControlSkillInfluence);
+		return Mathf.Clamp01(Mathf.Lerp(shotBlend, shotBlend * skill01, skillInfluence));
+	}
+
+	private float ResolveRecoilControlSkill01()
+	{
+		UnitCombatStats combatStats = ResolveCombatStats();
+		if (combatStats == null)
+			return 0.5f;
+
+		return Mathf.InverseLerp(0f, 100f, combatStats.RecoilControl);
 	}
 
 	private WeaponShotOutcome TryHit(Vector3 _origin, Vector3 _direction, AmmoDefinition _ammo)

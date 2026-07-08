@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Единая проверка: открыты ли экраны предмиссии/инвентаря или UI захватил фокус ввода.
+/// Единая проверка: пауза или UI-поле ввода захватило фокус клавиатуры.
 /// </summary>
 public static class GameInputGate
 {
@@ -11,12 +11,6 @@ public static class GameInputGate
 	public static bool ShouldBlockGameplayInput()
 	{
 		if (PauseMenuController.IsPaused)
-			return true;
-
-		if (MissionPrepScreenBindings.Instance != null && MissionPrepScreenBindings.Instance.IsMissionPrepOpen)
-			return true;
-
-		if (InventoryScreenBindings.Instance != null && InventoryScreenBindings.Instance.IsInventoryOpen)
 			return true;
 
 		return HasBlockingUiInputFocus();

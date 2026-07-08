@@ -17,6 +17,8 @@ MonoBehaviour:
   m_UseExplicitWeaponCompatibility: 1
   m_CompatibleWeapons:
   - {fileID: 11400000, guid: cb84465c75661054e8fe816361b69ba7, type: 2}
+  - {fileID: 11400000, guid: b0d4e7d9b8904fa990faf29fe8084763, type: 2}
+  - {fileID: 11400000, guid: 47826c67f39642fab278e5be557d0f92, type: 2}
   m_CompatibleSlots: 04000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.05

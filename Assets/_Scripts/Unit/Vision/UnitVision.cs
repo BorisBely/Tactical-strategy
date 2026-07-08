@@ -1,11 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Периодическое зрение: дистанция → FOV → сглаживание оси <see cref="m_VisionForwardSmoothTime"/> → пучок лучей → ближайшая цель.
-/// При экипированном оружии и «на готове» опционально конус и LOS от прицела на <see cref="EquippedWeapon"/> (или оверрайд / поиск по имени на <c>UnitVision</c>).
-/// Иначе точка — «глаза» (<see cref="m_EyeHeight"/>), ось — торс/корень/<see cref="m_ViewForwardOverride"/>.
+/// При экипированном оружии и «на готове» LOS и точка конуса — от прицела на <see cref="EquippedWeapon"/>; горизонтальная ось FOV и разворот — от корня/торса (не от наклона оружия в анимации).
 /// При оружии «не на готове» половина FOV не уже <see cref="m_MinHalfFovDegreesWhenWeaponNotReady"/>. Пока цель удерживается, к половине FOV добавляется <see cref="m_TrackingHalfFovExtraDegrees"/>.
 /// </summary>
 [DisallowMultipleComponent]
@@ -30,9 +30,9 @@ public sealed class UnitVision : MonoBehaviour
 
 	[Header("Зрение")]
 	[SerializeField, Min(0.5f)] private float m_VisionRange = 18f;
-	[SerializeField, Range(1f, 179f)] private float m_FieldOfViewDegrees = 90f;
+	[SerializeField, Range(1f, 179f)] private float m_FieldOfViewDegrees = 120f;
 	[Tooltip("Пока в прошлом кадре уже была цель, к половине FOV добавляется этот угол — реже теряем цель на краю конуса (меньше скачков поворота юнита).")]
-	[SerializeField, Range(0f, 30f)] private float m_TrackingHalfFovExtraDegrees = 12f;
+	[SerializeField, Range(0f, 30f)] private float m_TrackingHalfFovExtraDegrees = 15f;
 	[SerializeField, Min(0f)] private float m_EyeHeight = 1.6f;
 
 	[Header("Опрос")]
@@ -59,13 +59,20 @@ public sealed class UnitVision : MonoBehaviour
 	[Tooltip("Сглаживание направления конуса и проверки FOV (сек): торс дёргается от анимации каждый кадр без этого.")]
 	[SerializeField, Min(0f)] private float m_VisionForwardSmoothTime = 0.07f;
 	[Tooltip("При экипированном оружии и «не на готове» корень часто не совпадает с осью взгляда — не даём половине FOV быть уже этого порога (градусы от оси).")]
-	[SerializeField, Range(1f, 89f)] private float m_MinHalfFovDegreesWhenWeaponNotReady = 52f;
+	[SerializeField, Range(1f, 89f)] private float m_MinHalfFovDegreesWhenWeaponNotReady = 70f;
 
 	[Header("Прицел (оружие на готове)")]
 	[Tooltip("Редкий оверрайд на юните. Обычно прицел задаётся на префабе в EquippedWeapon → Sight Pivot.")]
 	[SerializeField] private Transform m_SightPivotOverride;
 	[Tooltip("Если Override пуст и на EquippedWeapon нет Sight Pivot: искать под визуалом оружия дочерний Transform с этим именем.")]
 	[SerializeField] private string m_SightPivotChildName = "";
+
+	[Header("Переход в готов")]
+	[Tooltip("При входе в «готов» плавно доворачивать корень так, чтобы ствол смотрел туда, куда юнит смотрел до перехода.")]
+	[SerializeField] private bool m_PreserveBoreForwardDuringReadyTransition = true;
+	[SerializeField, Min(0.01f)] private float m_ReadyBoreRootTurnDuration = 0.22f;
+	[SerializeField, Range(0f, 120f)] private float m_MaxReadyBoreRootTurnDegrees = 90f;
+	[SerializeField, Range(0f, 10f)] private float m_MinReadyBoreRootTurnDegrees = 0.5f;
 
 	[Header("Отладка")]
 	[SerializeField] private bool m_DrawVisionGizmos;
@@ -77,6 +84,8 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private bool m_DrawEyeLookDebugRay;
 	[SerializeField, Min(0.1f)] private float m_EyeLookDebugRayLength = 5f;
 	[SerializeField] private Color m_EyeLookDebugRayColor = new Color(1f, 0.35f, 0.9f, 1f);
+	[Tooltip("Лог в Console при переходе готов/не готов: углы корня, оси зрения и прицела — для отладки смещения взгляда.")]
+	[SerializeField] private bool m_LogReadyForwardShift;
 
 	private readonly List<UnitVision> m_OpponentBuffer = new List<UnitVision>(128);
 	private readonly List<ShootingRangeTarget> m_RangeTargetBuffer = new List<ShootingRangeTarget>(32);
@@ -94,13 +103,14 @@ public sealed class UnitVision : MonoBehaviour
 	private Vector3 m_SmoothedVisionForwardXZ;
 	private Transform m_CachedSightFromWeapon;
 	private ItemDefinition m_CachedSightWeaponDef;
-	private bool m_WasUsingSightForward;
 	private Vector3 m_LastScanForwardXZ;
 	private Vector3 m_PreviousAimPointForVelocity;
 	private Vector3 m_TargetVelocityEstimate;
 	private float m_LastAimPointUpdateTime;
 	private Transform m_VelocityTrackedTarget;
 	private Vector3 m_LastVelocityRaw;
+	private Vector3 m_ReadyTransitionDesiredBoreForwardXZ;
+	private bool m_HasReadyTransitionDesiredBoreForwardXZ;
 	#endregion
 
 	#region Public Properties
@@ -189,6 +199,115 @@ public sealed class UnitVision : MonoBehaviour
 
 		RunVisionScan();
 		ScheduleNextScan(0f);
+	}
+
+	/// <summary>Вызывается из <see cref="UnitWeaponReadyHandsLayer"/> при смене готов/не готов.</summary>
+	public void NotifyWeaponReadyChanged(bool _ready)
+	{
+		if (!isActiveAndEnabled)
+			return;
+
+		if (_ready)
+		{
+			StartCoroutine(DeferredReadyTransitionRoutine(GetRootForwardXZ()));
+			return;
+		}
+
+		m_HasReadyTransitionDesiredBoreForwardXZ = false;
+		RequestImmediateScan();
+		if (m_LogReadyForwardShift)
+			LogReadyForwardShift(false);
+	}
+
+	private IEnumerator DeferredReadyTransitionRoutine(Vector3 _preReadyForwardXZ)
+	{
+		yield return null;
+
+		if (m_PreserveBoreForwardDuringReadyTransition)
+			yield return SmoothRootToPreserveBoreForwardRoutine(_preReadyForwardXZ);
+
+		RequestImmediateScan();
+		if (!m_LogReadyForwardShift)
+			yield break;
+
+		LogReadyForwardShift(true);
+	}
+
+	private IEnumerator SmoothRootToPreserveBoreForwardRoutine(Vector3 _desiredBoreForwardXZ)
+	{
+		_desiredBoreForwardXZ.y = 0f;
+		if (_desiredBoreForwardXZ.sqrMagnitude < 1e-6f)
+			yield break;
+
+		_desiredBoreForwardXZ.Normalize();
+		m_ReadyTransitionDesiredBoreForwardXZ = _desiredBoreForwardXZ;
+		m_HasReadyTransitionDesiredBoreForwardXZ = true;
+
+		float duration = Mathf.Max(0.01f, m_ReadyBoreRootTurnDuration);
+		float elapsed = 0f;
+		while (elapsed < duration)
+		{
+			if (m_VisibleTarget != null || !TryGetWeaponBoreForwardXZ(out Vector3 boreForwardXZ))
+				yield break;
+
+			ApplyReadyRootBoreCorrectionStep(boreForwardXZ, _desiredBoreForwardXZ, Time.deltaTime, duration);
+			elapsed += Time.deltaTime;
+			yield return null;
+		}
+	}
+
+	private void ApplyReadyRootBoreCorrectionStep(
+		Vector3 _boreForwardXZ,
+		Vector3 _desiredBoreForwardXZ,
+		float _deltaTime,
+		float _duration)
+	{
+		float yawError = Vector3.SignedAngle(_boreForwardXZ, _desiredBoreForwardXZ, Vector3.up);
+		yawError = Mathf.Clamp(yawError, -m_MaxReadyBoreRootTurnDegrees, m_MaxReadyBoreRootTurnDegrees);
+		if (Mathf.Abs(yawError) < m_MinReadyBoreRootTurnDegrees)
+			return;
+
+		float maxStep = (m_MaxReadyBoreRootTurnDegrees / Mathf.Max(0.01f, _duration)) * _deltaTime;
+		float step = Mathf.Clamp(yawError, -maxStep, maxStep);
+
+		transform.rotation = Quaternion.AngleAxis(step, Vector3.up) * transform.rotation;
+		m_SmoothedVisionForwardXZ = GetVisionForwardXZRaw();
+	}
+
+	private void LogReadyForwardShift(bool _ready)
+	{
+		Vector3 rootFwd = GetRootForwardXZ();
+		Vector3 visionFwd = GetVisionForwardXZForGameplay();
+		float bodyYaw = transform.eulerAngles.y;
+		float visionYaw = Mathf.Atan2(visionFwd.x, visionFwd.z) * Mathf.Rad2Deg;
+		float visionBodyDelta = Mathf.Abs(Mathf.DeltaAngle(bodyYaw, visionYaw));
+		string targetName = m_VisibleTarget != null ? m_VisibleTarget.name : "none";
+		string borePart = TryGetWeaponBoreForwardXZ(out Vector3 boreFwd)
+			? $" barrelYaw={Mathf.Atan2(boreFwd.x, boreFwd.z) * Mathf.Rad2Deg:F1}° root↔barrel={Vector3.Angle(rootFwd, boreFwd):F1}°{FormatReadyTargetBoreDelta(boreFwd)}"
+			: " barrel=missing";
+
+		Transform sight = GetActiveSightTransform();
+		if (sight != null && TryGetSightForwardXZ(sight, out Vector3 sightFwd))
+		{
+			float sightYaw = Mathf.Atan2(sightFwd.x, sightFwd.z) * Mathf.Rad2Deg;
+			float rootSightDelta = Vector3.Angle(rootFwd, sightFwd);
+			Debug.Log(
+				$"[UnitVision] Ready={_ready} unit={name} bodyYaw={bodyYaw:F1}° visionYaw={visionYaw:F1}° (Δbody={visionBodyDelta:F1}°) sightYaw={sightYaw:F1}° root↔sight={rootSightDelta:F1}°{borePart} target={targetName}",
+				this);
+			return;
+		}
+
+		Debug.Log(
+			$"[UnitVision] Ready={_ready} unit={name} bodyYaw={bodyYaw:F1}° visionYaw={visionYaw:F1}° (Δbody={visionBodyDelta:F1}°) sight=missing{borePart} target={targetName}",
+			this);
+	}
+
+	private string FormatReadyTargetBoreDelta(Vector3 _boreForwardXZ)
+	{
+		if (!m_HasReadyTransitionDesiredBoreForwardXZ)
+			return "";
+
+		return $" readyTarget↔barrel={Vector3.Angle(m_ReadyTransitionDesiredBoreForwardXZ, _boreForwardXZ):F1}°";
 	}
 
 	/// <summary>
@@ -323,39 +442,27 @@ public sealed class UnitVision : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Горизонтальный forward для разворота на цель: в ready только forward прицела,
-	/// иначе forward корня. Если у ready-оружия прицел не найден, возвращает <c>false</c>.
+	/// Горизонтальный forward для разворота на цель: корень/торс без цели; при ready и видимой цели — ось ствола.
 	/// </summary>
 	public bool TryGetEngageFacingForwardXZ(out Vector3 _forwardXZ)
 	{
 		if (IsWeaponReadyForSightCone())
 		{
-			Transform sight = GetActiveSightTransform();
-			if (sight == null)
+			if (GetActiveSightTransform() == null)
 			{
 				_forwardXZ = default;
 				return false;
 			}
 
-			Vector3 sightFwd = sight.forward;
-			sightFwd.y = 0f;
-			if (sightFwd.sqrMagnitude < 1e-6f)
+			if (m_VisibleTarget != null && TryGetWeaponBoreForwardXZ(out Vector3 boreFwd))
 			{
-				_forwardXZ = default;
-				return false;
+				_forwardXZ = boreFwd;
+				return true;
 			}
-
-			sightFwd.Normalize();
-			Vector3 rootFwd = GetRootForwardXZ();
-			if (Vector3.Dot(sightFwd, rootFwd) < 0f)
-				sightFwd = -sightFwd;
-
-			_forwardXZ = sightFwd;
-			return true;
 		}
 
-		_forwardXZ = GetRootForwardXZ();
-		return true;
+		_forwardXZ = GetVisionForwardXZForGameplay();
+		return _forwardXZ.sqrMagnitude > 1e-6f;
 	}
 
 	/// <summary>
@@ -399,7 +506,6 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		ResolveRegistryIfNeeded();
 		m_SmoothedVisionForwardXZ = Vector3.zero;
-		m_WasUsingSightForward = false;
 		m_CachedSightWeaponDef = null;
 		m_CachedSightFromWeapon = null;
 		m_VelocityTrackedTarget = null;
@@ -525,11 +631,7 @@ public sealed class UnitVision : MonoBehaviour
 		Vector3 bestAimPoint = Vector3.zero;
 		float bestDistSq = float.MaxValue;
 		float rangeSq = m_VisionRange * m_VisionRange;
-		float halfFov = m_FieldOfViewDegrees * 0.5f;
-		if (ShouldWidenFovForWeaponNotReady())
-			halfFov = Mathf.Max(halfFov, m_MinHalfFovDegreesWhenWeaponNotReady);
-		if (m_VisibleTarget != null)
-			halfFov += m_TrackingHalfFovExtraDegrees;
+		float halfFov = ResolveHalfFovDegreesForScan();
 
 		for (int i = 0; i < m_OpponentBuffer.Count; i++)
 		{
@@ -818,23 +920,9 @@ public sealed class UnitVision : MonoBehaviour
 		return f.normalized;
 	}
 
-	/// <summary>Сырое направление «взгляда» без сглаживания (для первого кадра и Edit Mode).</summary>
+	/// <summary>Сырое направление «взгляда» без сглаживания (для первого кадра и Edit Mode). Ось — корень/торс; прицел влияет только на origin LOS.</summary>
 	private Vector3 GetVisionForwardXZRaw()
 	{
-		Transform sight = GetActiveSightTransform();
-		if (sight != null)
-		{
-			Vector3 sightFwd = sight.forward;
-			sightFwd.y = 0f;
-			if (sightFwd.sqrMagnitude < 1e-6f)
-				return GetRootForwardXZ();
-			sightFwd.Normalize();
-			Vector3 sightRootF = GetRootForwardXZ();
-			if (Vector3.Dot(sightFwd, sightRootF) < 0f)
-				sightFwd = -sightFwd;
-			return sightFwd;
-		}
-
 		Transform basis = transform;
 		if (m_ViewForwardOverride != null)
 			basis = m_ViewForwardOverride;
@@ -884,15 +972,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void UpdateSmoothedVisionForward()
 	{
-		bool useSight = GetActiveSightTransform() != null;
 		Vector3 raw = GetVisionForwardXZRaw();
-		if (useSight != m_WasUsingSightForward)
-		{
-			m_WasUsingSightForward = useSight;
-			m_SmoothedVisionForwardXZ = raw;
-			return;
-		}
-
 		if (m_VisionForwardSmoothTime <= 0.0001f)
 		{
 			m_SmoothedVisionForwardXZ = raw;
@@ -904,6 +984,46 @@ public sealed class UnitVision : MonoBehaviour
 			m_SmoothedVisionForwardXZ = raw;
 		else
 			m_SmoothedVisionForwardXZ = Vector3.Slerp(m_SmoothedVisionForwardXZ, raw, t).normalized;
+	}
+
+	private bool TryGetWeaponBoreForwardXZ(out Vector3 _forwardXZ)
+	{
+		_forwardXZ = default;
+		if (!IsWeaponReadyForSightCone() || m_Equipment == null)
+			return false;
+
+		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+		if (weapon == null || weapon.BarrelTransform == null)
+			return false;
+
+		Vector3 boreFwd = weapon.BarrelTransform.forward;
+		boreFwd.y = 0f;
+		if (boreFwd.sqrMagnitude < 1e-6f)
+			return false;
+
+		boreFwd.Normalize();
+		Vector3 rootFwd = GetRootForwardXZ();
+		if (Vector3.Dot(boreFwd, rootFwd) < 0f)
+			boreFwd = -boreFwd;
+
+		_forwardXZ = boreFwd;
+		return true;
+	}
+
+	private static bool TryGetSightForwardXZ(Transform _sight, out Vector3 _forwardXZ)
+	{
+		_forwardXZ = default;
+		if (_sight == null)
+			return false;
+
+		Vector3 sightFwd = _sight.forward;
+		sightFwd.y = 0f;
+		if (sightFwd.sqrMagnitude < 1e-6f)
+			return false;
+
+		sightFwd.Normalize();
+		_forwardXZ = sightFwd;
+		return true;
 	}
 
 	/// <summary>Направление конуса FOV: в игре сглаженное, в редакторе без Play — мгновенное.</summary>
@@ -926,6 +1046,16 @@ public sealed class UnitVision : MonoBehaviour
 			return false;
 
 		return m_ReadyHands.IsEquippedWeaponUserNotReady();
+	}
+
+	private float ResolveHalfFovDegreesForScan()
+	{
+		float halfFov = m_FieldOfViewDegrees * 0.5f;
+		if (ShouldWidenFovForWeaponNotReady())
+			halfFov = Mathf.Max(halfFov, m_MinHalfFovDegreesWhenWeaponNotReady);
+		if (m_VisibleTarget != null)
+			halfFov += m_TrackingHalfFovExtraDegrees;
+		return halfFov;
 	}
 
 	private void BuildLegacyAimCandidates(Collider _col, List<UnitBodyHitZoneVisionUtility.VisionAimCandidate> _out)
@@ -1050,34 +1180,68 @@ public sealed class UnitVision : MonoBehaviour
 	#endregion
 
 	#region Gizmos
+	private void OnDrawGizmosSelected()
+	{
+		DrawVisionSectorGizmos(false);
+	}
+
 	private void OnDrawGizmos()
 	{
 		if (!m_DrawVisionGizmos)
 			return;
 
+		DrawVisionSectorGizmos(true);
+	}
+
+	private void DrawVisionSectorGizmos(bool _includeDebugRays)
+	{
 		// Конус FOV всегда из текущего положения/оси (торс/корень), иначе в Play Mode он «застывает»
 		// до следующего RunVisionScan — юнит уже повернулся, а зелёные линии остаются старыми.
 		Vector3 origin = GetVisionConeOriginWorld();
 		Vector3 fwd = GetVisionForwardXZForGameplay();
+		if (fwd.sqrMagnitude < 1e-6f)
+			return;
+
+		float range = m_VisionRange;
+		float half = ResolveHalfFovDegreesForScan();
+		float baseHalf = m_FieldOfViewDegrees * 0.5f;
 
 		Gizmos.color = m_GizmoFovColor;
 		Gizmos.DrawWireSphere(origin, 0.12f);
 
-		float half = m_FieldOfViewDegrees * 0.5f;
-		Vector3 l = (Quaternion.AngleAxis(-half, Vector3.up) * fwd) * m_VisionRange;
-		Vector3 r = (Quaternion.AngleAxis(half, Vector3.up) * fwd) * m_VisionRange;
-		Gizmos.DrawLine(origin, origin + l);
-		Gizmos.DrawLine(origin, origin + r);
+		Vector3 centerEnd = origin + fwd * range;
+		Gizmos.DrawLine(origin, centerEnd);
+		DrawGizmoArrowHead(centerEnd, fwd, Mathf.Clamp(range * 0.08f, 0.25f, 1.2f));
 
-		Vector3 prev = origin + (Quaternion.AngleAxis(-half, Vector3.up) * fwd).normalized * m_VisionRange;
+		Vector3 leftDir = (Quaternion.AngleAxis(-half, Vector3.up) * fwd).normalized;
+		Vector3 rightDir = (Quaternion.AngleAxis(half, Vector3.up) * fwd).normalized;
+		Vector3 leftEnd = origin + leftDir * range;
+		Vector3 rightEnd = origin + rightDir * range;
+		Gizmos.DrawLine(origin, leftEnd);
+		Gizmos.DrawLine(origin, rightEnd);
+
+		Vector3 prev = leftEnd;
 		const int arcSeg = 24;
 		for (int i = 1; i <= arcSeg; i++)
 		{
 			float a = -half + (2f * half * i / arcSeg);
-			Vector3 next = origin + (Quaternion.AngleAxis(a, Vector3.up) * fwd).normalized * m_VisionRange;
+			Vector3 next = origin + (Quaternion.AngleAxis(a, Vector3.up) * fwd).normalized * range;
 			Gizmos.DrawLine(prev, next);
 			prev = next;
 		}
+
+		if (Mathf.Abs(half - baseHalf) > 0.01f)
+		{
+			Color widenedColor = new Color(m_GizmoFovColor.r, m_GizmoFovColor.g, m_GizmoFovColor.b, m_GizmoFovColor.a * 0.35f);
+			Gizmos.color = widenedColor;
+			Vector3 baseLeftEnd = origin + (Quaternion.AngleAxis(-baseHalf, Vector3.up) * fwd).normalized * range;
+			Vector3 baseRightEnd = origin + (Quaternion.AngleAxis(baseHalf, Vector3.up) * fwd).normalized * range;
+			Gizmos.DrawLine(origin, baseLeftEnd);
+			Gizmos.DrawLine(origin, baseRightEnd);
+		}
+
+		if (!_includeDebugRays)
+			return;
 
 		if (Application.isPlaying && m_DebugRays.Count > 0)
 		{
@@ -1096,6 +1260,21 @@ public sealed class UnitVision : MonoBehaviour
 			Gizmos.DrawLine(origin, aimPoint);
 			Gizmos.DrawWireSphere(aimPoint, 0.08f);
 		}
+	}
+
+	private static void DrawGizmoArrowHead(Vector3 _tip, Vector3 _forward, float _size)
+	{
+		Vector3 fwd = _forward;
+		fwd.y = 0f;
+		if (fwd.sqrMagnitude < 1e-6f)
+			return;
+		fwd.Normalize();
+
+		Vector3 back = _tip - fwd * _size;
+		Vector3 leftWing = back + (Quaternion.AngleAxis(-28f, Vector3.up) * fwd) * _size;
+		Vector3 rightWing = back + (Quaternion.AngleAxis(28f, Vector3.up) * fwd) * _size;
+		Gizmos.DrawLine(_tip, leftWing);
+		Gizmos.DrawLine(_tip, rightWing);
 	}
 	#endregion
 }

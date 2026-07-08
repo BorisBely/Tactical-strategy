@@ -82,7 +82,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private bool m_IsRotatingToFacing;
 	private float m_FacingRotateVelocity;
 	private bool m_FacingSuppressedReady;
+	private bool m_FacingAutoRestoreReady;
 	private bool m_WasReadyBeforeFacing;
+	private bool m_LastTrackedWantsReady;
 	private bool m_IsInFacingTurn;
 	private FacingArrowMode m_FacingTurnMode;
 	private Vector3 m_FacingTurnStartPos;
@@ -91,25 +93,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private float m_FacingTurnDistanceTraveled;
 	private Vector3 m_FacingLookPoint;
 	private FormationSyncGroup m_FormationSyncGroup;
-	private bool m_HasFormationFacingAngle;
-	private bool m_HasCachedFormationSectorYaw;
-	private float m_CachedFormationSectorYaw;
-	private float m_LastFormationSectorRecalcTime = -1f;
-	private float m_LastFormationSectorMovementBaseAngle;
-	private bool m_WasFormationRouteActive;
-	private bool m_WasFormationRouteMoving;
-	private const float c_FormationSectorRecalcIntervalSeconds = 3f;
-	private const float c_FormationSectorTurnThresholdDegrees = 22f;
-	private static readonly bool s_ShowFormationFacingArrowVisual = false;
-	private bool m_HasLastArrivalMovementAngle;
-	private float m_LastArrivalMovementAngle;
-	private LineRenderer m_FormationFacingArrowLine;
 	private bool m_HasPendingFormationSlotArrivalYaw;
 	private float m_PendingFormationSlotArrivalYaw;
-	private bool m_HasFormationSlotSectorConfig;
-	private float m_FormationSlotOffsetDegrees;
-	private bool m_HasFormationSectorBaseYaw;
-	private float m_FormationSectorBaseYaw;
 	private bool m_RouteMarchEngaged;
 	private float m_RouteSegmentLength;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
@@ -117,8 +102,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 	private float m_RouteDebugNextStateLogTime;
 	private bool m_RouteDebugLastSuppressEarlyStop;
-	private float m_FormationSectorDebugNextLogTime;
-	private bool m_WasFormationLiveSectorActive;
 #endif
 	private readonly List<Vector3> m_SmoothingSubtargets = new List<Vector3>(16);
 	private int m_SmoothingSubtargetIndex;
@@ -231,7 +214,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private static readonly Color s_FacingArrowColor = new Color(1f, 0.85f, 0.2f, 0.95f);
 	private static readonly Color s_FacingArrowHoldColor = new Color(0.2f, 0.7f, 1f, 0.95f);
 	private static readonly Color s_FacingArrowLookColor = new Color(0.3f, 0.95f, 0.3f, 0.95f);
-	private static readonly Color s_FormationFacingArrowColor = new Color(0.72f, 0.38f, 1f, 0.92f);
 	private static readonly Vector3 s_FacingArrowYOffset = Vector3.up * 0.05f;
 	private readonly List<FacingArrowVisualSource> m_FacingArrowVisuals = new List<FacingArrowVisualSource>();
 	private bool m_FacingArrowsDirty;
@@ -257,7 +239,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
 	public float FormationSpacing { get; set; } = 2f;
-	public bool HasFormationFacingAngle => m_HasFormationFacingAngle;
 
 	/// <summary>
 	/// Угол слота формации для поворота после полной остановки. Не влияет на марш.
@@ -271,36 +252,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public void ClearPendingFormationSlotArrivalYaw()
 	{
 		m_HasPendingFormationSlotArrivalYaw = false;
-	}
-
-	/// <summary>
-	/// Смещение сектора слота + опционально фиксированная база (Ctrl). Без fixedBase — база = направление движения.
-	/// </summary>
-	public void SetFormationSlotSectorConfig(float _slotOffsetDegrees, float? _fixedBaseYaw = null)
-	{
-		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled)
-			return;
-
-		m_HasFormationSlotSectorConfig = true;
-		m_FormationSlotOffsetDegrees = _slotOffsetDegrees;
-		if (_fixedBaseYaw.HasValue)
-		{
-			m_HasFormationSectorBaseYaw = true;
-			m_FormationSectorBaseYaw = _fixedBaseYaw.Value;
-		}
-		else
-		{
-			m_HasFormationSectorBaseYaw = false;
-		}
-
-		if (WantsReady)
-			EnableFormationSectorFacing();
-	}
-
-	public void ClearFormationSlotSectorConfig()
-	{
-		m_HasFormationSlotSectorConfig = false;
-		m_HasFormationSectorBaseYaw = false;
 	}
 	#endregion
 
@@ -420,6 +371,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ApplyAnimatorSpeedVariation();
 		SubscribeFallenStateListeners();
 		ApplyFallenRtsIsolationIfNeeded();
+		m_LastTrackedWantsReady = WantsReady;
 	}
 
 	private void OnDisable()
@@ -476,6 +428,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void Update()
 	{
+		TrackReadyWantedTransition();
 		ApplyAnimatorSpeedVariation();
 		UpdateSelectionLabelBillboard();
 		UpdateContinuousRouteLocomotionFlags();
@@ -488,7 +441,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		TryRemoveArrivedDestination();
 		TryAdvanceWaypointEarly();
 		UpdateFacingRotation();
-		UpdateFormationFacing();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		UpdateRouteDebugPeriodicState();
 #endif
@@ -648,8 +600,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_HasWantedFacing = false;
 			if (m_FacingSuppressedReady)
 			{
-				m_ReadyHands?.SetReadyWanted(true);
+				if (m_FacingAutoRestoreReady)
+					m_ReadyHands?.SetReadyWanted(true);
+
 				m_FacingSuppressedReady = false;
+				m_FacingAutoRestoreReady = false;
 			}
 
 			TryAdvanceRouteQueue();
@@ -679,14 +634,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (!m_FacingSuppressedReady)
 			{
 				if (m_ReadyHands.IsWeaponEquipped() && m_ReadyHands.WantsReady)
-					m_ReadyHands.SetReadyWanted(false);
+				{
+					m_ReadyHands.ApplyTemporaryReadySuppression();
+					m_FacingAutoRestoreReady = true;
+				}
+
 				m_FacingSuppressedReady = true;
 			}
 		}
 		else if (_angleDegrees < 20f && m_FacingSuppressedReady)
 		{
-			m_ReadyHands.SetReadyWanted(true);
+			if (m_FacingAutoRestoreReady)
+				m_ReadyHands?.SetReadyWanted(true);
+
 			m_FacingSuppressedReady = false;
+			m_FacingAutoRestoreReady = false;
 		}
 	}
 
@@ -843,10 +805,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 				ClearFacingOverride();
 
 			if (!WantsReady)
-			{
-				ClearFormationFacing();
 				ClearFacingOverride();
-			}
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogRouteDebugEvent(
@@ -933,13 +892,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_ActiveRouteSegmentStart = transform.position;
 		m_RouteMarchEngaged = false;
 		m_RouteSegmentLength = (FlattenToGround(_dest) - FlattenToGround(transform.position)).magnitude;
-		m_HasLastArrivalMovementAngle = false;
 		m_DestinationSetTime = Time.time;
 		m_IsRotatingToFacing = false;
 		m_HasWantedFacing = false;
 		ClearFacingOverride();
-		if (!WantsReady)
-			ClearFormationFacing();
 		m_ActiveFacingArrows = null;
 		MarkFacingArrowsDirty();
 	}
@@ -1840,51 +1796,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasWantedFacing = false;
 		ClearFacingOverride();
 		ClearFormationSync();
-		ClearFormationFacing();
 		ClearPendingFormationSlotArrivalYaw();
-		ClearFormationSlotSectorConfig();
 		m_RouteMarchEngaged = false;
 	}
 
-	public void EnableFormationSectorFacing()
-	{
-		if (!WantsReady)
-		{
-			ClearFormationFacing();
-			return;
-		}
-
-		m_HasFormationFacingAngle = true;
-		InvalidateFormationSectorCache();
-		if (s_ShowFormationFacingArrowVisual)
-			EnsureFormationFacingVisual();
-	}
-
-	public void SetFormationSectorOffset(float _sectorOffsetDegrees)
-	{
-		EnableFormationSectorFacing();
-	}
-
-	/// <summary>Устаревший вызов.</summary>
-	public void SetFormationFacingAngle(float _sectorOffsetDegrees, float _frontAngleDegrees)
-	{
-		EnableFormationSectorFacing();
-	}
-
+	/// <summary>Заглушка для совместимости с менеджером выделения.</summary>
 	public void ClearFormationFacing()
 	{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		if (m_HasFormationFacingAngle)
-			FormationSectorDebug.Log(this, $"CLEAR_SECTOR_FLAG ready={WantsReady}");
-#endif
-		m_HasFormationFacingAngle = false;
-		m_HasLastArrivalMovementAngle = false;
-		InvalidateFormationSectorCache();
-		if (m_FormationFacingArrowLine != null)
-		{
-			Destroy(m_FormationFacingArrowLine.gameObject);
-			m_FormationFacingArrowLine = null;
-		}
 	}
 
 	/// <summary>
@@ -2119,12 +2037,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void ClearFacingOverride(string _reason = "unspecified")
 	{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		bool hadOverride = m_ClickToMove != null && m_ClickToMove.OverrideFacingAngle.HasValue
-		                   || m_LocomotionDriver != null && m_LocomotionDriver.OverrideFacingAngle.HasValue;
-		if (hadOverride)
-			FormationSectorDebug.LogClearOverride(this, _reason);
-#endif
 		if (m_ClickToMove != null)
 			m_ClickToMove.OverrideFacingAngle = null;
 		else if (m_LocomotionDriver != null)
@@ -2143,28 +2055,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_ReadyHands.SetReadyWanted(_ready);
 
 			if (!_ready)
-			{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-				FormationSectorDebug.Log(this, $"READY_OFF duringMove={HasActiveLocomotionMovement()} manualFacing={HasManualRouteFacingActive()}");
-#endif
-				ClearFormationFacing();
-				if (HasActiveLocomotionMovement() && !HasManualRouteFacingActive())
-				{
-					ClearFacingOverride("SetReadyWanted(false)");
-					if (m_IsInFacingTurn)
-						ClearFacingTurn();
-				}
-			}
+				HandleReadyBecameFalse();
 			else
-			{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-				FormationSectorDebug.Log(this, "READY_ON");
-#endif
 				DowngradeActiveMovementTierForReady();
-				SyncFormationLiveSectorState();
-				if (ShouldApplyFormationFacing())
-					ApplyCachedFormationFacing();
-			}
 		}, _groupStaggerDelaySeconds);
 	}
 
@@ -2465,7 +2358,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_ActiveRouteSegmentStart = transform.position;
 		m_RouteMarchEngaged = false;
 		m_RouteSegmentLength = (FlattenToGround(cmd.Destination) - FlattenToGround(transform.position)).magnitude;
-		m_HasLastArrivalMovementAngle = false;
 		m_DestinationSetTime = Time.time;
 		ApplyFormationSlotPendingFromCommand(cmd);
 
@@ -2933,9 +2825,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_WantedFacingAngle = arrow.Angle;
 			m_IsRotatingToFacing = true;
 			m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			FormationSectorDebug.Log(this, $"ARRIVAL_FACING_START yaw={arrow.Angle:F1} {BuildFormationSectorDebugSnapshot()}");
-#endif
 			return true;
 		}
 
@@ -2957,13 +2846,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsInFacingTurn)
 			return;
 
-		if (!WantsReady && IsPhysicallyMoving() && !IsInMovementManualFacingMode(m_FacingTurnMode))
+		if (!WantsReady && (IsPhysicallyMoving() || HasActiveLocomotionMovement()))
 		{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			FormationSectorDebug.Log(this, $"FACING_TURN_ABORT !ready mode={m_FacingTurnMode} {BuildFormationSectorDebugSnapshot()}");
-#endif
+			if (m_FacingAutoRestoreReady ||
+			    (m_ReadyHands != null && m_ReadyHands.HasPendingReadyRestore))
+				return;
+
 			ClearFacingTurn();
 			ClearFacingOverride("UpdateFacingTurn.notReady");
+			BeginLocomotionNotReadyFacingRealign();
 			return;
 		}
 
@@ -3021,6 +2912,49 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasWantedFacing = false;
 		m_FacingRotateVelocity = 0f;
 		m_FacingSuppressedReady = false;
+		m_FacingAutoRestoreReady = false;
+	}
+
+	private void TrackReadyWantedTransition()
+	{
+		bool wantsReady = WantsReady;
+		if (m_LastTrackedWantsReady && !wantsReady)
+			HandleReadyBecameFalse();
+
+		m_LastTrackedWantsReady = wantsReady;
+	}
+
+	private void HandleReadyBecameFalse()
+	{
+		if (m_FacingAutoRestoreReady)
+		{
+			m_FacingAutoRestoreReady = false;
+			return;
+		}
+
+		if (m_ReadyHands != null && m_ReadyHands.HasPendingReadyRestore)
+			return;
+
+		m_FacingSuppressedReady = false;
+
+		if (!HasActiveLocomotionMovement() && !IsPhysicallyMoving())
+			return;
+
+		if (m_IsInFacingTurn)
+			m_IsInFacingTurn = false;
+
+		ClearFacingOverride("HandleReadyBecameFalse");
+		m_HasWantedFacing = false;
+		m_FacingRotateVelocity = 0f;
+		BeginLocomotionNotReadyFacingRealign();
+	}
+
+	private void BeginLocomotionNotReadyFacingRealign()
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.BeginNotReadyMovementFacingRealign();
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.BeginNotReadyMovementFacingRealign();
 	}
 
 	private float GetEffectiveRotateSpeed()
@@ -3034,9 +2968,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void ApplyLocomotionFacingOverride(float _angle, string _reason)
 	{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		FormationSectorDebug.LogApplyOverride(this, _angle, _reason);
-#endif
 		if (m_ClickToMove != null)
 			m_ClickToMove.OverrideFacingAngle = _angle;
 		else if (m_LocomotionDriver != null)
@@ -3267,42 +3198,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return false;
 	}
 
-	private bool ShouldUseFormationLiveSector()
+	private static bool IsInMovementManualFacingMode(FacingArrowMode _mode)
 	{
-		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled)
-			return false;
-		if (!WantsReady)
-			return false;
-		if (!m_HasFormationSlotSectorConfig)
-			return false;
-		if (!IsFormationMarchEligible())
-			return false;
-		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
-			return false;
-		if (HasActiveTurnOnArrivalFacingOnly())
-			return false;
-		if (m_HasFormationSectorBaseYaw)
-			return true;
-		if (HasManualRouteFacingActive())
-			return false;
-		return true;
-	}
-
-	private string DescribeFormationLiveSectorBlockReason()
-	{
-		if (!WantsReady)
-			return "!ready";
-		if (!m_HasFormationSlotSectorConfig)
-			return "!slotConfig";
-		if (!IsFormationMarchEligible())
-			return "!formationMarch";
-		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
-			return "runOrSprint";
-		if (HasManualRouteFacingActive())
-			return "manualRouteFacing";
-		if (HasActiveTurnOnArrivalFacingOnly())
-			return "turnOnArrivalOnly";
-		return "ok";
+		return _mode == FacingArrowMode.HoldToEnd || _mode == FacingArrowMode.LookAtPoint;
 	}
 
 	private bool IsPhysicallyMoving()
@@ -3316,312 +3214,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 
 		return false;
-	}
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-	private string BuildFormationSectorDebugSnapshot()
-	{
-		float? overrideYaw = m_ClickToMove != null
-			? m_ClickToMove.OverrideFacingAngle
-			: m_LocomotionDriver != null
-				? m_LocomotionDriver.OverrideFacingAngle
-				: null;
-		int syncMembers = m_FormationSyncGroup != null ? m_FormationSyncGroup.Members.Count : 0;
-		string arrows = m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0
-			? "none"
-			: $"{m_ActiveFacingArrows.Count}({m_ActiveFacingArrows[0].Mode})";
-		bool physMoving = IsPhysicallyMoving();
-		string pendingSlot = m_HasPendingFormationSlotArrivalYaw
-			? m_PendingFormationSlotArrivalYaw.ToString("F1")
-			: "none";
-		float distToWp = m_Waypoints.Count > 0
-			? (FlattenToGround(m_Waypoints[0]) - FlattenToGround(transform.position)).magnitude
-			: -1f;
-		return
-			$"ready={WantsReady} sectorFlag={m_HasFormationFacingAngle} cachedYaw={m_HasCachedFormationSectorYaw} " +
-			$"override={(overrideYaw.HasValue ? overrideYaw.Value.ToString("F1") : "null")} " +
-			$"sync={syncMembers} dest={m_HasActiveDestination} wp={m_Waypoints.Count} q={m_CommandQueue.Count} " +
-			$"arrows={arrows} facingTurn={m_IsInFacingTurn} rotateToFacing={m_IsRotatingToFacing} wantedFacing={m_HasWantedFacing} " +
-			$"physMoving={physMoving} pendingSlot={pendingSlot} routeMarch={m_RouteMarchEngaged} distToWp={distToWp:F2} " +
-			$"block={DescribeFormationLiveSectorBlockReason()} live={ShouldUseFormationLiveSector()}";
-	}
-#endif
-
-	private bool HasActiveTurnOnArrivalFacingOnly()
-	{
-		if (m_ActiveFacingArrows == null || m_ActiveFacingArrows.Count == 0)
-			return false;
-
-		return !HasNonArrivalFacingArrows(m_ActiveFacingArrows);
-	}
-
-	private void SyncFormationLiveSectorState()
-	{
-		bool shouldUse = ShouldUseFormationLiveSector();
-
-		if (!shouldUse)
-		{
-			if (m_HasFormationFacingAngle)
-			{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-				FormationSectorDebug.Log(this, $"SYNC_OFF reason={DescribeFormationLiveSectorBlockReason()} {BuildFormationSectorDebugSnapshot()}");
-#endif
-				ClearFormationFacing();
-			}
-
-			if (HasActiveLocomotionMovement() && !HasManualRouteFacingActive() && !m_HasWantedFacing)
-				ClearFacingOverride("SyncFormationLiveSectorState.off");
-			return;
-		}
-
-		if (!m_HasFormationFacingAngle)
-		{
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			FormationSectorDebug.Log(this, $"SYNC_ON {BuildFormationSectorDebugSnapshot()}");
-#endif
-			m_HasFormationFacingAngle = true;
-			InvalidateFormationSectorCache();
-			if (s_ShowFormationFacingArrowVisual)
-				EnsureFormationFacingVisual();
-		}
-	}
-
-	private bool ShouldApplyFormationFacing()
-	{
-		return ShouldUseFormationLiveSector()
-		       && m_HasFormationFacingAngle
-		       && m_HasCachedFormationSectorYaw;
-	}
-
-	private static bool IsInMovementManualFacingMode(FacingArrowMode _mode)
-	{
-		return _mode == FacingArrowMode.HoldToEnd || _mode == FacingArrowMode.LookAtPoint;
-	}
-
-	private bool IsFormationMarchEligible()
-	{
-		if (m_FormationSyncGroup == null || m_FormationSyncGroup.Members.Count < 2)
-			return false;
-
-		return m_HasActiveDestination || m_Waypoints.Count > 0 || m_CommandQueue.Count > 0;
-	}
-
-	private bool IsFormationRouteMoving()
-	{
-		if (!ShouldUseFormationLiveSector())
-			return false;
-
-		NavMeshAgent agent = GetComponent<NavMeshAgent>();
-		if (agent != null && agent.enabled && agent.isOnNavMesh)
-		{
-			Vector3 velocity = new Vector3(agent.velocity.x, 0f, agent.velocity.z);
-			if (velocity.sqrMagnitude > 0.01f)
-				return true;
-		}
-
-		return HasActiveLocomotionMovement();
-	}
-
-	private void InvalidateFormationSectorCache()
-	{
-		m_HasCachedFormationSectorYaw = false;
-		m_LastFormationSectorRecalcTime = -1f;
-		m_WasFormationRouteActive = false;
-		m_WasFormationRouteMoving = false;
-	}
-
-	private bool ShouldRecalcFormationSectorNow(bool _routeMoving)
-	{
-		if (!ShouldUseFormationLiveSector())
-			return false;
-
-		if (!m_WasFormationRouteActive)
-			return true;
-
-		if (m_WasFormationRouteMoving && !_routeMoving)
-			return true;
-
-		if (!_routeMoving)
-			return false;
-
-		if (!m_WasFormationRouteMoving && _routeMoving)
-			return true;
-
-		float moveBase = ResolveMovementFacingBaseAngle();
-		if (m_HasCachedFormationSectorYaw &&
-		    Mathf.Abs(Mathf.DeltaAngle(m_LastFormationSectorMovementBaseAngle, moveBase)) >=
-		    c_FormationSectorTurnThresholdDegrees)
-			return true;
-
-		if (Time.time - m_LastFormationSectorRecalcTime >= c_FormationSectorRecalcIntervalSeconds)
-			return true;
-
-		return !m_HasCachedFormationSectorYaw;
-	}
-
-	private void TryRefreshFormationSectorCache(bool _routeMoving)
-	{
-		if (!ShouldRecalcFormationSectorNow(_routeMoving))
-			return;
-
-		m_CachedFormationSectorYaw = ResolveUnitFormationSectorYaw();
-		m_HasCachedFormationSectorYaw = true;
-		m_LastFormationSectorRecalcTime = Time.time;
-		m_LastFormationSectorMovementBaseAngle = ResolveMovementFacingBaseAngle();
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		FormationSectorDebug.Log(this, $"RECALC_SECTOR yaw={m_CachedFormationSectorYaw:F1} {BuildFormationSectorDebugSnapshot()}");
-#endif
-	}
-
-	private void ApplyCachedFormationFacing()
-	{
-		if (!ShouldApplyFormationFacing())
-			return;
-
-		ApplyLocomotionFacingOverride(m_CachedFormationSectorYaw, "FormationSector.cached");
-	}
-
-	/// <summary>
-	/// Индивидуальное направление сектора юнита в формации.
-	/// Точка расширения для будущих per-unit sector данных.
-	/// </summary>
-	private float ResolveUnitFormationSectorYaw()
-	{
-		float baseYaw = m_HasFormationSectorBaseYaw
-			? m_FormationSectorBaseYaw
-			: ResolveMovementFacingBaseAngle();
-
-		return FormationLayoutUtility.ResolveSlotWorldFacingAngle(baseYaw, m_FormationSlotOffsetDegrees);
-	}
-
-	private static Vector3 DirectionFromYawDegrees(float _yawDegrees)
-	{
-		return Quaternion.Euler(0f, _yawDegrees, 0f) * Vector3.forward;
-	}
-
-	private float ResolveMovementFacingBaseAngle()
-	{
-		if (!m_HasActiveDestination && m_HasLastArrivalMovementAngle)
-			return m_LastArrivalMovementAngle;
-
-		NavMeshAgent agent = GetComponent<NavMeshAgent>();
-		if (agent != null && agent.enabled && agent.isOnNavMesh)
-		{
-			Vector3 velocity = new Vector3(agent.velocity.x, 0f, agent.velocity.z);
-			if (velocity.sqrMagnitude > 0.01f)
-				return Mathf.Atan2(velocity.x, velocity.z) * Mathf.Rad2Deg;
-
-			if (m_HasActiveDestination && agent.hasPath && !agent.pathPending)
-			{
-				Vector3 toSteer = agent.steeringTarget - transform.position;
-				toSteer.y = 0f;
-				if (toSteer.sqrMagnitude > 0.01f)
-					return Mathf.Atan2(toSteer.x, toSteer.z) * Mathf.Rad2Deg;
-			}
-		}
-
-		if (m_HasActiveDestination && m_Waypoints.Count > 0)
-		{
-			Vector3 dest = m_Waypoints[0];
-			Vector3 moveDir = dest - m_ActiveRouteSegmentStart;
-			moveDir.y = 0f;
-			if (moveDir.sqrMagnitude > 0.01f)
-				return Mathf.Atan2(moveDir.x, moveDir.z) * Mathf.Rad2Deg;
-		}
-
-		return transform.eulerAngles.y;
-	}
-
-	private void UpdateFormationFacing()
-	{
-		SyncFormationLiveSectorState();
-
-		bool routeActive = ShouldUseFormationLiveSector();
-		bool physMoving = IsPhysicallyMoving();
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-		if (routeActive != m_WasFormationLiveSectorActive)
-		{
-			FormationSectorDebug.Log(this, $"LIVE_SECTOR_ACTIVE={routeActive} {BuildFormationSectorDebugSnapshot()}");
-			m_WasFormationLiveSectorActive = routeActive;
-		}
-
-		if (m_HasActiveDestination || (m_FormationSyncGroup != null && m_FormationSyncGroup.Members.Count >= 2))
-		{
-			FormationSectorDebug.LogThrottled(
-				this,
-				ref m_FormationSectorDebugNextLogTime,
-				$"TICK physMoving={physMoving} apply={ShouldApplyFormationFacing()} {BuildFormationSectorDebugSnapshot()}");
-		}
-#endif
-
-		bool routeMoving = routeActive && (physMoving || HasActiveLocomotionMovement());
-
-		if (routeActive)
-			TryRefreshFormationSectorCache(routeMoving);
-
-		m_WasFormationRouteActive = routeActive;
-		m_WasFormationRouteMoving = routeMoving;
-
-		if (ShouldApplyFormationFacing())
-			ApplyCachedFormationFacing();
-		else if (HasActiveLocomotionMovement() && !HasManualRouteFacingActive() && !m_HasWantedFacing && !WantsReady)
-			ClearFacingOverride("UpdateFormationFacing.notReadyMarch");
-
-		if (s_ShowFormationFacingArrowVisual)
-		{
-			bool showVisual = routeActive
-			                  && m_IsSelected
-			                  && m_HasCachedFormationSectorYaw;
-			UpdateFormationFacingVisual(showVisual);
-		}
-		else if (m_FormationFacingArrowLine != null)
-		{
-			m_FormationFacingArrowLine.enabled = false;
-		}
-	}
-
-	private void EnsureFormationFacingVisual()
-	{
-		if (m_FormationFacingArrowLine != null || s_PathLineMaterial == null)
-			return;
-
-		GameObject go = new GameObject("FormationFacingArrow");
-		go.transform.SetParent(transform, false);
-		LineRenderer line = go.AddComponent<LineRenderer>();
-		line.positionCount = 2;
-		line.startWidth = 0.018f;
-		line.endWidth = 0.018f;
-		line.material = s_PathLineMaterial;
-		line.startColor = s_FormationFacingArrowColor;
-		line.endColor = s_FormationFacingArrowColor;
-		line.enabled = false;
-		m_FormationFacingArrowLine = line;
-	}
-
-	private void UpdateFormationFacingVisual(bool _visible)
-	{
-		if (!m_HasFormationFacingAngle)
-		{
-			if (m_FormationFacingArrowLine != null)
-				m_FormationFacingArrowLine.enabled = false;
-			return;
-		}
-
-		EnsureFormationFacingVisual();
-		if (m_FormationFacingArrowLine == null)
-			return;
-
-		bool show = _visible && m_IsSelected && WantsReady;
-		m_FormationFacingArrowLine.enabled = show;
-		if (!show)
-			return;
-
-		float worldSectorAngle = m_CachedFormationSectorYaw;
-		Vector3 dir = Quaternion.Euler(0f, worldSectorAngle, 0f) * Vector3.forward;
-		Vector3 anchor = transform.position + s_FacingArrowYOffset;
-		m_FormationFacingArrowLine.SetPosition(0, anchor + dir * c_FacingArrowShaftStartOffset);
-		m_FormationFacingArrowLine.SetPosition(1, anchor + dir * (c_FacingArrowFixedLength * 0.85f));
 	}
 
 	private void ScheduleRtsCommand(Action _command, float _groupStaggerDelaySeconds = 0f, bool _immediate = false)
@@ -3935,15 +3527,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 #endif
 		if (m_Waypoints.Count > 0)
 		{
-			Vector3 dest = m_Waypoints[0];
-			Vector3 moveDir = dest - m_ActiveRouteSegmentStart;
-			moveDir.y = 0f;
-			if (moveDir.sqrMagnitude > 0.01f)
-			{
-				m_HasLastArrivalMovementAngle = true;
-				m_LastArrivalMovementAngle = Mathf.Atan2(moveDir.x, moveDir.z) * Mathf.Rad2Deg;
-			}
-
 			ShiftFacingArrowSegmentsAfterWaypointRemoved(0);
 			ShiftWaitHoldSegmentsAfterWaypointRemoved(0);
 			m_Waypoints.RemoveAt(0);
