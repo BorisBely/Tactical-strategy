@@ -106,6 +106,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private LineRenderer m_FormationFacingArrowLine;
 	private bool m_HasPendingFormationSlotArrivalYaw;
 	private float m_PendingFormationSlotArrivalYaw;
+	private bool m_HasFormationSlotSectorConfig;
+	private float m_FormationSlotOffsetDegrees;
+	private bool m_HasFormationSectorBaseYaw;
+	private float m_FormationSectorBaseYaw;
 	private bool m_RouteMarchEngaged;
 	private float m_RouteSegmentLength;
 	private readonly List<Vector3> m_Waypoints = new List<Vector3>();
@@ -267,6 +271,36 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public void ClearPendingFormationSlotArrivalYaw()
 	{
 		m_HasPendingFormationSlotArrivalYaw = false;
+	}
+
+	/// <summary>
+	/// Смещение сектора слота + опционально фиксированная база (Ctrl). Без fixedBase — база = направление движения.
+	/// </summary>
+	public void SetFormationSlotSectorConfig(float _slotOffsetDegrees, float? _fixedBaseYaw = null)
+	{
+		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled)
+			return;
+
+		m_HasFormationSlotSectorConfig = true;
+		m_FormationSlotOffsetDegrees = _slotOffsetDegrees;
+		if (_fixedBaseYaw.HasValue)
+		{
+			m_HasFormationSectorBaseYaw = true;
+			m_FormationSectorBaseYaw = _fixedBaseYaw.Value;
+		}
+		else
+		{
+			m_HasFormationSectorBaseYaw = false;
+		}
+
+		if (WantsReady)
+			EnableFormationSectorFacing();
+	}
+
+	public void ClearFormationSlotSectorConfig()
+	{
+		m_HasFormationSlotSectorConfig = false;
+		m_HasFormationSectorBaseYaw = false;
 	}
 	#endregion
 
@@ -958,7 +992,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			{
 				Angle = _facing.Value,
 				Mode = _mode,
-				ForceReadyOnActivation = false,
+				ForceReadyOnActivation = ResolveForceReadyOnFacingActivation(_mode, _activateAtSegmentStart, false),
 				ActivateAtSegmentStart = _activateAtSegmentStart,
 				HasLookPoint = hasLookPoint,
 			}, 0, _dest, hasLookPoint ? _lookPoint : null));
@@ -1009,7 +1043,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			{
 				Angle = _facing.Value,
 				Mode = _mode,
-				ForceReadyOnActivation = false,
+				ForceReadyOnActivation = ResolveForceReadyOnFacingActivation(_mode, _activateAtSegmentStart, false),
 				ActivateAtSegmentStart = _activateAtSegmentStart,
 				HasLookPoint = hasLookPoint,
 			}, waypointIndex, m_Waypoints[waypointIndex], hasLookPoint ? _lookPoint : null));
@@ -1712,6 +1746,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 	}
 
+	private static bool ResolveForceReadyOnFacingActivation(
+		FacingArrowMode _mode,
+		bool _activateAtSegmentStart,
+		bool _explicitForceReady)
+	{
+		return _explicitForceReady
+		       || (_mode == FacingArrowMode.HoldToEnd && _activateAtSegmentStart);
+	}
+
 	public void SetWaypointFacing(
 		int _index,
 		float _angle,
@@ -1730,7 +1773,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		{
 			Angle = _angle,
 			Mode = _mode,
-			ForceReadyOnActivation = _forceReadyOnActivation,
+			ForceReadyOnActivation = ResolveForceReadyOnFacingActivation(_mode, _activateAtSegmentStart, _forceReadyOnActivation),
 			ActivateAtSegmentStart = _activateAtSegmentStart,
 			HasLookPoint = hasLookPoint,
 		}, _index, bindAnchor, hasLookPoint ? _lookPoint : null, bindToActiveSegment || _activateAtSegmentStart);
@@ -1799,6 +1842,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ClearFormationSync();
 		ClearFormationFacing();
 		ClearPendingFormationSlotArrivalYaw();
+		ClearFormationSlotSectorConfig();
 		m_RouteMarchEngaged = false;
 	}
 
@@ -3225,15 +3269,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private bool ShouldUseFormationLiveSector()
 	{
+		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled)
+			return false;
 		if (!WantsReady)
+			return false;
+		if (!m_HasFormationSlotSectorConfig)
 			return false;
 		if (!IsFormationMarchEligible())
 			return false;
 		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
 			return false;
-		if (HasManualRouteFacingActive())
-			return false;
 		if (HasActiveTurnOnArrivalFacingOnly())
+			return false;
+		if (m_HasFormationSectorBaseYaw)
+			return true;
+		if (HasManualRouteFacingActive())
 			return false;
 		return true;
 	}
@@ -3242,6 +3292,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (!WantsReady)
 			return "!ready";
+		if (!m_HasFormationSlotSectorConfig)
+			return "!slotConfig";
 		if (!IsFormationMarchEligible())
 			return "!formationMarch";
 		if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
@@ -3435,20 +3487,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	/// </summary>
 	private float ResolveUnitFormationSectorYaw()
 	{
-		Vector3 moveForward = DirectionFromYawDegrees(ResolveMovementFacingBaseAngle());
+		float baseYaw = m_HasFormationSectorBaseYaw
+			? m_FormationSectorBaseYaw
+			: ResolveMovementFacingBaseAngle();
 
-		if (m_FormationSyncGroup != null && m_FormationSyncGroup.Members.Count > 1)
-		{
-			Vector3 center = m_FormationSyncGroup.GetCentroidWorld();
-			float band = FormationLayoutUtility.GetCenterBandRadiusMeters(FormationSpacing);
-			return FormationLayoutUtility.ResolveRuntimeSectorWorldAngle(
-				transform.position,
-				center,
-				moveForward,
-				band);
-		}
-
-		return ResolveMovementFacingBaseAngle();
+		return FormationLayoutUtility.ResolveSlotWorldFacingAngle(baseYaw, m_FormationSlotOffsetDegrees);
 	}
 
 	private static Vector3 DirectionFromYawDegrees(float _yawDegrees)

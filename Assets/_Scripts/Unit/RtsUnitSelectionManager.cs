@@ -89,7 +89,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private List<float> m_PreviewFacingAngles;
 	private List<float> m_PreviewFormationFacingAngles;
 	private Vector3? m_PreviewFormationForwardOverride;
-	private GroupFormationFacingMode m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.Sector;
+	private GroupFormationFacingMode m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.HoldToEnd;
 	private float m_PreviewFormationManualFacingAngle;
 	private Vector3? m_PreviewFormationManualLookPoint;
 	private FormationLayoutUtility.FormationUnitSlotBinding[] m_FormationPreviewBindings;
@@ -166,7 +166,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private enum GroupFormationFacingMode
 	{
-		Sector,
 		HoldToEnd,
 		LookAtPoint,
 	}
@@ -3754,80 +3753,57 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		bool isGroup = validUnits.Count >= 2;
-		GroupFormationFacingMode groupFacingMode = m_PreviewGroupFormationFacingMode;
-		bool isGroupManualFacing = isGroup
-		                             && groupFacingMode != GroupFormationFacingMode.Sector
-		                             && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
-		bool isGroupFormationSlotFacing = isGroup
-		                                  && groupFacingMode == GroupFormationFacingMode.Sector
-		                                  && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
+		bool hasGroupFormationFacing = isGroup
+		                                 && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
+		bool isGroupCtrlFormationSector = isGroup && IsCtrlPressed() && hasGroupFormationFacing;
+
 		FormationLayoutUtility.FormationBuildResult rebuiltFormation = default;
-		if (isGroup && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet))
+		bool hasRebuiltFormation = false;
+		if (isGroup && hasGroupFormationFacing)
 		{
 			rebuiltFormation =
 				BuildFormationLayout(validUnits, center, m_PreviewFormationForwardOverride, _forceRebuildBindings: true);
 			offsets = rebuiltFormation.Offsets;
 			m_PreviewOffsets = offsets;
-			m_PreviewFormationFacingAngles = isGroupManualFacing ? null : rebuiltFormation.FacingAngles;
+			hasRebuiltFormation = true;
 		}
+
+		bool allowArrivalFormationFacing = hasRebuiltFormation
+		                                   && rebuiltFormation.FacingAngles != null
+		                                   && rebuiltFormation.FacingAngles.Count > 0;
+		bool applyReadyFormationMarchSector = FormationLayoutUtility.IndividualSlotSectorsEnabled
+		                                     && hasGroupFormationFacing
+		                                     && !isGroupCtrlFormationSector;
 
 		bool useMoveFacing = !isGroup && (m_HasMoveFacingSet || m_IsQuickRotateFacing);
 		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
 			? RtsUnitMember.FacingArrowMode.TurnOverDistance
 			: null;
 		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
-		List<float> formationFacingAngles = isGroup && !isGroupManualFacing && !isGroupFormationSlotFacing
-			? m_PreviewFormationFacingAngles
+		List<float> formationFacingAngles = allowArrivalFormationFacing
+			? new List<float>(rebuiltFormation.FacingAngles)
 			: null;
+
 		Vector3? formationForwardOverride = m_PreviewFormationForwardOverride;
-		Vector3? groupManualLookPoint = isGroupManualFacing && groupFacingMode == GroupFormationFacingMode.LookAtPoint
-			? m_PreviewFormationManualLookPoint
-			: null;
 		UnitClickToMove.MoveTier moveTier = m_PreviewMoveTier;
 		bool startedOnSelectedUnit = m_RmbStartedOnSelectedUnit;
 
-		if (isGroupFormationSlotFacing
-		    && rebuiltFormation.FacingAngles != null
-		    && rebuiltFormation.FacingAngles.Count > 0)
-		{
-			formationFacingAngles = new List<float>(rebuiltFormation.FacingAngles);
-			facingAngles = null;
-			facingMode = null;
-		}
-
-		if (isGroupManualFacing)
-		{
-			facingAngles = new List<float>(validUnits.Count);
-			for (int i = 0; i < validUnits.Count; i++)
-				facingAngles.Add(m_PreviewFormationManualFacingAngle);
-			facingMode = groupFacingMode == GroupFormationFacingMode.LookAtPoint
-				? RtsUnitMember.FacingArrowMode.LookAtPoint
-				: RtsUnitMember.FacingArrowMode.HoldToEnd;
-		}
-
-		bool hasGroupFormationFacing = isGroup
-		                                 && (m_PreviewFormationForwardOverride.HasValue || m_HasFormationFacingSet);
 		if (IsCtrlShiftHeld() && hasGroupFormationFacing)
+			isGroupCtrlFormationSector = true;
+
+		float? formationCtrlBaseYaw = isGroupCtrlFormationSector
+			? ResolveFormationCtrlBaseYaw(formationForwardOverride, m_PreviewFormationManualFacingAngle)
+			: null;
+
+		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled
+		    && isGroupCtrlFormationSector
+		    && formationCtrlBaseYaw.HasValue)
 		{
-			isGroupManualFacing = true;
-			isGroupFormationSlotFacing = false;
-			formationFacingAngles = null;
-			groupManualLookPoint = null;
-
-			float manualAngle = m_PreviewFormationManualFacingAngle;
-			if (m_PreviewFormationForwardOverride.HasValue)
-			{
-				Vector3 forward = m_PreviewFormationForwardOverride.Value;
-				manualAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
-			}
-
-			facingAngles = new List<float>(validUnits.Count);
-			for (int i = 0; i < validUnits.Count; i++)
-				facingAngles.Add(manualAngle);
+			facingAngles = BuildUniformFacingAngles(validUnits.Count, formationCtrlBaseYaw.Value);
 			facingMode = RtsUnitMember.FacingArrowMode.HoldToEnd;
 		}
 
-		if (isGroup && isGroupManualFacing
+		if (isGroup && isGroupCtrlFormationSector
 		    && ShouldForceWalkForGroupFormationFacing(validUnits)
 		    && moveTier != UnitClickToMove.MoveTier.Run && moveTier != UnitClickToMove.MoveTier.Sprint)
 			moveTier = UnitClickToMove.MoveTier.Walk;
@@ -3851,9 +3827,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			moveTier,
 			startedOnSelectedUnit,
 			formationForwardOverride,
-			isGroupManualFacing,
-			groupManualLookPoint,
-			isGroupFormationSlotFacing);
+			isGroupCtrlFormationSector,
+			formationCtrlBaseYaw,
+			applyReadyFormationMarchSector,
+			allowArrivalFormationFacing);
 	}
 
 	private void StartMovePreview(
@@ -3876,7 +3853,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_HasMoveFacingSet = false;
 		m_HasFormationFacingSet = false;
 		m_PreviewFormationForwardOverride = null;
-		m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.Sector;
+		m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.HoldToEnd;
 		m_PreviewFormationManualFacingAngle = 0f;
 		m_PreviewFormationManualLookPoint = null;
 		m_PreviewMoveTier = _moveTier;
@@ -4012,6 +3989,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (!m_IsQuickRotateFacing)
 		{
+			if (validUnits.Count >= 2 && m_PreviewFormationForwardOverride.HasValue)
+			{
+				SetMovePreviewFacingArrow(
+					m_PreviewCenterPoint,
+					m_PreviewFormationForwardOverride.Value,
+					true,
+					GetFacingArrowColor(RtsUnitMember.FacingArrowMode.TurnOnArrival),
+					RtsUnitMember.FacingArrowMode.TurnOnArrival,
+					null);
+				bool showUnitArrows = FormationLayoutUtility.IndividualSlotSectorsEnabled
+				                      && m_PreviewFormationFacingAngles != null
+				                      && m_PreviewFormationFacingAngles.Count > 0;
+				SetPreviewUnitFacingArrowsVisible(showUnitArrows);
+				return;
+			}
+
 			SetMovePreviewFacingArrowVisible(false);
 			SetPreviewUnitFacingArrowsVisible(false);
 			return;
@@ -4049,7 +4042,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				previewMode,
 				lookPoint);
 
-			bool showUnitArrows = m_PreviewGroupFormationFacingMode == GroupFormationFacingMode.Sector
+			bool showUnitArrows = FormationLayoutUtility.IndividualSlotSectorsEnabled
 			                      && m_PreviewFormationFacingAngles != null
 			                      && m_PreviewFormationFacingAngles.Count > 0;
 			SetPreviewUnitFacingArrowsVisible(showUnitArrows);
@@ -4389,21 +4382,16 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		FormationLayoutUtility.FormationBuildResult built =
 			BuildFormationLayout(validUnits, m_PreviewCenterPoint, formationForward, _forceRebuildBindings: false);
 		m_PreviewOffsets = built.Offsets;
-		m_PreviewFormationFacingAngles = m_PreviewGroupFormationFacingMode == GroupFormationFacingMode.Sector
-			? built.FacingAngles
-			: null;
+		m_PreviewFormationFacingAngles = built.FacingAngles;
 		ApplyPreviewPathLines();
 		UpdateMovePreviewVisuals();
 	}
 
 	private GroupFormationFacingMode ResolveFormationGroupFacingModeFromModifiers()
 	{
-		// Ctrl+Shift: без особого preview-режима; при отпускании ПКМ — очередь + HoldToEnd.
-		if (IsCtrlShiftHeld())
-			return GroupFormationFacingMode.Sector;
-		if (IsCtrlPressed())
+		if (IsCtrlShiftHeld() || IsCtrlPressed())
 			return GroupFormationFacingMode.HoldToEnd;
-		return GroupFormationFacingMode.Sector;
+		return GroupFormationFacingMode.HoldToEnd;
 	}
 
 	private static bool ShouldForceWalkForGroupFormationFacing(List<RtsUnitMember> _units)
@@ -4728,8 +4716,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UnitClickToMove.MoveTier _moveTier = UnitClickToMove.MoveTier.Walk,
 		bool _rmbStartedOnSelectedUnit = false,
 		Vector3? _formationForwardOverride = null,
-		bool _isGroupManualFormationFacing = false,
-		Vector3? _groupManualLookPoint = null,
+		bool _isGroupCtrlFormationSector = false,
+		float? _formationCtrlBaseYaw = null,
+		bool _applyReadyFormationMarchSector = false,
 		bool _allowNotReadyArrivalFormationFacing = false)
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
@@ -4747,10 +4736,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		List<float> formationFacingAngles = _formationFacingAngles;
 		bool allowArrivalFormationFacing = _allowNotReadyArrivalFormationFacing;
 
-		bool activateFacingAtSegmentStart = _isGroupManualFormationFacing;
+		if (isGroup && (_isGroupCtrlFormationSector || _applyReadyFormationMarchSector)
+		    && FormationLayoutUtility.IndividualSlotSectorsEnabled)
+			BuildFormationLayout(validUnits, _center, _formationForwardOverride);
 
-		if (isGroup && _isGroupManualFormationFacing)
+		if (isGroup && _isGroupCtrlFormationSector)
 			ForceReadyForGroupManualFormationFacing(validUnits);
+
+		bool useLiveSectorCtrl = _isGroupCtrlFormationSector && FormationLayoutUtility.IndividualSlotSectorsEnabled;
+		bool useLiveSectorReady = _applyReadyFormationMarchSector && FormationLayoutUtility.IndividualSlotSectorsEnabled;
+		bool holdFacingForEntireSegment = isGroup
+		                                  && facingMode == RtsUnitMember.FacingArrowMode.HoldToEnd
+		                                  && facingAngles != null;
 
 		if (enqueue)
 		{
@@ -4762,17 +4759,18 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				_moveTier,
 				_waitGroup,
 				facingMode,
-				_groupManualLookPoint,
-				activateFacingAtSegmentStart,
+				null,
+				holdFacingForEntireSegment,
 				formationFacingAngles,
 				allowArrivalFormationFacing);
 			ApplyFormationFacingStateAfterMoveOrderSetup(
 				validUnits,
-				_isGroupManualFormationFacing,
+				useLiveSectorCtrl,
+				useLiveSectorReady,
 				facingMode,
 				isRunTier);
 			EnsureFormationSyncGroup(validUnits, _offsets, _center);
-
+			ApplyFormationMarchSlotSectorToUnits(validUnits, _formationCtrlBaseYaw, _applyReadyFormationMarchSector);
 			return;
 		}
 
@@ -4786,12 +4784,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					? facingAngles[i]
 					: (float?)null;
 				RtsUnitMember.FacingArrowMode waitFacingMode = facingMode;
-				Vector3? waitLookPoint = _groupManualLookPoint;
-				bool waitActivateAtSegmentStart = activateFacingAtSegmentStart;
-				if (facing.HasValue && isGroup && !_isGroupManualFormationFacing && !allowArrivalFormationFacing)
+				bool waitActivateAtSegmentStart = holdFacingForEntireSegment;
+				if (facing.HasValue && isGroup && !_isGroupCtrlFormationSector && !allowArrivalFormationFacing)
 				{
 					waitFacingMode = RtsUnitMember.FacingArrowMode.TurnOnArrival;
-					waitLookPoint = null;
 					waitActivateAtSegmentStart = false;
 				}
 				if (!facing.HasValue &&
@@ -4814,17 +4810,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					facing,
 					waitFacingMode,
 					waitGroup,
-					waitLookPoint,
+					null,
 					waitActivateAtSegmentStart,
 					_groupStaggerDelaySeconds: stagger);
 			}
 
 			ApplyFormationFacingStateAfterMoveOrderSetup(
 				validUnits,
-				_isGroupManualFormationFacing,
+				useLiveSectorCtrl,
+				useLiveSectorReady,
 				facingMode,
 				isRunTier);
 			ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
+			ApplyFormationMarchSlotSectorToUnits(validUnits, _formationCtrlBaseYaw, _applyReadyFormationMarchSector);
 			ApplyFormationSlotArrivalYawToUnits(validUnits, formationFacingAngles, allowArrivalFormationFacing);
 			return;
 		}
@@ -4879,38 +4877,34 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (hasFacing)
 			{
 				RtsUnitMember.FacingArrowMode waypointFacingMode = facingMode;
-				bool waypointActivateAtSegmentStart = activateFacingAtSegmentStart;
-				Vector3? lookPoint = waypointFacingMode == RtsUnitMember.FacingArrowMode.LookAtPoint
-					? _groupManualLookPoint
-					: null;
-				if (isGroup && !_isGroupManualFormationFacing && !allowArrivalFormationFacing)
+				bool waypointActivateAtSegmentStart = holdFacingForEntireSegment;
+				if (isGroup && !_isGroupCtrlFormationSector && !allowArrivalFormationFacing)
 				{
 					waypointFacingMode = RtsUnitMember.FacingArrowMode.TurnOnArrival;
 					waypointActivateAtSegmentStart = false;
-					lookPoint = null;
 				}
 
-				Vector3 facingAnchor = waypointActivateAtSegmentStart
-					? validUnits[i].transform.position
-					: dest;
+				Vector3 facingAnchor = dest;
 				validUnits[i].SetWaypointFacing(
 					0,
 					facingAngles[i],
 					facingAnchor,
 					waypointFacingMode,
-					lookPoint,
-					_forceReadyOnActivation: _isGroupManualFormationFacing,
+					null,
+					_forceReadyOnActivation: holdFacingForEntireSegment,
 					_activateAtSegmentStart: waypointActivateAtSegmentStart);
 			}
 		}
 
 		ApplyFormationFacingStateAfterMoveOrderSetup(
 			validUnits,
-			_isGroupManualFormationFacing,
+			useLiveSectorCtrl,
+			useLiveSectorReady,
 			facingMode,
 			isRunTier);
 
 		ApplyFormationSyncSpeeds(validUnits, _offsets, _center);
+		ApplyFormationMarchSlotSectorToUnits(validUnits, _formationCtrlBaseYaw, _applyReadyFormationMarchSector);
 		ApplyFormationSlotArrivalYawToUnits(validUnits, formationFacingAngles, allowArrivalFormationFacing);
 
 		for (int i = 0; i < validUnits.Count && i < _offsets.Count; i++)
@@ -4959,7 +4953,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			RtsUnitMember.FacingArrowMode facingMode = _facingMode;
 			Vector3? lookPoint = _lookPoint;
 			bool activateAtSegmentStart = _activateAtSegmentStart;
-			if (facing.HasValue && _units.Count >= 2 && !_activateAtSegmentStart && !_allowArrivalFormationFacing)
+			if (facing.HasValue && _units.Count >= 2 && !_activateAtSegmentStart && !_allowArrivalFormationFacing
+			    && _facingMode != RtsUnitMember.FacingArrowMode.HoldToEnd
+			    && _facingMode != RtsUnitMember.FacingArrowMode.LookAtPoint)
 			{
 				facingMode = RtsUnitMember.FacingArrowMode.TurnOnArrival;
 				lookPoint = null;
@@ -5045,7 +5041,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_PreviewFacingAngles = null;
 		m_PreviewFormationFacingAngles = null;
 		m_PreviewFormationForwardOverride = null;
-		m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.Sector;
+		m_PreviewGroupFormationFacingMode = GroupFormationFacingMode.HoldToEnd;
 		m_PreviewFormationManualFacingAngle = 0f;
 		m_PreviewFormationManualLookPoint = null;
 		m_PreviewOffsets = null;
@@ -5426,22 +5422,75 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private static void ApplyFormationFacingStateAfterMoveOrderSetup(
 		List<RtsUnitMember> _units,
-		bool _isGroupManualFormationFacing,
+		bool _isGroupCtrlFormationSector,
+		bool _applyReadyFormationMarchSector,
 		RtsUnitMember.FacingArrowMode _facingMode,
 		bool _isRunTier)
 	{
 		if (_units == null || _units.Count == 0)
 			return;
 
-		if (_isGroupManualFormationFacing
-		    || _facingMode == RtsUnitMember.FacingArrowMode.TurnOnArrival
-		    || _isRunTier)
+		if (_isRunTier || _facingMode == RtsUnitMember.FacingArrowMode.TurnOnArrival)
 		{
 			ClearLiveFormationSectorForUnits(_units);
 			return;
 		}
 
-		ClearNotReadyFormationFacingForUnits(_units);
+		if (_isGroupCtrlFormationSector || _applyReadyFormationMarchSector)
+		{
+			ClearNotReadyFormationFacingForUnits(_units);
+			return;
+		}
+
+		ClearLiveFormationSectorForUnits(_units);
+	}
+
+	private void ApplyFormationMarchSlotSectorToUnits(
+		List<RtsUnitMember> _units,
+		float? _fixedCtrlBaseYaw,
+		bool _applyReadyOnlyWithoutCtrlBase)
+	{
+		if (!FormationLayoutUtility.IndividualSlotSectorsEnabled)
+			return;
+
+		if (_units == null || m_FormationPreviewBindings == null)
+			return;
+
+		int count = Mathf.Min(_units.Count, m_FormationPreviewBindings.Length);
+		for (int i = 0; i < count; i++)
+		{
+			RtsUnitMember unit = _units[i];
+			if (unit == null)
+				continue;
+
+			float slotOffset = m_FormationPreviewBindings[i].FacingOffsetFromForward;
+			if (_fixedCtrlBaseYaw.HasValue)
+			{
+				unit.SetFormationSlotSectorConfig(slotOffset, _fixedCtrlBaseYaw.Value);
+				continue;
+			}
+
+			if (_applyReadyOnlyWithoutCtrlBase && unit.WantsReady)
+				unit.SetFormationSlotSectorConfig(slotOffset, null);
+			else
+				unit.ClearFormationSlotSectorConfig();
+		}
+	}
+
+	private static float? ResolveFormationCtrlBaseYaw(Vector3? _formationForwardOverride, float _manualFacingAngle)
+	{
+		if (_formationForwardOverride.HasValue)
+			return FormationLayoutUtility.ResolveFormationForwardYawDegrees(_formationForwardOverride.Value);
+
+		return _manualFacingAngle;
+	}
+
+	private static List<float> BuildUniformFacingAngles(int _count, float _angle)
+	{
+		var angles = new List<float>(_count);
+		for (int i = 0; i < _count; i++)
+			angles.Add(_angle);
+		return angles;
 	}
 
 	private static void ForceReadyForGroupManualFormationFacing(List<RtsUnitMember> _units)

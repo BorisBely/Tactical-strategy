@@ -23,6 +23,9 @@ public static class FormationLayoutUtility
 	private const float c_WideReconFrontRearDepthGapMultiplier = 2f;
 	private const float c_DiamondSmallCountThreshold = 5;
 
+	/// <summary>Временно: индивидуальные сектора слотов (live sector + per-slot прибытие/превью).</summary>
+	public static bool IndividualSlotSectorsEnabled = false;
+
 	/// <summary>Порядок X / X+1..7: частые → специализированные. Не совпадает с numeric enum.</summary>
 	private static readonly FormationType[] s_FormationHotkeyOrder =
 	{
@@ -224,6 +227,9 @@ public static class FormationLayoutUtility
 		float _spacing,
 		int _slotCount = 0)
 	{
+		if (!IndividualSlotSectorsEnabled)
+			return 0f;
+
 		float spacing = Mathf.Max(0.1f, _spacing);
 		float centerBand = GetCenterBandRadiusMeters(spacing);
 
