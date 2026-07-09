@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Задаёт int-параметр <c>Stance</c> на Animator: стоя / присед / лёжа (только без оружия в текущей фазе).
 /// Стоя: C — присесть; Z — лечь. Присед: Z — лечь, C — встать. Лёжа: Z — встать, C — в присед.
-/// Z при экипированном оружии дополнительно включает «на готове» (<see cref="UnitWeaponReadyHandsLayer.EnableReadyFromStanceZInput"/>).
+/// Z with an equipped weapon also enables high ready (<see cref="UnitWeaponReadyHandsLayer.EnableReadyFromStanceZInput"/>).
 /// Переход в лёжа и выход из лёжа: сначала полная остановка NavMeshAgent, затем смена <c>Stance</c> (анимация).
 /// Лёжа: клипы Prone_* в NavMeshLocomotion пока из RifleAnimsetPro_CrouchAndProne — плейсхолдер до отдельных безоружных.
 /// </summary>
@@ -55,10 +55,10 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	private bool m_PendingCrouchFromProne;
 
 	#region Prone Ready Hack
-	[Header("Костыль: Z из 'не готов' → сначала Ready → потом Prone")]
-	[Tooltip("Если при Z юнит с оружием и в режиме 'не готов', сначала принудительно включаем Ready и только затем переводим Stance в Prone. На время костыля блокируются E/Z/C.")]
+	[Header("Hack: Z from low ready → first Ready → then Prone")]
+	[Tooltip("When Z is pressed with a weapon in low ready, first force Ready and then switch Stance to Prone. During the hack E/Z/C are blocked.")]
 	[SerializeField] private bool m_EnableReadyBeforeProneHack = true;
-	[Tooltip("Сколько секунд ждать после того, как Ready включён, прежде чем ставить Prone (чтобы успел начаться переход в 'готов').")]
+	[Tooltip("Seconds to wait after Ready is enabled before setting Prone (to let the high‑ready transition start).")]
 	[SerializeField, Range(0f, 0.5f)] private float m_ReadyBeforeProneSettleSeconds = 0.12f;
 	[Tooltip("Защита от зависания: максимум секунд на весь костыльный переход (Ready→Prone).")]
 	[SerializeField, Range(0.1f, 2f)] private float m_ReadyBeforeProneTimeoutSeconds = 0.9f;
@@ -300,7 +300,7 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 		{
 			if (LocomotionProneFeature.Enabled)
 			{
-				// Костыль: если Z нажали из "не готов" с оружием — сначала включаем Ready, даём начаться переходу, потом ставим Prone.
+				// Hack: if Z was pressed from low ready with a weapon — first enable Ready, let the transition start, then set Prone.
 				if (m_EnableReadyBeforeProneHack && ShouldStartReadyBeforeProneHack())
 				{
 					StartReadyBeforeProneHack();
@@ -388,11 +388,11 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 		if (m_Stance == LocomotionStance.Prone)
 			return false;
 
-		// Если уже готов — обычная логика.
+		// If already in high ready — normal logic.
 		if (m_ReadyHands.IsWeaponEquippedAndReady())
 			return false;
 
-		// В присяде «не готов» больше не переключает базовый граф на безоружный — проверяем намерение пользователя напрямую.
+		// In crouch low ready no longer switches the base graph to unarmed — check user intent directly.
 		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 

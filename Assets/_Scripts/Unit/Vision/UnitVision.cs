@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Периодическое зрение: дистанция → FOV → сглаживание оси <see cref="m_VisionForwardSmoothTime"/> → пучок лучей → ближайшая цель.
-/// При экипированном оружии и «на готове» LOS и точка конуса — от прицела на <see cref="EquippedWeapon"/>; горизонтальная ось FOV и разворот — от корня/торса (не от наклона оружия в анимации).
-/// При оружии «не на готове» половина FOV не уже <see cref="m_MinHalfFovDegreesWhenWeaponNotReady"/>. Пока цель удерживается, к половине FOV добавляется <see cref="m_TrackingHalfFovExtraDegrees"/>.
+/// Periodic vision: range → FOV → axis smoothing → ray bundle → closest target.
+/// When weapon is equipped and in high ready, LOS and cone origin come from the sight on <see cref="EquippedWeapon"/>; horizontal FOV axis and rotation come from root/torso (not from weapon tilt in animation).
+/// When weapon is low ready, half‑FOV is never narrower than <see cref="m_MinHalfFovDegreesWhenWeaponNotReady"/>. While a target is held, <see cref="m_TrackingHalfFovExtraDegrees"/> is added to half‑FOV.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(UnitTeam))]
@@ -58,17 +58,17 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private bool m_UseHumanoidTorsoForward = false;
 	[Tooltip("Сглаживание направления конуса и проверки FOV (сек): торс дёргается от анимации каждый кадр без этого.")]
 	[SerializeField, Min(0f)] private float m_VisionForwardSmoothTime = 0.07f;
-	[Tooltip("При экипированном оружии и «не на готове» корень часто не совпадает с осью взгляда — не даём половине FOV быть уже этого порога (градусы от оси).")]
+	[Tooltip("When weapon is equipped and in low ready, the root often doesn't match the gaze axis — don't let half‑FOV become narrower than this threshold (degrees from axis).")]
 	[SerializeField, Range(1f, 89f)] private float m_MinHalfFovDegreesWhenWeaponNotReady = 70f;
 
-	[Header("Прицел (оружие на готове)")]
+	[Header("Sight (weapon in high ready)")]
 	[Tooltip("Редкий оверрайд на юните. Обычно прицел задаётся на префабе в EquippedWeapon → Sight Pivot.")]
 	[SerializeField] private Transform m_SightPivotOverride;
 	[Tooltip("Если Override пуст и на EquippedWeapon нет Sight Pivot: искать под визуалом оружия дочерний Transform с этим именем.")]
 	[SerializeField] private string m_SightPivotChildName = "";
 
-	[Header("Переход в готов")]
-	[Tooltip("При входе в «готов» плавно доворачивать корень так, чтобы ствол смотрел туда, куда юнит смотрел до перехода.")]
+	[Header("Transition to high ready")]
+	[Tooltip("TEMP OFF: when entering high ready, smoothly rotate the root so the barrel points where the unit was looking before the transition.")]
 	[SerializeField] private bool m_PreserveBoreForwardDuringReadyTransition = false;
 	[SerializeField, Min(0.01f)] private float m_ReadyBoreRootTurnDuration = 0.22f;
 	[SerializeField, Range(0f, 120f)] private float m_MaxReadyBoreRootTurnDegrees = 90f;
@@ -83,7 +83,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private bool m_DrawEyeLookDebugRay;
 	[SerializeField, Min(0.1f)] private float m_EyeLookDebugRayLength = 5f;
 	[SerializeField] private Color m_EyeLookDebugRayColor = new Color(1f, 0.35f, 0.9f, 1f);
-	[Tooltip("Лог в Console при переходе готов/не готов: углы корня, оси зрения и прицела — для отладки смещения взгляда.")]
+	[Tooltip("Log to Console on high‑ready / low‑ready change: root angles, vision axis and sight — for debugging gaze shift.")]
 	[SerializeField] private bool m_LogReadyForwardShift;
 
 	private readonly List<UnitVision> m_OpponentBuffer = new List<UnitVision>(128);
@@ -200,22 +200,17 @@ public sealed class UnitVision : MonoBehaviour
 		ScheduleNextScan(0f);
 	}
 
-	/// <summary>Вызывается из <see cref="UnitWeaponReadyHandsLayer"/> при смене готов/не готов.</summary>
+	/// <summary>Called from <see cref="UnitWeaponReadyHandsLayer"/> on high‑ready / low‑ready change.</summary>
 	public void NotifyWeaponReadyChanged(bool _ready)
 	{
 		if (!isActiveAndEnabled)
 			return;
 
-		if (_ready)
-		{
-			StartCoroutine(DeferredReadyTransitionRoutine(GetRootForwardXZ()));
-			return;
-		}
-
+		// TEMP: disable ready/not-ready root yaw correction entirely.
 		m_HasReadyTransitionDesiredBoreForwardXZ = false;
 		RequestImmediateScan();
 		if (m_LogReadyForwardShift)
-			LogReadyForwardShift(false);
+			LogReadyForwardShift(_ready);
 	}
 
 	private IEnumerator DeferredReadyTransitionRoutine(Vector3 _preReadyForwardXZ)

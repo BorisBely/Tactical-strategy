@@ -27,6 +27,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[Tooltip("Для обновления UI, если инвентарь этого юнита сейчас открыт.")]
 	[SerializeField] private InventoryScreenBindings m_InventoryBindings;
 	[Tooltip("Animator юнита. На нём можно завести bool-параметр IsLoadingMagazine для loop-анимации зарядки.")]
@@ -73,6 +75,10 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			m_UnitEquipment = GetComponent<UnitEquipment>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
 		if (m_InventoryBindings == null)
 			m_InventoryBindings = InventoryScreenBindings.Instance;
 		if (m_Animator == null)
@@ -93,6 +99,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		InterruptLoadingIfRunning();
 		SyncMagazineLoadingLayerWeightIfAllowed();
 	}
 
@@ -124,6 +131,12 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		if (m_IsLoadingMagazine)
 		{
 			m_DebugLastFailureReason = "Already loading";
+			return false;
+		}
+
+		if (IsRunOrSprintBlockingLoading())
+		{
+			m_DebugLastFailureReason = "Cannot load while running";
 			return false;
 		}
 
@@ -389,6 +402,31 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			return;
 
 		m_InventoryBindings.RefreshActiveCharacterPanel();
+	}
+
+	private void InterruptLoadingIfRunning()
+	{
+		if (!m_IsLoadingMagazine)
+			return;
+		if (!IsRunOrSprintBlockingLoading())
+			return;
+
+		StopLoadingInternal(false, false);
+	}
+
+	private bool IsRunOrSprintBlockingLoading()
+	{
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+
+		if (m_ClickToMove != null && (m_ClickToMove.IsRunMoveMode || m_ClickToMove.IsSprintMoveMode))
+			return true;
+		if (m_LocomotionDriver != null && (m_LocomotionDriver.IsRunMoveMode || m_LocomotionDriver.IsSprintMoveMode))
+			return true;
+
+		return false;
 	}
 
 	private void StopLoadingInternal(bool _completedNaturally, bool _immediatePresentation = false)

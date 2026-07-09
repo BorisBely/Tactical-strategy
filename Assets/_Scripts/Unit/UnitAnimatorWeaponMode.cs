@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Синхронизирует int <c>WeaponMode</c> на <see cref="Animator"/> с фактически экипированным предметом.
-/// Готовность оружия управляется отдельным bool-параметром <c>WeaponReady</c> в <see cref="UnitWeaponReadyHandsLayer"/>.
+/// Weapon readiness is controlled by a separate bool parameter <c>WeaponReady</c> in <see cref="UnitWeaponReadyHandsLayer"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class UnitAnimatorWeaponMode : MonoBehaviour
@@ -54,7 +54,7 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Пересобрать базовый слой под текущий <c>WeaponMode</c> (и при «готов» — без обязательного idle).
+	/// Rebuild the base layer for the current <c>WeaponMode</c> (and in high ready — without requiring idle).
 	/// При активном движении по <c>NavSpeed</c> сразу переходит в locomotion-стейт нужной ветки.
 	/// </summary>
 	public void ReplayLocomotionIdleCrossfade()

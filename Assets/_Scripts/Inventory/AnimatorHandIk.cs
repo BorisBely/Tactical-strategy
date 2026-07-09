@@ -12,6 +12,8 @@ public class AnimatorHandIk : MonoBehaviour
 	#region Serialized Fields
 	[Tooltip("Снаряжение на корне юнита (родитель или сам юнит с CharacterInventory).")]
 	[SerializeField] private UnitEquipment m_UnitEquipment;
+	[Tooltip("Play Mode pose/IK tuner on the unit.")]
+	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
 	[Tooltip("Поза оружия relaxed/ready; вес IK правой руки берётся отсюда.")]
 	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 	[Tooltip("Пока идёт ручная зарядка магазина (T), IK рук отключается.")]
@@ -28,8 +30,8 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandRotationWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_RightHandPositionWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_RightHandRotationWeight = 1f;
-	[Tooltip("Вес IK правой кисти в режиме «не готов». 0 — только анимация (как в уроке).")]
-	[SerializeField, Range(0f, 1f)] private float m_RightHandNotReadyIkWeight;
+	[Tooltip("Right-hand IK weight in low ready (not ready). Use 1 so saved RightHandIkNotReady coords apply; 0 = animation only.")]
+	[SerializeField, Range(0f, 1f)] private float m_RightHandNotReadyIkWeight = 1f;
 	[Header("Экипировка")]
 	[SerializeField, Min(0f)] private float m_EquipBlendDuration = 0.35f;
 	[SerializeField] private AnimationCurve m_EquipBlendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
@@ -72,12 +74,11 @@ public class AnimatorHandIk : MonoBehaviour
 		if (!m_DrawIkTargetGizmo || !Application.isPlaying)
 			return;
 
-		Transform leftTarget = ResolveLiveLeftHandIkTarget();
-		if (leftTarget != null)
+		if (TryResolveLeftHandIkWorldPose(out Vector3 leftPos, out Quaternion leftRot))
 		{
 			Gizmos.color = new Color(0.2f, 0.95f, 1f, 0.95f);
-			Gizmos.DrawSphere(leftTarget.position, 0.015f);
-			Gizmos.DrawLine(leftTarget.position, leftTarget.position + leftTarget.forward * 0.06f);
+			Gizmos.DrawSphere(leftPos, 0.015f);
+			Gizmos.DrawLine(leftPos, leftPos + leftRot * Vector3.forward * 0.06f);
 		}
 
 		if (TryResolveRightHandIkWorldPose(out Vector3 rightPos, out Quaternion rightRot))
@@ -122,7 +123,7 @@ public class AnimatorHandIk : MonoBehaviour
 			ClearRightHandIk();
 		}
 
-		if (IsHandIkBlocked())
+		if (IsHandIkBlocked() || ShouldDisableAllHandIkForTuning())
 		{
 			StopEquipBlend();
 			ClearLeftHandIk();
@@ -132,6 +133,13 @@ public class AnimatorHandIk : MonoBehaviour
 
 		ApplyLeftHandIkInternal();
 		ApplyRightHandIkInternal();
+	}
+
+	private bool ShouldDisableAllHandIkForTuning()
+	{
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldDisableAllHandIk;
 	}
 
 	private void ResolveReferences()
@@ -152,6 +160,10 @@ public class AnimatorHandIk : MonoBehaviour
 			m_StabilizeOther = GetComponentInParent<UnitStabilizeOtherController>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponentInParent<UnitBusyState>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
 	}
 
 	private bool IsHandIkBlocked()
@@ -199,7 +211,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 	private void HandleEquipmentChanged()
 	{
-		if (IsHandIkBlocked() || ResolveLiveLeftHandIkTarget() == null)
+		if (IsHandIkBlocked() || !TryResolveLeftHandIkWorldPose(out _, out _))
 		{
 			StopEquipBlend();
 			return;
@@ -255,19 +267,31 @@ public class AnimatorHandIk : MonoBehaviour
 		return Mathf.SmoothStep(0f, 1f, normalizedTime);
 	}
 
+	private float GetEffectiveReadyBlend01()
+	{
+		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+			return m_RuntimeTuner.ForcedReadyBlend01;
+
+		return m_EquippedWeaponPose != null
+			? Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01)
+			: 0f;
+	}
+
 	private float GetRightHandIkWeightMultiplier()
 	{
+		if (m_RuntimeTuner != null && m_RuntimeTuner.ForcesRightHandIk)
+			return 1f;
+
 		if (m_EquippedWeaponPose == null)
 			return 0f;
 
-		float readyBlend = Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01);
+		float readyBlend = GetEffectiveReadyBlend01();
 		return Mathf.Lerp(m_RightHandNotReadyIkWeight, 1f, readyBlend);
 	}
 
 	private void ApplyLeftHandIkInternal()
 	{
-		Transform ikTarget = ResolveLiveLeftHandIkTarget();
-		if (ikTarget == null)
+		if (!TryResolveLeftHandIkWorldPose(out Vector3 position, out Quaternion rotation))
 		{
 			StopEquipBlend();
 			ClearLeftHandIk();
@@ -280,8 +304,8 @@ public class AnimatorHandIk : MonoBehaviour
 
 		m_Animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, positionWeight);
 		m_Animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, rotationWeight);
-		m_Animator.SetIKPosition(AvatarIKGoal.LeftHand, ikTarget.position);
-		m_Animator.SetIKRotation(AvatarIKGoal.LeftHand, ikTarget.rotation);
+		m_Animator.SetIKPosition(AvatarIKGoal.LeftHand, position);
+		m_Animator.SetIKRotation(AvatarIKGoal.LeftHand, rotation);
 
 		if (m_UseLeftElbowHint && m_LeftElbowHint != null)
 		{
@@ -332,9 +356,7 @@ public class AnimatorHandIk : MonoBehaviour
 		if (equipped == null)
 			return false;
 
-		float readyBlend = m_EquippedWeaponPose != null
-			? Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01)
-			: 0f;
+		float readyBlend = GetEffectiveReadyBlend01();
 
 		if (!TryResolveRightHandIkLocalPose(equipped, weaponRoot, readyBlend, out Vector3 localPosition, out Quaternion localRotation))
 			return false;
@@ -359,23 +381,43 @@ public class AnimatorHandIk : MonoBehaviour
 		Vector3 readyLocalPosition = _equipped.RightHandIkReadyLocalPosition;
 		Quaternion readyLocalRotation = _equipped.RightHandIkReadyLocalRotation;
 
-		if (!HasConfiguredIkLocalPose(notReadyLocalPosition, _equipped.RightHandIkNotReadyLocalEulerAngles))
+		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
 		{
+			// Live Hierarchy transforms — user moves RightHandIkTarget* in Scene.
 			Transform notReadyChild = m_UnitEquipment.RightHandIkTargetNotReadyTransform;
 			if (notReadyChild != null)
 			{
 				notReadyLocalPosition = _weaponRoot.InverseTransformPoint(notReadyChild.position);
 				notReadyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * notReadyChild.rotation;
 			}
-		}
 
-		if (!HasConfiguredIkLocalPose(readyLocalPosition, _equipped.RightHandIkReadyLocalEulerAngles))
-		{
 			Transform readyChild = m_UnitEquipment.RightHandIkTargetTransform;
 			if (readyChild != null)
 			{
 				readyLocalPosition = _weaponRoot.InverseTransformPoint(readyChild.position);
 				readyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * readyChild.rotation;
+			}
+		}
+		else
+		{
+			if (!HasConfiguredIkLocalPose(notReadyLocalPosition, _equipped.RightHandIkNotReadyLocalEulerAngles))
+			{
+				Transform notReadyChild = m_UnitEquipment.RightHandIkTargetNotReadyTransform;
+				if (notReadyChild != null)
+				{
+					notReadyLocalPosition = _weaponRoot.InverseTransformPoint(notReadyChild.position);
+					notReadyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * notReadyChild.rotation;
+				}
+			}
+
+			if (!HasConfiguredIkLocalPose(readyLocalPosition, _equipped.RightHandIkReadyLocalEulerAngles))
+			{
+				Transform readyChild = m_UnitEquipment.RightHandIkTargetTransform;
+				if (readyChild != null)
+				{
+					readyLocalPosition = _weaponRoot.InverseTransformPoint(readyChild.position);
+					readyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * readyChild.rotation;
+				}
 			}
 		}
 
@@ -389,25 +431,102 @@ public class AnimatorHandIk : MonoBehaviour
 		return _localPosition != Vector3.zero || _localEulerAngles != Vector3.zero;
 	}
 
-	private Transform ResolveLiveLeftHandIkTarget()
+	private bool TryResolveLeftHandIkWorldPose(out Vector3 _position, out Quaternion _rotation)
 	{
+		_position = Vector3.zero;
+		_rotation = Quaternion.identity;
+
 		if (m_UnitEquipment == null)
-			return null;
+			return false;
 
 		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
 		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
-			return null;
+			return false;
 
 		ItemDefinition equipped = m_UnitEquipment.EquippedDefinition;
-		string ikName = equipped != null ? equipped.LeftHandIkTargetChildName : null;
-		if (string.IsNullOrWhiteSpace(ikName))
-			return null;
+		if (equipped == null)
+			return false;
 
-		EquippedWeapon equippedWeapon = m_UnitEquipment.EquippedWeapon;
-		if (equippedWeapon != null)
-			return equippedWeapon.ResolveLeftHandIkTargetTransform(ikName);
+		float readyBlend = GetEffectiveReadyBlend01();
+		if (!TryResolveLeftHandIkLocalPose(equipped, weaponRoot, readyBlend, out Vector3 localPosition, out Quaternion localRotation))
+			return false;
 
-		return m_UnitEquipment.LeftHandIkTargetTransform;
+		_position = weaponRoot.TransformPoint(localPosition);
+		_rotation = weaponRoot.rotation * localRotation;
+		return true;
+	}
+
+	private bool TryResolveLeftHandIkLocalPose(
+		ItemDefinition _equipped,
+		Transform _weaponRoot,
+		float _readyBlend01,
+		out Vector3 _localPosition,
+		out Quaternion _localRotation)
+	{
+		_localPosition = Vector3.zero;
+		_localRotation = Quaternion.identity;
+
+		Transform readyChild = m_UnitEquipment.LeftHandIkTargetTransform;
+		Transform notReadyChild = m_UnitEquipment.LeftHandIkTargetNotReadyTransform;
+
+		Vector3 notReadyLocalPosition = _equipped.LeftHandIkNotReadyLocalPosition;
+		Quaternion notReadyLocalRotation = _equipped.LeftHandIkNotReadyLocalRotation;
+		Vector3 readyLocalPosition = _equipped.LeftHandIkReadyLocalPosition;
+		Quaternion readyLocalRotation = _equipped.LeftHandIkReadyLocalRotation;
+
+		bool tuning = m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive;
+		EquippedWeapon equippedWeapon = m_UnitEquipment != null ? m_UnitEquipment.EquippedWeapon : null;
+		Transform foregripRoot = equippedWeapon != null ? equippedWeapon.UnderBarrelForegripVisualRoot : null;
+		bool readyOnForegrip = IsUnderOrSame(foregripRoot, readyChild);
+		bool notReadyOnForegrip = IsUnderOrSame(foregripRoot, notReadyChild);
+
+		// Live Hierarchy while tuning. Foregrip empties always win for the modes they own.
+		// Weapon-body empties may be stale copies — prefer ItemDefinition unless tuning.
+		bool useLiveNotReady = tuning || notReadyOnForegrip;
+		bool useLiveReady = tuning || readyOnForegrip;
+
+		if (useLiveNotReady && notReadyChild != null && notReadyChild != readyChild)
+		{
+			notReadyLocalPosition = _weaponRoot.InverseTransformPoint(notReadyChild.position);
+			notReadyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * notReadyChild.rotation;
+		}
+		else if (!HasConfiguredIkLocalPose(notReadyLocalPosition, _equipped.LeftHandIkNotReadyLocalEulerAngles))
+		{
+			Transform fallback = notReadyChild != null ? notReadyChild : readyChild;
+			if (fallback != null)
+			{
+				notReadyLocalPosition = _weaponRoot.InverseTransformPoint(fallback.position);
+				notReadyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * fallback.rotation;
+			}
+		}
+
+		if (useLiveReady && readyChild != null)
+		{
+			readyLocalPosition = _weaponRoot.InverseTransformPoint(readyChild.position);
+			readyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * readyChild.rotation;
+		}
+		else if (!HasConfiguredIkLocalPose(readyLocalPosition, _equipped.LeftHandIkReadyLocalEulerAngles))
+		{
+			if (readyChild != null)
+			{
+				readyLocalPosition = _weaponRoot.InverseTransformPoint(readyChild.position);
+				readyLocalRotation = Quaternion.Inverse(_weaponRoot.rotation) * readyChild.rotation;
+			}
+		}
+
+		if (readyChild == null && notReadyChild == null &&
+		    !HasConfiguredIkLocalPose(notReadyLocalPosition, _equipped.LeftHandIkNotReadyLocalEulerAngles) &&
+		    !HasConfiguredIkLocalPose(readyLocalPosition, _equipped.LeftHandIkReadyLocalEulerAngles))
+			return false;
+
+		_localPosition = Vector3.Lerp(notReadyLocalPosition, readyLocalPosition, _readyBlend01);
+		_localRotation = Quaternion.Slerp(notReadyLocalRotation, readyLocalRotation, _readyBlend01);
+		return true;
+	}
+
+	private static bool IsUnderOrSame(Transform _root, Transform _child)
+	{
+		return _root != null && _child != null && (_child == _root || _child.IsChildOf(_root));
 	}
 	#endregion
 }

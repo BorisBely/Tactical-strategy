@@ -66,6 +66,32 @@ public sealed class AmmoDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_FoulingPerShot = 1f;
 	[Tooltip("Множитель вероятности клина с этого выстрела (оба канала: износ и загрязнение).")]
 	[SerializeField, Min(0f)] private float m_JamRiskModifier = 1f;
+
+	[Header("Shotgun Pellets")]
+	[Tooltip("Включить паттерн дроби (центр + 2 кольца с джиттером) вместо чистого случайного конуса. Имеет смысл при Projectile Count > 1.")]
+	[SerializeField] private bool m_UsesShotgunPelletPattern;
+	[Tooltip("Максимум дробинок, которые одна цель получает за выстрел (торс/конечности). 0 = без лимита.")]
+	[SerializeField, Min(0)] private int m_MaxPelletsPerTarget = 6;
+	[Tooltip("Максимум дробинок по одной цели, если среди попаданий есть голова/шея. 0 = как Max Pellets Per Target.")]
+	[SerializeField, Min(0)] private int m_MaxPelletsPerTargetWithHead = 7;
+	[Tooltip("Радиус внутреннего кольца как доля от итогового cone radius (0..1).")]
+	[SerializeField, Range(0f, 1f)] private float m_ShotgunInnerRingRadius01 = 0.45f;
+	[Tooltip("Радиус внешнего кольца как доля от итогового cone radius (0..1).")]
+	[SerializeField, Range(0f, 1.5f)] private float m_ShotgunOuterRingRadius01 = 1f;
+	[Tooltip("Множитель half-angle паттерна по дистанции до цели (метры → множитель). Пусто = 1.")]
+	[SerializeField] private AnimationCurve m_ShotgunSpreadDistanceScale = new AnimationCurve(
+		new Keyframe(0f, 0.85f),
+		new Keyframe(15f, 0.85f),
+		new Keyframe(35f, 1f),
+		new Keyframe(70f, 1.25f));
+	[Tooltip("Множитель урона одной дробинки по дистанции попадания (метры → 0..1). Пусто = общий falloff оружия.")]
+	[SerializeField] private AnimationCurve m_ShotgunPelletDamageFalloffByDistance = new AnimationCurve(
+		new Keyframe(0f, 1f),
+		new Keyframe(12f, 1f),
+		new Keyframe(20f, 0.75f),
+		new Keyframe(35f, 0.45f),
+		new Keyframe(50f, 0.2f),
+		new Keyframe(70f, 0f));
 	#endregion
 
 	#region Public Properties
@@ -94,9 +120,36 @@ public sealed class AmmoDefinition : ScriptableObject
 	public float WearPerShot => m_WearPerShot;
 	public float FoulingPerShot => m_FoulingPerShot;
 	public float JamRiskModifier => m_JamRiskModifier;
+	public bool UsesShotgunPelletPattern => m_UsesShotgunPelletPattern && m_ProjectileCount > 1;
+	public int MaxPelletsPerTarget => m_MaxPelletsPerTarget;
+	public int MaxPelletsPerTargetWithHead => m_MaxPelletsPerTargetWithHead > 0
+		? m_MaxPelletsPerTargetWithHead
+		: m_MaxPelletsPerTarget;
+	public float ShotgunInnerRingRadius01 => m_ShotgunInnerRingRadius01;
+	public float ShotgunOuterRingRadius01 => m_ShotgunOuterRingRadius01;
 	#endregion
 
 	#region Public Methods
+	public float GetShotgunSpreadDistanceScale(float _distanceMeters)
+	{
+		if (m_ShotgunSpreadDistanceScale == null || m_ShotgunSpreadDistanceScale.length == 0)
+			return 1f;
+
+		return Mathf.Max(0.01f, m_ShotgunSpreadDistanceScale.Evaluate(Mathf.Max(0f, _distanceMeters)));
+	}
+
+	public bool TryGetShotgunPelletDamageFalloff(float _distanceMeters, out float _multiplier)
+	{
+		_multiplier = 1f;
+		if (!UsesShotgunPelletPattern)
+			return false;
+		if (m_ShotgunPelletDamageFalloffByDistance == null || m_ShotgunPelletDamageFalloffByDistance.length == 0)
+			return false;
+
+		_multiplier = Mathf.Clamp01(m_ShotgunPelletDamageFalloffByDistance.Evaluate(Mathf.Max(0f, _distanceMeters)));
+		return true;
+	}
+
 	public bool TryPickShellImpactSound(out AudioClip _clip, out float _volume)
 	{
 		_clip = null;

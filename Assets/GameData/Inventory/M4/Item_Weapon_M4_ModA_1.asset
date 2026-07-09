@@ -16,27 +16,39 @@ MonoBehaviour:
   m_Description: M4 configuration with standard handguard, fixed stock and iron sights.
   m_Icon: {fileID: 0}
   m_BasePrice: 2400
+  m_WeightKg: 0
   m_Category: 1
   m_DropWorldPrefab: {fileID: 3546601374575190557, guid: eaa888010cf390f45a9d769f06ad8852, type: 3}
   m_EquippedVisualPrefab: {fileID: 785686033622066019, guid: 5972bf6f718f8fd49bb52ade8db32d19, type: 3}
   m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
-  m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandLocalEulerAngles: {x: 29.532013, y: 81.49898, z: 272.659}
   m_RightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
-  m_RightHandReadyLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
-  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532003, y: 81.49899, z: 272.659}
+  m_RightHandIkNotReadyLocalPosition: {x: 0.096, y: -0.025, z: -0.118}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 353.1077, y: 316.98206, z: 269.8166}
+  m_RightHandIkReadyLocalPosition: {x: 0.063, y: -0.009, z: -0.01}
+  m_RightHandIkReadyLocalEulerAngles: {x: 345.7931, y: 330.31644, z: 268.34003}
+  m_LeftHandIkNotReadyLocalPosition: {x: -0.114, y: 0.104, z: 0.201}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 52.095505, y: 42.743694, z: 156.76242}
+  m_LeftHandIkReadyLocalPosition: {x: -0.0495, y: 0.0555, z: 0.2563}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 2.6800005, y: 33.13801, z: 149.69}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
   m_RightHandIkTargetChildName: RightHandIkTarget
   m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 11400000, guid: f5b8c44e3f183b14c9d5550a0440a6d4, type: 2}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:
     - {fileID: 8300000, guid: f722f4191bc97a94b98f6b442477a756, type: 3}

@@ -60,6 +60,7 @@ public static class StandaloneWeaponsBuilder
 
 	private const string c_VfxProfileAkPath = "Assets/GameData/Shooting/AK/WeaponVfxProfile_AK47.asset";
 	private const string c_VfxProfileM4Path = "Assets/GameData/Shooting/M4/WeaponVfxProfile_M4.asset";
+	private const string c_VfxProfileBenelliPath = "Assets/GameData/Shooting/Standalone/WeaponVfxProfile_BenelliM4.asset";
 
 	private const string c_Ammo762TemplatePath = "Assets/GameData/Shooting/Ammo_762x39mm.asset";
 	private const string c_Ammo556TemplatePath = "Assets/GameData/Shooting/Ammo_556x45mmNATO.asset";
@@ -185,8 +186,10 @@ public static class StandaloneWeaponsBuilder
 		}
 
 		BuildMagazines(builtWeapons);
+		BenelliShotgunContentBuilder.BuildForStandalonePipeline();
 		WireBenelliBuiltInMagazine();
 		UpdateMosinScopeCompatibility(builtWeapons);
+		BenelliShotgunContentBuilder.UpdateBenelliCqbOpticCompatibility();
 		MissionPrepAvailableEquipmentBaker.RebuildAvailableEquipmentSet();
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
@@ -539,12 +542,18 @@ public static class StandaloneWeaponsBuilder
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = _config.SemiAutoRecoilMultiplier;
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = _config.AutoRecoilMultiplier;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = _config.RecoilRecoveryPerSecond;
+		SerializedProperty visualKickScale = so.FindProperty("m_VisualRecoilKickScale");
+		if (visualKickScale != null)
+			visualKickScale.floatValue = _config.VisualRecoilKickScale;
 		so.FindProperty("m_Reliability").floatValue = _config.Reliability;
 		so.FindProperty("m_HasBoltHoldOpenDelay").boolValue = _config.HasBoltHoldOpenDelay;
 		so.FindProperty("m_VfxProfile").objectReferenceValue = LoadAsset<WeaponVfxProfile>(_config.VfxProfilePath);
 
 		if (_config.TemplateKind == WeaponTemplateKind.Mosin)
 			ApplyMosinFireAudio(so);
+
+		if (_config.WeaponAssetName == "Weapon_BenelliM4")
+			BenelliShotgunContentBuilder.WireBenelliFireAudio();
 
 		ApplyBalanceCurves(so, _config.CurveKind);
 		so.ApplyModifiedPropertiesWithoutUndo();
@@ -617,8 +626,11 @@ public static class StandaloneWeaponsBuilder
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		CopyReadyHandPoseFields(so, templateSo);
 		CopyRightHandIkFields(so, templateSo);
+		CopyLeftHandIkFields(so, templateSo);
 		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
 			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
+		so.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue =
+			templateSo.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue;
 		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
 			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
 		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
@@ -712,11 +724,11 @@ public static class StandaloneWeaponsBuilder
 			"item.weapon.benelli_m4", "Benelli M4 semi-automatic 12 gauge shotgun.",
 			CaliberType.TwelveGauge, MagazineType.Internal, WeaponClassType.Shotgun,
 			SlotLayout.OpticOnly, WeaponAttachmentSlotProfile.Full,
-			WeaponDistanceCurveLibrary.WeaponBalanceKind.CqbShort,
+			WeaponDistanceCurveLibrary.WeaponBalanceKind.ShotgunCqb,
 			semiOnly, WeaponFireMode.SemiAuto,
-			120f, 0.30f, 0.85f, 35f, 2.80f,
-			0.72f, 0.90f, 1.00f, 3.5f, 0.88f,
-			3200, 3.6f, c_VfxProfileM4Path, false);
+			180f, 0.32f, 0.85f, 40f, 2.80f,
+			1.25f, 1.05f, 1.15f, 2.8f, 0.88f,
+			3200, 3.8f, c_VfxProfileBenelliPath, false);
 
 		yield return Config(
 			"Equipped_M249", "Weapon_M249", "Item_Weapon_M249",
@@ -828,6 +840,7 @@ public static class StandaloneWeaponsBuilder
 			SemiAutoRecoilMultiplier = _semiRecoil,
 			AutoRecoilMultiplier = _autoRecoil,
 			RecoilRecoveryPerSecond = _recoilRecovery,
+			VisualRecoilKickScale = _weaponAsset == "Weapon_BenelliM4" ? 0.48f : 1f,
 			Reliability = _reliability,
 			BasePrice = _price,
 			WeightKg = _weightKg,
@@ -1112,6 +1125,7 @@ public static class StandaloneWeaponsBuilder
 		public float SemiAutoRecoilMultiplier;
 		public float AutoRecoilMultiplier;
 		public float RecoilRecoveryPerSecond;
+		public float VisualRecoilKickScale;
 		public float Reliability;
 		public int BasePrice;
 		public float WeightKg;
@@ -1151,6 +1165,18 @@ public static class StandaloneWeaponsBuilder
 			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
 		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
 			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
+	}
+
+	private static void CopyLeftHandIkFields(SerializedObject _so, SerializedObject _templateSo)
+	{
+		_so.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value;
+		_so.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value;
 	}
 	#endregion
 }

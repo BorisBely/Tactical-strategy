@@ -24,13 +24,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8123456789012345680}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.37072578, y: 0.12900238, z: 0.91886216, w: -0.040163368}
-  m_LocalPosition: {x: -0.043, y: -0.077, z: -0.078}
+  m_LocalRotation: {x: 0.22373629, y: -0.16613434, z: 0.83458024, w: 0.47520244}
+  m_LocalPosition: {x: -0.0697, y: 0.0304, z: -0.057}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3325427109119305341}
-  m_LocalEulerAnglesHint: {x: -15.477, y: 44.121, z: 178.701}
+  m_LocalEulerAnglesHint: {x: 29.337, y: 14.316, z: 124.452}
 --- !u!1 &8252625000937661029
 GameObject:
   m_ObjectHideFlags: 0
@@ -62,6 +62,7 @@ Transform:
   m_Children:
   - {fileID: 722119296655594975}
   - {fileID: 8123456789012345688}
+  - {fileID: 9181994831485702115}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8573470494524565453
@@ -154,3 +155,34 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &8700833166557299169
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9181994831485702115}
+  m_Layer: 0
+  m_Name: LeftHandIkTarget_NotReady
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9181994831485702115
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8700833166557299169}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.35709447, y: -0.2203887, z: -0.90765786, w: -0.008347575}
+  m_LocalPosition: {x: -0.173, y: -0.138, z: -0.088}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3325427109119305341}
+  m_LocalEulerAnglesHint: {x: -23.211, y: 45.18, z: 169.179}

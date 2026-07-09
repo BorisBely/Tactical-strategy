@@ -6,6 +6,18 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "WeaponDefinition", menuName = "Polygone/Shooting/Weapon Definition", order = 10)]
 public sealed class WeaponDefinition : ScriptableObject
 {
+	#region Constants
+	private static readonly WeaponFireMode[] s_ShellReloadShotgunFireModes =
+	{
+		WeaponFireMode.SemiAuto
+	};
+
+	private static readonly WeaponFireMode[] s_DefaultSemiOnlyFireModes =
+	{
+		WeaponFireMode.SemiAuto
+	};
+	#endregion
+
 	#region Private Fields
 	[Header("Identity")]
 	[Tooltip("Класс оружия для логики, баланса и UI: пистолет, винтовка, дробовик и т.д.")]
@@ -59,6 +71,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_AutoRecoilMultiplier = 1.25f;
 	[Tooltip("Сколько единиц накопленной отдачи оружие восстанавливает за секунду.")]
 	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
+	[Tooltip("Множитель только визуального kick ствола (UnitWeaponVisualRecoilKick). Не влияет на gameplay RecoilPenalty / разброс.")]
+	[SerializeField, Min(0f)] private float m_VisualRecoilKickScale = 1f;
 	[Tooltip("Длина очереди в режиме Burst.")]
 	[SerializeField, Min(2)] private int m_BurstRounds = 3;
 	[Tooltip("Пауза между очередями в режиме Burst (сек).")]
@@ -121,8 +135,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	public bool UsesShellByShellReload => m_UsesShellByShellReload;
 	public MagazineDefinition BuiltInMagazineDefinition => m_BuiltInMagazineDefinition;
 	public AmmoDefinition BuiltInMagazineDefaultAmmo => m_BuiltInMagazineDefaultAmmo;
-	public WeaponFireMode[] AvailableFireModes => m_AvailableFireModes;
-	public WeaponFireMode DefaultFireMode => m_DefaultFireMode;
+	public WeaponFireMode[] AvailableFireModes => ResolveAvailableFireModes();
+
+	public WeaponFireMode DefaultFireMode => ResolveDefaultFireMode();
 	public WeaponAttachmentSlotDefinition[] AttachmentSlots => m_AttachmentSlots;
 	public WeaponAttachmentSlotProfile AttachmentSlotProfile => m_AttachmentSlotProfile;
 	public float FireRateRpm => m_FireRateRpm;
@@ -136,6 +151,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float SemiAutoRecoilMultiplier => m_SemiAutoRecoilMultiplier;
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
 	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
+	public float VisualRecoilKickScale => m_VisualRecoilKickScale;
 	public int BurstRounds => m_BurstRounds;
 	public float BurstPauseSeconds => m_BurstPauseSeconds;
 	public WeaponFireSoundProfile FireSoundProfile => m_FireSoundProfile;
@@ -167,6 +183,31 @@ public sealed class WeaponDefinition : ScriptableObject
 		m_ReloadBoltHoldOpenDelaySounds.TryPickClip(out _clip);
 
 	public bool TryPickMalfunctionClickSound(out AudioClip _clip) => m_MalfunctionClickSounds.TryPickClip(out _clip);
+	#endregion
+
+	#region Private Methods
+	private WeaponFireMode[] ResolveAvailableFireModes()
+	{
+		if (UsesShellByShellReload && NeedsShellReloadShotgunFireModeFallback())
+			return s_ShellReloadShotgunFireModes;
+
+		return m_AvailableFireModes != null && m_AvailableFireModes.Length > 0
+			? m_AvailableFireModes
+			: s_DefaultSemiOnlyFireModes;
+	}
+
+	private WeaponFireMode ResolveDefaultFireMode()
+	{
+		if (UsesShellByShellReload && NeedsShellReloadShotgunFireModeFallback())
+			return WeaponFireMode.SemiAuto;
+
+		return m_DefaultFireMode;
+	}
+
+	private bool NeedsShellReloadShotgunFireModeFallback()
+	{
+		return m_AvailableFireModes == null || m_AvailableFireModes.Length <= 1;
+	}
 	#endregion
 
 	#region Public Methods

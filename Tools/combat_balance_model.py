@@ -46,11 +46,13 @@ WEAPON_ROLE = {
     "Weapon_M16A4_ModA_2": "Marksman",
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
+    "Weapon_BenelliM4": "ShotgunCqb",
 }
 
 ACCURACY_PROFILE_PLATEAUS = {
     "CqbShort": (0, 0, 25, 45, 0.055),
     "CqbControlled": (0, 5, 35, 55, 0.045),
+    "ShotgunCqb": (0, 0, 15, 40, 0.040),
     "BattleRifle762Default": (5, 15, 45, 65, 0.035),
     "BattleRifle762WoodHandguard": (10, 20, 55, 75, 0.040),
     "BattleRifle762Mod1": (15, 25, 60, 80, 0.045),

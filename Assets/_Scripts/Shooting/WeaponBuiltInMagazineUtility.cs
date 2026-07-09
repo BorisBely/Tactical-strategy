@@ -9,7 +9,8 @@ public static class WeaponBuiltInMagazineUtility
 		WeaponRuntimeState _weaponState,
 		AmmoDefinition _ammo = null,
 		int _rounds = -1,
-		bool _chamberRound = true)
+		bool _chamberRound = true,
+		bool _fillIfEmpty = true)
 	{
 		if (_weaponState == null)
 			return;
@@ -26,8 +27,12 @@ public static class WeaponBuiltInMagazineUtility
 		int roundCount = ResolveRounds(magazineDefinition, _rounds);
 
 		if (!_weaponState.HasMagazine)
-			_weaponState.TryInsertBuiltInMagazine(magazineDefinition, ammo, roundCount);
-		else if (ammo != null)
+		{
+			AmmoDefinition insertAmmo = _fillIfEmpty ? ammo : null;
+			int insertRounds = _fillIfEmpty ? roundCount : 0;
+			_weaponState.TryInsertBuiltInMagazine(magazineDefinition, insertAmmo, insertRounds);
+		}
+		else if (_fillIfEmpty && ammo != null)
 		{
 			MagazineRuntimeState magazineState = _weaponState.CurrentMagazine;
 			if (magazineState != null && !magazineState.HasAmmo)

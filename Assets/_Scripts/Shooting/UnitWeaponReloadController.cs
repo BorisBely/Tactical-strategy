@@ -52,6 +52,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[SerializeField] private Transform m_LeftHandAnchor;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponMalfunctionController m_MalfunctionController;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[Tooltip("Для звуков перезарядки; если пусто — создаётся дочерний ReloadAudioSource_Auto.")]
 	[SerializeField] private AudioSource m_ReloadAudioSource;
 	[SerializeField, Min(0.01f)] private float m_ReloadSoundSpatialMinDistance = 1f;
@@ -151,6 +153,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_MalfunctionController == null)
 			m_MalfunctionController = GetComponent<UnitWeaponMalfunctionController>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
 
 		EnsureReloadAudioSource();
 		ResolveAnimatorLayerIndices();
@@ -158,6 +164,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void Update()
 	{
+		InterruptReloadIfRunning();
 		ApplyReloadAnimatorLayerWeightsIfBusy();
 	}
 
@@ -194,6 +201,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_IsReloadingWeapon || m_IsCyclingBolt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
+			return false;
+		}
+
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
 			return false;
 		}
 
@@ -235,6 +248,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_IsReloadingWeapon || m_IsCyclingBolt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
+			return false;
+		}
+
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
 			return false;
 		}
 
@@ -299,6 +318,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon || !m_MalfunctionStripReinsertReloadActive)
 			return;
 
+		if (UsesShellByShellReloadWeapon())
+		{
+			TryChamberShellReloadWeaponSilently();
+			return;
+		}
+
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_IsCyclingBolt = true;
 		m_BoltPresentationSuppressesFire = true;
@@ -326,6 +351,20 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!rs.HasMagazine || !rs.HasAmmoInMagazine || rs.HasRoundInChamber)
 		{
 			m_DebugLastFailureReason = "Bolt cycle not applicable";
+			return false;
+		}
+
+		if (UsesShellByShellReloadWeapon())
+		{
+			bool chambered = TryChamberShellReloadWeaponSilently();
+			if (!chambered)
+				m_DebugLastFailureReason = "Bolt cycle not applicable";
+			return chambered;
+		}
+
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
 			return false;
 		}
 
@@ -441,6 +480,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
+			return false;
+		}
+
 		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 		{
 			m_DebugLastFailureReason = "Missing runtime references";
@@ -481,7 +526,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		WeaponRuntimeState runtimeState = m_WeaponRuntime.RuntimeState;
 		WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
 			runtimeState,
-			runtimeState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
+			_chamberRound: false,
+			_fillIfEmpty: false);
 
 		if (!runtimeState.HasMagazine)
 		{
@@ -498,7 +544,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity)
 		{
-			if (TryStartBoltCycleOnly())
+			if (TryChamberShellReloadWeaponSilently())
 				return true;
 
 			m_DebugLastFailureReason = "Tube is full";
@@ -508,6 +554,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!HasAmmoBoxForCaliber(magazineState.Definition.SupportedCaliber))
 		{
 			m_DebugLastFailureReason = "No ammo box with matching caliber";
+			return false;
+		}
+
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
 			return false;
 		}
 
@@ -545,16 +597,16 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void FinalizeShellByShellReload(bool _completedNaturally)
 	{
-		bool shouldBoltCycle = _completedNaturally &&
-		                       m_WeaponRuntime?.RuntimeState != null &&
-		                       m_WeaponRuntime.RuntimeState.HasAmmoInMagazine &&
-		                       !m_WeaponRuntime.RuntimeState.HasRoundInChamber;
+		bool shouldChamber = _completedNaturally &&
+		                     m_WeaponRuntime?.RuntimeState != null &&
+		                     m_WeaponRuntime.RuntimeState.HasAmmoInMagazine &&
+		                     !m_WeaponRuntime.RuntimeState.HasRoundInChamber;
 
 		m_IsShellByShellReloadActive = false;
 		StopReloadInternal(false);
 
-		if (shouldBoltCycle)
-			TryStartBoltCycleOnly();
+		if (shouldChamber)
+			TryChamberShellReloadWeaponSilently();
 	}
 
 	private bool TryConsumeRoundFromAmmoBox(CaliberType _caliber, out AmmoDefinition _ammoDefinition)
@@ -648,6 +700,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
+			return false;
+		}
+
 		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 		{
 			m_DebugLastFailureReason = "Missing runtime references";
@@ -660,11 +718,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
-		if (_preferredBagIndex < 0 && ShouldUseBoltCycleOnlyInsteadOfFullReload())
-			return TryStartBoltCycleOnly();
-
 		if (UsesShellByShellReloadWeapon())
 			return TryStartShellByShellReload();
+
+		if (_preferredBagIndex < 0 && ShouldUseBoltCycleOnlyInsteadOfFullReload())
+			return TryStartBoltCycleOnly();
 
 		int fallbackMagazineBagIndex = -1;
 		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(_preferredBagIndex, out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
@@ -919,6 +977,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		TryPlayShellLoadSound(magazineState.Definition);
+		TryChamberShellReloadWeaponSilently();
 		RefreshInventoryUiIfActive();
 
 		if (!CanLoadAnotherShellIntoWeapon())
@@ -991,11 +1050,22 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private bool ShouldUseBoltCycleOnlyInsteadOfFullReload()
 	{
+		if (UsesShellByShellReloadWeapon())
+			return false;
+
 		if (m_WeaponRuntime?.RuntimeState == null)
 			return false;
 
 		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
 		return rs.HasMagazine && rs.HasAmmoInMagazine && !rs.HasRoundInChamber;
+	}
+
+	private bool TryChamberShellReloadWeaponSilently()
+	{
+		if (!UsesShellByShellReloadWeapon() || m_WeaponRuntime == null)
+			return false;
+
+		return m_WeaponRuntime.TryChamberRoundFromMagazine();
 	}
 
 	private bool NeedsChamberingAfterMagazineInsert()
@@ -1207,6 +1277,31 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 
 		m_InventoryBindings.RefreshActiveCharacterPanel();
+	}
+
+	private void InterruptReloadIfRunning()
+	{
+		if (!IsReloadBusy)
+			return;
+		if (!IsRunOrSprintBlockingReload())
+			return;
+
+		StopReloadInternal(true);
+	}
+
+	private bool IsRunOrSprintBlockingReload()
+	{
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+
+		if (m_ClickToMove != null && (m_ClickToMove.IsRunMoveMode || m_ClickToMove.IsSprintMoveMode))
+			return true;
+		if (m_LocomotionDriver != null && (m_LocomotionDriver.IsRunMoveMode || m_LocomotionDriver.IsSprintMoveMode))
+			return true;
+
+		return false;
 	}
 
 	private void StopReloadInternal(bool _restorePendingMagazineToBag)

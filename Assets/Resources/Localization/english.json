@@ -498,10 +498,6 @@
       "value": "Mosin internal magazine (5 rds)"
     },
     {
-      "key": "item.mag.benelli_12g_7",
-      "value": "Benelli M4 tube magazine (7 rds)"
-    },
-    {
       "key": "item.mag.m249_556_200",
       "value": "M249 belt box (200 rds)"
     },
@@ -651,7 +647,7 @@
     },
     {
       "key": "item.loot.ammo_box.12g.desc",
-      "value": "12 gauge buckshot ammo box."
+      "value": "Box of 25 rounds of 12 gauge buckshot (~1.15 kg)."
     },
     {
       "key": "item.loot.ammo_box.762x51.desc",
@@ -708,10 +704,6 @@
     {
       "key": "item.mag.mosin_762_54r_5.desc",
       "value": "5-round internal magazine for Mosin rifle."
-    },
-    {
-      "key": "item.mag.benelli_12g_7.desc",
-      "value": "7-round tube magazine for Benelli M4."
     },
     {
       "key": "item.mag.m249_556_200.desc",

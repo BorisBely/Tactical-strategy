@@ -307,6 +307,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	/// <summary>
 	/// Цель IK левой кисти: сначала на установленной рукоятке, иначе на корне оружия.
+	/// If the foregrip has Ready but no NotReady empty, fall through to the weapon-body NotReady
+	/// (do not reuse grip Ready — that makes not-ready identical to ready).
 	/// </summary>
 	public Transform ResolveLeftHandIkTargetTransform(string _childName)
 	{

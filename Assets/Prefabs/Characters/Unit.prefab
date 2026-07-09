@@ -8330,6 +8330,7 @@ MonoBehaviour:
   m_StabilizeOther: {fileID: 0}
   m_BusyState: {fileID: 383407823447829567}
   m_RagdollController: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_ReadyPoseBlendDuration: 0.28
   m_ReadyPoseBlendCurve:
     serializedVersion: 2
@@ -8824,6 +8825,7 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_RecoilController: {fileID: 2745828861811900171}
   m_RagdollController: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_KickTransformOverride: {fileID: 0}
   m_PitchDegreesPerPenaltyUnit: 1.55
   m_YawJitterFraction: 0.55
@@ -8967,6 +8969,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimatorHandIk
   m_UnitEquipment: {fileID: 5322687323565292150}
+  m_RuntimeTuner: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_MagazineLoading: {fileID: 0}
   m_WeaponReload: {fileID: 0}
@@ -8977,6 +8980,7 @@ MonoBehaviour:
   m_LeftHandRotationWeight: 1
   m_RightHandPositionWeight: 1
   m_RightHandRotationWeight: 1
+  m_RightHandNotReadyIkWeight: 1
   m_EquipBlendDuration: 0.35
   m_EquipBlendCurve:
     serializedVersion: 2

@@ -35,28 +35,37 @@ public class ItemDefinition : ScriptableObject
 	[Header("Снаряжение (Category = Equipment)")]
 	[Tooltip("Префаб модели в правой руке (без физики лута). Родитель — якорь правой руки в UnitEquipment.")]
 	[SerializeField] private GameObject m_EquippedVisualPrefab;
-	[Tooltip("Локальная позиция префаба оружия относительно правой руки (режим «не готов» / relaxed).")]
+	[Tooltip("Local position of the weapon prefab relative to the right hand (low ready / relaxed mode).")]
 	[SerializeField] private Vector3 m_RightHandLocalPosition;
-	[Tooltip("Локальные углы Эйлера оружия относительно правой руки (режим «не готов» / relaxed).")]
+	[Tooltip("Local Euler angles of the weapon relative to the right hand (low ready / relaxed mode).")]
 	[SerializeField] private Vector3 m_RightHandLocalEulerAngles;
-	[Tooltip("Локальная позиция префаба оружия относительно правой руки (режим «готов»).")]
+	[Tooltip("Local position of the weapon prefab relative to the right hand (high ready mode).")]
 	[SerializeField] private Vector3 m_RightHandReadyLocalPosition;
-	[Tooltip("Локальные углы Эйлера оружия относительно правой руки (режим «готов»).")]
+	[Tooltip("Local Euler angles of the weapon relative to the right hand (high ready mode).")]
 	[SerializeField] private Vector3 m_RightHandReadyLocalEulerAngles;
 	[Header("Правая рука — IK кисти (локально на оружии)")]
-	[Tooltip("Локальная позиция цели IK правой кисти на оружии (режим «не готов»).")]
+	[Tooltip("Local position of the right‑hand IK target on the weapon (low ready mode).")]
 	[SerializeField] private Vector3 m_RightHandIkNotReadyLocalPosition;
-	[Tooltip("Локальные углы Эйлера цели IK правой кисти на оружии (режим «не готов»).")]
+	[Tooltip("Local Euler angles of the right‑hand IK target on the weapon (low ready mode).")]
 	[SerializeField] private Vector3 m_RightHandIkNotReadyLocalEulerAngles;
-	[Tooltip("Локальная позиция цели IK правой кисти на оружии (режим «готов»). Нули — взять с пустышки на префабе.")]
+	[Tooltip("Local position of the right‑hand IK target on the weapon (high ready mode). Zeros — use the dummy on the prefab.")]
 	[SerializeField] private Vector3 m_RightHandIkReadyLocalPosition;
-	[Tooltip("Локальные углы Эйлера цели IK правой кисти на оружии (режим «готов»). Нули — взять с пустышки на префабе.")]
+	[Tooltip("Local Euler angles of the right‑hand IK target on the weapon (high ready mode). Zeros — use the dummy on the prefab.")]
 	[SerializeField] private Vector3 m_RightHandIkReadyLocalEulerAngles;
-	[Tooltip("Имя дочернего объекта на префабе оружия: мировая позиция/поворот для IK левой кисти. Пусто — левая рука без IK.")]
+	[Header("Левая рука — IK кисти (локально на оружии)")]
+	[Tooltip("Local left-hand IK on weapon (low ready). Zeros — use LeftHandIkTarget_NotReady dummy (or Ready if missing).")]
+	[SerializeField] private Vector3 m_LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_LeftHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Local left-hand IK on weapon (high ready). Zeros — use LeftHandIkTarget dummy.")]
+	[SerializeField] private Vector3 m_LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_LeftHandIkReadyLocalEulerAngles;
+	[Tooltip("Child on weapon/foregrip prefab: left-hand IK in high ready. Empty — no left IK.")]
 	[SerializeField] private string m_LeftHandIkTargetChildName = "LeftHandIkTarget";
-	[Tooltip("Пустышка IK правой кисти в режиме «готов», если Ik Ready Local не задан. Пусто — только координаты из asset.")]
+	[Tooltip("Child on weapon/foregrip prefab: left-hand IK in low ready / not ready.")]
+	[SerializeField] private string m_LeftHandIkTargetNotReadyChildName = "LeftHandIkTarget_NotReady";
+	[Tooltip("Right‑hand IK dummy in high ready mode, if Ik Ready Local is not set. Empty — coordinates from asset only.")]
 	[SerializeField] private string m_RightHandIkTargetChildName = "RightHandIkTarget";
-	[Tooltip("Пустышка IK правой кисти в режиме «не готов», если Ik Not Ready Local не задан.")]
+	[Tooltip("Right‑hand IK dummy in low ready mode, if Ik Not Ready Local is not set.")]
 	[SerializeField] private string m_RightHandIkTargetNotReadyChildName = "RightHandIkTarget_NotReady";
 
 	[Header("Снаряжение (Equipment)")]
@@ -164,7 +173,14 @@ public class ItemDefinition : ScriptableObject
 	public Vector3 RightHandIkReadyLocalPosition => m_RightHandIkReadyLocalPosition;
 	public Vector3 RightHandIkReadyLocalEulerAngles => m_RightHandIkReadyLocalEulerAngles;
 	public Quaternion RightHandIkReadyLocalRotation => Quaternion.Euler(m_RightHandIkReadyLocalEulerAngles);
+	public Vector3 LeftHandIkNotReadyLocalPosition => m_LeftHandIkNotReadyLocalPosition;
+	public Vector3 LeftHandIkNotReadyLocalEulerAngles => m_LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_LeftHandIkNotReadyLocalEulerAngles);
+	public Vector3 LeftHandIkReadyLocalPosition => m_LeftHandIkReadyLocalPosition;
+	public Vector3 LeftHandIkReadyLocalEulerAngles => m_LeftHandIkReadyLocalEulerAngles;
+	public Quaternion LeftHandIkReadyLocalRotation => Quaternion.Euler(m_LeftHandIkReadyLocalEulerAngles);
 	public string LeftHandIkTargetChildName => m_LeftHandIkTargetChildName;
+	public string LeftHandIkTargetNotReadyChildName => m_LeftHandIkTargetNotReadyChildName;
 	public string RightHandIkTargetChildName => m_RightHandIkTargetChildName;
 	public string RightHandIkTargetNotReadyChildName => m_RightHandIkTargetNotReadyChildName;
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;

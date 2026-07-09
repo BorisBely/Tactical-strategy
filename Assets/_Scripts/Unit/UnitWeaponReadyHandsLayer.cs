@@ -3,8 +3,8 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
 /// <summary>
-/// Подсостояние «на готове / не на готове» при экипированном оружии.
-/// Базовый слой Animator выбирает Ready/NoReady через bool-параметр <c>WeaponReady</c>.
+/// Sub-state "high ready / low ready" while weapon is equipped.
+/// Base Animator layer selects Ready/NoReady via bool parameter <c>WeaponReady</c>.
 /// </summary>
 [DefaultExecutionOrder(50)]
 [DisallowMultipleComponent]
@@ -19,11 +19,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
 	[SerializeField] private UnitVision m_Vision;
-	[Tooltip("Для повторного CrossFade базового idle в приседе при смене готов/не готов (там WeaponMode не переключается).")]
+	[Tooltip("For layer‑0 idle CrossFade replay in crouch on high‑ready / low‑ready change (WeaponMode stays the same there).")]
 	[SerializeField] private UnitAnimatorWeaponMode m_AnimatorWeaponMode;
 	[Tooltip("IK левой/правой руки на объекте Animator.")]
 	[SerializeField] private AnimatorHandIk m_LeftHandIk;
-	[Tooltip("Поза оружия relaxed/ready при переключении «готов».")]
+	[Tooltip("Weapon pose relaxed/ready when toggling high ready.")]
 	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 	[SerializeField] private UnitBusyState m_BusyState;
 
@@ -45,8 +45,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	#region Public Methods
 	/// <summary>
-	/// Оружие экипировано, пользователь в режиме «не готов» (без учёта приседа для базового графа).
-	/// Для FOV и костыля prone до ready.
+	/// Weapon is equipped, user is in low ready (regardless of crouch for the base graph).
+	/// Used for FOV and the prone‑before‑ready hack.
 	/// </summary>
 	public bool IsEquippedWeaponUserNotReady()
 	{
@@ -61,7 +61,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Устаревший compatibility hook: наличие оружия всегда остаётся в <c>WeaponMode</c>, готовность идёт через <c>WeaponReady</c>.
+	/// Legacy compatibility hook: weapon presence always stays in <c>WeaponMode</c>; readiness goes through <c>WeaponReady</c>.
 	/// </summary>
 	public bool ShouldUseUnarmedLocomotionBranch()
 	{
@@ -69,7 +69,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// В руках оружие и включён «на готове» — для разворота корня на <see cref="UnitVision.VisibleTarget"/> и т.п.
+	/// Weapon is in hands and in high ready — for root rotation toward <see cref="UnitVision.VisibleTarget"/> etc.
 	/// </summary>
 	public bool IsWeaponEquippedAndReady()
 	{
@@ -77,7 +77,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Условие для стрельбы: на готове и не в режиме спринта (спринт заказан отдельно от «готов» и иначе даёт стрельбу на полной скорости).
+	/// Firing condition: in high ready and not sprinting (sprint is ordered separately from high ready and would otherwise allow full‑speed firing).
 	/// </summary>
 	public bool IsWeaponReadyToFire()
 	{
@@ -85,18 +85,18 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Текущее желаемое состояние "готов" до учёта принудительного Ready в prone.
-	/// Нужен ИИ/скриптам поведения, чтобы управлять режимом без эмуляции клавиши E.
+	/// Current desired high-ready state before accounting for forced Ready in prone.
+	/// Needed by AI / behaviour scripts to control the mode without emulating the E key.
 	/// </summary>
 	public bool WantsReady => m_UserWantsReady;
 
-	/// <summary>Есть отложенное восстановление «готов» после спринта/бега/поворота.</summary>
+	/// <summary>Whether a deferred high‑ready restore is pending after sprint/run/turn.</summary>
 	public bool HasPendingReadyRestore =>
 		m_RestoreReadyAfterSprint || m_RestoreReadyAfterRun || m_RestoreReadyAfterTurn;
 
 	/// <summary>
-	/// Нажатие Z (смена стойки): при экипированном оружии включает «на готове» (как перевод E в состояние готов, без переключения).
-	/// При спринте сбрасывает заказ скорости на шаг — как при включении готов по E.
+	/// Z key (stance change): when weapon is equipped, enables high ready (like pressing E to enter the high-ready state, without toggling).
+	/// While sprinting, resets speed order to walk — same as enabling high ready via E.
 	/// </summary>
 	public void EnableReadyFromStanceZInput()
 	{
@@ -110,8 +110,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Прямое управление состоянием "готов" для ИИ/скриптов.
-	/// Если включаем ready во время спринта, можно принудительно сбросить скорость до шага.
+	/// Direct control of the high‑ready state for AI / scripts.
+	/// When enabling ready during sprint, optionally force speed down to walk.
 	/// </summary>
 	public void SetReadyWanted(bool _ready, bool _forceWalkIfNeeded = true)
 	{
@@ -121,7 +121,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		ApplyReadyWanted(_ready, _forceWalkIfNeeded, true);
 	}
 
-	/// <summary>Сбрасывает отложенное восстановление «готов» после спринта/бега/поворота.</summary>
+	/// <summary>Clears any deferred high‑ready restoration after sprint/run/turn.</summary>
 	public void CancelDeferredReadyRestores()
 	{
 		m_RestoreReadyAfterSprint = false;
@@ -130,7 +130,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Спринт временно снимает «готов», но только если до спринта оружие действительно было на готове.
+	/// Sprint temporarily disables high ready, but only if the weapon was actually in high ready before the sprint.
 	/// </summary>
 	public void SuppressReadyForSprintIfNeeded()
 	{
@@ -148,7 +148,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Бег временно снимает «готов» (аналогично спринту).
+	/// Run temporarily disables high ready (same pattern as sprint).
 	/// </summary>
 	public void SuppressReadyForRunIfNeeded()
 	{
@@ -166,7 +166,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Возвращает «готов» после спринта, когда локомоция уже считает, что спринт завершён.
+	/// Restores high ready after sprint, once locomotion considers the sprint finished.
 	/// </summary>
 	public void TryRestoreReadyAfterSprint(bool _isStillSprinting)
 	{
@@ -179,7 +179,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Возвращает «готов» после бега.
+	/// Restores high ready after run.
 	/// </summary>
 	public void TryRestoreReadyAfterRun(bool _isStillRunning)
 	{
@@ -200,7 +200,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_RestoreReadyAfterTurn = true;
 	}
 
-	/// <summary>Временно снимает «готов» без сброса отложенного восстановления (поворот на месте и т.п.).</summary>
+	/// <summary>Temporarily disables high ready without resetting deferred restoration (turn in place etc.).</summary>
 	public void ApplyTemporaryReadySuppression()
 	{
 		if (!IsWeaponEquipped() || !m_UserWantsReady)
@@ -219,7 +219,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			ApplyReadyWanted(true, false, true);
 	}
 
-	/// <summary>Временная блокировка клавиши готов, например при переходе стойки.</summary>
+	/// <summary>Temporary block of the high-ready toggle key, e.g. during stance transition.</summary>
 	public void SetToggleInputBlocked(bool _blocked)
 	{
 		m_BlockToggleInput = _blocked;

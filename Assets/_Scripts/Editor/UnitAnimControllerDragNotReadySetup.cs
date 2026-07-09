@@ -6,7 +6,7 @@ using UnityEngine;
 
 /// <summary>
 /// Добавляет в Base-слой AnimatorController стейт-пустышку CrouchWalk_Drag_NotReady
-/// для анимации волочения с оружием не на готове.
+/// для анимации волочения с оружием in low ready.
 /// Ищет CrouchWalk_F_Loop во ВСЕХ sub-state machine, копирует его входы/выходы.
 /// Оригинальные переходы к CrouchWalk_F_Loop блокируются при IsDraggingNotReady=true.
 /// </summary>

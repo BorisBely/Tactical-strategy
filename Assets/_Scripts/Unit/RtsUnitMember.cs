@@ -12,6 +12,11 @@ using UnityEngine.AI;
 [DisallowMultipleComponent]
 public sealed class RtsUnitMember : MonoBehaviour
 {
+	#region Temporary
+	/// <summary>TEMP: отключает подворот/возврат корня при переходе готов ↔ не готов.</summary>
+	private static readonly bool s_ReadyFacingTransitionEnabled = false;
+	#endregion
+
 	#region Constants
 	#endregion
 
@@ -821,7 +826,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 			}
 
 			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
+			{
 				m_MagazineLoadingController?.StopLoading();
+				m_WeaponReloadController?.StopReload();
+			}
 
 			bool isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
 			if (isRunOrSprint && TryGetComponent(out UnitStamina stamina) && stamina.IsExhausted)
@@ -2200,7 +2208,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_ReadyHands.SetReadyWanted(_ready);
 
 			if (!_ready)
-				HandleReadyBecameFalse();
+			{
+				if (s_ReadyFacingTransitionEnabled)
+					HandleReadyBecameFalse();
+			}
 			else
 				DowngradeActiveMovementTierForReady();
 		}, _groupStaggerDelaySeconds);
@@ -2991,7 +3002,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsInFacingTurn)
 			return;
 
-		if (!WantsReady && (IsPhysicallyMoving() || HasActiveLocomotionMovement()))
+		if (s_ReadyFacingTransitionEnabled &&
+		    !WantsReady &&
+		    (IsPhysicallyMoving() || HasActiveLocomotionMovement()))
 		{
 			if (m_FacingAutoRestoreReady ||
 			    (m_ReadyHands != null && m_ReadyHands.HasPendingReadyRestore))
@@ -3063,7 +3076,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void TrackReadyWantedTransition()
 	{
 		bool wantsReady = WantsReady;
-		if (m_LastTrackedWantsReady && !wantsReady)
+		if (s_ReadyFacingTransitionEnabled && m_LastTrackedWantsReady && !wantsReady)
 			HandleReadyBecameFalse();
 
 		m_LastTrackedWantsReady = wantsReady;
@@ -3071,6 +3084,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void HandleReadyBecameFalse()
 	{
+		if (!s_ReadyFacingTransitionEnabled)
+			return;
+
 		if (m_FacingAutoRestoreReady)
 		{
 			m_FacingAutoRestoreReady = false;
@@ -3096,6 +3112,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void BeginLocomotionNotReadyFacingRealign()
 	{
+		if (!s_ReadyFacingTransitionEnabled)
+			return;
+
 		if (m_ClickToMove != null)
 			m_ClickToMove.BeginNotReadyMovementFacingRealign();
 		else if (m_LocomotionDriver != null)

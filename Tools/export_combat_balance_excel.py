@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SHOOTING = ROOT / "Assets" / "GameData" / "Shooting"
 OUTPUT = ROOT / "Tools" / "CombatBalanceParameters.xlsx"
 
-DISTANCES = list(range(0, 101, 10))
+DISTANCES = list(range(0, 501, 50))
 RECOIL_SHOTS = list(range(1, 11))
 RECOIL_GRAPH_RECOVERY = 0.45
 
@@ -67,6 +67,7 @@ ACCURACY_REFERENCE_BY_DISTANCE: dict[float, float] = {}
 ACCURACY_PROFILE_PLATEAUS = {
     "CqbShort": (0, 0, 25, 45, 0.055),
     "CqbControlled": (0, 5, 35, 55, 0.045),
+    "ShotgunCqb": (0, 0, 15, 40, 0.040),
     "BattleRifle762Default": (5, 15, 45, 65, 0.035),
     "BattleRifle762WoodHandguard": (10, 20, 55, 75, 0.040),
     "BattleRifle762Mod1": (15, 25, 60, 80, 0.045),
@@ -99,6 +100,7 @@ WEAPON_ORDER = [
     "Weapon_M16A4_ModA_2",
     "Weapon_MK12",
     "Weapon_MK18",
+    "Weapon_BenelliM4",
 ]
 
 WEAPON_ROLE = {
@@ -120,11 +122,13 @@ WEAPON_ROLE = {
     "Weapon_M16A4_ModA_2": "Marksman",
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
+    "Weapon_BenelliM4": "ShotgunCqb",
 }
 
 ROLE_AIM = {
     "CqbShort": [(0, 0.92), (25, 1.08), (50, 2.55), (75, 4.15), (100, 5.85)],
     "CqbControlled": [(0, 0.84), (25, 1.10), (50, 2.36), (75, 3.79), (100, 5.33)],
+    "ShotgunCqb": [(0, 1.05), (15, 1.18), (25, 1.45), (40, 1.95), (60, 2.80), (100, 4.20), (250, 6.20), (500, 8.50)],
     "CarbineModA1": [(0, 0.87), (25, 1.13), (50, 2.05), (75, 3.17), (100, 4.34)],
     "CarbineModA2": [(0, 0.90), (25, 1.12), (50, 1.98), (75, 3.05), (100, 4.20)],
     "BattleRifle762Default": [(0, 0.96), (25, 1.38), (50, 2.52), (75, 3.80), (100, 5.06)],
@@ -141,6 +145,7 @@ ROLE_AIM = {
 ROLE_DISP = {
     "CqbShort": [(0, 0.58), (25, 0.78), (50, 1.75), (75, 3.25), (100, 5.00)],
     "CqbControlled": [(0, 0.62), (25, 0.82), (50, 1.55), (75, 2.80), (100, 4.30)],
+    "ShotgunCqb": [(0, 0.72), (15, 0.95), (25, 1.45), (40, 2.40), (60, 3.90), (100, 6.00), (250, 9.00), (500, 12.00)],
     "CarbineModA1": [(0, 0.73), (25, 0.86), (50, 1.08), (75, 1.64), (100, 2.42)],
     "CarbineModA2": [(0, 0.75), (25, 0.84), (50, 1.03), (75, 1.57), (100, 2.35)],
     "BattleRifle762Default": [(0, 0.80), (25, 0.98), (50, 1.32), (75, 2.12), (100, 3.18)],
@@ -157,6 +162,7 @@ ROLE_DISP = {
 ROLE_BURST = {
     "CqbShort": [(1, 1.00), (3, 1.50), (6, 3.10), (10, 6.00)],
     "CqbControlled": [(1, 1.00), (3, 1.42), (6, 2.75), (10, 5.20)],
+    "ShotgunCqb": [(1, 1.00), (3, 1.65), (6, 3.40), (10, 6.50)],
     "CarbineModA1": [(1, 1.00), (3, 1.24), (6, 1.84), (10, 3.08)],
     "CarbineModA2": [(1, 1.00), (3, 1.23), (6, 1.82), (10, 3.02)],
     "BattleRifle762Default": [(1, 1.00), (3, 1.49), (6, 2.72), (10, 4.62)],
@@ -189,6 +195,7 @@ WEAPON_LABEL = {
     "Weapon_M16A4_ModA_2": "M16A4 ModA2",
     "Weapon_MK12": "MK12",
     "Weapon_MK18": "MK18",
+    "Weapon_BenelliM4": "Benelli M4",
 }
 
 
@@ -619,10 +626,11 @@ def write_description_sheet(wb: Workbook) -> None:
         ["M4 точность / прицел / отдача", "M4 ModA1 + по одному модулю в столбце. График = влияние модов."],
         ["AK точность / прицел / отдача", "AK-74 + по одному модулю в столбце. График = влияние модов."],
         ["", ""],
-        ["Строки", "0, 10, 20 … 100 м — для точности и прицеливания"],
+        ["Строки", "0, 50, 100 … 500 м — для точности и прицеливания"],
         ["Строки отдачи", "Номер выстрела в очереди FullAuto (1–10)"],
         ["Столбцы", "Оружие в фиксированном порядке"],
         ["Графики", "Линейные графики под каждой таблицей"],
+        ["Benelli M4", "Роль ShotgunCqb: 0–15 лучший, 15–25 сильный, 25–40 рабочий, 40–60 хуже АК, 60+ почти бесполезен. Эффективность дроби = паттерн + falloff, не только лист Точность."],
         ["", ""],
         ["Важно", "Точность и прицеливание читаются из Unity assets. Перезапекание: python Tools/bake_weapon_combat_balance.py"],
         ["Обновление", "python Tools/export_combat_balance_excel.py"],

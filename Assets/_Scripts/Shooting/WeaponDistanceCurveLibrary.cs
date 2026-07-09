@@ -12,6 +12,7 @@ public static class WeaponDistanceCurveLibrary
 	{
 		CqbShort,
 		CqbControlled,
+		ShotgunCqb,
 		Carbine,
 		CarbineModA1,
 		CarbineModA2,
@@ -102,6 +103,7 @@ public static class WeaponDistanceCurveLibrary
 		{
 			WeaponBalanceKind.CqbShort => s_CqbShort,
 			WeaponBalanceKind.CqbControlled => s_CqbControlled,
+			WeaponBalanceKind.ShotgunCqb => s_ShotgunCqb,
 			WeaponBalanceKind.Carbine => s_Carbine,
 			WeaponBalanceKind.CarbineModA1 => s_CarbineModA1,
 			WeaponBalanceKind.CarbineModA2 => s_CarbineModA2,
@@ -162,6 +164,32 @@ public static class WeaponDistanceCurveLibrary
 		DispRole(0.62f, 0.82f, 1.55f, 2.80f, 4.30f),
 		AimRole(0.84f, 1.10f, 2.36f, 3.79f, 5.33f),
 		BurstRole(1.00f, 1.42f, 2.75f, 5.20f));
+
+	// ShotgunCqb: real-meter niche 0-60 m — dominant close, collapses past rifle CQB
+	private static readonly WeaponBalanceCurves s_ShotgunCqb = new WeaponBalanceCurves(
+		new[]
+		{
+			K(0f, 0.72f),
+			K(15f, 0.95f),
+			K(25f, 1.45f),
+			K(40f, 2.40f),
+			K(60f, 3.90f),
+			K(100f, 6.00f),
+			K(250f, 9.00f),
+			K(500f, 12.00f)
+		},
+		new[]
+		{
+			K(0f, 1.05f),
+			K(15f, 1.18f),
+			K(25f, 1.45f),
+			K(40f, 1.95f),
+			K(60f, 2.80f),
+			K(100f, 4.20f),
+			K(250f, 6.20f),
+			K(500f, 8.50f)
+		},
+		BurstRole(1.00f, 1.65f, 3.40f, 6.50f));
 
 	// Carbine: softened 375-500 m for realism after distance stretch
 	private static readonly WeaponBalanceCurves s_Carbine = new WeaponBalanceCurves(
@@ -264,7 +292,7 @@ public static class WeaponDistanceCurveLibrary
 		["Weapon_MK12"] = WeaponBalanceKind.Dmr,
 		["Weapon_MK18"] = WeaponBalanceKind.CqbShort,
 		["Weapon_Mosin"] = WeaponBalanceKind.Dmr,
-		["Weapon_BenelliM4"] = WeaponBalanceKind.CqbShort,
+		["Weapon_BenelliM4"] = WeaponBalanceKind.ShotgunCqb,
 		["Weapon_M249"] = WeaponBalanceKind.Support545,
 		["Weapon_Sniper762x51"] = WeaponBalanceKind.Dmr,
 		["Weapon_PKM"] = WeaponBalanceKind.Support762,

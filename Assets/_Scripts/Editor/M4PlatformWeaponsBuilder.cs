@@ -226,8 +226,11 @@ public static class M4PlatformWeaponsBuilder
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		CopyReadyHandPoseFields(so, templateSo);
 		CopyRightHandIkFields(so, templateSo);
+		CopyLeftHandIkFields(so, templateSo);
 		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
 			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
+		so.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue =
+			templateSo.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue;
 		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
 			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
 		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
@@ -558,6 +561,18 @@ public static class M4PlatformWeaponsBuilder
 			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
 		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
 			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
+	}
+
+	private static void CopyLeftHandIkFields(SerializedObject _so, SerializedObject _templateSo)
+	{
+		_so.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value;
+		_so.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value;
+		_so.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value =
+			_templateSo.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value;
 	}
 }
 #endif

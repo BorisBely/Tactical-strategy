@@ -19,5 +19,13 @@ MonoBehaviour:
   m_ReloadTimeModifier: 1.05
   m_JamRiskModifier: 1
   m_IsNonRemovable: 1
-  m_RoundLoadSounds: []
-  m_RoundLoadSoundsVolume: 1
+  m_RoundLoadSounds:
+  - {fileID: 8300000, guid: 32ce1e911100f034f9bec012a06b74b2, type: 3}
+  - {fileID: 8300000, guid: ba6179e270406f745b01077c0feed67b, type: 3}
+  - {fileID: 8300000, guid: 4bf5f2e3ad0800147ba578f1eca0afc9, type: 3}
+  - {fileID: 8300000, guid: 9a1d3f55da789bd4e87d45c6851ba1f3, type: 3}
+  - {fileID: 8300000, guid: 1891823c8fcec3e408d8044fee3c0865, type: 3}
+  - {fileID: 8300000, guid: 6e29cbfcf904959438d2711b376f50b5, type: 3}
+  - {fileID: 8300000, guid: df31ab070e7bc4349a8d3037019dfb57, type: 3}
+  - {fileID: 8300000, guid: 4e804d546e9b54d4b9fb51e61c91f0e2, type: 3}
+  m_RoundLoadSoundsVolume: 0.85

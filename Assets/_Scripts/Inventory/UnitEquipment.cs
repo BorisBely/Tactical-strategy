@@ -25,6 +25,7 @@ public class UnitEquipment : MonoBehaviour
 	private GameObject m_DetachedWeaponInstance;
 	private ItemDefinition m_EquippedDefinition;
 	private Transform m_LeftHandIkTarget;
+	private Transform m_LeftHandIkTargetNotReady;
 	private Transform m_RightHandIkTarget;
 	private Transform m_RightHandIkTargetNotReady;
 	private EquippedWeapon m_EquippedWeapon;
@@ -37,13 +38,16 @@ public class UnitEquipment : MonoBehaviour
 	/// <summary>Скрипт на инстансе экипированного оружия (ствол, позже патроны и т.д.). Null если на префабе нет компонента.</summary>
 	public EquippedWeapon EquippedWeapon => m_EquippedWeapon;
 
-	/// <summary>Трансформ цели IK левой руки на инстансе оружия. Иначе null.</summary>
+	/// <summary>Left-hand IK target (high ready) on the weapon instance or foregrip.</summary>
 	public Transform LeftHandIkTargetTransform => m_LeftHandIkTarget;
 
-	/// <summary>Трансформ цели IK правой руки (готов) на инстансе оружия. Иначе null.</summary>
+	/// <summary>Left-hand IK target (low ready / not ready) on the weapon instance or foregrip.</summary>
+	public Transform LeftHandIkTargetNotReadyTransform => m_LeftHandIkTargetNotReady;
+
+	/// <summary>Right‑hand IK target transform (high ready) on the weapon instance. Null otherwise.</summary>
 	public Transform RightHandIkTargetTransform => m_RightHandIkTarget;
 
-	/// <summary>Трансформ цели IK правой руки (не готов) на инстансе оружия. Иначе null.</summary>
+	/// <summary>Right‑hand IK target transform (low ready) on the weapon instance. Null otherwise.</summary>
 	public Transform RightHandIkTargetNotReadyTransform => m_RightHandIkTargetNotReady;
 
 	/// <summary>Корень инстанса визуала в руке. Null если нет префаба или слот пуст.</summary>
@@ -124,20 +128,31 @@ public class UnitEquipment : MonoBehaviour
 	/// </summary>
 	public void RefreshLeftHandIkTarget()
 	{
-		string ikName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetChildName : null;
-		if (string.IsNullOrWhiteSpace(ikName) || m_MainWeaponInstance == null)
+		if (m_MainWeaponInstance == null)
 		{
 			m_LeftHandIkTarget = null;
+			m_LeftHandIkTargetNotReady = null;
 			return;
 		}
 
-		if (m_EquippedWeapon != null)
-			m_LeftHandIkTarget = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(ikName);
+		string readyName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetChildName : null;
+		if (string.IsNullOrWhiteSpace(readyName))
+			m_LeftHandIkTarget = null;
+		else if (m_EquippedWeapon != null)
+			m_LeftHandIkTarget = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(readyName);
 		else
-			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, ikName);
+			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, readyName);
+
+		string notReadyName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetNotReadyChildName : null;
+		if (string.IsNullOrWhiteSpace(notReadyName))
+			m_LeftHandIkTargetNotReady = null;
+		else if (m_EquippedWeapon != null)
+			m_LeftHandIkTargetNotReady = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(notReadyName);
+		else
+			m_LeftHandIkTargetNotReady = FindChildRecursive(m_MainWeaponInstance.transform, notReadyName);
 	}
 
-	/// <summary>Пересчитать цели IK правой руки (готов / не готов).</summary>
+	/// <summary>Refresh right‑hand IK targets (high ready / low ready).</summary>
 	public void RefreshRightHandIkTarget()
 	{
 		if (m_MainWeaponInstance == null)
@@ -177,6 +192,7 @@ public class UnitEquipment : MonoBehaviour
 		m_MainWeaponInstance = null;
 		m_EquippedWeapon = m_DetachedWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 		m_LeftHandIkTarget = null;
+		m_LeftHandIkTargetNotReady = null;
 		m_RightHandIkTarget = null;
 		m_RightHandIkTargetNotReady = null;
 
@@ -226,6 +242,7 @@ public class UnitEquipment : MonoBehaviour
 
 		m_EquippedDefinition = null;
 		m_LeftHandIkTarget = null;
+		m_LeftHandIkTargetNotReady = null;
 		m_RightHandIkTarget = null;
 		m_RightHandIkTargetNotReady = null;
 		m_EquippedWeapon = null;

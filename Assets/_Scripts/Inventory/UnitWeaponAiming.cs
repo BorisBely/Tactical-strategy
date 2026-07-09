@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Вертикальное наведение: параметр <c>AimPitch</c> и слой <c>Aim_Point_U90-D90</c>.
-/// Горизонталь — корень юнита (<see cref="UnitClickToMove"/>). При «готов» и видимой цели корень оружия только локальный из <see cref="ItemDefinition"/>, вертикаль даёт анимация.
+/// Горизонталь — корень юнита (<see cref="UnitClickToMove"/>). In high ready with a visible target the weapon root is only local from <see cref="ItemDefinition"/>; the vertical comes from the animation.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(55)]
@@ -32,7 +32,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitRagdollController m_RagdollController;
 
 	[Header("Условия прицела")]
-	[Tooltip("Только при «готов» и видимой цели; иначе AimPitch и слой в ноль.")]
+	[Tooltip("Only in high ready with a visible target; otherwise AimPitch and the layer go to zero.")]
 	[SerializeField] private bool m_RequireReadyAndTarget = true;
 	[Tooltip("Учитывать видимую цель из UnitVision для боевого прицела.")]
 	[SerializeField] private bool m_AimAtVisibleTarget = true;
@@ -198,6 +198,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_UnitEquipment == null || m_UnitForwardSource == null)
 			return;
 
+		// Runtime pose tuning: do not overwrite weapon transform every frame.
+		if (IsRuntimePoseTuningActive())
+			return;
+
 		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
 		ItemDefinition def = m_UnitEquipment.EquippedDefinition;
 		if (weaponRoot == null || def == null)
@@ -262,6 +266,14 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	private bool IsBlockedByRagdoll()
 	{
 		return m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts;
+	}
+
+	private bool IsRuntimePoseTuningActive()
+	{
+		UnitEquippedWeaponPoseRuntimeTuner tuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (tuner == null)
+			tuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return tuner != null && tuner.ShouldSkipWeaponPoseWrite;
 	}
 
 	private bool ShouldApplyWeaponLocalOnlyForAim()

@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7c3e1a42d5f6a8490b2c3d4e5f60718, type: 3}
+  m_Name: WeaponVfxProfile_BenelliM4
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponVfxProfile
+  m_EnableMuzzleFlash: 1
+  m_UnsuppressedMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_SuppressedMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_UnsuppressedMuzzleLifetimeSeconds: 0.5
+  m_SuppressedMuzzleLifetimeSeconds: 0.5
+  m_UnsuppressedMuzzleScale: 1
+  m_SuppressedMuzzleScale: 0.35
+  m_ShellEjectionMode: 2
+  m_ShellParticlePrefab: {fileID: 1178736517963602, guid: 8e4b3c2d1a0f8152b6c7d8e9f0a1b2c3, type: 3}
+  m_ShellParticleLifetimeSeconds: 2.5
+  m_ShellParticleScale: 2.2
+  m_ShellPrefabEjectionAxis: {x: 1, y: 0, z: 0}
+  m_ShellLocalEulerOffset: {x: 0, y: 0, z: 0}
+  m_HybridPhysicalShellDistanceMeters: 18
+  m_EnableBulletFlight: 1
+  m_BulletFlightPrefab: {fileID: 1046001694842650, guid: 9eb7304a6c9aedb40abba583aff826c5, type: 3}
+  m_BulletFlightScale: 1
+  m_BulletFlightLengthScale: 0.2
+  m_BulletVisualSpeedMultiplier: 0.35
+  m_BulletMinFlightSeconds: 0.045
+  m_BulletMaxFlightSeconds: 0.85
+  m_ShowBulletFlightOnMiss: 1
+  m_EnableBodyImpactFx: 1
+  m_ArmorDeflectImpactPrefab: {fileID: 157586, guid: a61e0c2e6f92cb14bbd2a388aea0a297, type: 3}
+  m_FleshImpactPrefab: {fileID: 166404, guid: ff77fff4d9587d3479084495a044b105, type: 3}
+  m_ArmorDeflectImpactLifetimeSeconds: 0.35
+  m_FleshImpactLifetimeSeconds: 2.5
+  m_ArmorDeflectImpactScale: 1
+  m_FleshImpactScale: 0.2
+  m_BodyImpactSurfaceOffset: 0.01
+  m_EnableImpactDecals: 1
+  m_ConcreteImpactDecalPrefabs:
+  - {fileID: 1364626547466708, guid: 3b1aa7e77622ff048b50275424ccd519, type: 3}
+  - {fileID: 1006115703062704, guid: 39281fdb006a7da4cb0ee1ef81684afd, type: 3}
+  - {fileID: 1359433402067330, guid: 5b6be2c2e1e76704e90234c2c72d52de, type: 3}
+  m_ConcreteDecalLayers:
+    serializedVersion: 2
+    m_Bits: 256
+  m_DecalSurfaceOffset: 0.012
+  m_DecalScale: 0.45
+  m_DecalLifetimeSeconds: 20

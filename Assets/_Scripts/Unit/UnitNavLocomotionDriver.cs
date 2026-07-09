@@ -195,7 +195,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	}
 
 	/// <summary>
-	/// После снятия ручного facing override в «не готов»: плавный разворот корня через обычный UpdateFacing.
+	/// After releasing a manual facing override in low ready: smooth root rotation via normal UpdateFacing.
 	/// </summary>
 	public void BeginNotReadyMovementFacingRealign()
 	{

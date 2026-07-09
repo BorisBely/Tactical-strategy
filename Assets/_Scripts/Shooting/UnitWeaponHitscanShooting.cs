@@ -123,6 +123,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	private Transform m_ShooterRoot;
 	private UnitTeam m_Team;
 	private readonly HashSet<ProcessedBodyPartHit> m_ProcessedBodyPartHits = new HashSet<ProcessedBodyPartHit>();
+	private readonly Dictionary<DamageableTarget, ShotgunTargetPelletBudget> m_ShotgunPelletBudgets =
+		new Dictionary<DamageableTarget, ShotgunTargetPelletBudget>();
 	#endregion
 
 	#region Unity Lifecycle
@@ -205,12 +207,36 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		float halfAngle = accuracyContext.HalfAngleDegrees;
 		StoreDebugAccuracyContext(accuracyContext, patternResult);
 
+		m_ShotgunPelletBudgets.Clear();
+
 		int projectileCount = Mathf.Max(1, _ammo.ProjectileCount);
-		for (int i = 0; i < projectileCount; i++)
+		if (_ammo.UsesShotgunPelletPattern)
 		{
-			Vector3 dir = ApplyConeSpread(patternedDirection, halfAngle);
-			TryHit(origin, dir, _ammo);
+			float shotgunHalfAngle = halfAngle * _ammo.GetShotgunSpreadDistanceScale(accuracyContext.TargetDistanceMeters);
+			float patternYawDegrees = Random.Range(0f, 360f);
+			for (int i = 0; i < projectileCount; i++)
+			{
+				Vector3 dir = ApplyShotgunPelletOffset(
+					patternedDirection,
+					shotgunHalfAngle,
+					i,
+					projectileCount,
+					_ammo.ShotgunInnerRingRadius01,
+					_ammo.ShotgunOuterRingRadius01,
+					patternYawDegrees);
+				TryHit(origin, dir, _ammo);
+			}
 		}
+		else
+		{
+			for (int i = 0; i < projectileCount; i++)
+			{
+				Vector3 dir = ApplyConeSpread(patternedDirection, halfAngle);
+				TryHit(origin, dir, _ammo);
+			}
+		}
+
+		m_ShotgunPelletBudgets.Clear();
 	}
 
 	private UnitCombatStats ResolveCombatStats()
@@ -460,8 +486,14 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	{
 		DamageableTarget target = _hit.collider.GetComponentInParent<DamageableTarget>();
 		bool hitVisibleTarget = IsHitOnVisibleTarget(_hit.collider);
+		UnitBodyHitZone hitZone = _hit.collider.GetComponent<UnitBodyHitZone>() ??
+		                          _hit.collider.GetComponentInParent<UnitBodyHitZone>();
+		BodyPartType bodyPartPreview = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown;
+
 		float damage = _ammo.BaseDamage;
-		if (m_UseDistanceFalloff)
+		if (_ammo.TryGetShotgunPelletDamageFalloff(_hit.distance, out float shotgunFalloff))
+			damage *= shotgunFalloff;
+		else if (m_UseDistanceFalloff)
 			damage *= ComputeFalloffMultiplier(_hit.distance, _ammo);
 
 		if (m_DrawDebugRays)
@@ -477,25 +509,30 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		UnitHealth targetHealth = null;
 		if (target != null)
 		{
-			damageApplied = target.ApplyDamage(
-				damage,
-				_hit.point,
-				_hit.normal,
-				-_dir,
-				_ammo,
-				_hit.collider,
-				out resolvedInjury,
-				out armorFullyBlocked);
-			target.TryGetComponent(out targetHealth);
-			hasResolvedInjury = targetHealth != null &&
-			                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
-			                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
+			if (damage <= 0f || !TryConsumeShotgunPelletBudget(target, bodyPartPreview, _ammo))
+			{
+				damageApplied = false;
+				damage = 0f;
+			}
+			else
+			{
+				damageApplied = target.ApplyDamage(
+					damage,
+					_hit.point,
+					_hit.normal,
+					-_dir,
+					_ammo,
+					_hit.collider,
+					out resolvedInjury,
+					out armorFullyBlocked);
+				target.TryGetComponent(out targetHealth);
+				hasResolvedInjury = targetHealth != null &&
+				                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
+				                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
+			}
 		}
 
-		UnitBodyHitZone hitZone = _hit.collider.GetComponent<UnitBodyHitZone>() ??
-		                          _hit.collider.GetComponentInParent<UnitBodyHitZone>();
-
-		BodyPartType bodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Unknown;
+		BodyPartType bodyPart = bodyPartPreview;
 		if (target != null && IsFriendlyOrNeutral(target))
 			bodyPart = BodyPartType.Chest;
 
@@ -761,6 +798,123 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		Vector3 upOrtho = Vector3.Cross(f, right).normalized;
 		return (f + right * rnd.x + upOrtho * rnd.y).normalized;
 	}
+
+	private const float c_ShotgunCenterJitterRadius01 = 0.12f;
+	private const float c_ShotgunInnerRadiusJitter = 0.18f;
+	private const float c_ShotgunOuterRadiusJitter = 0.22f;
+	private const float c_ShotgunInnerAngleJitterDegrees = 28f;
+	private const float c_ShotgunOuterAngleJitterDegrees = 22f;
+
+	/// <summary>
+	/// Паттерн дроби: 1 центр + внутреннее кольцо + внешнее кольцо (для 9: 1+4+4).
+	/// Базовые слоты сохраняются, но каждая дробинка получает джиттер радиуса/угла — не идеальный круг.
+	/// </summary>
+	private static Vector3 ApplyShotgunPelletOffset(
+		Vector3 _forward,
+		float _halfAngleDegrees,
+		int _pelletIndex,
+		int _pelletCount,
+		float _innerRingRadius01,
+		float _outerRingRadius01,
+		float _patternYawDegrees)
+	{
+		Vector3 f = _forward.normalized;
+		if (_pelletCount <= 1 || _halfAngleDegrees <= 0.0001f)
+			return f;
+
+		GetShotgunPelletRingOffset(
+			_pelletIndex,
+			_pelletCount,
+			_innerRingRadius01,
+			_outerRingRadius01,
+			out float radius01,
+			out float angleDegrees);
+
+		float rotatedAngle = (angleDegrees + _patternYawDegrees) * Mathf.Deg2Rad;
+		float tan = Mathf.Tan(_halfAngleDegrees * Mathf.Deg2Rad) * Mathf.Clamp(radius01, 0f, 1.5f);
+		float offsetX = Mathf.Cos(rotatedAngle) * tan;
+		float offsetY = Mathf.Sin(rotatedAngle) * tan;
+
+		Vector3 up = Mathf.Abs(Vector3.Dot(f, Vector3.up)) > 0.98f ? Vector3.right : Vector3.up;
+		Vector3 right = Vector3.Cross(up, f).normalized;
+		Vector3 upOrtho = Vector3.Cross(f, right).normalized;
+		return (f + right * offsetX + upOrtho * offsetY).normalized;
+	}
+
+	private static void GetShotgunPelletRingOffset(
+		int _pelletIndex,
+		int _pelletCount,
+		float _innerRingRadius01,
+		float _outerRingRadius01,
+		out float _radius01,
+		out float _angleDegrees)
+	{
+		_radius01 = 0f;
+		_angleDegrees = 0f;
+
+		if (_pelletIndex <= 0)
+		{
+			// Центр тоже чуть «гуляет», иначе всегда идеальная точка.
+			float centerAngle = Random.Range(0f, 360f);
+			_radius01 = Random.Range(0f, c_ShotgunCenterJitterRadius01);
+			_angleDegrees = centerAngle;
+			return;
+		}
+
+		int remaining = Mathf.Max(0, _pelletCount - 1);
+		int innerCount = Mathf.Max(1, remaining / 2);
+		int outerCount = Mathf.Max(1, remaining - innerCount);
+
+		if (_pelletIndex <= innerCount)
+		{
+			float baseAngle = 360f * (_pelletIndex - 1) / innerCount;
+			float baseRadius = Mathf.Clamp01(_innerRingRadius01);
+			_radius01 = Mathf.Clamp(
+				baseRadius + Random.Range(-c_ShotgunInnerRadiusJitter, c_ShotgunInnerRadiusJitter),
+				0.08f,
+				1.2f);
+			_angleDegrees = baseAngle + Random.Range(-c_ShotgunInnerAngleJitterDegrees, c_ShotgunInnerAngleJitterDegrees);
+			return;
+		}
+
+		int outerIndex = _pelletIndex - 1 - innerCount;
+		float outerBaseAngle = 360f * outerIndex / outerCount + (180f / Mathf.Max(1, outerCount));
+		float outerBaseRadius = Mathf.Max(0f, _outerRingRadius01);
+		_radius01 = Mathf.Clamp(
+			outerBaseRadius + Random.Range(-c_ShotgunOuterRadiusJitter, c_ShotgunOuterRadiusJitter),
+			0.35f,
+			1.5f);
+		_angleDegrees = outerBaseAngle + Random.Range(-c_ShotgunOuterAngleJitterDegrees, c_ShotgunOuterAngleJitterDegrees);
+	}
+
+	private bool TryConsumeShotgunPelletBudget(DamageableTarget _target, BodyPartType _bodyPart, AmmoDefinition _ammo)
+	{
+		if (_target == null || _ammo == null || !_ammo.UsesShotgunPelletPattern)
+			return true;
+
+		int softCap = Mathf.Max(0, _ammo.MaxPelletsPerTarget);
+		int hardCap = Mathf.Max(softCap, _ammo.MaxPelletsPerTargetWithHead);
+		if (hardCap <= 0)
+			return true;
+
+		if (!m_ShotgunPelletBudgets.TryGetValue(_target, out ShotgunTargetPelletBudget budget))
+			budget = new ShotgunTargetPelletBudget();
+
+		bool isHeadOrNeck = _bodyPart == BodyPartType.Head || _bodyPart == BodyPartType.Neck;
+		if (isHeadOrNeck)
+			budget.HasHeadOrNeckHit = true;
+
+		int allowed = budget.HasHeadOrNeckHit ? hardCap : softCap;
+		if (budget.AppliedCount >= allowed)
+		{
+			m_ShotgunPelletBudgets[_target] = budget;
+			return false;
+		}
+
+		budget.AppliedCount++;
+		m_ShotgunPelletBudgets[_target] = budget;
+		return true;
+	}
 	#endregion
 
 	private readonly struct ProceduralRecoilPatternResult
@@ -819,6 +973,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				return ((m_Target != null ? m_Target.GetInstanceID() : 0) * 397) ^ (int)m_BodyPart;
 			}
 		}
+	}
+
+	private struct ShotgunTargetPelletBudget
+	{
+		public int AppliedCount;
+		public bool HasHeadOrNeckHit;
 	}
 }
 

@@ -22,6 +22,7 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
 	[SerializeField] private UnitRagdollController m_RagdollController;
+	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
 	[Tooltip("Редко: явная цель kick. Иначе — Visual Recoil Kick Pivot на EquippedWeapon, иначе корень оружия целиком.")]
 	[SerializeField] private Transform m_KickTransformOverride;
 
@@ -111,6 +112,8 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 		if (m_RagdollController == null)
 			m_RagdollController = GetComponent<UnitRagdollController>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
 		if (m_CombatStats == null)
 			m_CombatStats = UnitCombatStatsLookup.ResolveOnUnit(this);
 	}
@@ -144,6 +147,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			return;
 
 		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
+			return;
+
+		if (IsRuntimePoseTuningActive())
 			return;
 
 		if (m_KickTarget == null)
@@ -192,6 +198,13 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private bool IsRuntimePoseTuningActive()
+	{
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldSkipWeaponPoseWrite;
+	}
+
 	private void HandleEquipmentChanged()
 	{
 		RefreshKickTarget(true);
@@ -222,8 +235,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct(fireMode)
 			: 1f;
 
+		WeaponDefinition weaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition;
 		float penaltyAdded = WeaponDefinition.ComputeAddedRecoilPenalty(
-			m_WeaponRuntime.CurrentWeaponDefinition,
+			weaponDefinition,
 			fireMode,
 			ammoDefinition: _ammoDefinition,
 			attachmentRecoilModifier: attachmentRecoilModifier);
@@ -231,8 +245,12 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		if (penaltyAdded <= 0f)
 			return;
 
+		float visualPenalty = penaltyAdded * Mathf.Max(0f, weaponDefinition.VisualRecoilKickScale);
+		if (visualPenalty <= 0f)
+			return;
+
 		int shotIndex = ResolveCurrentBurstShotIndex();
-		float basePitch = penaltyAdded * m_PitchDegreesPerPenaltyUnit;
+		float basePitch = visualPenalty * m_PitchDegreesPerPenaltyUnit;
 		float pitch = basePitch;
 		float yaw = 0f;
 
@@ -258,8 +276,8 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		}
 
 		float impulseScale = basePitch > 0.0001f ? pitch / basePitch : 1f;
-		float back = penaltyAdded * m_ShoulderRecoilBackMetersPerPenaltyUnit * impulseScale;
-		float up = penaltyAdded * m_ShoulderRecoilUpMetersPerPenaltyUnit * impulseScale;
+		float back = visualPenalty * m_ShoulderRecoilBackMetersPerPenaltyUnit * impulseScale;
+		float up = visualPenalty * m_ShoulderRecoilUpMetersPerPenaltyUnit * impulseScale;
 
 		if (fireMode == WeaponFireMode.SemiAuto && m_SingleShotVisualKickMultiplier > 1.001f)
 		{

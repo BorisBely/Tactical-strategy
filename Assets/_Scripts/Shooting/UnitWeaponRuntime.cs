@@ -82,7 +82,8 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 			weaponState.EnsureValidSelectedFireMode();
 			WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
 				weaponState,
-				weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
+				weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo,
+				_fillIfEmpty: false);
 			SyncInsertedMagazineVisual();
 			SyncAttachmentVisuals();
 			return;
@@ -93,7 +94,8 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		weaponState.EnsureValidSelectedFireMode();
 		WeaponBuiltInMagazineUtility.TryEnsureBuiltInMagazine(
 			weaponState,
-			weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo);
+			weaponState.WeaponDefinition?.BuiltInMagazineDefaultAmmo,
+			_fillIfEmpty: false);
 		m_TransientState.Clear();
 		SyncInsertedMagazineVisual();
 		SyncAttachmentVisuals();
@@ -264,10 +266,20 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (!m_BoundWeaponState.HasRoundInChamber)
 		{
 			if (m_BoundWeaponState.HasMagazine && m_BoundWeaponState.HasAmmoInMagazine)
-				return WeaponShotAttemptResult.NeedsBoltCycle;
-			if (!m_BoundWeaponState.HasMagazine)
+			{
+				WeaponDefinition weaponDefinition = m_BoundWeaponState.WeaponDefinition;
+				if (weaponDefinition != null && weaponDefinition.UsesShellByShellReload)
+				{
+					if (!m_BoundWeaponState.TryChamberRoundFromMagazine())
+						return WeaponShotAttemptResult.EmptyMagazine;
+				}
+				else
+					return WeaponShotAttemptResult.NeedsBoltCycle;
+			}
+			else if (!m_BoundWeaponState.HasMagazine)
 				return WeaponShotAttemptResult.NoMagazine;
-			return WeaponShotAttemptResult.EmptyMagazine;
+			else
+				return WeaponShotAttemptResult.EmptyMagazine;
 		}
 
 		if (!m_BoundWeaponState.TryConsumeRound(out _firedAmmoDefinition))

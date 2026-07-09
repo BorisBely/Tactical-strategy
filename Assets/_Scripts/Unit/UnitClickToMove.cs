@@ -246,7 +246,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	}
 
 	/// <summary>
-	/// После снятия ручного facing override в «не готов»: плавный разворот корня через обычный UpdateFacing.
+	/// After releasing a manual facing override in low ready: smooth root realignment through normal UpdateFacing.
 	/// </summary>
 	public void BeginNotReadyMovementFacingRealign()
 	{
@@ -1107,7 +1107,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Разворот на <see cref="UnitVision.VisibleTarget"/>: только оружие + «готов», без спринта.
+	/// Rotation toward <see cref="UnitVision.VisibleTarget"/>: only weapon + high ready, without sprint.
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{

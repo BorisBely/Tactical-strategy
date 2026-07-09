@@ -8,8 +8,8 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// RTS-выбор юнитов: одиночный ЛКМ, ctrl-toggle, box selection и групповые команды.
 /// Инвентарь всегда привязан к последнему юниту в текущем выделении.
-/// Клавиши (без UI): F стоп, E готов, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
-/// На RTS-юнитах прямой клавиатурный ввод слоя готовности отключён — см. <see cref="RtsUnitMember.ApplyDirectInputState"/>.
+/// Клавиши (без UI): F стоп, E: high ready, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
+/// На RTS-юнитах прямой клавиатурный ввод readiness layer отключён — см. <see cref="RtsUnitMember.ApplyDirectInputState"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RtsUnitSelectionManager : MonoBehaviour
@@ -3773,7 +3773,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		bool useMoveFacing = (m_HasMoveFacingSet || m_IsQuickRotateFacing)
 		                     && (!isGroup || m_IsInPlaceFacingPreview);
 		RtsUnitMember.FacingArrowMode? facingMode = useMoveFacing
-			? RtsUnitMember.FacingArrowMode.TurnOverDistance
+			? (IsPreviewCtrlFormationFacingActive()
+				? RtsUnitMember.FacingArrowMode.HoldToEnd
+				: RtsUnitMember.FacingArrowMode.TurnOverDistance)
 			: null;
 		List<float> facingAngles = useMoveFacing ? m_PreviewFacingAngles : null;
 		List<float> formationFacingAngles = allowArrivalFormationFacing
@@ -4302,6 +4304,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			else
 				angle = ScreenDragToWorldYaw(Mouse.current.position.ReadValue() - m_RmbDownMousePos, dest);
 			m_PreviewFacingAngles[0] = angle;
+			if (IsCtrlPressed() || IsCtrlShiftHeld())
+				m_PreviewCtrlFormationFacingLatched = true;
 			ApplyPreviewPathLines();
 			return;
 		}
@@ -4469,7 +4473,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			Vector3? lookPointArg = mode == RtsUnitMember.FacingArrowMode.LookAtPoint
 				? lookPoint
 				: null;
-			validUnits[i].SetWaypointFacing(segmentIndex, angle, anchor, mode, lookPointArg);
+			bool holdFromSegmentStart = mode == RtsUnitMember.FacingArrowMode.HoldToEnd;
+			validUnits[i].SetWaypointFacing(
+				segmentIndex,
+				angle,
+				anchor,
+				mode,
+				lookPointArg,
+				_forceReadyOnActivation: holdFromSegmentStart,
+				_activateAtSegmentStart: holdFromSegmentStart);
 		}
 
 		ClearAllPathInteractions();
@@ -4692,9 +4704,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (isGroup && _isGroupCtrlFormationFacing)
 			ForceReadyForGroupManualFormationFacing(validUnits);
 
-		bool holdFacingForEntireSegment = isGroup
-		                                  && facingMode == RtsUnitMember.FacingArrowMode.HoldToEnd
-		                                  && facingAngles != null;
+		// HoldToEnd: держать взгляд с начала сегмента (одиночка с Ctrl или группа с Ctrl-формацией).
+		bool holdFacingForEntireSegment = facingMode == RtsUnitMember.FacingArrowMode.HoldToEnd
+		                                  && facingAngles != null
+		                                  && (!isGroup || _isGroupCtrlFormationFacing);
 
 		if (enqueue)
 		{
@@ -5414,20 +5427,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
-		if (validUnits.Count < 2)
+		if (validUnits.Count <= 0)
 			return;
 
-		bool hasFormationContext = m_PreviewFormationForwardOverride.HasValue
-		                           || m_HasFormationFacingSet
-		                           || m_IsQuickRotateFacing;
-		if (!hasFormationContext)
+		bool hasFacingContext = m_IsQuickRotateFacing
+		                        || m_HasMoveFacingSet
+		                        || m_PreviewFormationForwardOverride.HasValue
+		                        || m_HasFormationFacingSet;
+		if (!hasFacingContext)
 			return;
 
 		bool wasLatched = m_PreviewCtrlFormationFacingLatched;
 		m_PreviewCtrlFormationFacingLatched = true;
-		m_PreviewGroupFormationFacingMode = ResolveFormationGroupFacingModeFromModifiers();
+		if (validUnits.Count >= 2)
+			m_PreviewGroupFormationFacingMode = ResolveFormationGroupFacingModeFromModifiers();
 
-		if (!wasLatched && (m_IsPreviewingMove || m_PreviewFormationForwardOverride.HasValue))
+		if (!wasLatched && (m_IsPreviewingMove || m_PreviewFormationForwardOverride.HasValue || m_IsQuickRotateFacing))
 			UpdateMovePreviewVisuals();
 	}
 
@@ -6195,8 +6210,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		string hintText = m_SelectedUnits.Count >= 2
-			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · Ctrl+ЛКМ — взгляд · Shift+ЛКМ — готов + взгляд · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
-			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+ЛКМ — взгляд · Shift+ЛКМ — готов + взгляд · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
+			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
+			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
 		const float pad = 10f;
 		const float height = 34f;
 

@@ -1,8 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Плавный переход локальной позы экипированного оружия между relaxed («не готов») и ready («готов»)
+/// Плавный переход локальной позы экипированного оружия между relaxed (low ready) и ready (high ready)
 /// по <see cref="UnitWeaponReadyHandsLayer"/>. Единственная точка установки localPosition/localRotation на <see cref="UnitEquipment.MainWeaponRoot"/>.
+/// Координаты берутся из ItemDefinition. Для ручной настройки в Play Mode см. <see cref="UnitEquippedWeaponPoseRuntimeTuner"/>
+/// (Polygone → Weapons → Add Weapon Pose Runtime Tuner To Unit).
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(45)]
@@ -17,6 +19,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitRagdollController m_RagdollController;
+	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
 
 	[Header("Переход Ready / Relaxed")]
 	[SerializeField, Min(0f)] private float m_ReadyPoseBlendDuration = 0.28f;
@@ -135,6 +138,11 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			m_BusyState = GetComponentInParent<UnitBusyState>();
 		if (m_RagdollController == null)
 			m_RagdollController = GetComponentInParent<UnitRagdollController>();
+
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
 	}
 
 	private bool IsBlockedByRagdoll()
@@ -218,17 +226,39 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		Quaternion relaxedRotation = def.RightHandLocalRotation;
 		Vector3 readyPosition = def.RightHandReadyLocalPosition;
 		Quaternion readyRotation = def.RightHandReadyLocalRotation;
-		if (readyPosition == Vector3.zero && def.RightHandReadyLocalEulerAngles == Vector3.zero)
+		float blend01 = m_ReadyBlend01;
+
+		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+		{
+			m_RuntimeTuner.GetOverridePoses(
+				out relaxedPosition,
+				out relaxedRotation,
+				out readyPosition,
+				out readyRotation,
+				out blend01);
+		}
+		else if (readyPosition == Vector3.zero && def.RightHandReadyLocalEulerAngles == Vector3.zero)
 		{
 			readyPosition = relaxedPosition;
 			readyRotation = relaxedRotation;
 		}
 
-		m_CurrentBaseWeaponLocalPosition = Vector3.Lerp(relaxedPosition, readyPosition, m_ReadyBlend01);
-		m_CurrentBaseWeaponLocalRotation = Quaternion.Slerp(relaxedRotation, readyRotation, m_ReadyBlend01);
+		m_CurrentBaseWeaponLocalPosition = Vector3.Lerp(relaxedPosition, readyPosition, blend01);
+		m_CurrentBaseWeaponLocalRotation = Quaternion.Slerp(relaxedRotation, readyRotation, blend01);
+
+		// While runtime tuning: leave MainWeaponRoot free so user can move it in Hierarchy/Scene.
+		if (IsRuntimeTuningSkipWrite())
+			return;
 
 		weaponRoot.localPosition = m_CurrentBaseWeaponLocalPosition;
 		weaponRoot.localRotation = m_CurrentBaseWeaponLocalRotation;
+	}
+
+	private bool IsRuntimeTuningSkipWrite()
+	{
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldSkipWeaponPoseWrite;
 	}
 	#endregion
 }
