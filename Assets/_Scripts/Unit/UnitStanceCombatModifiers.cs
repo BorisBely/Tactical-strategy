@@ -128,9 +128,9 @@ public sealed class UnitStanceCombatModifiers : MonoBehaviour
 
 	private bool IsMoving()
 	{
-		if (m_LocomotionDriver != null)
+		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
 			return m_LocomotionDriver.HasMoveIntent;
-		return m_ClickToMove != null && m_ClickToMove.HasMoveIntent;
+		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.HasMoveIntent;
 	}
 
 	private string ResolvePostureLabel(bool _isSprinting)

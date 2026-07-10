@@ -153,6 +153,7 @@ public static class AkPlatformWeaponsBuilder
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = _config.AutoRecoilMultiplier;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = _config.RecoilRecoveryPerSecond;
 		so.FindProperty("m_Reliability").floatValue = _config.Reliability;
+		so.FindProperty("m_AnimationPlatform").enumValueIndex = (int)WeaponAnimationPlatform.Ak;
 		ApplyBalanceCurves(so, _config.CurveKind);
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(weapon);

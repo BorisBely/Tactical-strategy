@@ -264,7 +264,7 @@ BlendTree:
   m_Name: RifleStand_Idle_Relaxed_ByStance
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {clip("7713ad82c3c7a924a8dc8002e97869d5")}
+    m_Motion: {clip("24f28d16180728644be00f81c0ea7009")}
     m_Threshold: 0
     m_Position: {{x: 0, y: 0, z: 0}}
     m_TimeScale: 1

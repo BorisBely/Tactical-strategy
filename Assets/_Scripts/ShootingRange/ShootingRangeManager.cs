@@ -25,12 +25,30 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	[Header("Target Hit Counter")]
 	[Tooltip("Режим счётчика попаданий для всех мишеней: Off, 1, 2, 3, 5 или 10 попаданий до авто-выключения.")]
 	[SerializeField] private ShootingRangeTargetHitCounterMode m_HitCounterMode = ShootingRangeTargetHitCounterMode.None;
+
+	[Header("Impact Surface Test")]
+	[Tooltip("Чередует Concrete / Metal / Wood / Glass на мишенях для теста звуков и декалей попадания.")]
+	[SerializeField] private bool m_AssignImpactTestSurfaces = true;
+	[SerializeField] private PhysicsMaterial m_SurfaceConcrete;
+	[SerializeField] private PhysicsMaterial m_SurfaceMetal;
+	[SerializeField] private PhysicsMaterial m_SurfaceWood;
+	[SerializeField] private PhysicsMaterial m_SurfaceGlass;
+	[SerializeField] private Material m_VisualConcrete;
+	[SerializeField] private Material m_VisualMetal;
+	[SerializeField] private Material m_VisualWood;
+	[SerializeField] private Material m_VisualGlass;
 	#endregion
 
 	#region Private Fields
 	private readonly List<ShootingRangeTarget> m_Targets = new List<ShootingRangeTarget>(16);
 	private readonly List<UnitCombatStats> m_SelectedCombatStatsBuffer = new List<UnitCombatStats>(16);
 	private Regex m_NameRegex;
+
+	private static readonly Color s_ColorConcrete = new Color(0.55f, 0.55f, 0.55f, 1f);
+	private static readonly Color s_ColorMetal = new Color(0.70f, 0.72f, 0.76f, 1f);
+	private static readonly Color s_ColorWood = new Color(0.58f, 0.36f, 0.18f, 1f);
+	private static readonly Color s_ColorGlass = new Color(0.55f, 0.78f, 0.92f, 1f);
+	private static readonly Color s_DisabledSurfaceColor = new Color(0.35f, 0.35f, 0.35f, 0.25f);
 	#endregion
 
 	#region Public Properties
@@ -381,9 +399,83 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		if (target == null)
 			target = _go.AddComponent<ShootingRangeTarget>();
 
+		if (m_AssignImpactTestSurfaces)
+			ApplyImpactTestSurface(_go, sphereCollider, target);
+
 		target.ResetTargetHealth();
 		target.SetHitCounterMode(m_HitCounterMode);
 		target.SetUserEnabled(m_StartWithTargetsEnabled);
+	}
+
+	private void ApplyImpactTestSurface(GameObject _go, Collider _collider, ShootingRangeTarget _target)
+	{
+		if (!TryResolveImpactTestSurface(_go.name, out _, out PhysicsMaterial physicsMaterial, out Material visualMaterial, out Color intactColor))
+			return;
+
+		if (_collider != null && physicsMaterial != null)
+			_collider.sharedMaterial = physicsMaterial;
+
+		if (_go.TryGetComponent(out Renderer renderer) && visualMaterial != null)
+			renderer.sharedMaterial = visualMaterial;
+
+		_target?.ConfigureSurfaceVisual(intactColor, s_DisabledSurfaceColor);
+	}
+
+	private bool TryResolveImpactTestSurface(
+		string _objectName,
+		out string _surfaceName,
+		out PhysicsMaterial _physicsMaterial,
+		out Material _visualMaterial,
+		out Color _intactColor)
+	{
+		_surfaceName = null;
+		_physicsMaterial = null;
+		_visualMaterial = null;
+		_intactColor = s_ColorConcrete;
+
+		if (!TryParseDistanceMeters(_objectName, out int distanceMeters))
+			return false;
+
+		int surfaceIndex = (distanceMeters / 50 - 1) % 4;
+		if (surfaceIndex < 0)
+			surfaceIndex = 0;
+
+		switch (surfaceIndex)
+		{
+			case 0:
+				_surfaceName = "Concrete";
+				_physicsMaterial = m_SurfaceConcrete;
+				_visualMaterial = m_VisualConcrete;
+				_intactColor = s_ColorConcrete;
+				return true;
+			case 1:
+				_surfaceName = "Metal";
+				_physicsMaterial = m_SurfaceMetal;
+				_visualMaterial = m_VisualMetal;
+				_intactColor = s_ColorMetal;
+				return true;
+			case 2:
+				_surfaceName = "Wood";
+				_physicsMaterial = m_SurfaceWood;
+				_visualMaterial = m_VisualWood;
+				_intactColor = s_ColorWood;
+				return true;
+			default:
+				_surfaceName = "Glass";
+				_physicsMaterial = m_SurfaceGlass;
+				_visualMaterial = m_VisualGlass;
+				_intactColor = s_ColorGlass;
+				return true;
+		}
+	}
+
+	private static bool TryParseDistanceMeters(string _objectName, out int _distanceMeters)
+	{
+		_distanceMeters = 0;
+		if (string.IsNullOrEmpty(_objectName) || !_objectName.StartsWith("Sphere", StringComparison.Ordinal))
+			return false;
+
+		return int.TryParse(_objectName.Substring("Sphere".Length), out _distanceMeters) && _distanceMeters > 0;
 	}
 
 	private void RefreshTargetList()

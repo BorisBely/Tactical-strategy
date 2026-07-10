@@ -123,7 +123,23 @@ public class AnimatorHandIk : MonoBehaviour
 			ClearRightHandIk();
 		}
 
-		if (IsHandIkBlocked() || ShouldDisableAllHandIkForTuning())
+		if (ShouldDisableAllHandIkForTuning())
+		{
+			StopEquipBlend();
+			ClearLeftHandIk();
+			ClearRightHandIk();
+			return;
+		}
+
+		if (ShouldUseBoltCycleLeftHandHoldIk())
+		{
+			StopEquipBlend();
+			ApplyLeftHandIkInternal();
+			ClearRightHandIk();
+			return;
+		}
+
+		if (IsHandIkBlocked())
 		{
 			StopEquipBlend();
 			ClearLeftHandIk();
@@ -133,6 +149,11 @@ public class AnimatorHandIk : MonoBehaviour
 
 		ApplyLeftHandIkInternal();
 		ApplyRightHandIkInternal();
+	}
+
+	private bool ShouldUseBoltCycleLeftHandHoldIk()
+	{
+		return m_UnitEquipment != null && m_UnitEquipment.IsWeaponHeldForBoltCycle;
 	}
 
 	private bool ShouldDisableAllHandIkForTuning()
@@ -170,7 +191,7 @@ public class AnimatorHandIk : MonoBehaviour
 	{
 		if (m_MagazineLoading != null && m_MagazineLoading.IsLoadingMagazine)
 			return true;
-		if (m_WeaponReload != null && m_WeaponReload.IsReloadBusy)
+		if (m_WeaponReload != null && (m_WeaponReload.IsReloadingWeapon || m_WeaponReload.IsCyclingBolt))
 			return true;
 		if (m_SelfStabilization != null && m_SelfStabilization.IsHealPresentationActive)
 			return true;

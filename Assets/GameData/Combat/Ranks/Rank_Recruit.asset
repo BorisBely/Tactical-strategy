@@ -17,7 +17,8 @@ MonoBehaviour:
   m_Marksmanship: 35
   m_WeaponHandling: 40
   m_RecoilControl: 35
-  m_ReactionTimeSeconds: 0.38
+  m_ReactionTimeMinSeconds: 0.38
+  m_ReactionTimeMaxSeconds: 0.65
   m_VisionScanIntervalMinSeconds: 0.65
   m_VisionScanIntervalMaxSeconds: 0.9
   m_WeightPenaltyReduction: 0

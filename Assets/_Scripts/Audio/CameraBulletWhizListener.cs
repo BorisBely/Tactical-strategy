@@ -14,11 +14,12 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 {
 	#region Constants
 	private const string c_ZoneObjectName = "BulletWhizZone";
-	private const float c_DefaultWhizRadiusMeters = 10f;
+	private const float c_DefaultWhizRadiusMeters = 5f;
 	private const float c_DefaultAmmoVelocityMetersPerSecond = 400f;
 	private const float c_MuzzleSkipDistanceMeters = 0.45f;
 	private const float c_PendingWhizExpireSeconds = 0.35f;
 	private const float c_MinAudibleVolume = 0.001f;
+	private const float c_ImpactAudioWhizVolumeScale = 0.7f;
 	#endregion
 
 	#region Serialized Fields
@@ -34,6 +35,8 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 	[SerializeField, Range(0.02f, 0.6f)] private float m_EdgeVolumeMultiplier = 0.14f;
 	[Tooltip("Кривая затухания: >1 — быстрее тише при отдалении от траектории, <1 — мягче.")]
 	[SerializeField, Range(0.5f, 3f)] private float m_DistanceFalloffPower = 1.45f;
+	[Tooltip("Множитель громкости whiz, если у выстрела есть звук попадания по поверхности (−30% = 0.7).")]
+	[SerializeField, Range(0f, 1f)] private float m_ImpactAudioWhizVolumeScale = c_ImpactAudioWhizVolumeScale;
 	[SerializeField, Range(0f, 0.25f)] private float m_PitchVariance = 0.06f;
 	[SerializeField, Range(1, 8)] private int m_VoiceCount = 5;
 	#endregion
@@ -178,9 +181,15 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 		if (!TryEvaluateWhiz(_trace, zoneCenter, radius, out float playDelay, out float volume))
 			return;
 
+		if (_trace.HasImpactAudio)
+			volume *= m_ImpactAudioWhizVolumeScale;
+
 		float pitch = m_PitchVariance > 0f
 			? Random.Range(1f - m_PitchVariance, 1f + m_PitchVariance)
 			: 1f;
+
+		if (volume <= c_MinAudibleVolume)
+			return;
 
 		m_PendingWhizzes.Add(new PendingWhiz
 		{

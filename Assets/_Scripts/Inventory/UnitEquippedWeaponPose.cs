@@ -250,6 +250,10 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		if (IsRuntimeTuningSkipWrite())
 			return;
 
+		// Болтовое передёргивание: временный якорь держит оружие, не перезаписывать local правой позой.
+		if (m_UnitEquipment != null && m_UnitEquipment.IsWeaponHeldForBoltCycle)
+			return;
+
 		weaponRoot.localPosition = m_CurrentBaseWeaponLocalPosition;
 		weaponRoot.localRotation = m_CurrentBaseWeaponLocalRotation;
 	}

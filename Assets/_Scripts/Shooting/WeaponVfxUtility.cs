@@ -13,6 +13,34 @@ public static class WeaponVfxUtility
 		return weaponDefinition != null ? weaponDefinition.VfxProfile : null;
 	}
 
+	/// <summary>
+	/// True, если <see cref="UnitWeaponImpactVfx"/> реально проиграет звук попадания по поверхности
+	/// для этой трассы (тело/броня — без surface impact audio).
+	/// </summary>
+	public static bool WillPlaySurfaceImpactAudio(
+		UnitWeaponRuntime _runtime,
+		Collider _hitCollider,
+		WeaponShotImpactVfxKind _impactVfxKind)
+	{
+		if (_hitCollider == null)
+			return false;
+
+		if (_impactVfxKind is WeaponShotImpactVfxKind.ArmorDeflect or WeaponShotImpactVfxKind.Flesh)
+			return false;
+
+		WeaponVfxProfile profile = GetCurrentProfile(_runtime);
+		if (profile == null || !profile.EnableImpactAudio)
+			return false;
+
+		if (!profile.IsImpactSurfaceLayer(_hitCollider.gameObject.layer))
+			return false;
+
+		if (!profile.TryResolveImpactSurface(_hitCollider, out WeaponImpactSurfaceSet surface) || surface == null)
+			return false;
+
+		return surface.HasAnyImpactSound();
+	}
+
 	public static bool HasSuppressor(UnitWeaponRuntime _runtime)
 	{
 		WeaponRuntimeState state = _runtime != null ? _runtime.RuntimeState : null;
@@ -88,15 +116,7 @@ public static class WeaponVfxUtility
 		if (!_profile.UseHybridShellEjection)
 			return false;
 
-		float distance = Mathf.Max(0f, _profile.HybridPhysicalShellDistanceMeters);
-		if (distance <= 0f)
-			return false;
-
-		Camera camera = ResolveActiveCamera();
-		if (camera == null)
-			return false;
-
-		return (_shellWorldPosition - camera.transform.position).sqrMagnitude <= distance * distance;
+		return IsWithinNearCameraDetailDistance(_profile, _shellWorldPosition);
 	}
 
 	/// <summary>Particle FX: чистый Particle или Hybrid на дистанции от камеры.</summary>
@@ -109,6 +129,25 @@ public static class WeaponVfxUtility
 			return true;
 
 		return _profile.UseHybridShellEjection && !ShouldUsePhysicalShellEjection(_profile, _shellWorldPosition);
+	}
+
+	/// <summary>
+	/// Near-camera detail LOD: visual kick, цикл затвора, физические гильзы в Hybrid.
+	/// Порог — <see cref="WeaponVfxProfile.HybridPhysicalShellDistanceMeters"/>.
+	/// </summary>
+	public static bool IsWithinNearCameraDetailDistance(WeaponVfxProfile _profile, Vector3 _worldPosition)
+	{
+		float distance = _profile != null
+			? Mathf.Max(0f, _profile.HybridPhysicalShellDistanceMeters)
+			: 12f;
+		if (distance <= 0f)
+			return false;
+
+		Camera camera = ResolveActiveCamera();
+		if (camera == null)
+			return false;
+
+		return (_worldPosition - camera.transform.position).sqrMagnitude <= distance * distance;
 	}
 
 	public static void PlayParticleSystems(GameObject _root)

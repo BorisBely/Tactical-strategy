@@ -16,7 +16,7 @@ MonoBehaviour:
   m_SupportedCaliber: 3
   m_SupportedMagazineType: 2
   m_AvailableFireModes: 00000000010000000200000003000000
-  m_DefaultFireMode: 1
+  m_DefaultFireMode: 3
   m_AttachmentSlots:
   - SlotType: 0
     IsRequired: 0

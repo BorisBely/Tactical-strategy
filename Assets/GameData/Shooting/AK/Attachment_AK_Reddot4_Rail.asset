@@ -28,6 +28,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c33ba40db8874795bfb229c12a610378, type: 2}
   - {fileID: 11400000, guid: ba75962320564c11bc78cb0c4680a6cb, type: 2}
   - {fileID: 11400000, guid: 5f552aa59142403ba6988e9ab2064a3f, type: 2}
+  - {fileID: 11400000, guid: a8cf6bde2689308459dd322120c2d56a, type: 2}
   m_CompatibleSlots: 05000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 0.95

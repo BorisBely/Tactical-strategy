@@ -32,6 +32,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_AimRelaxedBoltStateHash = Animator.StringToHash("Stand_Relaxed__CyclingBolt");
 	private static readonly int s_AimReloadStateHash = Animator.StringToHash("Stand_Aim_Reload");
 	private static readonly int s_AimBoltStateHash = Animator.StringToHash("Stand_CyclingBolt");
+	private static readonly int s_AimBoltAkStateHash = Animator.StringToHash("Stand_CyclingBolt_AK");
+	private static readonly int s_AimBoltActionStateHash = Animator.StringToHash("Stand_Aim_BoltCycle");
+	private static readonly int s_AimRelaxedBoltActionStateHash = Animator.StringToHash("Stand_Relaxed_BoltCycle");
+	private static readonly int s_AimRelaxedBoltAkStateHash = Animator.StringToHash("Stand_Relaxed__CyclingBolt_AK");
 	private static readonly int s_AimRelaxedShellReloadStateHash = Animator.StringToHash("Stand_Relaxed_ShellReload");
 	private static readonly int s_AimShellReloadStateHash = Animator.StringToHash("Stand_Aim_ShellReload");
 	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
@@ -98,6 +102,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	/// <summary>Только анимация на зеркальных юнитах пресета — без мутации сумки и без <see cref="UiMagazineModificationCompleted"/>.</summary>
 	private bool m_UiMagazineMirrorAnimationOnly;
 	private bool m_IsShellByShellReloadActive;
+	private bool m_BoltActionSoundPresentedThisCycle;
 	private InventorySlotRuntimeData m_UiLastEjectedMagazine;
 	private int m_AimReloadLayerIndex = -1;
 	private int m_MagazineLoadingLayerIndex = -1;
@@ -128,6 +133,13 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	#region Events
 	/// <summary>UI-модификация магазина завершена (install или eject). Для eject-only в <paramref name="_ejectedMagazine"/> лежит снятый магазин.</summary>
 	public event Action<InventorySlotRuntimeData> UiMagazineModificationCompleted;
+	/// <summary>Перезарядка / bolt cycle логически завершены (патронник/магазин готовы).</summary>
+	public event Action ReloadSequenceCompleted;
+	/// <summary>
+	/// Момент звука затвора: передёргивание (<see cref="TryPlayBoltCycleSound"/>)
+	/// или отпускание bolt catch (<c>ReloadBoltHoldOpenDelay</c>).
+	/// </summary>
+	public event Action BoltMotionPresented;
 	#endregion
 
 	#region Unity Lifecycle
@@ -377,8 +389,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_IsCyclingBolt = true;
 		m_BoltPresentationSuppressesFire = true;
+		m_BoltActionSoundPresentedThisCycle = false;
 		m_FireController?.StopFiring();
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		BeginBoltActionLeftHandGripIfNeeded();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
 		return true;
@@ -511,6 +525,35 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		return m_WeaponRuntime?.CurrentWeaponDefinition != null &&
 		       m_WeaponRuntime.CurrentWeaponDefinition.UsesShellByShellReload;
+	}
+
+	private bool UsesManualBoltCycleWeapon()
+	{
+		return m_WeaponRuntime?.CurrentWeaponDefinition != null &&
+		       m_WeaponRuntime.CurrentWeaponDefinition.RequiresManualBoltCycle;
+	}
+
+	private bool UsesAkStyleBoltCycleWeapon()
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime?.CurrentWeaponDefinition;
+		if (weaponDefinition == null)
+			return false;
+
+		WeaponAnimationPlatform platform = weaponDefinition.AnimationPlatform;
+		return platform == WeaponAnimationPlatform.Ak || platform == WeaponAnimationPlatform.Svd;
+	}
+
+	private void BeginBoltActionLeftHandGripIfNeeded()
+	{
+		if (!UsesManualBoltCycleWeapon() || m_Equipment == null)
+			return;
+
+		m_Equipment.TryBeginBoltCycleLeftHandGrip();
+	}
+
+	private void EndBoltActionLeftHandGrip()
+	{
+		m_Equipment?.EndBoltCycleLeftHandGrip();
 	}
 
 	private bool TryStartShellByShellReload()
@@ -900,6 +943,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_BoltPresentationSuppressesFire = true;
 			m_IsReloadingWeapon = false;
 			m_IsCyclingBolt = true;
+			m_BoltActionSoundPresentedThisCycle = false;
+			BeginBoltActionLeftHandGripIfNeeded();
 			SyncAnimatorState();
 		}
 	}
@@ -936,6 +981,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadBoltHoldOpenDelaySound(out AudioClip clip) ? clip : null);
+		BoltMotionPresented?.Invoke();
 		m_WeaponRuntime.TryChamberRoundFromMagazine();
 		FinalizeReloadSequenceAndMaybeChainManualLoad();
 	}
@@ -984,6 +1030,21 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			FinalizeShellByShellReload(true);
 	}
 
+	/// <summary>
+	/// Старт клипа болтового передёргивания: звук + визуал затвора. Тайминг — animation event.
+	/// </summary>
+	public void AnimationEvent_BoltActionCycleSoundStarted()
+	{
+		if (!m_IsCyclingBolt && !m_IsReloadingWeapon)
+			return;
+
+		if (!UsesManualBoltCycleWeapon())
+			return;
+
+		m_BoltActionSoundPresentedThisCycle = true;
+		TryPlayBoltCycleSound();
+	}
+
 	public void AnimationEvent_FinishWeaponReload()
 	{
 		if (!m_IsReloadingWeapon && !m_IsCyclingBolt)
@@ -1000,7 +1061,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		bool holdFireDuringBoltTail = m_BoltPresentationSuppressesFire;
-		TryPlayBoltCycleSound();
+		bool skipBoltSound = UsesManualBoltCycleWeapon() && m_BoltActionSoundPresentedThisCycle;
+		if (!skipBoltSound)
+			TryPlayBoltCycleSound();
+
 		if (!m_UiMagazineModificationActive || !m_UiMagazineEjectOnly)
 			m_WeaponRuntime?.TryChamberRoundFromMagazine();
 		FinalizeReloadSequenceAndMaybeChainManualLoad();
@@ -1039,6 +1103,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (wasUiMagazineModification && !wasMirrorAnimationOnly)
 			UiMagazineModificationCompleted?.Invoke(uiEjectedMagazine);
+
+		ReloadSequenceCompleted?.Invoke();
 
 		if (shouldStartManualMagazineLoading && m_MagazineLoadingController != null &&
 			m_MagazineLoadingController.TryStartLoadingMagazineFromAmmoBoxes(fallbackMagazineBagIndex))
@@ -1319,6 +1385,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_UiMagazineInstallOnly = false;
 		m_UiMagazineMirrorAnimationOnly = false;
 		m_IsShellByShellReloadActive = false;
+		m_BoltActionSoundPresentedThisCycle = false;
 		m_UiLastEjectedMagazine = default;
 		m_PendingReplacementMagazine = default;
 		m_IsReloadingWeapon = false;
@@ -1331,6 +1398,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_DebugSourceBagIndex = -1;
 		m_DebugFallbackMagazineBagIndex = -1;
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, false);
+		EndBoltActionLeftHandGrip();
 		StopMagazineVisualTransfer();
 		ClearLeftHandMagazineVisual();
 		SnapEquippedMagazineVisualToSocketOrigin();
@@ -1428,7 +1496,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (stateInfo.shortNameHash == s_AimRelaxedIdleStateHash ||
 		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed_Reload") ||
 		    stateInfo.shortNameHash == s_AimRelaxedShellReloadStateHash ||
-		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed__CyclingBolt"))
+		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed__CyclingBolt") ||
+		    stateInfo.shortNameHash == s_AimRelaxedBoltAkStateHash)
 			return;
 
 		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
@@ -1463,9 +1532,18 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (targetHash == 0 || currentHash == targetHash)
 			return;
 
+		// Болтовое / AK-style передёргивание: форсим клип сразу (граф по IsCyclingBolt ведёт в default Stand_CyclingBolt).
+		if (cyclingBolt && (UsesManualBoltCycleWeapon() || UsesAkStyleBoltCycleWeapon()))
+		{
+			m_Animator.Play(targetHash, m_AimReloadLayerIndex, 0f);
+			return;
+		}
+
 		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash ||
 		                           currentHash == s_AimShellReloadStateHash || currentHash == s_AimRelaxedShellReloadStateHash;
-		bool currentIsBoltClip = currentHash == s_AimBoltStateHash || currentHash == s_AimRelaxedBoltStateHash;
+		bool currentIsBoltClip = currentHash == s_AimBoltStateHash || currentHash == s_AimRelaxedBoltStateHash ||
+		                         currentHash == s_AimBoltAkStateHash || currentHash == s_AimRelaxedBoltAkStateHash ||
+		                         currentHash == s_AimBoltActionStateHash || currentHash == s_AimRelaxedBoltActionStateHash;
 		bool targetIsBoltClip = cyclingBolt;
 
 		if (!currentIsReloadClip && !currentIsBoltClip)
@@ -1484,10 +1562,19 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_Animator.Play(targetHash, m_AimReloadLayerIndex, normalizedTime);
 	}
 
-	private static int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload)
+	private int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload)
 	{
 		if (_cyclingBolt)
+		{
+			if (UsesManualBoltCycleWeapon())
+				return _weaponReady ? s_AimBoltActionStateHash : s_AimRelaxedBoltActionStateHash;
+
+			if (UsesAkStyleBoltCycleWeapon())
+				return _weaponReady ? s_AimBoltAkStateHash : s_AimRelaxedBoltAkStateHash;
+
 			return _weaponReady ? s_AimBoltStateHash : s_AimRelaxedBoltStateHash;
+		}
+
 		if (_reloading)
 		{
 			if (_shellReload)
@@ -1561,6 +1648,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private void TryPlayBoltCycleSound()
 	{
 		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickBoltCycleSound(out AudioClip clip) ? clip : null);
+		BoltMotionPresented?.Invoke();
 	}
 
 	private bool ShouldDeferReplacementMagazineHandVisualUntilEject()

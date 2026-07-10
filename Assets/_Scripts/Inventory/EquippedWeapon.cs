@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Вешается на корень префаба оружия в руке и на тот же визуал в мире. Якоря геймплея (<see cref="m_Barrel"/>, <see cref="m_SightPivot"/>) не родитель мешей модулей.
@@ -70,6 +71,33 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[Tooltip("Необязательно: отдельный узел для kick. Если пусто — UnitWeaponVisualRecoilKick крутит корень оружия целиком (после позы аниматора накладывается отдача).")]
 	[SerializeField] private Transform m_VisualRecoilKickPivot;
 
+	[Header("Визуал затвора / dust cover")]
+	[Tooltip("Слайд / затворная рама. Пусто = визуал затвора выключен для этого оружия (настраивается вручную).")]
+	[SerializeField] private Transform m_BoltCarrier;
+	[Tooltip("Локальное смещение BoltCarrier в полностью открытом положении относительно rest (обычно только −Z).")]
+	[SerializeField] private Vector3 m_BoltOpenLocalOffset = new Vector3(0f, 0f, -0.08f);
+	[Tooltip("Болтовая рукоятка: локальный euler открытого положения относительно rest (Mosin: Z=80). (0,0,0) = только линейный ход.")]
+	[SerializeField] private Vector3 m_BoltHandleOpenLocalEulerAngles = Vector3.zero;
+	[Tooltip("Болтовой цикл: сначала поворот рукоятки, потом ход. Доля 0..1 фазы поворота на открытие/закрытие.")]
+	[SerializeField, Range(0.05f, 0.45f)] private float m_BoltHandleRotatePhaseNormalized = 0.25f;
+	[Tooltip("Длительность цикла rest→open→rest при очереди / FullAuto (под макс. скорострельность), сек.")]
+	[SerializeField, Min(0.02f)] private float m_BoltCycleSeconds = 0.085f;
+	[Tooltip("Длительность цикла при одиночном / SemiAuto и при передёргивании затвора (заметнее, чем Auto), сек.")]
+	[SerializeField, Min(0.02f)] private float m_BoltCycleSecondsSingleShot = 0.16f;
+	[Tooltip("Длительность болтового передёргивания (рукоятка), сек. 0 = использовать Bolt Cycle Seconds Single Shot.")]
+	[SerializeField, Min(0f)] private float m_BoltActionCycleSeconds = 0.55f;
+	[Tooltip("Доля цикла (0..1), на которой затвор полностью открыт и спавнится физическая гильза.")]
+	[SerializeField, Range(0.15f, 0.85f)] private float m_BoltShellEjectNormalizedTime = 0.5f;
+	[Tooltip("Transform dust cover (у Synty M4 pivot уже на шарнире — сам DustGuard). Пусто = нет крышки.")]
+	[SerializeField] private Transform m_DustCoverHinge;
+	[Tooltip("Угол ЗАКРЫТИЯ от rest меша (градусы). Rest = открыто (0). M4: Z = -160.")]
+	[FormerlySerializedAs("m_DustCoverOpenDegrees")]
+	[SerializeField] private float m_DustCoverClosedDegrees = -160f;
+	[Tooltip("Локальная ось шарнира dust cover (обычно вдоль ствола).")]
+	[SerializeField] private Vector3 m_DustCoverHingeAxis = Vector3.forward;
+	[Tooltip("Длительность lerp open/close dust cover (сек). Дальше камеры — мгновенный snap.")]
+	[SerializeField, Min(0.01f)] private float m_DustCoverTweenSeconds = 0.12f;
+
 	[Header("Отладка")]
 	[Tooltip("Луч из BarrelTransform (Barrel или MuzzleModuleVisualSocket). В Game view включи Gizmos на вкладке Game.")]
 	[SerializeField] private bool m_DrawBarrelDebugRay;
@@ -115,6 +143,25 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	/// <summary>Узел для процедурной отдачи визуала; null — использовать корень инстанса.</summary>
 	public Transform VisualRecoilKickPivot => m_VisualRecoilKickPivot;
+
+	/// <summary>Слайд / затворная рама; null — нет процедурного цикла затвора.</summary>
+	public Transform BoltCarrierTransform => m_BoltCarrier;
+
+	public Vector3 BoltOpenLocalOffset => m_BoltOpenLocalOffset;
+	public Vector3 BoltHandleOpenLocalEulerAngles => m_BoltHandleOpenLocalEulerAngles;
+	public float BoltHandleRotatePhaseNormalized => m_BoltHandleRotatePhaseNormalized;
+	public float BoltCycleSeconds => m_BoltCycleSeconds;
+	public float BoltCycleSecondsSingleShot => m_BoltCycleSecondsSingleShot;
+	public float BoltActionCycleSeconds => m_BoltActionCycleSeconds;
+	public float BoltShellEjectNormalizedTime => m_BoltShellEjectNormalizedTime;
+
+	/// <summary>Шарнир dust cover; null — нет крышки (AK и т.п.).</summary>
+	public Transform DustCoverHingeTransform => m_DustCoverHinge;
+
+	/// <summary>Угол закрытия от rest меша (rest = открыто у Synty M4).</summary>
+	public float DustCoverClosedDegrees => m_DustCoverClosedDegrees;
+	public Vector3 DustCoverHingeAxis => m_DustCoverHingeAxis;
+	public float DustCoverTweenSeconds => m_DustCoverTweenSeconds;
 
 	/// <summary>Пресет модулей с префаба оружия (стандартная комплектация).</summary>
 	public WeaponAttachmentDefinition[] PresetEquippedAttachments => m_EquippedAttachments;

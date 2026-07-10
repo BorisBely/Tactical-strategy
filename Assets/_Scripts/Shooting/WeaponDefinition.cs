@@ -40,7 +40,7 @@ public sealed class WeaponDefinition : ScriptableObject
 		WeaponFireMode.SemiAuto
 	};
 	[Tooltip("Режим огня, который выбирается по умолчанию при инициализации оружия.")]
-	[SerializeField] private WeaponFireMode m_DefaultFireMode = WeaponFireMode.SemiAuto;
+	[SerializeField] private WeaponFireMode m_DefaultFireMode = WeaponFireMode.Auto;
 	[Tooltip("Слоты модулей, доступные на этой оружейной платформе.")]
 	[SerializeField] private WeaponAttachmentSlotDefinition[] m_AttachmentSlots;
 	[Tooltip("Какие слоты из Attachment Slots реально доступны в UI и при установке модулей.")]
@@ -98,6 +98,13 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private WeaponRandomAudioClipSet m_BoltCycleSounds = new WeaponRandomAudioClipSet();
 	[Tooltip("M4/AR: bolt catch держит затвор после последнего выстрела — досыл ивентом ReloadBoltHoldOpenDelay в конце reload-клипа. AK: выкл — после mag in отдельный IsCyclingBolt и FinishWeaponReload.")]
 	[SerializeField] private bool m_HasBoltHoldOpenDelay;
+	[Tooltip("Болтовая винтовка: после выстрела патронник пуст, досыл только передёргиванием затвора (отдельный клип). Не автодосылает из магазина.")]
+	[SerializeField] private bool m_RequiresManualBoltCycle;
+
+	[Header("Animation")]
+	[Tooltip("Платформа анимации bolt-cycle после mag in. DefaultM = M4/AR и fallback; Ak/Svd = отдельные cycling клипы.")]
+	[SerializeField] private WeaponAnimationPlatform m_AnimationPlatform = WeaponAnimationPlatform.DefaultM;
+
 	[Tooltip("Отпускание bolt catch / короткий досыл — только при Has Bolt Hold Open Delay, ивент ReloadBoltHoldOpenDelay (M4).")]
 	[SerializeField] private WeaponRandomAudioClipSet m_ReloadBoltHoldOpenDelaySounds = new WeaponRandomAudioClipSet();
 	[SerializeField, Range(0f, 1f)] private float m_ReloadSoundsVolume = 0.5f;
@@ -162,6 +169,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float ReloadSoundsVolume => m_ReloadSoundsVolume;
 	public float MalfunctionClickSoundVolume => m_MalfunctionClickSoundVolume;
 	public bool HasBoltHoldOpenDelay => m_HasBoltHoldOpenDelay;
+	public bool RequiresManualBoltCycle => m_RequiresManualBoltCycle;
+	public WeaponAnimationPlatform AnimationPlatform => m_AnimationPlatform;
 	public float Reliability => m_Reliability;
 	public float BaseDurability => m_BaseDurability;
 	public float BaseFoulingBudget => m_BaseFoulingBudget;

@@ -59,6 +59,11 @@ ACCURACY_FACTORS = {
     "Weapon_RPK74MOD1": 0.82,
     "Weapon_M16A4_ModA_2": 1.13,
     "Weapon_MK12": 1.16,
+    "Weapon_SVD": 1.12,
+    "Weapon_Sniper762x51": 1.18,
+    "Weapon_Mosin": 1.15,
+    "Weapon_M249": 0.78,
+    "Weapon_PKM": 0.72,
 }
 
 ACCURACY_REFERENCE_BY_DISTANCE: dict[float, float] = {}
@@ -101,6 +106,11 @@ WEAPON_ORDER = [
     "Weapon_MK12",
     "Weapon_MK18",
     "Weapon_BenelliM4",
+    "Weapon_Mosin",
+    "Weapon_SVD",
+    "Weapon_Sniper762x51",
+    "Weapon_M249",
+    "Weapon_PKM",
 ]
 
 WEAPON_ROLE = {
@@ -123,6 +133,11 @@ WEAPON_ROLE = {
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
     "Weapon_BenelliM4": "ShotgunCqb",
+    "Weapon_Mosin": "Dmr",
+    "Weapon_SVD": "Marksman",
+    "Weapon_Sniper762x51": "Dmr",
+    "Weapon_M249": "Support545",
+    "Weapon_PKM": "Support762",
 }
 
 ROLE_AIM = {
@@ -196,6 +211,11 @@ WEAPON_LABEL = {
     "Weapon_MK12": "MK12",
     "Weapon_MK18": "MK18",
     "Weapon_BenelliM4": "Benelli M4",
+    "Weapon_Mosin": "Mosin",
+    "Weapon_SVD": "SVD",
+    "Weapon_Sniper762x51": "Sniper 7.62x51",
+    "Weapon_M249": "M249",
+    "Weapon_PKM": "PKM",
 }
 
 
@@ -685,6 +705,8 @@ def main() -> None:
 
     write_platform_mod_sheets(wb, "M4", weapons_by_name)
     write_platform_mod_sheets(wb, "AK", weapons_by_name)
+    write_platform_mod_sheets(wb, "SVD", weapons_by_name)
+    write_platform_mod_sheets(wb, "Sniper", weapons_by_name)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUTPUT)

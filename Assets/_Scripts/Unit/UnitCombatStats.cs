@@ -28,8 +28,10 @@ public sealed class UnitCombatStats : MonoBehaviour
 	[SerializeField, Range(0f, c_MaxSkill)] private float m_RecoilControl = c_NeutralSkill;
 
 	[Header("Reaction")]
-	[Tooltip("Задержка реакции при обнаружении цели (сек).")]
-	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
+	[Tooltip("Минимальная задержка реакции на приказы / обнаружение цели (сек).")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeMinSeconds = 0.32f;
+	[Tooltip("Максимальная задержка реакции (сек).")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeMaxSeconds = 0.5f;
 
 	[Header("Vision Scan")]
 	[Tooltip("Минимальный интервал между сканами целей (сек). Меньше — быстрее переключение на новую цель.")]
@@ -61,7 +63,8 @@ public sealed class UnitCombatStats : MonoBehaviour
 	public float Marksmanship => m_Marksmanship;
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
-	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
+	public float ReactionTimeMinSeconds => m_ReactionTimeMinSeconds;
+	public float ReactionTimeMaxSeconds => m_ReactionTimeMaxSeconds;
 	public float VisionScanIntervalMinSeconds => m_VisionScanIntervalMinSeconds;
 	public float VisionScanIntervalMaxSeconds => m_VisionScanIntervalMaxSeconds;
 	#endregion
@@ -71,6 +74,12 @@ public sealed class UnitCombatStats : MonoBehaviour
 	{
 		if (m_ApplyRankPresetOnAwake && m_RankPreset != null)
 			m_RankPreset.ApplyTo(this);
+	}
+
+	private void OnValidate()
+	{
+		NormalizeReactionTimeRange();
+		NormalizeVisionScanIntervalRange();
 	}
 	#endregion
 
@@ -93,20 +102,29 @@ public sealed class UnitCombatStats : MonoBehaviour
 		m_RecoilControl = Mathf.Clamp(_recoilControl, 0f, c_MaxSkill);
 	}
 
-	public void SetReactionTime(float _seconds)
+	public void SetReactionTimeRange(float _minSeconds, float _maxSeconds)
 	{
-		m_ReactionTimeSeconds = Mathf.Clamp(_seconds, 0.05f, 1.5f);
+		m_ReactionTimeMinSeconds = Mathf.Clamp(_minSeconds, 0.05f, 1.5f);
+		m_ReactionTimeMaxSeconds = Mathf.Clamp(_maxSeconds, 0.05f, 1.5f);
+		NormalizeReactionTimeRange();
 	}
 
 	public void SetVisionScanIntervals(float _minSeconds, float _maxSeconds)
 	{
 		m_VisionScanIntervalMinSeconds = Mathf.Max(0.05f, _minSeconds);
-		m_VisionScanIntervalMaxSeconds = Mathf.Max(m_VisionScanIntervalMinSeconds, _maxSeconds);
+		m_VisionScanIntervalMaxSeconds = Mathf.Max(0.05f, _maxSeconds);
+		NormalizeVisionScanIntervalRange();
 	}
 
 	public float GetReactionDelaySeconds()
 	{
-		return m_ReactionTimeSeconds;
+		return SampleReactionDelaySeconds();
+	}
+
+	public float SampleReactionDelaySeconds()
+	{
+		NormalizeReactionTimeRange();
+		return UnityEngine.Random.Range(m_ReactionTimeMinSeconds, m_ReactionTimeMaxSeconds);
 	}
 
 	public float GetVisionScanIntervalMinSeconds()
@@ -163,6 +181,20 @@ public sealed class UnitCombatStats : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void NormalizeReactionTimeRange()
+	{
+		m_ReactionTimeMinSeconds = Mathf.Clamp(m_ReactionTimeMinSeconds, 0.05f, 1.5f);
+		m_ReactionTimeMaxSeconds = Mathf.Clamp(m_ReactionTimeMaxSeconds, 0.05f, 1.5f);
+		if (m_ReactionTimeMaxSeconds < m_ReactionTimeMinSeconds)
+			m_ReactionTimeMaxSeconds = m_ReactionTimeMinSeconds;
+	}
+
+	private void NormalizeVisionScanIntervalRange()
+	{
+		m_VisionScanIntervalMinSeconds = Mathf.Max(0.05f, m_VisionScanIntervalMinSeconds);
+		m_VisionScanIntervalMaxSeconds = Mathf.Max(m_VisionScanIntervalMinSeconds, m_VisionScanIntervalMaxSeconds);
+	}
+
 	private static float EvaluateSkillMultiplier(float _skill, float _worst, float _best)
 	{
 		float normalized = Mathf.InverseLerp(0f, c_MaxSkill, _skill);

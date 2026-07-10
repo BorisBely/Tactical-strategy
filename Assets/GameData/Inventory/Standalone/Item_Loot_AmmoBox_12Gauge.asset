@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Item_Loot_AmmoBox_12Gauge
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.loot.ammo_box.12g
-  m_Description: Box of 25 rounds of 12 gauge buckshot.
+  m_Description: Box of 25 shotgun shells (12 gauge).
   m_Icon: {fileID: 0}
-  m_BasePrice: 35
-  m_WeightKg: 1.15
+  m_BasePrice: 55
+  m_WeightKg: 1.05
   m_Category: 0
   m_DropWorldPrefab: {fileID: 4062142683340720826, guid: 47f996b72b848d042b7a8bf144ab36b6, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

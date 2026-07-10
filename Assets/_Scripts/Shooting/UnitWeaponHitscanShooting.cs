@@ -25,6 +25,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
+	[SerializeField] private UnitWeaponFireDisciplineController m_FireDisciplineController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
 
 	[Header("Hitscan")]
@@ -150,6 +151,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_StanceCombatModifiers = GetComponent<UnitStanceCombatModifiers>();
 		if (m_AimProgressController == null)
 			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
+		if (m_FireDisciplineController == null)
+			m_FireDisciplineController = GetComponent<UnitWeaponFireDisciplineController>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 
@@ -279,11 +282,27 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		{
 			AccuracyInput = accuracyInput,
 			SelectedFireMode = accuracyInput.SelectedFireMode,
-			SelectedAimMode = m_WeaponRuntime.SelectedAimMode,
+			SelectedAimMode = ResolveSelectedAimMode(targetDistanceMeters),
 			AvailableFireModes = m_WeaponRuntime.CurrentWeaponDefinition.AvailableFireModes,
 			TargetDistanceMeters = targetDistanceMeters
 		};
 		return true;
+	}
+
+	private WeaponAimMode ResolveSelectedAimMode(float _targetDistanceMeters)
+	{
+		if (m_FireDisciplineController != null &&
+		    m_FireDisciplineController.TryGetAimGateOverride(out _, out WeaponAimMode plannedAimMode))
+			return plannedAimMode;
+
+		if (m_WeaponRuntime == null)
+			return WeaponAimMode.FullAim;
+
+		WeaponFireDisciplineMode discipline = m_WeaponRuntime.SelectedFireDisciplineMode;
+		if (discipline == WeaponFireDisciplineMode.Auto)
+			return WeaponAimMode.Auto;
+
+		return WeaponFireDisciplineModeUtility.MapToAimMode(discipline, _targetDistanceMeters);
 	}
 
 	private WeaponShotAccuracyInput BuildAccuracyInput(AmmoDefinition _ammo, float _targetDistanceMeters)
@@ -293,7 +312,17 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		WeaponFireMode selectedFireMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
-		WeaponAimMode selectedAimMode = m_WeaponRuntime != null ? m_WeaponRuntime.SelectedAimMode : WeaponAimMode.FullAim;
+		WeaponAimMode selectedAimMode = ResolveSelectedAimMode(_targetDistanceMeters);
+
+		WeaponFireMode effectiveFireMode = selectedFireMode;
+		WeaponAimMode effectiveAimMode = selectedAimMode;
+		if (m_FireDisciplineController != null &&
+		    m_FireDisciplineController.TryGetEffectiveFireModeOverride(out WeaponFireMode plannedFireMode))
+			effectiveFireMode = plannedFireMode;
+		if (m_FireDisciplineController != null &&
+		    m_FireDisciplineController.TryGetAimGateOverride(out _, out WeaponAimMode plannedAimMode))
+			effectiveAimMode = plannedAimMode;
+
 		return new WeaponShotAccuracyInput
 		{
 			WeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition,
@@ -324,9 +353,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				? m_WeaponRuntime.TransientState.AimProgress01
 				: 1f,
 			SelectedAimMode = selectedAimMode,
-			AimMode = selectedAimMode,
+			AimMode = effectiveAimMode,
 			SelectedFireMode = selectedFireMode,
-			FireMode = selectedFireMode,
+			FireMode = effectiveFireMode,
 			BurstShotIndex = m_WeaponRuntime != null
 				? m_WeaponRuntime.TransientState.GetNextBurstShotIndex()
 				: 1
@@ -538,7 +567,18 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		WeaponShotImpactVfxKind impactVfxKind = ResolveImpactVfxKind(target, hitZone, armorFullyBlocked);
 		float traceDamage = damageApplied ? damage : 0f;
-		RaiseShotTrace(WeaponShotTraceInfo.CreateHit(_origin, _dir, _hit, _ammo, traceDamage, impactVfxKind));
+		bool hasImpactAudio = WeaponVfxUtility.WillPlaySurfaceImpactAudio(
+			m_WeaponRuntime,
+			_hit.collider,
+			impactVfxKind);
+		RaiseShotTrace(WeaponShotTraceInfo.CreateHit(
+			_origin,
+			_dir,
+			_hit,
+			_ammo,
+			traceDamage,
+			impactVfxKind,
+			hasImpactAudio));
 
 		if (_hit.collider != null &&
 		    _hit.collider.GetComponentInParent<ShootingRangeTarget>() is ShootingRangeTarget rangeTarget &&
@@ -725,16 +765,16 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private bool IsMoving()
 	{
-		if (m_LocomotionDriver != null)
+		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
 			return m_LocomotionDriver.HasMoveIntent;
-		return m_ClickToMove != null && m_ClickToMove.HasMoveIntent;
+		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.HasMoveIntent;
 	}
 
 	private bool IsSprinting()
 	{
-		if (m_LocomotionDriver != null)
+		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
 			return m_LocomotionDriver.IsSprintMoveMode;
-		return m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode;
+		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.IsSprintMoveMode;
 	}
 
 	private bool IsHitOnVisibleTarget(Collider _hitCollider)
@@ -1004,6 +1044,7 @@ public struct WeaponShotTraceInfo
 	public readonly bool HasHit;
 	public readonly bool HitSelf;
 	public readonly WeaponShotImpactVfxKind ImpactVfxKind;
+	public readonly bool HasImpactAudio;
 
 	private WeaponShotTraceInfo(
 		Vector3 _origin,
@@ -1015,7 +1056,8 @@ public struct WeaponShotTraceInfo
 		float _damage,
 		bool _hasHit,
 		bool _hitSelf,
-		WeaponShotImpactVfxKind _impactVfxKind)
+		WeaponShotImpactVfxKind _impactVfxKind,
+		bool _hasImpactAudio)
 	{
 		Origin = _origin;
 		Direction = _direction;
@@ -1027,6 +1069,7 @@ public struct WeaponShotTraceInfo
 		HasHit = _hasHit;
 		HitSelf = _hitSelf;
 		ImpactVfxKind = _impactVfxKind;
+		HasImpactAudio = _hasImpactAudio;
 	}
 
 	public static WeaponShotTraceInfo CreateHit(
@@ -1035,7 +1078,8 @@ public struct WeaponShotTraceInfo
 		RaycastHit _hit,
 		AmmoDefinition _ammo,
 		float _damage,
-		WeaponShotImpactVfxKind _impactVfxKind = WeaponShotImpactVfxKind.Environment)
+		WeaponShotImpactVfxKind _impactVfxKind = WeaponShotImpactVfxKind.Environment,
+		bool _hasImpactAudio = false)
 	{
 		return new WeaponShotTraceInfo(
 			_origin,
@@ -1047,7 +1091,8 @@ public struct WeaponShotTraceInfo
 			_damage,
 			true,
 			false,
-			_impactVfxKind);
+			_impactVfxKind,
+			_hasImpactAudio);
 	}
 
 	public static WeaponShotTraceInfo CreateMiss(Vector3 _origin, Vector3 _direction, Vector3 _endPoint, AmmoDefinition _ammo)
@@ -1062,7 +1107,8 @@ public struct WeaponShotTraceInfo
 			0f,
 			false,
 			false,
-			WeaponShotImpactVfxKind.None);
+			WeaponShotImpactVfxKind.None,
+			false);
 	}
 
 	public static WeaponShotTraceInfo CreateBlockedBySelf(Vector3 _origin, Vector3 _direction, RaycastHit _hit, AmmoDefinition _ammo)
@@ -1077,6 +1123,7 @@ public struct WeaponShotTraceInfo
 			0f,
 			true,
 			true,
-			WeaponShotImpactVfxKind.None);
+			WeaponShotImpactVfxKind.None,
+			false);
 	}
 }

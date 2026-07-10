@@ -96,7 +96,7 @@ public sealed class WeaponRuntimeState
 {
 	#region Private Fields
 	[SerializeField] private WeaponDefinition m_WeaponDefinition;
-	[SerializeField] private WeaponFireMode m_SelectedFireMode = WeaponFireMode.SemiAuto;
+	[SerializeField] private WeaponFireMode m_SelectedFireMode = WeaponFireMode.Auto;
 	[Tooltip("Вставленный магазин хранится «плоско», без InventorySlotRuntimeData, чтобы не было цикла сериализации ItemInstanceState → Weapon → слот → ItemInstanceState.")]
 	[SerializeField] private ItemDefinition m_CurrentMagazineDefinition;
 	[SerializeField] private string m_CurrentMagazineDisplayName;
@@ -428,6 +428,13 @@ public sealed class WeaponRuntimeState
 
 		_ammoDefinition = m_ChamberedAmmoDefinition;
 		MagazineRuntimeState magazineState = CurrentMagazine;
+
+		// Болтовые: после выстрела патронник пуст — досыл только передёргиванием.
+		if (m_WeaponDefinition != null && m_WeaponDefinition.RequiresManualBoltCycle)
+		{
+			ClearChamber();
+			return true;
+		}
 
 		if (magazineState != null && magazineState.HasAmmo)
 		{

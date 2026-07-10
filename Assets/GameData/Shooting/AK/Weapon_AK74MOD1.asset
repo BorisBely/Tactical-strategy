@@ -16,7 +16,7 @@ MonoBehaviour:
   m_SupportedCaliber: 2
   m_SupportedMagazineType: 2
   m_AvailableFireModes: 00000000020000000100000003000000
-  m_DefaultFireMode: 0
+  m_DefaultFireMode: 3
   m_AttachmentSlots:
   - SlotType: 0
     IsRequired: 0
@@ -288,6 +288,7 @@ MonoBehaviour:
     - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
     - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
   m_HasBoltHoldOpenDelay: 0
+  m_AnimationPlatform: 1
   m_ReloadBoltHoldOpenDelaySounds:
     m_Clips: []
   m_ReloadSoundsVolume: 0.5

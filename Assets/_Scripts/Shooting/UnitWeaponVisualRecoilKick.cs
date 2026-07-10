@@ -152,7 +152,26 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		if (IsRuntimePoseTuningActive())
 			return;
 
+		if (m_Equipment != null && m_Equipment.IsWeaponHeldForBoltCycle)
+		{
+			if (HasActiveKick() || m_AppliedKickLastFrame)
+				ResetVisualKick();
+			return;
+		}
+
 		if (m_KickTarget == null)
+			return;
+
+		bool hasKick = HasActiveKick();
+		bool nearCamera = IsNearCameraForVisualDetail();
+		if (!nearCamera)
+		{
+			if (hasKick || m_AppliedKickLastFrame)
+				ResetVisualKick();
+			return;
+		}
+
+		if (!hasKick && !m_AppliedKickLastFrame)
 			return;
 
 		Quaternion rawRot = m_KickTarget.localRotation;
@@ -183,6 +202,14 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		}
 
 		ClampKickToGameplayCap();
+
+		if (!HasActiveKick())
+		{
+			m_KickTarget.localRotation = animRot;
+			m_KickTarget.localPosition = animPos;
+			ResetKickState();
+			return;
+		}
 
 		Quaternion kickRotation = Quaternion.Euler(-m_KickPitchDegrees, m_KickYawDegrees, 0f);
 		Vector3 kickPosition = new Vector3(0f, m_KickUpMeters, -m_KickBackMeters);
@@ -218,6 +245,9 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
 			return;
 		if (m_Equipment == null)
+			return;
+
+		if (!IsNearCameraForVisualDetail())
 			return;
 
 		Transform kickTarget = ResolveKickTarget();
@@ -304,6 +334,32 @@ public sealed class UnitWeaponVisualRecoilKick : MonoBehaviour
 				$"[VisualKick] shot={shotIndex} mode={fireMode} penalty={penaltyAdded:F3} pitch+={pitch:F2} yaw+={yaw:F2} back+={back * 1000f:F1}mm up+={up * 1000f:F1}mm totalPitch={m_KickPitchDegrees:F2} target={m_KickTarget.name}",
 				this);
 		}
+	}
+
+	private bool HasActiveKick()
+	{
+		return Mathf.Abs(m_KickPitchDegrees) > 0.001f
+			|| Mathf.Abs(m_KickYawDegrees) > 0.001f
+			|| m_KickBackMeters > 0.00001f
+			|| m_KickUpMeters > 0.00001f
+			|| m_RecoveryDelayRemainingSeconds > 0f;
+	}
+
+	private bool IsNearCameraForVisualDetail()
+	{
+		WeaponVfxProfile profile = WeaponVfxUtility.GetCurrentProfile(m_WeaponRuntime);
+		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		Vector3 samplePosition;
+		if (weapon != null && WeaponVfxUtility.TryGetShellEjectionPose(weapon, out Vector3 shellPos, out _))
+			samplePosition = shellPos;
+		else if (m_KickTarget != null)
+			samplePosition = m_KickTarget.position;
+		else if (m_Equipment != null && m_Equipment.MainWeaponRoot != null)
+			samplePosition = m_Equipment.MainWeaponRoot.position;
+		else
+			samplePosition = transform.position;
+
+		return WeaponVfxUtility.IsWithinNearCameraDetailDistance(profile, samplePosition);
 	}
 
 	private void ClampKickToGameplayCap()

@@ -4249,7 +4249,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7e3f1a2b8c6497081f5e4d3c2b1a098, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraBulletWhizListener
-  m_WhizRadius: 10
+  m_WhizRadius: 5
   m_WhizZoneCollider: {fileID: 0}
   m_WhizClips:
     m_Clips:
@@ -4271,6 +4271,7 @@ MonoBehaviour:
   m_BaseVolume: 1
   m_EdgeVolumeMultiplier: 0.14
   m_DistanceFalloffPower: 1.45
+  m_ImpactAudioWhizVolumeScale: 0.7
   m_PitchVariance: 0.06
   m_VoiceCount: 5
 --- !u!1 &332745177
@@ -10084,7 +10085,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &902911304
 Transform:
   m_ObjectHideFlags: 0
@@ -11119,7 +11120,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1032073188}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -11158,7 +11159,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 10d380e46ed647959a70d57cf8bbba4d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -13481,7 +13482,7 @@ MonoBehaviour:
     InstanceState:
       m_WeaponState:
         m_WeaponDefinition: {fileID: 0}
-        m_SelectedFireMode: 0
+        m_SelectedFireMode: 3
         m_CurrentMagazineDefinition: {fileID: 0}
         m_CurrentMagazineDisplayName: 
         m_CurrentMagazineLocalizationKey: 
@@ -13514,7 +13515,7 @@ MonoBehaviour:
     InstanceState:
       m_WeaponState:
         m_WeaponDefinition: {fileID: 0}
-        m_SelectedFireMode: 0
+        m_SelectedFireMode: 3
         m_CurrentMagazineDefinition: {fileID: 0}
         m_CurrentMagazineDisplayName: 
         m_CurrentMagazineLocalizationKey: 
@@ -13547,7 +13548,7 @@ MonoBehaviour:
     InstanceState:
       m_WeaponState:
         m_WeaponDefinition: {fileID: 0}
-        m_SelectedFireMode: 0
+        m_SelectedFireMode: 3
         m_CurrentMagazineDefinition: {fileID: 0}
         m_CurrentMagazineDisplayName: 
         m_CurrentMagazineLocalizationKey: 
@@ -14957,7 +14958,7 @@ MonoBehaviour:
     m_AmmoBoxItems:
     - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
     - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
-  - m_DisplayName: Mosin
+  - m_DisplayName: Bolt762x54R
     m_LocalizationKey: 
     m_DefaultArmorVisualIndex: 1
     m_WeaponItem: {fileID: 11400000, guid: a1f9e0a7cdf86754eb30494cd6790418, type: 2}
@@ -18996,7 +18997,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1717102754}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -19035,7 +19036,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: b09fcac4b05541c48f63df399c19bf67, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -21843,7 +21844,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022200}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f60a, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -21882,7 +21883,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: f4b6d7263d2e49ebb62e60e3db7bb2f6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -21955,7 +21956,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022210}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f603, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -21994,7 +21995,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: a0cf72698e884a068dca41b74bb58ef9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22067,7 +22068,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022220}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22106,7 +22107,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: b09fcac4b05541c48f63df399c19bf67, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22179,7 +22180,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022230}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22218,7 +22219,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 10d380e46ed647959a70d57cf8bbba4d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22291,7 +22292,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022240}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f60a, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22330,7 +22331,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: f4b6d7263d2e49ebb62e60e3db7bb2f6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22403,7 +22404,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022250}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f603, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22442,7 +22443,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: a0cf72698e884a068dca41b74bb58ef9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22515,7 +22516,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022260}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22554,7 +22555,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: b09fcac4b05541c48f63df399c19bf67, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22627,7 +22628,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992022270}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -22666,7 +22667,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 10d380e46ed647959a70d57cf8bbba4d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -22785,6 +22786,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 05e60718293a4b5c6d7e8f9011223344, type: 2}
   - {fileID: 11400000, guid: f4d5e60718293a4b5c6d7e8f90112233, type: 2}
   m_HitCounterMode: 0
+  m_AssignImpactTestSurfaces: 1
+  m_SurfaceConcrete: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
+  m_SurfaceMetal: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
+  m_SurfaceWood: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f60a, type: 2}
+  m_SurfaceGlass: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f603, type: 2}
+  m_VisualConcrete: {fileID: 2100000, guid: b09fcac4b05541c48f63df399c19bf67, type: 2}
+  m_VisualMetal: {fileID: 2100000, guid: 10d380e46ed647959a70d57cf8bbba4d, type: 2}
+  m_VisualWood: {fileID: 2100000, guid: f4b6d7263d2e49ebb62e60e3db7bb2f6, type: 2}
+  m_VisualGlass: {fileID: 2100000, guid: a0cf72698e884a068dca41b74bb58ef9, type: 2}
 --- !u!114 &1992023004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24194,7 +24204,7 @@ MonoBehaviour:
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
     m_StartReady: 0
-    m_DisplayName: Tune-Mosin
+    m_DisplayName: Tune-Bolt762x54R
     m_ArmorVisualIndex: 0
     m_BodyMeshArchetype: 0
     m_CamouflageVisualIndex: 0
@@ -25052,7 +25062,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2100000047}
   m_Layer: 0
-  m_Name: SpawnPoint_Tune_Mosin
+  m_Name: SpawnPoint_Tune_Bolt762x54R
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

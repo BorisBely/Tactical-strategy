@@ -25,8 +25,8 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Min(0.01f)] private float m_ShellParticleScale = 2f;
 	[SerializeField] private Vector3 m_ShellPrefabEjectionAxis = Vector3.right;
 	[SerializeField] private Vector3 m_ShellLocalEulerOffset;
-	[Tooltip("Hybrid: ближе этой дистанции до active camera — физическая гильза с mesh и звуком падения; дальше — только particle FX.")]
-	[SerializeField, Min(0f)] private float m_HybridPhysicalShellDistanceMeters = 18f;
+	[Tooltip("Hybrid / near-camera detail: ближе этой дистанции до active camera — физическая гильза, visual kick и цикл затвора; дальше — particle-гильза без kick/bolt motion.")]
+	[SerializeField, Min(0f)] private float m_HybridPhysicalShellDistanceMeters = 12f;
 
 	[Header("Bullet Flight")]
 	[SerializeField] private bool m_EnableBulletFlight = true;
@@ -53,14 +53,19 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Min(0.001f)] private float m_FleshImpactScale = 0.2f;
 	[SerializeField, Min(0f)] private float m_BodyImpactSurfaceOffset = 0.01f;
 
-	[Header("Impact Decals")]
+	[Header("Impact Surfaces")]
 	[SerializeField] private bool m_EnableImpactDecals = true;
-	[Tooltip("Варианты бетонной декали; при попадании выбирается случайный непустой префаб.")]
-	[SerializeField] private GameObject[] m_ConcreteImpactDecalPrefabs;
-	[SerializeField] private LayerMask m_ConcreteDecalLayers;
+	[SerializeField] private bool m_EnableImpactAudio = true;
+	[Tooltip("Слои, на которых спавнятся декали/звуки попадания по поверхности.")]
+	[SerializeField] private LayerMask m_ImpactSurfaceLayers;
+	[Tooltip("Наборы по Physics Material. Первое совпадение по material; иначе DefaultSurfaceName.")]
+	[SerializeField] private WeaponImpactSurfaceSet[] m_ImpactSurfaces;
+	[Tooltip("Имя поверхности-фолбэка, если Physics Material не совпал (обычно Concrete).")]
+	[SerializeField] private string m_DefaultSurfaceName = "Concrete";
 	[SerializeField, Min(0f)] private float m_DecalSurfaceOffset = 0.012f;
 	[SerializeField, Min(0.01f)] private float m_DecalScale = 0.45f;
 	[SerializeField, Min(0.05f)] private float m_DecalLifetimeSeconds = 20f;
+	[SerializeField, Min(1f)] private float m_ImpactAudioMaxDistance = 45f;
 	#endregion
 
 	#region Public Properties
@@ -102,11 +107,14 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public float BodyImpactSurfaceOffset => m_BodyImpactSurfaceOffset;
 
 	public bool EnableImpactDecals => m_EnableImpactDecals;
-	public GameObject[] ConcreteImpactDecalPrefabs => m_ConcreteImpactDecalPrefabs;
-	public LayerMask ConcreteDecalLayers => m_ConcreteDecalLayers;
+	public bool EnableImpactAudio => m_EnableImpactAudio;
+	public LayerMask ImpactSurfaceLayers => m_ImpactSurfaceLayers;
+	public WeaponImpactSurfaceSet[] ImpactSurfaces => m_ImpactSurfaces;
+	public string DefaultSurfaceName => m_DefaultSurfaceName;
 	public float DecalSurfaceOffset => m_DecalSurfaceOffset;
 	public float DecalScale => m_DecalScale;
 	public float DecalLifetimeSeconds => m_DecalLifetimeSeconds;
+	public float ImpactAudioMaxDistance => m_ImpactAudioMaxDistance;
 	#endregion
 
 	#region Public Methods
@@ -128,32 +136,64 @@ public sealed class WeaponVfxProfile : ScriptableObject
 		return seconds;
 	}
 
-	public GameObject PickRandomConcreteImpactDecal()
+	public bool IsImpactSurfaceLayer(int _layer)
 	{
-		if (m_ConcreteImpactDecalPrefabs == null || m_ConcreteImpactDecalPrefabs.Length == 0)
-			return null;
+		int bit = 1 << _layer;
+		return (m_ImpactSurfaceLayers.value & bit) != 0;
+	}
 
-		int validCount = 0;
-		for (int i = 0; i < m_ConcreteImpactDecalPrefabs.Length; i++)
+	public bool TryResolveImpactSurface(Collider _hitCollider, out WeaponImpactSurfaceSet _surface)
+	{
+		_surface = null;
+		if (m_ImpactSurfaces == null || m_ImpactSurfaces.Length == 0)
+			return false;
+
+		PhysicsMaterial hitMaterial = _hitCollider != null ? _hitCollider.sharedMaterial : null;
+		if (hitMaterial != null)
 		{
-			if (m_ConcreteImpactDecalPrefabs[i] != null)
-				validCount++;
+			for (int i = 0; i < m_ImpactSurfaces.Length; i++)
+			{
+				WeaponImpactSurfaceSet set = m_ImpactSurfaces[i];
+				if (set == null || set.PhysicsMaterial == null)
+					continue;
+
+				if (set.PhysicsMaterial == hitMaterial)
+				{
+					_surface = set;
+					return true;
+				}
+			}
 		}
 
-		if (validCount == 0)
+		_surface = FindSurfaceByName(m_DefaultSurfaceName);
+		if (_surface != null)
+			return true;
+
+		for (int i = 0; i < m_ImpactSurfaces.Length; i++)
+		{
+			if (m_ImpactSurfaces[i] != null)
+			{
+				_surface = m_ImpactSurfaces[i];
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public WeaponImpactSurfaceSet FindSurfaceByName(string _surfaceName)
+	{
+		if (m_ImpactSurfaces == null || string.IsNullOrEmpty(_surfaceName))
 			return null;
 
-		int pick = Random.Range(0, validCount);
-		for (int i = 0; i < m_ConcreteImpactDecalPrefabs.Length; i++)
+		for (int i = 0; i < m_ImpactSurfaces.Length; i++)
 		{
-			GameObject prefab = m_ConcreteImpactDecalPrefabs[i];
-			if (prefab == null)
+			WeaponImpactSurfaceSet set = m_ImpactSurfaces[i];
+			if (set == null || string.IsNullOrEmpty(set.SurfaceName))
 				continue;
 
-			if (pick == 0)
-				return prefab;
-
-			pick--;
+			if (string.Equals(set.SurfaceName, _surfaceName, System.StringComparison.OrdinalIgnoreCase))
+				return set;
 		}
 
 		return null;

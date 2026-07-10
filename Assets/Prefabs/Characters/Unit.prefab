@@ -7801,9 +7801,11 @@ GameObject:
   - component: {fileID: 731300000000000005}
   - component: {fileID: 365107933097138229}
   - component: {fileID: 1564013067425680078}
+  - component: {fileID: 4829173650182746501}
   - component: {fileID: 2745828861811900171}
   - component: {fileID: 8412401315927888462}
   - component: {fileID: 8082661923994252123}
+  - component: {fileID: 731300000000000020}
   - component: {fileID: 731300000000000001}
   - component: {fileID: 731300000000000002}
   - component: {fileID: 731300000000000006}
@@ -7988,6 +7990,7 @@ MonoBehaviour:
   m_StanceSource: {fileID: 3741241907743255212}
   m_Vision: {fileID: 0}
   m_ReadyHands: {fileID: 0}
+  m_Equipment: {fileID: 0}
   m_ReloadController: {fileID: 0}
   m_FireController: {fileID: 0}
   m_Team: {fileID: 0}
@@ -8039,6 +8042,9 @@ MonoBehaviour:
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  m_LogReadyMoveFacingMismatch: 0
+  m_LogReadyMoveFacingIntervalSeconds: 0.25
+  m_LogReadyMoveFacingMinDeltaDegrees: 2
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
 --- !u!114 &3503617795371132269
@@ -8485,6 +8491,11 @@ MonoBehaviour:
   m_WeaponModelCorrectionSmoothTime: 0.04
   m_SofterWeaponModelCorrectionWhileFiring: 1
   m_WeaponModelCorrectionSmoothTimeWhileFiring: 0.12
+  m_AlignBarrelToBodyWhenReadyNoTarget: 1
+  m_BodyAlignYawLimitDegrees: 90
+  m_BodyAlignYawSmoothTime: 0.02
+  m_LogReadyBodyAlign: 0
+  m_LogReadyBodyAlignIntervalSeconds: 0.25
   m_DebugCombatAimActive: 0
   m_DebugCurrentStance: 0
   m_DebugAimPointWorld: {x: 0, y: 0, z: 0}
@@ -8522,7 +8533,7 @@ MonoBehaviour:
     m_MalfunctionPhase: 0
     m_MalfunctionRackAttemptIndex: 0
     m_MalfunctionBoltAnimInProgress: 0
-  m_SelectedAimMode: 0
+  m_SelectedFireDisciplineMode: 3
 --- !u!114 &383407823447829567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8553,6 +8564,8 @@ MonoBehaviour:
   m_BusyState: {fileID: 383407823447829567}
   m_UnitEquipment: {fileID: 5322687323565292150}
   m_WeaponReloadController: {fileID: 0}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
   m_InventoryBindings: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_LeftHandAnchor: {fileID: 4085402320402330437}
@@ -8586,6 +8599,8 @@ MonoBehaviour:
   m_LeftHandAnchor: {fileID: 4085402320402330437}
   m_Equipment: {fileID: 5322687323565292150}
   m_MalfunctionController: {fileID: 3544168995589682661}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
   m_ReloadAudioSource: {fileID: 0}
   m_ReloadSoundSpatialMinDistance: 1
   m_ReloadSoundSpatialMaxDistance: 45
@@ -8620,6 +8635,7 @@ MonoBehaviour:
   m_CombatCondition: {fileID: 1357371775586804989}
   m_StanceCombatModifiers: {fileID: 0}
   m_AimProgressController: {fileID: 365107933097138229}
+  m_FireDisciplineController: {fileID: 4829173650182746501}
   m_RecoilController: {fileID: 0}
   m_HitLayers:
     serializedVersion: 2
@@ -8689,9 +8705,11 @@ MonoBehaviour:
   m_ReloadController: {fileID: 4859917004016156609}
   m_HitscanShooting: {fileID: 430373704858629585}
   m_AimProgressController: {fileID: 0}
+  m_FireDisciplineController: {fileID: 4829173650182746501}
   m_RecoilController: {fileID: 0}
   m_VisualRecoilKick: {fileID: 0}
   m_Consciousness: {fileID: 0}
+  m_Stance: {fileID: 3741241907743255212}
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
   m_EnableAutomaticFireLoop: 1
@@ -8699,8 +8717,10 @@ MonoBehaviour:
   m_OutOfAmmoReloadRetrySeconds: 0.35
   m_RequireFullAimToFire: 1
   m_RequireBarrelAlignedToFire: 1
-  m_MaxBarrelAimErrorDegrees: 10
-  m_MaxBarrelAimErrorDegreesAuto: 10
+  m_MaxBarrelAimErrorDegrees: 3
+  m_MaxBarrelAimErrorDegreesCrouch: 9
+  m_MaxBarrelAimErrorDegreesCrouchMoving: 10
+  m_MaxBarrelAimErrorDegreesMoving: 8
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
   m_LastFiredAmmoDefinition: {fileID: 0}
@@ -8774,12 +8794,41 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9176879924895076622}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4e8a1f92d6b4c0e9b3d7e2f5a8c1d4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponAutoFireWhenAimed
   m_FireController: {fileID: 8854059317223957988}
+  m_FireDisciplineController: {fileID: 4829173650182746501}
+--- !u!114 &4829173650182746501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c2a9e4f1b8d4560a3e6f9c2d5b8a1e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponFireDisciplineController
+  m_FireController: {fileID: 8854059317223957988}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_Vision: {fileID: 0}
+  m_CombatStats: {fileID: 3408199974750778793}
+  m_IndividualTraits: {fileID: 1889259709996966414}
+  m_DebugSelectedDiscipline: 3
+  m_DebugEffectiveDiscipline: 1
+  m_DebugEffectiveFireMode: 0
+  m_DebugEffectiveAimMode: 0
+  m_DebugRequiredAimProgress: 1
+  m_DebugSeriesShotCount: 1
+  m_DebugShotsFiredInSeries: 0
+  m_DebugSeriesPauseSeconds: 0
+  m_DebugPauseRemainingSeconds: 0
+  m_DebugPhase: Idle
 --- !u!114 &2745828861811900171
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8865,10 +8914,29 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_Equipment: {fileID: 5322687323565292150}
   m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_BoltCycleVisual: {fileID: 731300000000000020}
   m_PoolRoot: {fileID: 6544963493894048048}
   m_ImpactAudio: {fileID: 0}
   m_DefaultPoolCapacity: 12
   m_MaxPoolSize: 48
+--- !u!114 &731300000000000020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7e4c91a2d8f4e6a9c1d0f3b5a8e7241, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponBoltCycleVisual
+  m_FireController: {fileID: 8854059317223957988}
+  m_ReloadController: {fileID: 4859917004016156609}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_ShellEjection: {fileID: 8082661923994252123}
+  m_RagdollController: {fileID: 8893568136447935561}
 --- !u!114 &731300000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9205,7 +9273,8 @@ MonoBehaviour:
   m_Marksmanship: 50
   m_WeaponHandling: 50
   m_RecoilControl: 50
-  m_ReactionTimeSeconds: 0.35
+  m_ReactionTimeMinSeconds: 0.32
+  m_ReactionTimeMaxSeconds: 0.5
   m_VisionScanIntervalMinSeconds: 0.25
   m_VisionScanIntervalMaxSeconds: 0.45
   m_WorstMarksmanshipDispersionMultiplier: 1.25
@@ -9383,6 +9452,8 @@ MonoBehaviour:
   m_MarksmanshipModifier: 0
   m_WeaponHandlingModifier: 0
   m_RecoilControlModifier: 0
+  m_FireAggressionModifier: 0
+  m_FireCadenceModifier: 0
   m_EquipmentVisualPreferences: []
   m_HeadAppearanceRankTable: {fileID: 11400000, guid: f6bb5158b7cc7314483e8f9d868fb633, type: 2}
   m_HeadHairVariant: 1
@@ -9470,6 +9541,10 @@ MonoBehaviour:
     m_LocalPosition: {x: 0, y: 0, z: 0}
     m_LocalEulerAngles: {x: 0, y: 0, z: 0}
   - m_Prefab: {fileID: 4279262818477836869, guid: 3d4b8e262f6d19b488a0f74ca5348025, type: 3}
+    m_LocalPosition: {x: 0, y: 0, z: 0}
+    m_LocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_Mag12GaugeVariant:
+    m_Prefab: {fileID: 1000000000, guid: 9a7c7baee73e4e67b02887e527290476, type: 3}
     m_LocalPosition: {x: 0, y: 0, z: 0}
     m_LocalEulerAngles: {x: 0, y: 0, z: 0}
   m_SideRightVariants:

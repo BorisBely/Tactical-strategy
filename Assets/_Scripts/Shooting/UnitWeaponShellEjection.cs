@@ -13,6 +13,7 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
+	[SerializeField] private UnitWeaponBoltCycleVisual m_BoltCycleVisual;
 	[SerializeField] private Transform m_PoolRoot;
 	[SerializeField] private AudioSource m_ImpactAudio;
 	[SerializeField, Min(1)] private int m_DefaultPoolCapacity = 12;
@@ -32,6 +33,8 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 			m_Equipment = GetComponentInChildren<UnitEquipment>(true);
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_BoltCycleVisual == null)
+			m_BoltCycleVisual = GetComponent<UnitWeaponBoltCycleVisual>();
 
 		EnsurePoolRoot();
 		EnsureImpactAudio();
@@ -61,6 +64,9 @@ public sealed class UnitWeaponShellEjection : MonoBehaviour
 	#region Private Methods
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
+		if (m_BoltCycleVisual != null && m_BoltCycleVisual.WillHandlePhysicalShellEjection)
+			return;
+
 		SpawnShellInternal(_ammo);
 	}
 

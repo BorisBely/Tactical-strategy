@@ -84,9 +84,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_RotateSpeed = 6f;
 	public float RotateSpeed { get => m_RotateSpeed; set => m_RotateSpeed = value; }
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
-	[Tooltip("Половина конуса вокруг угла жёлтой стрелки (ПКМ): если видимая цель внутри — ручной поворот; иначе engage к цели в FOV.")]
+	[Tooltip("Legacy: раньше ограничивал engage внутри конуса стрелки. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
 	[SerializeField, Range(5f, 90f)] private float m_ManualFacingTargetConeHalfAngle = 30f;
-	[Tooltip("Внутри конуса стрелки: пока ошибка yaw к цели больше этого угла, корень доворачивается engage-ом (точное наведение ствола).")]
+	[Tooltip("Legacy: раньше handoff стрелка→engage. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
 	[SerializeField, Range(0.5f, 15f)] private float m_ManualFacingEngageHandoffDegrees = 3f;
 
 	[Header("Combat: steady stance while firing")]
@@ -800,6 +800,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (!OverrideFacingAngle.HasValue)
 			return false;
 
+		// Цель всегда приоритетнее жёлтой стрелки: пока есть engage — крутим корень на цель.
+		// После потери/убийства цели OverrideFacingAngle остаётся и юнит возвращается к стрелке.
+		if (IsEngagingVisibleTarget())
+			return false;
+
 		bool moving = IsPlanarMoving();
 		bool hasIntent = m_CachedRtsMember != null && m_CachedRtsMember.HasActiveMovementIntent;
 		if (m_CachedRtsMember != null && !m_CachedRtsMember.WantsReady &&
@@ -809,34 +814,6 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return false;
 		}
 
-		if (!IsEngagingVisibleTarget())
-			return true;
-
-		if (!TryGetVisibleTargetBearingDegrees(out float targetBearing))
-			return true;
-
-		float deltaFromCommand = Mathf.Abs(Mathf.DeltaAngle(OverrideFacingAngle.Value, targetBearing));
-		if (deltaFromCommand > m_ManualFacingTargetConeHalfAngle)
-			return false;
-
-		if (deltaFromCommand > m_ManualFacingEngageHandoffDegrees)
-			return false;
-
-		return true;
-	}
-
-	private bool TryGetVisibleTargetBearingDegrees(out float _bearingDegrees)
-	{
-		_bearingDegrees = 0f;
-		if (m_Vision == null || m_Vision.VisibleTarget == null)
-			return false;
-
-		Vector3 toTarget = m_Vision.GetVisibleTargetAimPointWorld() - transform.position;
-		toTarget.y = 0f;
-		if (toTarget.sqrMagnitude < 1e-6f)
-			return false;
-
-		_bearingDegrees = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
 		return true;
 	}
 

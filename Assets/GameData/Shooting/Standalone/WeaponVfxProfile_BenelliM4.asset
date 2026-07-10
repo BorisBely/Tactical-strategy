@@ -25,7 +25,7 @@ MonoBehaviour:
   m_ShellParticleScale: 2.2
   m_ShellPrefabEjectionAxis: {x: 1, y: 0, z: 0}
   m_ShellLocalEulerOffset: {x: 0, y: 0, z: 0}
-  m_HybridPhysicalShellDistanceMeters: 18
+  m_HybridPhysicalShellDistanceMeters: 12
   m_EnableBulletFlight: 1
   m_BulletFlightPrefab: {fileID: 1046001694842650, guid: 9eb7304a6c9aedb40abba583aff826c5, type: 3}
   m_BulletFlightScale: 1
@@ -43,13 +43,70 @@ MonoBehaviour:
   m_FleshImpactScale: 0.2
   m_BodyImpactSurfaceOffset: 0.01
   m_EnableImpactDecals: 1
-  m_ConcreteImpactDecalPrefabs:
-  - {fileID: 1364626547466708, guid: 3b1aa7e77622ff048b50275424ccd519, type: 3}
-  - {fileID: 1006115703062704, guid: 39281fdb006a7da4cb0ee1ef81684afd, type: 3}
-  - {fileID: 1359433402067330, guid: 5b6be2c2e1e76704e90234c2c72d52de, type: 3}
-  m_ConcreteDecalLayers:
+  m_EnableImpactAudio: 1
+  m_ImpactSurfaceLayers:
     serializedVersion: 2
     m_Bits: 256
+  m_ImpactSurfaces:
+  - SurfaceName: Concrete
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f601, type: 2}
+    DecalPrefabs:
+    - {fileID: 1364626547466708, guid: 3b1aa7e77622ff048b50275424ccd519, type: 3}
+    - {fileID: 1006115703062704, guid: 39281fdb006a7da4cb0ee1ef81684afd, type: 3}
+    - {fileID: 1359433402067330, guid: 5b6be2c2e1e76704e90234c2c72d52de, type: 3}
+    ImpactSounds:
+    - {fileID: 8300000, guid: 90d4151cd205484fa888ac7ffc4e153a, type: 3}
+    - {fileID: 8300000, guid: 6a1b3de266a0481ab93f4cdc7870fa7d, type: 3}
+    - {fileID: 8300000, guid: 29dab1c9861842e68cbe1091906104d4, type: 3}
+    - {fileID: 8300000, guid: e6f731e327444511859ad01f3a43e955, type: 3}
+    ImpactVolume: 0.85
+  - SurfaceName: Metal
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f606, type: 2}
+    DecalPrefabs:
+    - {fileID: 1848749998299440, guid: 27815f7bf34f3af4c8dac9c180ba8d1c, type: 3}
+    - {fileID: 1671827752541952, guid: 9a720d019933e5c499f1411de50d4a02, type: 3}
+    - {fileID: 1691086551863898, guid: 2c90a08e2e191394bb38c5d170f9942a, type: 3}
+    ImpactSounds:
+    - {fileID: 8300000, guid: 13ec98b2e43c4075888ce8a36c511f65, type: 3}
+    - {fileID: 8300000, guid: 980fe8b5bfee4f5a98f30a7c6afd5178, type: 3}
+    - {fileID: 8300000, guid: 228690be1e824033aff9e7fbbc976f6a, type: 3}
+    - {fileID: 8300000, guid: 4bd12f48d42a4ebba911ca2e7ba32093, type: 3}
+    - {fileID: 8300000, guid: 5ccac0c71d654c39ad1edc7644f96476, type: 3}
+    - {fileID: 8300000, guid: f1a5aa320f074d7abb43daca110be6df, type: 3}
+    - {fileID: 8300000, guid: 83b58ea1dc7243c999e459524aefa578, type: 3}
+    - {fileID: 8300000, guid: 5410a8d8f6634a22985c5f9d3f558db3, type: 3}
+    - {fileID: 8300000, guid: 3d9792eab3e542b58e13297dd2a30605, type: 3}
+    - {fileID: 8300000, guid: 7585896b274846de8feaa167f1af09dd, type: 3}
+    ImpactVolume: 0.85
+  - SurfaceName: Wood
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f60a, type: 2}
+    DecalPrefabs:
+    - {fileID: 1760666373357238, guid: 89e89ab1ecb776647a41e02207a36b23, type: 3}
+    - {fileID: 1060988468579568, guid: 41eb13fe65bf30b4a90860d18427c77d, type: 3}
+    - {fileID: 1367019240155890, guid: 6982ab65774f6724aae616d23ed348ff, type: 3}
+    ImpactSounds:
+    - {fileID: 8300000, guid: e89ec7ba25b448f6af6a480c00cbcc04, type: 3}
+    - {fileID: 8300000, guid: 8a7525bc62094b2d86a3f53681d4482f, type: 3}
+    - {fileID: 8300000, guid: 0246eebfba174dfcb7fd1bc869fe85d4, type: 3}
+    - {fileID: 8300000, guid: fd99cd24a58b47e18048c160eaa37ec4, type: 3}
+    - {fileID: 8300000, guid: 9c368573874d4c1ca3b3b699d7530a0c, type: 3}
+    ImpactVolume: 0.85
+  - SurfaceName: Glass
+    PhysicsMaterial: {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f603, type: 2}
+    DecalPrefabs:
+    - {fileID: 1981418324267132, guid: 610b7c8214bad6b4c97039b58367f4a0, type: 3}
+    - {fileID: 1522460089889808, guid: 08ba0730f45a30e4c815a6c27d9bbe4b, type: 3}
+    - {fileID: 1405575941077912, guid: 62547f200944a9a4fb898fac612013c2, type: 3}
+    ImpactSounds:
+    - {fileID: 8300000, guid: c4a1bae0d962402b9adb45f31ae4c6f1, type: 3}
+    - {fileID: 8300000, guid: 28258f30476e4ee195a0f12140375110, type: 3}
+    - {fileID: 8300000, guid: c8cdbb9f2bdd4a84a904c4f37b660822, type: 3}
+    - {fileID: 8300000, guid: 8a745607f6b44db9823a4080a6a8c218, type: 3}
+    - {fileID: 8300000, guid: 1f6a1bb496d947db9db77c6b340f22fe, type: 3}
+    - {fileID: 8300000, guid: 654de5630def4656903125dbf29b39b2, type: 3}
+    ImpactVolume: 1
+  m_DefaultSurfaceName: Concrete
   m_DecalSurfaceOffset: 0.012
   m_DecalScale: 0.45
   m_DecalLifetimeSeconds: 20
+  m_ImpactAudioMaxDistance: 45

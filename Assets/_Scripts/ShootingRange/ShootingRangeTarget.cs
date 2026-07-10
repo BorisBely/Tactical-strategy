@@ -119,6 +119,13 @@ public sealed class ShootingRangeTarget : MonoBehaviour
 		NotifyStateChanged();
 	}
 
+	public void ConfigureSurfaceVisual(Color _intactColor, Color _disabledColor)
+	{
+		m_IntactColor = _intactColor;
+		m_DisabledColor = _disabledColor;
+		ApplyVisualState();
+	}
+
 	public bool TryRegisterHit()
 	{
 		if (!m_IsUserEnabled || !HasHitCounter)

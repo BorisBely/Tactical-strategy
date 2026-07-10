@@ -14,8 +14,8 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	[SerializeField] private CharacterInventory m_CharacterInventory;
 	[Tooltip("Временное состояние оружия, пока оно экипировано именно сейчас.")]
 	[SerializeField] private EquippedWeaponTransientState m_TransientState = new EquippedWeaponTransientState();
-	[Tooltip("Режим неполного прицеливания юнита. Хранится на юните, а не на экземпляре оружия.")]
-	[SerializeField] private WeaponAimMode m_SelectedAimMode = WeaponAimMode.FullAim;
+	[Tooltip("Огневая дисциплина юнита: экономный / точный / подавляющий / авто. Заменяет ручной выбор режимов прицеливания.")]
+	[SerializeField] private WeaponFireDisciplineMode m_SelectedFireDisciplineMode = WeaponFireDisciplineMode.Auto;
 	#endregion
 
 	#region Private Fields
@@ -29,7 +29,13 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	public EquippedWeaponTransientState TransientState => m_TransientState;
 	public ItemInstanceState BoundItemState => m_BoundItemState;
 	public WeaponDefinition CurrentWeaponDefinition => m_BoundWeaponState != null ? m_BoundWeaponState.WeaponDefinition : null;
-	public WeaponAimMode SelectedAimMode => m_SelectedAimMode;
+	public WeaponFireDisciplineMode SelectedFireDisciplineMode => m_SelectedFireDisciplineMode;
+	/// <summary>Производный aim-mode для accuracy/логов из текущей дисциплины и дистанции.</summary>
+	public WeaponAimMode SelectedAimMode => WeaponFireDisciplineModeUtility.MapToAimMode(
+		m_SelectedFireDisciplineMode == WeaponFireDisciplineMode.Auto
+			? WeaponFireDisciplineMode.Precision
+			: m_SelectedFireDisciplineMode,
+		0f);
 	public MagazineRuntimeState CurrentMagazine => m_BoundWeaponState != null ? m_BoundWeaponState.CurrentMagazine : null;
 	public bool HasLoadedMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasMagazine;
 	public bool HasAmmoInMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasAmmoInMagazine;
@@ -193,17 +199,23 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		return WeaponFireModeUtility.ResolveEffectiveMode(selectedMode, _targetDistanceMeters, availableModes);
 	}
 
+	public bool TryCycleToNextFireDisciplineMode(out WeaponFireDisciplineMode _selectedDisciplineMode)
+	{
+		m_SelectedFireDisciplineMode = WeaponFireDisciplineModeUtility.GetNextMode(m_SelectedFireDisciplineMode);
+		_selectedDisciplineMode = m_SelectedFireDisciplineMode;
+		return true;
+	}
+
+	public void SetSelectedFireDisciplineMode(WeaponFireDisciplineMode _mode)
+	{
+		m_SelectedFireDisciplineMode = _mode;
+	}
+
+	/// <summary>Совместимость со старым API: цикл дисциплины вместо aim mode.</summary>
 	public bool TryCycleToNextAimMode(out WeaponAimMode _selectedAimMode)
 	{
-		m_SelectedAimMode = m_SelectedAimMode switch
-		{
-			WeaponAimMode.FullAim => WeaponAimMode.QuickAim,
-			WeaponAimMode.QuickAim => WeaponAimMode.SnapShot,
-			WeaponAimMode.SnapShot => WeaponAimMode.Auto,
-			_ => WeaponAimMode.FullAim
-		};
-
-		_selectedAimMode = m_SelectedAimMode;
+		TryCycleToNextFireDisciplineMode(out _);
+		_selectedAimMode = SelectedAimMode;
 		return true;
 	}
 

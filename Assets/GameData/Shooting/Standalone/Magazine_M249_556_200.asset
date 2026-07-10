@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79a47c1a568710d4fb6828826eaf253e, type: 3}
   m_Name: Magazine_M249_556_200
   m_EditorClassIdentifier: Assembly-CSharp::MagazineDefinition
-  m_MagazineType: 4
+  m_MagazineType: 8
   m_SupportedCaliber: 3
   m_Capacity: 200
   m_RoundLoadTimeSeconds: 0.35

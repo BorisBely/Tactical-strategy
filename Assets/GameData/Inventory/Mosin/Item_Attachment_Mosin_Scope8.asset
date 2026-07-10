@@ -18,6 +18,7 @@ MonoBehaviour:
     \u0434\u043B\u044F 30-45 \u043C."
   m_Icon: {fileID: 0}
   m_BasePrice: 520
+  m_WeightKg: 0.7
   m_Category: 0
   m_DropWorldPrefab: {fileID: 675145368569494740, guid: 5e52b60fb0bef6d47b8ce1a09f1349c7, type: 3}
   m_EquippedVisualPrefab: {fileID: 3270636581391031681, guid: 2d2bf194f8e746c489805116e538c3bc, type: 3}

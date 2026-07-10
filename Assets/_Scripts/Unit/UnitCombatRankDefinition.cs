@@ -13,8 +13,10 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	[SerializeField, Range(0f, 100f)] private float m_Marksmanship = 50f;
 	[SerializeField, Range(0f, 100f)] private float m_WeaponHandling = 50f;
 	[SerializeField, Range(0f, 100f)] private float m_RecoilControl = 50f;
-	[Tooltip("Задержка реакции при обнаружении цели (сек). Опытные бойцы реагируют быстрее.")]
-	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeSeconds = 0.35f;
+	[Tooltip("Минимальная задержка реакции на приказы / обнаружение цели (сек). Опытные бойцы реагируют быстрее.")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeMinSeconds = 0.32f;
+	[Tooltip("Максимальная задержка реакции (сек). У низких рангов разброс шире и дольше.")]
+	[SerializeField, Range(0.05f, 1.5f)] private float m_ReactionTimeMaxSeconds = 0.5f;
 	[Tooltip("Минимальный интервал сканов целей (сек). Опытные бойцы сканируют чаще.")]
 	[SerializeField, Min(0.05f)] private float m_VisionScanIntervalMinSeconds = 0.45f;
 	[Tooltip("Максимальный интервал сканов целей (сек).")]
@@ -29,7 +31,8 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 	public float Marksmanship => m_Marksmanship;
 	public float WeaponHandling => m_WeaponHandling;
 	public float RecoilControl => m_RecoilControl;
-	public float ReactionTimeSeconds => m_ReactionTimeSeconds;
+	public float ReactionTimeMinSeconds => m_ReactionTimeMinSeconds;
+	public float ReactionTimeMaxSeconds => m_ReactionTimeMaxSeconds;
 	public float VisionScanIntervalMinSeconds => m_VisionScanIntervalMinSeconds;
 	public float VisionScanIntervalMaxSeconds => m_VisionScanIntervalMaxSeconds;
 	public float WeightPenaltyReduction => m_WeightPenaltyReduction;
@@ -50,7 +53,7 @@ public sealed class UnitCombatRankDefinition : ScriptableObject
 			return;
 
 		_stats.ApplySkills(m_Marksmanship, m_WeaponHandling, m_RecoilControl);
-		_stats.SetReactionTime(m_ReactionTimeSeconds);
+		_stats.SetReactionTimeRange(m_ReactionTimeMinSeconds, m_ReactionTimeMaxSeconds);
 		_stats.SetVisionScanIntervals(m_VisionScanIntervalMinSeconds, m_VisionScanIntervalMaxSeconds);
 	}
 	#endregion

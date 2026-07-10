@@ -712,7 +712,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		{
 			if (m_IsInFacingTurn)
 			{
-				ClearFacingTurn();
+				ClearFacingTurn(ShouldPreserveHeadingOnLegArrival());
 			}
 			else if (m_HasWantedFacing)
 			{
@@ -1989,7 +1989,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (ShouldClearFacingOnLegArrival())
 		{
 			if (m_IsInFacingTurn)
-				ClearFacingTurn();
+				ClearFacingTurn(ShouldPreserveHeadingOnLegArrival());
 			else if (m_HasWantedFacing)
 			{
 				if (!m_IsRotatingToFacing)
@@ -2356,34 +2356,51 @@ public sealed class RtsUnitMember : MonoBehaviour
 			string afterLabel = after == WeaponFireMode.Auto
 				? $"{WeaponFireModeUtility.GetDisplayName(after)}→{WeaponFireModeUtility.GetDisplayName(effectiveAfter)}"
 				: WeaponFireModeUtility.GetDisplayName(after);
+			string disciplineLabel = WeaponFireDisciplineModeUtility.GetDisplayName(m_WeaponRuntime.SelectedFireDisciplineMode);
 			Debug.Log(
-				$"{name}: режим огня {WeaponFireModeUtility.GetDisplayName(before)} → {afterLabel}.",
+				$"{name}: режим огня {WeaponFireModeUtility.GetDisplayName(before)} → {afterLabel}. " +
+				$"Дисциплина сейчас: {disciplineLabel}. " +
+				"Режим огня = что разрешено селектором; дисциплина = длина очередей, паузы и порог прицела.",
 				this);
 			PlayFireModeSwitchSound();
 		}, _groupStaggerDelaySeconds);
 	}
 
-	/// <summary>Следующий режим прицеливания юнита: полное, быстрое, на вскидку, авто.</summary>
+	/// <summary>
+	/// Следующий режим огневой дисциплины: экономный → точный → подавляющий → авто.
+	/// Режимы прицеливания больше не выбираются вручную — их заменяет дисциплина.
+	/// </summary>
 	public void CycleWeaponAimMode(float _groupStaggerDelaySeconds = 0f)
+	{
+		CycleWeaponFireDisciplineMode(_groupStaggerDelaySeconds);
+	}
+
+	/// <summary>Следующий режим огневой дисциплины юнита.</summary>
+	public void CycleWeaponFireDisciplineMode(float _groupStaggerDelaySeconds = 0f)
 	{
 		ScheduleRtsCommand(() =>
 		{
 			if (m_WeaponRuntime == null)
 			{
-				Debug.LogWarning($"{name}: смена режима прицеливания — нет runtime оружия.", this);
+				Debug.LogWarning($"{name}: смена огневой дисциплины — нет runtime оружия.", this);
 				return;
 			}
 
-			WeaponAimMode before = m_WeaponRuntime.SelectedAimMode;
-			if (!m_WeaponRuntime.TryCycleToNextAimMode(out WeaponAimMode after))
+			WeaponFireDisciplineMode before = m_WeaponRuntime.SelectedFireDisciplineMode;
+			if (!m_WeaponRuntime.TryCycleToNextFireDisciplineMode(out WeaponFireDisciplineMode after))
 			{
-				Debug.Log($"{name}: режим прицеливания не изменён. Сейчас: {before}.", this);
+				Debug.Log($"{name}: огневая дисциплина не изменена. Сейчас: {before}.", this);
 				return;
 			}
+
+			m_FireController?.ResetBurstStateForFireModeChange();
 
 			Debug.Log(
-				$"{name}: режим прицеливания {WeaponAimModeUtility.GetDisplayName(before)} → {WeaponAimModeUtility.GetDisplayName(after)} " +
-				$"(порог выстрела: {WeaponAimModeUtility.GetRequiredAimProgress01(after, 0f):P0}; в авто порог зависит от дистанции).",
+				$"{name}: огневая дисциплина {WeaponFireDisciplineModeUtility.GetDisplayName(before)} → " +
+				$"{WeaponFireDisciplineModeUtility.GetDisplayName(after)}. " +
+				"Взаимодействие: режим огня (Semi/Burst/FullAuto/Auto) задаёт, что разрешено оружию; " +
+				"дисциплина задаёт длину серий, паузы и порог прицела. " +
+				"Оба в Auto — юнит сам выбирает стиль и механику под дистанцию.",
 				this);
 			PlayFireModeSwitchSound();
 		}, _groupStaggerDelaySeconds);
@@ -3018,7 +3035,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (!m_HasActiveDestination && !IsExecutingMoveOrder())
 		{
-			ClearFacingTurn();
+			ClearFacingTurn(ShouldPreserveHeadingOnLegArrival());
 			return;
 		}
 
@@ -3062,15 +3079,30 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 	}
 
-	private void ClearFacingTurn()
+	private void ClearFacingTurn(bool _preserveHeadingOnArrival = false)
 	{
 		m_IsInFacingTurn = false;
 		m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
-		ClearFacingOverride();
+		if (_preserveHeadingOnArrival)
+			ApplyLocomotionFacingOverride(m_FacingTurnTargetAngle, "FacingTurn.arrivalPreserve");
+		else
+			ClearFacingOverride();
 		m_HasWantedFacing = false;
 		m_FacingRotateVelocity = 0f;
 		m_FacingSuppressedReady = false;
 		m_FacingAutoRestoreReady = false;
+	}
+
+	private bool ShouldPreserveHeadingOnLegArrival()
+	{
+		if (!m_IsInFacingTurn)
+			return false;
+
+		if (m_FacingTurnMode != FacingArrowMode.TurnOverDistance &&
+		    m_FacingTurnMode != FacingArrowMode.HoldToEnd)
+			return false;
+
+		return m_CommandQueue.Count == 0;
 	}
 
 	private void TrackReadyWantedTransition()

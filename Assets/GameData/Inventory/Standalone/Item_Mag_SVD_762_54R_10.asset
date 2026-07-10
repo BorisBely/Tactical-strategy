@@ -16,13 +16,26 @@ MonoBehaviour:
   m_Description: 10-round 7.62x54R SVD magazine.
   m_Icon: {fileID: 0}
   m_BasePrice: 120
-  m_WeightKg: 0
+  m_WeightKg: 0.4
   m_Category: 0
   m_DropWorldPrefab: {fileID: 8914277468654798316, guid: 176cf40803b2c8a438aa4063bdaf0680, type: 3}
   m_EquippedVisualPrefab: {fileID: 6427229704161657701, guid: c9d275dfa8661c14bbcc3336a7ce73cb, type: 3}
   m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

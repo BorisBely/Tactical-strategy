@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Item_Mag_Mosin_762_54R_5
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.mag.mosin_762_54r_5
-  m_Description: 5-round internal magazine for Mosin rifle.
+  m_Description: 5-round 7.62x54R magazine for the bolt-action rifle.
   m_Icon: {fileID: 0}
-  m_BasePrice: 60
-  m_WeightKg: 0
+  m_BasePrice: 80
+  m_WeightKg: 0.25
   m_Category: 0
   m_DropWorldPrefab: {fileID: 7924537197857657038, guid: 340719473e4f343449648c456309dc88, type: 3}
   m_EquippedVisualPrefab: {fileID: 5710121984615051007, guid: 93a1dfcaf43abcd4885c57f71d2253aa, type: 3}

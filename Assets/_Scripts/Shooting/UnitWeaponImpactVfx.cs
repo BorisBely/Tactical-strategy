@@ -56,9 +56,22 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			return;
 
 		if (profile.EnableBodyImpactFx && _trace.ImpactVfxKind is WeaponShotImpactVfxKind.ArmorDeflect or WeaponShotImpactVfxKind.Flesh)
+		{
 			SpawnBodyImpact(profile, _trace);
-		else if (profile.EnableImpactDecals)
-			SpawnImpactDecal(profile, _trace);
+			return;
+		}
+
+		if (!profile.IsImpactSurfaceLayer(_trace.HitCollider.gameObject.layer))
+			return;
+
+		if (!profile.TryResolveImpactSurface(_trace.HitCollider, out WeaponImpactSurfaceSet surface) || surface == null)
+			return;
+
+		if (profile.EnableImpactDecals)
+			SpawnImpactDecal(profile, surface, _trace);
+
+		if (profile.EnableImpactAudio)
+			PlayImpactAudio(profile, surface, _trace);
 	}
 
 	private void SpawnBodyImpact(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
@@ -82,18 +95,18 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		SpawnParticleImpact(prefab, position, rotation, scale, lifetime);
 	}
 
-	private void SpawnImpactDecal(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
+	private void SpawnImpactDecal(
+		WeaponVfxProfile _profile,
+		WeaponImpactSurfaceSet _surface,
+		WeaponShotTraceInfo _trace)
 	{
-		GameObject decalPrefab = _profile.PickRandomConcreteImpactDecal();
+		GameObject decalPrefab = _surface.PickRandomDecal();
 		if (decalPrefab == null)
 			return;
 
-		int hitLayerBit = 1 << _trace.HitCollider.gameObject.layer;
-		if ((_profile.ConcreteDecalLayers.value & hitLayerBit) == 0)
-			return;
-
-		Vector3 position = _trace.EndPoint + _trace.HitNormal * _profile.DecalSurfaceOffset;
-		Quaternion rotation = Quaternion.LookRotation(_trace.HitNormal) *
+		Vector3 normal = _trace.HitNormal.sqrMagnitude > 1e-6f ? _trace.HitNormal.normalized : Vector3.up;
+		Vector3 position = _trace.EndPoint + normal * _profile.DecalSurfaceOffset;
+		Quaternion rotation = Quaternion.LookRotation(normal) *
 			Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.forward);
 		SpawnPooled(
 			decalPrefab,
@@ -101,6 +114,21 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			rotation,
 			Vector3.one * _profile.DecalScale,
 			_profile.DecalLifetimeSeconds);
+	}
+
+	private static void PlayImpactAudio(
+		WeaponVfxProfile _profile,
+		WeaponImpactSurfaceSet _surface,
+		WeaponShotTraceInfo _trace)
+	{
+		if (!_surface.TryPickImpactSound(out AudioClip clip, out float volume))
+			return;
+
+		UnitNonFireAudioUtility.PlayAtPoint(
+			clip,
+			_trace.EndPoint,
+			volume,
+			_profile.ImpactAudioMaxDistance);
 	}
 
 	private void SpawnParticleImpact(

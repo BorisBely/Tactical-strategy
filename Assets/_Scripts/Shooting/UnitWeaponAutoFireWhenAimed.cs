@@ -1,10 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Удерживает «курок» виртуально: когда прицеливание достаточно для выбранного режима
-/// и выполнены те же базовые условия, что и у <see cref="UnitWeaponFireController"/>, вызывает
-/// <see cref="UnitWeaponFireController.StartFiring"/>; иначе <see cref="UnitWeaponFireController.StopFiring"/>.
-/// Должен выполняться раньше <see cref="UnitWeaponFireController"/> (порядок 54 &lt; 56).
+/// Устаревший драйвер бесконечного удержания спуска.
+/// Заменён на <see cref="UnitWeaponFireDisciplineController"/>: при наличии дисциплины этот компонент
+/// отключается сам и не вмешивается в серии/паузы.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(54)]
@@ -12,6 +11,7 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitWeaponFireDisciplineController m_FireDisciplineController;
 	#endregion
 
 	#region Unity Lifecycle
@@ -19,10 +19,21 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 	{
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_FireDisciplineController == null)
+			m_FireDisciplineController = GetComponent<UnitWeaponFireDisciplineController>();
+
+		if (m_FireDisciplineController != null)
+			enabled = false;
 	}
 
 	private void Update()
 	{
+		if (m_FireDisciplineController != null && m_FireDisciplineController.enabled)
+		{
+			enabled = false;
+			return;
+		}
+
 		if (m_FireController == null)
 			return;
 
@@ -34,6 +45,9 @@ public sealed class UnitWeaponAutoFireWhenAimed : MonoBehaviour
 
 	private void OnDisable()
 	{
+		if (m_FireDisciplineController != null && m_FireDisciplineController.enabled)
+			return;
+
 		m_FireController?.StopFiring();
 	}
 	#endregion

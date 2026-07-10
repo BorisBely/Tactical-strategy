@@ -14,21 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   m_WeaponClass: 5
   m_SupportedCaliber: 7
-  m_SupportedMagazineType: 4
+  m_SupportedMagazineType: 9
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
   m_BuiltInMagazineItem: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
-  m_AvailableFireModes: 0100000000000000
-  m_DefaultFireMode: 1
+  m_AvailableFireModes: 010000000000000003000000
+  m_DefaultFireMode: 3
   m_AttachmentSlots:
   - SlotType: 0
     IsRequired: 0
     AnchorChildName: 
   - SlotType: 3
-    IsRequired: 0
-    AnchorChildName: 
-  - SlotType: 5
     IsRequired: 0
     AnchorChildName: 
   - SlotType: 4
@@ -46,7 +43,7 @@ MonoBehaviour:
   - SlotType: 2
     IsRequired: 0
     AnchorChildName: 
-  m_AttachmentSlotProfile: 1
+  m_AttachmentSlotProfile: 0
   m_FireRateRpm: 650
   m_SemiAutoFireRateRpm: 650
   m_AimTimeSeconds: 0.5
@@ -206,11 +203,11 @@ MonoBehaviour:
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: 96434fb9d0ba9d14292e6d36365b6105, type: 3}
-    - {fileID: 8300000, guid: 245268b0b2a33fe4e9a4c408cf3847e2, type: 3}
-    - {fileID: 8300000, guid: 281bc55c831bbbf4988c238dddcfa67e, type: 3}
-    - {fileID: 8300000, guid: 7d84283298cdc324a8178122a73cf403, type: 3}
-    - {fileID: 8300000, guid: 8d6e7061cf1eb274e90f0ae132668092, type: 3}
+    - {fileID: 8300000, guid: 892fb91d2838cf74091383b8e1d6f3f5, type: 3}
+    - {fileID: 8300000, guid: ea7ba2edd8071a446bbed694ca64b69f, type: 3}
+    - {fileID: 8300000, guid: ab9d151cbdeab2144b97aaafcb937ff8, type: 3}
+    - {fileID: 8300000, guid: 09c59748a8359ea4183bace0b3492c10, type: 3}
+    - {fileID: 8300000, guid: 9ac30aeb1dc9de2489cdc943ba952a85, type: 3}
     m_MaxAudibleDistanceMeters: 625
   m_SuppressedFireSoundProfile:
     m_FireClips: []
@@ -242,6 +239,7 @@ MonoBehaviour:
     - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
     - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
   m_HasBoltHoldOpenDelay: 0
+  m_AnimationPlatform: 1
   m_ReloadBoltHoldOpenDelaySounds:
     m_Clips: []
   m_ReloadSoundsVolume: 0.5

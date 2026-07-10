@@ -28,9 +28,11 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
 	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
+	[SerializeField] private UnitWeaponFireDisciplineController m_FireDisciplineController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
 	[SerializeField] private UnitWeaponVisualRecoilKick m_VisualRecoilKick;
 	[SerializeField] private UnitConsciousness m_Consciousness;
+	[SerializeField] private UnitAnimatorStance m_Stance;
 
 	[Header("Fire Conditions")]
 	[Tooltip("Запрещать выстрел, если оружие не на ready.")]
@@ -46,12 +48,16 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Header("Aiming Gate")]
 	[Tooltip("Запрещать выстрел, пока не достигнут порог выбранного режима прицеливания. Для Burst/FullAuto — только 1-й выстрел серии или очереди.")]
 	[SerializeField] private bool m_RequireFullAimToFire = true;
-	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick. Для RTS auto-fire одиночный и очередь используют один допуск (см. Max Barrel Aim Error Degrees Auto).")]
+	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick.")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
-	[Tooltip("Legacy / будущая настройка: сейчас для проверки ствола используется Max Barrel Aim Error Degrees Auto.")]
-	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 10f;
-	[Tooltip("Допуск угла ствола (градусы) для выстрела и виртуального «курка» во всех режимах огня.")]
-	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesAuto = 10f;
+	[Tooltip("Допуск угла ствола (градусы) при стоянии на месте без активного перемещения.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 3f;
+	[Tooltip("Допуск угла ствола (градусы) в приседе/лёжа. Сидячие позы чаще дают небольшой визуальный перекос оружия.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesCrouch = 9f;
+	[Tooltip("Допуск угла ствола (градусы) в приседе/лёжа при активном перемещении.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesCrouchMoving = 10f;
+	[Tooltip("Допуск угла ствола (градусы) при активном перемещении (ходьба, бег, заказ пути).")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesMoving = 8f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsFiringCommandActive;
@@ -67,11 +73,17 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	#endregion
 
 	#region Private Fields
+	private UnitClickToMove m_ClickToMove;
+	private UnitNavLocomotionDriver m_LocomotionDriver;
+	private UnitFallenDragController m_FallenDragController;
 	private int m_BurstShotsRemainingInWave;
 	private float m_NextBurstWaveTime;
 	private float m_NextOutOfAmmoReloadAttemptTime;
 	private bool m_SemiShotConsumedForCurrentTrigger;
 	private Transform m_LastVisibleTargetForFire;
+	private bool m_HasDisciplineBurstOverride;
+	private int m_DisciplineBurstRoundsOverride = 3;
+	private float m_DisciplineBurstPauseOverrideSeconds;
 	#endregion
 
 	#region Public Properties
@@ -96,6 +108,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_HitscanShooting = GetComponent<UnitWeaponHitscanShooting>();
 		if (m_AimProgressController == null)
 			m_AimProgressController = GetComponent<UnitWeaponAimProgressController>();
+		if (m_FireDisciplineController == null)
+			m_FireDisciplineController = GetComponent<UnitWeaponFireDisciplineController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_RecoilController == null)
@@ -104,6 +118,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_VisualRecoilKick = GetComponent<UnitWeaponVisualRecoilKick>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_FallenDragController == null)
+			m_FallenDragController = GetComponent<UnitFallenDragController>();
 		if (GetComponent<UnitStanceCombatModifiers>() == null)
 			gameObject.AddComponent<UnitStanceCombatModifiers>();
 	}
@@ -167,6 +189,20 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	public bool ShouldHoldVirtualTrigger()
 	{
+		if (!ShouldHoldVirtualTriggerIgnoringAim())
+			return false;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
+		return IsAimedEnoughToFire();
+	}
+
+	/// <summary>
+	/// Базовые условия для вступления в огневой контакт без проверки порога прицела.
+	/// Используется огневой дисциплиной, чтобы копить AimProgress между сериями.
+	/// </summary>
+	public bool ShouldHoldVirtualTriggerIgnoringAim()
+	{
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return false;
 
@@ -198,7 +234,21 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
 		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
-		return IsAimedEnoughToFire();
+		return true;
+	}
+
+	public void ConfigureDisciplineBurstOverride(int _burstRounds, float _burstPauseSeconds)
+	{
+		m_HasDisciplineBurstOverride = true;
+		m_DisciplineBurstRoundsOverride = Mathf.Max(2, _burstRounds);
+		m_DisciplineBurstPauseOverrideSeconds = Mathf.Max(0f, _burstPauseSeconds);
+	}
+
+	public void ClearDisciplineBurstOverride()
+	{
+		m_HasDisciplineBurstOverride = false;
+		m_DisciplineBurstRoundsOverride = 3;
+		m_DisciplineBurstPauseOverrideSeconds = 0f;
 	}
 
 	public WeaponFireMode ResolveEffectiveFireMode()
@@ -206,12 +256,24 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		WeaponFireMode selectedMode = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
 			? m_WeaponRuntime.RuntimeState.SelectedFireMode
 			: WeaponFireMode.SemiAuto;
-		WeaponFireMode effectiveMode = m_HitscanShooting != null &&
-			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
-			? selection.EffectiveFireMode
-			: m_WeaponRuntime != null
-			? m_WeaponRuntime.ResolveEffectiveFireMode(EstimateTargetDistanceMeters())
-			: WeaponFireMode.SemiAuto;
+
+		WeaponFireMode effectiveMode;
+		if (m_FireDisciplineController != null &&
+		    m_FireDisciplineController.TryGetEffectiveFireModeOverride(out WeaponFireMode disciplineFireMode))
+		{
+			effectiveMode = disciplineFireMode;
+		}
+		else if (m_HitscanShooting != null &&
+			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection))
+		{
+			effectiveMode = selection.EffectiveFireMode;
+		}
+		else
+		{
+			effectiveMode = m_WeaponRuntime != null
+				? m_WeaponRuntime.ResolveEffectiveFireMode(EstimateTargetDistanceMeters())
+				: WeaponFireMode.SemiAuto;
+		}
 
 		m_DebugSelectedFireMode = selectedMode;
 		m_DebugEffectiveFireMode = effectiveMode;
@@ -233,6 +295,26 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	public void ResetSemiTriggerState()
 	{
 		m_SemiShotConsumedForCurrentTrigger = false;
+	}
+
+	/// <summary>
+	/// Повторный одиночный выстрел при уже удержанном курке после повторного набора прицела.
+	/// </summary>
+	public WeaponShotAttemptResult TryContinueHeldSemiFire()
+	{
+		if (!m_IsFiringCommandActive)
+			return WeaponShotAttemptResult.Busy;
+
+		if (WeaponFireModeUtility.IsAutomaticEffectiveMode(ResolveEffectiveFireMode()))
+			return WeaponShotAttemptResult.Busy;
+
+		if (m_SemiShotConsumedForCurrentTrigger)
+			return WeaponShotAttemptResult.Busy;
+
+		WeaponShotAttemptResult result = TryFireSingleShot();
+		if (result == WeaponShotAttemptResult.Success)
+			m_SemiShotConsumedForCurrentTrigger = true;
+		return result;
 	}
 
 	public WeaponShotAttemptResult TryFireSingleShot()
@@ -291,9 +373,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return WeaponShotAttemptResult.NoVisibleTarget;
 
 		if (!IsAimedEnoughToFire())
+		{
 			return WeaponShotAttemptResult.NotAimed;
+		}
 
-		return m_WeaponRuntime.TryConsumeShot(_currentTime, ResolveEffectiveFireMode(), out _firedAmmoDefinition);
+		WeaponFireMode fireMode = ResolveEffectiveFireMode();
+		return m_WeaponRuntime.TryConsumeShot(_currentTime, fireMode, out _firedAmmoDefinition);
 	}
 
 	public void StopFiring()
@@ -324,7 +409,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_SemiShotConsumedForCurrentTrigger = false;
 		m_DebugBurstShotsRemaining = 0;
 		m_DebugNextBurstWaveTime = 0f;
+		ClearDisciplineBurstOverride();
 		ResetBurstSpreadCounter();
+		m_FireDisciplineController?.InvalidateCurrentSeries();
 	}
 
 	private bool IsAimedEnoughToFire()
@@ -356,9 +443,35 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return true;
 		}
 
-		float maxError = m_MaxBarrelAimErrorDegreesAuto;
+		float maxError = ResolveMaxBarrelAimErrorDegrees();
 		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, toTarget.normalized);
 		return m_DebugLastBarrelAimErrorDegrees <= maxError;
+	}
+
+	private float ResolveMaxBarrelAimErrorDegrees()
+	{
+		LocomotionStance stance = m_Stance != null ? m_Stance.CurrentStance : LocomotionStance.Standing;
+		if (stance == LocomotionStance.Crouch || stance == LocomotionStance.Prone)
+		{
+			return IsMovingForBarrelAimGate()
+				? m_MaxBarrelAimErrorDegreesCrouchMoving
+				: m_MaxBarrelAimErrorDegreesCrouch;
+		}
+
+		if (IsMovingForBarrelAimGate())
+			return m_MaxBarrelAimErrorDegreesMoving;
+
+		return m_MaxBarrelAimErrorDegrees;
+	}
+
+	private bool IsMovingForBarrelAimGate()
+	{
+		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+			return false;
+
+		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
+			return m_LocomotionDriver.HasMoveIntent;
+		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.HasMoveIntent;
 	}
 
 	private bool ShouldSkipBarrelAlignmentForBoltCycle()
@@ -394,13 +507,24 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (_transientState == null || m_WeaponRuntime == null)
 			return false;
 
+		float distanceMeters = EstimateTargetDistanceMeters();
+		if (m_FireDisciplineController != null &&
+		    m_FireDisciplineController.TryGetAimGateOverride(out float disciplineRequiredProgress, out _))
+		{
+			return _transientState.AimProgress01 >= disciplineRequiredProgress;
+		}
+
 		WeaponAimMode effectiveAimMode = m_HitscanShooting != null &&
 			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
 			? selection.EffectiveAimMode
-			: WeaponAimModeUtility.ResolveEffectiveMode(m_WeaponRuntime.SelectedAimMode, EstimateTargetDistanceMeters());
+			: WeaponAimModeUtility.ResolveEffectiveMode(
+				WeaponFireDisciplineModeUtility.MapToAimMode(
+					m_WeaponRuntime.SelectedFireDisciplineMode,
+					distanceMeters),
+				distanceMeters);
 		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
 			effectiveAimMode,
-			EstimateTargetDistanceMeters(),
+			distanceMeters,
 			EstimateFullAimTimeSeconds());
 		return _transientState.AimProgress01 >= requiredProgress;
 	}
@@ -456,8 +580,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (weaponDefinition == null)
 			return;
 
-		int burstSize = Mathf.Max(2, weaponDefinition.BurstRounds);
-		float pause = Mathf.Max(0f, weaponDefinition.BurstPauseSeconds);
+		int burstSize = m_HasDisciplineBurstOverride
+			? Mathf.Max(2, m_DisciplineBurstRoundsOverride)
+			: Mathf.Max(2, weaponDefinition.BurstRounds);
+		float pause = m_HasDisciplineBurstOverride
+			? Mathf.Max(0f, m_DisciplineBurstPauseOverrideSeconds)
+			: Mathf.Max(0f, weaponDefinition.BurstPauseSeconds);
 
 		if (m_BurstShotsRemainingInWave <= 0)
 		{

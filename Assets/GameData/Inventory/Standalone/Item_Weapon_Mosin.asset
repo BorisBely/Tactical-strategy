@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Item_Weapon_Mosin
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.weapon.mosin
-  m_Description: Mosin-Nagant bolt-action rifle chambered in 7.62x54R.
+  m_Description: 7.62x54R bolt-action rifle.
   m_Icon: {fileID: 0}
   m_BasePrice: 1800
-  m_WeightKg: 4.5
+  m_WeightKg: 4.0
   m_Category: 1
   m_DropWorldPrefab: {fileID: 6604482171912045995, guid: 957b857d9f443654487fc401658fc188, type: 3}
   m_EquippedVisualPrefab: {fileID: 2873762478471988984, guid: 2b8dcbee08fcb904eb400c95ed3d0cd9, type: 3}

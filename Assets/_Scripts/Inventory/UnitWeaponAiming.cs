@@ -5,7 +5,7 @@ using UnityEngine;
 /// Горизонталь — корень юнита (<see cref="UnitClickToMove"/>). In high ready with a visible target the weapon root is only local from <see cref="ItemDefinition"/>; the vertical comes from the animation.
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(55)]
+[DefaultExecutionOrder(65)]
 public sealed class UnitWeaponAiming : MonoBehaviour
 {
 	#region Constants
@@ -63,6 +63,15 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[Tooltip("При стрельбе — не ниже этого smooth time для коррекции модели (гасит мелкие колебания).")]
 	[SerializeField] private bool m_SofterWeaponModelCorrectionWhileFiring = true;
 	[SerializeField, Min(0f)] private float m_WeaponModelCorrectionSmoothTimeWhileFiring = 0.12f;
+	[Tooltip("В ready без видимой цели доворачивать модель оружия, чтобы ствол совпадал с горизонталью корня (manual facing по стрелке).")]
+	[SerializeField] private bool m_AlignBarrelToBodyWhenReadyNoTarget = true;
+	[Tooltip("Отдельный yaw-лимит для body-align (ready-поза может давать ~90° ошибку; боевой лимит 20° для этого мал).")]
+	[SerializeField, Range(1f, 120f)] private float m_BodyAlignYawLimitDegrees = 90f;
+	[Tooltip("Сглаживание world-yaw коррекции body-align. Меньше — быстрее подтягивает ствол при стрейфе.")]
+	[SerializeField, Min(0f)] private float m_BodyAlignYawSmoothTime = 0.02f;
+	[Tooltip("Логировать в Console состояние body-align (сила бленда, ошибка yaw до/после).")]
+	[SerializeField] private bool m_LogReadyBodyAlign = true;
+	[SerializeField, Min(0.05f)] private float m_LogReadyBodyAlignIntervalSeconds = 0.25f;
 
 	[Header("Инспектор (только отображение)")]
 	[Tooltip("Сейчас реально активен боевой vertical aim: есть оружие, включён ready, есть видимая цель и стойка не заблокирована переходом.")]
@@ -109,6 +118,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	private float m_SmoothedWeaponPitchDegrees;
 	private float m_WeaponYawVelocity;
 	private float m_WeaponPitchVelocity;
+	private float m_NextReadyBodyAlignLogTime;
 	#endregion
 
 	#region Unity Lifecycle
@@ -202,6 +212,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (IsRuntimePoseTuningActive())
 			return;
 
+		// Болтовое передёргивание: временный якорь держит оружие, не перезаписывать local правой позой.
+		if (m_UnitEquipment.IsWeaponHeldForBoltCycle)
+			return;
+
 		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
 		ItemDefinition def = m_UnitEquipment.EquippedDefinition;
 		if (weaponRoot == null || def == null)
@@ -216,6 +230,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		{
 			Vector3 aimPoint = GetTargetAimPointWorld(m_Vision != null ? m_Vision.VisibleTarget : null);
 			ApplyWeaponModelAimCorrection(weaponRoot, aimPoint, IsFiringForSteadyAim(), baseForAim);
+		}
+		else if (TryGetReadyBodyAlignContext(out float alignStrength))
+		{
+			ApplyWorldBodyBarrelYawAlignment(weaponRoot, baseForAim, alignStrength);
+			LogReadyBodyAlignIfNeeded(alignStrength);
 		}
 		else
 		{
@@ -286,16 +305,156 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (!ready || !hasTarget || !m_AimAtVisibleTarget)
 			return false;
 
-		if (m_BlockAimDuringStanceTransition && m_BusyState != null && m_BusyState.IsBusy &&
-		    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
-			return false;
-
-		if (m_BlockCombatAimDuringReload &&
-			m_ReloadController != null &&
-			m_ReloadController.IsReloadBusy)
+		if (IsAimBlockedByStanceOrReload())
 			return false;
 
 		return true;
+	}
+
+	private bool TryGetReadyBodyAlignContext(out float _strength)
+	{
+		_strength = 0f;
+
+		if (!m_AlignBarrelToBodyWhenReadyNoTarget || !m_EnableWeaponModelAimCorrection)
+			return false;
+
+		bool ready = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
+		if (!ready)
+			return false;
+
+		bool hasTarget = m_Vision != null && m_Vision.VisibleTarget != null;
+		if (hasTarget && m_AimAtVisibleTarget)
+			return false;
+
+		if (IsAimBlockedByStanceOrReload())
+			return false;
+
+		_strength = GetReadyBodyAlignStrength();
+		return _strength > 0.001f;
+	}
+
+	private float GetReadyBodyAlignStrength()
+	{
+		if (m_EquippedWeaponPose == null)
+			return 1f;
+
+		return Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01);
+	}
+
+	private bool IsAimBlockedByStanceOrReload()
+	{
+		if (m_BlockAimDuringStanceTransition && m_BusyState != null && m_BusyState.IsBusy &&
+		    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
+			return true;
+
+		if (m_BlockCombatAimDuringReload &&
+		    m_ReloadController != null &&
+		    m_ReloadController.IsReloadBusy)
+			return true;
+
+		return false;
+	}
+
+	private Vector3 GetBodyForwardXZ()
+	{
+		Transform forwardSource = m_UnitForwardSource != null ? m_UnitForwardSource : transform;
+		return ProjectOnHorizontalPlane(forwardSource.forward);
+	}
+
+	private void ApplyWorldBodyBarrelYawAlignment(
+		Transform _weaponRoot,
+		Quaternion _baseLocalRotation,
+		float _alignStrength)
+	{
+		if (_weaponRoot == null || m_BarrelTransform == null)
+		{
+			ResetWeaponModelCorrectionDebug();
+			return;
+		}
+
+		_weaponRoot.localRotation = _baseLocalRotation;
+
+		Vector3 bodyFwd = GetBodyForwardXZ();
+		Vector3 barrelFwd = ProjectOnHorizontalPlane(m_BarrelTransform.forward);
+		if (bodyFwd.sqrMagnitude < 1e-6f || barrelFwd.sqrMagnitude < 1e-6f)
+		{
+			ResetWeaponModelCorrectionDebug();
+			return;
+		}
+
+		float alignStrength = Mathf.Clamp01(_alignStrength);
+		float rawWorldYawError = Vector3.SignedAngle(barrelFwd, bodyFwd, Vector3.up);
+		float targetYaw = Mathf.Clamp(rawWorldYawError * alignStrength, -m_BodyAlignYawLimitDegrees, m_BodyAlignYawLimitDegrees);
+
+		float smoothTime = Mathf.Max(0.0001f, m_BodyAlignYawSmoothTime);
+		if (m_BodyAlignYawSmoothTime <= 0.0001f)
+		{
+			m_SmoothedWeaponYawDegrees = targetYaw;
+			m_SmoothedWeaponPitchDegrees = 0f;
+			m_WeaponYawVelocity = 0f;
+			m_WeaponPitchVelocity = 0f;
+		}
+		else
+		{
+			m_SmoothedWeaponYawDegrees = Mathf.SmoothDampAngle(
+				m_SmoothedWeaponYawDegrees,
+				targetYaw,
+				ref m_WeaponYawVelocity,
+				smoothTime,
+				Mathf.Infinity,
+				Time.deltaTime);
+			m_SmoothedWeaponPitchDegrees = 0f;
+			m_WeaponPitchVelocity = 0f;
+		}
+
+		if (Mathf.Abs(m_SmoothedWeaponYawDegrees) > 0.0001f)
+			_weaponRoot.rotation = Quaternion.AngleAxis(m_SmoothedWeaponYawDegrees, Vector3.up) * _weaponRoot.rotation;
+
+		m_DebugWeaponYawErrorDegrees = rawWorldYawError;
+		m_DebugWeaponPitchErrorDegrees = 0f;
+		m_DebugWeaponYawAppliedDegrees = m_SmoothedWeaponYawDegrees;
+		m_DebugWeaponPitchAppliedDegrees = 0f;
+	}
+
+	private static Vector3 ProjectOnHorizontalPlane(Vector3 _vector)
+	{
+		Vector3 projected = _vector;
+		projected.y = 0f;
+		if (projected.sqrMagnitude < 1e-6f)
+			return Vector3.zero;
+
+		return projected.normalized;
+	}
+
+	private void LogReadyBodyAlignIfNeeded(float _alignStrength)
+	{
+		if (!m_LogReadyBodyAlign || Time.unscaledTime < m_NextReadyBodyAlignLogTime)
+			return;
+		if (m_BarrelTransform == null)
+			return;
+
+		Transform forwardSource = m_UnitForwardSource != null ? m_UnitForwardSource : transform;
+		Vector3 bodyFwd = forwardSource.forward;
+		bodyFwd.y = 0f;
+		if (bodyFwd.sqrMagnitude < 1e-6f)
+			return;
+		bodyFwd.Normalize();
+
+		Vector3 barrelFwd = m_BarrelTransform.forward;
+		barrelFwd.y = 0f;
+		if (barrelFwd.sqrMagnitude < 1e-6f)
+			return;
+		barrelFwd.Normalize();
+
+		float bodyBarrelDelta = Vector3.SignedAngle(bodyFwd, barrelFwd, Vector3.up);
+		float blend = m_EquippedWeaponPose != null ? m_EquippedWeaponPose.ReadyPoseBlend01 : 1f;
+
+		m_NextReadyBodyAlignLogTime = Time.unscaledTime + Mathf.Max(0.05f, m_LogReadyBodyAlignIntervalSeconds);
+		Debug.Log(
+			$"[ReadyBodyAlign] unit={name} blend={blend:F2} strength={_alignStrength:F2} " +
+			$"body↔barrel={bodyBarrelDelta:F1}° worldYawErr={m_DebugWeaponYawErrorDegrees:F1}° " +
+			$"appliedWorldYaw={m_DebugWeaponYawAppliedDegrees:F1}° limit={m_BodyAlignYawLimitDegrees:F0}°",
+			this);
 	}
 
 	private void ResetAimAnimatorParameters()
@@ -497,7 +656,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		float _yawLimitOverride = -1f,
 		float _pitchUpOverride = -1f,
 		float _pitchDownOverride = -1f,
-		float _smoothTimeOverride = -1f)
+		float _smoothTimeOverride = -1f,
+		float _alignStrength = 1f)
 	{
 		if (!m_EnableWeaponModelAimCorrection || _weaponRoot == null || _weaponRoot.parent == null)
 		{
@@ -508,6 +668,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		float yawLimit = _yawLimitOverride >= 0f ? _yawLimitOverride : m_WeaponModelYawLimitDegrees;
 		float pitchUpLimit = _pitchUpOverride >= 0f ? _pitchUpOverride : m_WeaponModelPitchUpLimitDegrees;
 		float pitchDownLimit = _pitchDownOverride >= 0f ? _pitchDownOverride : m_WeaponModelPitchDownLimitDegrees;
+		float alignStrength = Mathf.Clamp01(_alignStrength);
 
 		Vector3 desiredWorldDir = _aimPointWorld - m_BarrelTransform.position;
 		if (desiredWorldDir.sqrMagnitude < 1e-6f)
@@ -522,13 +683,13 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		Vector3 currentRightParent = parent.InverseTransformDirection(m_BarrelTransform.right).normalized;
 
 		float rawYawError = SignedAngleOnPlane(currentForwardParent, desiredDirParent, Vector3.up);
-		float targetYaw = Mathf.Clamp(rawYawError, -yawLimit, yawLimit);
+		float targetYaw = Mathf.Clamp(rawYawError * alignStrength, -yawLimit, yawLimit);
 
 		Quaternion yawRotation = Quaternion.AngleAxis(targetYaw, Vector3.up);
 		Vector3 yawedForwardParent = yawRotation * currentForwardParent;
 		Vector3 yawedRightParent = (yawRotation * currentRightParent).normalized;
 		float rawPitchError = SignedAngleOnPlane(yawedForwardParent, desiredDirParent, yawedRightParent);
-		float targetPitch = Mathf.Clamp(rawPitchError, -pitchDownLimit, pitchUpLimit);
+		float targetPitch = Mathf.Clamp(rawPitchError * alignStrength, -pitchDownLimit, pitchUpLimit);
 
 		float baselineSmooth = _smoothTimeOverride >= 0f
 			? _smoothTimeOverride

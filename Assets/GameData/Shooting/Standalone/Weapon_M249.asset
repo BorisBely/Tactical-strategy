@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   m_WeaponClass: 5
   m_SupportedCaliber: 3
-  m_SupportedMagazineType: 4
+  m_SupportedMagazineType: 8
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
   m_BuiltInMagazineItem: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
-  m_AvailableFireModes: 0100000000000000
-  m_DefaultFireMode: 1
+  m_AvailableFireModes: 010000000000000003000000
+  m_DefaultFireMode: 3
   m_AttachmentSlots:
   - SlotType: 0
     IsRequired: 0
@@ -203,10 +203,11 @@ MonoBehaviour:
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: 3d6ee6e0515410c4c838911546c78c4a, type: 3}
-    - {fileID: 8300000, guid: 40a9276065d69f04ebe73021676f7fc6, type: 3}
-    - {fileID: 8300000, guid: 7833cce12c063c545abdb01ac6003730, type: 3}
-    - {fileID: 8300000, guid: d81bebac9cee217409b15b76e7011fc6, type: 3}
+    - {fileID: 8300000, guid: 618e755a714544d4eb99877dcbf899b3, type: 3}
+    - {fileID: 8300000, guid: 740bd702a8e862948ab403c7060e3008, type: 3}
+    - {fileID: 8300000, guid: 164b7ecf2a215c44db2bb3dcacc361df, type: 3}
+    - {fileID: 8300000, guid: 467cda69b0cd8354f9afc6fbe894c454, type: 3}
+    - {fileID: 8300000, guid: 0367f26902b1c254dad25dba37467a19, type: 3}
     m_MaxAudibleDistanceMeters: 625
   m_SuppressedFireSoundProfile:
     m_FireClips: []

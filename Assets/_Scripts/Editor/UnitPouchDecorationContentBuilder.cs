@@ -50,6 +50,13 @@ public static class UnitPouchDecorationContentBuilder
 		new PouchSpec { SceneObjectName = "Pouch_Mag_AK_1", OutputName = "PouchDeco_Mag_AK_1", AnchorName = c_Spine01Name, ComponentPropertyName = "m_MagAkVariants", ArrayIndex = 0 },
 		new PouchSpec { SceneObjectName = "Pouch_Mag_AK_2", OutputName = "PouchDeco_Mag_AK_2", AnchorName = c_Spine01Name, ComponentPropertyName = "m_MagAkVariants", ArrayIndex = 1 },
 		new PouchSpec { SceneObjectName = "Pouch_Mag_AK_3", OutputName = "PouchDeco_Mag_AK_3", AnchorName = c_Spine01Name, ComponentPropertyName = "m_MagAkVariants", ArrayIndex = 2 },
+		new PouchSpec
+		{
+			SceneObjectName = "PouchDeco_Mag_12",
+			OutputName = "PouchDeco_Mag_12",
+			AnchorName = c_Spine01Name,
+			ComponentPropertyName = "m_Mag12GaugeVariant"
+		},
 		new PouchSpec { SceneObjectName = "Pouch_R_1", OutputName = "PouchDeco_Side_R_1", AnchorName = c_Spine01Name, ComponentPropertyName = "m_SideRightVariants", ArrayIndex = 0 },
 		new PouchSpec { SceneObjectName = "Pouch_R_2", OutputName = "PouchDeco_Side_R_2", AnchorName = c_Spine01Name, ComponentPropertyName = "m_SideRightVariants", ArrayIndex = 1 },
 		new PouchSpec { SceneObjectName = "Pouch_R_3", OutputName = "PouchDeco_Side_R_3", AnchorName = c_Spine01Name, ComponentPropertyName = "m_SideRightVariants", ArrayIndex = 2 },
@@ -104,6 +111,9 @@ public static class UnitPouchDecorationContentBuilder
 	private static GameObject BuildPouchPrefab(Transform _sceneRoot, PouchSpec _spec)
 	{
 		Transform source = FindChildByName(_sceneRoot, _spec.SceneObjectName);
+		if (source == null)
+			source = FindInLoadedScenes(_spec.SceneObjectName);
+
 		if (source == null)
 		{
 			Debug.LogError($"[UnitPouchDecorationContentBuilder] Missing scene pouch: {_spec.SceneObjectName}");
@@ -449,6 +459,26 @@ public static class UnitPouchDecorationContentBuilder
 		{
 			if (children[i].name == _name)
 				return children[i];
+		}
+
+		return null;
+	}
+
+	private static Transform FindInLoadedScenes(string _name)
+	{
+		for (int s = 0; s < SceneManager.sceneCount; s++)
+		{
+			Scene scene = SceneManager.GetSceneAt(s);
+			if (!scene.isLoaded)
+				continue;
+
+			GameObject[] roots = scene.GetRootGameObjects();
+			for (int r = 0; r < roots.Length; r++)
+			{
+				Transform found = FindChildByName(roots[r].transform, _name);
+				if (found != null)
+					return found;
+			}
 		}
 
 		return null;

@@ -203,9 +203,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
 			return false;
 
-		if (m_LocomotionDriver != null)
+		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
 			return m_LocomotionDriver.HasMoveIntent;
-		return m_ClickToMove != null && m_ClickToMove.HasMoveIntent;
+		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.HasMoveIntent;
 	}
 
 	private float EstimateTargetDistanceMeters()

@@ -111,6 +111,8 @@ RAIL_LASER_CURVES: dict[str, list[tuple[float, float]]] = {
 REFERENCE_WEAPONS = {
     "M4": "Weapon_M4_ModA_1",
     "AK": "Weapon_AK74",
+    "SVD": "Weapon_SVD",
+    "Sniper": "Weapon_Sniper762x51",
 }
 
 RECOIL_GRAPH_RECOVERY = 0.45
@@ -150,7 +152,13 @@ def is_flat_neutral_curve(curve: list[tuple[float, float]]) -> bool:
 
 
 def attachment_label(name: str) -> str:
-    label = name.replace("Attachment_M4_", "").replace("Attachment_AK_", "").replace("Attachment_Mosin_", "")
+    label = (
+        name.replace("Attachment_M4_", "")
+        .replace("Attachment_AK_", "")
+        .replace("Attachment_Mosin_", "")
+        .replace("Attachment_SVD_", "SVD ")
+        .replace("Attachment_Sniper762x51_", "Sniper762 ")
+    )
     return label.replace("_", " ")
 
 
@@ -158,6 +166,12 @@ def attachment_platform(name: str) -> str | None:
     if name.startswith("Attachment_M4_"):
         return "M4"
     if name.startswith("Attachment_AK_"):
+        return "AK"
+    if name.startswith("Attachment_SVD_"):
+        return "SVD"
+    if name.startswith("Attachment_Sniper762x51_"):
+        return "Sniper"
+    if name.startswith("Attachment_Mosin_"):
         return "AK"
     return None
 

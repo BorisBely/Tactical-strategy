@@ -427,7 +427,7 @@
     },
     {
       "key": "item.weapon.mosin",
-      "value": "Mosin-Nagant"
+      "value": "7.62x54R Bolt-Action Rifle"
     },
     {
       "key": "item.weapon.benelli_m4",
@@ -495,7 +495,7 @@
     },
     {
       "key": "item.mag.mosin_762_54r_5",
-      "value": "Mosin internal magazine (5 rds)"
+      "value": "Bolt-action rifle magazine (5 rds)"
     },
     {
       "key": "item.mag.m249_556_200",
@@ -536,6 +536,22 @@
     {
       "key": "item.attachment.mosin_scope8",
       "value": "Standard sniper scope"
+    },
+    {
+      "key": "item.attachment.svd_silencer",
+      "value": "SVD suppressor"
+    },
+    {
+      "key": "item.attachment.svd_muzzle_brake",
+      "value": "SVD compensator"
+    },
+    {
+      "key": "item.attachment.sniper762x51_silencer",
+      "value": "7.62x51 sniper suppressor"
+    },
+    {
+      "key": "item.attachment.sniper762x51_muzzle_brake",
+      "value": "7.62x51 sniper muzzle brake"
     },
     {
       "key": "item.weapon.ak47.desc",
@@ -587,7 +603,7 @@
     },
     {
       "key": "item.weapon.mosin.desc",
-      "value": "Mosin-Nagant bolt-action rifle in 7.62x54R. Slow but accurate at long range."
+      "value": "Bolt-action rifle in 7.62x54R. Slow but accurate at long range."
     },
     {
       "key": "item.weapon.benelli_m4.desc",
@@ -647,15 +663,15 @@
     },
     {
       "key": "item.loot.ammo_box.12g.desc",
-      "value": "Box of 25 rounds of 12 gauge buckshot (~1.15 kg)."
+      "value": "Box of 25 shotgun shells, 12 gauge (~1.05 kg)."
     },
     {
       "key": "item.loot.ammo_box.762x51.desc",
-      "value": "7.62x51 NATO ammo box."
+      "value": "Box of 20 rounds of 7.62x51 NATO (~0.55 kg)."
     },
     {
       "key": "item.loot.ammo_box.762x54r.desc",
-      "value": "7.62x54R ammo box."
+      "value": "Box of 20 rounds of 7.62x54R (~0.50 kg)."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -703,7 +719,7 @@
     },
     {
       "key": "item.mag.mosin_762_54r_5.desc",
-      "value": "5-round internal magazine for Mosin rifle."
+      "value": "5-round 7.62x54R magazine for the bolt-action rifle."
     },
     {
       "key": "item.mag.m249_556_200.desc",
@@ -860,6 +876,22 @@
     {
       "key": "item.attachment.mosin_scope8.desc",
       "value": "Standard sniper scope."
+    },
+    {
+      "key": "item.attachment.svd_silencer.desc",
+      "value": "Suppressor for SVD. Quieter shot, slightly longer effective range; increases fouling."
+    },
+    {
+      "key": "item.attachment.svd_muzzle_brake.desc",
+      "value": "Compensator / flash hider for SVD. Reduces semi-auto recoil."
+    },
+    {
+      "key": "item.attachment.sniper762x51_silencer.desc",
+      "value": "Suppressor for 7.62x51 sniper rifle. Quieter shot, slightly longer effective range."
+    },
+    {
+      "key": "item.attachment.sniper762x51_muzzle_brake.desc",
+      "value": "Muzzle brake for 7.62x51 sniper rifle. Reduces semi-auto recoil."
     },
     {
       "key": "pause.title",

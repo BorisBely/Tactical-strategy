@@ -30,15 +30,15 @@ public static class ItemWeightDefaults
 		{ "item.weapon.pkm", 8.2f },
 		{ "item.weapon.svd", 4.3f },
 
-		{ "item.mag.mosin_762_54r_5", 0.1f },
+		{ "item.mag.mosin_762_54r_5", 0.25f },
 		{ "item.mag.m249_556_200", 2.8f },
 		{ "item.mag.sniper_762x51_10", 0.5f },
 		{ "item.mag.pkm_762_54r_100", 2.5f },
 		{ "item.mag.svd_762_54r_10", 0.4f },
 
-		{ "item.loot.ammo_box.12g", 1.15f },
-		{ "item.loot.ammo_box.762x51", 0.65f },
-		{ "item.loot.ammo_box.762x54r", 0.65f },
+		{ "item.loot.ammo_box.12g", 1.05f },
+		{ "item.loot.ammo_box.762x51", 0.55f },
+		{ "item.loot.ammo_box.762x54r", 0.50f },
 
 		{ "item.mag.m4_556_20", 0.5f },
 		{ "item.mag.m4_556_30", 0.7f },
@@ -89,6 +89,10 @@ public static class ItemWeightDefaults
 		{ "item.attachment.ak_reddot4_rail", 0.35f },
 		{ "item.attachment.ak_scope11", 0.55f },
 		{ "item.attachment.mosin_scope8", 0.7f },
+		{ "item.attachment.svd_silencer", 0.48f },
+		{ "item.attachment.svd_muzzle_brake", 0.18f },
+		{ "item.attachment.sniper762x51_silencer", 0.5f },
+		{ "item.attachment.sniper762x51_muzzle_brake", 0.2f },
 
 		{ "item.grenade.frag_01", 0.4f },
 		{ "item.grenade.flash_01", 0.3f },

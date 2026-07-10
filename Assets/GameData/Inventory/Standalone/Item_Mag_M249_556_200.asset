@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: 200-round belt box for M249 SAW.
   m_Icon: {fileID: 0}
   m_BasePrice: 420
-  m_WeightKg: 0
+  m_WeightKg: 3.1
   m_Category: 0
   m_DropWorldPrefab: {fileID: 3424326644494638199, guid: 4a2861a9e1bd95641884f704b39e5744, type: 3}
   m_EquippedVisualPrefab: {fileID: 6040666746195479880, guid: 5872e4cf898c6f84bbe77ba541677208, type: 3}

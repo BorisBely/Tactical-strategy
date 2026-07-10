@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 /// Переключение стоя ↔ присед (C): заказ скорости сбрасывается на шаг, чтобы после приседа не продолжался бег/спринт.
 /// Двойной ПКМ из приседа/лёжа: встать и сразу спринт — отдельный путь, сброс на шаг не применяется.
 /// В приседе/лёжа — скорость агента по стойке; скорость приседа задаётся в м/с под клип.
-/// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; при engage горизонталь от <see cref="UnitVision.GetEngageFacingOriginWorld"/> если активен прицел в UnitVision, иначе от корня. NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>). В UnitVision — расширение конуса при удержании цели.
+/// Поворот на цель: yaw через <see cref="m_FacingTargetYawSmoothTime"/>; видимая цель всегда приоритетнее жёлтой стрелки (OverrideFacingAngle), после потери цели юнит возвращается к стрелке. При engage горизонталь от <see cref="UnitVision.GetEngageFacingOriginWorld"/> если активен прицел в UnitVision, иначе от корня. NavStrafe/NavForward сглаживаются (<see cref="m_DirectionSmoothTime"/>, при engage — <see cref="m_EngageDirectionSmoothTime"/>).
 /// Root motion у Animator выключен.
 /// В лёже <c>LocomotionTier</c> на аниматоре всегда 0 (ползок). Параметры: NavSpeed, NavStrafe, NavForward, LocomotionTier, Stance.
 /// На время клипов смены стойки с лёжа (без оружия и с винтовкой, см. <see cref="IsStanceTransitionMovementBlocked"/>) NavMesh и очередь ПКМ замирают до конца клипа.
@@ -60,6 +60,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitTeam m_Team;
@@ -106,9 +107,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
 	[Tooltip("Не разворачивать корень на видимую цель (engage) во время перезарядки и передёргивания затвора.")]
 	[SerializeField] private bool m_BlockEngageFacingDuringReload = true;
-	[Tooltip("Половина конуса вокруг угла жёлтой стрелки (ПКМ): если видимая цель внутри — ручной поворот; иначе engage к цели в FOV.")]
+	[Tooltip("Legacy: раньше ограничивал engage внутри конуса стрелки. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
 	[SerializeField, Range(5f, 90f)] private float m_ManualFacingTargetConeHalfAngle = 30f;
-	[Tooltip("Внутри конуса стрелки: пока ошибка yaw к цели больше этого угла, корень доворачивается engage-ом (точное наведение ствола).")]
+	[Tooltip("Legacy: раньше handoff стрелка→engage. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
 	[SerializeField, Range(0.5f, 15f)] private float m_ManualFacingEngageHandoffDegrees = 3f;
 
 	[Header("Боёвка: стабильная стойка при стрельбе")]
@@ -154,6 +155,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
 	[SerializeField, Range(0.5f, 2f)] private float m_PlaybackSyncMax = 1.45f;
 
+	[Header("Debug: ready move facing")]
+	[Tooltip("В ready при движении логирует yaw тела, ствола, пути и цели — чтобы поймать расхождение «юнит и оружие смотрят в разные стороны».")]
+	[SerializeField] private bool m_LogReadyMoveFacingMismatch;
+	[SerializeField, Min(0.05f)] private float m_LogReadyMoveFacingIntervalSeconds = 0.25f;
+	[Tooltip("Логировать только если |body↔barrel| или |move↔barrel| больше этого порога (градусы). 0 = всегда.")]
+	[SerializeField, Min(0f)] private float m_LogReadyMoveFacingMinDeltaDegrees = 5f;
+
 	private NavMeshAgent m_Agent;
 	private MoveTier m_Mode = MoveTier.Walk;
 	private LocomotionStance m_LastStance = LocomotionStance.Standing;
@@ -188,6 +196,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	/// <summary>Предыдущий кадр: шла блокировка движения из‑за клипа смены стойки (для однократного снятия isStopped).</summary>
 	private bool m_StanceMovementWasBlocked;
 	private RtsUnitMember m_CachedRtsMember;
+	private float m_NextReadyMoveFacingLogTime;
 
 	public bool IsSprintMoveMode => IsSprintActive();
 	public bool IsRunMoveMode => IsRunActive();
@@ -403,6 +412,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_FireController == null)
@@ -525,6 +536,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		UpdateAgentSpeedToTarget();
 		UpdateFacing();
+		LogReadyMoveFacingMismatchIfNeeded();
 		PushAnimator();
 		TryRestoreReadyAfterSprintWhenStopped();
 		TryRestoreReadyAfterRunWhenStopped();
@@ -992,6 +1004,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_EngageYawVelocity = 0f;
 
+		bool readyIdleHoldFacing = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
 		Vector3 moveDir = Vector3.zero;
 		Vector3 vel = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
 		float planarSpeed = vel.magnitude;
@@ -1000,6 +1013,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 			moveDir = vel.normalized;
 		else if (NavAgentHasIncompletePath())
 		{
+			if (readyIdleHoldFacing)
+			{
+				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+				m_TurnSuppressedReady = false;
+				return;
+			}
+
 			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
 			toSteer.y = 0f;
 			if (toSteer.sqrMagnitude < 1e-6f)
@@ -1045,9 +1065,131 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
 	}
 
+	private void LogReadyMoveFacingMismatchIfNeeded()
+	{
+		if (!m_LogReadyMoveFacingMismatch)
+			return;
+		if (Time.unscaledTime < m_NextReadyMoveFacingLogTime)
+			return;
+		if (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady())
+			return;
+
+		Vector3 bodyFwd = transform.forward;
+		bodyFwd.y = 0f;
+		if (bodyFwd.sqrMagnitude < 1e-6f)
+			return;
+		bodyFwd.Normalize();
+
+		if (!TryGetWeaponBarrelForwardXZ(out Vector3 barrelFwd))
+			return;
+
+		bool hasMoveDir = TryGetMovementFacingDirection(out Vector3 moveFwd);
+		bool engaging = IsEngagingVisibleTarget();
+		bool manualFacing = ShouldApplyManualFacingOverride();
+
+		float bodyYaw = Mathf.Atan2(bodyFwd.x, bodyFwd.z) * Mathf.Rad2Deg;
+		float barrelYaw = Mathf.Atan2(barrelFwd.x, barrelFwd.z) * Mathf.Rad2Deg;
+		float bodyBarrelDelta = Vector3.SignedAngle(bodyFwd, barrelFwd, Vector3.up);
+
+		float moveYaw = 0f;
+		float moveBarrelDelta = 0f;
+		float bodyMoveDelta = 0f;
+		if (hasMoveDir)
+		{
+			moveYaw = Mathf.Atan2(moveFwd.x, moveFwd.z) * Mathf.Rad2Deg;
+			moveBarrelDelta = Vector3.SignedAngle(moveFwd, barrelFwd, Vector3.up);
+			bodyMoveDelta = Vector3.SignedAngle(bodyFwd, moveFwd, Vector3.up);
+		}
+
+		float targetYaw = 0f;
+		float bodyTargetDelta = 0f;
+		float barrelTargetDelta = 0f;
+		bool hasTargetBearing = false;
+		string targetName = "none";
+		if (m_Vision != null && m_Vision.VisibleTarget != null)
+		{
+			targetName = m_Vision.VisibleTarget.name;
+			Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+			if (aimPoint == Vector3.zero)
+				aimPoint = m_Vision.VisibleTarget.position;
+
+			Vector3 toTarget = aimPoint - transform.position;
+			toTarget.y = 0f;
+			if (toTarget.sqrMagnitude > 1e-6f)
+			{
+				Vector3 targetDir = toTarget.normalized;
+				targetYaw = Mathf.Atan2(targetDir.x, targetDir.z) * Mathf.Rad2Deg;
+				bodyTargetDelta = Vector3.SignedAngle(bodyFwd, targetDir, Vector3.up);
+				barrelTargetDelta = Vector3.SignedAngle(barrelFwd, targetDir, Vector3.up);
+				hasTargetBearing = true;
+			}
+		}
+
+		float maxAbsDelta = Mathf.Abs(bodyBarrelDelta);
+		if (hasMoveDir)
+			maxAbsDelta = Mathf.Max(maxAbsDelta, Mathf.Abs(moveBarrelDelta), Mathf.Abs(bodyMoveDelta));
+		if (hasTargetBearing)
+			maxAbsDelta = Mathf.Max(maxAbsDelta, Mathf.Abs(bodyTargetDelta), Mathf.Abs(barrelTargetDelta));
+
+		if (m_LogReadyMoveFacingMinDeltaDegrees > 0f && maxAbsDelta < m_LogReadyMoveFacingMinDeltaDegrees)
+			return;
+
+		m_NextReadyMoveFacingLogTime = Time.unscaledTime + Mathf.Max(0.05f, m_LogReadyMoveFacingIntervalSeconds);
+
+		string movePart = hasMoveDir
+			? $" moveYaw={moveYaw:F1}° body↔move={bodyMoveDelta:F1}° move↔barrel={moveBarrelDelta:F1}°"
+			: " move=none";
+		string targetPart = hasTargetBearing
+			? $" targetYaw={targetYaw:F1}° body↔target={bodyTargetDelta:F1}° barrel↔target={barrelTargetDelta:F1}°"
+			: " targetBearing=none";
+		string facingMode = engaging
+			? "engage"
+			: manualFacing
+				? "manualOverride"
+				: "path";
+
+		Debug.Log(
+			$"[ReadyMoveFacing] unit={name} mode={facingMode} tier={m_Mode} " +
+			$"bodyYaw={bodyYaw:F1}° barrelYaw={barrelYaw:F1}° body↔barrel={bodyBarrelDelta:F1}°" +
+			$"{movePart}{targetPart} target={targetName} " +
+			$"navFwd={(m_Animator != null ? m_Animator.GetFloat(s_NavForward) : 0f):F2} " +
+			$"navStrafe={(m_Animator != null ? m_Animator.GetFloat(s_NavStrafe) : 0f):F2}",
+			this);
+	}
+
+	private bool TryGetWeaponBarrelForwardXZ(out Vector3 _forwardXZ)
+	{
+		_forwardXZ = default;
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_Equipment == null)
+			return false;
+
+		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+		if (weapon == null)
+			return false;
+
+		Transform barrel = weapon.BarrelTransform != null ? weapon.BarrelTransform : weapon.FireOriginTransform;
+		if (barrel == null)
+			return false;
+
+		Vector3 barrelFwd = barrel.forward;
+		barrelFwd.y = 0f;
+		if (barrelFwd.sqrMagnitude < 1e-6f)
+			return false;
+
+		_forwardXZ = barrelFwd.normalized;
+		return true;
+	}
+
 	private bool ShouldApplyManualFacingOverride()
 	{
 		if (!OverrideFacingAngle.HasValue)
+			return false;
+
+		// Цель всегда приоритетнее жёлтой стрелки: пока есть engage — крутим корень на цель.
+		// После потери/убийства цели OverrideFacingAngle остаётся и юнит возвращается к стрелке.
+		if (IsEngagingVisibleTarget())
 			return false;
 
 		bool moving = IsPlanarMoving();
@@ -1059,34 +1201,6 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return false;
 		}
 
-		if (!IsEngagingVisibleTarget())
-			return true;
-
-		if (!TryGetVisibleTargetBearingDegrees(out float targetBearing))
-			return true;
-
-		float deltaFromCommand = Mathf.Abs(Mathf.DeltaAngle(OverrideFacingAngle.Value, targetBearing));
-		if (deltaFromCommand > m_ManualFacingTargetConeHalfAngle)
-			return false;
-
-		if (deltaFromCommand > m_ManualFacingEngageHandoffDegrees)
-			return false;
-
-		return true;
-	}
-
-	private bool TryGetVisibleTargetBearingDegrees(out float _bearingDegrees)
-	{
-		_bearingDegrees = 0f;
-		if (m_Vision == null || m_Vision.VisibleTarget == null)
-			return false;
-
-		Vector3 toTarget = m_Vision.GetVisibleTargetAimPointWorld() - transform.position;
-		toTarget.y = 0f;
-		if (toTarget.sqrMagnitude < 1e-6f)
-			return false;
-
-		_bearingDegrees = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
 		return true;
 	}
 

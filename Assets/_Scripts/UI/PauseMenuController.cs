@@ -114,6 +114,9 @@ public sealed class PauseMenuController : MonoBehaviour
 		GamePauseState.SetMenuPaused(_paused);
 		TacticalPauseController.NotifyMenuPauseChanged(_paused);
 
+		if (_paused)
+			RtsUnitSelectionManager.Instance?.AbortActivePointerGestures();
+
 		if (m_RootPanel != null)
 			m_RootPanel.SetActive(_paused);
 

@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: 100-round belt box for PKM.
   m_Icon: {fileID: 0}
   m_BasePrice: 380
-  m_WeightKg: 0
+  m_WeightKg: 3.6
   m_Category: 0
   m_DropWorldPrefab: {fileID: 5959444831340754914, guid: 2dfa7107440b6e2488ce187be9c14f0b, type: 3}
   m_EquippedVisualPrefab: {fileID: 292969738878341042, guid: 51e75f46118043f4591efc29369c8e36, type: 3}

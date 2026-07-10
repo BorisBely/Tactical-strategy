@@ -28,6 +28,12 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 	[Tooltip("Положительное значение улучшает контроль отдачи.")]
 	[SerializeField, Range(-MaxCombatModifier, MaxCombatModifier)] private float m_RecoilControlModifier;
 
+	[Header("Fire Discipline Personality (±10%)")]
+	[Tooltip("Положительное = длиннее очереди и короче паузы (агрессивнее).")]
+	[SerializeField, Range(-MaxCombatModifier, MaxCombatModifier)] private float m_FireAggressionModifier;
+	[Tooltip("Положительное = длиннее паузы между сериями (спокойнее темп).")]
+	[SerializeField, Range(-MaxCombatModifier, MaxCombatModifier)] private float m_FireCadenceModifier;
+
 	[Header("Equipment Visual Preferences")]
 	[SerializeField] private UnitEquipmentVisualPreferenceEntry[] m_EquipmentVisualPreferences =
 		Array.Empty<UnitEquipmentVisualPreferenceEntry>();
@@ -44,6 +50,8 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 	public float MarksmanshipModifier => m_MarksmanshipModifier;
 	public float WeaponHandlingModifier => m_WeaponHandlingModifier;
 	public float RecoilControlModifier => m_RecoilControlModifier;
+	public float FireAggressionModifier => m_FireAggressionModifier;
+	public float FireCadenceModifier => m_FireCadenceModifier;
 	public int HeadHairVariant => m_HeadHairVariant;
 	public int HeadHatVariant => m_HeadHatVariant;
 	public int HeadBeardVariant => m_HeadBeardVariant;
@@ -65,6 +73,8 @@ public sealed class UnitIndividualTraits : MonoBehaviour
 		m_MarksmanshipModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
 		m_WeaponHandlingModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
 		m_RecoilControlModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
+		m_FireAggressionModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
+		m_FireCadenceModifier = UnityEngine.Random.Range(-MaxCombatModifier, MaxCombatModifier);
 		RollEquipmentVisualPreferences();
 		RollHeadAppearance(ResolveCurrentRank(), ResolveCurrentGender());
 		m_IsInitialized = true;

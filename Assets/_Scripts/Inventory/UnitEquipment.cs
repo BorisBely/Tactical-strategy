@@ -18,6 +18,7 @@ public class UnitEquipment : MonoBehaviour
 	[Tooltip("Кость или пустой объект в правой кисти — родитель для Equipped Visual Prefab.")]
 	[FormerlySerializedAs("m_MainHand")]
 	[SerializeField] private Transform m_RightHand;
+
 	#endregion
 
 	#region Private Fields
@@ -29,6 +30,12 @@ public class UnitEquipment : MonoBehaviour
 	private Transform m_RightHandIkTarget;
 	private Transform m_RightHandIkTargetNotReady;
 	private EquippedWeapon m_EquippedWeapon;
+	private bool m_WeaponParentedToLeftHandForBoltCycle;
+	private Transform m_BoltCycleOriginalWeaponParent;
+	private Vector3 m_BoltCycleOriginalLocalPosition;
+	private Quaternion m_BoltCycleOriginalLocalRotation = Quaternion.identity;
+	private Vector3 m_BoltCycleOriginalLocalScale = Vector3.one;
+	private Transform m_BoltCycleWeaponHoldAnchor;
 	#endregion
 
 	#region Public Properties
@@ -58,6 +65,107 @@ public class UnitEquipment : MonoBehaviour
 
 	/// <summary>Якорь правой руки (родитель визуала оружия).</summary>
 	public Transform RightHandAnchor => m_RightHand;
+
+	/// <summary>True, пока оружие временно удерживается стабильным якорем для болтового передёргивания.</summary>
+	public bool IsWeaponHeldForBoltCycle => m_WeaponParentedToLeftHandForBoltCycle;
+
+	/// <summary>Legacy alias for systems that only need to know that bolt-cycle hold owns weapon pose.</summary>
+	public bool IsWeaponParentedToLeftHandForBoltCycle => IsWeaponHeldForBoltCycle;
+
+	/// <summary>
+	/// Отвязать оружие от правой кисти на стабильный якорь (world pose сохраняется), чтобы правая могла крутить затвор.
+	/// </summary>
+	public bool TryBeginBoltCycleLeftHandGrip()
+	{
+		if (m_MainWeaponInstance == null || m_RightHand == null)
+			return false;
+
+		if (m_WeaponParentedToLeftHandForBoltCycle && m_BoltCycleWeaponHoldAnchor != null)
+			return true;
+
+		Transform weaponTransform = m_MainWeaponInstance.transform;
+		m_BoltCycleOriginalWeaponParent = weaponTransform.parent;
+		m_BoltCycleOriginalLocalPosition = weaponTransform.localPosition;
+		m_BoltCycleOriginalLocalRotation = weaponTransform.localRotation;
+		m_BoltCycleOriginalLocalScale = weaponTransform.localScale;
+
+		Vector3 worldPosition = weaponTransform.position;
+		Quaternion worldRotation = weaponTransform.rotation;
+		Vector3 worldScale = weaponTransform.lossyScale;
+
+		m_BoltCycleWeaponHoldAnchor = CreateBoltCycleWeaponHoldAnchor(worldPosition, worldRotation);
+		if (m_BoltCycleWeaponHoldAnchor == null)
+			return false;
+
+		weaponTransform.SetParent(m_BoltCycleWeaponHoldAnchor, true);
+		weaponTransform.SetPositionAndRotation(worldPosition, worldRotation);
+		PreserveWorldScaleAsLocal(weaponTransform, worldScale);
+
+		m_WeaponParentedToLeftHandForBoltCycle = true;
+		return true;
+	}
+
+	private Transform CreateBoltCycleWeaponHoldAnchor(Vector3 _worldPosition, Quaternion _worldRotation)
+	{
+		GameObject anchorObject = new GameObject("BoltCycleWeaponHoldAnchor");
+		Transform anchorTransform = anchorObject.transform;
+		anchorTransform.SetPositionAndRotation(_worldPosition, _worldRotation);
+		anchorTransform.SetParent(transform, true);
+		return anchorTransform;
+	}
+
+	private static void PreserveWorldScaleAsLocal(Transform _transform, Vector3 _worldScale)
+	{
+		if (_transform == null)
+			return;
+
+		Transform parent = _transform.parent;
+		if (parent == null)
+		{
+			_transform.localScale = _worldScale;
+			return;
+		}
+
+		Vector3 parentLossy = parent.lossyScale;
+		_transform.localScale = new Vector3(
+			ApproximatelyZero(parentLossy.x) ? _worldScale.x : _worldScale.x / parentLossy.x,
+			ApproximatelyZero(parentLossy.y) ? _worldScale.y : _worldScale.y / parentLossy.y,
+			ApproximatelyZero(parentLossy.z) ? _worldScale.z : _worldScale.z / parentLossy.z);
+	}
+
+	private static bool ApproximatelyZero(float _value)
+	{
+		return Mathf.Abs(_value) < 1e-8f;
+	}
+
+	/// <summary>Вернуть оружие к исходному родителю и локальной позе до болтового цикла.</summary>
+	public void EndBoltCycleLeftHandGrip()
+	{
+		if (!m_WeaponParentedToLeftHandForBoltCycle)
+			return;
+
+		m_WeaponParentedToLeftHandForBoltCycle = false;
+		if (m_MainWeaponInstance == null)
+		{
+			ClearBoltCycleHoldState();
+			return;
+		}
+
+		Transform weaponTransform = m_MainWeaponInstance.transform;
+		Transform restoreParent = m_BoltCycleOriginalWeaponParent != null ? m_BoltCycleOriginalWeaponParent : m_RightHand;
+		if (restoreParent == null)
+		{
+			ClearBoltCycleHoldState();
+			return;
+		}
+
+		weaponTransform.SetParent(restoreParent, false);
+		weaponTransform.localPosition = m_BoltCycleOriginalLocalPosition;
+		weaponTransform.localRotation = m_BoltCycleOriginalLocalRotation;
+		weaponTransform.localScale = m_BoltCycleOriginalLocalScale;
+
+		ClearBoltCycleHoldState();
+	}
 	#endregion
 
 	#region Public Methods
@@ -234,6 +342,9 @@ public class UnitEquipment : MonoBehaviour
 	#region Private Methods
 	private void ClearMainWeaponInternal(bool _notifyChanged)
 	{
+		m_WeaponParentedToLeftHandForBoltCycle = false;
+		ClearBoltCycleHoldState();
+
 		if (m_DetachedWeaponInstance != null)
 		{
 			Destroy(m_DetachedWeaponInstance);
@@ -259,6 +370,20 @@ public class UnitEquipment : MonoBehaviour
 	private void NotifyEquipmentChanged()
 	{
 		EquipmentChanged?.Invoke();
+	}
+
+	private void ClearBoltCycleHoldState()
+	{
+		m_BoltCycleOriginalWeaponParent = null;
+		m_BoltCycleOriginalLocalPosition = Vector3.zero;
+		m_BoltCycleOriginalLocalRotation = Quaternion.identity;
+		m_BoltCycleOriginalLocalScale = Vector3.one;
+
+		if (m_BoltCycleWeaponHoldAnchor != null)
+		{
+			Destroy(m_BoltCycleWeaponHoldAnchor.gameObject);
+			m_BoltCycleWeaponHoldAnchor = null;
+		}
 	}
 
 	private static void DisablePhysicsOnEquippedVisual(GameObject _root)

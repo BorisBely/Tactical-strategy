@@ -1,8 +1,41 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+
+/// <summary>
+/// Одноразовый автозапуск настройки Animator после recompilation/import в Unity.
+/// Нужен, чтобы изменения были созданы через Unity API, а не только YAML-правкой.
+/// </summary>
+[InitializeOnLoad]
+internal static class UnitAnimControllerAimRelaxedSetupBootstrap
+{
+	private const string c_MarkerPath = "Assets/.unit_anim_controller_setup_marker";
+
+	static UnitAnimControllerAimRelaxedSetupBootstrap()
+	{
+		EditorApplication.delayCall += TryRunFromMarker;
+	}
+
+	private static void TryRunFromMarker()
+	{
+		if (!File.Exists(c_MarkerPath))
+			return;
+
+		try
+		{
+			File.Delete(c_MarkerPath);
+			File.Delete(c_MarkerPath + ".meta");
+			UnitAnimControllerAimRelaxedSetup.SetupAimLayerRelaxedReloadGraph();
+		}
+		catch (System.Exception exception)
+		{
+			Debug.LogError($"[UnitAnimControllerAimRelaxedSetup] Auto-run failed: {exception}");
+		}
+	}
+}
 
 /// <summary>
 /// Настраивает граф relaxed-перезарядки на слое Aim_Point_U90-D90 через Unity API
@@ -17,13 +50,29 @@ public static class UnitAnimControllerAimRelaxedSetup
 	private const string c_CrouchPitchBlend = "Crouch_Aim_Pitch_Blend";
 	private const string c_AimReload = "Stand_Aim_Reload";
 	private const string c_AimBolt = "Stand_CyclingBolt";
+	private const string c_AimBoltAk = "Stand_CyclingBolt_AK";
+	private const string c_AimBoltAction = "Stand_Aim_BoltCycle";
+	private const string c_RifleCrouchIdle = "RifleCrouch_Idle";
+	private const string c_RifleCrouchIdleReady = "RifleCrouch_Idle_Ready";
 	private const string c_RelaxedIdle = "Stand_Relaxed_Idle";
 	private const string c_RelaxedReload = "Stand_Relaxed_Reload";
 	private const string c_RelaxedBolt = "Stand_Relaxed__CyclingBolt";
+	private const string c_RelaxedBoltAk = "Stand_Relaxed__CyclingBolt_AK";
+	private const string c_RelaxedBoltAction = "Stand_Relaxed_BoltCycle";
 
-	private const string c_ClipRelaxedIdle = "Assets/Animations/Rifle/Stand/Stand_Relaxed_Idle.anim";
+	private const string c_ClipRelaxedIdle = "Assets/Animations/Rifle/Stand/Stand_Relaxed_Rifle_Idle.anim";
 	private const string c_ClipRelaxedReload = "Assets/Animations/Rifle/Stand/Stand_Relaxed_Reload.anim";
 	private const string c_ClipRelaxedBolt = "Assets/Animations/Rifle/Stand/Stand_Relaxed__CyclingBolt.anim";
+	private const string c_ClipRelaxedBoltAk = "Assets/Animations/Rifle/Stand/Stand_Relaxed__CyclingBolt_AK.anim";
+	private const string c_ClipAimBoltAk = "Assets/Animations/Rifle/Stand/Stand_CyclingBolt_AK.anim";
+	private const string c_ClipAimBoltAction = "Assets/Animations/Rifle/Stand/Stand_Aim_BoltCycle.anim";
+	private const string c_ClipRelaxedBoltAction = "Assets/Animations/Rifle/Stand/Stand_Relaxed_BoltCycle.anim";
+	private const string c_ClipRifleCrouchIdleLegacy = "Assets/Animations/Rifle/Crouch/Crouch_Idle_LegacyRifle.anim";
+	private const string c_ClipCrouchAimLegacyPitch = "Assets/Animations/Rifle/Crouch/Crouch_Aim_Idle_LegacyPitch.anim";
+
+	private const string c_EventBoltActionCycleSoundStarted = "AnimationEvent_BoltActionCycleSoundStarted";
+	private const string c_EventFinishWeaponReload = "AnimationEvent_FinishWeaponReload";
+	private const float c_BoltCycleFinishEventTime = 0.6666667f;
 
 	private const string c_ParamWeaponReady = "WeaponReady";
 	private const string c_ParamIsReloading = "IsReloadingWeapon";
@@ -34,6 +83,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 	public static void SetupAimLayerRelaxedReloadGraph()
 	{
 		CloseAnimatorWindowsForController(c_ControllerPath);
+		ImportRequiredAssets();
 
 		var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(c_ControllerPath);
 		if (controller == null)
@@ -66,6 +116,11 @@ public static class UnitAnimControllerAimRelaxedSetup
 		AnimationClip relaxedIdleClip = LoadClip(c_ClipRelaxedIdle);
 		AnimationClip relaxedReloadClip = LoadClip(c_ClipRelaxedReload);
 		AnimationClip relaxedBoltClip = LoadClip(c_ClipRelaxedBolt);
+		AnimationClip rifleCrouchIdleLegacyClip = LoadClip(c_ClipRifleCrouchIdleLegacy);
+		AnimationClip crouchAimLegacyPitchClip = LoadClip(c_ClipCrouchAimLegacyPitch);
+
+		EnsureStateMotion(controller, c_RifleCrouchIdle, rifleCrouchIdleLegacyClip);
+		EnsureStateMotion(controller, c_RifleCrouchIdleReady, crouchAimLegacyPitchClip);
 
 		AnimatorState relaxedIdle = EnsureMotionState(sm, c_RelaxedIdle, relaxedIdleClip);
 		AnimatorState relaxedReload = EnsureMotionState(sm, c_RelaxedReload, relaxedReloadClip);
@@ -74,6 +129,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 		RemoveDuplicateNamedStates(sm, c_RelaxedIdle, relaxedIdle);
 		RemoveDuplicateNamedStates(sm, c_RelaxedReload, relaxedReload);
 		RemoveDuplicateNamedStates(sm, c_RelaxedBolt, relaxedBolt);
+		RepointTransitionsByDestinationName(sm, c_RelaxedIdle, relaxedIdle);
 
 		RemoveTransition(pitchBlend, relaxedReload);
 		RemoveTransition(pitchBlend, relaxedBolt);
@@ -221,6 +277,99 @@ public static class UnitAnimControllerAimRelaxedSetup
 			CondIfNot(c_ParamIsCyclingBolt),
 			CondIfNot(c_ParamWeaponReady));
 
+		// Болтовые винтовки: отдельные клипы (вход через Animator.Play из ReloadController).
+		AnimationClip aimBoltActionClip = LoadClip(c_ClipAimBoltAction);
+		AnimationClip relaxedBoltActionClip = LoadClip(c_ClipRelaxedBoltAction);
+		if (aimBoltActionClip != null && relaxedBoltActionClip != null)
+		{
+			EnsureBoltCycleEvents(aimBoltActionClip);
+			EnsureBoltCycleEvents(relaxedBoltActionClip);
+
+			AnimatorState aimBoltAction = EnsureMotionState(sm, c_AimBoltAction, aimBoltActionClip);
+			AnimatorState relaxedBoltAction = EnsureMotionState(sm, c_RelaxedBoltAction, relaxedBoltActionClip);
+			RemoveDuplicateNamedStates(sm, c_AimBoltAction, aimBoltAction);
+			RemoveDuplicateNamedStates(sm, c_RelaxedBoltAction, relaxedBoltAction);
+			RemoveTransition(aimBoltAction, relaxedIdle);
+			RemoveTransition(relaxedBoltAction, relaxedIdle);
+
+			EnsureTransition(aimBoltAction, pitchBlend, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimBoltAction, crouchPitch, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+
+			EnsureTransition(relaxedBoltAction, pitchBlend, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(relaxedBoltAction, crouchPitch, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+
+			EnsureTransition(aimBoltAction, aimReload, 0.1f,
+				CondIf(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(relaxedBoltAction, relaxedReload, 0.1f,
+				CondIf(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+		}
+
+		EnsureCrouchPitchMiddleClip(crouchPitch, crouchAimLegacyPitchClip);
+
+		AnimationClip aimBoltAkClip = LoadClip(c_ClipAimBoltAk);
+		AnimationClip relaxedBoltAkClip = LoadClip(c_ClipRelaxedBoltAk);
+		if (aimBoltAkClip != null && relaxedBoltAkClip != null)
+		{
+			AnimatorState aimBoltAk = EnsureMotionState(sm, c_AimBoltAk, aimBoltAkClip);
+			AnimatorState relaxedBoltAk = EnsureMotionState(sm, c_RelaxedBoltAk, relaxedBoltAkClip);
+			RemoveDuplicateNamedStates(sm, c_AimBoltAk, aimBoltAk);
+			RemoveDuplicateNamedStates(sm, c_RelaxedBoltAk, relaxedBoltAk);
+
+			EnsureTransition(aimBoltAk, pitchBlend, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimBoltAk, crouchPitch, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+			EnsureTransition(aimBoltAk, relaxedIdle, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+			EnsureTransition(aimBoltAk, aimReload, 0.1f,
+				CondIf(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIf(c_ParamWeaponReady));
+
+			EnsureTransition(relaxedBoltAk, pitchBlend, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(relaxedBoltAk, crouchPitch, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+			EnsureTransition(relaxedBoltAk, relaxedIdle, 0.12f,
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+			EnsureTransition(relaxedBoltAk, relaxedReload, 0.1f,
+				CondIf(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+		}
+
 		EditorUtility.SetDirty(controller);
 		AssetDatabase.SaveAssets();
 		AssetDatabase.ImportAsset(c_ControllerPath, ImportAssetOptions.ForceUpdate);
@@ -228,7 +377,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 		LogAimLayerReport(aimLayer.stateMachine);
 
 		Debug.Log(
-			$"Aim layer «{c_AimLayerName}» обновлён: {c_RelaxedIdle}, {c_RelaxedReload}, {c_RelaxedBolt}. " +
+			$"Aim layer «{c_AimLayerName}» обновлён: {c_RelaxedIdle}, {c_RelaxedReload}, {c_RelaxedBolt}, {c_AimBoltAction}, {c_RelaxedBoltAction}, {c_AimBoltAk}, {c_RelaxedBoltAk}. " +
 			"Откройте Animator и слой Aim_Point_U90-D90.",
 			controller);
 	}
@@ -312,6 +461,123 @@ public static class UnitAnimControllerAimRelaxedSetup
 		_controller.AddParameter(_name, _type);
 	}
 
+	private static void ImportRequiredAssets()
+	{
+		string[] assetPaths =
+		{
+			c_ControllerPath,
+			c_ClipAimBoltAction,
+			c_ClipRelaxedBoltAction,
+			c_ClipRifleCrouchIdleLegacy,
+			c_ClipCrouchAimLegacyPitch
+		};
+
+		AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+		for (int i = 0; i < assetPaths.Length; i++)
+		{
+			if (!File.Exists(assetPaths[i]))
+			{
+				Debug.LogWarning($"Asset для setup не найден на диске: {assetPaths[i]}");
+				continue;
+			}
+
+			AssetDatabase.ImportAsset(
+				assetPaths[i],
+				ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+		}
+	}
+
+	private static void EnsureBoltCycleEvents(AnimationClip _clip)
+	{
+		if (_clip == null)
+			return;
+
+		AnimationEvent[] events =
+		{
+			new AnimationEvent
+			{
+				functionName = c_EventBoltActionCycleSoundStarted,
+				time = 0f
+			},
+			new AnimationEvent
+			{
+				functionName = c_EventFinishWeaponReload,
+				time = Mathf.Clamp(c_BoltCycleFinishEventTime, 0f, Mathf.Max(0f, _clip.length))
+			}
+		};
+
+		AnimationUtility.SetAnimationEvents(_clip, events);
+		EditorUtility.SetDirty(_clip);
+	}
+
+	private static void EnsureStateMotion(AnimatorController _controller, string _stateName, Motion _motion)
+	{
+		if (_controller == null || _motion == null)
+			return;
+
+		for (int i = 0; i < _controller.layers.Length; i++)
+		{
+			AnimatorState state = FindStateRecursive(_controller.layers[i].stateMachine, _stateName);
+			if (state == null)
+				continue;
+
+			state.motion = _motion;
+			EditorUtility.SetDirty(state);
+			return;
+		}
+
+		Debug.LogWarning($"State для setup не найден: {_stateName}");
+	}
+
+	private static AnimatorState FindStateRecursive(AnimatorStateMachine _stateMachine, string _stateName)
+	{
+		if (_stateMachine == null)
+			return null;
+
+		foreach (ChildAnimatorState child in _stateMachine.states)
+		{
+			if (child.state != null && child.state.name == _stateName)
+				return child.state;
+		}
+
+		foreach (ChildAnimatorStateMachine childMachine in _stateMachine.stateMachines)
+		{
+			AnimatorState state = FindStateRecursive(childMachine.stateMachine, _stateName);
+			if (state != null)
+				return state;
+		}
+
+		return null;
+	}
+
+	private static void EnsureCrouchPitchMiddleClip(AnimatorState _crouchPitchState, AnimationClip _middleClip)
+	{
+		if (_crouchPitchState == null || _middleClip == null)
+			return;
+
+		var blendTree = _crouchPitchState.motion as BlendTree;
+		if (blendTree == null)
+		{
+			Debug.LogWarning($"{c_CrouchPitchBlend} не содержит BlendTree.");
+			return;
+		}
+
+		ChildMotion[] children = blendTree.children;
+		for (int i = 0; i < children.Length; i++)
+		{
+			if (!Mathf.Approximately(children[i].threshold, 0f))
+				continue;
+
+			children[i].motion = _middleClip;
+			blendTree.children = children;
+			EditorUtility.SetDirty(blendTree);
+			EditorUtility.SetDirty(_crouchPitchState);
+			return;
+		}
+
+		Debug.LogWarning($"{c_CrouchPitchBlend}: не найден middle child с threshold 0.");
+	}
+
 	private static AnimationClip LoadClip(string _path)
 	{
 		var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(_path);
@@ -378,6 +644,33 @@ public static class UnitAnimControllerAimRelaxedSetup
 
 		for (int i = 0; i < duplicates.Count; i++)
 			_sm.RemoveState(duplicates[i]);
+	}
+
+	private static void RepointTransitionsByDestinationName(AnimatorStateMachine _sm, string _destinationName, AnimatorState _destination)
+	{
+		if (_sm == null || _destination == null)
+			return;
+
+		foreach (ChildAnimatorState child in _sm.states)
+		{
+			AnimatorState state = child.state;
+			if (state == null)
+				continue;
+
+			foreach (AnimatorStateTransition transition in state.transitions)
+			{
+				if (transition.destinationState == null)
+					continue;
+				if (transition.destinationState == _destination)
+					continue;
+				if (transition.destinationState.name != _destinationName)
+					continue;
+
+				transition.destinationState = _destination;
+				EditorUtility.SetDirty(transition);
+				EditorUtility.SetDirty(state);
+			}
+		}
 	}
 
 	private static void RemoveTransition(AnimatorState _from, AnimatorState _to)

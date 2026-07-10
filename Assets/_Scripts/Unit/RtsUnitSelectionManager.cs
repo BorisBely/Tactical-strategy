@@ -3032,6 +3032,17 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		ClearAllPathInteractions();
 	}
 
+	/// <summary>
+	/// Отменяет все активные pointer-жесты RTS (ПКМ preview, facing, LMB box-select, route drag)
+	/// без выдачи команд. Вызывается при входе в меню-паузу, чтобы не терять release-события.
+	/// </summary>
+	public void AbortActivePointerGestures()
+	{
+		CancelRouteEditInputState();
+		m_IsDraggingSelection = false;
+		m_LeftMouseStartedOverUi = false;
+	}
+
 	private static GameObject CreateFacingDirectionMarker(Color _color)
 	{
 		GameObject arrowGo = new GameObject("FacingLine");
@@ -5185,7 +5196,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CommandSelectedCycleWeaponAimMode()
 	{
-		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponAimMode(_stagger));
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponFireDisciplineMode(_stagger));
 	}
 
 	private void ForEachSelectedUnitWithGroupStagger(Action<RtsUnitMember, float> _action)

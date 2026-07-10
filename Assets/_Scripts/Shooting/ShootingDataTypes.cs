@@ -17,6 +17,19 @@ public enum CaliberType
 }
 
 /// <summary>
+/// Платформа анимации перезарядки / bolt-cycle для оружия.
+/// </summary>
+public enum WeaponAnimationPlatform
+{
+	/// <summary>M4 / AR и оружие без явной платформы.</summary>
+	DefaultM = 0,
+	/// <summary>AK-платформа и совместимые автоматы.</summary>
+	Ak = 1,
+	/// <summary>SVD и совместимые ДМР с AK-style bolt rack.</summary>
+	Svd = 2
+}
+
+/// <summary>
 /// Режим огня оружия.
 /// </summary>
 public enum WeaponFireMode
@@ -116,6 +129,7 @@ public static class WeaponFireModeUtility
 
 /// <summary>
 /// Режим, определяющий сколько AimProgress нужно накопить перед выстрелом.
+/// Внутренний параметр точности; игрок выбирает <see cref="WeaponFireDisciplineMode"/>.
 /// </summary>
 public enum WeaponAimMode
 {
@@ -123,6 +137,104 @@ public enum WeaponAimMode
 	QuickAim = 1,
 	SnapShot = 2,
 	Auto = 3
+}
+
+/// <summary>
+/// Огневая дисциплина юнита: длина/плотность очередей, паузы и порог прицеливания.
+/// Заменяет ручной выбор режимов прицеливания.
+/// </summary>
+public enum WeaponFireDisciplineMode
+{
+	Economical = 0,
+	Precision = 1,
+	Suppressive = 2,
+	Auto = 3
+}
+
+/// <summary>
+/// План одной огневой серии: сколько стрелять, с каким порогом прицела и какой паузой после.
+/// </summary>
+public readonly struct WeaponFireDisciplinePlan
+{
+	public readonly WeaponFireDisciplineMode SelectedDiscipline;
+	public readonly WeaponFireDisciplineMode EffectiveDiscipline;
+	public readonly WeaponFireMode EffectiveFireMode;
+	public readonly WeaponAimMode EffectiveAimMode;
+	public readonly float RequiredAimProgress01;
+	public readonly int SeriesShotCount;
+	public readonly float SeriesPauseSeconds;
+	public readonly float TargetDistanceMeters;
+
+	public WeaponFireDisciplinePlan(
+		WeaponFireDisciplineMode _selectedDiscipline,
+		WeaponFireDisciplineMode _effectiveDiscipline,
+		WeaponFireMode _effectiveFireMode,
+		WeaponAimMode _effectiveAimMode,
+		float _requiredAimProgress01,
+		int _seriesShotCount,
+		float _seriesPauseSeconds,
+		float _targetDistanceMeters)
+	{
+		SelectedDiscipline = _selectedDiscipline;
+		EffectiveDiscipline = _effectiveDiscipline;
+		EffectiveFireMode = _effectiveFireMode;
+		EffectiveAimMode = _effectiveAimMode;
+		RequiredAimProgress01 = Mathf.Clamp01(_requiredAimProgress01);
+		SeriesShotCount = Mathf.Max(1, _seriesShotCount);
+		SeriesPauseSeconds = Mathf.Max(0f, _seriesPauseSeconds);
+		TargetDistanceMeters = Mathf.Max(0f, _targetDistanceMeters);
+	}
+}
+
+/// <summary>
+/// Имена и цикл режимов огневой дисциплины.
+/// </summary>
+public static class WeaponFireDisciplineModeUtility
+{
+	#region Public Methods
+	public static string GetDisplayName(WeaponFireDisciplineMode _mode)
+	{
+		return _mode switch
+		{
+			WeaponFireDisciplineMode.Economical => "экономный",
+			WeaponFireDisciplineMode.Precision => "точный",
+			WeaponFireDisciplineMode.Suppressive => "подавляющий",
+			WeaponFireDisciplineMode.Auto => "авто",
+			_ => _mode.ToString()
+		};
+	}
+
+	public static WeaponFireDisciplineMode GetNextMode(WeaponFireDisciplineMode _current)
+	{
+		return _current switch
+		{
+			WeaponFireDisciplineMode.Economical => WeaponFireDisciplineMode.Precision,
+			WeaponFireDisciplineMode.Precision => WeaponFireDisciplineMode.Suppressive,
+			WeaponFireDisciplineMode.Suppressive => WeaponFireDisciplineMode.Auto,
+			_ => WeaponFireDisciplineMode.Economical
+		};
+	}
+
+	public static WeaponAimMode MapToAimMode(WeaponFireDisciplineMode _discipline, float _distanceMeters)
+	{
+		float distance = Mathf.Max(0f, _distanceMeters);
+		switch (_discipline)
+		{
+			case WeaponFireDisciplineMode.Suppressive:
+				if (distance <= 35f)
+					return WeaponAimMode.SnapShot;
+				if (distance <= 90f)
+					return WeaponAimMode.QuickAim;
+				return WeaponAimMode.FullAim;
+			case WeaponFireDisciplineMode.Precision:
+				if (distance <= 45f)
+					return WeaponAimMode.QuickAim;
+				return WeaponAimMode.FullAim;
+			default:
+				return WeaponAimMode.FullAim;
+		}
+	}
+	#endregion
 }
 
 /// <summary>
@@ -289,7 +401,15 @@ public enum MagazineType
 	RifleStandard = 2,
 	ShotgunTube = 3,
 	Drum = 4,
-	Internal = 5
+	Internal = 5,
+	/// <summary>Магазины СВД (7.62x54R) — не совместимы с болтовой винтовкой.</summary>
+	Svd = 6,
+	/// <summary>Магазины болтовой винтовки 7.62x54R — не совместимы с СВД.</summary>
+	Bolt762x54R = 7,
+	/// <summary>Короба M249 5.56x45 — отдельный тип, чтобы не смешивать с барабанами/коробами других платформ.</summary>
+	M249Box = 8,
+	/// <summary>Короба PKM 7.62x54R — отдельный тип, чтобы не смешивать с барабанами/коробами других платформ.</summary>
+	PkmBox = 9
 }
 
 /// <summary>

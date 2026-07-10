@@ -14,10 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   m_WeaponClass: 2
   m_SupportedCaliber: 7
-  m_SupportedMagazineType: 2
+  m_SupportedMagazineType: 6
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
-  m_BuiltInMagazineItem: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
   m_AvailableFireModes: 00000000
   m_DefaultFireMode: 0
@@ -28,28 +27,16 @@ MonoBehaviour:
   - SlotType: 3
     IsRequired: 0
     AnchorChildName: 
-  - SlotType: 4
-    IsRequired: 0
-    AnchorChildName: 
-  - SlotType: 1
-    IsRequired: 0
-    AnchorChildName: 
-  - SlotType: 2
-    IsRequired: 0
-    AnchorChildName: 
-  - SlotType: 2
-    IsRequired: 0
-    AnchorChildName: 
-  - SlotType: 2
+  - SlotType: 5
     IsRequired: 0
     AnchorChildName: 
   m_AttachmentSlotProfile: 0
-  m_FireRateRpm: 30
-  m_SemiAutoFireRateRpm: 30
-  m_AimTimeSeconds: 0.45
-  m_ReloadTimeSeconds: 2.8
-  m_EffectiveRangeMeters: 180
-  m_BaseShotDispersion: 0.52
+  m_FireRateRpm: 150
+  m_SemiAutoFireRateRpm: 150
+  m_AimTimeSeconds: 0.48
+  m_ReloadTimeSeconds: 2.5
+  m_EffectiveRangeMeters: 320
+  m_BaseShotDispersion: 0.48
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
@@ -195,55 +182,61 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  m_RecoilPerShot: 0.44
-  m_SemiAutoRecoilMultiplier: 0.8
+  m_RecoilPerShot: 0.46
+  m_SemiAutoRecoilMultiplier: 0.82
   m_AutoRecoilMultiplier: 1
-  m_RecoilRecoveryPerSecond: 4.4
+  m_RecoilRecoveryPerSecond: 4.2
+  m_VisualRecoilKickScale: 1
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: e226e04466a96ad43b43ab5c4fa4b830, type: 3}
-    - {fileID: 8300000, guid: d67066fbfeef36340905d531bd7d9a47, type: 3}
-    - {fileID: 8300000, guid: 9dfe332a75a6f3a47a01e8b7bd42f019, type: 3}
-    - {fileID: 8300000, guid: b17e7052a9beb5c469533e756fa92a5d, type: 3}
+    - {fileID: 8300000, guid: 8d220d0fd689a9b4fa6e7091d21c1c11, type: 3}
     m_MaxAudibleDistanceMeters: 625
   m_SuppressedFireSoundProfile:
-    m_FireClips: []
-    m_MaxAudibleDistanceMeters: 0
+    m_FireClips:
+    - {fileID: 8300000, guid: 4358de2e94cf7334aa6b4f9bcfeab292, type: 3}
+    m_MaxAudibleDistanceMeters: 220
   m_FireSoundVolume: 1
   m_FirePitchVariance: 0.04
   m_FireModeSwitchSounds:
     m_Clips:
-    - {fileID: 8300000, guid: bc4e377bf0ce21e4aa2c63bac0f4f331, type: 3}
-    - {fileID: 8300000, guid: 44f0433b8bd751c48af4830bfddab7c3, type: 3}
+    - {fileID: 8300000, guid: 26c6943689d2192409bde405196bc53f, type: 3}
+    - {fileID: 8300000, guid: dd3e601c79eb96947bcc4bad75236fb3, type: 3}
   m_FireModeSwitchSoundVolume: 0.85
   m_ReloadMagOutSounds:
     m_Clips:
-    - {fileID: 8300000, guid: 406ce5c7642dce54b86a8f9be9605f6b, type: 3}
-    - {fileID: 8300000, guid: 1f6a70fe326bc5943904ec9cc3bcf6ef, type: 3}
+    - {fileID: 8300000, guid: 1c6a204a0e6007c40b201a6da5478ca9, type: 3}
+    - {fileID: 8300000, guid: def9941dc4665884b85fa08274c47b99, type: 3}
+    - {fileID: 8300000, guid: 7c589b2dc7df32143b7fb2310ae9b1ac, type: 3}
+    - {fileID: 8300000, guid: b3440f7c1cda7374683fa9f085a1626f, type: 3}
+    - {fileID: 8300000, guid: 21bdcf246a4335349bac41d68f81859e, type: 3}
   m_ReloadMagInSounds:
     m_Clips:
-    - {fileID: 8300000, guid: ab746b68ce613c94086d3fefe3e80534, type: 3}
-    - {fileID: 8300000, guid: 010b170fa2c7b45429be4cec0632de3c, type: 3}
-    - {fileID: 8300000, guid: 07da53e2b1769a941aaea8eb2c714803, type: 3}
-    - {fileID: 8300000, guid: ad1be44da9af9ad4baa397125eadf64e, type: 3}
+    - {fileID: 8300000, guid: 9ed23e6ec2e7aac43bcc94821761a0ae, type: 3}
+    - {fileID: 8300000, guid: d57256dc33eb3df4da9a26b1f96ca77a, type: 3}
+    - {fileID: 8300000, guid: 17b94d1e9905f4343a2517ff0789c109, type: 3}
+    - {fileID: 8300000, guid: 72c74a39096ad2747b88ec3e49377e50, type: 3}
   m_BoltCycleSounds:
     m_Clips:
-    - {fileID: 8300000, guid: 1a919d38d7ca1f74b84814e31d458377, type: 3}
-    - {fileID: 8300000, guid: 9e218e45c83311b4ba0b41ea1d53d53e, type: 3}
-    - {fileID: 8300000, guid: 297c188b6c3b1ef4c80174219dba0cb1, type: 3}
+    - {fileID: 8300000, guid: 169f28d310c3b564997c396ce394555f, type: 3}
+    - {fileID: 8300000, guid: 0588e8fc140b5804a820a7ce83a12ac9, type: 3}
+    - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
+    - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
   m_HasBoltHoldOpenDelay: 0
+  m_AnimationPlatform: 2
   m_ReloadBoltHoldOpenDelaySounds:
-    m_Clips:
-    - {fileID: 8300000, guid: a98812b46eb8edd4aa8026017c6e010b, type: 3}
+    m_Clips: []
   m_ReloadSoundsVolume: 0.5
   m_MalfunctionClickSounds:
     m_Clips:
-    - {fileID: 8300000, guid: 104561dc50eea8044ba7dd7ad0c9ab7b, type: 3}
+    - {fileID: 8300000, guid: d7fc35c5f36149541aaa14c298df4636, type: 3}
+    - {fileID: 8300000, guid: 4dd11b639c1fe5c4581ecc69148712c3, type: 3}
+    - {fileID: 8300000, guid: 216cc2227d62b95419b199356fa1efcc, type: 3}
+    - {fileID: 8300000, guid: da2d74eab6f477c4a9e5c01b68a8965e, type: 3}
   m_MalfunctionClickSoundVolume: 1
   m_VfxProfile: {fileID: 11400000, guid: a8d4f2b13c6e5d7091a2b3c4d5e6f708, type: 2}
-  m_Reliability: 0.86
+  m_Reliability: 0.88
   m_BaseDurability: 2000
   m_BaseFoulingBudget: 1500
   m_WearJamStartThreshold: 0

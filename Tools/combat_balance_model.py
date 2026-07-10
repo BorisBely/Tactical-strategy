@@ -25,6 +25,11 @@ ACCURACY_FACTORS = {
     "Weapon_RPK74MOD1": 0.82,
     "Weapon_M16A4_ModA_2": 1.13,
     "Weapon_MK12": 1.16,
+    "Weapon_SVD": 1.12,
+    "Weapon_Sniper762x51": 1.18,
+    "Weapon_Mosin": 1.15,
+    "Weapon_M249": 0.78,
+    "Weapon_PKM": 0.72,
 }
 
 WEAPON_ROLE = {
@@ -47,6 +52,11 @@ WEAPON_ROLE = {
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
     "Weapon_BenelliM4": "ShotgunCqb",
+    "Weapon_Mosin": "Dmr",
+    "Weapon_SVD": "Marksman",
+    "Weapon_Sniper762x51": "Dmr",
+    "Weapon_M249": "Support545",
+    "Weapon_PKM": "Support762",
 }
 
 ACCURACY_PROFILE_PLATEAUS = {

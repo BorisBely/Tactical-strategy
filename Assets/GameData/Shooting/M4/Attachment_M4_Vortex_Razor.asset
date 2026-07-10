@@ -22,17 +22,24 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a7f6ae83d98640da9da303ff9d5c9122, type: 2}
   - {fileID: 11400000, guid: b0d4e7d9b8904fa990faf29fe8084763, type: 2}
   - {fileID: 11400000, guid: 47826c67f39642fab278e5be557d0f92, type: 2}
+  - {fileID: 11400000, guid: a8cf6bde2689308459dd322120c2d56a, type: 2}
+  - {fileID: 11400000, guid: 53e6dc59ec1d1914ca4e37f089eb9a00, type: 2}
+  - {fileID: 11400000, guid: 95ce21645aaa636479224559123b2b68, type: 2}
+  - {fileID: 11400000, guid: 2def56fb128449c4ea16cc68738671b3, type: 2}
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.34
   m_EffectiveRangeModifier: 1.35
   m_RecoilModifier: 1
+  m_SemiAutoRecoilModifier: 1
+  m_AutomaticRecoilModifier: 1
+  m_ReloadTimeModifier: 1
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0.0
+        time: 0
         value: 1.06
         inSlope: 0
         outSlope: 0
@@ -41,7 +48,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50.0
+        time: 50
         value: 1.03
         inSlope: 0
         outSlope: 0
@@ -50,7 +57,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 125.0
+        time: 125
         value: 0.96
         inSlope: 0
         outSlope: 0
@@ -59,7 +66,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 200.0
+        time: 200
         value: 0.94
         inSlope: 0
         outSlope: 0
@@ -68,7 +75,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 300.0
+        time: 300
         value: 0.92
         inSlope: 0
         outSlope: 0
@@ -77,7 +84,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 400.0
+        time: 400
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -86,7 +93,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 500.0
+        time: 500
         value: 1.06
         inSlope: 0
         outSlope: 0
@@ -101,7 +108,7 @@ MonoBehaviour:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0.0
+        time: 0
         value: 1.22
         inSlope: 0
         outSlope: 0
@@ -110,7 +117,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 50.0
+        time: 50
         value: 1.13
         inSlope: 0
         outSlope: 0
@@ -119,7 +126,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 125.0
+        time: 125
         value: 1.07
         inSlope: 0
         outSlope: 0
@@ -128,7 +135,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 200.0
+        time: 200
         value: 1.03
         inSlope: 0
         outSlope: 0
@@ -137,7 +144,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 300.0
+        time: 300
         value: 1.03
         inSlope: 0
         outSlope: 0
@@ -146,7 +153,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 400.0
+        time: 400
         value: 1.09
         inSlope: 0
         outSlope: 0
@@ -155,7 +162,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 500.0
+        time: 500
         value: 1.13
         inSlope: 0
         outSlope: 0
@@ -166,9 +173,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  m_ReloadTimeModifier: 1
   m_WearPerShotMultiplier: 1
   m_FoulingPerShotMultiplier: 1
   m_JamRiskModifier: 1
-  m_SuppressedFireSound: {fileID: 0}
+  m_SuppressedFireVolumeMultiplier: 0.35
+  m_SuppressedFireSoundProfile:
+    m_FireClips: []
+    m_MaxAudibleDistanceMeters: 0
   m_EquippedVisualPrefab: {fileID: 7910800720594330957, guid: 51e212842399c6047989663a4143bf8d, type: 3}

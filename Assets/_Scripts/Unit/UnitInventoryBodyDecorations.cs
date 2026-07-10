@@ -34,6 +34,7 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 	[SerializeField] private CharacterBodyDecorationVariant m_MagDefaultVariant;
 	[SerializeField] private CharacterBodyDecorationVariant[] m_MagM4Variants = new CharacterBodyDecorationVariant[3];
 	[SerializeField] private CharacterBodyDecorationVariant[] m_MagAkVariants = new CharacterBodyDecorationVariant[3];
+	[SerializeField] private CharacterBodyDecorationVariant m_Mag12GaugeVariant;
 
 	[Header("Side Pouches")]
 	[SerializeField] private CharacterBodyDecorationVariant[] m_SideRightVariants = new CharacterBodyDecorationVariant[3];
@@ -230,6 +231,7 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 		{
 			MagazineCaliberVisualPreference.Five56 when _variant > 0 => GetArrayVariant(m_MagM4Variants, _variant),
 			MagazineCaliberVisualPreference.Ak when _variant > 0 => GetArrayVariant(m_MagAkVariants, _variant),
+			MagazineCaliberVisualPreference.TwelveGauge => m_Mag12GaugeVariant,
 			_ => m_MagDefaultVariant
 		};
 	}
@@ -241,6 +243,13 @@ public sealed class UnitInventoryBodyDecorations : MonoBehaviour
 			m_LastMagazinePreference = _preference;
 			m_LastMagazineVariant = 0;
 			return 0;
+		}
+
+		if (_preference == MagazineCaliberVisualPreference.TwelveGauge)
+		{
+			m_LastMagazinePreference = _preference;
+			m_LastMagazineVariant = 1;
+			return 1;
 		}
 
 		if (m_LastMagazinePreference == _preference && m_LastMagazineVariant >= 0)

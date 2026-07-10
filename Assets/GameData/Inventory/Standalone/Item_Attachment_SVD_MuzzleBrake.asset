@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Attachment_SVD_MuzzleBrake
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.attachment.svd_muzzle_brake
+  m_Description: SVD compensator / flash hider (7.62x54R).
+  m_Icon: {fileID: 0}
+  m_BasePrice: 440
+  m_WeightKg: 0.18
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 8200000000000000001, guid: 7c4e8a1f2b3d4e5f9a0b1c2d3e4f5a68, type: 3}
+  m_EquippedVisualPrefab: {fileID: 7200000000000000001, guid: 7c4e8a1f2b3d4e5f9a0b1c2d3e4f5a67, type: 3}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 7c4e8a1f2b3d4e5f9a0b1c2d3e4f5a65, type: 2}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_MedkitDefinition: {fileID: 0}
+  m_BagAddSounds:
+    m_Clips: []
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips: []
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
+    m_Clips: []
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
+    m_Clips: []
+  m_EquipmentRemoveSoundVolume: 0.85

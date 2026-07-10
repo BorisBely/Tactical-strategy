@@ -17,7 +17,6 @@ MonoBehaviour:
   m_SupportedMagazineType: 2
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
-  m_BuiltInMagazineItem: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
   m_AvailableFireModes: 00000000
   m_DefaultFireMode: 0
@@ -31,10 +30,10 @@ MonoBehaviour:
   m_AttachmentSlotProfile: 0
   m_FireRateRpm: 40
   m_SemiAutoFireRateRpm: 40
-  m_AimTimeSeconds: 0.58
+  m_AimTimeSeconds: 0.55
   m_ReloadTimeSeconds: 3
-  m_EffectiveRangeMeters: 220
-  m_BaseShotDispersion: 0.42
+  m_EffectiveRangeMeters: 380
+  m_BaseShotDispersion: 0.4
   m_DistanceAimProfile:
     m_DispersionMultiplierByDistance:
       serializedVersion: 2
@@ -180,22 +179,21 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  m_RecoilPerShot: 0.4
-  m_SemiAutoRecoilMultiplier: 0.76
+  m_RecoilPerShot: 0.42
+  m_SemiAutoRecoilMultiplier: 0.74
   m_AutoRecoilMultiplier: 1
-  m_RecoilRecoveryPerSecond: 4.5
+  m_RecoilRecoveryPerSecond: 4.3
+  m_VisualRecoilKickScale: 1
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: e226e04466a96ad43b43ab5c4fa4b830, type: 3}
-    - {fileID: 8300000, guid: d67066fbfeef36340905d531bd7d9a47, type: 3}
-    - {fileID: 8300000, guid: 9dfe332a75a6f3a47a01e8b7bd42f019, type: 3}
-    - {fileID: 8300000, guid: b17e7052a9beb5c469533e756fa92a5d, type: 3}
-    m_MaxAudibleDistanceMeters: 625
+    - {fileID: 8300000, guid: 5c75c4f2945094f418e2f82a011371b5, type: 3}
+    m_MaxAudibleDistanceMeters: 650
   m_SuppressedFireSoundProfile:
-    m_FireClips: []
-    m_MaxAudibleDistanceMeters: 0
+    m_FireClips:
+    - {fileID: 8300000, guid: cfe3ad1da39dd7a4f9d34d3f698e02c5, type: 3}
+    m_MaxAudibleDistanceMeters: 200
   m_FireSoundVolume: 1
   m_FirePitchVariance: 0.04
   m_FireModeSwitchSounds:
@@ -215,20 +213,18 @@ MonoBehaviour:
     - {fileID: 8300000, guid: ad1be44da9af9ad4baa397125eadf64e, type: 3}
   m_BoltCycleSounds:
     m_Clips:
-    - {fileID: 8300000, guid: 1a919d38d7ca1f74b84814e31d458377, type: 3}
-    - {fileID: 8300000, guid: 9e218e45c83311b4ba0b41ea1d53d53e, type: 3}
-    - {fileID: 8300000, guid: 297c188b6c3b1ef4c80174219dba0cb1, type: 3}
-  m_HasBoltHoldOpenDelay: 1
+    - {fileID: 8300000, guid: 526b78049a014dc44aa04587f0e6ea40, type: 3}
+  m_HasBoltHoldOpenDelay: 0
+  m_RequiresManualBoltCycle: 1
   m_ReloadBoltHoldOpenDelaySounds:
-    m_Clips:
-    - {fileID: 8300000, guid: a98812b46eb8edd4aa8026017c6e010b, type: 3}
+    m_Clips: []
   m_ReloadSoundsVolume: 0.5
   m_MalfunctionClickSounds:
     m_Clips:
     - {fileID: 8300000, guid: 104561dc50eea8044ba7dd7ad0c9ab7b, type: 3}
   m_MalfunctionClickSoundVolume: 1
   m_VfxProfile: {fileID: 11400000, guid: c4e8f1a23b7d6e8092a3b4c5d6e7f819, type: 2}
-  m_Reliability: 0.9
+  m_Reliability: 0.91
   m_BaseDurability: 2000
   m_BaseFoulingBudget: 1500
   m_WearJamStartThreshold: 0

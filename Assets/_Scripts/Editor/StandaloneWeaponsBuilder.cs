@@ -94,6 +94,13 @@ public static class StandaloneWeaponsBuilder
 		WeaponAttachmentSlotType.Optic
 	};
 
+	private static readonly WeaponAttachmentSlotType[] s_MuzzleOpticSideRailSlots =
+	{
+		WeaponAttachmentSlotType.Muzzle,
+		WeaponAttachmentSlotType.Optic,
+		WeaponAttachmentSlotType.SideRail
+	};
+
 	private static readonly WeaponAttachmentSlotType[] s_StockAkSlots =
 	{
 		WeaponAttachmentSlotType.Muzzle,
@@ -189,7 +196,9 @@ public static class StandaloneWeaponsBuilder
 		BenelliShotgunContentBuilder.BuildForStandalonePipeline();
 		WireBenelliBuiltInMagazine();
 		UpdateMosinScopeCompatibility(builtWeapons);
+		UpdateMachineGunM4OpticCompatibility(builtWeapons);
 		BenelliShotgunContentBuilder.UpdateBenelliCqbOpticCompatibility();
+		SvdSniperContentBuilder.BuildAll();
 		MissionPrepAvailableEquipmentBaker.RebuildAvailableEquipmentSet();
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
@@ -227,25 +236,25 @@ public static class StandaloneWeaponsBuilder
 			"Ammo_12Gauge",
 			"Item_Loot_AmmoBox_12Gauge",
 			"item.loot.ammo_box.12g",
-			"12 gauge buckshot ammo box.",
+			"Box of 25 shotgun shells (12 gauge).",
 			"Loot_AmmoBox_12Gauge",
-			80, 40);
+			25, 55, 1.05f);
 
 		BuildAmmoBox(
 			"Ammo_762x51mmNATO",
 			"Item_Loot_AmmoBox_762x51",
 			"item.loot.ammo_box.762x51",
-			"7.62x51 NATO ammo box.",
+			"Box of 20 rounds of 7.62x51 NATO.",
 			"Loot_AmmoBox_762x51",
-			100, 40);
+			20, 50, 0.55f);
 
 		BuildAmmoBox(
 			"Ammo_762x54mmR",
 			"Item_Loot_AmmoBox_762x54R",
 			"item.loot.ammo_box.762x54r",
-			"7.62x54R ammo box.",
+			"Box of 20 rounds of 7.62x54R.",
 			"Loot_AmmoBox_762x54R",
-			100, 40);
+			20, 45, 0.50f);
 	}
 
 	private static void BuildAmmoFromTemplate(
@@ -293,7 +302,8 @@ public static class StandaloneWeaponsBuilder
 		string _description,
 		string _lootPrefabName,
 		int _initialAmmoCount,
-		int _price)
+		int _price,
+		float _weightKg)
 	{
 		AmmoDefinition ammo = LoadAsset<AmmoDefinition>($"Assets/GameData/Shooting/{_ammoAssetName}.asset");
 		if (ammo == null)
@@ -305,6 +315,7 @@ public static class StandaloneWeaponsBuilder
 		itemSo.FindProperty("m_LocalizationKey").stringValue = _localizationKey;
 		itemSo.FindProperty("m_Description").stringValue = _description;
 		itemSo.FindProperty("m_BasePrice").intValue = _price;
+		itemSo.FindProperty("m_WeightKg").floatValue = _weightKg;
 		itemSo.FindProperty("m_Category").enumValueIndex = 0;
 		itemSo.FindProperty("m_AmmoDefinition").objectReferenceValue = ammo;
 		itemSo.FindProperty("m_InitialAmmoCount").intValue = _initialAmmoCount;
@@ -349,10 +360,10 @@ public static class StandaloneWeaponsBuilder
 			"Magazine_Mosin_762_54R_5",
 			"Item_Mag_Mosin_762_54R_5",
 			"item.mag.mosin_762_54r_5",
-			"5-round internal magazine for Mosin rifle.",
+			"5-round 7.62x54R magazine for the bolt-action rifle.",
 			CaliberType.Seven62By54R,
-			MagazineType.Internal,
-			5, 60, 1.15f, c_SourceMosinPath, c_MagChildMosin);
+			MagazineType.Bolt762x54R,
+			5, 80, 1.10f, c_SourceMosinPath, c_MagChildMosin);
 
 		BuildMagazine(
 			"Mag_Visual_M249_556_200",
@@ -361,8 +372,8 @@ public static class StandaloneWeaponsBuilder
 			"item.mag.m249_556_200",
 			"200-round belt box for M249 SAW.",
 			CaliberType.Five56By45,
-			MagazineType.Drum,
-			200, 420, 1.35f, c_SourceM249Path, c_MagChildM249);
+			MagazineType.M249Box,
+			200, 420, 1.35f, c_SourceM249Path, c_MagChildM249, 3.1f);
 
 		BuildMagazine(
 			"Mag_Visual_Sniper_762x51_10",
@@ -381,8 +392,8 @@ public static class StandaloneWeaponsBuilder
 			"item.mag.pkm_762_54r_100",
 			"100-round belt box for PKM.",
 			CaliberType.Seven62By54R,
-			MagazineType.Drum,
-			100, 380, 1.30f, c_SourcePkmPath, c_MagChildPkm);
+			MagazineType.PkmBox,
+			100, 380, 1.30f, c_SourcePkmPath, c_MagChildPkm, 3.6f);
 
 		BuildMagazine(
 			"Mag_Visual_SVD_762_54R_10",
@@ -391,7 +402,7 @@ public static class StandaloneWeaponsBuilder
 			"item.mag.svd_762_54r_10",
 			"10-round 7.62x54R SVD magazine.",
 			CaliberType.Seven62By54R,
-			MagazineType.RifleStandard,
+			MagazineType.Svd,
 			10, 120, 1.05f, c_SourceSvdPath, c_MagChildSvd);
 	}
 
@@ -408,6 +419,7 @@ public static class StandaloneWeaponsBuilder
 		float _reloadModifier,
 		string _weaponSourcePath,
 		string _magChildName,
+		float _weightKg = 0f,
 		bool _isNonRemovable = false,
 		bool _buildLoot = true)
 	{
@@ -421,7 +433,7 @@ public static class StandaloneWeaponsBuilder
 		magSo.FindProperty("m_Capacity").intValue = _capacity;
 		magSo.FindProperty("m_RoundLoadTimeSeconds").floatValue = 0.35f;
 		magSo.FindProperty("m_ReloadTimeModifier").floatValue = _reloadModifier;
-		magSo.FindProperty("m_JamRiskModifier").floatValue = _magazineType == MagazineType.Drum ? 1.08f : 1f;
+		magSo.FindProperty("m_JamRiskModifier").floatValue = UsesLargeBoxOrDrum(_magazineType) ? 1.08f : 1f;
 		magSo.FindProperty("m_IsNonRemovable").boolValue = _isNonRemovable;
 		magSo.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(magazine);
@@ -432,6 +444,7 @@ public static class StandaloneWeaponsBuilder
 		itemSo.FindProperty("m_LocalizationKey").stringValue = _localizationKey;
 		itemSo.FindProperty("m_Description").stringValue = _description;
 		itemSo.FindProperty("m_BasePrice").intValue = _price;
+		itemSo.FindProperty("m_WeightKg").floatValue = _weightKg;
 		itemSo.FindProperty("m_Category").enumValueIndex = 0;
 		itemSo.FindProperty("m_EquippedVisualPrefab").objectReferenceValue = _isNonRemovable ? null : visual;
 		itemSo.FindProperty("m_MagazineDefinition").objectReferenceValue = magazine;
@@ -442,6 +455,13 @@ public static class StandaloneWeaponsBuilder
 
 		if (_buildLoot)
 			BuildLootForItem(item, $"{c_LootMagazinesRoot}/Loot_{_itemAssetName}.prefab", visual);
+	}
+
+	private static bool UsesLargeBoxOrDrum(MagazineType _magazineType)
+	{
+		return _magazineType == MagazineType.Drum ||
+		       _magazineType == MagazineType.M249Box ||
+		       _magazineType == MagazineType.PkmBox;
 	}
 
 	private static GameObject BuildMagazineVisualFromWeaponMesh(
@@ -528,6 +548,13 @@ public static class StandaloneWeaponsBuilder
 		so.FindProperty("m_WeaponClass").enumValueIndex = (int)_config.WeaponClass;
 		so.FindProperty("m_SupportedCaliber").enumValueIndex = (int)_config.Caliber;
 		so.FindProperty("m_SupportedMagazineType").enumValueIndex = (int)_config.MagazineType;
+		// Сменные магазины (как Sniper/SVD): без встроенного shell-by-shell. Benelli выставляется в WireBenelliBuiltInMagazine.
+		if (_config.WeaponAssetName != "Weapon_BenelliM4")
+		{
+			so.FindProperty("m_UsesShellByShellReload").boolValue = false;
+			so.FindProperty("m_BuiltInMagazineDefinition").objectReferenceValue = null;
+			so.FindProperty("m_BuiltInMagazineDefaultAmmo").objectReferenceValue = null;
+		}
 		so.FindProperty("m_AttachmentSlotProfile").enumValueIndex = (int)_config.SlotProfile;
 		WriteAttachmentSlots(so.FindProperty("m_AttachmentSlots"), _config.SlotLayout);
 		WriteFireModes(so.FindProperty("m_AvailableFireModes"), _config.FireModes);
@@ -555,6 +582,21 @@ public static class StandaloneWeaponsBuilder
 		if (_config.WeaponAssetName == "Weapon_BenelliM4")
 			BenelliShotgunContentBuilder.WireBenelliFireAudio();
 
+		if (_config.WeaponAssetName == "Weapon_SVD")
+			ApplySvdAudio(so);
+
+		if (_config.WeaponAssetName == "Weapon_Sniper762x51")
+			ApplySniper762Audio(so);
+
+		if (_config.WeaponAssetName == "Weapon_M249")
+			ApplyMachineGunAudio(so, "M249", "gun_m249_fire");
+
+		if (_config.WeaponAssetName == "Weapon_PKM")
+		{
+			ApplyMachineGunAudio(so, "PKM", "gun_pkm_fire");
+			so.FindProperty("m_AnimationPlatform").enumValueIndex = (int)WeaponAnimationPlatform.Ak;
+		}
+
 		ApplyBalanceCurves(so, _config.CurveKind);
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(weapon);
@@ -565,37 +607,280 @@ public static class StandaloneWeaponsBuilder
 	{
 		AudioClip[] clips =
 		{
-			LoadAsset<AudioClip>("Assets/SFX/mosin/Gun 08/Gun 8_1.wav"),
-			LoadAsset<AudioClip>("Assets/SFX/mosin/Gun 08/Gun 8_2.wav"),
-			LoadAsset<AudioClip>("Assets/SFX/mosin/Gun 08/Gun 8_3.wav"),
-			LoadAsset<AudioClip>("Assets/SFX/mosin/Gun 08/Gun 8_4.wav"),
-			LoadAsset<AudioClip>("Assets/SFX/mosin/Gun 08/Gun 8_5.wav")
+			LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Mosin/Fire/gun_mosin_fire_01.wav"),
+			LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Mosin/Fire/gun_mosin_fire_02.wav"),
+			LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Mosin/Fire/gun_mosin_fire_03.wav"),
+			LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Mosin/Fire/gun_mosin_fire_04.wav"),
+			LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Mosin/Fire/gun_mosin_fire_05.wav")
+		};
+
+		WeaponDefinition ak = LoadAsset<WeaponDefinition>(c_TemplateWeaponAkPath);
+		if (ak == null)
+			return;
+
+		var akSo = new SerializedObject(ak);
+		SerializedProperty fireProfile = _weaponSo.FindProperty("m_FireSoundProfile");
+		if (fireProfile != null)
+		{
+			SerializedProperty clipsProp = fireProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				int validCount = 0;
+				for (int i = 0; i < clips.Length; i++)
+				{
+					if (clips[i] != null)
+						validCount++;
+				}
+
+				clipsProp.arraySize = validCount;
+				int writeIndex = 0;
+				for (int i = 0; i < clips.Length; i++)
+				{
+					if (clips[i] == null)
+						continue;
+					clipsProp.GetArrayElementAtIndex(writeIndex).objectReferenceValue = clips[i];
+					writeIndex++;
+				}
+			}
+
+			fireProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 650f;
+		}
+
+		// No suppressor on Mosin.
+		SerializedProperty suppressedProfile = _weaponSo.FindProperty("m_SuppressedFireSoundProfile");
+		if (suppressedProfile != null)
+		{
+			SerializedProperty clipsProp = suppressedProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+				clipsProp.arraySize = 0;
+			suppressedProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 0f;
+		}
+
+		CopyAudioClipProfile(akSo, _weaponSo, "m_FireModeSwitchSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagOutSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagInSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_MalfunctionClickSounds", "m_Clips");
+		_weaponSo.FindProperty("m_ReloadSoundsVolume").floatValue =
+			akSo.FindProperty("m_ReloadSoundsVolume").floatValue;
+		_weaponSo.FindProperty("m_HasBoltHoldOpenDelay").boolValue = false;
+		SerializedProperty requiresManualBolt = _weaponSo.FindProperty("m_RequiresManualBoltCycle");
+		if (requiresManualBolt != null)
+			requiresManualBolt.boolValue = true;
+
+		AudioClip boltCycle = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Shared/BoltCycle/gun_bolt_cycle_01.wav");
+		SerializedProperty boltSounds = _weaponSo.FindProperty("m_BoltCycleSounds");
+		if (boltSounds != null)
+		{
+			SerializedProperty boltClipsProp = boltSounds.FindPropertyRelative("m_Clips");
+			if (boltClipsProp != null)
+			{
+				boltClipsProp.arraySize = boltCycle != null ? 1 : 0;
+				if (boltCycle != null)
+					boltClipsProp.GetArrayElementAtIndex(0).objectReferenceValue = boltCycle;
+			}
+		}
+
+		SerializedProperty holdOpen = _weaponSo.FindProperty("m_ReloadBoltHoldOpenDelaySounds");
+		if (holdOpen != null)
+		{
+			SerializedProperty holdClips = holdOpen.FindPropertyRelative("m_Clips");
+			if (holdClips != null)
+				holdClips.arraySize = 0;
+		}
+	}
+
+	private static void ApplySvdAudio(SerializedObject _weaponSo)
+	{
+		AudioClip fire = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/SVD/Fire/gun_svd_fire_01.wav");
+		AudioClip suppressed = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/SVD/SuppressedFire/gun_svd_suppressed_fire_01.wav");
+		WeaponDefinition ak = LoadAsset<WeaponDefinition>(c_TemplateWeaponAkPath);
+		if (ak == null)
+			return;
+
+		var akSo = new SerializedObject(ak);
+		SerializedProperty fireProfile = _weaponSo.FindProperty("m_FireSoundProfile");
+		if (fireProfile != null)
+		{
+			SerializedProperty clipsProp = fireProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				clipsProp.arraySize = fire != null ? 1 : 0;
+				if (fire != null)
+					clipsProp.GetArrayElementAtIndex(0).objectReferenceValue = fire;
+			}
+
+			fireProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 625f;
+		}
+
+		SerializedProperty suppressedProfile = _weaponSo.FindProperty("m_SuppressedFireSoundProfile");
+		if (suppressedProfile != null)
+		{
+			SerializedProperty clipsProp = suppressedProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				clipsProp.arraySize = suppressed != null ? 1 : 0;
+				if (suppressed != null)
+					clipsProp.GetArrayElementAtIndex(0).objectReferenceValue = suppressed;
+			}
+
+			suppressedProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 220f;
+		}
+
+		CopyAudioClipProfile(akSo, _weaponSo, "m_FireModeSwitchSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagOutSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagInSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_BoltCycleSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_MalfunctionClickSounds", "m_Clips");
+		_weaponSo.FindProperty("m_ReloadSoundsVolume").floatValue =
+			akSo.FindProperty("m_ReloadSoundsVolume").floatValue;
+		_weaponSo.FindProperty("m_HasBoltHoldOpenDelay").boolValue = false;
+		_weaponSo.FindProperty("m_AnimationPlatform").enumValueIndex = (int)WeaponAnimationPlatform.Svd;
+		SerializedProperty holdOpen = _weaponSo.FindProperty("m_ReloadBoltHoldOpenDelaySounds");
+		if (holdOpen != null)
+		{
+			SerializedProperty holdClips = holdOpen.FindPropertyRelative("m_Clips");
+			if (holdClips != null)
+				holdClips.arraySize = 0;
+		}
+	}
+
+	private static void ApplySniper762Audio(SerializedObject _weaponSo)
+	{
+		AudioClip fire = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Sniper762/Fire/gun_sniper762_fire_01.wav");
+		AudioClip suppressed = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Sniper762/SuppressedFire/gun_sniper762_suppressed_fire_01.wav");
+		WeaponDefinition mk12 = LoadAsset<WeaponDefinition>(c_TemplateWeaponMk12Path);
+		if (mk12 == null)
+			return;
+
+		var mk12So = new SerializedObject(mk12);
+		SerializedProperty fireProfile = _weaponSo.FindProperty("m_FireSoundProfile");
+		if (fireProfile != null)
+		{
+			SerializedProperty clipsProp = fireProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				clipsProp.arraySize = fire != null ? 1 : 0;
+				if (fire != null)
+					clipsProp.GetArrayElementAtIndex(0).objectReferenceValue = fire;
+			}
+
+			fireProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 650f;
+		}
+
+		SerializedProperty suppressedProfile = _weaponSo.FindProperty("m_SuppressedFireSoundProfile");
+		if (suppressedProfile != null)
+		{
+			SerializedProperty clipsProp = suppressedProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				clipsProp.arraySize = suppressed != null ? 1 : 0;
+				if (suppressed != null)
+					clipsProp.GetArrayElementAtIndex(0).objectReferenceValue = suppressed;
+			}
+
+			suppressedProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 200f;
+		}
+
+		CopyAudioClipProfile(mk12So, _weaponSo, "m_FireModeSwitchSounds", "m_Clips");
+		CopyAudioClipProfile(mk12So, _weaponSo, "m_ReloadMagOutSounds", "m_Clips");
+		CopyAudioClipProfile(mk12So, _weaponSo, "m_ReloadMagInSounds", "m_Clips");
+		CopyAudioClipProfile(mk12So, _weaponSo, "m_MalfunctionClickSounds", "m_Clips");
+		_weaponSo.FindProperty("m_ReloadSoundsVolume").floatValue =
+			mk12So.FindProperty("m_ReloadSoundsVolume").floatValue;
+		_weaponSo.FindProperty("m_HasBoltHoldOpenDelay").boolValue = false;
+		SerializedProperty requiresManualBolt = _weaponSo.FindProperty("m_RequiresManualBoltCycle");
+		if (requiresManualBolt != null)
+			requiresManualBolt.boolValue = true;
+
+		AudioClip boltCycle = LoadAsset<AudioClip>("Assets/Audio/Combat/Weapons/Shared/BoltCycle/gun_bolt_cycle_01.wav");
+		SerializedProperty boltSounds = _weaponSo.FindProperty("m_BoltCycleSounds");
+		if (boltSounds != null)
+		{
+			SerializedProperty boltClipsProp = boltSounds.FindPropertyRelative("m_Clips");
+			if (boltClipsProp != null)
+			{
+				boltClipsProp.arraySize = boltCycle != null ? 1 : 0;
+				if (boltCycle != null)
+					boltClipsProp.GetArrayElementAtIndex(0).objectReferenceValue = boltCycle;
+			}
+		}
+
+		SerializedProperty holdOpen = _weaponSo.FindProperty("m_ReloadBoltHoldOpenDelaySounds");
+		if (holdOpen != null)
+		{
+			SerializedProperty holdClips = holdOpen.FindPropertyRelative("m_Clips");
+			if (holdClips != null)
+				holdClips.arraySize = 0;
+		}
+	}
+
+	private static void ApplyMachineGunAudio(SerializedObject _weaponSo, string _folderName, string _clipPrefix)
+	{
+		AudioClip[] clips =
+		{
+			LoadAsset<AudioClip>($"Assets/Audio/Combat/Weapons/{_folderName}/Fire/{_clipPrefix}_01.wav"),
+			LoadAsset<AudioClip>($"Assets/Audio/Combat/Weapons/{_folderName}/Fire/{_clipPrefix}_02.wav"),
+			LoadAsset<AudioClip>($"Assets/Audio/Combat/Weapons/{_folderName}/Fire/{_clipPrefix}_03.wav"),
+			LoadAsset<AudioClip>($"Assets/Audio/Combat/Weapons/{_folderName}/Fire/{_clipPrefix}_04.wav"),
+			LoadAsset<AudioClip>($"Assets/Audio/Combat/Weapons/{_folderName}/Fire/{_clipPrefix}_05.wav")
 		};
 
 		SerializedProperty fireProfile = _weaponSo.FindProperty("m_FireSoundProfile");
-		if (fireProfile == null)
-			return;
-
-		SerializedProperty clipsProp = fireProfile.FindPropertyRelative("m_FireClips");
-		if (clipsProp == null)
-			return;
-		int validCount = 0;
-		for (int i = 0; i < clips.Length; i++)
+		if (fireProfile != null)
 		{
-			if (clips[i] != null)
-				validCount++;
+			SerializedProperty clipsProp = fireProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+			{
+				clipsProp.arraySize = clips.Length;
+				for (int i = 0; i < clips.Length; i++)
+					clipsProp.GetArrayElementAtIndex(i).objectReferenceValue = clips[i];
+			}
+
+			fireProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 625f;
 		}
 
-		clipsProp.arraySize = validCount;
-		int writeIndex = 0;
-		for (int i = 0; i < clips.Length; i++)
+		SerializedProperty suppressedProfile = _weaponSo.FindProperty("m_SuppressedFireSoundProfile");
+		if (suppressedProfile != null)
 		{
-			if (clips[i] == null)
-				continue;
-
-			clipsProp.GetArrayElementAtIndex(writeIndex).objectReferenceValue = clips[i];
-			writeIndex++;
+			SerializedProperty clipsProp = suppressedProfile.FindPropertyRelative("m_FireClips");
+			if (clipsProp != null)
+				clipsProp.arraySize = 0;
+			suppressedProfile.FindPropertyRelative("m_MaxAudibleDistanceMeters").floatValue = 0f;
 		}
+
+		WeaponDefinition ak = LoadAsset<WeaponDefinition>(c_TemplateWeaponAkPath);
+		if (ak == null)
+			return;
+
+		var akSo = new SerializedObject(ak);
+		CopyAudioClipProfile(akSo, _weaponSo, "m_FireModeSwitchSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagOutSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_ReloadMagInSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_BoltCycleSounds", "m_Clips");
+		CopyAudioClipProfile(akSo, _weaponSo, "m_MalfunctionClickSounds", "m_Clips");
+		_weaponSo.FindProperty("m_ReloadSoundsVolume").floatValue =
+			akSo.FindProperty("m_ReloadSoundsVolume").floatValue;
+	}
+
+	private static void CopyAudioClipProfile(
+		SerializedObject _from,
+		SerializedObject _to,
+		string _profileName,
+		string _clipsField)
+	{
+		SerializedProperty fromProfile = _from.FindProperty(_profileName);
+		SerializedProperty toProfile = _to.FindProperty(_profileName);
+		if (fromProfile == null || toProfile == null)
+			return;
+
+		SerializedProperty fromClips = fromProfile.FindPropertyRelative(_clipsField);
+		SerializedProperty toClips = toProfile.FindPropertyRelative(_clipsField);
+		if (fromClips == null || toClips == null)
+			return;
+
+		toClips.arraySize = fromClips.arraySize;
+		for (int i = 0; i < fromClips.arraySize; i++)
+			toClips.GetArrayElementAtIndex(i).objectReferenceValue = fromClips.GetArrayElementAtIndex(i).objectReferenceValue;
 	}
 
 	private static ItemDefinition BuildItemDefinition(
@@ -698,6 +983,60 @@ public static class StandaloneWeaponsBuilder
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(scope);
 	}
+
+	private static void UpdateMachineGunM4OpticCompatibility(IReadOnlyList<WeaponDefinition> _builtWeapons)
+	{
+		WeaponDefinition m249 = null;
+		WeaponDefinition pkm = null;
+		for (int i = 0; i < _builtWeapons.Count; i++)
+		{
+			if (_builtWeapons[i] == null)
+				continue;
+			if (_builtWeapons[i].name == "Weapon_M249")
+				m249 = _builtWeapons[i];
+			else if (_builtWeapons[i].name == "Weapon_PKM")
+				pkm = _builtWeapons[i];
+		}
+
+		if (m249 == null || pkm == null)
+			return;
+
+		string[] guids = AssetDatabase.FindAssets("t:WeaponAttachmentDefinition", new[] { "Assets/GameData/Shooting/M4" });
+		for (int i = 0; i < guids.Length; i++)
+		{
+			string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+			WeaponAttachmentDefinition attachment = LoadAsset<WeaponAttachmentDefinition>(path);
+			if (attachment == null)
+				continue;
+
+			var so = new SerializedObject(attachment);
+			if (so.FindProperty("m_AttachmentType").enumValueIndex != (int)WeaponAttachmentType.Optic ||
+			    so.FindProperty("m_RequiredSlot").enumValueIndex != (int)WeaponAttachmentSlotType.Optic ||
+			    !so.FindProperty("m_UseExplicitWeaponCompatibility").boolValue)
+				continue;
+
+			AppendCompatibleWeapon(so.FindProperty("m_CompatibleWeapons"), m249);
+			AppendCompatibleWeapon(so.FindProperty("m_CompatibleWeapons"), pkm);
+			so.ApplyModifiedPropertiesWithoutUndo();
+			EditorUtility.SetDirty(attachment);
+		}
+	}
+
+	private static void AppendCompatibleWeapon(SerializedProperty _weapons, WeaponDefinition _weapon)
+	{
+		if (_weapons == null || _weapon == null)
+			return;
+
+		for (int i = 0; i < _weapons.arraySize; i++)
+		{
+			if (_weapons.GetArrayElementAtIndex(i).objectReferenceValue == _weapon)
+				return;
+		}
+
+		int index = _weapons.arraySize;
+		_weapons.arraySize = index + 1;
+		_weapons.GetArrayElementAtIndex(index).objectReferenceValue = _weapon;
+	}
 	#endregion
 
 	#region Weapon Configs
@@ -709,14 +1048,14 @@ public static class StandaloneWeaponsBuilder
 		yield return Config(
 			"Equipped_Mosin", "Weapon_Mosin", "Item_Weapon_Mosin",
 			c_SourceMosinPath, c_MagChildMosin, WeaponTemplateKind.Mosin,
-			"item.weapon.mosin", "Mosin-Nagant bolt-action rifle chambered in 7.62x54R.",
-			CaliberType.Seven62By54R, MagazineType.Internal, WeaponClassType.Rifle,
+			"item.weapon.mosin", "7.62x54R bolt-action rifle.",
+			CaliberType.Seven62By54R, MagazineType.Bolt762x54R, WeaponClassType.Rifle,
 			SlotLayout.OpticOnly, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
-			50f, 0.55f, 3.20f, 200f, 0.48f,
-			0.42f, 0.78f, 1.00f, 4.2f, 0.92f,
-			1800, 4.5f, c_VfxProfileAkPath, false);
+			50f, 0.55f, 3.20f, 300f, 0.46f,
+			0.44f, 0.76f, 1.00f, 4.0f, 0.93f,
+			1800, 4.0f, c_VfxProfileAkPath, false);
 
 		yield return Config(
 			"Equipped_BenelliM4", "Weapon_BenelliM4", "Item_Weapon_BenelliM4",
@@ -734,7 +1073,7 @@ public static class StandaloneWeaponsBuilder
 			"Equipped_M249", "Weapon_M249", "Item_Weapon_M249",
 			c_SourceM249Path, c_MagChildM249, WeaponTemplateKind.Rpk74,
 			"item.weapon.m249", "M249 SAW light machine gun chambered in 5.56x45 NATO.",
-			CaliberType.Five56By45, MagazineType.Drum, WeaponClassType.LightMachineGun,
+			CaliberType.Five56By45, MagazineType.M249Box, WeaponClassType.LightMachineGun,
 			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support545,
 			fullAutoOnly, WeaponFireMode.FullAuto,
@@ -750,16 +1089,16 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.MuzzleOptic, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
-			40f, 0.58f, 3.00f, 220f, 0.42f,
-			0.40f, 0.76f, 1.00f, 4.5f, 0.90f,
+			40f, 0.55f, 3.00f, 380f, 0.40f,
+			0.42f, 0.74f, 1.00f, 4.3f, 0.91f,
 			4200, 5.8f, c_VfxProfileM4Path, true, true);
 
 		yield return Config(
 			"Equipped_PKM", "Weapon_PKM", "Item_Weapon_PKM",
 			c_SourcePkmPath, c_MagChildPkm, WeaponTemplateKind.Rpk47,
 			"item.weapon.pkm", "PKM general-purpose machine gun chambered in 7.62x54R.",
-			CaliberType.Seven62By54R, MagazineType.Drum, WeaponClassType.LightMachineGun,
-			SlotLayout.StockAk, WeaponAttachmentSlotProfile.StockAk,
+			CaliberType.Seven62By54R, MagazineType.PkmBox, WeaponClassType.LightMachineGun,
+			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support762,
 			fullAutoOnly, WeaponFireMode.FullAuto,
 			650f, 0.50f, 5.00f, 150f, 1.10f,
@@ -770,12 +1109,12 @@ public static class StandaloneWeaponsBuilder
 			"Equipped_SVD", "Weapon_SVD", "Item_Weapon_SVD",
 			c_SourceSvdPath, c_MagChildSvd, WeaponTemplateKind.Mk12,
 			"item.weapon.svd", "SVD semi-automatic marksman rifle chambered in 7.62x54R.",
-			CaliberType.Seven62By54R, MagazineType.RifleStandard, WeaponClassType.Rifle,
-			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
+			CaliberType.Seven62By54R, MagazineType.Svd, WeaponClassType.Rifle,
+			SlotLayout.MuzzleOpticSideRail, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Marksman,
 			semiOnly, WeaponFireMode.SemiAuto,
-			30f, 0.45f, 2.80f, 180f, 0.52f,
-			0.44f, 0.80f, 1.00f, 4.4f, 0.86f,
+			150f, 0.48f, 2.50f, 320f, 0.48f,
+			0.46f, 0.82f, 1.00f, 4.2f, 0.88f,
 			3900, 4.3f, c_VfxProfileAkPath, false, true);
 	}
 
@@ -893,6 +1232,7 @@ public static class StandaloneWeaponsBuilder
 		{
 			SlotLayout.OpticOnly => s_OpticOnlySlots,
 			SlotLayout.MuzzleOptic => s_MuzzleOpticSlots,
+			SlotLayout.MuzzleOpticSideRail => s_MuzzleOpticSideRailSlots,
 			SlotLayout.StockAk => s_StockAkSlots,
 			SlotLayout.TacticalFull => s_TacticalFullSlots,
 			SlotLayout.MuzzleOnly => s_MuzzleOnlySlots,
@@ -1092,6 +1432,7 @@ public static class StandaloneWeaponsBuilder
 	{
 		OpticOnly,
 		MuzzleOptic,
+		MuzzleOpticSideRail,
 		StockAk,
 		TacticalFull,
 		MuzzleOnly

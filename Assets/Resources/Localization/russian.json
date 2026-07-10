@@ -479,7 +479,7 @@
     },
     {
       "key": "item.attachment.m4_foregrip3",
-      "value": "Горизонтальная рукоятка"
+      "value": "Угловая рукоятка"
     },
     {
       "key": "item.attachment.m4_foregrip4",
@@ -571,7 +571,7 @@
     },
     {
       "key": "item.weapon.mosin",
-      "value": "Винтовка Мосина"
+      "value": "Болтовая винтовка 7,62×54"
     },
     {
       "key": "item.weapon.benelli_m4",
@@ -639,7 +639,7 @@
     },
     {
       "key": "item.mag.mosin_762_54r_5",
-      "value": "Встроенный магазин Мосина (5 патр.)"
+      "value": "Магазин болтовой винтовки (5 патр.)"
     },
     {
       "key": "item.mag.m249_556_200",
@@ -680,6 +680,22 @@
     {
       "key": "item.attachment.mosin_scope8",
       "value": "Стандартный снайперский прицел"
+    },
+    {
+      "key": "item.attachment.svd_silencer",
+      "value": "Глушитель СВД"
+    },
+    {
+      "key": "item.attachment.svd_muzzle_brake",
+      "value": "Компенсатор СВД"
+    },
+    {
+      "key": "item.attachment.sniper762x51_silencer",
+      "value": "Глушитель снайперской 7,62×51"
+    },
+    {
+      "key": "item.attachment.sniper762x51_muzzle_brake",
+      "value": "Дульный тормоз снайперской 7,62×51"
     },
     {
       "key": "item.weapon.ak47.desc",
@@ -731,7 +747,7 @@
     },
     {
       "key": "item.weapon.mosin.desc",
-      "value": "Винтовка Мосина под 7,62×54 мм R. Медленная, но точная на дальней дистанции."
+      "value": "Болтовая винтовка под 7,62×54 мм R. Медленная, но точная на дальней дистанции."
     },
     {
       "key": "item.weapon.benelli_m4.desc",
@@ -791,15 +807,15 @@
     },
     {
       "key": "item.loot.ammo_box.12g.desc",
-      "value": "Коробка 25 патронов дроби 12 калибра (~1.15 кг)."
+      "value": "Коробка 25 патронов 12 калибра (~1.05 кг)."
     },
     {
       "key": "item.loot.ammo_box.762x51.desc",
-      "value": "Коробка патронов 7,62×51 NATO."
+      "value": "Коробка 20 патронов 7,62×51 NATO (~0.55 кг)."
     },
     {
       "key": "item.loot.ammo_box.762x54r.desc",
-      "value": "Коробка патронов 7,62×54 мм R."
+      "value": "Коробка 20 патронов 7,62×54 мм R (~0.50 кг)."
     },
     {
       "key": "item.mag.m4_556_20.desc",
@@ -847,7 +863,7 @@
     },
     {
       "key": "item.mag.mosin_762_54r_5.desc",
-      "value": "Встроенный магазин Мосина на 5 патронов."
+      "value": "Магазин болтовой винтовки на 5 патронов 7,62×54 мм R."
     },
     {
       "key": "item.mag.m249_556_200.desc",
@@ -1004,6 +1020,22 @@
     {
       "key": "item.attachment.mosin_scope8.desc",
       "value": "Стандартный снайперский прицел."
+    },
+    {
+      "key": "item.attachment.svd_silencer.desc",
+      "value": "Глушитель для СВД. Тише выстрел, чуть дальше эффективная дистанция; ускоряет загрязнение."
+    },
+    {
+      "key": "item.attachment.svd_muzzle_brake.desc",
+      "value": "Компенсатор / пламегаситель для СВД. Снижает отдачу в полуавтомате."
+    },
+    {
+      "key": "item.attachment.sniper762x51_silencer.desc",
+      "value": "Глушитель для снайперской винтовки 7,62×51. Тише выстрел, чуть дальше эффективная дистанция."
+    },
+    {
+      "key": "item.attachment.sniper762x51_muzzle_brake.desc",
+      "value": "Дульный тормоз для снайперской винтовки 7,62×51. Снижает отдачу в полуавтомате."
     },
     {
       "key": "pause.title",
