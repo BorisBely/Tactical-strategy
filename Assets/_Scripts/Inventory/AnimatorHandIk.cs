@@ -191,7 +191,7 @@ public class AnimatorHandIk : MonoBehaviour
 	{
 		if (m_MagazineLoading != null && m_MagazineLoading.IsLoadingMagazine)
 			return true;
-		if (m_WeaponReload != null && (m_WeaponReload.IsReloadingWeapon || m_WeaponReload.IsCyclingBolt))
+		if (m_WeaponReload != null && (m_WeaponReload.IsReloadingWeapon || m_WeaponReload.IsCyclingBolt || m_WeaponReload.IsLoadingLmgBelt))
 			return true;
 		if (m_SelfStabilization != null && m_SelfStabilization.IsHealPresentationActive)
 			return true;

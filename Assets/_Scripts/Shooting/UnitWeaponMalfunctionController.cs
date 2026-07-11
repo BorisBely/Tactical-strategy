@@ -30,6 +30,7 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 
 	#region Private Fields
 	private bool m_PendingMalfunctionBoltApplyRearmDelay;
+	private bool m_LmgBeltRecoveryActive;
 	#endregion
 
 	#region Unity Lifecycle
@@ -134,10 +135,14 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 		                   m_ReloadController.IsMalfunctionStripReinsertReloadActive &&
 		                   !m_ReloadController.MagazineInsertCompletedThisReload;
 		bool phaseBCycling = stripPhaseB && m_ReloadController.IsCyclingBolt;
+		bool phaseALmgBelt = Transient.MalfunctionPhase == WeaponMalfunctionPhase.PhaseARackWithMag &&
+		                     m_LmgBeltRecoveryActive &&
+		                     Transient.MalfunctionBoltAnimInProgress;
 		bool phaseAMalfunctionBolt = Transient.MalfunctionPhase == WeaponMalfunctionPhase.PhaseARackWithMag &&
-		                             Transient.MalfunctionBoltAnimInProgress;
+		                             Transient.MalfunctionBoltAnimInProgress &&
+		                             !m_LmgBeltRecoveryActive;
 
-		if (!phaseAMalfunctionBolt && !phaseBCycling)
+		if (!phaseAMalfunctionBolt && !phaseBCycling && !phaseALmgBelt)
 			return false;
 
 		WeaponMalfunctionPhase phase = Transient.MalfunctionPhase;
@@ -150,6 +155,7 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 
 		if (phaseA && isHeavy)
 		{
+			ClearLmgBeltRecovery();
 			Transient.SetMalfunctionBoltAnimInProgress(false);
 			if (attempt >= 2)
 				BeginHeavyPhaseBStripReload();
@@ -158,7 +164,6 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 
 			if (attempt < 2)
 			{
-				// Сброс bool затвора и пауза перед повторным true — иначе переходы «только из false» не срабатывают.
 				NotifyBoltCycleEndedForNextMalfunctionRack();
 				TryQueueNextRackNextFrame(applyRearmDelayAfterBoltEnd: true);
 			}
@@ -168,8 +173,11 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 
 		if (phaseA && Transient.MalfunctionKind == WeaponMalfunctionKind.Light)
 		{
+			bool isLmg = IsLmgWeapon() && m_LmgBeltRecoveryActive;
+
 			if (!rngSuccess)
 			{
+				ClearLmgBeltRecovery();
 				Transient.SetMalfunctionBoltAnimInProgress(false);
 				if (attempt >= 2)
 				{
@@ -179,8 +187,16 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 				else
 				{
 					Transient.SetMalfunctionRackAttemptIndex(attempt + 1);
-					NotifyBoltCycleEndedForNextMalfunctionRack();
-					TryQueueNextRackNextFrame(applyRearmDelayAfterBoltEnd: true);
+					if (isLmg)
+					{
+						NotifyBoltCycleEndedForNextMalfunctionRack();
+						TryQueueNextLmgBeltRecovery();
+					}
+					else
+					{
+						NotifyBoltCycleEndedForNextMalfunctionRack();
+						TryQueueNextRackNextFrame(applyRearmDelayAfterBoltEnd: true);
+					}
 				}
 
 				return true;
@@ -197,6 +213,7 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 		{
 			if (!rngSuccess)
 			{
+				ClearLmgBeltRecovery();
 				Transient.SetMalfunctionBoltAnimInProgress(false);
 				if (attempt >= 2)
 					ResolveSuccessfulRackClear(rs, false);
@@ -204,7 +221,10 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 				{
 					Transient.SetMalfunctionRackAttemptIndex(attempt + 1);
 					NotifyBoltCycleEndedForNextMalfunctionRack();
-					TryQueueNextRackNextFrame(applyRearmDelayAfterBoltEnd: true);
+					if (IsLmgWeapon())
+						TryQueueNextLmgBeltRecovery();
+					else
+						TryQueueNextRackNextFrame(applyRearmDelayAfterBoltEnd: true);
 				}
 
 				return true;
@@ -224,16 +244,33 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 		if (Transient.MalfunctionPhase != WeaponMalfunctionPhase.PhaseBStripAndReinsert)
 			return;
 
+		if (IsLmgWeapon())
+			return;
+
 		Transient.ClearMalfunction();
 		m_DebugLastJamRoll = "Heavy cleared after strip reload insert";
 	}
 
 	public bool IsMalfunctionBoltRecoveryContext => Transient.HasActiveMalfunction;
 
+	public bool IsLmgBeltRecoveryActive => m_LmgBeltRecoveryActive;
+
 	/// <summary>Вызывается из <see cref="UnitWeaponReloadController.TryStartMalfunctionBoltRack"/> до смены параметров аниматора.</summary>
 	public void NotifyBoltAnimStarting()
 	{
 		Transient?.SetMalfunctionBoltAnimInProgress(true);
+	}
+
+	public void NotifyLmgBeltRecoveryStarting()
+	{
+		m_LmgBeltRecoveryActive = true;
+		Transient?.SetMalfunctionBoltAnimInProgress(true);
+	}
+
+	private void ClearLmgBeltRecovery()
+	{
+		m_LmgBeltRecoveryActive = false;
+		Transient?.SetMalfunctionBoltAnimInProgress(false);
 	}
 
 	/// <summary>ИИ/ввод: следующий rack при ожидании снятия отказа (когда нет активной анимации затвора/перезарядки).</summary>
@@ -243,10 +280,17 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 			return false;
 		if (m_ReloadController == null)
 			return false;
-		if (m_ReloadController.IsCyclingBolt)
+		if (m_ReloadController.IsCyclingBolt || m_ReloadController.IsLoadingLmgBelt)
 			return false;
 		if (m_ReloadController.IsReloadingWeapon && !m_ReloadController.IsMalfunctionStripReinsertReloadActive)
 			return false;
+
+		if (IsLmgWeapon())
+		{
+			m_ReloadController.TryStartLmgBeltRecovery();
+			NotifyLmgBeltRecoveryStarting();
+			return true;
+		}
 
 		TryQueueNextRackNextFrame();
 		return true;
@@ -258,6 +302,12 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private bool IsLmgWeapon()
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime?.CurrentWeaponDefinition;
+		return weaponDefinition != null && weaponDefinition.WeaponClass == WeaponClassType.LightMachineGun;
+	}
+
 	private void EnterMalfunction(WeaponMalfunctionKind _kind, WeaponMalfunctionChannel _channel, WeaponMalfunctionPhase _phase)
 	{
 		Transient.SetMalfunction(_kind, _channel, _phase);
@@ -282,6 +332,7 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 	/// <summary>Сброс IsCyclingBolt в аниматоре перед следующим rack; иначе <see cref="UnitWeaponReloadController.TryStartMalfunctionBoltRack"/> не проходит и переходы ждут false.</summary>
 	private void NotifyBoltCycleEndedForNextMalfunctionRack()
 	{
+		ClearLmgBeltRecovery();
 		m_ReloadController?.NotifyMalfunctionBoltHandledEnd();
 	}
 
@@ -300,8 +351,22 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 			m_DebugLastJamRoll = "Light jam cleared";
 		}
 
+		ClearLmgBeltRecovery();
 		Transient.SetMalfunctionBoltAnimInProgress(false);
 		m_ReloadController?.NotifyMalfunctionBoltHandledEnd();
+	}
+
+	private void TryQueueNextLmgBeltRecovery()
+	{
+		if (!Transient.HasActiveMalfunction)
+			return;
+
+		if (m_ReloadController != null)
+		{
+			m_ReloadController.NotifyMalfunctionBoltHandledEnd();
+			m_ReloadController.TryStartLmgBeltRecovery();
+			NotifyLmgBeltRecoveryStarting();
+		}
 	}
 
 	private void TryQueueNextRackNextFrame(bool applyRearmDelayAfterBoltEnd = false)
@@ -338,11 +403,28 @@ public sealed class UnitWeaponMalfunctionController : MonoBehaviour
 		    m_ReloadController != null &&
 		    m_ReloadController.IsMalfunctionStripReinsertReloadActive)
 		{
-			m_ReloadController.RestartMalfunctionBoltCycleDuringStripReload();
+			if (IsLmgWeapon())
+			{
+				m_ReloadController.NotifyMalfunctionBoltHandledEnd();
+				m_ReloadController.TryStartLmgBeltRecovery();
+				NotifyLmgBeltRecoveryStarting();
+			}
+			else
+			{
+				m_ReloadController.RestartMalfunctionBoltCycleDuringStripReload();
+			}
 			yield break;
 		}
 
-		m_ReloadController?.TryStartMalfunctionBoltRack();
+		if (IsLmgWeapon())
+		{
+			m_ReloadController?.TryStartLmgBeltRecovery();
+			NotifyLmgBeltRecoveryStarting();
+		}
+		else
+		{
+			m_ReloadController?.TryStartMalfunctionBoltRack();
+		}
 	}
 
 	private static float GetRackClearChanceForAttempt(int _attemptIndex)

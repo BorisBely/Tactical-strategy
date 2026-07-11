@@ -59,6 +59,8 @@ public static class UnitAnimControllerAimRelaxedSetup
 	private const string c_RelaxedBolt = "Stand_Relaxed__CyclingBolt";
 	private const string c_RelaxedBoltAk = "Stand_Relaxed__CyclingBolt_AK";
 	private const string c_RelaxedBoltAction = "Stand_Relaxed_BoltCycle";
+	private const string c_AimLmgReload = "Stand_Reload_LMG";
+	private const string c_RelaxedLmgReload = "Stand_Relaxed_Reload_LMG";
 
 	private const string c_ClipRelaxedIdle = "Assets/Animations/Rifle/Stand/Stand_Relaxed_Rifle_Idle.anim";
 	private const string c_ClipRelaxedReload = "Assets/Animations/Rifle/Stand/Stand_Relaxed_Reload.anim";
@@ -69,14 +71,20 @@ public static class UnitAnimControllerAimRelaxedSetup
 	private const string c_ClipRelaxedBoltAction = "Assets/Animations/Rifle/Stand/Stand_Relaxed_BoltCycle.anim";
 	private const string c_ClipRifleCrouchIdleLegacy = "Assets/Animations/Rifle/Crouch/Crouch_Idle_LegacyRifle.anim";
 	private const string c_ClipCrouchAimLegacyPitch = "Assets/Animations/Rifle/Crouch/Crouch_Aim_Idle_LegacyPitch.anim";
+	private const string c_ClipLmgReload = "Assets/Animations/Rifle/Stand/Stand_Reload_LMG.anim";
 
 	private const string c_EventBoltActionCycleSoundStarted = "AnimationEvent_BoltActionCycleSoundStarted";
 	private const string c_EventFinishWeaponReload = "AnimationEvent_FinishWeaponReload";
 	private const float c_BoltCycleFinishEventTime = 0.6666667f;
 
+	private const string c_EventLmgCoverOpenStarted = "AnimationEvent_LmgCoverOpenStarted";
+	private const string c_EventLmgBeltInserted = "AnimationEvent_LmgBeltInserted";
+	private const string c_EventLmgCoverCloseStarted = "AnimationEvent_LmgCoverCloseStarted";
+
 	private const string c_ParamWeaponReady = "WeaponReady";
 	private const string c_ParamIsReloading = "IsReloadingWeapon";
 	private const string c_ParamIsCyclingBolt = "IsCyclingBolt";
+	private const string c_ParamIsLoadingLmgBelt = "IsLoadingLmgBelt";
 	private const string c_ParamStance = "Stance";
 
 	[MenuItem("Tools/Polygone/Setup Aim Layer Relaxed Reload")]
@@ -104,6 +112,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 		EnsureParameter(controller, c_ParamWeaponReady, AnimatorControllerParameterType.Bool);
 		EnsureParameter(controller, c_ParamIsReloading, AnimatorControllerParameterType.Bool);
 		EnsureParameter(controller, c_ParamIsCyclingBolt, AnimatorControllerParameterType.Bool);
+		EnsureParameter(controller, c_ParamIsLoadingLmgBelt, AnimatorControllerParameterType.Bool);
 		EnsureParameter(controller, c_ParamStance, AnimatorControllerParameterType.Int);
 
 		AnimatorStateMachine sm = aimLayer.stateMachine;
@@ -370,6 +379,106 @@ public static class UnitAnimControllerAimRelaxedSetup
 				CondIfNot(c_ParamWeaponReady));
 		}
 
+		AnimationClip lmgReloadClip = LoadClip(c_ClipLmgReload);
+		if (lmgReloadClip != null)
+		{
+			EnsureLmgReloadEvents(lmgReloadClip);
+
+			AnimatorState aimLmgReload = EnsureMotionState(sm, c_AimLmgReload, lmgReloadClip);
+			AnimatorState relaxedLmgReload = EnsureMotionState(sm, c_RelaxedLmgReload, lmgReloadClip);
+			RemoveDuplicateNamedStates(sm, c_AimLmgReload, aimLmgReload);
+			RemoveDuplicateNamedStates(sm, c_RelaxedLmgReload, relaxedLmgReload);
+
+			// From pitch blend / crouch → LMG reload
+			EnsureTransition(pitchBlend, aimLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(crouchPitch, aimLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(crouchPitch, relaxedLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+			EnsureTransition(relaxedIdle, relaxedLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+
+			// From bolt/reload states → LMG reload
+			EnsureTransition(relaxedReload, relaxedLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsCyclingBolt));
+			EnsureTransition(relaxedBolt, relaxedLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt));
+			EnsureTransition(aimReload, aimLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimBolt, aimLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIf(c_ParamWeaponReady));
+
+			// Cross-variant: ready ↔ not ready while in LMG reload
+			EnsureTransition(aimLmgReload, relaxedLmgReload, 0.15f,
+				CondIfNot(c_ParamWeaponReady));
+			EnsureTransition(relaxedLmgReload, aimLmgReload, 0.15f,
+				CondIf(c_ParamWeaponReady));
+
+			// From LMG reload → exit states
+			EnsureTransition(aimLmgReload, pitchBlend, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimLmgReload, pitchBlend, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 2f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimLmgReload, crouchPitch, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+			EnsureTransition(aimLmgReload, relaxedIdle, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+
+			EnsureTransition(relaxedLmgReload, pitchBlend, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 0f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(relaxedLmgReload, pitchBlend, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 2f),
+				CondIf(c_ParamWeaponReady));
+			EnsureTransition(relaxedLmgReload, crouchPitch, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondEquals(c_ParamStance, 1f));
+			EnsureTransition(relaxedLmgReload, relaxedIdle, 0.3f,
+				CondIfNot(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsReloading),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
+		}
+
 		EditorUtility.SetDirty(controller);
 		AssetDatabase.SaveAssets();
 		AssetDatabase.ImportAsset(c_ControllerPath, ImportAssetOptions.ForceUpdate);
@@ -377,7 +486,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 		LogAimLayerReport(aimLayer.stateMachine);
 
 		Debug.Log(
-			$"Aim layer «{c_AimLayerName}» обновлён: {c_RelaxedIdle}, {c_RelaxedReload}, {c_RelaxedBolt}, {c_AimBoltAction}, {c_RelaxedBoltAction}, {c_AimBoltAk}, {c_RelaxedBoltAk}. " +
+			$"Aim layer «{c_AimLayerName}» обновлён: {c_RelaxedIdle}, {c_RelaxedReload}, {c_RelaxedBolt}, {c_AimBoltAction}, {c_RelaxedBoltAction}, {c_AimBoltAk}, {c_RelaxedBoltAk}, {c_AimLmgReload}, {c_RelaxedLmgReload}. " +
 			"Откройте Animator и слой Aim_Point_U90-D90.",
 			controller);
 	}
@@ -503,6 +612,40 @@ public static class UnitAnimControllerAimRelaxedSetup
 			{
 				functionName = c_EventFinishWeaponReload,
 				time = Mathf.Clamp(c_BoltCycleFinishEventTime, 0f, Mathf.Max(0f, _clip.length))
+			}
+		};
+
+		AnimationUtility.SetAnimationEvents(_clip, events);
+		EditorUtility.SetDirty(_clip);
+	}
+
+	private static void EnsureLmgReloadEvents(AnimationClip _clip)
+	{
+		if (_clip == null)
+			return;
+
+		float clipLength = Mathf.Max(0.01f, _clip.length);
+		AnimationEvent[] events =
+		{
+			new AnimationEvent
+			{
+				functionName = c_EventLmgCoverOpenStarted,
+				time = clipLength * 0.15f
+			},
+			new AnimationEvent
+			{
+				functionName = c_EventLmgBeltInserted,
+				time = clipLength * 0.40f
+			},
+			new AnimationEvent
+			{
+				functionName = c_EventLmgCoverCloseStarted,
+				time = clipLength * 0.65f
+			},
+			new AnimationEvent
+			{
+				functionName = c_EventFinishWeaponReload,
+				time = clipLength * 0.95f
 			}
 		};
 

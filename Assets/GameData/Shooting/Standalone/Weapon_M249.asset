@@ -17,7 +17,6 @@ MonoBehaviour:
   m_SupportedMagazineType: 8
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
-  m_BuiltInMagazineItem: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
   m_AvailableFireModes: 010000000000000003000000
   m_DefaultFireMode: 3
@@ -199,15 +198,16 @@ MonoBehaviour:
   m_SemiAutoRecoilMultiplier: 0.86
   m_AutoRecoilMultiplier: 1.1
   m_RecoilRecoveryPerSecond: 4.5
+  m_VisualRecoilKickScale: 1
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:
     m_FireClips:
-    - {fileID: 8300000, guid: 618e755a714544d4eb99877dcbf899b3, type: 3}
-    - {fileID: 8300000, guid: 740bd702a8e862948ab403c7060e3008, type: 3}
-    - {fileID: 8300000, guid: 164b7ecf2a215c44db2bb3dcacc361df, type: 3}
-    - {fileID: 8300000, guid: 467cda69b0cd8354f9afc6fbe894c454, type: 3}
-    - {fileID: 8300000, guid: 0367f26902b1c254dad25dba37467a19, type: 3}
+    - {fileID: 8300000, guid: fc2f7b51f7a18104e8a5c93a36f5e0ad, type: 3}
+    - {fileID: 8300000, guid: cf1e2c00e7c0bd44dac3fe564ff17754, type: 3}
+    - {fileID: 8300000, guid: 530175d278fa75249af4c2a01ffff6bf, type: 3}
+    - {fileID: 8300000, guid: 401d7f9493abbf94ab52452a161ebb94, type: 3}
+    - {fileID: 8300000, guid: 27e7a68f5996cc54f90cda57b06d0b82, type: 3}
     m_MaxAudibleDistanceMeters: 625
   m_SuppressedFireSoundProfile:
     m_FireClips: []
@@ -239,6 +239,8 @@ MonoBehaviour:
     - {fileID: 8300000, guid: ef39f1fa18c0fa6419e0499cef90d1ef, type: 3}
     - {fileID: 8300000, guid: 70f1e480b83548540bc0c2f7a3ddcef5, type: 3}
   m_HasBoltHoldOpenDelay: 1
+  m_RequiresManualBoltCycle: 0
+  m_AnimationPlatform: 0
   m_ReloadBoltHoldOpenDelaySounds:
     m_Clips: []
   m_ReloadSoundsVolume: 0.5

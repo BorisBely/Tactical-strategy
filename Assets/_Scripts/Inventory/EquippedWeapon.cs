@@ -98,6 +98,14 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[Tooltip("Длительность lerp open/close dust cover (сек). Дальше камеры — мгновенный snap.")]
 	[SerializeField, Min(0.01f)] private float m_DustCoverTweenSeconds = 0.12f;
 
+	[Header("LMG belt reload")]
+	[Tooltip("Шарнир верхней крышки пулемёта (SM_Wep_MachineGun_USA_Top_01 / SM_Wep_MachineGun_Bandit_Top_01). Пусто — поиск по имени в Awake.")]
+	[SerializeField] private Transform m_LmgTopCoverHinge;
+	[Tooltip("Визуал ленты (SM_Wep_MachineGun_USA_Belt_01 / SM_Wep_MachineGun_Bandit_Belt_01). Пусто — поиск по имени в Awake.")]
+	[SerializeField] private GameObject m_LmgBeltMeshVisual;
+	[Tooltip("Угол открытия крышки LMG по локальной оси X (градусы).")]
+	[SerializeField] private float m_LmgCoverOpenDegrees = 110f;
+
 	[Header("Отладка")]
 	[Tooltip("Луч из BarrelTransform (Barrel или MuzzleModuleVisualSocket). В Game view включи Gizmos на вкладке Game.")]
 	[SerializeField] private bool m_DrawBarrelDebugRay;
@@ -163,6 +171,10 @@ public sealed class EquippedWeapon : MonoBehaviour
 	public Vector3 DustCoverHingeAxis => m_DustCoverHingeAxis;
 	public float DustCoverTweenSeconds => m_DustCoverTweenSeconds;
 
+	public Transform LmgTopCoverHinge => m_LmgTopCoverHinge;
+	public GameObject LmgBeltMeshVisual => m_LmgBeltMeshVisual;
+	public float LmgCoverOpenDegrees => m_LmgCoverOpenDegrees;
+
 	/// <summary>Пресет модулей с префаба оружия (стандартная комплектация).</summary>
 	public WeaponAttachmentDefinition[] PresetEquippedAttachments => m_EquippedAttachments;
 
@@ -188,6 +200,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 	private readonly List<GameObject> m_AttachmentVisualInstances = new List<GameObject>(8);
 	private GameObject m_UnderBarrelForegripVisualInstance;
 	private GameObject m_MuzzleAttachmentVisualInstance;
+	private Quaternion m_LmgCoverInitialLocalRotation;
+	private Vector3 m_LmgCoverInitialLocalEulerAngles;
 	#endregion
 
 	#region Public Methods
@@ -263,6 +277,29 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 		visualTransform.localPosition = Vector3.zero;
 		visualTransform.localRotation = Quaternion.identity;
+	}
+
+	public void OpenLmgCover()
+	{
+		if (m_LmgTopCoverHinge == null)
+			return;
+
+		m_LmgTopCoverHinge.localRotation = m_LmgCoverInitialLocalRotation;
+		m_LmgTopCoverHinge.Rotate(m_LmgCoverOpenDegrees, 0f, 0f);
+	}
+
+	public void CloseLmgCover()
+	{
+		if (m_LmgTopCoverHinge == null)
+			return;
+
+		m_LmgTopCoverHinge.localRotation = m_LmgCoverInitialLocalRotation;
+	}
+
+	public void ShowLmgBelt(bool _visible)
+	{
+		if (m_LmgBeltMeshVisual != null)
+			m_LmgBeltMeshVisual.SetActive(_visible);
 	}
 
 	public void ClearInsertedMagazineVisual()
@@ -435,6 +472,27 @@ public sealed class EquippedWeapon : MonoBehaviour
 	#endregion
 
 	#region Unity Lifecycle
+	private void Awake()
+	{
+		if (m_LmgTopCoverHinge == null)
+			m_LmgTopCoverHinge = FindChildRecursive(transform, "SM_Wep_MachineGun_USA_Top_01") ?? FindChildRecursive(transform, "SM_Wep_MachineGun_Bandit_Top_01");
+		if (m_LmgBeltMeshVisual == null)
+		{
+			Transform belt = FindChildRecursive(transform, "SM_Wep_MachineGun_USA_Belt_01") ?? FindChildRecursive(transform, "SM_Wep_MachineGun_Bandit_Belt_01");
+			if (belt != null)
+				m_LmgBeltMeshVisual = belt.gameObject;
+		}
+
+		if (m_LmgBeltMeshVisual != null)
+			m_LmgBeltMeshVisual.SetActive(false);
+
+		if (m_LmgTopCoverHinge != null)
+		{
+			m_LmgCoverInitialLocalRotation = m_LmgTopCoverHinge.localRotation;
+			m_LmgCoverInitialLocalEulerAngles = m_LmgCoverInitialLocalRotation.eulerAngles;
+		}
+	}
+
 #if UNITY_EDITOR
 	private void OnValidate()
 	{

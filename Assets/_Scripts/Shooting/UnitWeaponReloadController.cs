@@ -21,10 +21,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	public const string ParamIsReloadingWeapon = "IsReloadingWeapon";
 	public const string ParamIsCyclingBolt = "IsCyclingBolt";
 	public const string ParamIsShellByShellReload = "IsShellByShellReload";
+	public const string ParamIsLoadingLmgBelt = "IsLoadingLmgBelt";
 	public const string AimReloadLayerName = "Aim_Point_U90-D90";
 	private static readonly int s_IsReloadingWeapon = Animator.StringToHash(ParamIsReloadingWeapon);
 	private static readonly int s_IsCyclingBolt = Animator.StringToHash(ParamIsCyclingBolt);
 	private static readonly int s_IsShellByShellReload = Animator.StringToHash(ParamIsShellByShellReload);
+	private static readonly int s_IsLoadingLmgBelt = Animator.StringToHash(ParamIsLoadingLmgBelt);
 	private static readonly int s_WeaponReady = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponReady);
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_AimRelaxedIdleStateHash = Animator.StringToHash("Stand_Relaxed_Idle");
@@ -38,6 +40,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_AimRelaxedBoltAkStateHash = Animator.StringToHash("Stand_Relaxed__CyclingBolt_AK");
 	private static readonly int s_AimRelaxedShellReloadStateHash = Animator.StringToHash("Stand_Relaxed_ShellReload");
 	private static readonly int s_AimShellReloadStateHash = Animator.StringToHash("Stand_Aim_ShellReload");
+	private static readonly int s_AimRelaxedLmgStateHash = Animator.StringToHash("Stand_Relaxed_Reload_LMG");
+	private static readonly int s_AimLmgStateHash = Animator.StringToHash("Stand_Reload_LMG");
 	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
 	private const float c_ReloadClipDurationSeconds = 2.966667f;
 	private const float c_ReloadClipSampleRate = 30f;
@@ -67,6 +71,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[Tooltip("После FinishWeaponReload: дополнительно блокировать стрельбу и держать IsReloadBusy на это время, пока доигрывается анимация затвора. Сбрасывается раньше, если вызван AnimationEvent_BoltMotionPresentationFinished. 0 = не блокировать после финиша (точный контроль только ивентом BoltMotionPresentationFinished).")]
 	[SerializeField, Min(0f)] private float m_BoltPresentationFireTailSeconds;
 
+	[Header("LMG belt load sounds")]
+	[SerializeField] private AudioClip m_LmgCoverOpenSound;
+	[SerializeField] private AudioClip m_LmgCoverCloseSound;
+	[Tooltip("Длительность всей фазы LMG belt-load (сек). Страховочный таймер — должен быть больше длины анимации. 0 = только animation event.")]
+	[SerializeField, Min(0f)] private float m_LmgBeltPhaseDurationSeconds = 6f;
+
 	[Header("Magazine visual transfer")]
 	[Tooltip("Длительность сглаживания локальной позиции/поворота при переносе магазина между сокетом оружия и левой рукой.")]
 	[SerializeField, Min(0.01f)] private float m_MagazineVisualTransferDuration = 0.12f;
@@ -74,6 +84,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	[Header("Debug")]
 	[SerializeField] private bool m_IsReloadingWeapon;
 	[SerializeField] private bool m_IsCyclingBolt;
+	[SerializeField] private bool m_IsLoadingLmgBelt;
 	[SerializeField] private bool m_HasEjectedCurrentMagazine;
 	[SerializeField] private int m_DebugSourceBagIndex = -1;
 	[SerializeField] private int m_DebugFallbackMagazineBagIndex = -1;
@@ -112,9 +123,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	#region Public Properties
 	public bool IsReloadingWeapon => m_IsReloadingWeapon;
 	public bool IsCyclingBolt => m_IsCyclingBolt;
+	public bool IsLoadingLmgBelt => m_IsLoadingLmgBelt;
 	public bool IsReloadBusy =>
 		m_IsReloadingWeapon ||
 		m_IsCyclingBolt ||
+		m_IsLoadingLmgBelt ||
 		m_BoltPresentationSuppressesFire;
 	public bool IsMalfunctionStripReinsertReloadActive => m_MalfunctionStripReinsertReloadActive;
 	public bool MagazineInsertCompletedThisReload => m_MagazineInsertCompletedThisReload;
@@ -172,6 +185,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		EnsureReloadAudioSource();
 		ResolveAnimatorLayerIndices();
+		LoadLmgReloadSoundsIfNeeded();
+	}
+
+	private void LoadLmgReloadSoundsIfNeeded()
+	{
+		if (m_LmgCoverOpenSound == null)
+			m_LmgCoverOpenSound = Resources.Load<AudioClip>("Audio/Combat/Weapons/Shared/LMGReload/gun_lmg_cover_open_01");
+		if (m_LmgCoverCloseSound == null)
+			m_LmgCoverCloseSound = Resources.Load<AudioClip>("Audio/Combat/Weapons/Shared/LMGReload/gun_lmg_cover_close_01");
 	}
 
 	private void Update()
@@ -210,7 +232,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		m_DebugLastFailureReason = null;
 
-		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
 			return false;
@@ -257,7 +279,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		m_DebugLastFailureReason = null;
 
-		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
 			return false;
@@ -347,7 +369,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		m_DebugLastFailureReason = null;
 
-		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
 			return false;
@@ -488,7 +510,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	#region Private Methods
 	private bool TryValidateUiMagazineModificationStart()
 	{
-		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
 			return false;
@@ -543,6 +565,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		return platform == WeaponAnimationPlatform.Ak || platform == WeaponAnimationPlatform.Svd;
 	}
 
+	private bool IsLmgWeapon()
+	{
+		WeaponDefinition weaponDefinition = m_WeaponRuntime?.CurrentWeaponDefinition;
+		return weaponDefinition != null && weaponDefinition.WeaponClass == WeaponClassType.LightMachineGun;
+	}
+
 	private void BeginBoltActionLeftHandGripIfNeeded()
 	{
 		if (!UsesManualBoltCycleWeapon() || m_Equipment == null)
@@ -554,6 +582,62 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private void EndBoltActionLeftHandGrip()
 	{
 		m_Equipment?.EndBoltCycleLeftHandGrip();
+	}
+
+	public void BeginLmgBeltPhase()
+	{
+		if (m_IsLoadingLmgBelt)
+			return;
+
+		CancelInvoke(nameof(OnLmgBeltPhaseTimeout));
+		m_IsLoadingLmgBelt = true;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		SyncAnimatorState();
+
+		if (m_LmgBeltPhaseDurationSeconds > 0f)
+			Invoke(nameof(OnLmgBeltPhaseTimeout), m_LmgBeltPhaseDurationSeconds);
+	}
+
+	private void CleanupLmgBeltPhase()
+	{
+		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
+		equippedWeapon?.CloseLmgCover();
+		equippedWeapon?.ShowLmgBelt(true);
+	}
+
+	private void OnLmgBeltPhaseTimeout()
+	{
+		if (!m_IsLoadingLmgBelt)
+			return;
+
+		CleanupLmgBeltPhase();
+		m_IsLoadingLmgBelt = false;
+		m_IsReloadingWeapon = false;
+		m_WeaponRuntime?.TryChamberRoundFromMagazine();
+		FinalizeReloadSequenceAndMaybeChainManualLoad();
+	}
+
+	private void HideLmgBeltIfNeeded()
+	{
+		if (!IsLmgWeapon())
+			return;
+
+		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
+		equippedWeapon?.ShowLmgBelt(false);
+	}
+
+	private void PlayLmgReloadSound(AudioClip _clip)
+	{
+		if (_clip == null || m_ReloadAudioSource == null)
+			return;
+
+		Vector3 pos = transform.position;
+		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
+			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
+
+		m_ReloadAudioSource.transform.position = pos;
+		m_ReloadAudioSource.PlayOneShot(_clip, UnitNonFireAudioUtility.ScaleVolume(1f));
 	}
 
 	private bool TryStartShellByShellReload()
@@ -737,7 +821,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		m_DebugLastFailureReason = null;
 
-		if (m_IsReloadingWeapon || m_IsCyclingBolt)
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
 		{
 			m_DebugLastFailureReason = "Already reloading or bolting";
 			return false;
@@ -825,6 +909,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			{
 				m_PendingReplacementMagazine = ejectedMagazine;
 				m_HasEjectedCurrentMagazine = true;
+				HideLmgBeltIfNeeded();
 				PresentEjectedMagazineVisual(detachedMagazineVisual, ejectedMagazine);
 			}
 			else if (detachedMagazineVisual != null)
@@ -860,6 +945,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			Destroy(detachedWeaponMagazineVisual);
 
 		m_HasEjectedCurrentMagazine = true;
+		HideLmgBeltIfNeeded();
 		EnsurePendingReplacementMagazineInLeftHand();
 		RefreshInventoryUiIfActive();
 
@@ -932,6 +1018,14 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 		}
 
+		if (IsLmgWeapon())
+		{
+			BeginLmgBeltPhase();
+			if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
+				m_MalfunctionController.NotifyLmgBeltRecoveryStarting();
+			return;
+		}
+
 		if (!NeedsChamberingAfterMagazineInsert())
 		{
 			FinalizeReloadSequenceAndMaybeChainManualLoad();
@@ -971,6 +1065,14 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (ShouldSkipBoltCycleAfterUiMagazineInstall())
 		{
 			FinalizeUiMagazineInstallOnlyWithoutBolt();
+			return;
+		}
+
+		if (IsLmgWeapon())
+		{
+			BeginLmgBeltPhase();
+			if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
+				m_MalfunctionController.NotifyLmgBeltRecoveryStarting();
 			return;
 		}
 
@@ -1047,7 +1149,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	public void AnimationEvent_FinishWeaponReload()
 	{
-		if (!m_IsReloadingWeapon && !m_IsCyclingBolt)
+		if (!m_IsReloadingWeapon && !m_IsCyclingBolt && !m_IsLoadingLmgBelt)
 			return;
 
 		if (m_MalfunctionController != null && m_MalfunctionController.TryConsumeBoltFinishEvent())
@@ -1056,6 +1158,16 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_IsReloadingWeapon && m_ShouldStartManualMagazineLoadingAfterReload &&
 			m_PendingReplacementMagazine.IsEmpty && !m_MagazineInsertCompletedThisReload)
 		{
+			FinalizeReloadSequenceAndMaybeChainManualLoad();
+			return;
+		}
+
+		if (m_IsLoadingLmgBelt)
+		{
+			CancelInvoke(nameof(OnLmgBeltPhaseTimeout));
+			m_IsLoadingLmgBelt = false;
+			if (!m_UiMagazineModificationActive || !m_UiMagazineEjectOnly)
+				m_WeaponRuntime?.TryChamberRoundFromMagazine();
 			FinalizeReloadSequenceAndMaybeChainManualLoad();
 			return;
 		}
@@ -1084,6 +1196,81 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_BoltPresentationSuppressesFire = false;
+	}
+
+	public void AnimationEvent_LmgCoverOpenStarted()
+	{
+		if (!m_IsLoadingLmgBelt)
+			return;
+
+		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
+		equippedWeapon?.OpenLmgCover();
+		PlayLmgReloadSound(m_LmgCoverOpenSound);
+	}
+
+	public void AnimationEvent_LmgBeltInserted()
+	{
+		if (!m_IsLoadingLmgBelt)
+			return;
+
+		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
+		equippedWeapon?.ShowLmgBelt(true);
+	}
+
+	public void AnimationEvent_LmgCoverCloseStarted()
+	{
+		if (!m_IsLoadingLmgBelt)
+			return;
+
+		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
+		equippedWeapon?.CloseLmgCover();
+		PlayLmgReloadSound(m_LmgCoverCloseSound);
+	}
+
+	/// <summary>Запуск LMG belt-load фазы из контроллера отказов (лёгкий клин, без снятия/вставки магазина).</summary>
+	public void TryStartLmgBeltRecovery()
+	{
+		m_DebugLastFailureReason = null;
+
+		if (m_IsReloadingWeapon || m_IsCyclingBolt || m_IsLoadingLmgBelt)
+		{
+			m_DebugLastFailureReason = "Already busy with reload/bolt/lmg belt";
+			return;
+		}
+
+		if (!IsLmgWeapon())
+		{
+			m_DebugLastFailureReason = "Not an LMG weapon";
+			return;
+		}
+
+		if (m_CharacterInventory == null || m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
+		{
+			m_DebugLastFailureReason = "Missing runtime references";
+			return;
+		}
+
+		if (IsRunOrSprintBlockingReload())
+		{
+			m_DebugLastFailureReason = "Cannot reload while running";
+			return;
+		}
+
+		if (m_BusyState != null && m_BusyState.IsBusy)
+		{
+			m_DebugLastFailureReason = $"Unit is busy: {m_BusyState.Reasons}";
+			return;
+		}
+
+		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		m_IsLoadingLmgBelt = true;
+		m_IsReloadingWeapon = false;
+		m_IsCyclingBolt = false;
+		m_BoltPresentationSuppressesFire = false;
+		m_FireController?.StopFiring();
+		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.Reload, true);
+		SyncAnimatorState();
+		RefreshInventoryUiIfActive();
 	}
 
 	private void ClearBoltPresentationSuppressFireOnly()
@@ -1373,6 +1560,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private void StopReloadInternal(bool _restorePendingMagazineToBag)
 	{
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
+		CancelInvoke(nameof(OnLmgBeltPhaseTimeout));
+		if (m_IsLoadingLmgBelt)
+			CleanupLmgBeltPhase();
 		m_BoltPresentationSuppressesFire = false;
 		m_MalfunctionStripReinsertReloadActive = false;
 
@@ -1390,6 +1580,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_PendingReplacementMagazine = default;
 		m_IsReloadingWeapon = false;
 		m_IsCyclingBolt = false;
+		m_IsLoadingLmgBelt = false;
 		m_HasEjectedCurrentMagazine = false;
 		m_MagazineInsertCompletedThisReload = false;
 		m_ShouldStartManualMagazineLoadingAfterReload = false;
@@ -1436,6 +1627,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			m_Animator.SetBool(s_IsReloadingWeapon, m_IsReloadingWeapon);
 			m_Animator.SetBool(s_IsCyclingBolt, m_IsCyclingBolt);
 			m_Animator.SetBool(s_IsShellByShellReload, m_IsShellByShellReloadActive);
+			m_Animator.SetBool(s_IsLoadingLmgBelt, m_IsLoadingLmgBelt);
 		}
 
 		ApplyReloadAnimatorLayerWeightsIfBusy();
@@ -1497,7 +1689,8 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed_Reload") ||
 		    stateInfo.shortNameHash == s_AimRelaxedShellReloadStateHash ||
 		    stateInfo.shortNameHash == Animator.StringToHash("Stand_Relaxed__CyclingBolt") ||
-		    stateInfo.shortNameHash == s_AimRelaxedBoltAkStateHash)
+		    stateInfo.shortNameHash == s_AimRelaxedBoltAkStateHash ||
+		    stateInfo.shortNameHash == s_AimRelaxedLmgStateHash)
 			return;
 
 		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
@@ -1528,14 +1721,21 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		int currentHash = stateInfo.shortNameHash;
 		float normalizedTime = Mathf.Repeat(stateInfo.normalizedTime, 1f);
 
-		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, cyclingBolt, reloading, m_IsShellByShellReloadActive);
+		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, cyclingBolt, reloading, m_IsShellByShellReloadActive, m_IsLoadingLmgBelt);
 		if (targetHash == 0 || currentHash == targetHash)
 			return;
 
-		// Болтовое / AK-style передёргивание: форсим клип сразу (граф по IsCyclingBolt ведёт в default Stand_CyclingBolt).
 		if (cyclingBolt && (UsesManualBoltCycleWeapon() || UsesAkStyleBoltCycleWeapon()))
 		{
 			m_Animator.Play(targetHash, m_AimReloadLayerIndex, 0f);
+			return;
+		}
+
+		if (m_IsLoadingLmgBelt)
+		{
+			bool currentIsLmg = currentHash == s_AimLmgStateHash || currentHash == s_AimRelaxedLmgStateHash;
+			float startTime = currentIsLmg ? normalizedTime : 0f;
+			m_Animator.Play(targetHash, m_AimReloadLayerIndex, startTime);
 			return;
 		}
 
@@ -1562,8 +1762,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_Animator.Play(targetHash, m_AimReloadLayerIndex, normalizedTime);
 	}
 
-	private int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload)
+	private int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload, bool _lmgBelt)
 	{
+		if (_lmgBelt)
+			return _weaponReady ? s_AimLmgStateHash : s_AimRelaxedLmgStateHash;
+
 		if (_cyclingBolt)
 		{
 			if (UsesManualBoltCycleWeapon())
