@@ -568,7 +568,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private bool IsLmgWeapon()
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime?.CurrentWeaponDefinition;
-		return weaponDefinition != null && weaponDefinition.WeaponClass == WeaponClassType.LightMachineGun;
+		return weaponDefinition != null
+			&& weaponDefinition.WeaponClass == WeaponClassType.LightMachineGun
+			&& (weaponDefinition.SupportedMagazineType == MagazineType.M249Box
+				|| weaponDefinition.SupportedMagazineType == MagazineType.PkmBox);
 	}
 
 	private void BeginBoltActionLeftHandGripIfNeeded()

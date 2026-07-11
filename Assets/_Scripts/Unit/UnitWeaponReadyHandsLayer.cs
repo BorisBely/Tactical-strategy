@@ -41,6 +41,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool m_RestoreReadyAfterSprint;
 	private bool m_RestoreReadyAfterRun;
 	private bool m_RestoreReadyAfterTurn;
+	private bool m_ProximityBlocksReady;
 	#endregion
 
 	#region Public Methods
@@ -73,7 +74,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public bool IsWeaponEquippedAndReady()
 	{
-		return IsWeaponEquipped() && m_UserWantsReady;
+		return IsWeaponEquipped() && GetEffectiveIsReady();
 	}
 
 	/// <summary>
@@ -127,6 +128,15 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_RestoreReadyAfterSprint = false;
 		m_RestoreReadyAfterRun = false;
 		m_RestoreReadyAfterTurn = false;
+	}
+
+	public void SetProximityReadyBlock(bool _blocked)
+	{
+		if (m_ProximityBlocksReady == _blocked)
+			return;
+		m_ProximityBlocksReady = _blocked;
+		PushWeaponReadyParameter();
+		m_Vision?.NotifyWeaponReadyChanged(GetEffectiveIsReady());
 	}
 
 	/// <summary>
@@ -266,6 +276,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_EquippedWeaponPose = GetComponentInParent<UnitEquippedWeaponPose>();
 		if (m_EquippedWeaponPose == null)
 			m_EquippedWeaponPose = gameObject.AddComponent<UnitEquippedWeaponPose>();
+
+		if (GetComponent<UnitProximityReadyController>() == null)
+			gameObject.AddComponent<UnitProximityReadyController>();
 	}
 
 	private void OnEnable()
@@ -350,6 +363,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	{
 		if (m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return true;
+
+		if (m_ProximityBlocksReady)
+			return false;
 
 		return m_UserWantsReady;
 	}

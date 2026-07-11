@@ -94,6 +94,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private int m_DisciplineBurstRoundsOverride = 3;
 	private float m_DisciplineBurstPauseOverrideSeconds;
 	private RaycastHit[] m_LineOfFireHits;
+	private const int c_LofHitBufferSize = 16;
 	private float m_NextLineOfFireCheckTime;
 	private bool m_LastLineOfFireBlocked;
 	#endregion
@@ -142,7 +143,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_FallenDragController = GetComponent<UnitFallenDragController>();
 		if (GetComponent<UnitStanceCombatModifiers>() == null)
 			gameObject.AddComponent<UnitStanceCombatModifiers>();
-		m_LineOfFireHits = new RaycastHit[8];
+		m_LineOfFireHits = new RaycastHit[c_LofHitBufferSize];
 	}
 
 	private void OnEnable()
@@ -238,7 +239,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_BusyState != null &&
 		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
 		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax)))
 			return false;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
@@ -378,7 +380,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_BusyState != null &&
 		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
 		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther)))
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
+		     m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax)))
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
@@ -394,8 +397,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (IsLineOfFireBlocked())
 		{
-			if (m_Vision != null)
-				m_Vision.SuppressCurrentTargetForLineOfFire(m_LineOfFireBlockedRetrySeconds);
+			m_Vision?.SuppressCurrentTargetForLineOfFire(m_LineOfFireBlockedRetrySeconds);
 			return WeaponShotAttemptResult.LineOfFireBlocked;
 		}
 
@@ -513,6 +515,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
 
 		bool blocked = false;
+		string blockerName = null;
+		var seenRoots = new System.Collections.Generic.HashSet<Transform>();
 		for (int h = 0; h < hitCount; h++)
 		{
 			RaycastHit hit = m_LineOfFireHits[h];
@@ -521,7 +525,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 				continue;
 
 			Transform hitTransform = hc.transform;
-			if (hitTransform.IsChildOf(transform))
+			if (hitTransform == transform || hitTransform.IsChildOf(transform))
+				continue;
+
+			if (hc.GetComponent<UnitBodyHitZone>() == null && hc.GetComponentInParent<UnitBodyHitZone>() == null)
+				continue;
+
+			UnitVision hitVision = hitTransform.GetComponentInParent<UnitVision>();
+			if (hitVision != null && !seenRoots.Add(hitVision.transform))
 				continue;
 
 			UnitTeam hitTeam = hc.GetComponentInParent<UnitTeam>();
@@ -530,13 +541,18 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 			if (hitTeam.Team == myTeam || hitTeam.Team == UnitTeamId.Neutral)
 			{
+				if (hitTransform.GetComponentInParent<UnitVision>() == null)
+					continue;
+
 				blocked = true;
+				blockerName = hc.name;
 				break;
 			}
 		}
 
 		m_NextLineOfFireCheckTime = Time.time + m_LineOfFireBlockedRetrySeconds;
 		m_LastLineOfFireBlocked = blocked;
+
 		return blocked;
 	}
 

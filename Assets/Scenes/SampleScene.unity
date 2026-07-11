@@ -13383,10 +13383,13 @@ MonoBehaviour:
   m_DrawVisionGizmos: 0
   m_GizmoRayHitColor: {r: 1, g: 0.3, b: 0.1, a: 0.9}
   m_GizmoRayMissColor: {r: 0.4, g: 0.4, b: 0.9, a: 0.6}
+  m_LineOfFireSafetyRadius: 0.35
+  m_LineOfFireBlockedRetrySeconds: 0.15
   m_DrawEyeLookDebugRay: 0
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
   m_LogReadyForwardShift: 0
+  m_LogLineOfFireSuppression: 0
 --- !u!114 &1243261161
 MonoBehaviour:
   m_ObjectHideFlags: 0

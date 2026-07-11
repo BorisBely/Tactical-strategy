@@ -8449,10 +8449,13 @@ MonoBehaviour:
   m_DrawVisionGizmos: 0
   m_GizmoRayHitColor: {r: 1, g: 0.3, b: 0.1, a: 0.9}
   m_GizmoRayMissColor: {r: 0.4, g: 0.4, b: 0.9, a: 0.6}
+  m_LineOfFireSafetyRadius: 0.35
+  m_LineOfFireBlockedRetrySeconds: 0.15
   m_DrawEyeLookDebugRay: 1
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
   m_LogReadyForwardShift: 0
+  m_LogLineOfFireSuppression: 1
 --- !u!114 &1955663392430061257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8714,17 +8717,24 @@ MonoBehaviour:
   m_VisualRecoilKick: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_Stance: {fileID: 3741241907743255212}
+  m_Team: {fileID: 0}
   m_RequireReady: 1
   m_RequireVisibleTarget: 1
   m_EnableAutomaticFireLoop: 1
   m_TryReloadWhenOutOfAmmo: 1
   m_OutOfAmmoReloadRetrySeconds: 0.35
+  m_LineOfFireSafetyRadius: 0.35
+  m_LineOfFireBlockedRetrySeconds: 0.15
+  m_LineOfFireLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   m_RequireFullAimToFire: 1
   m_RequireBarrelAlignedToFire: 1
   m_MaxBarrelAimErrorDegrees: 3
   m_MaxBarrelAimErrorDegreesCrouch: 9
   m_MaxBarrelAimErrorDegreesCrouchMoving: 10
   m_MaxBarrelAimErrorDegreesMoving: 8
+  m_LogLineOfFire: 1
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
   m_LastFiredAmmoDefinition: {fileID: 0}
@@ -9082,6 +9092,7 @@ MonoBehaviour:
   m_LeftElbowHint: {fileID: 0}
   m_LeftElbowHintWeight: 1
   m_DrawIkTargetGizmo: 1
+  m_LogProximityIk: 1
 --- !u!114 &9123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -41,6 +41,7 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField, Range(0f, 1f)] private float m_LeftElbowHintWeight = 1f;
 	[Header("Отладка")]
 	[SerializeField] private bool m_DrawIkTargetGizmo;
+	[SerializeField] private bool m_LogProximityIk;
 	#endregion
 
 	#region Private Fields

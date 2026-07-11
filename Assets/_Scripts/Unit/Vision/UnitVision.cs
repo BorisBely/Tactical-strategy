@@ -89,6 +89,8 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private Color m_EyeLookDebugRayColor = new Color(1f, 0.35f, 0.9f, 1f);
 	[Tooltip("Log to Console on high‑ready / low‑ready change: root angles, vision axis and sight — for debugging gaze shift.")]
 	[SerializeField] private bool m_LogReadyForwardShift;
+	[Tooltip("Log suppression/revalidation of line-of-fire blocked targets.")]
+	[SerializeField] private bool m_LogLineOfFireSuppression;
 
 	private readonly List<UnitVision> m_OpponentBuffer = new List<UnitVision>(128);
 	private readonly List<ShootingRangeTarget> m_RangeTargetBuffer = new List<ShootingRangeTarget>(32);
@@ -323,7 +325,11 @@ public sealed class UnitVision : MonoBehaviour
 			return;
 
 		float expireTime = Time.time + Mathf.Max(0f, _seconds);
+		bool wasAlreadySuppressed = m_LineOfFireSuppressedTargets.ContainsKey(currentTarget);
 		m_LineOfFireSuppressedTargets[currentTarget] = expireTime;
+
+		if (m_LogLineOfFireSuppression)
+			Debug.Log($"[LoFSup] {name}: SUPPRESS '{currentTarget.name}' for {_seconds:F2}s (expire={expireTime:F2}) — dict size={m_LineOfFireSuppressedTargets.Count} wasAlready={wasAlreadySuppressed}", this);
 
 		ClearVisibleTargetState();
 		VisibleTargetChanged?.Invoke(null);
@@ -596,6 +602,86 @@ public sealed class UnitVision : MonoBehaviour
 		}
 	}
 
+	private Vector3 GetFireOriginForLofCheck(Vector3 _fallbackOrigin)
+	{
+		if (m_Equipment != null)
+		{
+			EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+			if (weapon != null && weapon.FireOriginTransform != null)
+				return weapon.FireOriginTransform.position;
+		}
+
+		return _fallbackOrigin;
+	}
+
+	private bool CheckAndSuppressBlockedTarget(
+		ref Transform _target,
+		ref Vector3 _aimPoint,
+		ref bool _hasAimPoint,
+		Vector3 _origin)
+	{
+		if (!_hasAimPoint)
+			return false;
+
+		Vector3 dir = _aimPoint - _origin;
+		float dist = dir.magnitude;
+		if (dist < 0.05f)
+			return false;
+
+		dir /= dist;
+
+		int hitCount = Physics.SphereCastNonAlloc(
+			_origin,
+			m_LineOfFireSafetyRadius,
+			dir,
+			m_Hits,
+			dist,
+			m_LayerMask,
+			m_QueryTriggerInteraction);
+
+		if (m_LogLineOfFireSuppression && hitCount >= c_RaycastHitBuffer)
+			Debug.LogWarning($"[LoFSup] {name}: PRE-BLOCK buffer FULL ({c_RaycastHitBuffer}) — blockers may be missed!", this);
+
+		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
+		var seenRoots = new System.Collections.Generic.HashSet<Transform>();
+
+		for (int h = 0; h < hitCount; h++)
+		{
+			Collider hc = m_Hits[h].collider;
+			if (hc == null)
+				continue;
+			if (hc.transform == transform || hc.transform.IsChildOf(transform))
+				continue;
+			if (hc.transform == _target || hc.transform.IsChildOf(_target))
+				return false;
+
+			if (hc.GetComponent<UnitBodyHitZone>() == null && hc.GetComponentInParent<UnitBodyHitZone>() == null)
+				continue;
+
+			UnitVision hitVision = hc.transform.GetComponentInParent<UnitVision>();
+			if (hitVision != null && !seenRoots.Add(hitVision.transform))
+				continue;
+
+			UnitTeam hitTeam = hc.GetComponentInParent<UnitTeam>();
+			if (hitTeam == null)
+				continue;
+			if (hitTeam.Team != myTeam && hitTeam.Team != UnitTeamId.Neutral)
+				continue;
+			if (hc.transform.GetComponentInParent<UnitVision>() == null)
+				continue;
+
+			float expireTime = Time.time + m_LineOfFireBlockedRetrySeconds;
+			m_LineOfFireSuppressedTargets[_target] = expireTime;
+
+			if (m_LogLineOfFireSuppression)
+				Debug.Log($"[LoFSup] {name}: PRE-BLOCK '{_target.name}' — friendly '{hc.name}' on LoF, suppressed {m_LineOfFireBlockedRetrySeconds:F2}s", this);
+
+			return true;
+		}
+
+		return false;
+	}
+
 	private void CleanupExpiredSuppressedTargets()
 	{
 		if (m_LineOfFireSuppressedTargets.Count == 0)
@@ -625,7 +711,14 @@ public sealed class UnitVision : MonoBehaviour
 		if (_candidate == null)
 			return false;
 
-		return m_LineOfFireSuppressedTargets.TryGetValue(_candidate, out float expireTime) && Time.time < expireTime;
+		if (m_LineOfFireSuppressedTargets.TryGetValue(_candidate, out float expireTime) && Time.time < expireTime)
+		{
+			if (m_LogLineOfFireSuppression)
+				Debug.Log($"[LoFSup] {name}: SKIP suppressed '{_candidate.name}' — expires in {expireTime - Time.time:F2}s", this);
+			return true;
+		}
+
+		return false;
 	}
 
 	private bool TryRevalidateSuppressedTarget(Transform _candidate, Vector3 _origin)
@@ -637,6 +730,9 @@ public sealed class UnitVision : MonoBehaviour
 			return true;
 
 		m_LineOfFireSuppressedTargets.Remove(_candidate);
+
+		if (m_LogLineOfFireSuppression)
+			Debug.Log($"[LoFSup] {name}: REVALIDATE '{_candidate.name}' — timer expired, running SphereCast radius={m_LineOfFireSafetyRadius:F2}m", this);
 
 		Vector3 targetCenter = GetCandidateRoughCenter(_candidate);
 		Vector3 dir = targetCenter - _origin;
@@ -658,12 +754,24 @@ public sealed class UnitVision : MonoBehaviour
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
 		float closestDist = float.MaxValue;
 		Collider closestCollider = null;
+		var seenUnitRoots = new System.Collections.Generic.HashSet<Transform>();
 
 		for (int h = 0; h < hitCount; h++)
 		{
 			Collider hc = m_Hits[h].collider;
-			if (hc == null || hc.transform.IsChildOf(transform))
+			if (hc == null || hc.transform == transform || hc.transform.IsChildOf(transform))
 				continue;
+			if (hc.GetComponent<UnitBodyHitZone>() == null && hc.GetComponentInParent<UnitBodyHitZone>() == null)
+				continue;
+
+			UnitVision hitVision = hc.transform.GetComponentInParent<UnitVision>();
+			if (hitVision != null)
+			{
+				Transform hitRoot = hitVision.transform;
+				if (!seenUnitRoots.Add(hitRoot))
+					continue;
+			}
+
 			if (m_Hits[h].distance < closestDist)
 			{
 				closestDist = m_Hits[h].distance;
@@ -674,14 +782,35 @@ public sealed class UnitVision : MonoBehaviour
 		if (closestCollider != null)
 		{
 			if (closestCollider.transform == _candidate || closestCollider.transform.IsChildOf(_candidate))
+			{
+				if (m_LogLineOfFireSuppression)
+					Debug.Log($"[LoFSup] {name}:   closest='{closestCollider.name}' IS target → CLEAR, suppression removed", this);
 				return true;
+			}
 
 			UnitTeam hitTeam = closestCollider.GetComponentInParent<UnitTeam>();
 			if (hitTeam != null && (hitTeam.Team == myTeam || hitTeam.Team == UnitTeamId.Neutral))
 			{
-				m_LineOfFireSuppressedTargets[_candidate] = Time.time + m_LineOfFireBlockedRetrySeconds;
-				return false;
+				if (closestCollider.transform.GetComponentInParent<UnitVision>() == null)
+				{
+					if (m_LogLineOfFireSuppression)
+						Debug.Log($"[LoFSup] {name}:   closest='{closestCollider.name}' friendly but no UnitVision — not a real unit, skip", this);
+				}
+				else
+				{
+					m_LineOfFireSuppressedTargets[_candidate] = Time.time + m_LineOfFireBlockedRetrySeconds;
+					if (m_LogLineOfFireSuppression)
+						Debug.Log($"[LoFSup] {name}:   closest='{closestCollider.name}' team={hitTeam.Team} → STILL BLOCKED, extended +{m_LineOfFireBlockedRetrySeconds:F2}s", this);
+					return false;
+				}
 			}
+
+			if (m_LogLineOfFireSuppression)
+				Debug.Log($"[LoFSup] {name}:   closest='{closestCollider.name}' is obstacle/other → CLEAR, suppression removed", this);
+		}
+		else if (m_LogLineOfFireSuppression)
+		{
+			Debug.Log($"[LoFSup] {name}:   no hits → CLEAR, suppression removed", this);
 		}
 
 		return true;
@@ -839,6 +968,17 @@ public sealed class UnitVision : MonoBehaviour
 		}
 
 		Transform newTarget = bestTarget;
+		if (newTarget != null)
+		{
+			Vector3 fireOrigin = GetFireOriginForLofCheck(origin);
+			if (CheckAndSuppressBlockedTarget(ref newTarget, ref bestAimPoint, ref hasBestAimPoint, fireOrigin))
+			{
+				newTarget = null;
+				hasBestAimPoint = false;
+				bestAimPoint = Vector3.zero;
+			}
+		}
+
 		bool targetChanged = newTarget != m_VisibleTarget;
 		m_VisibleTarget = newTarget;
 		m_HasVisibleTargetAimPoint = newTarget != null && hasBestAimPoint;
