@@ -78,6 +78,10 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private bool m_DrawVisionGizmos;
 	[SerializeField] private Color m_GizmoRayHitColor = new Color(1f, 0.3f, 0.1f, 0.9f);
 	[SerializeField] private Color m_GizmoRayMissColor = new Color(0.4f, 0.4f, 0.9f, 0.6f);
+	[Tooltip("Радиус SphereCast для проверки союзников/нейтралов на линии огня при перезахвате подавленной цели.")]
+	[SerializeField, Range(0.05f, 1f)] private float m_LineOfFireSafetyRadius = 0.35f;
+	[Tooltip("На сколько продлевать подавление цели, если линия огня всё ещё заблокирована союзником/нейтралом.")]
+	[SerializeField, Range(0.05f, 1f)] private float m_LineOfFireBlockedRetrySeconds = 0.15f;
 
 	[Tooltip("Scene Gizmos + Game view: направление взгляда юнита (горизонталь оси зрения).")]
 	[SerializeField] private bool m_DrawEyeLookDebugRay;
@@ -110,6 +114,7 @@ public sealed class UnitVision : MonoBehaviour
 	private Vector3 m_LastVelocityRaw;
 	private Vector3 m_ReadyTransitionDesiredBoreForwardXZ;
 	private bool m_HasReadyTransitionDesiredBoreForwardXZ;
+	private readonly Dictionary<Transform, float> m_LineOfFireSuppressedTargets = new Dictionary<Transform, float>();
 	#endregion
 
 	#region Public Properties
@@ -302,6 +307,27 @@ public sealed class UnitVision : MonoBehaviour
 			return "";
 
 		return $" readyTarget↔barrel={Vector3.Angle(m_ReadyTransitionDesiredBoreForwardXZ, _boreForwardXZ):F1}°";
+	}
+
+	/// <summary>
+	/// Временно запрещает текущую видимую цель (союзник на линии огня) и запускает немедленный скан для выбора другой цели.
+	/// Если другой цели нет — юнит удержит огонь до истечения таймера или следующего скана.
+	/// </summary>
+	public void SuppressCurrentTargetForLineOfFire(float _seconds)
+	{
+		if (!isActiveAndEnabled)
+			return;
+
+		Transform currentTarget = m_VisibleTarget;
+		if (currentTarget == null)
+			return;
+
+		float expireTime = Time.time + Mathf.Max(0f, _seconds);
+		m_LineOfFireSuppressedTargets[currentTarget] = expireTime;
+
+		ClearVisibleTargetState();
+		VisibleTargetChanged?.Invoke(null);
+		RequestImmediateScan();
 	}
 
 	/// <summary>
@@ -570,11 +596,111 @@ public sealed class UnitVision : MonoBehaviour
 		}
 	}
 
+	private void CleanupExpiredSuppressedTargets()
+	{
+		if (m_LineOfFireSuppressedTargets.Count == 0)
+			return;
+
+		float now = Time.time;
+		var expiredKeys = new List<Transform>();
+		foreach (var kvp in m_LineOfFireSuppressedTargets)
+		{
+			if (kvp.Key == null || kvp.Value <= now)
+				expiredKeys.Add(kvp.Key);
+		}
+
+		foreach (var key in expiredKeys)
+			m_LineOfFireSuppressedTargets.Remove(key);
+	}
+
 	private void ScheduleNextScan(float _delayOffset)
 	{
 		float min = ResolveScanIntervalMinSeconds();
 		float max = ResolveScanIntervalMaxSeconds();
 		m_NextScanTime = Time.time + _delayOffset + UnityEngine.Random.Range(min, max);
+	}
+
+	private bool IsLineOfFireSuppressed(Transform _candidate)
+	{
+		if (_candidate == null)
+			return false;
+
+		return m_LineOfFireSuppressedTargets.TryGetValue(_candidate, out float expireTime) && Time.time < expireTime;
+	}
+
+	private bool TryRevalidateSuppressedTarget(Transform _candidate, Vector3 _origin)
+	{
+		if (_candidate == null || !m_LineOfFireSuppressedTargets.TryGetValue(_candidate, out float expireTime))
+			return true;
+
+		if (Time.time < expireTime)
+			return true;
+
+		m_LineOfFireSuppressedTargets.Remove(_candidate);
+
+		Vector3 targetCenter = GetCandidateRoughCenter(_candidate);
+		Vector3 dir = targetCenter - _origin;
+		float dist = dir.magnitude;
+		if (dist < 0.05f)
+			return true;
+
+		dir /= dist;
+
+		int hitCount = Physics.SphereCastNonAlloc(
+			_origin,
+			m_LineOfFireSafetyRadius,
+			dir,
+			m_Hits,
+			dist,
+			m_LayerMask,
+			m_QueryTriggerInteraction);
+
+		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
+		float closestDist = float.MaxValue;
+		Collider closestCollider = null;
+
+		for (int h = 0; h < hitCount; h++)
+		{
+			Collider hc = m_Hits[h].collider;
+			if (hc == null || hc.transform.IsChildOf(transform))
+				continue;
+			if (m_Hits[h].distance < closestDist)
+			{
+				closestDist = m_Hits[h].distance;
+				closestCollider = hc;
+			}
+		}
+
+		if (closestCollider != null)
+		{
+			if (closestCollider.transform == _candidate || closestCollider.transform.IsChildOf(_candidate))
+				return true;
+
+			UnitTeam hitTeam = closestCollider.GetComponentInParent<UnitTeam>();
+			if (hitTeam != null && (hitTeam.Team == myTeam || hitTeam.Team == UnitTeamId.Neutral))
+			{
+				m_LineOfFireSuppressedTargets[_candidate] = Time.time + m_LineOfFireBlockedRetrySeconds;
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static Vector3 GetCandidateRoughCenter(Transform _candidate)
+	{
+		if (_candidate.TryGetComponent(out UnitVision uv))
+		{
+			if (UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(uv.BodyHitZones, out Bounds combined))
+				return combined.center;
+			if (uv.BodyCollider != null)
+				return uv.BodyCollider.bounds.center;
+		}
+
+		if (_candidate.TryGetComponent(out ShootingRangeTarget rangeTarget) && rangeTarget.TargetCollider != null)
+			return rangeTarget.TargetCollider.bounds.center;
+
+		return _candidate.position;
 	}
 
 	private float ResolveScanIntervalMinSeconds()
@@ -608,6 +734,7 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
 		m_DebugRays.Clear();
+		CleanupExpiredSuppressedTargets();
 		if (!IsEngageableTarget(m_VisibleTarget))
 		{
 			m_VisibleTarget = null;
@@ -637,6 +764,11 @@ public sealed class UnitVision : MonoBehaviour
 				continue;
 
 			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
+				continue;
+
+			if (IsLineOfFireSuppressed(other.transform))
+				continue;
+			if (!TryRevalidateSuppressedTarget(other.transform, origin))
 				continue;
 
 			if (other.m_BodyHitZones.Length > 0)
@@ -681,6 +813,11 @@ public sealed class UnitVision : MonoBehaviour
 			{
 				ShootingRangeTarget rangeTarget = m_RangeTargetBuffer[i];
 				if (rangeTarget == null || !rangeTarget.IsAvailableForTargeting)
+					continue;
+
+				if (IsLineOfFireSuppressed(rangeTarget.transform))
+					continue;
+				if (!TryRevalidateSuppressedTarget(rangeTarget.transform, origin))
 					continue;
 
 				Collider targetCol = rangeTarget.TargetCollider;

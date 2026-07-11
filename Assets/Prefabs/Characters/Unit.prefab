@@ -8607,7 +8607,7 @@ MonoBehaviour:
   m_BoltPresentationFireTailSeconds: 0
   m_LmgCoverOpenSound: {fileID: 0}
   m_LmgCoverCloseSound: {fileID: 0}
-  m_LmgBeltPhaseDurationSeconds: 3.2
+  m_LmgBeltPhaseDurationSeconds: 6
   m_MagazineVisualTransferDuration: 0.12
   m_IsReloadingWeapon: 0
   m_IsCyclingBolt: 0

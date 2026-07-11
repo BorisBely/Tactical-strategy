@@ -105,6 +105,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private GameObject m_LmgBeltMeshVisual;
 	[Tooltip("Угол открытия крышки LMG по локальной оси X (градусы).")]
 	[SerializeField] private float m_LmgCoverOpenDegrees = 110f;
+	[Tooltip("Длительность анимации открытия/закрытия крышки LMG (сек).")]
+	[SerializeField, Min(0.01f)] private float m_LmgCoverTweenSeconds = 0.30f;
 
 	[Header("Отладка")]
 	[Tooltip("Луч из BarrelTransform (Barrel или MuzzleModuleVisualSocket). В Game view включи Gizmos на вкладке Game.")]
@@ -202,6 +204,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	private GameObject m_MuzzleAttachmentVisualInstance;
 	private Quaternion m_LmgCoverInitialLocalRotation;
 	private Vector3 m_LmgCoverInitialLocalEulerAngles;
+	private Coroutine m_LmgCoverTweenCoroutine;
 	#endregion
 
 	#region Public Methods
@@ -284,8 +287,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (m_LmgTopCoverHinge == null)
 			return;
 
-		m_LmgTopCoverHinge.localRotation = m_LmgCoverInitialLocalRotation;
-		m_LmgTopCoverHinge.Rotate(m_LmgCoverOpenDegrees, 0f, 0f);
+		Quaternion target = m_LmgCoverInitialLocalRotation * Quaternion.Euler(m_LmgCoverOpenDegrees, 0f, 0f);
+		StartLmgCoverTween(target);
 	}
 
 	public void CloseLmgCover()
@@ -293,7 +296,30 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (m_LmgTopCoverHinge == null)
 			return;
 
-		m_LmgTopCoverHinge.localRotation = m_LmgCoverInitialLocalRotation;
+		StartLmgCoverTween(m_LmgCoverInitialLocalRotation);
+	}
+
+	private void StartLmgCoverTween(Quaternion _target)
+	{
+		if (m_LmgCoverTweenCoroutine != null)
+			StopCoroutine(m_LmgCoverTweenCoroutine);
+		m_LmgCoverTweenCoroutine = StartCoroutine(AnimateLmgCover(_target));
+	}
+
+	private System.Collections.IEnumerator AnimateLmgCover(Quaternion _target)
+	{
+		Quaternion start = m_LmgTopCoverHinge.localRotation;
+		float elapsed = 0f;
+		while (elapsed < m_LmgCoverTweenSeconds)
+		{
+			elapsed += Time.deltaTime;
+			float t = Mathf.Clamp01(elapsed / m_LmgCoverTweenSeconds);
+			m_LmgTopCoverHinge.localRotation = Quaternion.Slerp(start, _target, t);
+			yield return null;
+		}
+
+		m_LmgTopCoverHinge.localRotation = _target;
+		m_LmgCoverTweenCoroutine = null;
 	}
 
 	public void ShowLmgBelt(bool _visible)

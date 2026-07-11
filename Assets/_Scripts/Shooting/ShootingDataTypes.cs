@@ -493,7 +493,9 @@ public enum WeaponShotAttemptResult
 	/// <summary>Оружие в окончательной неисправности (негодно к экипировке).</summary>
 	WeaponBroken = 11,
 	/// <summary>Прицеливание после отдачи/поворота ещё не завершено.</summary>
-	NotAimed = 12
+	NotAimed = 12,
+	/// <summary>Между стволом и целью находится союзник или нейтрал.</summary>
+	LineOfFireBlocked = 13
 }
 
 /// <summary>Тип текущего отказа (лёгкий / тяжёлый).</summary>

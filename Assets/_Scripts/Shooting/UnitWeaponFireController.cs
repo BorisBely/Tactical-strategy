@@ -33,6 +33,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponVisualRecoilKick m_VisualRecoilKick;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitAnimatorStance m_Stance;
+	[SerializeField] private UnitTeam m_Team;
 
 	[Header("Fire Conditions")]
 	[Tooltip("Запрещать выстрел, если оружие не на ready.")]
@@ -44,6 +45,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[Tooltip("Если выстрел невозможен из‑за пустого магазина или отсутствия магазина в оружии — периодически вызывать TryStartReload (не каждый кадр, см. интервал).")]
 	[SerializeField] private bool m_TryReloadWhenOutOfAmmo = true;
 	[SerializeField, Min(0.05f)] private float m_OutOfAmmoReloadRetrySeconds = 0.35f;
+
+	[Header("Line of Fire Safety")]
+	[Tooltip("Радиус SphereCast для проверки союзников/нейтралов на линии огня.")]
+	[SerializeField, Range(0.05f, 1f)] private float m_LineOfFireSafetyRadius = 0.35f;
+	[Tooltip("Интервал кэширования результата проверки линии огня при блокировке. Предотвращает повторные SphereCast каждый кадр.")]
+	[SerializeField, Range(0.05f, 1f)] private float m_LineOfFireBlockedRetrySeconds = 0.15f;
+	[Tooltip("Слои для проверки линии огня. Должны включать слои дружественных/нейтральных юнитов.")]
+	[SerializeField] private LayerMask m_LineOfFireLayers = ~0;
 
 	[Header("Aiming Gate")]
 	[Tooltip("Запрещать выстрел, пока не достигнут порог выбранного режима прицеливания. Для Burst/FullAuto — только 1-й выстрел серии или очереди.")]
@@ -84,6 +93,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private bool m_HasDisciplineBurstOverride;
 	private int m_DisciplineBurstRoundsOverride = 3;
 	private float m_DisciplineBurstPauseOverrideSeconds;
+	private RaycastHit[] m_LineOfFireHits;
+	private float m_NextLineOfFireCheckTime;
+	private bool m_LastLineOfFireBlocked;
 	#endregion
 
 	#region Public Properties
@@ -120,6 +132,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_Stance == null)
 			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
@@ -128,6 +142,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_FallenDragController = GetComponent<UnitFallenDragController>();
 		if (GetComponent<UnitStanceCombatModifiers>() == null)
 			gameObject.AddComponent<UnitStanceCombatModifiers>();
+		m_LineOfFireHits = new RaycastHit[8];
 	}
 
 	private void OnEnable()
@@ -377,6 +392,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return WeaponShotAttemptResult.NotAimed;
 		}
 
+		if (IsLineOfFireBlocked())
+		{
+			if (m_Vision != null)
+				m_Vision.SuppressCurrentTargetForLineOfFire(m_LineOfFireBlockedRetrySeconds);
+			return WeaponShotAttemptResult.LineOfFireBlocked;
+		}
+
 		WeaponFireMode fireMode = ResolveEffectiveFireMode();
 		return m_WeaponRuntime.TryConsumeShot(_currentTime, fireMode, out _firedAmmoDefinition);
 	}
@@ -446,6 +468,76 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		float maxError = ResolveMaxBarrelAimErrorDegrees();
 		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, toTarget.normalized);
 		return m_DebugLastBarrelAimErrorDegrees <= maxError;
+	}
+
+	private bool IsLineOfFireBlocked()
+	{
+		if (m_WeaponRuntime == null || m_Vision == null || m_Equipment == null)
+			return false;
+
+		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+		if (weapon == null)
+			return false;
+
+		Transform fireOrigin = weapon.FireOriginTransform;
+		if (fireOrigin == null)
+			return false;
+
+		Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		if (aimPoint == Vector3.zero)
+			return false;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
+		if (transientState != null && transientState.NextAllowedShotTime > Time.time && !m_LastLineOfFireBlocked && m_NextLineOfFireCheckTime > Time.time)
+			return false;
+
+		if (Time.time < m_NextLineOfFireCheckTime)
+			return m_LastLineOfFireBlocked;
+
+		Vector3 dir = aimPoint - fireOrigin.position;
+		float dist = dir.magnitude;
+		if (dist < 0.05f)
+			return false;
+
+		dir /= dist;
+
+		int hitCount = Physics.SphereCastNonAlloc(
+			fireOrigin.position,
+			m_LineOfFireSafetyRadius,
+			dir,
+			m_LineOfFireHits,
+			dist,
+			m_LineOfFireLayers,
+			QueryTriggerInteraction.Ignore);
+
+		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
+
+		bool blocked = false;
+		for (int h = 0; h < hitCount; h++)
+		{
+			RaycastHit hit = m_LineOfFireHits[h];
+			Collider hc = hit.collider;
+			if (hc == null)
+				continue;
+
+			Transform hitTransform = hc.transform;
+			if (hitTransform.IsChildOf(transform))
+				continue;
+
+			UnitTeam hitTeam = hc.GetComponentInParent<UnitTeam>();
+			if (hitTeam == null)
+				continue;
+
+			if (hitTeam.Team == myTeam || hitTeam.Team == UnitTeamId.Neutral)
+			{
+				blocked = true;
+				break;
+			}
+		}
+
+		m_NextLineOfFireCheckTime = Time.time + m_LineOfFireBlockedRetrySeconds;
+		m_LastLineOfFireBlocked = blocked;
+		return blocked;
 	}
 
 	private float ResolveMaxBarrelAimErrorDegrees()
@@ -616,6 +708,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			case WeaponShotAttemptResult.Busy:
 			case WeaponShotAttemptResult.NeedsBoltCycle:
 			case WeaponShotAttemptResult.NotAimed:
+			case WeaponShotAttemptResult.LineOfFireBlocked:
 				break;
 			default:
 				m_BurstShotsRemainingInWave = 0;
@@ -686,6 +779,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (engageableTarget == m_LastVisibleTargetForFire)
 			return;
 
+		m_NextLineOfFireCheckTime = 0f;
+		m_LastLineOfFireBlocked = false;
 		Transform previousTarget = m_LastVisibleTargetForFire;
 		m_LastVisibleTargetForFire = engageableTarget;
 
