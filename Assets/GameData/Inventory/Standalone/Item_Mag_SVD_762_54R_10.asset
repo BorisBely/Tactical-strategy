@@ -20,8 +20,8 @@ MonoBehaviour:
   m_Category: 0
   m_DropWorldPrefab: {fileID: 8914277468654798316, guid: 176cf40803b2c8a438aa4063bdaf0680, type: 3}
   m_EquippedVisualPrefab: {fileID: 6427229704161657701, guid: c9d275dfa8661c14bbcc3336a7ce73cb, type: 3}
-  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandLocalPosition: {x: -0.1136, y: -0.0459, z: 0.058}
+  m_RightHandLocalEulerAngles: {x: -54.844, y: -133.712, z: -36.008}
   m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
   m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}

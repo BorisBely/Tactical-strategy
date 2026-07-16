@@ -28,6 +28,10 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField] private CaliberType m_SupportedCaliber = CaliberType.None;
 	[Tooltip("Тип магазина, который можно вставить в это оружие.")]
 	[SerializeField] private MagazineType m_SupportedMagazineType = MagazineType.None;
+	[Tooltip("Второй тип магазина для оружий с альтернативным интерфейсом питания (напр. боковой слот M249 под магазины AR). При установке в один слот второй очищается.")]
+	[SerializeField] private MagazineType m_SecondarySupportedMagazineType = MagazineType.None;
+	[Tooltip("Имя дочернего объекта-якоря для визуала магазина во втором слоте (напр. боковой приёмник M249).")]
+	[SerializeField] private string m_SecondaryMagazineSocketAnchorName;
 	[Tooltip("Встроенный магазин (трубка дробовика и т.п.): зарядка по одному патрону из коробок, слот магазина в UI заблокирован.")]
 	[SerializeField] private bool m_UsesShellByShellReload;
 	[Tooltip("Данные встроенного магазина для Uses Shell By Shell Reload.")]
@@ -139,6 +143,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	public WeaponClassType WeaponClass => m_WeaponClass;
 	public CaliberType SupportedCaliber => m_SupportedCaliber;
 	public MagazineType SupportedMagazineType => m_SupportedMagazineType;
+	public MagazineType SecondarySupportedMagazineType => m_SecondarySupportedMagazineType;
+	public bool UsesDualMagazineSlots => m_SecondarySupportedMagazineType != MagazineType.None;
+	public string SecondaryMagazineSocketAnchorName => m_SecondaryMagazineSocketAnchorName;
 	public bool UsesShellByShellReload => m_UsesShellByShellReload;
 	public MagazineDefinition BuiltInMagazineDefinition => m_BuiltInMagazineDefinition;
 	public AmmoDefinition BuiltInMagazineDefaultAmmo => m_BuiltInMagazineDefaultAmmo;

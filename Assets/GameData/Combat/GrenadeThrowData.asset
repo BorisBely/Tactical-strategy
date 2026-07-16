@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40028b26477cbba419da05819afd6dd5, type: 3}
+  m_Name: GrenadeThrowData
+  m_EditorClassIdentifier: Assembly-CSharp::GrenadeThrowData
+  m_ItemMappings:
+  - Item: {fileID: 11400000, guid: 5e049c79ccc20b64cb02a8a825175820, type: 2}
+    ThrownPrefab: {fileID: 7815113046537578095, guid: f194ce4b8087aad4b8fe9913be9d4116, type: 3}
+    HandPrefab: {fileID: 3890878363777852225, guid: 6fd661e03862a284aa8dc76b39a04339, type: 3}
+  - Item: {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
+    ThrownPrefab: {fileID: 2182341066210703305, guid: 7f0e61d9135766f438e79e4e8fb7d3c9, type: 3}
+    HandPrefab: {fileID: 3456350993192555246, guid: b2c3d4e5f6789012345678abcdef0400, type: 3}
+  - Item: {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+    ThrownPrefab: {fileID: 4806343524829518119, guid: 9335d9e423d7675419272a5b57288001, type: 3}
+    HandPrefab: {fileID: 4429490002880159492, guid: a06feec3e83e53a4cac9cb4391421fc4, type: 3}
+  - Item: {fileID: 11400000, guid: 02e2d3c1d7c0fc74dafbbb62be003508, type: 2}
+    ThrownPrefab: {fileID: 6033434234661628708, guid: 733c5fa65a97a1543a208d3c24c9d177, type: 3}
+    HandPrefab: {fileID: 129646262531378010, guid: 6a7689ae47b65c3429b2fafe245c73ec, type: 3}
+  - Item: {fileID: 11400000, guid: b8f3e4d5c6b7a889a0a1bc2de3f41520, type: 2}
+    ThrownPrefab: {fileID: 3918245018631853980, guid: 1155d1ed57086f24097501139cea32c8, type: 3}
+    HandPrefab: {fileID: 9218029090060468881, guid: a1b2c3d4e5f6789012345678abcdef03, type: 3}
+  m_ThrownFragPrefab: {fileID: 7815113046537578095, guid: f194ce4b8087aad4b8fe9913be9d4116, type: 3}
+  m_ThrownFlashPrefab: {fileID: 2182341066210703305, guid: 7f0e61d9135766f438e79e4e8fb7d3c9, type: 3}
+  m_ThrownSmokePrefab: {fileID: 3918245018631853980, guid: 1155d1ed57086f24097501139cea32c8, type: 3}
+  m_HandFragPrefab: {fileID: 3890878363777852225, guid: 6fd661e03862a284aa8dc76b39a04339, type: 3}
+  m_HandFlashPrefab: {fileID: 3456350993192555246, guid: b2c3d4e5f6789012345678abcdef0400, type: 3}
+  m_HandSmokePrefab: {fileID: 9218029090060468881, guid: a1b2c3d4e5f6789012345678abcdef03, type: 3}
+  m_MaxRange: 35
+  m_MinRange: 5
+  m_ReleaseHeight: 1.5
+  m_ArcHeight: 3
+  m_ProjectileLifetime: 60
+  m_RollReserveFactor: 0.4
+  m_RollReserveAbsolute: 0.3
+  m_LandingDrag: 4
+  m_RollStopSpeed: 0.1
+  m_PinPullClips:
+    m_Clips: []
+  m_PinPullVolume: 0.9
+  m_ThrowClips:
+    m_Clips: []
+  m_ThrowVolume: 0.85
+  m_ImpactClips:
+    m_Clips: []
+  m_ImpactVolume: 0.7
+  m_FragColor: {r: 1, g: 0.25, b: 0.2, a: 0.9}
+  m_FlashColor: {r: 1, g: 0.95, b: 0.2, a: 0.9}
+  m_SmokeColor: {r: 0.65, g: 0.65, b: 0.65, a: 0.9}

@@ -64,8 +64,8 @@ public static class GrenadeVisualOrderResolver
 		return _definition.GrenadeType switch
 		{
 			GrenadeType.Fragmentation => 0,
-			GrenadeType.Flash => 1,
-			GrenadeType.Smoke => 2,
+			GrenadeType.Smoke => 1,
+			GrenadeType.Flash => 2,
 			_ => 3
 		};
 	}

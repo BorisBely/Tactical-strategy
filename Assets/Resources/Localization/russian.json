@@ -326,6 +326,14 @@
       "value": "Осколочная граната"
     },
     {
+      "key": "item.grenade.rgd5",
+      "value": "Граната РГД-5"
+    },
+    {
+      "key": "item.grenade.f1",
+      "value": "Граната Ф-1"
+    },
+    {
       "key": "item.grenade.flash_01",
       "value": "Светошумовая граната"
     },

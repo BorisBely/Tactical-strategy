@@ -20,9 +20,22 @@ MonoBehaviour:
   m_Category: 0
   m_DropWorldPrefab: {fileID: 7924537197857657038, guid: 340719473e4f343449648c456309dc88, type: 3}
   m_EquippedVisualPrefab: {fileID: 5710121984615051007, guid: 93a1dfcaf43abcd4885c57f71d2253aa, type: 3}
-  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandLocalPosition: {x: -0.127, y: -0.075, z: -0.011}
+  m_RightHandLocalEulerAngles: {x: -72.425, y: 249.199, z: -57.756}
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

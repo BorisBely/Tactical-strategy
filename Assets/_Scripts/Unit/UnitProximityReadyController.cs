@@ -11,7 +11,7 @@ public sealed class UnitProximityReadyController : MonoBehaviour
 {
 	#region Serialized Fields
 	[Header("Proximity")]
-	[SerializeField, Range(0.5f, 5f)] private float m_CheckRadius = 2f;
+	[SerializeField, Range(0.5f, 5f)] private float m_CheckRadius = 1.5f;
 	[SerializeField, Range(0.1f, 1f)] private float m_CheckInterval = 0.35f;
 	[SerializeField, Range(0.5f, 5f)] private float m_RetryDistance = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_DebounceSeconds = 0.3f;

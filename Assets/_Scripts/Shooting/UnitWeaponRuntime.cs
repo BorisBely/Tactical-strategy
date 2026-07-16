@@ -107,12 +107,12 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		SyncAttachmentVisuals();
 	}
 
-	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem, bool _syncVisual = true)
+	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem, bool _syncVisual = true, int _slotIndex = 0)
 	{
 		if (m_BoundWeaponState == null)
 			return false;
 
-		bool inserted = m_BoundWeaponState.TryInsertMagazine(_magazineItem);
+		bool inserted = m_BoundWeaponState.TryInsertMagazine(_magazineItem, _slotIndex);
 		if (inserted && _syncVisual)
 			SyncInsertedMagazineVisual();
 
@@ -128,6 +128,21 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		}
 
 		bool ejected = m_BoundWeaponState.TryEjectMagazine(out _magazineItem);
+		if (ejected && _syncVisual)
+			SyncInsertedMagazineVisual();
+
+		return ejected;
+	}
+
+	public bool TryEjectMagazine(int _slotIndex, out InventorySlotRuntimeData _magazineItem, bool _syncVisual = true)
+	{
+		if (m_BoundWeaponState == null)
+		{
+			_magazineItem = default;
+			return false;
+		}
+
+		bool ejected = m_BoundWeaponState.TryEjectMagazine(_slotIndex, out _magazineItem);
 		if (ejected && _syncVisual)
 			SyncInsertedMagazineVisual();
 
@@ -346,7 +361,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 
 		if (m_BoundWeaponState != null && m_BoundWeaponState.IsMagazineNonRemovable)
 		{
-			equippedWeapon.ClearInsertedMagazineVisual();
+			equippedWeapon.ClearAllMagazineVisuals();
 			return;
 		}
 
@@ -357,10 +372,21 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		if (magazineDefinition == null || currentMagazineItem.InstanceState == null || currentMagazineItem.InstanceState.MagazineState == null)
 		{
 			equippedWeapon.ClearInsertedMagazineVisual();
-			return;
+		}
+		else
+		{
+			equippedWeapon.SetInsertedMagazineVisual(magazineDefinition);
 		}
 
-		equippedWeapon.SetInsertedMagazineVisual(magazineDefinition);
+		if (m_BoundWeaponState != null && m_BoundWeaponState.WeaponDefinition != null && m_BoundWeaponState.WeaponDefinition.UsesDualMagazineSlots)
+		{
+			InventorySlotRuntimeData secondaryItem = m_BoundWeaponState.CurrentSecondaryMagazineItem;
+			ItemDefinition secondaryDef = secondaryItem.Definition;
+			if (secondaryDef != null && secondaryItem.InstanceState != null && secondaryItem.InstanceState.MagazineState != null)
+				equippedWeapon.SetSecondaryMagazineVisual(secondaryDef);
+			else
+				equippedWeapon.ClearSecondaryMagazineVisual();
+		}
 	}
 
 	private void SyncAttachmentVisuals()

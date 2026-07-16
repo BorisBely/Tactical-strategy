@@ -26,6 +26,8 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
 	[Tooltip("Пока юнит тащит сражённого, IK рук отключается (рука уходит на drag-слой).")]
 	[SerializeField] private UnitBusyState m_BusyState;
+	[Tooltip("Пока идёт бросок гранаты, IK рук отключается.")]
+	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrow;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandPositionWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_LeftHandRotationWeight = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_RightHandPositionWeight = 1f;
@@ -180,6 +182,8 @@ public class AnimatorHandIk : MonoBehaviour
 			m_SelfStabilization = GetComponentInParent<UnitSelfStabilizationController>();
 		if (m_StabilizeOther == null)
 			m_StabilizeOther = GetComponentInParent<UnitStabilizeOtherController>();
+		if (m_GrenadeThrow == null)
+			m_GrenadeThrow = GetComponentInParent<UnitGrenadeThrowController>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponentInParent<UnitBusyState>();
 		if (m_RuntimeTuner == null)
@@ -200,6 +204,11 @@ public class AnimatorHandIk : MonoBehaviour
 			return true;
 		if (m_BusyState != null && m_BusyState.HasReason(UnitBusyState.BusyReason.DraggingFallen))
 			return true;
+		if (m_GrenadeThrow != null && m_GrenadeThrow.IsThrowAnimPlaying)
+		{
+			m_ClearHandIkOnNextAnimatorIkPass = true;
+			return true;
+		}
 		return false;
 	}
 

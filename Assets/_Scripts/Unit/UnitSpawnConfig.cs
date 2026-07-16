@@ -12,6 +12,10 @@ public sealed class UnitSpawnLoadout
 	[SerializeField] private ItemDefinition m_BackItem;
 	[SerializeField] private ItemDefinition[] m_BagItems = Array.Empty<ItemDefinition>();
 
+	[Header("Гранаты")]
+	[Tooltip("Каждый элемент = 1 граната в сумке.")]
+	[SerializeField] private ItemDefinition[] m_GrenadeItems = Array.Empty<ItemDefinition>();
+
 	[Header("Магазины")]
 	[SerializeField] private AmmoDefinition m_AmmoForMagazines;
 	[Tooltip("-1 = заполнить по вместимости MagazineDefinition.")]
@@ -23,6 +27,7 @@ public sealed class UnitSpawnLoadout
 	public ItemDefinition HeadItem => m_HeadItem;
 	public ItemDefinition BackItem => m_BackItem;
 	public ItemDefinition[] BagItems => m_BagItems ?? Array.Empty<ItemDefinition>();
+	public ItemDefinition[] GrenadeItems => m_GrenadeItems ?? Array.Empty<ItemDefinition>();
 	public AmmoDefinition AmmoForMagazines => m_AmmoForMagazines;
 	public int RoundsPerMagazine => m_RoundsPerMagazine;
 	public bool LoadMagazineIntoWeapon => m_LoadMagazineIntoWeapon;

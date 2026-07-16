@@ -62,6 +62,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField] private InventoryPanelView m_GroundPanel;
 	[SerializeField] private InventoryPanelView m_CharacterInventoryPanel;
 
+	[Header("Grenade Throw")]
+	[SerializeField] private GrenadeThrowData m_GrenadeThrowData;
+	[SerializeField, Min(0.1f)] private float m_GrenadeOrderDeleteButtonSize = 26f;
+	[SerializeField, Min(0.05f)] private float m_GrenadeOrderHoverDelay = 0.2f;
+	[SerializeField] private GameObject m_GrenadeAimMarkerPrefab;
+
 	[Header("Runtime Debug")]
 	[SerializeField] private List<RtsUnitMember> m_SelectedUnits = new List<RtsUnitMember>(16);
 	#endregion
@@ -117,6 +123,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Vector3 m_HoveredSegmentWorldPoint;
 	private float m_HoveredSegmentFacingAngle;
 	private bool m_IsEditingWaypointFacing;
+	private bool m_IsWaypointFacingLookLocked;
+	private Vector3 m_WaypointFacingLockedLookPoint;
 	private int m_HoveredArrowUnitIndex = -1;
 	private RtsUnitMember.FacingArrowDescriptor m_HoveredFacingArrow;
 	private float m_ArrowHoverStartTime;
@@ -152,6 +160,21 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private static float s_TransientMessageUntilUnscaledTime = -1f;
 	private static readonly HashSet<RtsUnitMember.FormationSyncGroup> s_ProcessedFormationSyncGroups =
 		new HashSet<RtsUnitMember.FormationSyncGroup>();
+
+	private bool m_IsGrenadeThrowMode;
+	private bool m_IsRouteGrenadePlanning;
+	private Vector3 m_RouteGrenadePlanningOrigin;
+	private int m_RouteGrenadePlanningUnitIndex = -1;
+	private int m_RouteGrenadePlanningSegmentIndex = -1;
+	private GrenadeType m_SelectedGrenadeType = GrenadeType.Fragmentation;
+	private GrenadeAimMarkerController m_GrenadeAimMarker;
+	private UnitGrenadeThrowController m_ActiveThrowController;
+	private bool m_IsGrenadeOrderDeleteButtonVisible;
+	private Rect m_GrenadeOrderDeleteButtonScreenRect;
+	private int m_HoveredGrenadeOrderUnitIndex = -1;
+	private int m_HoveredGrenadeOrderIndex = -1;
+	private float m_GrenadeOrderHoverStartTime;
+	private static GUIStyle s_GrenadeOrderDeleteButtonGuiStyle;
 
 	private enum RouteEditTargetKind
 	{
@@ -288,6 +311,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (PauseMenuController.IsPaused)
 			return;
 
+		if (m_IsGrenadeThrowMode)
+		{
+			UpdateGrenadeThrowAiming();
+			HandleGrenadeThrowInput();
+			return;
+		}
+
 		HandleLeftMouseSelection();
 		UpdatePathInteractions();
 		HandleRightMouseCommand();
@@ -296,6 +326,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		HandleFormationKeyInput();
 		HandleKeyboardCommands();
 		UpdateFormationSyncSpeeds();
+		UpdateGrenadeOrderHover();
 	}
 
 	private void OnGUI()
@@ -311,6 +342,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		DrawFormationPickerIfAny();
 		DrawArrowDeleteButtonIfAny();
 		DrawWaitPointIconsIfAny();
+		DrawGrenadeOrderDeleteButtonIfAny();
+		DrawGrenadeThrowModeIndicator();
 		DrawTransientMessageIfAny();
 	}
 	#endregion
@@ -2248,7 +2281,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
-		if (m_IsRouteEditMode || m_IsEditingWaypointFacing)
+		if (m_IsEditingWaypointFacing)
+		{
+			if (Mouse.current.leftButton.wasPressedThisFrame)
+				LockWaypointFacingToLookAtPoint();
+			return;
+		}
+
+		if (m_IsRouteEditMode)
 			return;
 
 		if (Mouse.current.leftButton.wasPressedThisFrame)
@@ -4379,6 +4419,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void BeginWaypointFacingEdit(int _unitIndex, int _segmentIndex)
 	{
 		m_IsEditingWaypointFacing = true;
+		m_IsWaypointFacingLookLocked = false;
 		m_EditingUnitIndex = _unitIndex;
 		m_EditingSegmentIndex = _segmentIndex;
 		m_EditingWaypointAnchor = m_HoveredSegmentWorldPoint;
@@ -4403,8 +4444,38 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!m_IsEditingWaypointFacing)
 			return;
 
+		Vector3 anchor = m_EditingWaypointAnchor;
+		Vector3 yOffset = Vector3.up * 0.05f;
+		Color arrowColor;
+
+		if (m_IsWaypointFacingLookLocked)
+		{
+			m_EditingWaypointMode = RtsUnitMember.FacingArrowMode.LookAtPoint;
+			arrowColor = GetFacingArrowColor(RtsUnitMember.FacingArrowMode.LookAtPoint);
+
+			if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
+			{
+				Vector3 toLook = m_WaypointFacingLockedLookPoint - anchor;
+				toLook.y = 0f;
+				Vector3 dir = toLook.sqrMagnitude > 0.01f ? toLook.normalized : Vector3.forward;
+				Vector3 shaftStart = anchor + yOffset + dir * 0.15f;
+				Vector3 tip = m_WaypointFacingLockedLookPoint + yOffset;
+				LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
+				if (lr != null)
+				{
+					lr.startColor = arrowColor;
+					lr.endColor = arrowColor;
+					lr.enabled = true;
+					lr.SetPosition(0, shaftStart);
+					lr.SetPosition(1, tip);
+				}
+			}
+
+			return;
+		}
+
 		m_EditingWaypointMode = ResolveWaypointFacingModeFromModifiers();
-		Color arrowColor = GetFacingArrowColor(m_EditingWaypointMode);
+		arrowColor = GetFacingArrowColor(m_EditingWaypointMode);
 
 		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
 		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
@@ -4422,8 +4493,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
-		Vector3 anchor = m_EditingWaypointAnchor;
-		Vector3 yOffset = Vector3.up * 0.05f;
 		Vector3 toCursor = hit.point - anchor;
 		toCursor.y = 0f;
 
@@ -4452,6 +4521,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
+	private void LockWaypointFacingToLookAtPoint()
+	{
+		if (IsPointerOverUi())
+			return;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return;
+
+		m_IsWaypointFacingLookLocked = true;
+		m_WaypointFacingLockedLookPoint = hit.point;
+		m_EditingWaypointMode = RtsUnitMember.FacingArrowMode.LookAtPoint;
+		m_EditingWaypointLookPoint = hit.point;
+
+		Vector3 toLook = hit.point - m_EditingWaypointAnchor;
+		toLook.y = 0f;
+		m_EditingWaypointAngle = toLook.sqrMagnitude > 0.01f
+			? Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg
+			: 0f;
+
+		UpdateWaypointFacingEdit();
+	}
+
 	private void EndWaypointFacingEdit()
 	{
 		m_IsEditingWaypointFacing = false;
@@ -4461,8 +4553,21 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector3 anchor = m_EditingWaypointAnchor;
 		Vector3 lookPoint = m_EditingWaypointLookPoint;
 		RtsUnitMember.FacingArrowMode mode = m_EditingWaypointMode;
+		bool wasLocked = m_IsWaypointFacingLookLocked;
+		m_IsWaypointFacingLookLocked = false;
 		m_EditingUnitIndex = -1;
 		m_EditingSegmentIndex = -1;
+
+		if (wasLocked)
+		{
+			mode = RtsUnitMember.FacingArrowMode.LookAtPoint;
+			lookPoint = m_WaypointFacingLockedLookPoint;
+			Vector3 toLook = lookPoint - anchor;
+			toLook.y = 0f;
+			angle = toLook.sqrMagnitude > 0.01f
+				? Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg
+				: 0f;
+		}
 
 		for (int i = 0; i < m_DirectionMarkers.Count; i++)
 		{
@@ -4484,15 +4589,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			Vector3? lookPointArg = mode == RtsUnitMember.FacingArrowMode.LookAtPoint
 				? lookPoint
 				: null;
-			bool holdFromSegmentStart = mode == RtsUnitMember.FacingArrowMode.HoldToEnd;
+			bool forceReady = mode == RtsUnitMember.FacingArrowMode.HoldToEnd;
 			validUnits[i].SetWaypointFacing(
 				segmentIndex,
 				angle,
 				anchor,
 				mode,
 				lookPointArg,
-				_forceReadyOnActivation: holdFromSegmentStart,
-				_activateAtSegmentStart: holdFromSegmentStart);
+				_forceReadyOnActivation: forceReady,
+				_activateAtSegmentStart: false);
 		}
 
 		ClearAllPathInteractions();
@@ -5080,10 +5185,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Keyboard.current.fKey.wasPressedThisFrame)
 		{
+			if (m_IsGrenadeThrowMode)
+			{
+				CancelGrenadeThrow();
+				return;
+			}
+
 			if (m_IsPreviewingMove || m_IsAwaitingDoubleClick)
 				CancelMovePreview();
 			else
 				CommandSelectedHardStop();
+			return;
+		}
+
+		if (Keyboard.current.gKey.wasPressedThisFrame)
+		{
+			if (m_IsGrenadeThrowMode)
+				CycleGrenadeThrowType();
+			else
+				TryEnterGrenadeThrowMode();
 			return;
 		}
 
@@ -6334,6 +6454,385 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		DrawScreenRect(new Rect(_rect.xMin, _rect.yMax - _thickness, _rect.width, _thickness), _color);
 		DrawScreenRect(new Rect(_rect.xMin, _rect.yMin, _thickness, _rect.height), _color);
 		DrawScreenRect(new Rect(_rect.xMax - _thickness, _rect.yMin, _thickness, _rect.height), _color);
+	}
+	#endregion
+
+	#region Grenade Throw
+	private void TryEnterGrenadeThrowMode()
+	{
+		if (m_SelectedUnits.Count == 0)
+			return;
+
+		UnitGrenadeThrowController controller = GetPrimaryThrowController();
+		if (controller == null || !controller.CanStartThrow())
+			return;
+
+		m_ActiveThrowController = controller;
+		m_IsGrenadeThrowMode = true;
+		m_SelectedGrenadeType = controller.SelectedType;
+
+		if (!controller.SetSelectedType(m_SelectedGrenadeType))
+		{
+			if (!controller.CycleSelectedType())
+			{
+				m_IsGrenadeThrowMode = false;
+				m_ActiveThrowController = null;
+				return;
+			}
+
+			m_SelectedGrenadeType = controller.SelectedType;
+		}
+
+		m_IsRouteGrenadePlanning = IsTacticalPauseActive() && m_IsHoveringPathSegment;
+		if (m_IsRouteGrenadePlanning)
+		{
+			m_RouteGrenadePlanningOrigin = m_HoveredSegmentWorldPoint;
+			m_RouteGrenadePlanningUnitIndex = m_HoveredUnitIndex;
+			m_RouteGrenadePlanningSegmentIndex = m_HoveredSegmentIndex;
+		}
+		else
+		{
+			m_RouteGrenadePlanningOrigin = controller.transform.position;
+			m_RouteGrenadePlanningUnitIndex = -1;
+			m_RouteGrenadePlanningSegmentIndex = -1;
+		}
+
+		controller.BeginAiming();
+		EnsureGrenadeAimMarker();
+		if (m_GrenadeAimMarker != null)
+			m_GrenadeAimMarker.SetThrowController(controller);
+		ShowGrenadeAimMarker();
+	}
+
+	private void CycleGrenadeThrowType()
+	{
+		if (m_ActiveThrowController == null)
+			return;
+
+		if (m_ActiveThrowController.CycleSelectedType())
+			m_SelectedGrenadeType = m_ActiveThrowController.SelectedType;
+	}
+
+	private void ConfirmGrenadeThrow()
+	{
+		if (m_ActiveThrowController == null)
+			return;
+
+		if (m_IsRouteGrenadePlanning)
+		{
+			if (m_RouteGrenadePlanningUnitIndex < 0 || m_RouteGrenadePlanningUnitIndex >= m_SelectedUnits.Count)
+			{
+				CancelGrenadeThrow();
+				return;
+			}
+
+			RtsUnitMember unit = m_SelectedUnits[m_RouteGrenadePlanningUnitIndex];
+			if (unit != null)
+			{
+				Vector3 targetPos = m_GrenadeAimMarker != null ? m_GrenadeAimMarker.MarkerWorldPosition : m_RouteGrenadePlanningOrigin;
+				GrenadeRouteOrder order = new GrenadeRouteOrder
+				{
+					Type = m_SelectedGrenadeType,
+					TargetPosition = targetPos,
+					RouteWaypointIndex = m_RouteGrenadePlanningSegmentIndex,
+					WaypointPosition = m_RouteGrenadePlanningOrigin
+				};
+				unit.AddGrenadeOrder(order);
+			}
+
+			m_ActiveThrowController.CancelAiming();
+		}
+		else
+		{
+			m_ActiveThrowController.ConfirmThrow(false);
+		}
+
+		HideGrenadeAimMarker();
+		m_IsGrenadeThrowMode = false;
+		m_IsRouteGrenadePlanning = false;
+		m_ActiveThrowController = null;
+	}
+
+	private void CancelGrenadeThrow()
+	{
+		if (m_ActiveThrowController != null)
+			m_ActiveThrowController.CancelAiming();
+
+		HideGrenadeAimMarker();
+		m_IsGrenadeThrowMode = false;
+		m_IsRouteGrenadePlanning = false;
+		m_ActiveThrowController = null;
+	}
+
+	private void HandleGrenadeThrowInput()
+	{
+		if (Mouse.current == null)
+			return;
+
+		if (Keyboard.current != null && Keyboard.current.gKey.wasPressedThisFrame)
+		{
+			CycleGrenadeThrowType();
+			return;
+		}
+
+		if (Keyboard.current != null &&
+		    (Keyboard.current.fKey.wasPressedThisFrame || Keyboard.current.escapeKey.wasPressedThisFrame))
+		{
+			CancelGrenadeThrow();
+			return;
+		}
+
+		if (Mouse.current.leftButton.wasReleasedThisFrame && !IsPointerOverUi())
+		{
+			ConfirmGrenadeThrow();
+			return;
+		}
+
+		if (Mouse.current.rightButton.wasPressedThisFrame)
+		{
+			CancelGrenadeThrow();
+			return;
+		}
+	}
+
+	private void UpdateGrenadeThrowAiming()
+	{
+		if (m_ActiveThrowController == null || m_GrenadeAimMarker == null)
+			return;
+
+		Color color = m_GrenadeThrowData != null
+			? m_GrenadeThrowData.GetMarkerColor(m_SelectedGrenadeType)
+			: Color.white;
+
+		m_GrenadeAimMarker.SetColor(color);
+
+		float releaseHeight = m_GrenadeThrowData != null ? m_GrenadeThrowData.ReleaseHeight : 1.5f;
+		float arcHeight = m_GrenadeThrowData != null ? m_GrenadeThrowData.ArcHeight : 3f;
+		float minRange = m_GrenadeThrowData != null ? m_GrenadeThrowData.MinRange : 5f;
+		float maxRange = m_GrenadeThrowData != null ? m_GrenadeThrowData.MaxRange : 35f;
+
+		Vector3 throwerPos = m_IsRouteGrenadePlanning
+			? m_RouteGrenadePlanningOrigin
+			: m_ActiveThrowController.transform.position;
+
+		m_GrenadeAimMarker.UpdateAiming(
+			throwerPos,
+			releaseHeight,
+			arcHeight,
+			minRange,
+			maxRange);
+	}
+
+	private UnitGrenadeThrowController GetPrimaryThrowController()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			UnitGrenadeThrowController controller = unit.GetComponent<UnitGrenadeThrowController>();
+			if (controller != null && controller.CanStartThrow())
+				return controller;
+		}
+
+		return null;
+	}
+
+	private void EnsureGrenadeAimMarker()
+	{
+		if (m_GrenadeAimMarker != null)
+			return;
+
+		GameObject markerGo = new GameObject("GrenadeAimMarkerController");
+		m_GrenadeAimMarker = markerGo.AddComponent<GrenadeAimMarkerController>();
+		m_GrenadeAimMarker.Initialize(m_SelectionCamera, m_ActiveThrowController, m_GrenadeAimMarkerPrefab);
+	}
+
+	private void ShowGrenadeAimMarker()
+	{
+		if (m_GrenadeAimMarker != null)
+			m_GrenadeAimMarker.Show();
+	}
+
+	private void HideGrenadeAimMarker()
+	{
+		if (m_GrenadeAimMarker != null)
+			m_GrenadeAimMarker.Hide();
+	}
+
+	private bool IsTacticalPauseActive()
+	{
+		return GamePauseState.IsTacticalPaused;
+	}
+
+	private bool IsCursorOverRouteSegment()
+	{
+		return m_IsHoveringPathSegment;
+	}
+
+	private void UpdateGrenadeOrderHover()
+	{
+		if (m_SelectedUnits.Count == 0)
+		{
+			ClearGrenadeOrderHover();
+			return;
+		}
+
+		if (Mouse.current == null)
+		{
+			ClearGrenadeOrderHover();
+			return;
+		}
+
+		Vector2 mousePos = Mouse.current.position.ReadValue();
+
+		for (int ui = 0; ui < m_SelectedUnits.Count; ui++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[ui];
+			if (unit == null)
+				continue;
+
+			int orderCount = unit.GrenadeOrderCount;
+			for (int oi = 0; oi < orderCount; oi++)
+			{
+				if (!unit.TryGetGrenadeOrderWorldPosition(oi, out Vector3 worldPos))
+					continue;
+
+				Vector3 screenPos = m_SelectionCamera != null ? m_SelectionCamera.WorldToScreenPoint(worldPos) : Vector3.zero;
+				if (screenPos.z < 0f)
+					continue;
+
+				float dist = Vector2.Distance(mousePos, new Vector2(screenPos.x, Screen.height - screenPos.y));
+				if (dist < m_PathHoverThresholdPixels)
+				{
+					if (m_HoveredGrenadeOrderUnitIndex != ui || m_HoveredGrenadeOrderIndex != oi)
+					{
+						m_HoveredGrenadeOrderUnitIndex = ui;
+						m_HoveredGrenadeOrderIndex = oi;
+						m_GrenadeOrderHoverStartTime = Time.unscaledTime;
+						m_IsGrenadeOrderDeleteButtonVisible = false;
+					}
+
+					if (!m_IsGrenadeOrderDeleteButtonVisible &&
+					    Time.unscaledTime - m_GrenadeOrderHoverStartTime >= m_GrenadeOrderHoverDelay)
+					{
+						m_IsGrenadeOrderDeleteButtonVisible = true;
+						float buttonX = screenPos.x - m_GrenadeOrderDeleteButtonSize * 0.5f;
+						float buttonY = Screen.height - screenPos.y - m_GrenadeOrderDeleteButtonSize - 10f;
+						m_GrenadeOrderDeleteButtonScreenRect = new Rect(buttonX, buttonY, m_GrenadeOrderDeleteButtonSize, m_GrenadeOrderDeleteButtonSize);
+					}
+
+					return;
+				}
+			}
+		}
+
+		ClearGrenadeOrderHover();
+	}
+
+	private void ClearGrenadeOrderHover()
+	{
+		m_HoveredGrenadeOrderUnitIndex = -1;
+		m_HoveredGrenadeOrderIndex = -1;
+		m_IsGrenadeOrderDeleteButtonVisible = false;
+	}
+
+	private void DrawGrenadeOrderDeleteButtonIfAny()
+	{
+		if (!m_IsGrenadeOrderDeleteButtonVisible)
+			return;
+
+		if (s_GrenadeOrderDeleteButtonGuiStyle == null)
+		{
+			s_GrenadeOrderDeleteButtonGuiStyle = new GUIStyle(GUI.skin.button)
+			{
+				fontSize = 14,
+				fontStyle = FontStyle.Bold,
+				alignment = TextAnchor.MiddleCenter
+			};
+			s_GrenadeOrderDeleteButtonGuiStyle.normal.textColor = Color.red;
+		}
+
+		if (GUI.Button(m_GrenadeOrderDeleteButtonScreenRect, "X", s_GrenadeOrderDeleteButtonGuiStyle))
+		{
+			RemoveHoveredGrenadeOrder();
+			m_IsGrenadeOrderDeleteButtonVisible = false;
+		}
+	}
+
+	private void RemoveHoveredGrenadeOrder()
+	{
+		if (m_HoveredGrenadeOrderUnitIndex < 0 || m_HoveredGrenadeOrderIndex < 0)
+			return;
+
+		if (m_HoveredGrenadeOrderUnitIndex >= m_SelectedUnits.Count)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[m_HoveredGrenadeOrderUnitIndex];
+		if (unit != null)
+			unit.TryRemoveGrenadeOrder(m_HoveredGrenadeOrderIndex);
+
+		ClearGrenadeOrderHover();
+	}
+
+	private bool IsPointerOverGrenadeOrderDeleteButton()
+	{
+		if (!m_IsGrenadeOrderDeleteButtonVisible)
+			return false;
+
+		if (Mouse.current == null)
+			return false;
+
+		Vector2 pos = Mouse.current.position.ReadValue();
+		return m_GrenadeOrderDeleteButtonScreenRect.Contains(new Vector2(pos.x, Screen.height - pos.y));
+	}
+
+	private void DrawGrenadeThrowModeIndicator()
+	{
+		if (!m_IsGrenadeThrowMode)
+			return;
+
+		if (s_RtsHintsGuiStyle == null)
+		{
+			s_RtsHintsGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 16,
+				fontStyle = FontStyle.Bold,
+				alignment = TextAnchor.MiddleCenter
+			};
+			s_RtsHintsGuiStyle.normal.textColor = Color.white;
+		}
+
+		int fragCount = m_ActiveThrowController != null ? m_ActiveThrowController.GetGrenadeCount(GrenadeType.Fragmentation) : 0;
+		int flashCount = m_ActiveThrowController != null ? m_ActiveThrowController.GetGrenadeCount(GrenadeType.Flash) : 0;
+		int smokeCount = m_ActiveThrowController != null ? m_ActiveThrowController.GetGrenadeCount(GrenadeType.Smoke) : 0;
+
+		string typeName = m_SelectedGrenadeType switch
+		{
+			GrenadeType.Fragmentation => $"Осколочная [{fragCount}]",
+			GrenadeType.Flash => $"Светошумовая [{flashCount}]",
+			GrenadeType.Smoke => $"Дымовая [{smokeCount}]",
+			_ => "Граната"
+		};
+
+		string allCounts = $"В наличии: Оск={fragCount}  Дым={smokeCount}  Свет={flashCount}";
+		string controls = "G — сменить тип  |  ЛКМ — бросить  |  ПКМ / F / Esc — отмена";
+
+		Color bgColor = m_GrenadeThrowData != null ? m_GrenadeThrowData.GetMarkerColor(m_SelectedGrenadeType) : Color.yellow;
+		bgColor.a = 0.5f;
+
+		float width = Mathf.Min(620f, Screen.width - 24f);
+		float x = (Screen.width - width) * 0.5f;
+
+		GUI.backgroundColor = bgColor;
+		GUI.Box(new Rect(x, 8f, width, 30f), $"БРОСОК ГРАНАТЫ: {typeName}", s_RtsHintsGuiStyle);
+
+		s_RtsHintsGuiStyle.fontSize = 13;
+		GUI.Box(new Rect(x, 40f, width, 22f), allCounts, s_RtsHintsGuiStyle);
+		GUI.Box(new Rect(x, 64f, width, 22f), controls, s_RtsHintsGuiStyle);
+
+		GUI.backgroundColor = Color.white;
 	}
 	#endregion
 }

@@ -63,6 +63,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
@@ -418,6 +419,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
 		if (m_Team == null)
 			m_Team = GetComponent<UnitTeam>();
 		if (m_Consciousness == null)
@@ -960,6 +963,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void UpdateFacing()
 	{
+		if (m_GrenadeThrowController != null && (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
+			return;
+
 		if (m_CachedRtsMember != null && m_CachedRtsMember.IsRotatingToRouteFacing)
 			return;
 

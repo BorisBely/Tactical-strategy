@@ -15,15 +15,13 @@ MonoBehaviour:
   m_WeaponClass: 5
   m_SupportedCaliber: 3
   m_SupportedMagazineType: 8
+  m_SecondarySupportedMagazineType: 2
   m_UsesShellByShellReload: 0
   m_BuiltInMagazineDefinition: {fileID: 0}
   m_BuiltInMagazineDefaultAmmo: {fileID: 0}
   m_AvailableFireModes: 010000000000000003000000
   m_DefaultFireMode: 3
   m_AttachmentSlots:
-  - SlotType: 0
-    IsRequired: 0
-    AnchorChildName: 
   - SlotType: 3
     IsRequired: 0
     AnchorChildName: 
@@ -39,10 +37,7 @@ MonoBehaviour:
   - SlotType: 2
     IsRequired: 0
     AnchorChildName: 
-  - SlotType: 2
-    IsRequired: 0
-    AnchorChildName: 
-  m_AttachmentSlotProfile: 0
+  m_AttachmentSlotProfile: 4
   m_FireRateRpm: 750
   m_SemiAutoFireRateRpm: 750
   m_AimTimeSeconds: 0.48

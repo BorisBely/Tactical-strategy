@@ -295,10 +295,10 @@ public sealed class MissionPrepSquadSpawner : MonoBehaviour
 			return false;
 
 		MissionPrepEquipmentPresetCatalog.PresetEntry entry = m_PresetCatalog.GetPresetEntry(_presetIndex);
-		if (entry == null || !MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(entry))
+		if (entry == null || !MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(entry, m_PresetCatalog.GrenadeThrowData))
 			return false;
 
-		MissionPrepPresetDefaultLoadoutUtility.ApplyPresetEntryToInventory(_inventory, entry);
+		MissionPrepPresetDefaultLoadoutUtility.ApplyPresetEntryToInventory(_inventory, entry, m_PresetCatalog.GrenadeThrowData);
 		return true;
 	}
 

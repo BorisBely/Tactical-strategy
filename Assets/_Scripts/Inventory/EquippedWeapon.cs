@@ -34,6 +34,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[Header("Магазин")]
 	[Tooltip("Точка, куда крепится отдельный visual вставленного магазина. Если пусто, визуал магазина в оружии не создаётся.")]
 	[SerializeField] private Transform m_MagazineSocket;
+	[Tooltip("Точка для второго/бокового магазина (напр. M249 — боковой приёмник под AR-магазины). Если пусто, второй визуал не создаётся.")]
+	[SerializeField] private Transform m_SecondaryMagazineSocket;
 	#endregion
 
 	#region Serialized Fields — сокеты визуала модулей (родитель префаба модуля)
@@ -133,6 +135,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 	/// <summary>Сокет визуала магазина; null если не настроен.</summary>
 	public Transform MagazineSocketTransform => m_MagazineSocket;
 
+	/// <summary>Сокет визуала второго/бокового магазина; null если не настроен.</summary>
+	public Transform SecondaryMagazineSocketTransform => m_SecondaryMagazineSocket;
+
 	/// <summary>Сокет визуала на дуле; null если не настроен.</summary>
 	public Transform MuzzleModuleVisualSocket => m_MuzzleModuleVisualSocket;
 
@@ -199,6 +204,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 	#region Private Fields
 	private GameObject m_InsertedMagazineVisualInstance;
 	private ItemDefinition m_CurrentMagazineVisualDefinition;
+	private GameObject m_InsertedSecondaryMagazineVisualInstance;
+	private ItemDefinition m_CurrentSecondaryMagazineVisualDefinition;
 	private readonly List<GameObject> m_AttachmentVisualInstances = new List<GameObject>(8);
 	private GameObject m_UnderBarrelForegripVisualInstance;
 	private GameObject m_MuzzleAttachmentVisualInstance;
@@ -252,6 +259,18 @@ public sealed class EquippedWeapon : MonoBehaviour
 		return instance;
 	}
 
+	public GameObject TryDetachInsertedSecondaryMagazineVisual()
+	{
+		GameObject instance = m_InsertedSecondaryMagazineVisualInstance;
+		m_InsertedSecondaryMagazineVisualInstance = null;
+		m_CurrentSecondaryMagazineVisualDefinition = null;
+		if (instance == null)
+			return null;
+
+		instance.transform.SetParent(null, true);
+		return instance;
+	}
+
 	/// <summary>Регистрирует уже существующий инстанс как визуал магазина в сокете (после переноса из руки).</summary>
 	public void AcceptTransferredMagazineVisual(GameObject _instance, ItemDefinition _magazineDefinition)
 	{
@@ -266,6 +285,21 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 		m_InsertedMagazineVisualInstance = _instance;
 		m_CurrentMagazineVisualDefinition = _magazineDefinition;
+	}
+
+	public void AcceptTransferredSecondaryMagazineVisual(GameObject _instance, ItemDefinition _magazineDefinition)
+	{
+		if (_instance == null || m_SecondaryMagazineSocket == null)
+		{
+			ClearSecondaryMagazineVisual();
+			return;
+		}
+
+		if (m_InsertedSecondaryMagazineVisualInstance != null && m_InsertedSecondaryMagazineVisualInstance != _instance)
+			Destroy(m_InsertedSecondaryMagazineVisualInstance);
+
+		m_InsertedSecondaryMagazineVisualInstance = _instance;
+		m_CurrentSecondaryMagazineVisualDefinition = _magazineDefinition;
 	}
 
 	/// <summary>Выравнивает визуал магазина в сокете (после прерванного переноса из руки).</summary>
@@ -336,6 +370,52 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 		Destroy(m_InsertedMagazineVisualInstance);
 		m_InsertedMagazineVisualInstance = null;
+	}
+
+	public void SetSecondaryMagazineVisual(ItemDefinition _magazineDefinition)
+	{
+		if (m_SecondaryMagazineSocket == null)
+		{
+			ClearSecondaryMagazineVisual();
+			return;
+		}
+
+		if (_magazineDefinition == null || _magazineDefinition.EquippedVisualPrefab == null)
+		{
+			ClearSecondaryMagazineVisual();
+			return;
+		}
+
+		if (_magazineDefinition.MagazineDefinition != null && _magazineDefinition.MagazineDefinition.IsNonRemovable)
+		{
+			ClearSecondaryMagazineVisual();
+			return;
+		}
+
+		if (m_InsertedSecondaryMagazineVisualInstance != null && ReferenceEquals(m_CurrentSecondaryMagazineVisualDefinition, _magazineDefinition))
+			return;
+
+		ClearSecondaryMagazineVisual();
+		m_InsertedSecondaryMagazineVisualInstance = Instantiate(_magazineDefinition.EquippedVisualPrefab, m_SecondaryMagazineSocket);
+		m_InsertedSecondaryMagazineVisualInstance.transform.localPosition = Vector3.zero;
+		m_InsertedSecondaryMagazineVisualInstance.transform.localRotation = Quaternion.identity;
+		m_CurrentSecondaryMagazineVisualDefinition = _magazineDefinition;
+	}
+
+	public void ClearSecondaryMagazineVisual()
+	{
+		m_CurrentSecondaryMagazineVisualDefinition = null;
+		if (m_InsertedSecondaryMagazineVisualInstance == null)
+			return;
+
+		Destroy(m_InsertedSecondaryMagazineVisualInstance);
+		m_InsertedSecondaryMagazineVisualInstance = null;
+	}
+
+	public void ClearAllMagazineVisuals()
+	{
+		ClearInsertedMagazineVisual();
+		ClearSecondaryMagazineVisual();
 	}
 
 	/// <summary>
@@ -560,7 +640,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	private void OnDestroy()
 	{
-		ClearInsertedMagazineVisual();
+		ClearAllMagazineVisuals();
 		ClearAttachmentVisualsInternal();
 	}
 	#endregion

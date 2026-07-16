@@ -195,10 +195,14 @@ public class WorldPickupItem : MonoBehaviour
 			return definition;
 
 		InventorySlotRuntimeData currentMagazineItem = weaponState.CurrentMagazineItem;
-		if (currentMagazineItem.IsEmpty)
-			return null;
+		if (!currentMagazineItem.IsEmpty)
+			return currentMagazineItem.Definition;
 
-		return currentMagazineItem.Definition;
+		InventorySlotRuntimeData secondaryItem = weaponState.CurrentSecondaryMagazineItem;
+		if (!secondaryItem.IsEmpty)
+			return secondaryItem.Definition;
+
+		return null;
 	}
 
 	/// <summary>

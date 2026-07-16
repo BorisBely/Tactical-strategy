@@ -7834,6 +7834,7 @@ GameObject:
   - component: {fileID: 7912499842099294814}
   - component: {fileID: 7912499842099294815}
   - component: {fileID: 731500000000000100}
+  - component: {fileID: 647898583761294421}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -7993,6 +7994,7 @@ MonoBehaviour:
   m_Equipment: {fileID: 0}
   m_ReloadController: {fileID: 0}
   m_FireController: {fileID: 0}
+  m_GrenadeThrowController: {fileID: 0}
   m_Team: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
@@ -8111,6 +8113,7 @@ MonoBehaviour:
   m_Vision: {fileID: 1773384317962348157}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_FireController: {fileID: 8854059317223957988}
+  m_GrenadeThrowController: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
   m_StabilizeOther: {fileID: 0}
@@ -8218,6 +8221,13 @@ MonoBehaviour:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
         m_Wear01: 0
         m_Fouling01: 0
         m_EquippedAttachments: []
@@ -8251,6 +8261,13 @@ MonoBehaviour:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
         m_Wear01: 0
         m_Fouling01: 0
         m_EquippedAttachments: []
@@ -8281,6 +8298,13 @@ MonoBehaviour:
         m_CurrentMagazineDisplayName: 
         m_CurrentMagazineLocalizationKey: 
         m_CurrentMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
@@ -8479,6 +8503,7 @@ MonoBehaviour:
   m_MagazineLoadingController: {fileID: 0}
   m_FireController: {fileID: 0}
   m_RagdollController: {fileID: 0}
+  m_GrenadeThrowController: {fileID: 0}
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
   m_PitchSmoothTime: 0.08
@@ -8734,7 +8759,6 @@ MonoBehaviour:
   m_MaxBarrelAimErrorDegreesCrouch: 9
   m_MaxBarrelAimErrorDegreesCrouchMoving: 10
   m_MaxBarrelAimErrorDegreesMoving: 8
-  m_LogLineOfFire: 1
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
   m_LastFiredAmmoDefinition: {fileID: 0}
@@ -9058,6 +9082,7 @@ MonoBehaviour:
   m_SelfStabilization: {fileID: 0}
   m_StabilizeOther: {fileID: 0}
   m_BusyState: {fileID: 0}
+  m_GrenadeThrow: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
   m_RightHandPositionWeight: 1
@@ -9380,6 +9405,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 0}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -9977,6 +10003,28 @@ MonoBehaviour:
   m_ReadyStamina: 100
   m_ReadyStaminaDrainRate: 0
   m_IsReadyStaminaExhausted: 0
+--- !u!114 &647898583761294421
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6171dbbfcbb59d944a2ce45f4c2598b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitGrenadeThrowController
+  m_Equipment: {fileID: 0}
+  m_Inventory: {fileID: 0}
+  m_BusyState: {fileID: 0}
+  m_Animator: {fileID: 0}
+  m_Data: {fileID: 11400000, guid: 38a5d38522c3e4543a4af33d01d4e616, type: 2}
+  m_RightHandAnchor: {fileID: 0}
+  m_LeftHandAnchor: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
+  m_ClickToMove: {fileID: 0}
+  m_InventoryRefForUi: {fileID: 0}
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

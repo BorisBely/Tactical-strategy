@@ -346,6 +346,16 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 				bagSlots.Add(InventorySlotRuntimeData.FromDefinition(item));
 		}
 
+		ItemDefinition[] grenadeItems = loadout.GrenadeItems;
+		for (int i = 0; i < grenadeItems.Length; i++)
+		{
+			ItemDefinition grenade = grenadeItems[i];
+			if (grenade == null || !grenade.IsGrenade)
+				continue;
+
+			bagSlots.Add(InventorySlotRuntimeData.FromDefinition(grenade));
+		}
+
 		InventorySlotRuntimeData mainHand = default;
 		if (loadout.MainHandWeapon != null)
 		{

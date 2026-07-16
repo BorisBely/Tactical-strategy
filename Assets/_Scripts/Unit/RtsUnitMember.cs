@@ -118,6 +118,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private readonly List<Vector3> m_CornerArcSamples = new List<Vector3>(16);
 	private NavMeshPath m_ReusableNavMeshPath;
 	private readonly List<Vector3> m_RouteSegmentPolylineBuffer = new List<Vector3>(32);
+	private readonly List<GrenadeRouteOrder> m_GrenadeOrders = new List<GrenadeRouteOrder>();
+	private bool m_IsExecutingGrenadeOrder;
+	private GrenadeRouteOrder m_PendingGrenadeOrder;
+	private UnitGrenadeThrowController m_GrenadeThrowController;
 
 	public enum FacingArrowMode
 	{
@@ -203,6 +207,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		public int RouteSegmentIndex;
 		public float RouteSegmentT;
 		public Vector3 LookOffsetFromAnchor;
+		public Vector3 AnchorWorld;
 	}
 
 	private struct FacingArrowVisualSource
@@ -246,6 +251,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
 	public float FormationSpacing { get; set; } = 2f;
+
+	/// <summary>Количество приказов на бросок гранаты на маршруте.</summary>
+	public int GrenadeOrderCount => m_GrenadeOrders.Count;
 
 	/// <summary>
 	/// Угол слота формации для поворота после полной остановки. Не влияет на марш.
@@ -464,6 +472,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void TryAdvanceWaypointEarly()
 	{
+		if (m_IsExecutingGrenadeOrder)
+			return;
 		if (!m_HasActiveDestination)
 			return;
 		if (m_IsRotatingToFacing)
@@ -676,6 +686,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void TryRemoveArrivedDestination()
 	{
+		if (m_IsExecutingGrenadeOrder)
+			return;
+
 		if (!m_HasActiveDestination)
 			return;
 		if (m_IsWaitingAtRouteGate)
@@ -1554,6 +1567,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private Vector3 ResolveFacingArrowAnchor(in FacingArrow _arrow, bool _isActiveSegment = false)
 	{
+		if (_isActiveSegment && m_HasActiveDestination && _arrow.AnchorWorld != Vector3.zero)
+			return _arrow.AnchorWorld;
+
 		bool useLiveAgent = _isActiveSegment && m_HasActiveDestination;
 		if (CollectRouteSegmentPolyline(_arrow.RouteSegmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
 		    m_RouteSegmentPolylineBuffer.Count >= 2)
@@ -1623,6 +1639,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		bool _useActiveSegmentStart = false)
 	{
 		_arrow.RouteSegmentIndex = _segmentIndex;
+		_arrow.AnchorWorld = _anchorWorld;
 		bool useLiveAgent = _useActiveSegmentStart && m_HasActiveDestination;
 		if (CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
 		    m_RouteSegmentPolylineBuffer.Count >= 2)
@@ -1687,6 +1704,143 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		return true;
 	}
+
+	#region Grenade Orders
+	public void AddGrenadeOrder(GrenadeRouteOrder _order)
+	{
+		m_GrenadeOrders.Add(_order);
+	}
+
+	public bool TryRemoveGrenadeOrder(int _index)
+	{
+		if (_index < 0 || _index >= m_GrenadeOrders.Count)
+			return false;
+
+		m_GrenadeOrders.RemoveAt(_index);
+		return true;
+	}
+
+	public bool TryGetGrenadeOrderWorldPosition(int _index, out Vector3 _worldPos)
+	{
+		if (_index < 0 || _index >= m_GrenadeOrders.Count)
+		{
+			_worldPos = Vector3.zero;
+			return false;
+		}
+
+		_worldPos = m_GrenadeOrders[_index].WaypointPosition;
+		return true;
+	}
+
+	public int GetGrenadeOrderCountByType(GrenadeType _type)
+	{
+		int count = 0;
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
+		{
+			if (m_GrenadeOrders[i].Type == _type)
+				count++;
+		}
+
+		return count;
+	}
+
+	public bool HasGrenadeOrderAtWaypoint(int _waypointIndex)
+	{
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
+		{
+			if (m_GrenadeOrders[i].RouteWaypointIndex == _waypointIndex)
+				return true;
+		}
+
+		return false;
+	}
+
+	public bool TryGetGrenadeOrderForWaypoint(int _waypointIndex, out GrenadeRouteOrder _order)
+	{
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
+		{
+			if (m_GrenadeOrders[i].RouteWaypointIndex == _waypointIndex)
+			{
+				_order = m_GrenadeOrders[i];
+				return true;
+			}
+		}
+
+		_order = default;
+		return false;
+	}
+
+	public void ClearGrenadeOrders()
+	{
+		m_GrenadeOrders.Clear();
+	}
+
+	public bool IsExecutingGrenadeOrder => m_IsExecutingGrenadeOrder;
+
+	public bool TryStartGrenadeOrderAtWaypoint()
+	{
+		if (m_IsExecutingGrenadeOrder)
+			return false;
+		if (m_GrenadeOrders.Count == 0)
+			return false;
+		if (!TryGetGrenadeOrderForWaypoint(0, out GrenadeRouteOrder order))
+			return false;
+
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_GrenadeThrowController == null || !m_GrenadeThrowController.CanStartThrow())
+		{
+			RemoveGrenadeOrderForWaypoint(0);
+			return false;
+		}
+
+		if (!m_GrenadeThrowController.SetSelectedType(order.Type))
+		{
+			RemoveGrenadeOrderForWaypoint(0);
+			return false;
+		}
+
+		m_IsExecutingGrenadeOrder = true;
+		m_PendingGrenadeOrder = order;
+
+		NavMeshAgent agent = GetComponent<NavMeshAgent>();
+		if (agent != null && agent.isOnNavMesh)
+		{
+			agent.isStopped = true;
+			agent.ResetPath();
+		}
+
+		m_GrenadeThrowController.BeginAiming();
+		m_GrenadeThrowController.SetTargetPosition(order.TargetPosition);
+		m_GrenadeThrowController.ThrowCompleted += OnGrenadeThrowCompleted;
+		m_GrenadeThrowController.ConfirmThrow(false);
+
+		return true;
+	}
+
+	private void OnGrenadeThrowCompleted()
+	{
+		if (m_GrenadeThrowController != null)
+			m_GrenadeThrowController.ThrowCompleted -= OnGrenadeThrowCompleted;
+
+		if (!m_IsExecutingGrenadeOrder)
+			return;
+
+		RemoveGrenadeOrderForWaypoint(0);
+		m_IsExecutingGrenadeOrder = false;
+
+		TryAdvanceRouteQueue();
+	}
+
+	private void RemoveGrenadeOrderForWaypoint(int _waypointIndex)
+	{
+		for (int i = m_GrenadeOrders.Count - 1; i >= 0; i--)
+		{
+			if (m_GrenadeOrders[i].RouteWaypointIndex == _waypointIndex)
+				m_GrenadeOrders.RemoveAt(i);
+		}
+	}
+	#endregion
 
 	public bool TryContinueRouteWaitGroup(int _waitGroup)
 	{
@@ -2574,6 +2728,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 				_useActiveSegmentStart: true);
 			rebound.ActivateAtSegmentStart = false;
 
+			if (m_ReadyHands != null &&
+			    m_ReadyHands.IsWeaponEquipped() &&
+			    !m_ReadyHands.WantsReady)
+				m_ReadyHands.SetReadyWanted(true, false);
+
 			if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
 				TransitionActiveMovementToWalk();
 
@@ -2853,8 +3012,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (closestDist <= FacingArrowActivationDistance)
 		{
 			FacingArrow arrow = m_ActiveFacingArrows[closestIndex];
-			if (!WantsReady && HasActiveLocomotionMovement() && !IsInMovementManualFacingMode(arrow.Mode))
-				return;
+
+			if (m_ReadyHands != null &&
+			    m_ReadyHands.IsWeaponEquipped() &&
+			    !m_ReadyHands.WantsReady)
+				m_ReadyHands.SetReadyWanted(true, false);
 
 			m_ActiveFacingArrows.RemoveAt(closestIndex);
 
@@ -3207,8 +3369,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private bool ShouldPersistFacingTurnAcrossQueuedCommand()
 	{
 		return m_IsInFacingTurn &&
-		       (m_FacingTurnMode == FacingArrowMode.HoldToEnd ||
-		        m_FacingTurnMode == FacingArrowMode.LookAtPoint);
+		       m_FacingTurnMode == FacingArrowMode.LookAtPoint;
 	}
 
 	private bool ShouldClearFacingOnLegArrival()
@@ -3218,9 +3379,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (m_IsInFacingTurn)
 		{
-			if (m_FacingTurnMode == FacingArrowMode.HoldToEnd ||
-			    m_FacingTurnMode == FacingArrowMode.LookAtPoint)
+			if (m_FacingTurnMode == FacingArrowMode.LookAtPoint)
 				return m_CommandQueue.Count == 0;
+
+			if (m_FacingTurnMode == FacingArrowMode.HoldToEnd)
+				return true;
 
 			return true;
 		}
@@ -3732,6 +3895,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		LogRouteDebugEvent($"ADVANCE_QUEUE {BuildRouteDebugSnapshot()}");
 #endif
+		if (TryStartGrenadeOrderAtWaypoint())
+			return;
+
+		ShiftGrenadeOrdersAfterWaypointRemoved();
+
 		if (m_Waypoints.Count > 0)
 		{
 			ShiftFacingArrowSegmentsAfterWaypointRemoved(0);
@@ -3742,6 +3910,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasActiveDestination = false;
 		ClearSmoothingArcState();
 		TryStartNextQueuedCommand();
+	}
+
+	private void ShiftGrenadeOrdersAfterWaypointRemoved()
+	{
+		for (int i = m_GrenadeOrders.Count - 1; i >= 0; i--)
+		{
+			GrenadeRouteOrder order = m_GrenadeOrders[i];
+			order.RouteWaypointIndex--;
+			if (order.RouteWaypointIndex < 0)
+				m_GrenadeOrders.RemoveAt(i);
+			else
+				m_GrenadeOrders[i] = order;
+		}
 	}
 
 	private void ShiftFacingArrowSegmentsAfterWaypointRemoved(int _removedWaypointIndex)

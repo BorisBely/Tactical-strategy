@@ -30,6 +30,7 @@ public static class ItemModificationUtility
 {
 	#region Constants
 	private const string c_MagazineSlotLabelKey = "weapon.mod_slot.magazine";
+	private const string c_SecondaryMagazineSlotLabelKey = "weapon.mod_slot.magazine_secondary";
 	#endregion
 
 	#region Public Methods
@@ -63,6 +64,10 @@ public static class ItemModificationUtility
 		if (weapon.SupportedMagazineType != MagazineType.None &&
 		    !WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weapon))
 			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Magazine, default, -1, displayIndex++));
+
+		if (weapon.UsesDualMagazineSlots &&
+		    !WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weapon))
+			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Magazine, default, -2, displayIndex++));
 
 		WeaponAttachmentSlotDefinition[] slots = weapon.AttachmentSlots;
 		if (slots == null)
@@ -106,7 +111,7 @@ public static class ItemModificationUtility
 	public static string GetSlotLabelKey(ItemModificationSlotDescriptor _slot)
 	{
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
-			return c_MagazineSlotLabelKey;
+			return _slot.WeaponSlotIndex == -2 ? c_SecondaryMagazineSlotLabelKey : c_MagazineSlotLabelKey;
 
 		return _slot.AttachmentSlotType switch
 		{
@@ -207,7 +212,9 @@ public static class ItemModificationUtility
 		if (IsMagazineItem(_candidate))
 		{
 			WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
-			return weaponState != null && weaponState.CanAcceptMagazineItem(_candidate);
+			return weaponState != null &&
+				(weaponState.CanAcceptMagazineItem(_candidate, WeaponRuntimeState.PrimaryMagazineSlotIndex) ||
+				 weaponState.CanAcceptMagazineItem(_candidate, WeaponRuntimeState.SecondaryMagazineSlotIndex));
 		}
 
 		AmmoDefinition ammoDefinition = _candidate.Definition.AmmoDefinition;
@@ -231,6 +238,12 @@ public static class ItemModificationUtility
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 		{
+			if (_slot.WeaponSlotIndex == -2)
+			{
+				_installedItem = BuildSecondaryMagazineSlotItem(weaponState);
+				return !_installedItem.IsEmpty;
+			}
+
 			_installedItem = weaponState.CurrentMagazineItem;
 			return !_installedItem.IsEmpty;
 		}
@@ -285,7 +298,7 @@ public static class ItemModificationUtility
 		}
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
-			return TryInstallMagazine(weaponState, _candidate, out _replacedItem);
+			return TryInstallMagazine(weaponState, _candidate, _slot, out _replacedItem);
 
 		return TryInstallAttachment(_slot, weaponState, _candidate, out _replacedItem);
 	}
@@ -311,7 +324,8 @@ public static class ItemModificationUtility
 				return false;
 			}
 
-			return weaponState.TryEjectMagazine(out _removedItem);
+			int slotIndex = _slot.WeaponSlotIndex == -2 ? WeaponRuntimeState.SecondaryMagazineSlotIndex : WeaponRuntimeState.PrimaryMagazineSlotIndex;
+			return weaponState.TryEjectMagazine(slotIndex, out _removedItem);
 		}
 
 		if (!TryGetInstalledItem(_slot, _weaponSlot, out _removedItem))
@@ -367,6 +381,12 @@ public static class ItemModificationUtility
 			if (!WeaponOpticSlotUtility.ShouldShowModificationSlot(weapon, weaponState, descriptor, _expandEmptySlots, hasInstalledItem))
 				continue;
 
+			if (descriptor.Kind == ItemModificationSlotKind.Magazine && _expandEmptySlots)
+			{
+				if (IsConflictingMagazineSlotOccupied(weaponState, descriptor, _descriptorBuffer))
+					continue;
+			}
+
 			if (hasInstalledItem || _expandEmptySlots)
 				_outVisibleDescriptors.Add(descriptor);
 		}
@@ -405,13 +425,18 @@ public static class ItemModificationUtility
 		return _weaponSlot.InstanceState != null ? _weaponSlot.InstanceState.WeaponState : null;
 	}
 
-	private static bool TryInstallMagazine(WeaponRuntimeState _weaponState, InventorySlotRuntimeData _candidate, out InventorySlotRuntimeData _replacedItem)
+	private static bool TryInstallMagazine(WeaponRuntimeState _weaponState, InventorySlotRuntimeData _candidate, ItemModificationSlotDescriptor _slot, out InventorySlotRuntimeData _replacedItem)
 	{
 		_replacedItem = default;
-		if (_weaponState.HasMagazine && !_weaponState.TryEjectMagazine(out _replacedItem))
-			return false;
+		int slotIndex = _slot.WeaponSlotIndex == -2 ? WeaponRuntimeState.SecondaryMagazineSlotIndex : WeaponRuntimeState.PrimaryMagazineSlotIndex;
 
-		if (_weaponState.TryInsertMagazine(_candidate))
+		if (slotIndex == WeaponRuntimeState.PrimaryMagazineSlotIndex && _weaponState.HasPrimaryMagazine)
+			_weaponState.TryEjectMagazine(WeaponRuntimeState.PrimaryMagazineSlotIndex, out _replacedItem);
+
+		if (slotIndex == WeaponRuntimeState.SecondaryMagazineSlotIndex && _weaponState.HasSecondaryMagazine)
+			_weaponState.TryEjectMagazine(WeaponRuntimeState.SecondaryMagazineSlotIndex, out _replacedItem);
+
+		if (_weaponState.TryInsertMagazine(_candidate, slotIndex))
 			return true;
 
 		if (!_replacedItem.IsEmpty)
@@ -419,6 +444,11 @@ public static class ItemModificationUtility
 
 		_replacedItem = default;
 		return false;
+	}
+
+	private static InventorySlotRuntimeData BuildSecondaryMagazineSlotItem(WeaponRuntimeState _weaponState)
+	{
+		return _weaponState != null ? _weaponState.CurrentSecondaryMagazineItem : default;
 	}
 
 	private static bool TryInstallAttachment(
@@ -589,7 +619,7 @@ public static class ItemModificationUtility
 	private static string GetSlotFallbackLabel(ItemModificationSlotDescriptor _slot)
 	{
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
-			return "Magazine";
+			return _slot.WeaponSlotIndex == -2 ? "Side Magazine" : "Magazine";
 
 		return _slot.AttachmentSlotType switch
 		{
@@ -601,6 +631,25 @@ public static class ItemModificationUtility
 			WeaponAttachmentSlotType.SideRail => "Side rail",
 			_ => "Attachment"
 		};
+	}
+
+	private static bool IsConflictingMagazineSlotOccupied(
+		WeaponRuntimeState _weaponState,
+		ItemModificationSlotDescriptor _slot,
+		List<ItemModificationSlotDescriptor> _allSlots)
+	{
+		if (_weaponState == null)
+			return false;
+
+		bool isSecondarySlot = _slot.WeaponSlotIndex == -2;
+
+		if (isSecondarySlot && _weaponState.HasPrimaryMagazine)
+			return true;
+
+		if (!isSecondarySlot && _slot.WeaponSlotIndex == -1 && _weaponState.HasSecondaryMagazine)
+			return true;
+
+		return false;
 	}
 	#endregion
 }

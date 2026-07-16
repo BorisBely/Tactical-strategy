@@ -16,15 +16,30 @@ MonoBehaviour:
   m_Description: Flashbang grenade.
   m_Icon: {fileID: 0}
   m_BasePrice: 160
+  m_WeightKg: 0
   m_Category: 0
   m_DropWorldPrefab: {fileID: 8271523368987619024, guid: f2f7e8d9c0abb223e4f5a6b7c8596d70, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}
-  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandLocalPosition: {x: 0.0876, y: 0.0275, z: -0.0191}
+  m_RightHandLocalEulerAngles: {x: -9.829, y: -110.251, z: 101.518}
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
@@ -32,7 +47,8 @@ MonoBehaviour:
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 2
-  m_AttachedBodyVisualPrefab: {fileID: 5894914471546177236, guid: b2c3d4e5f6789012345678abcdef0400, type: 3}
+  m_AttachedBodyVisualPrefab: {fileID: 3456350993192555246, guid: b2c3d4e5f6789012345678abcdef0400, type: 3}
+  m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:
     - {fileID: 8300000, guid: dfc6cd0b876db3a43a345c6122d66a1f, type: 3}

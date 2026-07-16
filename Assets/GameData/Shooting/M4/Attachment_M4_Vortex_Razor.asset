@@ -26,6 +26,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 53e6dc59ec1d1914ca4e37f089eb9a00, type: 2}
   - {fileID: 11400000, guid: 95ce21645aaa636479224559123b2b68, type: 2}
   - {fileID: 11400000, guid: 2def56fb128449c4ea16cc68738671b3, type: 2}
+  - {fileID: 11400000, guid: 3eb7a8e185d24b2295cf7360c475ba91, type: 2}
+  - {fileID: 11400000, guid: fca43c704498474dbd890a9bbeb11e18, type: 2}
+  - {fileID: 11400000, guid: 2e87d22f1a4e4876926f1b3319061f26, type: 2}
+  - {fileID: 11400000, guid: c33ba40db8874795bfb229c12a610378, type: 2}
+  - {fileID: 11400000, guid: 5f552aa59142403ba6988e9ab2064a3f, type: 2}
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.34

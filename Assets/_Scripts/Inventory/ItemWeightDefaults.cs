@@ -95,6 +95,8 @@ public static class ItemWeightDefaults
 		{ "item.attachment.sniper762x51_muzzle_brake", 0.2f },
 
 		{ "item.grenade.frag_01", 0.4f },
+		{ "item.grenade.rgd5", 0.35f },
+		{ "item.grenade.f1", 0.6f },
 		{ "item.grenade.flash_01", 0.3f },
 		{ "item.grenade.smoke_01", 0.5f },
 
@@ -162,6 +164,13 @@ public static class ItemWeightDefaults
 		ItemDefinition magDef = state.InsertedMagazineDefinition;
 		if (magDef != null)
 			extra += magDef.WeightKg;
+
+		if (state.HasSecondaryMagazine)
+		{
+			ItemDefinition secondaryMagDef = state.CurrentSecondaryMagazineItem.Definition;
+			if (secondaryMagDef != null)
+				extra += secondaryMagDef.WeightKg;
+		}
 
 		ItemDefinition[] attachments = state.EquippedAttachmentItems;
 		if (attachments != null)

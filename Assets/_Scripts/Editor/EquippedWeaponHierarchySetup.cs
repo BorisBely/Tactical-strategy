@@ -20,6 +20,7 @@ public static class EquippedWeaponHierarchySetup
 		"OpticModuleVisualSocket",
 		"SideRailModuleVisualSocket",
 		"MagazineSocket",
+		"SecondaryMagazineSocket",
 		"StockSocket",
 		"UnderBarrelSocket",
 		"RailSocket_1",
@@ -81,6 +82,7 @@ public static class EquippedWeaponHierarchySetup
 
 		var shellEject = EnsureSocket(rootTransform, templateRoot.transform, "ShellEject");
 		var magazineSocket = EnsureSocket(rootTransform, templateRoot.transform, "MagazineSocket");
+		var secondaryMagazineSocket = EnsureChild(rootTransform, "SecondaryMagazineSocket");
 		var muzzleSocket = EnsureSocket(rootTransform, templateRoot.transform, "MuzzleModuleVisualSocket");
 		var opticSocket = EnsureSocket(rootTransform, templateRoot.transform, "OpticModuleVisualSocket");
 		var sideRailSocket = EnsureSocket(rootTransform, templateRoot.transform, "SideRailModuleVisualSocket");
@@ -104,6 +106,7 @@ public static class EquippedWeaponHierarchySetup
 		so.FindProperty("m_ShellEject").objectReferenceValue = shellEject;
 		so.FindProperty("m_SightPivot").objectReferenceValue = opticSocket;
 		so.FindProperty("m_MagazineSocket").objectReferenceValue = magazineSocket;
+		so.FindProperty("m_SecondaryMagazineSocket").objectReferenceValue = secondaryMagazineSocket;
 		so.FindProperty("m_MuzzleModuleVisualSocket").objectReferenceValue = muzzleSocket;
 		so.FindProperty("m_OpticModuleVisualSocket").objectReferenceValue = opticSocket;
 		so.FindProperty("m_SideRailModuleVisualSocket").objectReferenceValue = sideRailSocket;

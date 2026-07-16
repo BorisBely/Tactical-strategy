@@ -30,6 +30,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitMagazineLoadingController m_MagazineLoadingController;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitRagdollController m_RagdollController;
+	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
 
 	[Header("Условия прицела")]
 	[Tooltip("Only in high ready with a visible target; otherwise AimPitch and the layer go to zero.")]
@@ -150,6 +151,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_RagdollController == null)
 			m_RagdollController = GetComponent<UnitRagdollController>();
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
 
 		ResolveAimLayerIndices();
 	}
@@ -550,24 +553,28 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		                    m_ReloadController != null &&
 		                    m_ReloadController.IsReloadBusy;
 
+		bool throwBlocks = m_GrenadeThrowController != null && m_GrenadeThrowController.IsThrowAnimPlaying;
+
 		bool magazineLoadingBlocks = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
 
-		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks && !magazineLoadingBlocks;
+		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks && !throwBlocks && !magazineLoadingBlocks;
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
 		bool reloadNeedsAimLayerClips = m_ReloadController != null && m_ReloadController.IsReloadBusy;
-		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !magazineLoadingBlocks;
-		float targetLayer = canUseAimLayerForStance && (reloadNeedsAimLayerClips || aimLayerHoldForCombat) ? 1f : 0f;
+		bool throwNeedsAimLayerClips = m_GrenadeThrowController != null && m_GrenadeThrowController.IsThrowAnimPlaying;
+		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !magazineLoadingBlocks && !throwBlocks;
+		float targetLayer = canUseAimLayerForStance && (reloadNeedsAimLayerClips || throwNeedsAimLayerClips || aimLayerHoldForCombat) ? 1f : 0f;
 
-		if (reloadNeedsAimLayerClips)
+		if (reloadNeedsAimLayerClips || throwNeedsAimLayerClips)
 		{
-			// Клипы перезарядки/затвора на Aim_Point_U90-D90; при весе 0 animation events не приходят.
+			// Клипы перезарядки/затвора/броска на Aim_Point_U90-D90; при весе 0 animation events не приходят.
 			m_SmoothedLayerWeight = 1f;
 			SetAimLayerWeights(1f);
 
 			// Not-ready reload: pitch-blend не должен влиять даже на доли кадра до Play(relaxed idle).
-			if (!ready)
+			// Бросок гранаты: всегда сбрасываем pitch — руки заняты анимацией.
+			if (!ready || throwNeedsAimLayerClips)
 			{
 				m_SmoothedPitch01 = 0f;
 				m_PitchVelocity = 0f;

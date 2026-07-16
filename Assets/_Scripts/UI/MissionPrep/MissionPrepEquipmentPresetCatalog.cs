@@ -89,12 +89,16 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		new PresetEntry("Forest", "mission_prep.equipment.camouflage.forest"),
 		new PresetEntry("Jungle", "mission_prep.equipment.camouflage.jungle")
 	};
+
+	[Header("Ссылки на данные")]
+	[SerializeField] private GrenadeThrowData m_GrenadeThrowData;
 	#endregion
 
 	#region Public Properties
 	public int PresetCount => m_Presets != null ? m_Presets.Length : 0;
 	public int ArmorOptionCount => m_ArmorOptions != null ? m_ArmorOptions.Length : 0;
 	public int CamouflageOptionCount => m_CamouflageOptions != null ? m_CamouflageOptions.Length : 0;
+	public GrenadeThrowData GrenadeThrowData => m_GrenadeThrowData;
 	#endregion
 
 	#region Public Methods
@@ -160,12 +164,12 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		if (entry == null || _snapshot == null)
 			return;
 
-		MissionPrepPresetDefaultLoadoutUtility.ApplyToSnapshot(_snapshot, entry);
+		MissionPrepPresetDefaultLoadoutUtility.ApplyToSnapshot(_snapshot, entry, m_GrenadeThrowData);
 	}
 
 	public bool PresetDefinesDefaultInventory(int _presetIndex)
 	{
-		return MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(GetPresetEntry(_presetIndex));
+		return MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(GetPresetEntry(_presetIndex), m_GrenadeThrowData);
 	}
 	#endregion
 }

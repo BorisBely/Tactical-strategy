@@ -58,6 +58,42 @@ public static class GrenadeContentBuilder
 		},
 		new GrenadeBuildSpec
 		{
+			ItemAssetName = "Item_Grenade_RGD5",
+			ItemPath = "Assets/GameData/Inventory/Grenades/Item_Grenade_RGD5.asset",
+			LootPrefabPath = "Assets/Prefabs/World/Loot/Grenades/Loot_Grenade_RGD5.prefab",
+			AttachedVisualPath = "Assets/Prefabs/Characters/BodyDecorations/Attach_Grenade_RGD5.prefab",
+			LocalizationKey = "item.grenade.rgd5",
+			Description = "RGD-5 fragmentation grenade.",
+			BasePrice = 200,
+			GrenadeType = GrenadeType.Fragmentation,
+			LootPrefabRootName = "Loot_Grenade_RGD5",
+			AttachedPrefabRootName = "Attach_Grenade_RGD5",
+			SceneLootObjectNames = new[] { "GrenadeRGD5" },
+			FallbackLootPrefabPath = "Assets/PolygonMilitary/Prefabs/Weapons/SM_Wep_Grenade_01.prefab",
+			SceneAttachedObjectNames = new[] { "GrenadeRGD5" },
+			FallbackAttachedPrefabPath =
+				"Assets/PolygonMilitary/Prefabs/Characters/Attachments/SM_Chr_Attach_Grenade_01.prefab"
+		},
+		new GrenadeBuildSpec
+		{
+			ItemAssetName = "Item_Grenade_F1",
+			ItemPath = "Assets/GameData/Inventory/Grenades/Item_Grenade_F1.asset",
+			LootPrefabPath = "Assets/Prefabs/World/Loot/Grenades/Loot_Grenade_F1.prefab",
+			AttachedVisualPath = "Assets/Prefabs/Characters/BodyDecorations/Attach_Grenade_F1.prefab",
+			LocalizationKey = "item.grenade.f1",
+			Description = "F-1 fragmentation grenade.",
+			BasePrice = 220,
+			GrenadeType = GrenadeType.Fragmentation,
+			LootPrefabRootName = "Loot_Grenade_F1",
+			AttachedPrefabRootName = "Attach_Grenade_F1",
+			SceneLootObjectNames = new[] { "GrenadeF1" },
+			FallbackLootPrefabPath = "Assets/PolygonMilitary/Prefabs/Weapons/SM_Wep_Grenade_01.prefab",
+			SceneAttachedObjectNames = new[] { "GrenadeF1" },
+			FallbackAttachedPrefabPath =
+				"Assets/PolygonMilitary/Prefabs/Characters/Attachments/SM_Chr_Attach_Grenade_01.prefab"
+		},
+		new GrenadeBuildSpec
+		{
 			ItemAssetName = "Item_Grenade_Flash_01",
 			ItemPath = "Assets/GameData/Inventory/Grenades/Item_Grenade_Flash_01.asset",
 			LootPrefabPath = "Assets/Prefabs/World/Loot/Grenades/Loot_Grenade_Flash_01.prefab",

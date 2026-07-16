@@ -69,6 +69,10 @@ public static class MagazineCaliberPreferenceResolver
 		ItemDefinition insertedMagazine = _slot.InstanceState?.WeaponState?.InsertedMagazineDefinition;
 		if (insertedMagazine != null && insertedMagazine.MagazineDefinition != null)
 			CountCaliber(insertedMagazine.MagazineDefinition.SupportedCaliber, ref _five56Count, ref _akCount, ref _twelveGaugeCount);
+
+		ItemDefinition secondaryMagazine = _slot.InstanceState?.WeaponState?.CurrentSecondaryMagazineItem.Definition;
+		if (secondaryMagazine != null && secondaryMagazine.MagazineDefinition != null)
+			CountCaliber(secondaryMagazine.MagazineDefinition.SupportedCaliber, ref _five56Count, ref _akCount, ref _twelveGaugeCount);
 	}
 
 	private static void CountCaliber(

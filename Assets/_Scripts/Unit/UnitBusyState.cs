@@ -20,8 +20,8 @@ public sealed class UnitBusyState : MonoBehaviour
 		StabilizeOther = 1 << 6,
 		CarryingFallen = 1 << 7,
 		ProximityRelax = 1 << 8,
+		Throw = 1 << 3,
 		// Future: Melee = 1 << 2,
-		// Future: Throw = 1 << 3,
 	}
 	#endregion
 

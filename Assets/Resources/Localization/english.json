@@ -182,6 +182,14 @@
       "value": "Fragmentation grenade"
     },
     {
+      "key": "item.grenade.rgd5",
+      "value": "RGD-5 grenade"
+    },
+    {
+      "key": "item.grenade.f1",
+      "value": "F-1 grenade"
+    },
+    {
       "key": "item.grenade.flash_01",
       "value": "Flashbang"
     },

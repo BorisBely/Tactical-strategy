@@ -102,6 +102,11 @@ public sealed class WeaponRuntimeState
 	[SerializeField] private string m_CurrentMagazineDisplayName;
 	[SerializeField] private string m_CurrentMagazineLocalizationKey;
 	[SerializeField] private MagazineRuntimeState m_CurrentMagazineRuntimeState;
+	[Tooltip("Второй магазин для оружий с двойным слотом питания (напр. M249 с боковым слотом под AR-магазины).")]
+	[SerializeField] private ItemDefinition m_CurrentSecondaryMagazineDefinition;
+	[SerializeField] private string m_CurrentSecondaryMagazineDisplayName;
+	[SerializeField] private string m_CurrentSecondaryMagazineLocalizationKey;
+	[SerializeField] private MagazineRuntimeState m_CurrentSecondaryMagazineRuntimeState;
 	[SerializeField, Range(0f, 1f)] private float m_Wear01;
 	[SerializeField, Range(0f, 1f)] private float m_Fouling01;
 	[Tooltip("Установленные на этом экземпляре модули (пока вручную или из будущей системы слотов); пусто = множители 1.")]
@@ -116,20 +121,27 @@ public sealed class WeaponRuntimeState
 
 	[System.NonSerialized]
 	private ItemInstanceState m_CachedMagazineSlotOwner;
+	[System.NonSerialized]
+	private ItemInstanceState m_CachedSecondaryMagazineSlotOwner;
 	#endregion
 
 	#region Public Properties
 	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;
 	public WeaponFireMode SelectedFireMode => m_SelectedFireMode;
 	public InventorySlotRuntimeData CurrentMagazineItem => BuildCurrentMagazineSlot();
+	public InventorySlotRuntimeData CurrentSecondaryMagazineItem => BuildSecondaryMagazineSlot();
 	public MagazineRuntimeState CurrentMagazine => m_CurrentMagazineRuntimeState;
-	public AmmoDefinition CurrentAmmoDefinition => CurrentMagazine != null ? CurrentMagazine.LoadedAmmoDefinition : null;
-	public int CurrentAmmoCount => CurrentMagazine != null ? CurrentMagazine.CurrentAmmoCount : 0;
-	public bool HasMagazine => CurrentMagazine != null && CurrentMagazine.HasMagazine;
+	public MagazineRuntimeState CurrentSecondaryMagazine => m_CurrentSecondaryMagazineRuntimeState;
+	public AmmoDefinition CurrentAmmoDefinition => CurrentMagazine != null ? CurrentMagazine.LoadedAmmoDefinition : (CurrentSecondaryMagazine != null ? CurrentSecondaryMagazine.LoadedAmmoDefinition : null);
+	public int CurrentAmmoCount => CurrentMagazine != null ? CurrentMagazine.CurrentAmmoCount : (CurrentSecondaryMagazine != null ? CurrentSecondaryMagazine.CurrentAmmoCount : 0);
+	public bool HasMagazine => (CurrentMagazine != null && CurrentMagazine.HasMagazine) || (CurrentSecondaryMagazine != null && CurrentSecondaryMagazine.HasMagazine);
+	public bool HasPrimaryMagazine => m_CurrentMagazineRuntimeState != null && m_CurrentMagazineRuntimeState.HasMagazine;
+	public bool HasSecondaryMagazine => m_CurrentSecondaryMagazineRuntimeState != null && m_CurrentSecondaryMagazineRuntimeState.HasMagazine;
 	public bool IsMagazineNonRemovable =>
 		(m_WeaponDefinition != null && m_WeaponDefinition.UsesShellByShellReload) ||
-		(CurrentMagazine != null && CurrentMagazine.Definition != null && CurrentMagazine.Definition.IsNonRemovable);
-	public bool HasAmmoInMagazine => CurrentMagazine != null && CurrentMagazine.HasAmmo;
+		(CurrentMagazine != null && CurrentMagazine.Definition != null && CurrentMagazine.Definition.IsNonRemovable) ||
+		(CurrentSecondaryMagazine != null && CurrentSecondaryMagazine.Definition != null && CurrentSecondaryMagazine.Definition.IsNonRemovable);
+	public bool HasAmmoInMagazine => (CurrentMagazine != null && CurrentMagazine.HasAmmo) || (CurrentSecondaryMagazine != null && CurrentSecondaryMagazine.HasAmmo);
 	public bool HasRoundInChamber => m_HasRoundInChamber && m_ChamberedAmmoDefinition != null;
 	public AmmoDefinition ChamberedAmmoDefinition => m_ChamberedAmmoDefinition;
 	public float Wear01 => m_Wear01;
@@ -147,6 +159,11 @@ public sealed class WeaponRuntimeState
 		m_WeaponDefinition = null;
 		m_SelectedFireMode = WeaponFireMode.SemiAuto;
 		ClearInsertedMagazineFields();
+		m_CurrentSecondaryMagazineDefinition = null;
+		m_CurrentSecondaryMagazineDisplayName = null;
+		m_CurrentSecondaryMagazineLocalizationKey = null;
+		m_CurrentSecondaryMagazineRuntimeState = null;
+		m_CachedSecondaryMagazineSlotOwner = null;
 		m_Wear01 = 0f;
 		m_Fouling01 = 0f;
 		m_EquippedAttachments = null;
@@ -259,7 +276,7 @@ public sealed class WeaponRuntimeState
 		if (_chamberedAmmo != null)
 			m *= _chamberedAmmo.JamRiskModifier;
 
-		MagazineRuntimeState mag = CurrentMagazine;
+		MagazineRuntimeState mag = CurrentMagazine ?? CurrentSecondaryMagazine;
 		if (mag != null && mag.Definition != null)
 			m *= mag.Definition.JamRiskModifier;
 
@@ -331,7 +348,10 @@ public sealed class WeaponRuntimeState
 		m_SelectedFireMode = _fireMode;
 	}
 
-	public bool CanAcceptMagazineItem(InventorySlotRuntimeData _magazineItem)
+	public const int PrimaryMagazineSlotIndex = 0;
+	public const int SecondaryMagazineSlotIndex = 1;
+
+	public bool CanAcceptMagazineItem(InventorySlotRuntimeData _magazineItem, int _slotIndex = PrimaryMagazineSlotIndex)
 	{
 		if (_magazineItem.IsEmpty || _magazineItem.Definition == null || _magazineItem.InstanceState == null)
 			return false;
@@ -347,8 +367,12 @@ public sealed class WeaponRuntimeState
 		if (m_WeaponDefinition == null)
 			return true;
 
-		if (m_WeaponDefinition.SupportedMagazineType != MagazineType.None &&
-			magazineDefinition.MagazineType != m_WeaponDefinition.SupportedMagazineType)
+		MagazineType expectedType = _slotIndex == SecondaryMagazineSlotIndex
+			? m_WeaponDefinition.SecondarySupportedMagazineType
+			: m_WeaponDefinition.SupportedMagazineType;
+
+		if (expectedType != MagazineType.None &&
+			magazineDefinition.MagazineType != expectedType)
 			return false;
 		if (m_WeaponDefinition.SupportedCaliber != CaliberType.None &&
 			magazineDefinition.SupportedCaliber != m_WeaponDefinition.SupportedCaliber)
@@ -363,19 +387,40 @@ public sealed class WeaponRuntimeState
 		return true;
 	}
 
-	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem)
+	public bool TryInsertMagazine(InventorySlotRuntimeData _magazineItem, int _slotIndex = PrimaryMagazineSlotIndex)
 	{
-		if (!CanAcceptMagazineItem(_magazineItem))
-			return false;
-		if (HasMagazine)
+		if (!CanAcceptMagazineItem(_magazineItem, _slotIndex))
 			return false;
 
+		// Взаимное исключение: при установке в один слот второй очищается
+		if (_slotIndex == SecondaryMagazineSlotIndex)
+		{
+			ClearPrimaryMagazineFields();
+		}
+		else
+		{
+			if (HasPrimaryMagazine)
+				return false;
+			ClearSecondaryMagazineFields();
+		}
+
 		_magazineItem.WorldSource = null;
-		m_CurrentMagazineDefinition = _magazineItem.Definition;
-		m_CurrentMagazineDisplayName = _magazineItem.DisplayName;
-		m_CurrentMagazineLocalizationKey = _magazineItem.LocalizationKey;
-		m_CurrentMagazineRuntimeState = _magazineItem.InstanceState != null ? _magazineItem.InstanceState.MagazineState : null;
-		m_CachedMagazineSlotOwner = null;
+		if (_slotIndex == SecondaryMagazineSlotIndex)
+		{
+			m_CurrentSecondaryMagazineDefinition = _magazineItem.Definition;
+			m_CurrentSecondaryMagazineDisplayName = _magazineItem.DisplayName;
+			m_CurrentSecondaryMagazineLocalizationKey = _magazineItem.LocalizationKey;
+			m_CurrentSecondaryMagazineRuntimeState = _magazineItem.InstanceState != null ? _magazineItem.InstanceState.MagazineState : null;
+			m_CachedSecondaryMagazineSlotOwner = null;
+		}
+		else
+		{
+			m_CurrentMagazineDefinition = _magazineItem.Definition;
+			m_CurrentMagazineDisplayName = _magazineItem.DisplayName;
+			m_CurrentMagazineLocalizationKey = _magazineItem.LocalizationKey;
+			m_CurrentMagazineRuntimeState = _magazineItem.InstanceState != null ? _magazineItem.InstanceState.MagazineState : null;
+			m_CachedMagazineSlotOwner = null;
+		}
 		return true;
 	}
 
@@ -409,14 +454,54 @@ public sealed class WeaponRuntimeState
 			return false;
 		}
 
+		if (HasPrimaryMagazine)
+		{
+			_magazineItem = BuildCurrentMagazineSlot();
+			ClearPrimaryMagazineFields();
+		}
+		else
+		{
+			_magazineItem = BuildSecondaryMagazineSlot();
+			ClearSecondaryMagazineFields();
+		}
+		return true;
+	}
+
+	public bool TryEjectMagazine(int _slotIndex, out InventorySlotRuntimeData _magazineItem)
+	{
+		if (_slotIndex == SecondaryMagazineSlotIndex)
+		{
+			if (!HasSecondaryMagazine)
+			{
+				_magazineItem = default;
+				return false;
+			}
+
+			_magazineItem = BuildSecondaryMagazineSlot();
+			ClearSecondaryMagazineFields();
+			return true;
+		}
+
+		if (!HasPrimaryMagazine)
+		{
+			_magazineItem = default;
+			return false;
+		}
+
+		if (IsMagazineNonRemovable)
+		{
+			_magazineItem = default;
+			return false;
+		}
+
 		_magazineItem = BuildCurrentMagazineSlot();
-		ClearInsertedMagazineFields();
+		ClearPrimaryMagazineFields();
 		return true;
 	}
 
 	public bool TryLoadRoundIntoInsertedMagazine(AmmoDefinition _ammoDefinition)
 	{
-		MagazineRuntimeState magazineState = CurrentMagazine;
+		MagazineRuntimeState magazineState = CurrentMagazine ?? CurrentSecondaryMagazine;
 		return magazineState != null && magazineState.TryLoadRound(_ammoDefinition);
 	}
 
@@ -427,7 +512,7 @@ public sealed class WeaponRuntimeState
 			return false;
 
 		_ammoDefinition = m_ChamberedAmmoDefinition;
-		MagazineRuntimeState magazineState = CurrentMagazine;
+		MagazineRuntimeState magazineState = CurrentMagazine ?? CurrentSecondaryMagazine;
 
 		// Болтовые: после выстрела патронник пуст — досыл только передёргиванием.
 		if (m_WeaponDefinition != null && m_WeaponDefinition.RequiresManualBoltCycle)
@@ -460,7 +545,7 @@ public sealed class WeaponRuntimeState
 		if (HasRoundInChamber)
 			return false;
 
-		MagazineRuntimeState magazineState = CurrentMagazine;
+		MagazineRuntimeState magazineState = CurrentMagazine ?? CurrentSecondaryMagazine;
 		if (magazineState == null || !magazineState.HasAmmo)
 			return false;
 
@@ -512,11 +597,26 @@ public sealed class WeaponRuntimeState
 
 	private void ClearInsertedMagazineFields()
 	{
+		ClearPrimaryMagazineFields();
+		ClearSecondaryMagazineFields();
+	}
+
+	private void ClearPrimaryMagazineFields()
+	{
 		m_CurrentMagazineDefinition = null;
 		m_CurrentMagazineDisplayName = null;
 		m_CurrentMagazineLocalizationKey = null;
 		m_CurrentMagazineRuntimeState = null;
 		m_CachedMagazineSlotOwner = null;
+	}
+
+	private void ClearSecondaryMagazineFields()
+	{
+		m_CurrentSecondaryMagazineDefinition = null;
+		m_CurrentSecondaryMagazineDisplayName = null;
+		m_CurrentSecondaryMagazineLocalizationKey = null;
+		m_CurrentSecondaryMagazineRuntimeState = null;
+		m_CachedSecondaryMagazineSlotOwner = null;
 	}
 
 	private float GetAttachmentWearPerShotProduct()
@@ -552,7 +652,7 @@ public sealed class WeaponRuntimeState
 
 	private InventorySlotRuntimeData BuildCurrentMagazineSlot()
 	{
-		if (!HasMagazine)
+		if (!HasPrimaryMagazine)
 			return default;
 
 		if (m_CachedMagazineSlotOwner == null)
@@ -564,6 +664,24 @@ public sealed class WeaponRuntimeState
 			LocalizationKey = m_CurrentMagazineLocalizationKey,
 			Definition = m_CurrentMagazineDefinition,
 			InstanceState = m_CachedMagazineSlotOwner,
+			WorldSource = null
+		};
+	}
+
+	private InventorySlotRuntimeData BuildSecondaryMagazineSlot()
+	{
+		if (!HasSecondaryMagazine)
+			return default;
+
+		if (m_CachedSecondaryMagazineSlotOwner == null)
+			m_CachedSecondaryMagazineSlotOwner = ItemInstanceState.CreateMagazineSlotOwner(m_CurrentSecondaryMagazineRuntimeState);
+
+		return new InventorySlotRuntimeData
+		{
+			DisplayName = m_CurrentSecondaryMagazineDisplayName,
+			LocalizationKey = m_CurrentSecondaryMagazineLocalizationKey,
+			Definition = m_CurrentSecondaryMagazineDefinition,
+			InstanceState = m_CachedSecondaryMagazineSlotOwner,
 			WorldSource = null
 		};
 	}

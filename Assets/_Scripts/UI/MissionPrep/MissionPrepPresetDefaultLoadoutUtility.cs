@@ -1,15 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Сборка стартового инвентаря пресета из полей <see cref="MissionPrepEquipmentPresetCatalog.PresetEntry"/>.
-/// </summary>
 public static class MissionPrepPresetDefaultLoadoutUtility
 {
-	#region Public Methods
 	public static void ApplyToSnapshot(
 		MissionPrepPresetSnapshot _snapshot,
-		MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
+		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
+		GrenadeThrowData _grenadeThrowData = null)
 	{
 		if (_snapshot == null || _entry == null)
 			return;
@@ -53,6 +50,19 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 					continue;
 
 				bagItems.Add(InventorySlotRuntimeData.FromDefinition(ammoBox));
+			}
+		}
+
+		if (_grenadeThrowData != null && _grenadeThrowData.ItemMappings != null)
+		{
+			for (int i = 0; i < _grenadeThrowData.ItemMappings.Count; i++)
+			{
+				ItemDefinition grenade = _grenadeThrowData.ItemMappings[i].Item;
+				if (grenade == null || !grenade.IsGrenade)
+					continue;
+
+				bagItems.Add(InventorySlotRuntimeData.FromDefinition(grenade));
+				bagItems.Add(InventorySlotRuntimeData.FromDefinition(grenade));
 			}
 		}
 
@@ -121,17 +131,20 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 
 	public static void ApplyPresetEntryToInventory(
 		CharacterInventory _inventory,
-		MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
+		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
+		GrenadeThrowData _grenadeThrowData = null)
 	{
 		if (_inventory == null || _entry == null)
 			return;
 
 		var snapshot = new MissionPrepPresetSnapshot();
-		ApplyToSnapshot(snapshot, _entry);
+		ApplyToSnapshot(snapshot, _entry, _grenadeThrowData);
 		snapshot.ApplyToInventory(_inventory);
 	}
 
-	public static bool EntryDefinesInventory(MissionPrepEquipmentPresetCatalog.PresetEntry _entry)
+	public static bool EntryDefinesInventory(
+		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
+		GrenadeThrowData _grenadeThrowData = null)
 	{
 		if (_entry == null)
 			return false;
@@ -157,20 +170,28 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 		if (_entry.MagazineItem != null)
 			return true;
 
-		if (_entry.AmmoBoxItems == null)
-			return false;
-
-		for (int i = 0; i < _entry.AmmoBoxItems.Length; i++)
+		if (_entry.AmmoBoxItems != null)
 		{
-			if (_entry.AmmoBoxItems[i] != null)
-				return true;
+			for (int i = 0; i < _entry.AmmoBoxItems.Length; i++)
+			{
+				if (_entry.AmmoBoxItems[i] != null)
+					return true;
+			}
+		}
+
+		if (_grenadeThrowData != null && _grenadeThrowData.ItemMappings != null)
+		{
+			for (int i = 0; i < _grenadeThrowData.ItemMappings.Count; i++)
+			{
+				ItemDefinition item = _grenadeThrowData.ItemMappings[i].Item;
+				if (item != null && item.IsGrenade)
+					return true;
+			}
 		}
 
 		return false;
 	}
-	#endregion
 
-	#region Private Methods
 	private static bool TryBuildLoadedMagazineSlot(
 		ItemDefinition _magazineItem,
 		AmmoDefinition _ammo,
@@ -216,5 +237,4 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 
 		return _ammo.Caliber == _magazine.SupportedCaliber;
 	}
-	#endregion
 }

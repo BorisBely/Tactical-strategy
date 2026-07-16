@@ -50,6 +50,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitWeaponFireController m_FireController;
+	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
@@ -346,6 +347,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_SelfStabilization == null)
@@ -705,6 +708,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private void UpdateFacing()
 	{
+		if (m_GrenadeThrowController != null && (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
+			return;
+
 		if (m_CachedRtsMember != null && m_CachedRtsMember.IsRotatingToRouteFacing)
 			return;
 

@@ -94,9 +94,13 @@ public static class ItemModificationDiagnostics
 			if (WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weaponState.WeaponDefinition))
 				return "built-in magazine cannot be replaced";
 
-			return weaponState.CanAcceptMagazineItem(_candidate)
+			int slotIndex = _slot.WeaponSlotIndex == -2
+				? WeaponRuntimeState.SecondaryMagazineSlotIndex
+				: WeaponRuntimeState.PrimaryMagazineSlotIndex;
+
+			return weaponState.CanAcceptMagazineItem(_candidate, slotIndex)
 				? AcceptedReason
-				: "magazine incompatible (type/caliber/ammo)";
+				: $"magazine incompatible (type/caliber/ammo) [slot={slotIndex}]";
 		}
 
 		if (_candidate.Definition == null)
