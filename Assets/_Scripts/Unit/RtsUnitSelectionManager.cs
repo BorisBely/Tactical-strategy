@@ -35,6 +35,20 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_WaitPointIconScreenOffsetY = 28f;
 	[SerializeField] private bool m_SelectFirstPlayerUnitOnStart = true;
 
+	[Header("Draw Route")]
+	[Tooltip("Минимальный сдвиг мыши (пиксели) для активации режима рисования маршрута.")]
+	[SerializeField, Min(2f)] private float m_DrawRouteActivationPixels = 5f;
+	[Tooltip("Минимальная дистанция (метры) между точками семплирования при рисовании.")]
+	[SerializeField, Min(0.1f)] private float m_DrawRouteSampleMinDistance = 0.5f;
+	[Tooltip("Эпсилон для упрощения линии (Douglas-Peucker). Больше = меньше точек.")]
+	[SerializeField, Min(0.05f)] private float m_DrawRouteSimplificationEpsilon = 0.4f;
+	[Tooltip("Минимальное количество waypoint-ов после упрощения (без учёта стартовой точки).")]
+	[SerializeField, Min(1)] private int m_DrawRouteMinWaypoints = 1;
+	[Tooltip("Дистанция (метры) для детекта стирания при обратном движении вдоль маршрута.")]
+	[SerializeField, Min(0.1f)] private float m_DrawRouteEraseDistance = 0.8f;
+	[Tooltip("Сколько последних точек пропускать при поиске стирания (защита от ложных срабатываний).")]
+	[SerializeField, Min(1)] private int m_DrawRouteEraseLookback = 3;
+
 	[Header("Formation Spacing")]
 	[Tooltip("Базовый интервал между юнитами в формации (метры).")]
 	[SerializeField, Min(0.1f)] private float m_FormationLineSpacing = 2f;
@@ -176,6 +190,23 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private float m_GrenadeOrderHoverStartTime;
 	private static GUIStyle s_GrenadeOrderDeleteButtonGuiStyle;
 
+	private bool m_IsRotateToPointMode;
+	private bool m_RotateToPointExitAfterCommand;
+	private readonly List<GameObject> m_RotateToPointMarkers = new List<GameObject>();
+	private GameObject m_RotateToPointCursorSphere;
+	[SerializeField, Min(0.5f)] private float m_RotateToPointMarkerLifetime = 2f;
+
+	private Transform m_PriorityTargetTransform;
+	private GameObject m_PriorityTargetMarker;
+
+	private bool m_IsDrawingRoute;
+	private int m_DrawRouteUnitIndex = -1;
+	private Vector2 m_DrawRouteStartScreen;
+	private readonly List<Vector3> m_DrawRoutePoints = new List<Vector3>(128);
+	private Vector3 m_LastDrawSamplePoint;
+	private LineRenderer m_DrawRoutePreviewLine;
+	private static Material s_DrawRoutePreviewMaterial;
+
 	private enum RouteEditTargetKind
 	{
 		SegmentPoint,
@@ -211,6 +242,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public bool IsExchangeActive => InventoryExchangeController.Instance.IsActive;
 	public bool HasPendingExchangeApproach =>
 		m_PendingExchangePlayerUnit != null && m_PendingExchangePartnerUnit != null;
+
+	public bool ShouldSuppressCameraInput =>
+		m_IsQuickRotateFacing || m_IsEditingWaypointFacing || m_IsDrawingRoute;
 	#endregion
 
 	#region Public Methods
@@ -280,6 +314,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_RouteEditHandle != null)
 			Destroy(m_RouteEditHandle);
 
+		DestroyDrawRoutePreviewLine();
+		ClearRotateToPointMarkers();
+		ClearPriorityTarget();
+		DestroyPriorityTargetMarker();
+
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -318,6 +357,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (m_IsRotateToPointMode)
+		{
+			HandleRotateToPointInput();
+			return;
+		}
+
 		HandleLeftMouseSelection();
 		UpdatePathInteractions();
 		HandleRightMouseCommand();
@@ -327,6 +372,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		HandleKeyboardCommands();
 		UpdateFormationSyncSpeeds();
 		UpdateGrenadeOrderHover();
+		UpdatePriorityTargetMarkerIfNeeded();
 	}
 
 	private void OnGUI()
@@ -1596,6 +1642,57 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		RepaintExchangePanels();
 		return true;
 	}
+
+	public void CommandSelectedManualMagazineLoading()
+	{
+		CommandSelectedManualMagazineLoadingInternal();
+	}
+
+	public void CommandSelectedWeaponReload()
+	{
+		CommandSelectedWeaponReloadInternal();
+	}
+
+	public void CommandSelectedCycleWeaponFireMode()
+	{
+		CommandSelectedCycleWeaponFireModeInternal();
+	}
+
+	public void CommandSelectedCycleWeaponAimMode()
+	{
+		CommandSelectedCycleWeaponAimModeInternal();
+	}
+
+	public void CommandSelectedCrouchToggle()
+	{
+		if (m_SelectedUnits.Count == 0)
+			return;
+		CommandSelectedStance(GetNextCTargetStance());
+	}
+
+	public void EnterGrenadeThrowMode()
+	{
+		if (m_SelectedUnits.Count == 0)
+			return;
+		TryEnterGrenadeThrowMode();
+	}
+
+	public void CycleGrenadeThrowTypePublic()
+	{
+		if (m_IsGrenadeThrowMode)
+			CycleGrenadeThrowType();
+		else
+			TryEnterGrenadeThrowMode();
+	}
+
+	public void CycleSelectedFormation()
+	{
+		if (m_SelectedUnits.Count < 2)
+			return;
+		FormationType current = GetDominantFormation(m_SelectedUnits);
+		FormationType next = FormationLayoutUtility.CycleFormation(current);
+		SetSelectedFormation(next, true);
+	}
 	#endregion
 
 	#region Private Methods
@@ -2240,8 +2337,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Mouse.current == null || m_SelectionCamera == null)
 			return;
 
+		if (m_IsDrawingRoute)
+		{
+			if (Mouse.current.leftButton.wasReleasedThisFrame)
+			{
+				CommitDrawRoute();
+			}
+			else
+			{
+				UpdateDrawRoute();
+			}
+			return;
+		}
+
 		if (Mouse.current.leftButton.wasPressedThisFrame)
 		{
+			if (TryBeginRouteDragOnPress())
+				return;
+
 			if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
 			{
 				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
@@ -2270,8 +2383,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return;
 			}
 
-			if (TryBeginRouteDragOnPress())
+			if (!IsPointerOverUi() && TryDetectDrawRouteStart())
+			{
+				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
+				m_IsDraggingSelection = false;
+				m_LeftMouseStartedOverUi = true;
 				return;
+			}
 		}
 
 		if (m_IsDraggingRoute)
@@ -2290,6 +2408,26 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsRouteEditMode)
 			return;
+
+		if (m_DrawRouteUnitIndex >= 0 && !m_IsDrawingRoute)
+		{
+			if (Mouse.current.leftButton.wasReleasedThisFrame)
+			{
+				m_DrawRouteUnitIndex = -1;
+				m_LeftMouseStartedOverUi = false;
+			}
+			else if (Mouse.current.leftButton.isPressed)
+			{
+				Vector2 current = Mouse.current.position.ReadValue();
+				if ((current - m_DrawRouteStartScreen).sqrMagnitude >= m_DrawRouteActivationPixels * m_DrawRouteActivationPixels)
+				{
+					m_IsDraggingSelection = false;
+					EnterDrawRouteMode(m_DrawRouteUnitIndex);
+					return;
+				}
+				return;
+			}
+		}
 
 		if (Mouse.current.leftButton.wasPressedThisFrame)
 		{
@@ -2633,6 +2771,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		if (m_IsDrawingRoute)
+		{
+			ClearAllPathInteractions();
+			return;
+		}
+
 		if (IsMovePreviewBlockingPathInteractions())
 		{
 			ClearAllPathInteractions();
@@ -2669,6 +2813,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			ClearArrowHover();
 
+			if (routeTargetKind == RouteEditTargetKind.SegmentPoint &&
+			    routeUnitIndex >= 0 && routeUnitIndex < m_SelectedUnits.Count)
+			{
+				RtsUnitMember hoveredUnit = m_SelectedUnits[routeUnitIndex];
+				if (hoveredUnit != null)
+					hoveredUnit.TryAdjustPointForFacingArrowSpacing(routeSegmentIndex, ref routeWorldPoint);
+			}
+
 			if (m_IsRouteEditMode && m_HoveredUnitIndex == routeUnitIndex)
 			{
 				m_RouteEditTargetKind = routeTargetKind;
@@ -2684,12 +2836,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				ClearRouteEditMode();
 
 			if (m_HoveredUnitIndex == routeUnitIndex &&
-			    m_HoveredSegmentIndex == routeSegmentIndex &&
-			    m_RouteEditTargetKind == routeTargetKind &&
-			    m_RouteEditVertexIndex == routeVertexIndex)
+			    m_HoveredSegmentIndex == routeSegmentIndex)
 			{
+				m_RouteEditTargetKind = routeTargetKind;
+				m_RouteEditVertexIndex = routeVertexIndex;
 				m_HoveredSegmentWorldPoint = routeWorldPoint;
-				if (Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
+				if (!m_IsRouteEditMode &&
+				    Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
 				{
 					EnterRouteEditMode(
 						routeUnitIndex,
@@ -2725,6 +2878,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsRouteEditMode)
 		{
+			if (Mouse.current != null && Mouse.current.leftButton.isPressed)
+				return;
 			ClearRouteEditMode();
 			ClearPathSegmentHover();
 			return;
@@ -2833,6 +2988,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				{
 					RouteVertexRole.End => 1.25f,
 					RouteVertexRole.Corner => 1.15f,
+					RouteVertexRole.First => 1.15f,
 					_ => 1f,
 				};
 				float snapRadiusSqr = snapRadius * snapRadius;
@@ -3067,6 +3223,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public void CancelRouteEditInputState()
 	{
 		CancelWaypointFacingEdit();
+		CancelDrawRoute();
 		if (m_IsPreviewingMove || m_PreviewPending || m_IsAwaitingDoubleClick)
 			CancelMovePreview();
 		ClearAllPathInteractions();
@@ -3079,6 +3236,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public void AbortActivePointerGestures()
 	{
 		CancelRouteEditInputState();
+		CancelDrawRoute();
 		m_IsDraggingSelection = false;
 		m_LeftMouseStartedOverUi = false;
 	}
@@ -3148,8 +3306,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private bool TryBeginRouteDragOnPress()
 	{
-		if (!m_IsRouteEditMode || Mouse.current == null || m_SelectionCamera == null)
+		if (Mouse.current == null || m_SelectionCamera == null)
 			return false;
+
+		if (!m_IsRouteEditMode)
+		{
+			if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
+				return false;
+
+			EnterRouteEditMode(
+				m_HoveredUnitIndex,
+				m_RouteEditTargetKind,
+				m_HoveredSegmentIndex,
+				m_RouteEditVertexIndex,
+				m_HoveredSegmentWorldPoint);
+		}
+
 		if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
 			return false;
 		if (!IsPointerOverRouteHandle())
@@ -3190,6 +3362,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		Vector2 mouseScreen = Mouse.current.position.ReadValue();
 		Vector3 handleScreen = m_SelectionCamera.WorldToScreenPoint(m_RouteEditHandle.transform.position);
+		if (handleScreen.z <= 0f)
+			return false;
 		float hitRadius = m_RouteEditHandleHitPixels;
 		Vector2 delta = mouseScreen - new Vector2(handleScreen.x, handleScreen.y);
 		return delta.sqrMagnitude <= hitRadius * hitRadius;
@@ -3237,6 +3411,313 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			UpdateRouteEditHandle(unit.GetWaypointWorld(editedWaypointIndex));
 		}
 	}
+
+	#region Draw Route
+
+	private bool TryDetectDrawRouteStart()
+	{
+		if (m_SelectedUnits.Count == 0 || m_SelectionCamera == null)
+			return false;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
+			return false;
+
+		RtsUnitMember hitUnit = hit.collider.GetComponentInParent<RtsUnitMember>();
+		if (hitUnit == null || !UnitFallenStateUtility.IsRtsControllable(hitUnit))
+			return false;
+
+		int unitIndex = m_SelectedUnits.IndexOf(hitUnit);
+		if (unitIndex < 0)
+			return false;
+
+		m_DrawRouteUnitIndex = unitIndex;
+		m_DrawRouteStartScreen = Mouse.current.position.ReadValue();
+		m_IsDrawingRoute = false;
+		return true;
+	}
+
+	private void EnterDrawRouteMode(int _unitIndex)
+	{
+		if (_unitIndex < 0 || _unitIndex >= m_SelectedUnits.Count)
+			return;
+
+		m_IsDrawingRoute = true;
+		m_DrawRouteUnitIndex = _unitIndex;
+		m_DrawRoutePoints.Clear();
+
+		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
+		if (unit != null)
+		{
+			Vector3 startPos = unit.transform.position;
+			m_DrawRoutePoints.Add(startPos);
+			m_LastDrawSamplePoint = startPos;
+		}
+
+		EnsureDrawRoutePreviewLine();
+		UpdateDrawRoutePreviewLine();
+	}
+
+	private void UpdateDrawRoute()
+	{
+		if (Mouse.current == null || m_SelectionCamera == null)
+			return;
+
+		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (!Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
+			return;
+
+		Vector3 worldPoint = hit.point;
+
+		int eraseIndex = TryFindDrawRouteErasePoint(worldPoint);
+		if (eraseIndex >= 0)
+		{
+			int newCount = eraseIndex + 1;
+			if (newCount < m_DrawRoutePoints.Count)
+			{
+				m_DrawRoutePoints.RemoveRange(newCount, m_DrawRoutePoints.Count - newCount);
+				if (m_DrawRoutePoints.Count > 0)
+					m_LastDrawSamplePoint = m_DrawRoutePoints[m_DrawRoutePoints.Count - 1];
+				UpdateDrawRoutePreviewLine();
+			}
+			return;
+		}
+
+		if (m_DrawRoutePoints.Count > 0)
+		{
+			float dist = Vector3.Distance(worldPoint, m_LastDrawSamplePoint);
+			if (dist < m_DrawRouteSampleMinDistance)
+				return;
+		}
+
+		m_DrawRoutePoints.Add(worldPoint);
+		m_LastDrawSamplePoint = worldPoint;
+		UpdateDrawRoutePreviewLine();
+	}
+
+	private int TryFindDrawRouteErasePoint(Vector3 _worldPoint)
+	{
+		int searchTo = m_DrawRoutePoints.Count - m_DrawRouteEraseLookback;
+		if (searchTo <= 0)
+			return -1;
+
+		float eraseDistSqr = m_DrawRouteEraseDistance * m_DrawRouteEraseDistance;
+		for (int i = 0; i < searchTo; i++)
+		{
+			if ((m_DrawRoutePoints[i] - _worldPoint).sqrMagnitude <= eraseDistSqr)
+				return i;
+		}
+
+		return -1;
+	}
+
+	private void CommitDrawRoute()
+	{
+		m_IsDrawingRoute = false;
+
+		if (m_DrawRouteUnitIndex < 0 || m_DrawRouteUnitIndex >= m_SelectedUnits.Count)
+		{
+			CancelDrawRoute();
+			return;
+		}
+
+		List<Vector3> simplified = SimplifyLine(m_DrawRoutePoints, m_DrawRouteSimplificationEpsilon);
+
+		if (simplified.Count < m_DrawRouteMinWaypoints + 1)
+		{
+			CancelDrawRoute();
+			return;
+		}
+
+		RtsUnitMember drawTargetUnit = m_SelectedUnits[m_DrawRouteUnitIndex];
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+
+		bool shiftHeld = IsShiftHeld();
+		bool altHeld = IsAltHeld();
+
+		if (!shiftHeld)
+		{
+			for (int i = 0; i < validUnits.Count; i++)
+			{
+				if (validUnits[i] == drawTargetUnit)
+					continue;
+				validUnits[i].ClearWaypoints();
+			}
+			drawTargetUnit.ClearWaypoints();
+		}
+
+		Vector3[] simplifiedArr = simplified.ToArray();
+
+		for (int waypointIndex = 1; waypointIndex < simplifiedArr.Length; waypointIndex++)
+		{
+			Vector3 dest = simplifiedArr[waypointIndex];
+			UnitClickToMove.MoveTier tier = UnitClickToMove.MoveTier.Walk;
+			bool isFirstWaypoint = waypointIndex == 1;
+
+			for (int unitIdx = 0; unitIdx < validUnits.Count; unitIdx++)
+			{
+				Vector3 offset = Vector3.zero;
+				if (validUnits.Count > 1 && unitIdx != m_DrawRouteUnitIndex)
+				{
+					offset = validUnits[unitIdx].transform.position - drawTargetUnit.transform.position;
+					offset.y = 0f;
+				}
+
+				int waitGroup = (altHeld && isFirstWaypoint)
+					? validUnits[unitIdx].GetNextAutoWaitGroup()
+					: 0;
+
+				validUnits[unitIdx].EnqueueWaypoint(
+					dest + offset,
+					tier,
+					null,
+					RtsUnitMember.FacingArrowMode.TurnOverDistance,
+					waitGroup,
+					null,
+					false,
+					0f,
+					null);
+			}
+		}
+
+		DestroyDrawRoutePreviewLine();
+		m_DrawRoutePoints.Clear();
+		m_DrawRouteUnitIndex = -1;
+	}
+
+	private void CancelDrawRoute()
+	{
+		m_IsDrawingRoute = false;
+		m_DrawRouteUnitIndex = -1;
+		m_DrawRoutePoints.Clear();
+		DestroyDrawRoutePreviewLine();
+	}
+
+	private static List<Vector3> SimplifyLine(List<Vector3> _points, float _epsilon)
+	{
+		List<Vector3> result = new List<Vector3>(_points.Count);
+		if (_points.Count == 0)
+			return result;
+
+		result.Add(_points[0]);
+		DouglasPeuckerRecursive(_points, 0, _points.Count - 1, _epsilon, result);
+		result.Add(_points[_points.Count - 1]);
+
+		Vector3 lastDistinct = result[0];
+		for (int i = result.Count - 1; i >= 1; i--)
+		{
+			if (Vector3.Distance(result[i], lastDistinct) < 0.1f)
+				result.RemoveAt(i);
+			else
+				lastDistinct = result[i];
+		}
+
+		return result;
+	}
+
+	private static void DouglasPeuckerRecursive(List<Vector3> _points, int _start, int _end, float _epsilon, List<Vector3> _output)
+	{
+		if (_end <= _start + 1)
+			return;
+
+		float maxDistSq = 0f;
+		int maxIndex = _start;
+
+		Vector3 lineStart = _points[_start];
+		Vector3 lineEnd = _points[_end];
+		Vector3 lineDir = lineEnd - lineStart;
+		float lineLenSq = lineDir.sqrMagnitude;
+
+		if (lineLenSq < 1e-6f)
+		{
+			float midDistSq = 0f;
+			int midIndex = _start;
+			for (int i = _start + 1; i < _end; i++)
+			{
+				float d = (_points[i] - lineStart).sqrMagnitude;
+				if (d > midDistSq)
+				{
+					midDistSq = d;
+					midIndex = i;
+				}
+			}
+
+			if (midDistSq > _epsilon * _epsilon)
+			{
+				DouglasPeuckerRecursive(_points, _start, midIndex, _epsilon, _output);
+				_output.Add(_points[midIndex]);
+				DouglasPeuckerRecursive(_points, midIndex, _end, _epsilon, _output);
+			}
+			return;
+		}
+
+		for (int i = _start + 1; i < _end; i++)
+		{
+			float t = Vector3.Dot(_points[i] - lineStart, lineDir) / lineLenSq;
+			t = Mathf.Clamp01(t);
+			Vector3 projection = lineStart + t * lineDir;
+			float dSq = (_points[i] - projection).sqrMagnitude;
+			if (dSq > maxDistSq)
+			{
+				maxDistSq = dSq;
+				maxIndex = i;
+			}
+		}
+
+		if (maxDistSq > _epsilon * _epsilon)
+		{
+			DouglasPeuckerRecursive(_points, _start, maxIndex, _epsilon, _output);
+			_output.Add(_points[maxIndex]);
+			DouglasPeuckerRecursive(_points, maxIndex, _end, _epsilon, _output);
+		}
+	}
+
+	private void EnsureDrawRoutePreviewLine()
+	{
+		if (m_DrawRoutePreviewLine != null)
+			return;
+
+		GameObject previewGo = new GameObject("DrawRoutePreviewLine");
+		m_DrawRoutePreviewLine = previewGo.AddComponent<LineRenderer>();
+		m_DrawRoutePreviewLine.positionCount = 0;
+		m_DrawRoutePreviewLine.useWorldSpace = true;
+		m_DrawRoutePreviewLine.startWidth = 0.08f;
+		m_DrawRoutePreviewLine.endWidth = 0.08f;
+		m_DrawRoutePreviewLine.startColor = new Color(1f, 0.7f, 0.1f, 0.9f);
+		m_DrawRoutePreviewLine.endColor = new Color(1f, 0.7f, 0.1f, 0.9f);
+
+		if (s_DrawRoutePreviewMaterial == null)
+			s_DrawRoutePreviewMaterial = new Material(Shader.Find("Sprites/Default"));
+		m_DrawRoutePreviewLine.sharedMaterial = s_DrawRoutePreviewMaterial;
+	}
+
+	private void UpdateDrawRoutePreviewLine()
+	{
+		if (m_DrawRoutePreviewLine == null)
+			return;
+
+		if (m_DrawRoutePoints.Count < 2)
+		{
+			m_DrawRoutePreviewLine.positionCount = 0;
+			return;
+		}
+
+		m_DrawRoutePreviewLine.positionCount = m_DrawRoutePoints.Count;
+		for (int i = 0; i < m_DrawRoutePoints.Count; i++)
+			m_DrawRoutePreviewLine.SetPosition(i, m_DrawRoutePoints[i] + Vector3.up * 0.04f);
+	}
+
+	private void DestroyDrawRoutePreviewLine()
+	{
+		if (m_DrawRoutePreviewLine != null)
+		{
+			if (m_DrawRoutePreviewLine.gameObject != null)
+				Destroy(m_DrawRoutePreviewLine.gameObject);
+			m_DrawRoutePreviewLine = null;
+		}
+	}
+
+	#endregion
 
 	private void DrawArrowDeleteButtonIfAny()
 	{
@@ -3523,6 +4004,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Mouse.current == null || m_SelectionCamera == null)
 			return;
 
+		if (m_IsDrawingRoute)
+			return;
+
 		if (m_IsEditingWaypointFacing)
 		{
 			if (!Mouse.current.rightButton.isPressed)
@@ -3669,6 +4153,33 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			: null;
 		bool clickedSelectedUnit = clickedUnit != null && m_SelectedUnits.Contains(clickedUnit);
 
+		if (clickedUnit != null && IsEnemyUnit(clickedUnit))
+		{
+			Transform targetTransform = clickedUnit.transform;
+			if (m_PriorityTargetTransform == targetTransform)
+				ClearPriorityTarget();
+			else if (UnitConsciousness.IsTargetableTarget(targetTransform))
+				SetPriorityTarget(targetTransform);
+			return;
+		}
+
+		if (!hasUnitHit)
+		{
+			if (Physics.Raycast(ray, out RaycastHit targetHit, 2000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
+			{
+				ShootingRangeTarget rangeTarget = targetHit.collider.GetComponentInParent<ShootingRangeTarget>();
+				if (rangeTarget != null && rangeTarget.IsAvailableForTargeting)
+				{
+					Transform targetTransform = rangeTarget.transform;
+					if (m_PriorityTargetTransform == targetTransform)
+						ClearPriorityTarget();
+					else
+						SetPriorityTarget(targetTransform);
+					return;
+				}
+			}
+		}
+
 		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0 && !IsAltHeld() && !clickedSelectedUnit)
 		{
 			BeginWaypointFacingEdit(m_HoveredUnitIndex, m_HoveredSegmentIndex);
@@ -3695,26 +4206,29 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			if (clickedUnit != null && m_SelectedUnits.Contains(clickedUnit))
 			{
-				List<RtsUnitMember> unitsForPoint = GetValidSelectedUnits();
-				if (unitsForPoint.Count >= 2)
+				float distToUnitCenter = new Vector3(
+					unitHit.point.x - clickedUnit.transform.position.x,
+					0f,
+					unitHit.point.z - clickedUnit.transform.position.z).magnitude;
+				if (distToUnitCenter < 0.3f)
 				{
-					Vector3 avg = Vector3.zero;
-					for (int i = 0; i < unitsForPoint.Count; i++)
-						avg += unitsForPoint[i].transform.position;
-					avg /= unitsForPoint.Count;
-					avg.y = 0f;
-					unitForcedGroundPoint = avg;
+					List<RtsUnitMember> unitsForPoint = GetValidSelectedUnits();
+					if (unitsForPoint.Count >= 2)
+					{
+						Vector3 avg = Vector3.zero;
+						for (int i = 0; i < unitsForPoint.Count; i++)
+							avg += unitsForPoint[i].transform.position;
+						avg /= unitsForPoint.Count;
+						avg.y = 0f;
+						unitForcedGroundPoint = avg;
+					}
+					else
+					{
+						Vector3 pos = clickedUnit.transform.position;
+						pos.y = 0f;
+						unitForcedGroundPoint = pos;
+					}
 				}
-				else
-				{
-					Vector3 pos = clickedUnit.transform.position;
-					pos.y = 0f;
-					unitForcedGroundPoint = pos;
-				}
-			}
-			else
-			{
-				return;
 			}
 		}
 
@@ -3859,17 +4373,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_LastWalkCenter = center;
 		m_LastWalkOffsets = new List<Vector3>(offsets);
 
-		// Tear down preview visuals before issuing the order. Clearing after ExecuteWalkOrder
-		// would call ClearWaypoints on idle units and wipe in-place facing set by IssueInPlaceFacingOrder.
 		ClearNotReadyFormationFacingForUnits(validUnits);
-
-		ClearPreviewMarkers(_clearFormationFacing: false);
 
 		ExecuteWalkOrder(
 			offsets,
 			center,
 			facingAngles,
-			IsAltHeld() ? -1 : 0,
+			IsAltHeld() ? (shiftEnqueue ? -1 : 1) : 0,
 			facingMode,
 			formationFacingAngles,
 			moveTier,
@@ -3879,6 +4389,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			formationCtrlBaseYaw,
 			allowArrivalFormationFacing,
 			shiftEnqueue);
+
+		ClearPreviewMarkers(_clearFormationFacing: false);
 	}
 
 	private void StartMovePreview(
@@ -4430,6 +4942,17 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			EndWaypointFacingEdit();
 			return;
+		}
+
+		if (_unitIndex >= 0 && _unitIndex < m_SelectedUnits.Count)
+		{
+			Vector3 anchor = m_EditingWaypointAnchor;
+			RtsUnitMember hoveredUnit = m_SelectedUnits[_unitIndex];
+			if (hoveredUnit != null)
+			{
+				hoveredUnit.TryAdjustPointForFacingArrowSpacing(_segmentIndex, ref anchor);
+				m_EditingWaypointAnchor = anchor;
+			}
 		}
 
 		if (m_DirectionMarkers.Count == 0)
@@ -5162,6 +5685,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (GameInputGate.ShouldBlockGameplayInput())
 			return;
 
+		if (m_IsDrawingRoute)
+		{
+			if (Keyboard.current.fKey.wasPressedThisFrame || Keyboard.current.escapeKey.wasPressedThisFrame)
+				CancelDrawRoute();
+			return;
+		}
+
 		if (Keyboard.current.f1Key.wasPressedThisFrame)
 		{
 			ContinueSelectedRouteWaitGroup(1);
@@ -5204,6 +5734,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				CycleGrenadeThrowType();
 			else
 				TryEnterGrenadeThrowMode();
+			return;
+		}
+
+		if (Keyboard.current.qKey.wasPressedThisFrame)
+		{
+			ToggleRotateToPointMode();
 			return;
 		}
 
@@ -5299,22 +5835,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 	}
 
-	private void CommandSelectedManualMagazineLoading()
+	private void CommandSelectedManualMagazineLoadingInternal()
 	{
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartManualMagazineLoading(_stagger));
 	}
 
-	private void CommandSelectedWeaponReload()
+	private void CommandSelectedWeaponReloadInternal()
 	{
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartWeaponReload(_stagger));
 	}
 
-	private void CommandSelectedCycleWeaponFireMode()
+	private void CommandSelectedCycleWeaponFireModeInternal()
 	{
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponFireMode(_stagger));
 	}
 
-	private void CommandSelectedCycleWeaponAimMode()
+	private void CommandSelectedCycleWeaponAimModeInternal()
 	{
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleWeaponFireDisciplineMode(_stagger));
 	}
@@ -5344,16 +5880,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		UnitCombatStats combatStats = _unit.GetComponent<UnitCombatStats>();
 		return combatStats != null ? combatStats.GetCommandVisionStaggerDelaySeconds() : 0f;
-	}
-
-	private void CycleSelectedFormation()
-	{
-		if (m_SelectedUnits.Count < 2)
-			return;
-
-		FormationType current = GetDominantFormation(m_SelectedUnits);
-		FormationType next = FormationLayoutUtility.CycleFormation(current);
-		SetSelectedFormation(next, true);
 	}
 
 	private bool TrySelectFormationByDigitWhileHeld()
@@ -5780,6 +6306,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		PrepareSoloSelectedUnitState();
 		SyncActiveInventoryToSelection();
 		SelectionChanged?.Invoke();
+		RefreshPriorityTargetOnSelectionChange();
 	}
 
 	private void PrepareSoloSelectedUnitState()
@@ -6065,7 +6592,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return null;
 
 		_inventory.GetDropWorldPose(out Vector3 position, out Quaternion rotation);
-		position += Vector3.up * 0.08f;
+		position += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), 0.08f, UnityEngine.Random.Range(-0.12f, 0.12f));
+		rotation *= Quaternion.Euler(0f, UnityEngine.Random.Range(-18f, 18f), 0f);
 		// Не использовать Instantiate<GameObject>: у битой ссылки на префаб (неверный fileID в .asset) generic бросает InvalidCastException.
 		UnityEngine.Object prefabObj = definition.DropWorldPrefab;
 		if (prefabObj == null)
@@ -6341,8 +6869,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		string hintText = m_SelectedUnits.Count >= 2
-			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)"
-			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд)";
+			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет"
+			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет";
 		const float pad = 10f;
 		const float height = 34f;
 
@@ -6562,6 +7090,327 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_IsGrenadeThrowMode = false;
 		m_IsRouteGrenadePlanning = false;
 		m_ActiveThrowController = null;
+	}
+
+	public void ToggleRotateToPointMode()
+	{
+		if (m_IsRotateToPointMode)
+		{
+			ExitRotateToPointMode();
+			return;
+		}
+
+		EnterRotateToPointMode();
+		m_RotateToPointExitAfterCommand = true;
+	}
+
+	private void EnterRotateToPointMode()
+	{
+		if (m_SelectedUnits.Count == 0)
+			return;
+
+		if (m_IsGrenadeThrowMode)
+			CancelGrenadeThrow();
+		if (m_IsPreviewingMove)
+			CancelMovePreview();
+
+		m_IsRotateToPointMode = true;
+		CreateRotateToPointCursor();
+	}
+
+	private void ExitRotateToPointMode()
+	{
+		m_IsRotateToPointMode = false;
+		ClearRotateToPointMarkers();
+		DestroyRotateToPointCursor();
+	}
+
+	private void HandleRotateToPointInput()
+	{
+		if (Mouse.current == null || m_SelectionCamera == null)
+			return;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
+		bool hitGround = Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore);
+
+		if (hitGround)
+			UpdateRotateToPointCursor(hit.point);
+
+		if (Keyboard.current != null &&
+		    (Keyboard.current.fKey.wasPressedThisFrame ||
+		     Keyboard.current.escapeKey.wasPressedThisFrame))
+		{
+			ExitRotateToPointMode();
+			return;
+		}
+
+		if (Mouse.current.leftButton.wasPressedThisFrame && !IsPointerOverUi() && hitGround)
+		{
+			Vector3 point = hit.point;
+			SpawnRotateToPointMarker(point);
+			CommandSelectedRotateToPoint(point);
+			m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
+			m_LeftMouseStartedOverUi = true;
+
+			if (m_RotateToPointExitAfterCommand)
+			{
+				ExitRotateToPointMode();
+			}
+		}
+	}
+
+	private void SpawnRotateToPointMarker(Vector3 _worldPoint)
+	{
+		GameObject marker = CreateRotateToPointMarkerInternal();
+		if (marker == null)
+			return;
+
+		marker.transform.position = _worldPoint + Vector3.up * 0.05f;
+		m_RotateToPointMarkers.Add(marker);
+		StartCoroutine(DestroyRotateToPointMarkerAfter(marker, m_RotateToPointMarkerLifetime));
+	}
+
+	private GameObject CreateRotateToPointMarkerInternal()
+	{
+		GameObject marker = m_DestinationMarkerPrefab != null
+			? Instantiate(m_DestinationMarkerPrefab)
+			: null;
+
+		if (marker == null)
+		{
+			marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+			marker.name = "RotateToPointMarker";
+			marker.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
+			Renderer renderer = marker.GetComponent<Renderer>();
+			if (renderer != null)
+			{
+				renderer.material = new Material(Shader.Find("Sprites/Default"));
+				renderer.material.color = new Color(1f, 0.65f, 0.1f, 0.85f);
+			}
+		}
+
+		Collider[] colliders = marker.GetComponentsInChildren<Collider>();
+		for (int i = 0; i < colliders.Length; i++)
+			Destroy(colliders[i]);
+
+		return marker;
+	}
+
+	private IEnumerator DestroyRotateToPointMarkerAfter(GameObject _marker, float _seconds)
+	{
+		yield return new WaitForSeconds(Mathf.Max(0.1f, _seconds));
+		if (_marker != null)
+		{
+			m_RotateToPointMarkers.Remove(_marker);
+			Destroy(_marker);
+		}
+	}
+
+	private void ClearRotateToPointMarkers()
+	{
+		for (int i = 0; i < m_RotateToPointMarkers.Count; i++)
+		{
+			if (m_RotateToPointMarkers[i] != null)
+				Destroy(m_RotateToPointMarkers[i]);
+		}
+		m_RotateToPointMarkers.Clear();
+	}
+
+	private void CreateRotateToPointCursor()
+	{
+		DestroyRotateToPointCursor();
+		m_RotateToPointCursorSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+		m_RotateToPointCursorSphere.name = "RotateToPointCursor";
+		m_RotateToPointCursorSphere.transform.localScale = Vector3.one * 0.35f;
+		Renderer renderer = m_RotateToPointCursorSphere.GetComponent<Renderer>();
+		if (renderer != null)
+		{
+			renderer.material = new Material(Shader.Find("Sprites/Default"));
+			renderer.material.color = new Color(1f, 0.85f, 0.1f, 0.9f);
+		}
+		Collider col = m_RotateToPointCursorSphere.GetComponent<Collider>();
+		if (col != null)
+			Destroy(col);
+	}
+
+	private void UpdateRotateToPointCursor(Vector3 _groundPoint)
+	{
+		if (m_RotateToPointCursorSphere == null)
+			return;
+		m_RotateToPointCursorSphere.transform.position = _groundPoint + Vector3.up * 0.08f;
+	}
+
+	private void DestroyRotateToPointCursor()
+	{
+		if (m_RotateToPointCursorSphere != null)
+		{
+			Destroy(m_RotateToPointCursorSphere);
+			m_RotateToPointCursorSphere = null;
+		}
+	}
+
+	private void CommandSelectedRotateToPoint(Vector3 _worldPoint)
+	{
+		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		bool isGroup = validUnits.Count >= 2;
+
+		for (int i = 0; i < validUnits.Count; i++)
+		{
+			RtsUnitMember unit = validUnits[i];
+			if (unit == null)
+				continue;
+
+			UnitVision vision = unit.GetComponent<UnitVision>();
+			if (vision != null)
+				vision.ClearVisibleTargetAndWaitForNextScan();
+
+			Vector3 toPoint = _worldPoint - unit.transform.position;
+			toPoint.y = 0f;
+			float angle = Mathf.Atan2(toPoint.x, toPoint.z) * Mathf.Rad2Deg;
+			float stagger = isGroup ? ResolveUnitGroupCommandStaggerDelay(unit) : 0f;
+			unit.IssueInPlaceFacingOrder(angle, RtsUnitMember.FacingArrowMode.TurnOverDistance, stagger, _showFacingIndicator: true);
+		}
+	}
+
+	private void SetPriorityTarget(Transform _target)
+	{
+		if (_target == null)
+		{
+			ClearPriorityTarget();
+			return;
+		}
+
+		Transform previous = m_PriorityTargetTransform;
+		m_PriorityTargetTransform = _target;
+
+		if (previous != null && previous != _target)
+			DestroyPriorityTargetMarker();
+
+		CreatePriorityTargetMarker();
+
+		ApplyPriorityTargetToSelectedUnits();
+	}
+
+	private void ClearPriorityTarget()
+	{
+		if (m_PriorityTargetTransform != null)
+		{
+			ClearPriorityTargetFromSelectedUnits();
+			DestroyPriorityTargetMarker();
+			m_PriorityTargetTransform = null;
+		}
+	}
+
+	private void CreatePriorityTargetMarker()
+	{
+		if (m_PriorityTargetTransform == null)
+			return;
+
+		DestroyPriorityTargetMarker();
+
+		m_PriorityTargetMarker = m_DestinationMarkerPrefab != null
+			? Instantiate(m_DestinationMarkerPrefab)
+			: null;
+
+		if (m_PriorityTargetMarker == null)
+		{
+			m_PriorityTargetMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+			m_PriorityTargetMarker.name = "PriorityTargetMarker";
+			m_PriorityTargetMarker.transform.localScale = new Vector3(0.55f, 0.02f, 0.55f);
+			Renderer renderer = m_PriorityTargetMarker.GetComponent<Renderer>();
+			if (renderer != null)
+			{
+				renderer.material = new Material(Shader.Find("Sprites/Default"));
+				renderer.material.color = new Color(1f, 0.12f, 0.08f, 0.9f);
+			}
+		}
+
+		Collider[] colliders = m_PriorityTargetMarker.GetComponentsInChildren<Collider>();
+		for (int i = 0; i < colliders.Length; i++)
+			Destroy(colliders[i]);
+
+		UpdatePriorityTargetMarkerPosition();
+	}
+
+	private void UpdatePriorityTargetMarkerPosition()
+	{
+		if (m_PriorityTargetTransform == null || m_PriorityTargetMarker == null)
+			return;
+
+		m_PriorityTargetMarker.transform.position =
+			m_PriorityTargetTransform.position + Vector3.up * 2.5f;
+	}
+
+	private void UpdatePriorityTargetMarkerIfNeeded()
+	{
+		if (m_PriorityTargetTransform == null ||
+		    m_PriorityTargetTransform.gameObject == null)
+		{
+			ClearPriorityTarget();
+			return;
+		}
+
+		UpdatePriorityTargetMarkerPosition();
+	}
+
+	private void DestroyPriorityTargetMarker()
+	{
+		if (m_PriorityTargetMarker != null)
+		{
+			Destroy(m_PriorityTargetMarker);
+			m_PriorityTargetMarker = null;
+		}
+	}
+
+	private void ApplyPriorityTargetToSelectedUnits()
+	{
+		if (m_PriorityTargetTransform == null)
+			return;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			UnitVision vision = unit.GetComponent<UnitVision>();
+			if (vision != null)
+			{
+				vision.ForcedPriorityTarget = m_PriorityTargetTransform;
+				vision.ClearVisibleTargetAndWaitForNextScan();
+				vision.RequestImmediateScan();
+			}
+		}
+	}
+
+	private void ClearPriorityTargetFromSelectedUnits()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			UnitVision vision = unit.GetComponent<UnitVision>();
+			if (vision != null)
+				vision.ForcedPriorityTarget = null;
+		}
+	}
+
+	private void RefreshPriorityTargetOnSelectionChange()
+	{
+		if (m_PriorityTargetTransform != null)
+			ApplyPriorityTargetToSelectedUnits();
+	}
+
+	private static bool IsEnemyUnit(RtsUnitMember _unit)
+	{
+		if (_unit == null)
+			return false;
+
+		UnitTeam unitTeam = _unit.GetComponent<UnitTeam>();
+		return unitTeam != null && unitTeam.Team == UnitTeamId.Enemy;
 	}
 
 	private void HandleGrenadeThrowInput()

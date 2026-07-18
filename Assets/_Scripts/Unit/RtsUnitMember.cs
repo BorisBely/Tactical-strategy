@@ -59,7 +59,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField, Range(2, 24)] private int m_CornerSmoothingMaxSamples = 12;
 	[SerializeField, Min(0.1f)] private float m_CornerSmoothingNavMeshSampleRadius = 1.5f;
 	[SerializeField] private bool m_EnableCornerSmoothingMovement;
-	[SerializeField, Min(0.2f)] private float m_ContinuousRouteLookaheadDistance = 1.25f;
+	[SerializeField, Min(0.2f)] private float m_ContinuousRouteLookaheadDistance = 0.6f;
 	[Header("Segment Facing (ПКМ по отрезку маршрута)")]
 	[SerializeField, Min(0.5f)] private float m_FacingTurnOverDistance = 5f;
 
@@ -130,6 +130,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 		LookAtPoint,
 		/// <summary>Поворот на месте только после полной остановки в точке назначения.</summary>
 		TurnOnArrival,
+	}
+
+	public enum ArrowPriorityPhase
+	{
+		None,
+		Pause,
+		YellowDeferred,
+		BlueGreenHold,
 	}
 
 	public readonly struct WaitPointDescriptor
@@ -235,6 +243,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private const float FacingArrowActivationDistance = 1.5f;
 	private const float c_FacingArrowShaftStartOffset = 0.15f;
 	private const float c_FacingArrowFixedLength = 2f;
+	private const float c_FacingArrowMinSpacing = 0.3f;
+	private const float c_FacingArrowSnapRadius = 0.15f;
+	private static bool s_EnableArrowSpacingConstraint = true;
+
+	private ArrowPriorityPhase m_ArrowPriorityPhase;
+	private float m_ArrowPauseEndTime;
+	private float m_YellowRememberedAngle;
+	private Vector3 m_YellowArrowWorldPos;
+	private FacingArrowMode m_ActiveArrowPriorityMode;
+	private UnitVision m_CachedVision;
+	private float? m_SavedDirectionBeforePause;
+	private bool m_IsReturningToScannedDirection;
+	private const float c_ArrowDirectionScanHalfAngle = 30f;
+	private const float c_YellowArrowMaxWanderDistance = 5f;
+	private FacingArrow? m_PersistentFacingIndicator;
+	private Color m_PersistentFacingIndicatorColor;
+	private Coroutine m_FacingIndicatorClearCoroutine;
 	#endregion
 
 	#region Public Properties
@@ -459,6 +484,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UpdatePathLinePosition();
 		UpdateActiveFacingArrows();
 		UpdateFacingTurn();
+		UpdateArrowPriority();
 		SyncFacingArrows();
 		UpdateFacingArrows();
 		UpdateRouteMarchEngaged();
@@ -502,7 +528,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!agent.hasPath)
 			return;
 
-		float advanceDistance = isIntermediate ? m_ContinuousRouteLookaheadDistance : 0.5f;
+		float advanceDistance = isIntermediate ? m_ContinuousRouteLookaheadDistance : 0.2f;
 		if (agent.remainingDistance > advanceDistance)
 			return;
 
@@ -775,6 +801,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_RosterDisplay = UnitRosterDisplayState.GetOrCreate(gameObject);
 			EnsureSelectionNameLabel();
 			RefreshSelectionNameLabel();
+			MarkFacingArrowsDirty();
 		}
 
 		if (m_PathLine != null)
@@ -1350,6 +1377,77 @@ public sealed class RtsUnitMember : MonoBehaviour
 					arrow.HasLookPoint));
 			}
 		}
+	}
+
+	public bool TryAdjustPointForFacingArrowSpacing(int _segmentIndex, ref Vector3 _worldPoint)
+	{
+		if (!s_EnableArrowSpacingConstraint)
+			return false;
+
+		bool adjusted = false;
+		Vector3 bestAdjusted = _worldPoint;
+		float bestDistSqr = float.MaxValue;
+
+		if (m_HasActiveDestination && _segmentIndex == 0 && m_ActiveFacingArrows != null)
+		{
+			for (int i = 0; i < m_ActiveFacingArrows.Count; i++)
+			{
+				Vector3 anchor = ResolveFacingArrowAnchor(m_ActiveFacingArrows[i], _isActiveSegment: true);
+				if (ComputeFacingArrowExclusionAdjustment(anchor, _worldPoint, out Vector3 candidate, ref bestDistSqr))
+				{
+					bestAdjusted = candidate;
+					adjusted = true;
+				}
+			}
+		}
+
+		int commandIndex = m_HasActiveDestination ? _segmentIndex - 1 : _segmentIndex;
+		if (commandIndex >= 0 && commandIndex < m_CommandQueue.Count)
+		{
+			List<FacingArrow> arrows = m_CommandQueue[commandIndex].FacingArrows;
+			if (arrows != null)
+			{
+				for (int i = 0; i < arrows.Count; i++)
+				{
+					Vector3 anchor = ResolveFacingArrowAnchor(arrows[i]);
+					if (ComputeFacingArrowExclusionAdjustment(anchor, _worldPoint, out Vector3 candidate, ref bestDistSqr))
+					{
+						bestAdjusted = candidate;
+						adjusted = true;
+					}
+				}
+			}
+		}
+
+		if (adjusted)
+			_worldPoint = bestAdjusted;
+
+		return adjusted;
+	}
+
+	private bool ComputeFacingArrowExclusionAdjustment(Vector3 _arrowAnchor, Vector3 _cursorPoint, out Vector3 _adjusted, ref float _bestDistSqr)
+	{
+		_adjusted = _cursorPoint;
+		Vector3 toCursor = _cursorPoint - _arrowAnchor;
+		toCursor.y = 0f;
+		float dist = toCursor.magnitude;
+
+		if (dist >= c_FacingArrowMinSpacing)
+			return false;
+
+		Vector3 dir = dist > 0.001f ? toCursor / dist : Vector3.forward;
+
+		if (dist < c_FacingArrowSnapRadius)
+			_adjusted = _arrowAnchor;
+		else
+			_adjusted = _arrowAnchor + dir * c_FacingArrowMinSpacing;
+
+		float sqrDist = (_adjusted - _cursorPoint).sqrMagnitude;
+		if (sqrDist >= _bestDistSqr)
+			return false;
+
+		_bestDistSqr = sqrDist;
+		return true;
 	}
 
 	public bool TryRemoveFacingArrow(int _segmentIndex, int _arrowIndex)
@@ -2069,12 +2167,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_ActiveFacingArrows = new List<FacingArrow>();
 		
 		m_ActiveFacingArrows.Add(_arrow);
-		
+
 		if (_arrow.ForceReadyOnActivation &&
 		    m_ReadyHands != null &&
 		    m_ReadyHands.IsWeaponEquipped() &&
 		    !m_ReadyHands.WantsReady)
 			m_ReadyHands.SetReadyWanted(true, false);
+
+		MarkFacingArrowsDirty();
 
 		if (_arrow.ActivateAtSegmentStart && m_HasActiveDestination)
 			TryActivateSegmentStartFacingArrows();
@@ -2101,6 +2201,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 		m_HasActiveDestination = false;
 		m_HasWantedFacing = false;
+		m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+		m_SavedDirectionBeforePause = null;
+		m_IsReturningToScannedDirection = false;
+		ClearFacingIndicator();
 		ClearFacingOverride();
 		ClearFormationSync();
 		ClearPendingFormationSlotArrivalYaw();
@@ -2187,10 +2291,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public void IssueInPlaceFacingOrder(
 		float _angle,
 		FacingArrowMode _mode = FacingArrowMode.TurnOverDistance,
-		float _groupStaggerDelaySeconds = 0f)
+		float _groupStaggerDelaySeconds = 0f,
+		bool _showFacingIndicator = false)
 	{
 		ScheduleRtsCommand(() =>
 		{
+			m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+			m_SavedDirectionBeforePause = null;
+			m_IsReturningToScannedDirection = false;
+			ClearFacingIndicator();
 			ClearFacingTurn();
 			ClearSmoothingArcState();
 			ClearRouteWaitState();
@@ -2211,6 +2320,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_LocomotionDriver.HardStop();
 
 			SetWantedFacingAngle(_angle);
+			if (_showFacingIndicator)
+				SetFacingIndicator(_angle, s_FacingArrowColor);
 		}, _groupStaggerDelaySeconds);
 	}
 
@@ -2218,6 +2329,52 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public bool AllowsInMovementManualFacingOverride =>
 		m_IsInFacingTurn && IsInMovementManualFacingMode(m_FacingTurnMode);
+
+	[System.Obsolete("Use CurrentArrowPriorityPhase instead.")]
+	public bool IsBlueGreenHolding => m_ArrowPriorityPhase == ArrowPriorityPhase.BlueGreenHold;
+
+	public ArrowPriorityPhase CurrentArrowPriorityPhase => m_ArrowPriorityPhase;
+
+	public bool IsReturningToSavedTarget => m_IsReturningToScannedDirection;
+
+	public void SetFacingIndicator(float _angle, Color _color)
+	{
+		if (m_FacingIndicatorClearCoroutine != null)
+			StopCoroutine(m_FacingIndicatorClearCoroutine);
+
+		m_PersistentFacingIndicator = new FacingArrow
+		{
+			Angle = _angle,
+			Mode = FacingArrowMode.TurnOverDistance,
+		};
+		m_PersistentFacingIndicatorColor = _color;
+		MarkFacingArrowsDirty();
+		m_FacingIndicatorClearCoroutine = StartCoroutine(ClearFacingIndicatorAfter(2f));
+	}
+
+	public void ClearFacingIndicator()
+	{
+		if (m_FacingIndicatorClearCoroutine != null)
+		{
+			StopCoroutine(m_FacingIndicatorClearCoroutine);
+			m_FacingIndicatorClearCoroutine = null;
+		}
+		m_PersistentFacingIndicator = null;
+		MarkFacingArrowsDirty();
+	}
+
+	private System.Collections.IEnumerator ClearFacingIndicatorAfter(float _seconds)
+	{
+		yield return new WaitForSeconds(_seconds);
+		m_PersistentFacingIndicator = null;
+		m_FacingIndicatorClearCoroutine = null;
+		MarkFacingArrowsDirty();
+	}
+
+	public float? YellowRememberedAngle =>
+		m_ArrowPriorityPhase == ArrowPriorityPhase.YellowDeferred ? m_YellowRememberedAngle : (float?)null;
+
+	public Vector3 YellowArrowWorldPos => m_YellowArrowWorldPos;
 
 	public bool IsActiveRunOrSprintMovement
 	{
@@ -2834,7 +2991,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (!m_HasActiveDestination || m_Waypoints.Count == 0)
 				return true;
 
-			return IsNearDestination(transform.position, m_Waypoints[0], 0.5f);
+			return IsNearDestination(transform.position, m_Waypoints[0], 0.2f);
 		}
 
 		if (float.IsPositiveInfinity(_agent.remainingDistance) || _agent.remainingDistance > 0.2f)
@@ -2843,7 +3000,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_Waypoints.Count == 0)
 			return true;
 
-		return IsNearDestination(transform.position, m_Waypoints[0], 0.5f);
+		return IsNearDestination(transform.position, m_Waypoints[0], 0.2f);
 	}
 
 	private void UpdateRouteMarchEngaged()
@@ -3011,6 +3168,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		if (closestDist <= FacingArrowActivationDistance)
 		{
+			if (m_ArrowPriorityPhase == ArrowPriorityPhase.BlueGreenHold)
+				return;
+
 			FacingArrow arrow = m_ActiveFacingArrows[closestIndex];
 
 			if (m_ReadyHands != null &&
@@ -3018,7 +3178,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			    !m_ReadyHands.WantsReady)
 				m_ReadyHands.SetReadyWanted(true, false);
 
-			m_ActiveFacingArrows.RemoveAt(closestIndex);
+			if (arrow.Mode == FacingArrowMode.TurnOverDistance)
+				m_ActiveFacingArrows.RemoveAt(closestIndex);
 
 			if (IsRunOrSprintMoveTier(m_ActiveMoveTier))
 				TransitionActiveMovementToWalk();
@@ -3035,6 +3196,32 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void StartFacingTurn(FacingArrow _arrow, Vector3 _unitPos, bool _isActiveSegment = false)
 	{
+		ResolveCachedVision();
+		m_SavedDirectionBeforePause = null;
+		if (m_CachedVision != null && m_CachedVision.VisibleTarget != null)
+		{
+			Vector3 toTarget = m_CachedVision.VisibleTarget.position - transform.position;
+			toTarget.y = 0f;
+			if (toTarget.sqrMagnitude > 0.01f)
+				m_SavedDirectionBeforePause = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+		}
+		m_IsReturningToScannedDirection = false;
+
+		if (_arrow.Mode == FacingArrowMode.HoldToEnd || _arrow.Mode == FacingArrowMode.LookAtPoint)
+		{
+			m_PersistentFacingIndicator = _arrow;
+			m_PersistentFacingIndicatorColor = GetFacingArrowColor(_arrow.Mode);
+		}
+
+		float pauseDuration = GetArrowPauseDuration();
+		m_ArrowPriorityPhase = ArrowPriorityPhase.Pause;
+		m_ArrowPauseEndTime = Time.time + pauseDuration;
+		m_ActiveArrowPriorityMode = _arrow.Mode;
+		m_YellowRememberedAngle = 0f;
+		m_YellowArrowWorldPos = _unitPos;
+
+		m_CachedVision?.RequestImmediateScan();
+
 		switch (_arrow.Mode)
 		{
 			case FacingArrowMode.TurnOverDistance:
@@ -3195,7 +3382,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		if (!m_HasActiveDestination && !IsExecutingMoveOrder())
+		if (!m_HasActiveDestination && !IsExecutingMoveOrder() &&
+		    m_ArrowPriorityPhase != ArrowPriorityPhase.Pause &&
+		    m_ArrowPriorityPhase != ArrowPriorityPhase.YellowDeferred &&
+		    m_ArrowPriorityPhase != ArrowPriorityPhase.BlueGreenHold)
 		{
 			ClearFacingTurn(ShouldPreserveHeadingOnLegArrival());
 			return;
@@ -3241,10 +3431,255 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 	}
 
+	private void UpdateArrowPriority()
+	{
+		if (m_ArrowPriorityPhase == ArrowPriorityPhase.None)
+			return;
+
+		switch (m_ArrowPriorityPhase)
+		{
+			case ArrowPriorityPhase.Pause:
+				UpdateArrowPausePhase();
+				break;
+
+			case ArrowPriorityPhase.YellowDeferred:
+				UpdateYellowDeferredPhase();
+				break;
+
+			case ArrowPriorityPhase.BlueGreenHold:
+				UpdateBlueGreenHoldPhase();
+				break;
+		}
+	}
+
+	private void UpdateArrowPausePhase()
+	{
+		if (Time.time >= m_ArrowPauseEndTime)
+		{
+			ResolveCachedVision();
+			bool hasTargetDir = TryFindTargetInArrowSector(out Transform _);
+
+			if (hasTargetDir)
+			{
+				if (m_ActiveArrowPriorityMode == FacingArrowMode.TurnOverDistance)
+				{
+					m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+					m_SavedDirectionBeforePause = null;
+					m_IsReturningToScannedDirection = false;
+				}
+				else
+				{
+					EnterBlueGreenHold();
+				}
+				return;
+			}
+
+			if (m_ActiveArrowPriorityMode == FacingArrowMode.TurnOverDistance)
+			{
+				float savedAngle = GetCurrentArrowDirectionAngle();
+				m_YellowRememberedAngle = savedAngle;
+				m_ArrowPriorityPhase = ArrowPriorityPhase.YellowDeferred;
+				m_IsInFacingTurn = false;
+				ClearFacingOverride();
+
+				if (m_SavedDirectionBeforePause.HasValue)
+				{
+					m_IsReturningToScannedDirection = true;
+					ApplyLocomotionFacingOverride(
+						m_SavedDirectionBeforePause.Value,
+						"YellowDeferred.returnToDirection");
+					m_CachedVision?.RequestImmediateScan();
+				}
+			}
+			else
+			{
+				EnterBlueGreenHold();
+			}
+
+			return;
+		}
+
+		if (ResolveCachedVision() != null)
+		{
+			if (TryFindTargetInArrowSector(out Transform sectorTarget))
+			{
+				if (m_CachedVision.VisibleTarget != sectorTarget)
+					m_CachedVision.RequestImmediateScan();
+				m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+			}
+		}
+	}
+
+	private void UpdateYellowDeferredPhase()
+	{
+		if (!IsNearYellowArrowPosition())
+		{
+			m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+			m_YellowRememberedAngle = 0f;
+			m_SavedDirectionBeforePause = null;
+			m_IsReturningToScannedDirection = false;
+			return;
+		}
+
+		ResolveCachedVision();
+		bool hasTarget = m_CachedVision != null && m_CachedVision.VisibleTarget != null;
+
+		if (hasTarget)
+		{
+			m_SavedDirectionBeforePause = null;
+			m_IsReturningToScannedDirection = false;
+			return;
+		}
+
+		if (!hasTarget)
+		{
+			if (!HasActiveMovementIntent)
+			{
+				ApplyLocomotionFacingOverride(m_YellowRememberedAngle, "YellowDeferred.return");
+			}
+			m_YellowRememberedAngle = 0f;
+			m_ArrowPriorityPhase = ArrowPriorityPhase.None;
+			m_IsInFacingTurn = false;
+			m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
+			m_HasWantedFacing = false;
+			m_SavedDirectionBeforePause = null;
+			m_IsReturningToScannedDirection = false;
+		}
+	}
+
+	private void UpdateBlueGreenHoldPhase()
+	{
+		if (m_FacingTurnMode != FacingArrowMode.HoldToEnd &&
+		    m_FacingTurnMode != FacingArrowMode.LookAtPoint)
+			return;
+
+		Vector3 unitPos = transform.position;
+		ResolveCachedVision();
+		float halfFov = m_CachedVision != null
+			? m_CachedVision.ResolveHalfFovDegreesForScan()
+			: 60f;
+
+		float centerAngle;
+		if (m_FacingTurnMode == FacingArrowMode.LookAtPoint)
+		{
+			Vector3 toLook = m_FacingLookPoint - unitPos;
+			toLook.y = 0f;
+			if (toLook.sqrMagnitude < 0.01f)
+				return;
+			centerAngle = Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg;
+		}
+		else
+		{
+			centerAngle = m_FacingTurnTargetAngle;
+		}
+
+		bool hasTarget = m_CachedVision != null && m_CachedVision.VisibleTarget != null;
+
+		if (hasTarget)
+		{
+			Vector3 toTarget = m_CachedVision.VisibleTarget.position - unitPos;
+			toTarget.y = 0f;
+			if (toTarget.sqrMagnitude > 0.01f)
+			{
+				float targetAngle = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+				float delta = Mathf.DeltaAngle(centerAngle, targetAngle);
+
+				if (m_FacingTurnMode == FacingArrowMode.LookAtPoint &&
+				    Mathf.Abs(delta) > halfFov)
+				{
+					ApplyLocomotionFacingOverride(centerAngle, "BlueGreenHold.lookCenter");
+				}
+				else
+				{
+					ApplyLocomotionFacingOverride(targetAngle, "BlueGreenHold.lookTarget");
+				}
+			}
+		}
+		else
+		{
+			ApplyLocomotionFacingOverride(centerAngle, "BlueGreenHold.lookCenter");
+		}
+	}
+
+	private void EnterBlueGreenHold()
+	{
+		m_ArrowPriorityPhase = ArrowPriorityPhase.BlueGreenHold;
+		MarkFacingArrowsDirty();
+	}
+
+	private bool TryFindTargetInArrowSector(out Transform _target)
+	{
+		_target = null;
+		if (m_CachedVision == null)
+			return false;
+
+		float directionAngle = GetCurrentArrowDirectionAngle();
+
+		return m_CachedVision.TryFindTargetInDirection(
+			directionAngle,
+			c_ArrowDirectionScanHalfAngle,
+			out _target);
+	}
+
+	private float GetCurrentArrowDirectionAngle()
+	{
+		if (m_FacingTurnMode == FacingArrowMode.LookAtPoint)
+		{
+			Vector3 toLook = m_FacingLookPoint - transform.position;
+			toLook.y = 0f;
+			if (toLook.sqrMagnitude > 0.01f)
+				return Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg;
+			return m_FacingTurnTargetAngle;
+		}
+
+		return m_FacingTurnTargetAngle;
+	}
+
+	private UnitVision ResolveCachedVision()
+	{
+		if (m_CachedVision == null)
+			m_CachedVision = GetComponent<UnitVision>();
+		return m_CachedVision;
+	}
+
+	private float GetArrowPauseDuration()
+	{
+		if (m_CombatStats == null)
+			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_CombatStats == null)
+			return 0.6f;
+
+		UnitCombatRankDefinition rankPreset = m_CombatStats.RankPreset;
+		if (rankPreset == null)
+			return 0.6f;
+
+		float marksmanship = m_CombatStats.Marksmanship;
+		if (marksmanship >= 90f) return 0.2f;
+		if (marksmanship >= 75f) return 0.4f;
+		if (marksmanship >= 60f) return 0.6f;
+		if (marksmanship >= 45f) return 0.8f;
+		return 1.0f;
+	}
+
+	private bool IsNearYellowArrowPosition()
+	{
+		float dx = transform.position.x - m_YellowArrowWorldPos.x;
+		float dz = transform.position.z - m_YellowArrowWorldPos.z;
+		return dx * dx + dz * dz <= c_YellowArrowMaxWanderDistance * c_YellowArrowMaxWanderDistance;
+	}
+
 	private void ClearFacingTurn(bool _preserveHeadingOnArrival = false)
 	{
 		m_IsInFacingTurn = false;
 		m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
+
+		if (m_ArrowPriorityPhase == ArrowPriorityPhase.BlueGreenHold ||
+		    m_ArrowPriorityPhase == ArrowPriorityPhase.Pause)
+		{
+			ApplyLocomotionFacingOverride(m_FacingTurnTargetAngle, "FacingTurn.priorityPreserve");
+			return;
+		}
+
 		if (_preserveHeadingOnArrival)
 			ApplyLocomotionFacingOverride(m_FacingTurnTargetAngle, "FacingTurn.arrivalPreserve");
 		else
@@ -3369,12 +3804,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private bool ShouldPersistFacingTurnAcrossQueuedCommand()
 	{
 		return m_IsInFacingTurn &&
-		       m_FacingTurnMode == FacingArrowMode.LookAtPoint;
+		       (m_FacingTurnMode == FacingArrowMode.LookAtPoint ||
+		        m_ArrowPriorityPhase == ArrowPriorityPhase.BlueGreenHold);
 	}
 
 	private bool ShouldClearFacingOnLegArrival()
 	{
 		if (m_IsRotatingToFacing)
+			return false;
+
+		if (m_ArrowPriorityPhase == ArrowPriorityPhase.BlueGreenHold)
 			return false;
 
 		if (m_IsInFacingTurn)
@@ -3422,6 +3861,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 			for (int arrowIndex = 0; arrowIndex < m_CommandQueue[commandIndex].FacingArrows.Count; arrowIndex++)
 				CreateFacingArrowVisual(_isActiveSegment: false, commandIndex, arrowIndex);
+		}
+
+		if (m_PersistentFacingIndicator.HasValue)
+		{
+			CreatePersistentFacingArrowVisual(m_PersistentFacingIndicator.Value, m_PersistentFacingIndicatorColor);
 		}
 	}
 
@@ -3482,6 +3926,45 @@ public sealed class RtsUnitMember : MonoBehaviour
 			ArrowIndex = _arrowIndex,
 		});
 	}
+	private void CreatePersistentFacingArrowVisual(FacingArrow _arrow, Color _color)
+	{
+		if (s_PathLineMaterial == null)
+			return;
+
+		Vector3 anchor = transform.position;
+		Vector3 lookPoint = _arrow.HasLookPoint
+			? ResolveFacingArrowLookPoint(_arrow, _isActiveSegment: false)
+			: Vector3.zero;
+		GetFacingArrowShaftEndpoints(
+			anchor,
+			_arrow.Angle,
+			_arrow.Mode,
+			lookPoint,
+			_arrow.HasLookPoint,
+			out Vector3 shaftStart,
+			out Vector3 shaftEnd);
+
+		GameObject go = new GameObject("FacingArrow.Persistent");
+		go.transform.SetParent(transform, false);
+		LineRenderer lr = go.AddComponent<LineRenderer>();
+		lr.positionCount = 2;
+		lr.startWidth = 0.02f;
+		lr.endWidth = 0.02f;
+		lr.sharedMaterial = s_PathLineMaterial;
+		lr.startColor = _color;
+		lr.endColor = _color;
+		lr.enabled = m_IsSelected;
+		lr.SetPosition(0, shaftStart);
+		lr.SetPosition(1, shaftEnd);
+
+		m_FacingArrowVisuals.Add(new FacingArrowVisualSource
+		{
+			Line = lr,
+			IsActiveSegment = false,
+			CommandIndex = -1,
+			ArrowIndex = -1,
+		});
+	}
 
 	private static Color GetFacingArrowColor(FacingArrowMode _mode)
 	{
@@ -3501,6 +3984,30 @@ public sealed class RtsUnitMember : MonoBehaviour
 			LineRenderer line = source.Line;
 			if (line == null)
 				continue;
+
+			if (source.CommandIndex < 0 && m_PersistentFacingIndicator.HasValue)
+			{
+				line.enabled = m_IsSelected;
+				FacingArrow pa = m_PersistentFacingIndicator.Value;
+				Vector3 paAnchor = transform.position;
+				Vector3 paLook = pa.HasLookPoint
+					? ResolveFacingArrowLookPoint(pa, _isActiveSegment: false)
+					: Vector3.zero;
+				GetFacingArrowShaftEndpoints(
+					paAnchor,
+					pa.Angle,
+					pa.Mode,
+					paLook,
+					pa.HasLookPoint,
+					out Vector3 paShaftStart,
+					out Vector3 paShaftEnd);
+				line.startColor = m_PersistentFacingIndicatorColor;
+				line.endColor = m_PersistentFacingIndicatorColor;
+				line.SetPosition(0, paShaftStart);
+				line.SetPosition(1, paShaftEnd);
+				continue;
+			}
+
 			if (!TryGetFacingArrow(source.IsActiveSegment, source.CommandIndex, source.ArrowIndex, out FacingArrow arrow))
 				continue;
 
