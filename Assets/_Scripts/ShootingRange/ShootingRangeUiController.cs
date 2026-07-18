@@ -119,28 +119,26 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	#region Private Methods
 	private void BuildUiIfNeeded()
 	{
-		if (m_Built)
+		if (m_Built && m_PanelRoot != null)
 			return;
-
-		m_Built = true;
 
 		if (m_PanelRoot == null)
 		{
-			Canvas canvas = FindSceneCanvas();
-			if (canvas == null)
-				return;
-
-			if (canvas.GetComponent<GraphicRaycaster>() == null)
-				canvas.gameObject.AddComponent<GraphicRaycaster>();
-
-			GameObject panelGo = new GameObject("ShootingRangePanel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-			panelGo.transform.SetParent(canvas.transform, false);
-			m_PanelRoot = panelGo.GetComponent<RectTransform>();
-
-			Canvas panelCanvas = panelGo.AddComponent<Canvas>();
+			GameObject canvasGo = new GameObject("ShootingRangeCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+			canvasGo.transform.SetParent(null);
+			Canvas panelCanvas = canvasGo.GetComponent<Canvas>();
+			panelCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
 			panelCanvas.overrideSorting = true;
 			panelCanvas.sortingOrder = c_PanelCanvasSortingOrder;
-			panelGo.AddComponent<GraphicRaycaster>();
+			CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+			scaler.referenceResolution = new Vector2(2560f, 1440f);
+			scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+			scaler.matchWidthOrHeight = 0f;
+
+			GameObject panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+			panelGo.transform.SetParent(canvasGo.transform, false);
+			m_PanelRoot = panelGo.GetComponent<RectTransform>();
 			m_PanelRoot.anchorMin = new Vector2(1f, 1f);
 			m_PanelRoot.anchorMax = new Vector2(1f, 1f);
 			m_PanelRoot.pivot = new Vector2(1f, 1f);
@@ -171,6 +169,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 			CreateInjuryDebugButtonsGrid(m_PanelRoot);
 			m_TargetListRoot = CreateScrollList(m_PanelRoot);
 		}
+
+		m_Built = true;
 
 		if (m_Manager != null && m_TargetListRoot != null)
 			BuildTargetRows();
@@ -754,23 +754,6 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		TextMeshProUGUI tmp = _button.GetComponentInChildren<TextMeshProUGUI>();
 		if (tmp != null)
 			tmp.text = _label;
-	}
-
-	private static Canvas FindSceneCanvas()
-	{
-#if UNITY_2023_1_OR_NEWER
-		Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-#else
-		Canvas[] canvases = FindObjectsOfType<Canvas>();
-#endif
-		for (int i = 0; i < canvases.Length; i++)
-		{
-			Canvas canvas = canvases[i];
-			if (canvas != null && canvas.isRootCanvas && canvas.renderMode != RenderMode.WorldSpace)
-				return canvas;
-		}
-
-		return canvases.Length > 0 ? canvases[0] : null;
 	}
 
 	private void ClearTargetRows()

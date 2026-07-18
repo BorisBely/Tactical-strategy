@@ -31,6 +31,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitRagdollController m_RagdollController;
 	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private RtsUnitMember m_RtsMember;
 
 	[Header("Условия прицела")]
 	[Tooltip("Only in high ready with a visible target; otherwise AimPitch and the layer go to zero.")]
@@ -153,6 +156,12 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_RagdollController = GetComponent<UnitRagdollController>();
 		if (m_GrenadeThrowController == null)
 			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_RtsMember == null)
+			m_RtsMember = GetComponent<RtsUnitMember>();
 
 		ResolveAimLayerIndices();
 	}
@@ -321,6 +330,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (!m_AlignBarrelToBodyWhenReadyNoTarget || !m_EnableWeaponModelAimCorrection)
 			return false;
 
+		if (IsManualBarrelFacingOverrideActive())
+			return false;
+
 		bool ready = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
 		if (!ready)
 			return false;
@@ -353,6 +365,26 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (m_BlockCombatAimDuringReload &&
 		    m_ReloadController != null &&
 		    m_ReloadController.IsReloadBusy)
+			return true;
+
+		return false;
+	}
+
+	private bool IsManualBarrelFacingOverrideActive()
+	{
+		if (m_RtsMember == null)
+			m_RtsMember = GetComponent<RtsUnitMember>();
+		if (m_RtsMember != null && m_RtsMember.IsManualBarrelFacingActive)
+			return true;
+
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_ClickToMove != null && m_ClickToMove.OverrideFacingAngle.HasValue)
+			return true;
+
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_LocomotionDriver != null && m_LocomotionDriver.OverrideFacingAngle.HasValue)
 			return true;
 
 		return false;

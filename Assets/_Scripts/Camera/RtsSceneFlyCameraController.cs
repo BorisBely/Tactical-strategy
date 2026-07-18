@@ -76,6 +76,10 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 
 	private bool CanLookWithRightMouse()
 	{
+		RtsUnitSelectionManager selection = RtsUnitSelectionManager.Instance;
+		if (selection != null && selection.ShouldSuppressCameraInput)
+			return false;
+
 		if (!HasSelectedUnits())
 			return true;
 
@@ -133,6 +137,10 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 
 	private void UpdateMove()
 	{
+		RtsUnitSelectionManager selection = RtsUnitSelectionManager.Instance;
+		if (selection != null && selection.ShouldSuppressCameraInput)
+			return;
+
 		Keyboard keyboard = Keyboard.current;
 		if (keyboard == null)
 			return;

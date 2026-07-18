@@ -49,6 +49,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
@@ -110,7 +111,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	[Header("Stopping")]
 	[Tooltip("Если от точки назначения осталось меньше этого расстояния и скорость почти ноль — принудительный стоп.")]
-	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.5f;
+	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.15f;
 
 	[Header("Animator playback sync")]
 	[Tooltip("Множитель Animator.speed ≈ (скорость тела / NavSpeed в blend tree). Компонент RtsUnitMember умножает свой вариационный speed на это значение.")]
@@ -139,6 +140,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	public float FormationSpeedMultiplier = 1f;
 	public float StaminaSpeedMultiplier = 1f;
 	public float? OverrideFacingAngle;
+	/// <summary>В high ready — world yaw линии огня (ствол); иначе yaw корня.</summary>
 	public bool SuppressEarlyArrivalStop { get; set; }
 	private bool m_StanceMovementWasBlocked;
 	private RtsUnitMember m_CachedRtsMember;
@@ -345,6 +347,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_GrenadeThrowController == null)
@@ -717,7 +721,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (ShouldApplyManualFacingOverride())
 		{
 			m_EngageYawVelocity = 0f;
-			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
+			float bodyYaw = ResolveHorizontalFacingBodyYaw(OverrideFacingAngle.Value);
+			Vector3 overrideDir = UnitHorizontalFacingUtility.YawDegreesToForwardXZ(bodyYaw);
 			ApplyFacingDirection(overrideDir);
 			return;
 		}
@@ -726,7 +731,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		{
 			m_EngageYawVelocity = 0f;
 			if (TryGetMovementFacingDirection(out Vector3 moveDirection))
+			{
 				ApplyFacingDirection(moveDirection);
+			}
 			return;
 		}
 
@@ -806,6 +813,16 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (!OverrideFacingAngle.HasValue)
 			return false;
 
+		if (m_CachedRtsMember != null)
+		{
+			RtsUnitMember.ArrowPriorityPhase phase = m_CachedRtsMember.CurrentArrowPriorityPhase;
+			if (phase == RtsUnitMember.ArrowPriorityPhase.Turning ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.BlueHold ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.GreenHold ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.YellowReturning)
+				return true;
+		}
+
 		// Цель всегда приоритетнее жёлтой стрелки: пока есть engage — крутим корень на цель.
 		// После потери/убийства цели OverrideFacingAngle остаётся и юнит возвращается к стрелке.
 		if (IsEngagingVisibleTarget())
@@ -851,6 +868,20 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
+	}
+
+	private float ResolveHorizontalFacingBodyYaw(float _desiredWorldYaw)
+	{
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+
+		return UnitHorizontalFacingUtility.ResolveHorizontalFacingBodyYaw(
+			transform,
+			m_Equipment,
+			m_ReadyHands,
+			_desiredWorldYaw);
 	}
 
 	private void PrimeAnimatorForMoveStart()

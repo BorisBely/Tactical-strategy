@@ -1,10 +1,14 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 [CustomEditor(typeof(UnitEquippedWeaponPoseRuntimeTuner))]
 public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 {
+	private static readonly HashSet<int> s_CollapsedGameObjects = new HashSet<int>();
+
 	private SerializedProperty m_UnitEquipment;
 	private SerializedProperty m_EquippedWeaponPose;
 	private SerializedProperty m_EnableRuntimeTuning;
@@ -40,6 +44,8 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		m_LeftNotReadyIkLocalEulerAngles = serializedObject.FindProperty("m_LeftNotReadyIkLocalEulerAngles");
 		m_LeftReadyIkLocalPosition = serializedObject.FindProperty("m_LeftReadyIkLocalPosition");
 		m_LeftReadyIkLocalEulerAngles = serializedObject.FindProperty("m_LeftReadyIkLocalEulerAngles");
+
+		CollapseOtherComponents();
 	}
 
 	public override void OnInspectorGUI()
@@ -142,6 +148,11 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			serializedObject.ApplyModifiedProperties();
 
 		EditorGUILayout.Space(6f);
+
+		if (GUILayout.Button("Collapse Other Components"))
+			CollapseOtherComponents();
+
+		EditorGUILayout.Space(3f);
 		var helpTuner = (UnitEquippedWeaponPoseRuntimeTuner)target;
 		string leftSaveNote = helpTuner.IsLeftHandIkDrivenByForegrip
 			? "• left hand IK: Save Left IK To Foregrip Prefab\n"
@@ -355,6 +366,29 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		}
 
 		return null;
+	}
+
+	private void CollapseOtherComponents()
+	{
+		Component tuner = target as Component;
+		if (tuner == null)
+			return;
+
+		GameObject go = tuner.gameObject;
+		int id = go.GetInstanceID();
+		s_CollapsedGameObjects.Add(id);
+
+		Component[] all = go.GetComponents<Component>();
+		foreach (Component c in all)
+		{
+			if (c == null || c == tuner || c is Transform)
+				continue;
+
+			InternalEditorUtility.SetIsInspectorExpanded(c, false);
+		}
+
+		InternalEditorUtility.SetIsInspectorExpanded(tuner, true);
+		ActiveEditorTracker.sharedTracker.ForceRebuild();
 	}
 }
 #endif

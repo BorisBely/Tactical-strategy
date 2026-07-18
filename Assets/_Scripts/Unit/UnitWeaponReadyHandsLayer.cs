@@ -279,6 +279,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		if (GetComponent<UnitProximityReadyController>() == null)
 			gameObject.AddComponent<UnitProximityReadyController>();
+
+		if (GetComponent<UnitEquippedWeaponPoseRuntimeTuner>() == null)
+			gameObject.AddComponent<UnitEquippedWeaponPoseRuntimeTuner>();
 	}
 
 	private void OnEnable()

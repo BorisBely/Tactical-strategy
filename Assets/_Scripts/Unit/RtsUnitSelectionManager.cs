@@ -46,8 +46,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(1)] private int m_DrawRouteMinWaypoints = 1;
 	[Tooltip("Дистанция (метры) для детекта стирания при обратном движении вдоль маршрута.")]
 	[SerializeField, Min(0.1f)] private float m_DrawRouteEraseDistance = 0.8f;
-	[Tooltip("Сколько последних точек пропускать при поиске стирания (защита от ложных срабатываний).")]
+	[Tooltip("Сколько последних точек пропускать при поиске стирания (защита от ложных срабатываний у кончика).")]
 	[SerializeField, Min(1)] private int m_DrawRouteEraseLookback = 3;
+	[Tooltip("Максимальная длина (метры) от конца линии, в которой ищется откат назад для стирания.")]
+	[SerializeField, Min(0.5f)] private float m_DrawRouteEraseBacktrackDistance = 8f;
 
 	[Header("Formation Spacing")]
 	[Tooltip("Базовый интервал между юнитами в формации (метры).")]
@@ -67,7 +69,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	[Header("Destination Markers")]
 	[SerializeField] private GameObject m_DestinationMarkerPrefab;
-	[SerializeField, Min(0.1f)] private float m_ClickMarkerLifetimeSeconds = 1f;
 	[Tooltip("Маркер вдоль пути (каждые N метров).")]
 	[SerializeField] private GameObject m_PathMarkerPrefab;
 
@@ -2261,77 +2262,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
-	private bool TryHandleLeftMouseGroundFacingCommand()
-	{
-		if (m_IsDraggingSelection)
-			return false;
-
-		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
-		if (validUnits.Count == 0)
-			return false;
-
-		bool shiftHeld = IsShiftHeld();
-		bool ctrlHeld = IsCtrlPressed();
-		if (!shiftHeld && !ctrlHeld)
-			return false;
-
-		Vector2 mousePosition = Mouse.current.position.ReadValue();
-		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
-
-		if (Physics.Raycast(ray, out RaycastHit unitHit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
-		{
-			RtsUnitMember clickedUnit = unitHit.collider.GetComponentInParent<RtsUnitMember>();
-			if (clickedUnit != null && clickedUnit.IsPlayerSelectable &&
-			    !MissionPrepSquadSpawner.IsMissionPrepPresentationMember(clickedUnit))
-				return false;
-		}
-
-		if (!Physics.Raycast(ray, out RaycastHit groundHit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore))
-			return false;
-
-		Vector3 lookPoint = groundHit.point;
-		SpawnShortLivedClickMarker(lookPoint);
-
-		bool isGroup = validUnits.Count >= 2;
-		for (int i = 0; i < validUnits.Count; i++)
-		{
-			RtsUnitMember unit = validUnits[i];
-			if (unit == null)
-				continue;
-
-			bool unitMoving = unit.HasActiveMovementIntent;
-			bool withReady = shiftHeld || unitMoving;
-			bool trackLookPoint = shiftHeld && unitMoving;
-			float stagger = isGroup ? ResolveUnitGroupCommandStaggerDelay(unit) : 0f;
-			unit.IssueGroundLookCommand(lookPoint, withReady, trackLookPoint, stagger);
-		}
-
-		return true;
-	}
-
-	private void SpawnShortLivedClickMarker(Vector3 _worldPoint)
-	{
-		GameObject marker = CreatePreviewDestinationMarker();
-		if (marker == null)
-			return;
-
-		marker.name = "GroundClickMarker";
-		marker.transform.position = _worldPoint + Vector3.up * 0.05f;
-
-		Collider collider = marker.GetComponent<Collider>();
-		if (collider != null)
-			Destroy(collider);
-
-		StartCoroutine(DestroyClickMarkerAfter(marker, m_ClickMarkerLifetimeSeconds));
-	}
-
-	private static IEnumerator DestroyClickMarkerAfter(GameObject _marker, float _seconds)
-	{
-		yield return new WaitForSeconds(Mathf.Max(0.1f, _seconds));
-		if (_marker != null)
-			Destroy(_marker);
-	}
-
 	private void HandleLeftMouseSelection()
 	{
 		if (Mouse.current == null || m_SelectionCamera == null)
@@ -2352,9 +2282,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Mouse.current.leftButton.wasPressedThisFrame)
 		{
-			if (TryBeginRouteDragOnPress())
-				return;
-
 			if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
 			{
 				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
@@ -2375,6 +2302,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return;
 			}
 
+			// Alt+LMB wait point must win over route-handle drag (handle appears after path hover).
 			if (IsAltHeld() && !IsPointerOverUi() && TryPlaceWaitPointFromRouteClick())
 			{
 				m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
@@ -2382,6 +2310,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				m_LeftMouseStartedOverUi = true;
 				return;
 			}
+
+			if (TryBeginRouteDragOnPress())
+				return;
 
 			if (!IsPointerOverUi() && TryDetectDrawRouteStart())
 			{
@@ -2477,13 +2408,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (m_LeftMouseStartedOverUi || IsPointerOverUi())
-		{
-			m_IsDraggingSelection = false;
-			m_LeftMouseStartedOverUi = false;
-			return;
-		}
-
-		if (TryHandleLeftMouseGroundFacingCommand())
 		{
 			m_IsDraggingSelection = false;
 			m_LeftMouseStartedOverUi = false;
@@ -2797,11 +2721,22 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsDraggingRoute)
 		{
+			ClearArrowHover();
 			UpdateRouteDrag();
 			return;
 		}
 
 		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+
+		if (TryPickFacingArrow(mouseScreen, out int arrowUnitIndex, out RtsUnitMember.FacingArrowDescriptor facingArrow))
+		{
+			ClearRouteEditMode();
+			ClearPathSegmentHover();
+			UpdateArrowHover(arrowUnitIndex, facingArrow);
+			return;
+		}
+
+		ClearArrowHover();
 
 		if (TryPickRouteEditTarget(
 			    mouseScreen,
@@ -2811,14 +2746,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			    out int routeVertexIndex,
 			    out Vector3 routeWorldPoint))
 		{
-			ClearArrowHover();
-
 			if (routeTargetKind == RouteEditTargetKind.SegmentPoint &&
 			    routeUnitIndex >= 0 && routeUnitIndex < m_SelectedUnits.Count)
 			{
 				RtsUnitMember hoveredUnit = m_SelectedUnits[routeUnitIndex];
 				if (hoveredUnit != null)
-					hoveredUnit.TryAdjustPointForFacingArrowSpacing(routeSegmentIndex, ref routeWorldPoint);
+					hoveredUnit.TryAdjustPointForFacingArrowSpacing(
+						routeSegmentIndex,
+						ref routeWorldPoint,
+						m_SelectionCamera);
 			}
 
 			if (m_IsRouteEditMode && m_HoveredUnitIndex == routeUnitIndex)
@@ -2865,16 +2801,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			return;
 		}
-
-		if (TryPickFacingArrow(mouseScreen, out int arrowUnitIndex, out RtsUnitMember.FacingArrowDescriptor facingArrow))
-		{
-			ClearRouteEditMode();
-			ClearPathSegmentHover();
-			UpdateArrowHover(arrowUnitIndex, facingArrow);
-			return;
-		}
-
-		ClearArrowHover();
 
 		if (m_IsRouteEditMode)
 		{
@@ -3191,6 +3117,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void ClearRouteEditMode()
 	{
+		ClearSelectedUnitsRoutePathVisualEditing();
 		m_IsRouteEditMode = false;
 		m_IsDraggingRoute = false;
 		m_RouteEditWaypointIndex = -1;
@@ -3199,6 +3126,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_RouteEditHandle != null)
 			m_RouteEditHandle.SetActive(false);
+	}
+
+	private void ClearSelectedUnitsRoutePathVisualEditing()
+	{
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+			m_SelectedUnits[i]?.SetRoutePathVisualEditing(false);
 	}
 
 	private void ClearPathSegmentHover()
@@ -3309,6 +3242,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Mouse.current == null || m_SelectionCamera == null)
 			return false;
 
+		if (IsAltHeld())
+			return false;
+
+		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+		if (TryPickFacingArrow(mouseScreen, out _, out _))
+			return false;
+
 		if (!m_IsRouteEditMode)
 		{
 			if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
@@ -3350,6 +3290,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			}
 		}
 
+		unit.SetRoutePathVisualEditing(true, m_RouteEditWaypointIndex);
+
+		ClearArrowHover();
 		m_IsDraggingRoute = true;
 		UpdateRouteDrag();
 		return true;
@@ -3397,6 +3340,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		int editedWaypointIndex = m_RouteEditWaypointIndex;
 		m_IsDraggingRoute = false;
 		m_RouteEditWaypointIndex = -1;
+		ClearSelectedUnitsRoutePathVisualEditing();
 
 		if (editedWaypointIndex < 0 ||
 		    m_HoveredUnitIndex < 0 ||
@@ -3469,19 +3413,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		Vector3 worldPoint = hit.point;
 
-		int eraseIndex = TryFindDrawRouteErasePoint(worldPoint);
-		if (eraseIndex >= 0)
-		{
-			int newCount = eraseIndex + 1;
-			if (newCount < m_DrawRoutePoints.Count)
-			{
-				m_DrawRoutePoints.RemoveRange(newCount, m_DrawRoutePoints.Count - newCount);
-				if (m_DrawRoutePoints.Count > 0)
-					m_LastDrawSamplePoint = m_DrawRoutePoints[m_DrawRoutePoints.Count - 1];
-				UpdateDrawRoutePreviewLine();
-			}
+		if (TryApplyDrawRouteErase(worldPoint))
 			return;
-		}
 
 		if (m_DrawRoutePoints.Count > 0)
 		{
@@ -3495,20 +3428,75 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UpdateDrawRoutePreviewLine();
 	}
 
+	private bool TryApplyDrawRouteErase(Vector3 _worldPoint)
+	{
+		int eraseIndex = TryFindDrawRouteErasePoint(_worldPoint);
+		if (eraseIndex < 0)
+			return false;
+
+		int newCount = eraseIndex + 1;
+		if (newCount < m_DrawRoutePoints.Count)
+		{
+			m_DrawRoutePoints.RemoveRange(newCount, m_DrawRoutePoints.Count - newCount);
+			if (m_DrawRoutePoints.Count > 0)
+				m_LastDrawSamplePoint = m_DrawRoutePoints[m_DrawRoutePoints.Count - 1];
+			UpdateDrawRoutePreviewLine();
+		}
+
+		return true;
+	}
+
 	private int TryFindDrawRouteErasePoint(Vector3 _worldPoint)
 	{
-		int searchTo = m_DrawRoutePoints.Count - m_DrawRouteEraseLookback;
-		if (searchTo <= 0)
+		int count = m_DrawRoutePoints.Count;
+		int lastSearchIndex = count - m_DrawRouteEraseLookback - 1;
+		if (lastSearchIndex < 0)
 			return -1;
 
 		float eraseDistSqr = m_DrawRouteEraseDistance * m_DrawRouteEraseDistance;
-		for (int i = 0; i < searchTo; i++)
+		float traveledFromTip = 0f;
+
+		for (int i = lastSearchIndex; i >= 0; i--)
 		{
+			if (i < lastSearchIndex)
+			{
+				traveledFromTip += Vector3.Distance(m_DrawRoutePoints[i + 1], m_DrawRoutePoints[i]);
+				if (traveledFromTip > m_DrawRouteEraseBacktrackDistance)
+					break;
+			}
+
 			if ((m_DrawRoutePoints[i] - _worldPoint).sqrMagnitude <= eraseDistSqr)
 				return i;
+
+			if (i < lastSearchIndex)
+			{
+				float segDistSqr = DistPointToSegmentSqrXZ(
+					_worldPoint,
+					m_DrawRoutePoints[i],
+					m_DrawRoutePoints[i + 1],
+					out _,
+					out float tOnSeg);
+				if (segDistSqr <= eraseDistSqr && tOnSeg <= 0.85f)
+					return i;
+			}
 		}
 
 		return -1;
+	}
+
+	private static float DistPointToSegmentSqrXZ(
+		Vector3 _point,
+		Vector3 _segmentStart,
+		Vector3 _segmentEnd,
+		out Vector3 _closest,
+		out float _t)
+	{
+		Vector2 point = new Vector2(_point.x, _point.z);
+		Vector2 segStart = new Vector2(_segmentStart.x, _segmentStart.z);
+		Vector2 segEnd = new Vector2(_segmentEnd.x, _segmentEnd.z);
+		float distSqr = DistPointToSegmentSqr(point, segStart, segEnd, out Vector2 closest2, out _t);
+		_closest = new Vector3(closest2.x, Mathf.Lerp(_segmentStart.y, _segmentEnd.y, _t), closest2.y);
+		return distSqr;
 	}
 
 	private void CommitDrawRoute()
@@ -3576,7 +3564,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 					null,
 					false,
 					0f,
-					null);
+					null,
+					_waitAtSegmentStart: altHeld && isFirstWaypoint);
 			}
 		}
 
@@ -3683,8 +3672,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_DrawRoutePreviewLine.useWorldSpace = true;
 		m_DrawRoutePreviewLine.startWidth = 0.08f;
 		m_DrawRoutePreviewLine.endWidth = 0.08f;
-		m_DrawRoutePreviewLine.startColor = new Color(1f, 0.7f, 0.1f, 0.9f);
-		m_DrawRoutePreviewLine.endColor = new Color(1f, 0.7f, 0.1f, 0.9f);
+		m_DrawRoutePreviewLine.startColor = new Color(0.75f, 0.75f, 0.75f, 0.9f);
+		m_DrawRoutePreviewLine.endColor = new Color(0.75f, 0.75f, 0.75f, 0.9f);
 
 		if (s_DrawRoutePreviewMaterial == null)
 			s_DrawRoutePreviewMaterial = new Material(Shader.Find("Sprites/Default"));
@@ -3702,9 +3691,35 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		ApplyDrawRoutePreviewLineStyle();
 		m_DrawRoutePreviewLine.positionCount = m_DrawRoutePoints.Count;
 		for (int i = 0; i < m_DrawRoutePoints.Count; i++)
 			m_DrawRoutePreviewLine.SetPosition(i, m_DrawRoutePoints[i] + Vector3.up * 0.04f);
+	}
+
+	private void ApplyDrawRoutePreviewLineStyle()
+	{
+		if (m_DrawRoutePreviewLine == null)
+			return;
+
+		Color color = new Color(0.75f, 0.75f, 0.75f, 0.9f);
+		float width = 0.08f;
+		if (m_DrawRouteUnitIndex >= 0 && m_DrawRouteUnitIndex < m_SelectedUnits.Count)
+		{
+			RtsUnitMember unit = m_SelectedUnits[m_DrawRouteUnitIndex];
+			if (unit != null &&
+			    unit.TryGetCurrentStance(out LocomotionStance stance) &&
+			    stance == LocomotionStance.Crouch)
+			{
+				color = new Color(0.35f, 0.85f, 1f, 0.9f);
+				width = 0.06f;
+			}
+		}
+
+		m_DrawRoutePreviewLine.startWidth = width;
+		m_DrawRoutePreviewLine.endWidth = width;
+		m_DrawRoutePreviewLine.startColor = color;
+		m_DrawRoutePreviewLine.endColor = color;
 	}
 
 	private void DestroyDrawRoutePreviewLine()
@@ -3875,44 +3890,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Mouse.current == null || m_SelectionCamera == null || m_SelectedUnits.Count == 0)
 			return false;
 
-		if (m_IsHoveringPathSegment && m_HoveredUnitIndex >= 0)
-			return TryPlaceWaitPointForRouteTarget(
-				m_HoveredUnitIndex,
-				m_RouteEditTargetKind,
-				m_HoveredSegmentIndex,
-				m_RouteEditVertexIndex,
-				m_HoveredSegmentWorldPoint);
+		if (!TryResolveUnitIndexForWaitPlacement(out int unitIndex))
+			return false;
 
-		Vector2 mouseScreen = Mouse.current.position.ReadValue();
-
-		if (TryPickRouteVertex(mouseScreen, out int routeUnitIndex, out int routeVertexIndex, out _))
-		{
-			if (routeUnitIndex < 0 || routeUnitIndex >= m_SelectedUnits.Count)
-				return false;
-
-			RtsUnitMember unit = m_SelectedUnits[routeUnitIndex];
-			if (unit == null || routeVertexIndex < 0)
-				return false;
-
-			return unit.TrySetWaitGroupForWaypoint(routeVertexIndex, unit.GetNextAutoWaitGroup());
-		}
-
-		if (TryPickRouteSegment(mouseScreen, out routeUnitIndex, out int routeSegmentIndex, out Vector3 routeWorldPoint))
-		{
-			if (routeUnitIndex < 0 || routeUnitIndex >= m_SelectedUnits.Count)
-				return false;
-
-			RtsUnitMember unit = m_SelectedUnits[routeUnitIndex];
-			if (unit == null)
-				return false;
-
-			return unit.TryInsertRouteWaypointAtSegment(
-				routeSegmentIndex,
-				routeWorldPoint,
-				unit.GetNextAutoWaitGroup());
-		}
-
-		return false;
+		return TryPlaceWaitPointForUnit(unitIndex);
 	}
 
 	private bool TryPlaceWaitPointForRouteTarget(
@@ -3922,21 +3903,49 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		int _vertexIndex,
 		Vector3 _worldPoint)
 	{
+		return TryPlaceWaitPointForUnit(_unitIndex);
+	}
+
+	/// <summary>
+	/// Alt: wait at route start (segment 0, t=0). Alt+Shift: wait at end of first leg / start of next segment.
+	/// </summary>
+	private bool TryPlaceWaitPointForUnit(int _unitIndex)
+	{
 		if (_unitIndex < 0 || _unitIndex >= m_SelectedUnits.Count)
 			return false;
 
 		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
-		if (unit == null)
+		if (unit == null || unit.WaypointCount == 0)
 			return false;
 
-		if (_targetKind == RouteEditTargetKind.WaypointVertex)
-			return _vertexIndex >= 0 &&
-			       unit.TrySetWaitGroupForWaypoint(_vertexIndex, unit.GetNextAutoWaitGroup());
+		int waitGroup = unit.GetNextAutoWaitGroup();
+		bool shiftHeld = IsShiftHeld();
+		float segmentT = shiftHeld ? 1f : 0f;
 
-		return unit.TryInsertRouteWaypointAtSegment(
-			_segmentIndex,
-			_worldPoint,
-			unit.GetNextAutoWaitGroup());
+		return unit.TrySetWaitAtRouteSegment(0, segmentT, waitGroup);
+	}
+
+	private bool TryResolveUnitIndexForWaitPlacement(out int _unitIndex)
+	{
+		_unitIndex = -1;
+
+		if (m_IsHoveringPathSegment &&
+		    m_HoveredUnitIndex >= 0 &&
+		    m_HoveredUnitIndex < m_SelectedUnits.Count)
+		{
+			_unitIndex = m_HoveredUnitIndex;
+			return true;
+		}
+
+		Vector2 mouseScreen = Mouse.current.position.ReadValue();
+
+		if (TryPickRouteSegment(mouseScreen, out _unitIndex, out _, out _))
+			return true;
+
+		if (TryPickRouteVertex(mouseScreen, out _unitIndex, out _, out _))
+			return true;
+
+		return false;
 	}
 
 	private void ContinueSelectedRouteWaitGroup(int _waitGroup)
@@ -4351,7 +4360,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		UnitClickToMove.MoveTier moveTier = m_PreviewMoveTier;
 		bool startedOnSelectedUnit = m_RmbStartedOnSelectedUnit;
 
-		bool shiftEnqueue = m_PreviewShiftEnqueueLatched || IsShiftHeld();
+		bool shiftEnqueue = m_PreviewShiftEnqueueLatched;
 		if (shiftEnqueue && hasGroupFormationFacing && IsPreviewCtrlFormationFacingActive())
 			isGroupCtrlFormationSector = true;
 
@@ -4487,8 +4496,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		bool appendToExistingRoute = m_PreviewShiftEnqueueLatched || IsShiftHeld();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+		{
+			validUnits[i].SetPreviewAppendToExistingRoute(appendToExistingRoute);
+			validUnits[i].SetPreviewMoveTier(m_PreviewMoveTier);
 			validUnits[i].SetPreviewLine(ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[i]));
+		}
 
 		UpdateMovePreviewVisuals();
 	}
@@ -4521,8 +4535,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_PreviewCenterPoint = hit.point;
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
+		bool appendToExistingRoute = m_PreviewShiftEnqueueLatched || IsShiftHeld();
 		for (int i = 0; i < validUnits.Count && i < m_PreviewOffsets.Count; i++)
+		{
+			validUnits[i].SetPreviewAppendToExistingRoute(appendToExistingRoute);
+			validUnits[i].SetPreviewMoveTier(m_PreviewMoveTier);
 			validUnits[i].SetPreviewLine(ResolveFormationDestination(m_PreviewCenterPoint, m_PreviewOffsets[i]));
+		}
 
 		UpdateMovePreviewVisuals();
 	}
@@ -4950,7 +4969,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			RtsUnitMember hoveredUnit = m_SelectedUnits[_unitIndex];
 			if (hoveredUnit != null)
 			{
-				hoveredUnit.TryAdjustPointForFacingArrowSpacing(_segmentIndex, ref anchor);
+				hoveredUnit.TryAdjustPointForFacingArrowSpacing(
+					_segmentIndex,
+					ref anchor,
+					m_SelectionCamera);
 				m_EditingWaypointAnchor = anchor;
 			}
 		}
@@ -5271,8 +5293,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
-		m_PreviewShiftEnqueueLatched |= IsShiftHeld();
-
 		if (m_PreviewMoveTier == UnitClickToMove.MoveTier.Run)
 		{
 			PreserveFormationFacingSetFromQuickRotate();
@@ -5452,7 +5472,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		for (int i = 0; i < validUnits.Count; i++)
-			validUnits[i].ClearCommandQueue();
+			validUnits[i].ClearWaypoints();
 
 		bool[] inPlaceFacing = new bool[validUnits.Count];
 		bool forceInPlace = _rmbStartedOnSelectedUnit &&
@@ -5473,7 +5493,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				continue;
 			}
 
-			validUnits[i].SetDestinationDirect(dest);
+			validUnits[i].SetDestinationDirect(dest, _moveTier);
 			if (hasFacing)
 			{
 				RtsUnitMember.FacingArrowMode waypointFacingMode = facingMode;
@@ -5587,7 +5607,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				lookPoint,
 				activateAtSegmentStart,
 				useGroupStagger ? ResolveUnitGroupCommandStaggerDelay(_units[i]) : 0f,
-				formationSlotYaw);
+				formationSlotYaw,
+				_waitAtSegmentStart: _waitGroup < 0);
 		}
 	}
 
@@ -6066,10 +6087,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void UpdatePreviewShiftEnqueueLatch()
 	{
-		if (!IsShiftHeld())
-			return;
-
-		if (!m_IsPreviewingMove && !m_IsAwaitingDoubleClick)
+		if (!IsShiftHeld() || !m_IsPreviewingMove)
 			return;
 
 		m_PreviewShiftEnqueueLatched = true;
@@ -6869,8 +6887,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		string hintText = m_SelectedUnits.Count >= 2
-			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет"
-			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · Ctrl+ЛКМ — взгляд · Shift+LMB — high ready + look · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет";
+			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет"
+			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет";
 		const float pad = 10f;
 		const float height = 34f;
 
@@ -7261,15 +7279,15 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null)
 				continue;
 
-			UnitVision vision = unit.GetComponent<UnitVision>();
-			if (vision != null)
-				vision.ClearVisibleTargetAndWaitForNextScan();
-
 			Vector3 toPoint = _worldPoint - unit.transform.position;
 			toPoint.y = 0f;
+			if (toPoint.sqrMagnitude < 0.0001f)
+				continue;
+
 			float angle = Mathf.Atan2(toPoint.x, toPoint.z) * Mathf.Rad2Deg;
 			float stagger = isGroup ? ResolveUnitGroupCommandStaggerDelay(unit) : 0f;
-			unit.IssueInPlaceFacingOrder(angle, RtsUnitMember.FacingArrowMode.TurnOverDistance, stagger, _showFacingIndicator: true);
+			// Тот же сценарий, что у жёлтой стрелки: доворот → скан → sector/return/hold.
+			unit.IssueYellowFacingCheckOrder(angle, stagger, _showFacingIndicator: true);
 		}
 	}
 

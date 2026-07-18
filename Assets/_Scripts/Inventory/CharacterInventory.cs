@@ -307,7 +307,9 @@ public class CharacterInventory : MonoBehaviour
 			return false;
 
 		GetDropWorldPose(out Vector3 pos, out Quaternion rot);
-		UnityEngine.Object instanceObj = Instantiate(def.DropWorldPrefab, pos + Vector3.up * 0.08f, rot);
+		pos += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), 0.08f, UnityEngine.Random.Range(-0.12f, 0.12f));
+		rot *= Quaternion.Euler(0f, UnityEngine.Random.Range(-18f, 18f), 0f);
+		UnityEngine.Object instanceObj = Instantiate(def.DropWorldPrefab, pos, rot);
 		GameObject go = instanceObj as GameObject;
 		if (go == null)
 			return false;

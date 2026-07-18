@@ -106,8 +106,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public float RotateSpeed { get => m_RotateSpeed; set => m_RotateSpeed = value; }
 	[Tooltip("Сглаживание только yaw при развороте на видимую цель (сек).")]
 	[SerializeField, Min(0.02f)] private float m_FacingTargetYawSmoothTime = 0.18f;
-	[Tooltip("Не разворачивать корень на видимую цель (engage) во время перезарядки и передёргивания затвора.")]
-	[SerializeField] private bool m_BlockEngageFacingDuringReload = true;
+	[Tooltip("Если включено, во время перезарядки/затвора корень не разворачивается на VisibleTarget — юнит может отвернуться и потерять цель в FOV.")]
+	[SerializeField] private bool m_BlockEngageFacingDuringReload = false;
 	[Tooltip("Legacy: раньше ограничивал engage внутри конуса стрелки. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
 	[SerializeField, Range(5f, 90f)] private float m_ManualFacingTargetConeHalfAngle = 30f;
 	[Tooltip("Legacy: раньше handoff стрелка→engage. Сейчас цель всегда приоритетнее стрелки; поле не используется.")]
@@ -149,7 +149,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	[Header("Stopping")]
 	[Tooltip("Если от точки назначения осталось меньше этого расстояния и скорость почти ноль — принудительный стоп (чтобы юниты не толкались на финише).")]
-	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.5f;
+	[SerializeField, Min(0.05f)] private float m_EarlyArrivalDistance = 0.15f;
 
 	[Header("Animator playback sync")]
 	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
@@ -186,6 +186,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	public float FormationSpeedMultiplier = 1f;
 	public float StaminaSpeedMultiplier = 1f;
 	public float? OverrideFacingAngle;
+	/// <summary>В high ready — world yaw линии огня (ствол); иначе yaw корня.</summary>
 	public bool SuppressEarlyArrivalStop { get; set; }
 
 	// Single vs double right-click debounce (ПКМ и RTS-команда «шаг»):
@@ -972,7 +973,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (ShouldApplyManualFacingOverride())
 		{
 			m_EngageYawVelocity = 0f;
-			Vector3 overrideDir = Quaternion.Euler(0f, OverrideFacingAngle.Value, 0f) * Vector3.forward;
+			float bodyYaw = ResolveHorizontalFacingBodyYaw(OverrideFacingAngle.Value);
+			Vector3 overrideDir = UnitHorizontalFacingUtility.YawDegreesToForwardXZ(bodyYaw);
 			ApplyFacingDirection(overrideDir);
 			return;
 		}
@@ -981,7 +983,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 		{
 			m_EngageYawVelocity = 0f;
 			if (TryGetMovementFacingDirection(out Vector3 moveDirection))
+			{
 				ApplyFacingDirection(moveDirection);
+			}
 			return;
 		}
 
@@ -1193,6 +1197,16 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (!OverrideFacingAngle.HasValue)
 			return false;
 
+		if (m_CachedRtsMember != null)
+		{
+			RtsUnitMember.ArrowPriorityPhase phase = m_CachedRtsMember.CurrentArrowPriorityPhase;
+			if (phase == RtsUnitMember.ArrowPriorityPhase.Turning ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.BlueHold ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.GreenHold ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.YellowReturning)
+				return true;
+		}
+
 		// Цель всегда приоритетнее жёлтой стрелки: пока есть engage — крутим корень на цель.
 		// После потери/убийства цели OverrideFacingAngle остаётся и юнит возвращается к стрелке.
 		if (IsEngagingVisibleTarget())
@@ -1208,6 +1222,20 @@ public sealed class UnitClickToMove : MonoBehaviour
 		}
 
 		return true;
+	}
+
+	private float ResolveHorizontalFacingBodyYaw(float _desiredWorldYaw)
+	{
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+
+		return UnitHorizontalFacingUtility.ResolveHorizontalFacingBodyYaw(
+			transform,
+			m_Equipment,
+			m_ReadyHands,
+			_desiredWorldYaw);
 	}
 
 	private bool IsConscious()

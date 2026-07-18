@@ -26,12 +26,12 @@ MonoBehaviour:
   m_RightHandReadyLocalEulerAngles: {x: 29.532013, y: 81.49897, z: 272.659}
   m_RightHandIkNotReadyLocalPosition: {x: 0.094, y: -0.355, z: -0.37}
   m_RightHandIkNotReadyLocalEulerAngles: {x: 349.8273, y: 312.8501, z: 265.11328}
-  m_RightHandIkReadyLocalPosition: {x: 0.079, y: -0.311, z: -0.325}
-  m_RightHandIkReadyLocalEulerAngles: {x: 346.57938, y: 330.39722, z: 267.8754}
+  m_RightHandIkReadyLocalPosition: {x: 0.059, y: -0.327, z: -0.326}
+  m_RightHandIkReadyLocalEulerAngles: {x: -11.4806, y: -28.1528, z: -94.6066}
   m_LeftHandIkNotReadyLocalPosition: {x: -0.1472, y: -0.2722, z: -0.0231}
   m_LeftHandIkNotReadyLocalEulerAngles: {x: 21.86556, y: 350.29898, z: 126.03635}
-  m_LeftHandIkReadyLocalPosition: {x: -0.0766, y: -0.2198, z: 0.0919}
-  m_LeftHandIkReadyLocalEulerAngles: {x: 6.2544327, y: 31.041485, z: 132.6494}
+  m_LeftHandIkReadyLocalPosition: {x: -0.1346, y: -0.2378, z: 0.0829}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 6.2544, y: 31.0415, z: 132.6494}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
   m_RightHandIkTargetChildName: RightHandIkTarget

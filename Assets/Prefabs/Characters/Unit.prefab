@@ -8019,7 +8019,7 @@ MonoBehaviour:
   m_StandUpNavSpeedAnimatorCeiling: 0.042
   m_RotateSpeed: 6
   m_FacingTargetYawSmoothTime: 0.18
-  m_BlockEngageFacingDuringReload: 1
+  m_BlockEngageFacingDuringReload: 0
   m_ManualFacingTargetConeHalfAngle: 30
   m_ManualFacingEngageHandoffDegrees: 3
   m_SteadyAnimatorLocomotionWhileEngagingAndFiring: 1
@@ -8447,6 +8447,7 @@ MonoBehaviour:
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 0}
+  m_EquippedWeaponPose: {fileID: 0}
   m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15

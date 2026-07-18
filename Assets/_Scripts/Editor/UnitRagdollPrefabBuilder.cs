@@ -456,7 +456,7 @@ public static class UnitRagdollPrefabBuilder
 		capsule.isTrigger = true;
 		capsule.direction = 1;
 		capsule.center = new Vector3(0f, 0.91f, 0f);
-		capsule.radius = 0.22f;
+		capsule.radius = 0.15f;
 		capsule.height = 1.82f;
 		return capsule;
 	}

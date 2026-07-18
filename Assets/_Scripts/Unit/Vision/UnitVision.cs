@@ -7,6 +7,7 @@ using UnityEngine;
 /// Periodic vision: range → FOV → axis smoothing → ray bundle → closest target.
 /// When weapon is equipped and in high ready, LOS and cone origin come from the sight on <see cref="EquippedWeapon"/>; horizontal FOV axis and rotation come from root/torso (not from weapon tilt in animation).
 /// When weapon is low ready, half‑FOV is never narrower than <see cref="m_MinHalfFovDegreesWhenWeaponNotReady"/>. While a target is held, <see cref="m_TrackingHalfFovExtraDegrees"/> is added to half‑FOV.
+/// During reload, bolt cycle, or malfunction fix, <see cref="m_RetainTargetDuringReloadOrMalfunction"/> keeps the current engage target without an FOV check (range + LOS still required).
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(UnitTeam))]
@@ -27,12 +28,17 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitCombatStats m_CombatStats;
+	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 
 	[Header("Зрение")]
 	[SerializeField, Min(0.5f)] private float m_VisionRange = 18f;
 	[SerializeField, Range(1f, 179f)] private float m_FieldOfViewDegrees = 120f;
 	[Tooltip("Пока в прошлом кадре уже была цель, к половине FOV добавляется этот угол — реже теряем цель на краю конуса (меньше скачков поворота юнита).")]
 	[SerializeField, Range(0f, 30f)] private float m_TrackingHalfFovExtraDegrees = 15f;
+	[Tooltip("Пока идёт перезарядка, передёргивание затвора или устранение клина — удерживать текущую цель, даже если она вышла из FOV (нужны дистанция и LOS).")]
+	[SerializeField] private bool m_RetainTargetDuringReloadOrMalfunction = true;
 	[SerializeField, Min(0f)] private float m_EyeHeight = 1.6f;
 
 	[Header("Опрос")]
@@ -75,7 +81,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField, Range(0f, 10f)] private float m_MinReadyBoreRootTurnDegrees = 0.5f;
 
 	[Header("Отладка")]
-	[SerializeField] private bool m_DrawVisionGizmos;
+	[SerializeField] private bool m_DrawVisionGizmos = true;
 	[SerializeField] private Color m_GizmoRayHitColor = new Color(1f, 0.3f, 0.1f, 0.9f);
 	[SerializeField] private Color m_GizmoRayMissColor = new Color(0.4f, 0.4f, 0.9f, 0.6f);
 	[Tooltip("Радиус SphereCast для проверки союзников/нейтралов на линии огня при перезахвате подавленной цели.")]
@@ -117,6 +123,8 @@ public sealed class UnitVision : MonoBehaviour
 	private Vector3 m_ReadyTransitionDesiredBoreForwardXZ;
 	private bool m_HasReadyTransitionDesiredBoreForwardXZ;
 	private readonly Dictionary<Transform, float> m_LineOfFireSuppressedTargets = new Dictionary<Transform, float>();
+	private Transform m_ForcedPriorityTarget;
+	private RtsUnitMember m_CachedRtsMember;
 	#endregion
 
 	#region Public Properties
@@ -127,6 +135,12 @@ public sealed class UnitVision : MonoBehaviour
 	public Transform GetEngageableVisibleTarget()
 	{
 		return IsEngageableTarget(m_VisibleTarget) ? m_VisibleTarget : null;
+	}
+
+	public Transform ForcedPriorityTarget
+	{
+		get => m_ForcedPriorityTarget;
+		set => m_ForcedPriorityTarget = value;
 	}
 
 	public Collider BodyCollider => ResolveBodyCollider();
@@ -205,6 +219,56 @@ public sealed class UnitVision : MonoBehaviour
 
 		RunVisionScan();
 		ScheduleNextScan(0f);
+	}
+
+	public bool TryFindTargetInDirection(float _worldAngle, float _halfAngleDegrees, out Transform _bestTarget)
+	{
+		_bestTarget = null;
+		if (!isActiveAndEnabled || m_Registry == null || m_Team == null)
+			return false;
+
+		Vector3 dirXZ = new Vector3(
+			Mathf.Sin(_worldAngle * Mathf.Deg2Rad),
+			0f,
+			Mathf.Cos(_worldAngle * Mathf.Deg2Rad));
+
+		Vector3 origin = GetVisionConeOriginWorld();
+		float rangeSq = m_VisionRange * m_VisionRange;
+		float bestDistSq = float.MaxValue;
+
+		m_Registry.GetOpponents(m_Team.Team, m_OpponentBuffer);
+
+		for (int i = 0; i < m_OpponentBuffer.Count; i++)
+		{
+			UnitVision other = m_OpponentBuffer[i];
+			if (other == null || other == this || !other.isActiveAndEnabled)
+				continue;
+			if (!UnitConsciousness.IsTargetableTarget(other.transform))
+				continue;
+			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
+				continue;
+			if (IsLineOfFireSuppressed(other.transform))
+				continue;
+
+			Vector3 targetCenter = GetCandidateRoughCenter(other.transform);
+			Vector3 toTarget = targetCenter - origin;
+			toTarget.y = 0f;
+			float distSq = toTarget.sqrMagnitude;
+			if (distSq > rangeSq || distSq < 0.0001f)
+				continue;
+
+			float angleToTarget = Vector3.Angle(dirXZ, toTarget.normalized);
+			if (angleToTarget > _halfAngleDegrees)
+				continue;
+
+			if (distSq < bestDistSq)
+			{
+				bestDistSq = distSq;
+				_bestTarget = other.transform;
+			}
+		}
+
+		return _bestTarget != null;
 	}
 
 	/// <summary>Called from <see cref="UnitWeaponReadyHandsLayer"/> on high‑ready / low‑ready change.</summary>
@@ -526,6 +590,14 @@ public sealed class UnitVision : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_CombatStats == null)
 			m_CombatStats = GetComponent<UnitCombatStats>();
+		if (m_EquippedWeaponPose == null)
+			m_EquippedWeaponPose = GetComponent<UnitEquippedWeaponPose>();
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_CachedRtsMember == null)
+			m_CachedRtsMember = GetComponent<RtsUnitMember>();
 	}
 
 	private void OnEnable()
@@ -859,6 +931,87 @@ public sealed class UnitVision : MonoBehaviour
 		m_PreviousAimPointForVelocity = Vector3.zero;
 	}
 
+	private bool IsWeaponMaintenanceActive()
+	{
+		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+			return true;
+
+		return m_WeaponRuntime != null && m_WeaponRuntime.TransientState.HasActiveMalfunction;
+	}
+
+	private bool TryRetainEngageTargetDuringWeaponMaintenance(
+		Vector3 _origin,
+		ref Transform _newTarget,
+		ref Vector3 _aimPoint,
+		ref bool _hasAimPoint)
+	{
+		if (!m_RetainTargetDuringReloadOrMalfunction || !IsWeaponMaintenanceActive() || m_VisibleTarget == null)
+			return false;
+
+		if (!TryRevalidateRetainedEngageTarget(m_VisibleTarget, _origin, out Vector3 retainedAim, out bool retainedHasAim))
+			return false;
+
+		_newTarget = m_VisibleTarget;
+		_aimPoint = retainedAim;
+		_hasAimPoint = retainedHasAim;
+		return true;
+	}
+
+	private bool TryRevalidateRetainedEngageTarget(
+		Transform _targetRoot,
+		Vector3 _origin,
+		out Vector3 _aimPoint,
+		out bool _hasAimPoint)
+	{
+		_aimPoint = Vector3.zero;
+		_hasAimPoint = false;
+
+		if (!IsEngageableTarget(_targetRoot))
+			return false;
+
+		if (IsLineOfFireSuppressed(_targetRoot))
+			return false;
+
+		if (!TryRevalidateSuppressedTarget(_targetRoot, _origin))
+			return false;
+
+		float rangeSq = m_VisionRange * m_VisionRange;
+
+		if (_targetRoot.TryGetComponent(out UnitVision other) && other.m_BodyHitZones.Length > 0)
+		{
+			if (!TryFindBestVisibleAimPointFromHitZones(_origin, other.m_BodyHitZones, _targetRoot, out Vector3 aimPoint))
+				return false;
+
+			Vector3 toAim = aimPoint - _origin;
+			toAim.y = 0f;
+			if (toAim.sqrMagnitude > rangeSq || toAim.sqrMagnitude < 0.0001f)
+				return false;
+
+			_aimPoint = aimPoint;
+			_hasAimPoint = true;
+			return true;
+		}
+
+		Collider legacyTargetCol = other != null && other.m_BodyCollider != null
+			? other.m_BodyCollider
+			: _targetRoot.GetComponentInChildren<Collider>();
+		if (legacyTargetCol == null)
+			return false;
+
+		Vector3 targetCenter = legacyTargetCol.bounds.center;
+		Vector3 toTarget = targetCenter - _origin;
+		toTarget.y = 0f;
+		if (toTarget.sqrMagnitude > rangeSq || toTarget.sqrMagnitude < 0.0001f)
+			return false;
+
+		if (!TryFindBestVisibleAimPointFromCollider(_origin, legacyTargetCol, _targetRoot, out Vector3 legacyAimPoint))
+			return false;
+
+		_aimPoint = legacyAimPoint;
+		_hasAimPoint = true;
+		return true;
+	}
+
 	private void RunVisionScan()
 	{
 		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
@@ -979,7 +1132,49 @@ public sealed class UnitVision : MonoBehaviour
 			}
 		}
 
+		TryRetainEngageTargetDuringWeaponMaintenance(origin, ref newTarget, ref bestAimPoint, ref hasBestAimPoint);
+
 		bool targetChanged = newTarget != m_VisibleTarget;
+
+		if (m_ForcedPriorityTarget != null && m_ForcedPriorityTarget != newTarget)
+		{
+			Transform forcedRoot = m_ForcedPriorityTarget;
+			bool forcedValid = false;
+			Vector3 forcedAimPoint = Vector3.zero;
+
+			if (forcedRoot.TryGetComponent(out UnitVision forcedVision) &&
+			    forcedVision.isActiveAndEnabled &&
+			    UnitConsciousness.IsTargetableTarget(forcedRoot) &&
+			    !(forcedRoot.TryGetComponent(out DamageableTarget forcedDmg) && !forcedDmg.IsAlive) &&
+			    !IsLineOfFireSuppressed(forcedRoot) &&
+			    TryRevalidateSuppressedTarget(forcedRoot, origin))
+			{
+				forcedAimPoint = GetCandidateRoughCenter(forcedRoot);
+				forcedValid = true;
+			}
+			else if (forcedRoot.TryGetComponent(out ShootingRangeTarget rangeTarget) &&
+			         rangeTarget.IsAvailableForTargeting &&
+			         !IsLineOfFireSuppressed(forcedRoot) &&
+			         TryRevalidateSuppressedTarget(forcedRoot, origin))
+			{
+				forcedAimPoint = rangeTarget.GetAimPointWorld();
+				forcedValid = true;
+			}
+
+			if (forcedValid)
+			{
+				Vector3 eyePos = GetEyeWorldPosition();
+				Vector3 rayDir = (forcedAimPoint - eyePos).normalized;
+				float rayDist = Vector3.Distance(eyePos, forcedAimPoint);
+				if (!Physics.Raycast(eyePos, rayDir, rayDist, m_LayerMask, m_QueryTriggerInteraction))
+				{
+					newTarget = forcedRoot;
+					bestAimPoint = forcedAimPoint;
+					hasBestAimPoint = true;
+				}
+			}
+		}
+
 		m_VisibleTarget = newTarget;
 		m_HasVisibleTargetAimPoint = newTarget != null && hasBestAimPoint;
 		m_VisibleTargetAimPointWorld = m_HasVisibleTargetAimPoint ? bestAimPoint : Vector3.zero;
@@ -1243,7 +1438,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void UpdateSmoothedVisionForward()
 	{
-		Vector3 raw = GetVisionForwardXZRaw();
+		Vector3 raw = GetVisionForwardXZRawForUpdate();
 		if (m_VisionForwardSmoothTime <= 0.0001f)
 		{
 			m_SmoothedVisionForwardXZ = raw;
@@ -1255,6 +1450,25 @@ public sealed class UnitVision : MonoBehaviour
 			m_SmoothedVisionForwardXZ = raw;
 		else
 			m_SmoothedVisionForwardXZ = Vector3.Slerp(m_SmoothedVisionForwardXZ, raw, t).normalized;
+	}
+
+	private Vector3 GetVisionForwardXZRawForUpdate()
+	{
+		if (ShouldUseBarrelForwardForManualFacingVision() &&
+		    TryGetWeaponBoreForwardXZ(out Vector3 boreFwd))
+			return boreFwd;
+
+		return GetVisionForwardXZRaw();
+	}
+
+	private bool ShouldUseBarrelForwardForManualFacingVision()
+	{
+		if (!IsWeaponReadyForSightCone())
+			return false;
+
+		if (m_CachedRtsMember == null)
+			m_CachedRtsMember = GetComponent<RtsUnitMember>();
+		return m_CachedRtsMember != null && m_CachedRtsMember.IsManualBarrelFacingActive;
 	}
 
 	private bool TryGetWeaponBoreForwardXZ(out Vector3 _forwardXZ)
@@ -1302,6 +1516,11 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		if (!Application.isPlaying)
 			return GetVisionForwardXZRaw();
+
+		if (ShouldUseBarrelForwardForManualFacingVision() &&
+		    TryGetWeaponBoreForwardXZ(out Vector3 boreFwd))
+			return boreFwd;
+
 		if (m_SmoothedVisionForwardXZ.sqrMagnitude < 1e-6f)
 			return GetVisionForwardXZRaw();
 		return m_SmoothedVisionForwardXZ;
@@ -1319,7 +1538,7 @@ public sealed class UnitVision : MonoBehaviour
 		return m_ReadyHands.IsEquippedWeaponUserNotReady();
 	}
 
-	private float ResolveHalfFovDegreesForScan()
+	public float ResolveHalfFovDegreesForScan()
 	{
 		float halfFov = m_FieldOfViewDegrees * 0.5f;
 		if (ShouldWidenFovForWeaponNotReady())
@@ -1489,10 +1708,48 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void DrawVisionDebugGizmos()
 	{
-		if (!Application.isPlaying)
+		Vector3 origin = Application.isPlaying
+			? GetVisionConeOriginWorld()
+			: transform.position + Vector3.up * m_EyeHeight;
+
+		Vector3 forward = GetVisionForwardXZForGameplay();
+		if (forward.sqrMagnitude < 1e-8f)
 			return;
 
-		Vector3 origin = GetVisionConeOriginWorld();
+		float halfFov = ResolveHalfFovDegreesForScan();
+		float range = m_VisionRange;
+		Vector3 forwardFlat = forward.normalized;
+
+		// Cone boundaries
+		Quaternion leftRot = Quaternion.Euler(0f, -halfFov, 0f);
+		Quaternion rightRot = Quaternion.Euler(0f, halfFov, 0f);
+		Vector3 leftDir = leftRot * forwardFlat;
+		Vector3 rightDir = rightRot * forwardFlat;
+
+		Gizmos.color = new Color(0.3f, 0.7f, 1f, 0.5f);
+		Gizmos.DrawLine(origin, origin + leftDir * range);
+		Gizmos.DrawLine(origin, origin + rightDir * range);
+
+		// Center line
+		Gizmos.color = new Color(1f, 0.4f, 0f, 0.6f);
+		Gizmos.DrawLine(origin, origin + forwardFlat * range);
+
+		// Arc at max range
+		int arcSegments = 32;
+		Vector3 prevPoint = origin + leftDir * range;
+		for (int i = 1; i <= arcSegments; i++)
+		{
+			float t = (float)i / arcSegments;
+			float angle = Mathf.Lerp(-halfFov, halfFov, t);
+			Quaternion segRot = Quaternion.Euler(0f, angle, 0f);
+			Vector3 segDir = segRot * forwardFlat;
+			Vector3 segPoint = origin + segDir * range;
+			Gizmos.DrawLine(prevPoint, segPoint);
+			prevPoint = segPoint;
+		}
+
+		if (!Application.isPlaying)
+			return;
 
 		if (m_DebugRays.Count > 0)
 		{
