@@ -39,7 +39,7 @@ public sealed class ActionPanelController : MonoBehaviour
 
 	#region Private Fields
 	private Canvas m_Canvas;
-	private CanvasGroup m_CanvasGroup;
+	private CanvasGroup m_PanelCanvasGroup;
 	private RectTransform m_PanelRect;
 	private Coroutine m_FadeCoroutine;
 	private float m_TargetAlpha;
@@ -122,6 +122,16 @@ public sealed class ActionPanelController : MonoBehaviour
 			m_TargetAlpha = desired;
 			StartFade(desired);
 		}
+
+		// Прямой клик: EventSystem/IsPointerOverGameObject с Input System часто не видит эту панель.
+		if (m_IsHovered &&
+		    m_PanelCanvasGroup != null &&
+		    m_PanelCanvasGroup.blocksRaycasts &&
+		    Mouse.current != null &&
+		    Mouse.current.leftButton.wasReleasedThisFrame)
+		{
+			TryClickButtonUnderCursor();
+		}
 	}
 
 	private bool IsMouseOverPanel()
@@ -144,6 +154,19 @@ public sealed class ActionPanelController : MonoBehaviour
 		go.AddComponent<ActionPanelController>();
 		DontDestroyOnLoad(go);
 	}
+
+	/// <summary>Курсор над нижней панелью действий (в т.ч. когда она ещё прозрачна).</summary>
+	public static bool IsPointerOverPanelArea()
+	{
+		if (s_Instance == null || !s_Instance.m_UiBuilt || s_Instance.m_PanelRect == null)
+			return false;
+
+		if (PauseMenuController.IsPaused)
+			return false;
+
+		Vector2 mousePosition = Mouse.current?.position.ReadValue() ?? Vector2.zero;
+		return RectTransformUtility.RectangleContainsScreenPoint(s_Instance.m_PanelRect, mousePosition, null);
+	}
 	#endregion
 
 	#region Private Methods - UI Building
@@ -154,7 +177,6 @@ public sealed class ActionPanelController : MonoBehaviour
 
 		BuildEntries();
 		EnsureCanvas();
-		EnsureCanvasGroup();
 		ResolveFont();
 		BuildPanel();
 		BuildButtons();
@@ -193,15 +215,8 @@ public sealed class ActionPanelController : MonoBehaviour
 		scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
 		scaler.matchWidthOrHeight = 0f;
 
-		gameObject.AddComponent<GraphicRaycaster>();
-	}
-
-	private void EnsureCanvasGroup()
-	{
-		m_CanvasGroup = gameObject.AddComponent<CanvasGroup>();
-		m_CanvasGroup.alpha = 0f;
-		m_CanvasGroup.interactable = true;
-		m_CanvasGroup.blocksRaycasts = true;
+		// Клики обрабатываем напрямую в Update — без GraphicRaycaster,
+		// чтобы не конфликтовать с RTS-выделением и Input System EventSystem.
 	}
 
 	private void BuildPanel()
@@ -215,9 +230,14 @@ public sealed class ActionPanelController : MonoBehaviour
 		m_PanelRect.pivot = new Vector2(0.5f, 0f);
 		m_PanelRect.sizeDelta = new Vector2(0f, c_PanelHeight);
 
+		m_PanelCanvasGroup = panelGo.AddComponent<CanvasGroup>();
+		m_PanelCanvasGroup.alpha = 0f;
+		m_PanelCanvasGroup.interactable = true;
+		m_PanelCanvasGroup.blocksRaycasts = false;
+
 		Image panelBg = panelGo.AddComponent<Image>();
 		panelBg.color = new Color(0.08f, 0.08f, 0.1f, 0.85f);
-		panelBg.raycastTarget = true;
+		panelBg.raycastTarget = false;
 
 		HorizontalLayoutGroup layout = panelGo.AddComponent<HorizontalLayoutGroup>();
 		layout.childAlignment = TextAnchor.MiddleCenter;
@@ -249,10 +269,11 @@ public sealed class ActionPanelController : MonoBehaviour
 
 		Image btnBg = btnGo.AddComponent<Image>();
 		btnBg.color = new Color(0.18f, 0.18f, 0.22f, 1f);
-		btnBg.raycastTarget = true;
+		btnBg.raycastTarget = false;
 
 		Button button = btnGo.AddComponent<Button>();
 		button.targetGraphic = btnBg;
+		button.transition = Selectable.Transition.ColorTint;
 		ColorBlock colors = button.colors;
 		colors.normalColor = new Color(0.18f, 0.18f, 0.22f, 1f);
 		colors.highlightedColor = new Color(0.28f, 0.28f, 0.35f, 1f);
@@ -329,6 +350,9 @@ public sealed class ActionPanelController : MonoBehaviour
 	#region Private Methods - Fade
 	private void StartFade(float _targetAlpha)
 	{
+		if (m_PanelCanvasGroup != null)
+			m_PanelCanvasGroup.blocksRaycasts = _targetAlpha > 0.01f;
+
 		if (m_FadeCoroutine != null)
 			StopCoroutine(m_FadeCoroutine);
 		m_FadeCoroutine = StartCoroutine(FadeRoutine(_targetAlpha));
@@ -336,18 +360,18 @@ public sealed class ActionPanelController : MonoBehaviour
 
 	private IEnumerator FadeRoutine(float _targetAlpha)
 	{
-		float startAlpha = m_CanvasGroup.alpha;
+		float startAlpha = m_PanelCanvasGroup.alpha;
 		float elapsed = 0f;
 		while (elapsed < c_FadeDuration)
 		{
 			elapsed += Time.unscaledDeltaTime;
 			float t = Mathf.Clamp01(elapsed / c_FadeDuration);
-			m_CanvasGroup.alpha = Mathf.Lerp(startAlpha, _targetAlpha, t);
+			m_PanelCanvasGroup.alpha = Mathf.Lerp(startAlpha, _targetAlpha, t);
 			yield return null;
 		}
 
-		m_CanvasGroup.alpha = _targetAlpha;
-		m_CanvasGroup.blocksRaycasts = _targetAlpha > 0.01f;
+		m_PanelCanvasGroup.alpha = _targetAlpha;
+		m_PanelCanvasGroup.blocksRaycasts = _targetAlpha > 0.01f;
 		m_FadeCoroutine = null;
 	}
 
@@ -359,10 +383,10 @@ public sealed class ActionPanelController : MonoBehaviour
 			m_FadeCoroutine = null;
 		}
 
-		if (m_CanvasGroup != null)
+		if (m_PanelCanvasGroup != null)
 		{
-			m_CanvasGroup.alpha = 0f;
-			m_CanvasGroup.blocksRaycasts = false;
+			m_PanelCanvasGroup.alpha = 0f;
+			m_PanelCanvasGroup.blocksRaycasts = false;
 		}
 
 		m_TargetAlpha = 0f;
@@ -424,6 +448,30 @@ public sealed class ActionPanelController : MonoBehaviour
 	#endregion
 
 	#region Private Methods - Action Handlers
+	private void TryClickButtonUnderCursor()
+	{
+		if (m_ButtonObjects == null || Mouse.current == null)
+			return;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		for (int i = 0; i < m_ButtonObjects.Length; i++)
+		{
+			GameObject buttonObject = m_ButtonObjects[i];
+			if (buttonObject == null || !buttonObject.activeInHierarchy)
+				continue;
+
+			RectTransform buttonRect = buttonObject.transform as RectTransform;
+			if (buttonRect == null)
+				continue;
+
+			if (!RectTransformUtility.RectangleContainsScreenPoint(buttonRect, mousePosition, null))
+				continue;
+
+			HandleButtonClick(i);
+			return;
+		}
+	}
+
 	private void HandleButtonClick(int _index)
 	{
 		if (_index < 0 || _index >= m_Entries.Length)

@@ -205,6 +205,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	{
 		if (!IsWeaponEquipped() || !m_UserWantsReady)
 			return;
+		if (IsWeaponReloadBusy())
+			return;
 
 		ApplyTemporaryReadySuppression();
 		m_RestoreReadyAfterTurn = true;
@@ -222,6 +224,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	public void TryRestoreReadyAfterTurn(bool _isStillTurning)
 	{
 		if (_isStillTurning || !m_RestoreReadyAfterTurn)
+			return;
+		if (IsWeaponReloadBusy())
 			return;
 
 		m_RestoreReadyAfterTurn = false;
@@ -401,6 +405,13 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool IsFastMoveModeNow()
 	{
 		return IsSprintingNow() || IsRunningNow();
+	}
+
+	private bool IsWeaponReloadBusy()
+	{
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		return m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;
 	}
 
 	private void ApplyReadyWanted(bool _ready, bool _forceWalkIfNeeded, bool _refreshImmediately)

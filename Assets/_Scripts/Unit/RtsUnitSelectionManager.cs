@@ -478,7 +478,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
 
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
@@ -800,7 +800,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!inventory.TryAdd(forInventory))
 			return false;
 
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(inventory, forInventory);
 
 		if (data.WorldSource != null)
 			data.WorldSource.OnTransferredToCharacterInventory();
@@ -2038,7 +2038,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(player, forInventory);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(player, forInventory);
 
 		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
 		RepaintExchangePanels();
@@ -4995,8 +4995,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsWaypointFacingLookLocked)
 		{
-			m_EditingWaypointMode = RtsUnitMember.FacingArrowMode.LookAtPoint;
-			arrowColor = GetFacingArrowColor(RtsUnitMember.FacingArrowMode.LookAtPoint);
+			arrowColor = GetFacingArrowColor(m_EditingWaypointMode);
 
 			if (m_DirectionMarkers.Count > 0 && m_DirectionMarkers[0] != null)
 			{
@@ -5004,7 +5003,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				toLook.y = 0f;
 				Vector3 dir = toLook.sqrMagnitude > 0.01f ? toLook.normalized : Vector3.forward;
 				Vector3 shaftStart = anchor + yOffset + dir * 0.15f;
-				Vector3 tip = m_WaypointFacingLockedLookPoint + yOffset;
+				Vector3 tip = m_EditingWaypointMode == RtsUnitMember.FacingArrowMode.LookAtPoint
+					? m_WaypointFacingLockedLookPoint + yOffset
+					: anchor + yOffset + dir * 2.5f;
 				LineRenderer lr = m_DirectionMarkers[0].GetComponent<LineRenderer>();
 				if (lr != null)
 				{
@@ -5077,7 +5078,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		m_IsWaypointFacingLookLocked = true;
 		m_WaypointFacingLockedLookPoint = hit.point;
-		m_EditingWaypointMode = RtsUnitMember.FacingArrowMode.LookAtPoint;
+		m_EditingWaypointMode = IsCtrlPressed()
+			? RtsUnitMember.FacingArrowMode.HoldToEnd
+			: RtsUnitMember.FacingArrowMode.LookAtPoint;
 		m_EditingWaypointLookPoint = hit.point;
 
 		Vector3 toLook = hit.point - m_EditingWaypointAnchor;
@@ -5105,13 +5108,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (wasLocked)
 		{
-			mode = RtsUnitMember.FacingArrowMode.LookAtPoint;
-			lookPoint = m_WaypointFacingLockedLookPoint;
-			Vector3 toLook = lookPoint - anchor;
+			Vector3 toLook = m_WaypointFacingLockedLookPoint - anchor;
 			toLook.y = 0f;
 			angle = toLook.sqrMagnitude > 0.01f
 				? Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg
 				: 0f;
+			if (mode == RtsUnitMember.FacingArrowMode.LookAtPoint)
+				lookPoint = m_WaypointFacingLockedLookPoint;
 		}
 
 		for (int i = 0; i < m_DirectionMarkers.Count; i++)
@@ -6547,7 +6550,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return false;
 			}
 
-			ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forPlayer);
+			InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forPlayer);
 
 			RepaintExchangePanels();
 			return true;
@@ -6565,7 +6568,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forInventory);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(_inventory, forInventory);
 
 		if (dataNormal.WorldSource != null)
 			dataNormal.WorldSource.OnTransferredToCharacterInventory();
@@ -6672,7 +6675,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
-		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(_inventory, _data, spawned);
+		InventoryWindowAudioUtility.TryPlayInventoryRemoveSoundFromSlot(_inventory, _data, spawned);
 		return true;
 	}
 
@@ -6719,7 +6722,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		FinalizeGroundPanelPlacement(spawned);
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_data, _inventory, spawned, _removedFromMainHandSlot);
+		InventoryWindowAudioUtility.TryPlayRemoveSoundFromSlot(_data, _inventory, spawned, _removedFromMainHandSlot);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
@@ -6786,7 +6789,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		ItemInventoryAudioUtility.TryPlayRemoveSoundFromSlot(_data, _partnerInventory, spawned, _removedFromMainHandSlot);
+		InventoryWindowAudioUtility.TryPlayRemoveSoundFromSlot(_data, _partnerInventory, spawned, _removedFromMainHandSlot);
 		DestroyDetachedDragSlotIfNeeded(_adoptExistingSlotOrNull, m_GroundPanel);
 		RepaintExchangePanels();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
@@ -6865,7 +6868,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private bool IsPointerOverUi()
 	{
-		return m_BlockPointerOverUi && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+		return m_BlockPointerOverUi && UiPointerUtility.IsPointerOverUi();
 	}
 
 	private static bool IsCtrlPressed()

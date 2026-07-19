@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public static class WeaponVfxUtility
@@ -131,6 +132,47 @@ public static class WeaponVfxUtility
 		return _profile.UseHybridShellEjection && !ShouldUsePhysicalShellEjection(_profile, _shellWorldPosition);
 	}
 
+	public static Camera ResolveActiveCamera()
+	{
+		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
+			return s_CachedMainCamera;
+
+		s_CachedMainCamera = Camera.main;
+		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
+			return s_CachedMainCamera;
+
+		Camera[] cameras = Camera.allCameras;
+		for (int i = 0; i < cameras.Length; i++)
+		{
+			Camera camera = cameras[i];
+			if (camera != null && camera.isActiveAndEnabled)
+			{
+				s_CachedMainCamera = camera;
+				return s_CachedMainCamera;
+			}
+		}
+
+		s_CachedMainCamera = null;
+		return null;
+	}
+
+	public static void InvalidateActiveCameraCache()
+	{
+		s_CachedMainCamera = null;
+	}
+
+	public static bool IsWithinDistance(Vector3 _worldPosition, float _maxDistanceMeters)
+	{
+		if (_maxDistanceMeters <= 0f)
+			return false;
+
+		Camera camera = ResolveActiveCamera();
+		if (camera == null)
+			return false;
+
+		return (_worldPosition - camera.transform.position).sqrMagnitude <= _maxDistanceMeters * _maxDistanceMeters;
+	}
+
 	/// <summary>
 	/// Near-camera detail LOD: visual kick, цикл затвора, физические гильзы в Hybrid.
 	/// Порог — <see cref="WeaponVfxProfile.HybridPhysicalShellDistanceMeters"/>.
@@ -140,14 +182,69 @@ public static class WeaponVfxUtility
 		float distance = _profile != null
 			? Mathf.Max(0f, _profile.HybridPhysicalShellDistanceMeters)
 			: 12f;
-		if (distance <= 0f)
-			return false;
+		return IsWithinDistance(_worldPosition, distance);
+	}
+
+	public static bool IsWithinEffectDistance(Vector3 _worldPosition, float _maxDistanceMeters)
+	{
+		return IsWithinDistance(_worldPosition, _maxDistanceMeters);
+	}
+
+	public static WeaponVfxQualityTier ResolveEffectQualityTier(
+		WeaponVfxProfile _profile,
+		Vector3 _worldPosition,
+		float _maxDistanceMeters,
+		float _nearDistanceMeters = -1f,
+		float _midDistanceMeters = -1f)
+	{
+		if (_maxDistanceMeters <= 0f || !IsWithinEffectDistance(_worldPosition, _maxDistanceMeters))
+			return WeaponVfxQualityTier.Skip;
+
+		float nearDistance = _nearDistanceMeters >= 0f
+			? _nearDistanceMeters
+			: _profile != null ? _profile.EffectNearQualityDistanceMeters : 15f;
+		float midDistance = _midDistanceMeters >= 0f
+			? _midDistanceMeters
+			: _profile != null ? _profile.EffectMidQualityDistanceMeters : 35f;
+
+		nearDistance = Mathf.Max(0f, nearDistance);
+		midDistance = Mathf.Clamp(Mathf.Max(nearDistance, midDistance), 0f, _maxDistanceMeters);
 
 		Camera camera = ResolveActiveCamera();
 		if (camera == null)
-			return false;
+			return WeaponVfxQualityTier.Skip;
 
-		return (_worldPosition - camera.transform.position).sqrMagnitude <= distance * distance;
+		float sqrDistance = (_worldPosition - camera.transform.position).sqrMagnitude;
+		if (sqrDistance <= nearDistance * nearDistance)
+			return WeaponVfxQualityTier.Full;
+
+		if (sqrDistance <= midDistance * midDistance)
+			return WeaponVfxQualityTier.Reduced;
+
+		return WeaponVfxQualityTier.Skip;
+	}
+
+	public static void ApplyParticleQualityTier(GameObject _root, WeaponVfxProfile _profile, WeaponVfxQualityTier _tier)
+	{
+		if (_root == null || _profile == null || _tier != WeaponVfxQualityTier.Reduced)
+			return;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			ParticleSystem system = systems[i];
+			ParticleSystem.MainModule main = system.main;
+			int maxParticles = main.maxParticles;
+			if (maxParticles > 0)
+			{
+				main.maxParticles = Mathf.Max(
+					1,
+					Mathf.RoundToInt(maxParticles * _profile.ReducedMaxParticlesMultiplier));
+			}
+		}
+
+		Transform rootTransform = _root.transform;
+		rootTransform.localScale *= _profile.ReducedParticleScaleMultiplier;
 	}
 
 	public static void PlayParticleSystems(GameObject _root)
@@ -195,6 +292,144 @@ public static class WeaponVfxUtility
 
 	public static void PrepareBodyImpactParticleInstance(GameObject _instance)
 	{
+		PrepareParticleInstance(_instance, _forceNonLooping: true);
+	}
+
+	/// <summary>
+	/// Только аудио-компонент для пула. Параметры ParticleSystem не трогаем.
+	/// </summary>
+	public static void PrepareSmokeParticleInstance(GameObject _instance)
+	{
+		if (_instance == null)
+			return;
+
+		if (!_instance.TryGetComponent(out GrenadeSmokeAudioLoop _))
+			_instance.AddComponent<GrenadeSmokeAudioLoop>();
+	}
+
+	public static void ApplySmokeSpawnTransform(GameObject _instance, GameObject _prefab, Vector3 _position)
+	{
+		if (_instance == null)
+			return;
+
+		Transform t = _instance.transform;
+		t.position = _position;
+
+		if (_prefab == null)
+			return;
+
+		Transform prefabTransform = _prefab.transform;
+		t.localRotation = prefabTransform.localRotation;
+		t.localScale = prefabTransform.localScale;
+	}
+
+	public static void PlaySmokeParticleSystems(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			ParticleSystem system = systems[i];
+			if (system == null)
+				continue;
+
+			if (!system.isPlaying)
+				system.Play(true);
+		}
+	}
+
+	public static void StopParticleSystems(GameObject _root, bool _clear = true)
+	{
+		if (_root == null)
+			return;
+
+		ParticleSystemStopBehavior stopBehavior = _clear
+			? ParticleSystemStopBehavior.StopEmittingAndClear
+			: ParticleSystemStopBehavior.StopEmitting;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			if (systems[i] == null)
+				continue;
+
+			systems[i].Stop(true, stopBehavior);
+			if (_clear)
+				systems[i].Clear(true);
+		}
+	}
+
+	/// <summary>
+	/// После таймера активной эмиссии — плавно снижает rateOverTimeMultiplier, затем StopEmitting.
+	/// </summary>
+	public static IEnumerator DissipateSmokeCloud(GameObject _root, float _dissipateSeconds)
+	{
+		if (_root == null)
+			yield break;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		if (systems == null || systems.Length == 0)
+			yield break;
+
+		float duration = Mathf.Max(0.75f, _dissipateSeconds);
+		float elapsed = 0f;
+		while (_root != null && elapsed < duration)
+		{
+			elapsed += Time.deltaTime;
+			float t = Mathf.Clamp01(elapsed / duration);
+			float rateScale = 1f - (t * t);
+
+			for (int i = 0; i < systems.Length; i++)
+			{
+				ParticleSystem system = systems[i];
+				if (system == null)
+					continue;
+
+				ParticleSystem.EmissionModule emission = system.emission;
+				emission.rateOverTimeMultiplier = rateScale;
+			}
+
+			yield return null;
+		}
+
+		if (_root == null)
+			yield break;
+
+		for (int i = 0; i < systems.Length; i++)
+		{
+			ParticleSystem system = systems[i];
+			if (system == null)
+				continue;
+
+			ParticleSystem.EmissionModule emission = system.emission;
+			emission.rateOverTimeMultiplier = 0f;
+			system.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+		}
+	}
+
+	public static void ResetSmokeEmissionMultipliers(GameObject _root)
+	{
+		if (_root == null)
+			return;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			if (systems[i] == null)
+				continue;
+
+			ParticleSystem.EmissionModule emission = systems[i].emission;
+			emission.rateOverTimeMultiplier = 1f;
+		}
+	}
+
+	/// <summary>
+	/// Подготовка pooled VFX. Для дымовых облаков оставляем loop/duration как в префабе.
+	/// </summary>
+	public static void PrepareParticleInstance(GameObject _instance, bool _forceNonLooping)
+	{
 		if (_instance == null)
 			return;
 
@@ -202,7 +437,8 @@ public static class WeaponVfxUtility
 		for (int i = 0; i < systems.Length; i++)
 		{
 			ParticleSystem.MainModule main = systems[i].main;
-			main.loop = false;
+			if (_forceNonLooping)
+				main.loop = false;
 			main.playOnAwake = false;
 			main.stopAction = ParticleSystemStopAction.None;
 			main.scalingMode = ParticleSystemScalingMode.Hierarchy;
@@ -219,32 +455,6 @@ public static class WeaponVfxUtility
 		}
 
 		return false;
-	}
-	#endregion
-
-	#region Private Methods
-	private static Camera ResolveActiveCamera()
-	{
-		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
-			return s_CachedMainCamera;
-
-		s_CachedMainCamera = Camera.main;
-		if (s_CachedMainCamera != null && s_CachedMainCamera.isActiveAndEnabled)
-			return s_CachedMainCamera;
-
-		Camera[] cameras = Camera.allCameras;
-		for (int i = 0; i < cameras.Length; i++)
-		{
-			Camera camera = cameras[i];
-			if (camera != null && camera.isActiveAndEnabled)
-			{
-				s_CachedMainCamera = camera;
-				return s_CachedMainCamera;
-			}
-		}
-
-		s_CachedMainCamera = null;
-		return null;
 	}
 	#endregion
 }

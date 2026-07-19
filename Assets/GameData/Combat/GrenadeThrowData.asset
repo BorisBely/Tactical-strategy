@@ -16,18 +16,59 @@ MonoBehaviour:
   - Item: {fileID: 11400000, guid: 5e049c79ccc20b64cb02a8a825175820, type: 2}
     ThrownPrefab: {fileID: 7815113046537578095, guid: f194ce4b8087aad4b8fe9913be9d4116, type: 3}
     HandPrefab: {fileID: 3890878363777852225, guid: 6fd661e03862a284aa8dc76b39a04339, type: 3}
+    ExplosionClips:
+      m_Clips:
+      - {fileID: 8300000, guid: 30f5aec3b5bd4e508f49d6032d525854, type: 3}
+      - {fileID: 8300000, guid: 910fea4e96304ea8ac8d4f3c2c8a9835, type: 3}
+    ExplosionVolume: 1
+    ExplosionVfxScaleMultiplier: 1.18
+    ExplosionVfxLifetimeMultiplier: 1.15
+    ExplosionVfxYawOffsetDegrees: 12
   - Item: {fileID: 11400000, guid: a7f2e3d4c5b6a9789090ab1cd2ef3041, type: 2}
     ThrownPrefab: {fileID: 2182341066210703305, guid: 7f0e61d9135766f438e79e4e8fb7d3c9, type: 3}
     HandPrefab: {fileID: 3456350993192555246, guid: b2c3d4e5f6789012345678abcdef0400, type: 3}
+    ExplosionClips:
+      m_Clips:
+      - {fileID: 8300000, guid: 1b71d49abfd04a0ebf9cdba63d6f7291, type: 3}
+      - {fileID: 8300000, guid: eaa56811d332409a8f9a1940866268e0, type: 3}
+      - {fileID: 8300000, guid: d7cfda0bdba4421f93b56f8388a1134e, type: 3}
+      - {fileID: 8300000, guid: 57fb75c560e243e9ae2a5590cef1c6df, type: 3}
+      - {fileID: 8300000, guid: 1dd1e56897cb49588ccbbed06b797d65, type: 3}
+    ExplosionVolume: 1
+    ExplosionVfxScaleMultiplier: 1
+    ExplosionVfxLifetimeMultiplier: 1
+    ExplosionVfxYawOffsetDegrees: 0
   - Item: {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
     ThrownPrefab: {fileID: 4806343524829518119, guid: 9335d9e423d7675419272a5b57288001, type: 3}
     HandPrefab: {fileID: 4429490002880159492, guid: a06feec3e83e53a4cac9cb4391421fc4, type: 3}
+    ExplosionClips:
+      m_Clips:
+      - {fileID: 8300000, guid: 8c63b28b49fd4cd5ba7898c4a2d39c8f, type: 3}
+      - {fileID: 8300000, guid: f323134f3eb7496aa45240c194e7859c, type: 3}
+    ExplosionVolume: 1
+    ExplosionVfxScaleMultiplier: 1.05
+    ExplosionVfxLifetimeMultiplier: 1
+    ExplosionVfxYawOffsetDegrees: -18
   - Item: {fileID: 11400000, guid: 02e2d3c1d7c0fc74dafbbb62be003508, type: 2}
     ThrownPrefab: {fileID: 6033434234661628708, guid: 733c5fa65a97a1543a208d3c24c9d177, type: 3}
     HandPrefab: {fileID: 129646262531378010, guid: 6a7689ae47b65c3429b2fafe245c73ec, type: 3}
+    ExplosionClips:
+      m_Clips:
+      - {fileID: 8300000, guid: 187614e8a64241019e4a6560d44d84b2, type: 3}
+      - {fileID: 8300000, guid: ba1df636cb7549888db2a5ba546d9380, type: 3}
+    ExplosionVolume: 1
+    ExplosionVfxScaleMultiplier: 0.9
+    ExplosionVfxLifetimeMultiplier: 0.88
+    ExplosionVfxYawOffsetDegrees: 35
   - Item: {fileID: 11400000, guid: b8f3e4d5c6b7a889a0a1bc2de3f41520, type: 2}
     ThrownPrefab: {fileID: 3918245018631853980, guid: 1155d1ed57086f24097501139cea32c8, type: 3}
     HandPrefab: {fileID: 9218029090060468881, guid: a1b2c3d4e5f6789012345678abcdef03, type: 3}
+    ExplosionClips:
+      m_Clips: []
+    ExplosionVolume: 1
+    ExplosionVfxScaleMultiplier: 1
+    ExplosionVfxLifetimeMultiplier: 1
+    ExplosionVfxYawOffsetDegrees: 0
   m_ThrownFragPrefab: {fileID: 7815113046537578095, guid: f194ce4b8087aad4b8fe9913be9d4116, type: 3}
   m_ThrownFlashPrefab: {fileID: 2182341066210703305, guid: 7f0e61d9135766f438e79e4e8fb7d3c9, type: 3}
   m_ThrownSmokePrefab: {fileID: 3918245018631853980, guid: 1155d1ed57086f24097501139cea32c8, type: 3}
@@ -42,16 +83,58 @@ MonoBehaviour:
   m_RollReserveFactor: 0.4
   m_RollReserveAbsolute: 0.3
   m_LandingDrag: 4
+  m_SoftLandingDrag: 14
+  m_SoftLandingHorizontalScale: 0.35
+  m_SoftLandingBounceScale: 0.08
   m_RollStopSpeed: 0.1
+  m_GrenadeDetailCullDistance: 12
+  m_FragExplosionPrefab: {fileID: 1273314581925930, guid: c73519d76f0a4eb409d0fcdc54d48d83, type: 3}
+  m_FlashExplosionPrefab: {fileID: 1273314581925930, guid: 4a55681cab9ecd64fb020a5e6018af8b, type: 3}
+  m_SmokePrefab: {fileID: 193902, guid: 771ca25c7853f89428e654bd4dba591d, type: 3}
+  m_ExplosionFuseSeconds: 3.5
+  m_ExplosionMaxDistanceMeters: 70
+  m_ExplosionAudioMaxDistance: 90
+  m_FragExplosionScale: 1.25
+  m_FragExplosionLifetimeSeconds: 5
+  m_FlashExplosionScale: 0.9
+  m_FlashExplosionLifetimeSeconds: 2.2
+  m_SmokeScale: 1.35
+  m_SmokeLifetimeSeconds: 32
+  m_SmokeDissipateSeconds: 10
+  m_SmokeMaxDistanceMeters: 110
+  m_SmokeLoopClip: {fileID: 8300000, guid: 86cc2b536c39cd947b72603879b2a6ec, type: 3}
+  m_SmokeLoopVolume: 0.31
+  m_SmokeLoopMaxDistance: 42
+  m_SmokeAudioFadeInSeconds: 1.4
+  m_SmokeAudioFadeOutSeconds: 3
+  m_SmokeAudioCrossfadeSeconds: 2.2
   m_PinPullClips:
-    m_Clips: []
-  m_PinPullVolume: 0.9
+    m_Clips:
+    - {fileID: 8300000, guid: 913cb3d77da93524681e1bec92de458e, type: 3}
+  m_PinPullVolume: 0.55
+  m_PinPullMaxDistance: 16
+  m_LeverReleaseClips:
+    m_Clips:
+    - {fileID: 8300000, guid: f6a346d177ad4494c90ffe2084575ccb, type: 3}
+  m_LeverReleaseVolume: 0.55
+  m_LeverReleaseMaxDistance: 16
   m_ThrowClips:
     m_Clips: []
   m_ThrowVolume: 0.85
-  m_ImpactClips:
-    m_Clips: []
+  m_HardImpactClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 7496bc9a971246479e72bf373ffb7e9e, type: 3}
+  m_SoftImpactClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 070748891c13434281e3f01c3a86b0c1, type: 3}
+    - {fileID: 8300000, guid: 55034bffe3b74b478923585c6a9d9152, type: 3}
+    - {fileID: 8300000, guid: 17f67d8c9b574026b6155485659562c5, type: 3}
   m_ImpactVolume: 0.7
+  m_ImpactMaxDistance: 28
+  m_SoftSurfaceMaterials:
+  - {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f607, type: 2}
+  - {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f602, type: 2}
+  - {fileID: 13400000, guid: a1b2c3d4e5f6478990a1b2c3d4e5f604, type: 2}
   m_FragColor: {r: 1, g: 0.25, b: 0.2, a: 0.9}
   m_FlashColor: {r: 1, g: 0.95, b: 0.2, a: 0.9}
   m_SmokeColor: {r: 0.65, g: 0.65, b: 0.65, a: 0.9}

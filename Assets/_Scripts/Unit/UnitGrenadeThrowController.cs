@@ -457,12 +457,19 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 		SpawnHandGrenadeVisual();
 	}
 
-	public void AnimationEvent_GrenadePinPull()
+	public void AnimationEvent_GrenadePinPullSound()
 	{
 		if (m_CurrentPhase != GrenadeThrowPhase.Animating)
 			return;
 
 		PlayPinPullSound();
+	}
+
+	public void AnimationEvent_GrenadePinPull()
+	{
+		if (m_CurrentPhase != GrenadeThrowPhase.Animating)
+			return;
+
 		DetachPinAndDrop();
 	}
 
@@ -471,6 +478,7 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 		if (m_CurrentPhase != GrenadeThrowPhase.Animating)
 			return;
 
+		PlayLeverReleaseSound();
 		LaunchProjectile();
 	}
 
@@ -661,16 +669,7 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 	private bool IsNearCameraForDetail()
 	{
 		float threshold = m_Data != null ? m_Data.GrenadeDetailCullDistance : 12f;
-		if (threshold <= 0f)
-			return false;
-
-		Camera cam = Camera.main;
-		if (cam == null)
-			cam = Camera.allCameras != null && Camera.allCameras.Length > 0 ? Camera.allCameras[0] : null;
-		if (cam == null)
-			return false;
-
-		return (transform.position - cam.transform.position).sqrMagnitude <= threshold * threshold;
+		return WeaponVfxUtility.IsWithinDistance(transform.position, threshold);
 	}
 
 	private void DetachPinAndDrop()
@@ -790,8 +789,6 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 		RefreshInventoryUiIfActive();
 
 		LaunchHandGrenadeAsProjectile();
-
-		PlayThrowSound();
 	}
 
 	private void LaunchHandGrenadeAsProjectile()
@@ -827,10 +824,10 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 
 			PhysicsMaterial pm = new PhysicsMaterial("GrenadePhysic")
 			{
-				bounciness = 0.3f,
+				bounciness = 0.22f,
 				bounceCombine = PhysicsMaterialCombine.Average,
-				dynamicFriction = 0.4f,
-				staticFriction = 0.4f,
+				dynamicFriction = 0.45f,
+				staticFriction = 0.5f,
 				frictionCombine = PhysicsMaterialCombine.Average
 			};
 			cc.material = pm;
@@ -853,7 +850,7 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 			gp = grenade.AddComponent<GrenadeProjectile>();
 
 		rb.linearVelocity = velocity;
-		gp.Initialize(m_TargetWorldPosition, m_Data, gameObject);
+		gp.Initialize(m_TargetWorldPosition, m_Data, gameObject, m_ActiveGrenadeDefinition);
 	}
 
 	private void RefreshInventoryUiIfActive()
@@ -913,7 +910,19 @@ public sealed class UnitGrenadeThrowController : MonoBehaviour
 		if (m_Data.TryPickPinPullSound(out AudioClip clip))
 		{
 			Vector3 pos = m_RightHandAnchor != null ? m_RightHandAnchor.position : transform.position + Vector3.up * 1.2f;
-			UnitNonFireAudioUtility.PlayAtPoint(clip, pos, m_Data.PinPullVolume);
+			UnitNonFireAudioUtility.PlayAtPoint(clip, pos, m_Data.PinPullVolume, m_Data.PinPullMaxDistance);
+		}
+	}
+
+	private void PlayLeverReleaseSound()
+	{
+		if (m_Data == null)
+			return;
+
+		if (m_Data.TryPickLeverReleaseSound(out AudioClip clip))
+		{
+			Vector3 pos = m_RightHandAnchor != null ? m_RightHandAnchor.position : transform.position + Vector3.up * 1.2f;
+			UnitNonFireAudioUtility.PlayAtPoint(clip, pos, m_Data.LeverReleaseVolume, m_Data.LeverReleaseMaxDistance);
 		}
 	}
 

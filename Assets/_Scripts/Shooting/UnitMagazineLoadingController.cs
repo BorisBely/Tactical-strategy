@@ -645,17 +645,12 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	private void TryPlayRoundLoadSound(MagazineDefinition _definition)
 	{
-		if (_definition == null || m_RoundLoadAudioSource == null)
-			return;
-
-		if (m_RoundLoadAudioSource.transform == transform)
-			EnsureRoundLoadAudioSource();
-		if (m_RoundLoadAudioSource == null || m_RoundLoadAudioSource.transform == transform)
+		if (_definition == null)
 			return;
 
 		AudioClip[] clips = _definition.RoundLoadSounds;
 		if (clips == null || clips.Length == 0 || m_RoundLoadSoundShufflePermutation == null
-			|| m_RoundLoadSoundShufflePermutation.Length == 0)
+		    || m_RoundLoadSoundShufflePermutation.Length == 0)
 			return;
 
 		if (m_RoundLoadSoundShuffleCursor >= m_RoundLoadSoundShufflePermutation.Length)
@@ -671,10 +666,12 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			return;
 
 		Vector3 pos = m_LeftHandAnchor != null ? m_LeftHandAnchor.position : transform.position;
-		m_RoundLoadAudioSource.transform.position = pos;
-		m_RoundLoadAudioSource.PlayOneShot(
+		CombatAudioManager.TryPlayReload(
 			clip,
-			UnitNonFireAudioUtility.ScaleVolume(_definition.RoundLoadSoundsVolume));
+			pos,
+			_definition.RoundLoadSoundsVolume,
+			transform,
+			m_RoundLoadSoundSpatialMaxDistance);
 	}
 
 	private static void ShuffleIntArrayInPlace(int[] _indices)

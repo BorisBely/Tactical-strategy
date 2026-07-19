@@ -8112,6 +8112,7 @@ MonoBehaviour:
   m_StanceSource: {fileID: 3741241907743255212}
   m_Vision: {fileID: 1773384317962348157}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_Equipment: {fileID: 0}
   m_FireController: {fileID: 8854059317223957988}
   m_GrenadeThrowController: {fileID: 0}
   m_Consciousness: {fileID: 0}
@@ -8448,9 +8449,12 @@ MonoBehaviour:
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 0}
+  m_ReloadController: {fileID: 0}
+  m_WeaponRuntime: {fileID: 0}
   m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
+  m_RetainTargetDuringReloadOrMalfunction: 1
   m_EyeHeight: 1.6
   m_ScanIntervalMin: 0.25
   m_ScanIntervalMax: 0.45
@@ -8505,6 +8509,9 @@ MonoBehaviour:
   m_FireController: {fileID: 0}
   m_RagdollController: {fileID: 0}
   m_GrenadeThrowController: {fileID: 0}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
+  m_RtsMember: {fileID: 0}
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
   m_PitchSmoothTime: 0.08
@@ -8785,8 +8792,6 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_Equipment: {fileID: 5322687323565292150}
-  m_AudioSource: {fileID: 0}
-  m_FireVoiceCount: 4
   m_SpatialMinDistance: 1
   m_SpatialMaxDistance: 625
 --- !u!114 &365107933097138229

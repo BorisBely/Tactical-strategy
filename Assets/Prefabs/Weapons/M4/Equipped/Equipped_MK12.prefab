@@ -114,13 +114,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 512225426701606861}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.4030528, y: -0.3346058, z: 0.7872757, w: 0.325245}
-  m_LocalPosition: {x: -0.114, y: 0.104, z: 0.201}
+  m_LocalRotation: {x: 0.444541, y: -0.271102, z: 0.679821, w: 0.516459}
+  m_LocalPosition: {x: -0.045, y: 0.087, z: 0.21}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484004987280476150}
-  m_LocalEulerAnglesHint: {x: 52.095505, y: 42.743694, z: 156.76242}
+  m_LocalEulerAnglesHint: {x: 55.87099, y: 35.322453, z: 124.71844}
 --- !u!1 &605599585995368688
 GameObject:
   m_ObjectHideFlags: 0
@@ -488,13 +488,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2852349584586911336}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.28103676, y: 0.05289718, z: 0.9231467, w: 0.2569441}
-  m_LocalPosition: {x: -0.0495, y: 0.0555, z: 0.2563}
+  m_LocalRotation: {x: 0.281037, y: 0.0528972, z: 0.923147, w: 0.256944}
+  m_LocalPosition: {x: -0.127, y: 0.037, z: 0.277}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484004987280476150}
-  m_LocalEulerAnglesHint: {x: 2.68, y: 33.138, z: 149.69}
+  m_LocalEulerAnglesHint: {x: 2.6800003, y: 33.137997, z: 149.69}
 --- !u!1 &3130580020045415753
 GameObject:
   m_ObjectHideFlags: 0
@@ -610,7 +610,7 @@ Transform:
   m_GameObject: {fileID: 3309687414044473247}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.062, z: 0.429}
+  m_LocalPosition: {x: 0, y: 0.062, z: 0.3242}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1216,13 +1216,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6399309852459345229}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.09902913, y: 0.2628532, z: 0.7100946, w: -0.6456525}
-  m_LocalPosition: {x: 0.063, y: -0.009, z: -0.01}
+  m_LocalRotation: {x: -0.143076, y: 0.264082, z: 0.721113, w: -0.624328}
+  m_LocalPosition: {x: 0.0259, y: -0.0148, z: -0.0277}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484004987280476150}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 348.33353, y: 326.81088, z: 265.25867}
 --- !u!1 &6565798868931404843
 GameObject:
   m_ObjectHideFlags: 0
@@ -1247,13 +1247,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6565798868931404843}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.21972239, y: 0.29798293, z: 0.67328376, w: -0.64001346}
-  m_LocalPosition: {x: 0.096, y: -0.025, z: -0.118}
+  m_LocalRotation: {x: 0.144477, y: -0.16025, z: 0.661689, w: -0.718063}
+  m_LocalPosition: {x: -0.042, y: -0.021, z: -0.16}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484004987280476150}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0.26261058, y: 24.91925, z: 274.73746}
 --- !u!1 &7020634926580607721
 GameObject:
   m_ObjectHideFlags: 0
@@ -1558,6 +1558,7 @@ MonoBehaviour:
   m_ShellEject: {fileID: 6013489548553438815}
   m_SightPivot: {fileID: 7211929169560645468}
   m_MagazineSocket: {fileID: 5683800365880275564}
+  m_SecondaryMagazineSocket: {fileID: 0}
   m_MuzzleModuleVisualSocket: {fileID: 6627684914001303889}
   m_OpticModuleVisualSocket: {fileID: 7211929169560645468}
   m_SideRailModuleVisualSocket: {fileID: 0}
@@ -1576,13 +1577,20 @@ MonoBehaviour:
   m_VisualRecoilKickPivot: {fileID: 0}
   m_BoltCarrier: {fileID: 2618598880044097516}
   m_BoltOpenLocalOffset: {x: 0, y: 0, z: -0.0790795}
+  m_BoltHandleOpenLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_BoltHandleRotatePhaseNormalized: 0.25
   m_BoltCycleSeconds: 0.085
   m_BoltCycleSecondsSingleShot: 0.16
+  m_BoltActionCycleSeconds: 0.55
   m_BoltShellEjectNormalizedTime: 0.5
   m_DustCoverHinge: {fileID: 8785902322773158459}
   m_DustCoverClosedDegrees: -160
   m_DustCoverHingeAxis: {x: 0, y: 0, z: 1}
   m_DustCoverTweenSeconds: 0.12
+  m_LmgTopCoverHinge: {fileID: 0}
+  m_LmgBeltMeshVisual: {fileID: 0}
+  m_LmgCoverOpenDegrees: 110
+  m_LmgCoverTweenSeconds: 0.3
   m_DrawBarrelDebugRay: 0
   m_BarrelDebugRayLength: 4
   m_BarrelDebugRayColor: {r: 0, g: 0.92, b: 1, a: 1}

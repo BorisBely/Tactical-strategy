@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public enum PlayerDebugInjuryType
@@ -18,7 +19,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 {
 	#region Constants
 	private static readonly int[] c_QuickResetDistancesMeters = { 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 };
-	private const int c_PanelCanvasSortingOrder = 500;
+	private const int c_PanelCanvasSortingOrder = 32000;
 	#endregion
 
 	#region Private Types
@@ -48,16 +49,29 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 	private readonly List<Button> m_QuickToggleButtons = new List<Button>(10);
 	private readonly List<int> m_QuickToggleDistancesMeters = new List<int>(10);
 	private readonly List<Button> m_InjuryDebugButtons = new List<Button>(4);
+	private readonly List<Button> m_ClickableButtons = new List<Button>(32);
+	private static ShootingRangeUiController s_Instance;
+	private GameObject m_CanvasRoot;
 	private bool m_Built;
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		s_Instance = this;
 		if (m_Manager == null)
 			m_Manager = GetComponent<ShootingRangeManager>();
 
 		BuildUiIfNeeded();
+	}
+
+	private void OnDestroy()
+	{
+		if (s_Instance == this)
+			s_Instance = null;
+
+		if (m_CanvasRoot != null)
+			Destroy(m_CanvasRoot);
 	}
 
 	private void Start()
@@ -69,10 +83,12 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshAllRows();
 		RefreshRankButtonLabel();
 		RefreshHitCounterButtonLabel();
+		RebuildClickableButtons();
 	}
 
 	private void OnEnable()
 	{
+		s_Instance = this;
 		if (m_Manager != null)
 			m_Manager.TargetsChanged += HandleTargetsChanged;
 
@@ -82,6 +98,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
 		RefreshHitCounterButtonLabel();
+		RebuildClickableButtons();
 	}
 
 	private void OnDisable()
@@ -92,10 +109,41 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		UnsubscribeSelectionChanges();
 		UnwireGlobalButtons();
 		UnwireRowButtons();
+
+		if (s_Instance == this)
+			s_Instance = null;
+	}
+
+	private void Update()
+	{
+		if (!m_Built || m_PanelRoot == null || PauseMenuController.IsPaused)
+			return;
+
+		if (Mouse.current == null || !Mouse.current.leftButton.wasReleasedThisFrame)
+			return;
+
+		if (!IsPointerOverPanelArea())
+			return;
+
+		TryClickButtonUnderCursor();
 	}
 	#endregion
 
 	#region Public Methods
+	/// <summary>Курсор над панелью полигона (для блокировки RTS-кликов).</summary>
+	public static bool IsPointerOverPanelArea()
+	{
+		ShootingRangeUiController instance = s_Instance;
+		if (instance == null || instance.m_PanelRoot == null || !instance.m_PanelRoot.gameObject.activeInHierarchy)
+			return false;
+
+		if (PauseMenuController.IsPaused)
+			return false;
+
+		Vector2 mousePosition = Mouse.current?.position.ReadValue() ?? Vector2.zero;
+		return RectTransformUtility.RectangleContainsScreenPoint(instance.m_PanelRoot, mousePosition, null);
+	}
+
 	/// <summary>Перестраивает список мишеней и подписи после позднего спавна player-юнитов.</summary>
 	public void RefreshPanelState()
 	{
@@ -113,6 +161,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		RefreshQuickToggleButtons();
 		RefreshRankButtonLabel();
 		RefreshHitCounterButtonLabel();
+		RebuildClickableButtons();
 	}
 	#endregion
 
@@ -124,20 +173,32 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		if (m_PanelRoot == null)
 		{
-			GameObject canvasGo = new GameObject("ShootingRangeCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-			canvasGo.transform.SetParent(null);
-			Canvas panelCanvas = canvasGo.GetComponent<Canvas>();
-			panelCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-			panelCanvas.overrideSorting = true;
-			panelCanvas.sortingOrder = c_PanelCanvasSortingOrder;
-			CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+			// Отдельный root-canvas (не под 3D-трансформом и не под ActionPanel).
+			m_CanvasRoot = new GameObject("ShootingRangeCanvas", typeof(RectTransform));
+			m_CanvasRoot.transform.SetParent(null, false);
+
+			RectTransform canvasRect = m_CanvasRoot.GetComponent<RectTransform>();
+			canvasRect.anchorMin = Vector2.zero;
+			canvasRect.anchorMax = Vector2.one;
+			canvasRect.offsetMin = Vector2.zero;
+			canvasRect.offsetMax = Vector2.zero;
+
+			Canvas rootCanvas = m_CanvasRoot.AddComponent<Canvas>();
+			rootCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+			rootCanvas.overrideSorting = true;
+			rootCanvas.sortingOrder = c_PanelCanvasSortingOrder;
+
+			CanvasScaler scaler = m_CanvasRoot.AddComponent<CanvasScaler>();
 			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
 			scaler.referenceResolution = new Vector2(2560f, 1440f);
 			scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
 			scaler.matchWidthOrHeight = 0f;
 
-			GameObject panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-			panelGo.transform.SetParent(canvasGo.transform, false);
+			// Без GraphicRaycaster: клики обрабатываем в Update по RectTransform,
+			// чтобы RTS-выделение не перехватывало Input System EventSystem.
+
+			GameObject panelGo = new GameObject("ShootingRangePanel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+			panelGo.transform.SetParent(m_CanvasRoot.transform, false);
 			m_PanelRoot = panelGo.GetComponent<RectTransform>();
 			m_PanelRoot.anchorMin = new Vector2(1f, 1f);
 			m_PanelRoot.anchorMax = new Vector2(1f, 1f);
@@ -147,6 +208,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 			Image panelImage = panelGo.GetComponent<Image>();
 			panelImage.color = new Color(0.08f, 0.1f, 0.12f, 0.88f);
+			panelImage.raycastTarget = false;
 
 			VerticalLayoutGroup layout = panelGo.GetComponent<VerticalLayoutGroup>();
 			layout.padding = new RectOffset(12, 12, 12, 12);
@@ -174,6 +236,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		if (m_Manager != null && m_TargetListRoot != null)
 			BuildTargetRows();
+
+		RebuildClickableButtons();
 	}
 
 	private void BuildTargetRows()
@@ -190,6 +254,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		}
 
 		RefreshAllRows();
+		RebuildClickableButtons();
 	}
 
 	private TargetRowUi CreateTargetRow(ShootingRangeTarget _target)
@@ -739,6 +804,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		Image image = buttonGo.GetComponent<Image>();
 		image.color = new Color(0.2f, 0.28f, 0.36f, 1f);
+		image.raycastTarget = false;
 
 		Button button = buttonGo.GetComponent<Button>();
 		UiInteractionAudioUtility.EnsureHoverSoundOn(buttonGo);
@@ -764,6 +830,63 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 
 		for (int i = m_TargetListRoot.childCount - 1; i >= 0; i--)
 			Destroy(m_TargetListRoot.GetChild(i).gameObject);
+	}
+
+	private void RebuildClickableButtons()
+	{
+		m_ClickableButtons.Clear();
+
+		AddClickableButton(m_ResetAllButton);
+		AddClickableButton(m_EnableAllButton);
+		AddClickableButton(m_DisableAllButton);
+		AddClickableButton(m_CycleRankButton);
+		AddClickableButton(m_CycleHitCounterButton);
+
+		for (int i = 0; i < m_QuickToggleButtons.Count; i++)
+			AddClickableButton(m_QuickToggleButtons[i]);
+
+		for (int i = 0; i < m_InjuryDebugButtons.Count; i++)
+			AddClickableButton(m_InjuryDebugButtons[i]);
+
+		for (int i = 0; i < m_Rows.Count; i++)
+		{
+			TargetRowUi row = m_Rows[i];
+			if (row == null)
+				continue;
+
+			AddClickableButton(row.ToggleButton);
+			AddClickableButton(row.ResetButton);
+		}
+	}
+
+	private void AddClickableButton(Button _button)
+	{
+		if (_button != null)
+			m_ClickableButtons.Add(_button);
+	}
+
+	private void TryClickButtonUnderCursor()
+	{
+		if (m_ClickableButtons.Count == 0)
+			RebuildClickableButtons();
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+		for (int i = 0; i < m_ClickableButtons.Count; i++)
+		{
+			Button button = m_ClickableButtons[i];
+			if (button == null || !button.isActiveAndEnabled || !button.interactable)
+				continue;
+
+			RectTransform buttonRect = button.transform as RectTransform;
+			if (buttonRect == null)
+				continue;
+
+			if (!RectTransformUtility.RectangleContainsScreenPoint(buttonRect, mousePosition, null))
+				continue;
+
+			button.onClick.Invoke();
+			return;
+		}
 	}
 	#endregion
 }

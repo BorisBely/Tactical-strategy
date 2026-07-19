@@ -65,7 +65,7 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 	#region Private Methods
 	private static bool IsPointerOverUi()
 	{
-		return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+		return UiPointerUtility.IsPointerOverUi();
 	}
 
 	private bool HasSelectedUnits()

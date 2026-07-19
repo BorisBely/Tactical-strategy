@@ -750,8 +750,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame)
 			return;
 
-		if (m_BlockClicksOverUi && EventSystem.current != null &&
-		    EventSystem.current.IsPointerOverGameObject())
+		if (m_BlockClicksOverUi && UiPointerUtility.IsPointerOverUi())
 			return;
 
 		Ray ray = m_RayCamera.ScreenPointToRay(Mouse.current.position.ReadValue());

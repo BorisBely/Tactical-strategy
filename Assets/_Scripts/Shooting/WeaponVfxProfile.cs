@@ -66,6 +66,23 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Min(0.01f)] private float m_DecalScale = 0.45f;
 	[SerializeField, Min(0.05f)] private float m_DecalLifetimeSeconds = 20f;
 	[SerializeField, Min(1f)] private float m_ImpactAudioMaxDistance = 45f;
+
+	[Header("Effect Distance LOD")]
+	[SerializeField, Min(0f)] private float m_MuzzleFlashMaxDistanceMeters = 50f;
+	[SerializeField, Min(0f)] private float m_ImpactFxMaxDistanceMeters = 30f;
+	[SerializeField, Min(0f)] private float m_BulletFlightMaxDistanceMeters = 40f;
+	[SerializeField, Min(0f)] private float m_DecalMaxDistanceMeters = 20f;
+
+	[Header("Effect Quality Tiers")]
+	[Tooltip("Дистанция до active camera, внутри которой FX играют в полном качестве.")]
+	[SerializeField, Min(0f)] private float m_EffectNearQualityDistanceMeters = 15f;
+	[Tooltip("Дистанция до active camera, внутри которой FX играют в упрощённом качестве. Дальше — skip визуала.")]
+	[SerializeField, Min(0f)] private float m_EffectMidQualityDistanceMeters = 35f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ReducedParticleScaleMultiplier = 0.6f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ReducedMaxParticlesMultiplier = 0.35f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ReducedMuzzleScaleMultiplier = 0.55f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ReducedBulletFlightScaleMultiplier = 0.7f;
+	[SerializeField, Range(0.05f, 1f)] private float m_ReducedDecalLifetimeMultiplier = 0.5f;
 	#endregion
 
 	#region Public Properties
@@ -115,6 +132,18 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public float DecalScale => m_DecalScale;
 	public float DecalLifetimeSeconds => m_DecalLifetimeSeconds;
 	public float ImpactAudioMaxDistance => m_ImpactAudioMaxDistance;
+
+	public float MuzzleFlashMaxDistanceMeters => m_MuzzleFlashMaxDistanceMeters;
+	public float ImpactFxMaxDistanceMeters => m_ImpactFxMaxDistanceMeters;
+	public float BulletFlightMaxDistanceMeters => m_BulletFlightMaxDistanceMeters;
+	public float DecalMaxDistanceMeters => m_DecalMaxDistanceMeters;
+	public float EffectNearQualityDistanceMeters => m_EffectNearQualityDistanceMeters;
+	public float EffectMidQualityDistanceMeters => m_EffectMidQualityDistanceMeters;
+	public float ReducedParticleScaleMultiplier => m_ReducedParticleScaleMultiplier;
+	public float ReducedMaxParticlesMultiplier => m_ReducedMaxParticlesMultiplier;
+	public float ReducedMuzzleScaleMultiplier => m_ReducedMuzzleScaleMultiplier;
+	public float ReducedBulletFlightScaleMultiplier => m_ReducedBulletFlightScaleMultiplier;
+	public float ReducedDecalLifetimeMultiplier => m_ReducedDecalLifetimeMultiplier;
 	#endregion
 
 	#region Public Methods

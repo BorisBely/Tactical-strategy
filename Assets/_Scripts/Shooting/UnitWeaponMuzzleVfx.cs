@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -60,19 +59,33 @@ public sealed class UnitWeaponMuzzleVfx : MonoBehaviour
 		if (fireOrigin == null)
 			return;
 
+		if (!WeaponVfxUtility.IsWithinEffectDistance(fireOrigin.position, profile.MuzzleFlashMaxDistanceMeters))
+			return;
+
+		if (!CombatVfxBudgetService.TryAcquire(CombatVfxBudgetService.Category.MuzzleFlash))
+			return;
+
 		bool suppressed = WeaponVfxUtility.HasSuppressor(m_WeaponRuntime);
 		GameObject prefab = suppressed && profile.SuppressedMuzzleFlashPrefab != null
 			? profile.SuppressedMuzzleFlashPrefab
 			: profile.UnsuppressedMuzzleFlashPrefab;
 		if (prefab == null)
+		{
+			CombatVfxBudgetService.Release(CombatVfxBudgetService.Category.MuzzleFlash);
 			return;
+		}
 
 		float scale = suppressed ? profile.SuppressedMuzzleScale : profile.UnsuppressedMuzzleScale;
 		float lifetime = suppressed ? profile.SuppressedMuzzleLifetimeSeconds : profile.UnsuppressedMuzzleLifetimeSeconds;
 		SpawnEffect(prefab, fireOrigin.position, fireOrigin.rotation, Vector3.one * scale, lifetime);
 	}
 
-	private void SpawnEffect(GameObject _prefab, Vector3 _position, Quaternion _rotation, Vector3 _scale, float _lifetime)
+	private void SpawnEffect(
+		GameObject _prefab,
+		Vector3 _position,
+		Quaternion _rotation,
+		Vector3 _scale,
+		float _lifetime)
 	{
 		ObjectPool<GameObject> pool = GetOrCreatePool(_prefab);
 		GameObject instance = pool.Get();
@@ -81,7 +94,12 @@ public sealed class UnitWeaponMuzzleVfx : MonoBehaviour
 		t.localScale = _scale;
 
 		WeaponVfxUtility.PlayParticleSystems(instance);
-		StartCoroutine(ReleaseAfter(pool, instance, _lifetime));
+		WeaponVfxRuntimeRelease.StartRelease(
+			pool,
+			instance,
+			CombatVfxBudgetService.Category.MuzzleFlash,
+			_lifetime,
+			_waitForParticles: true);
 	}
 
 	private ObjectPool<GameObject> GetOrCreatePool(GameObject _prefab)
@@ -100,13 +118,6 @@ public sealed class UnitWeaponMuzzleVfx : MonoBehaviour
 
 		m_Pools.Add(_prefab, pool);
 		return pool;
-	}
-
-	private static IEnumerator ReleaseAfter(ObjectPool<GameObject> _pool, GameObject _instance, float _seconds)
-	{
-		yield return new WaitForSeconds(_seconds);
-		if (_instance != null)
-			_pool.Release(_instance);
 	}
 	#endregion
 }

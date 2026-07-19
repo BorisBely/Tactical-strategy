@@ -421,9 +421,16 @@ public static class UnitAnimControllerAimRelaxedSetup
 				CondIf(c_ParamIsLoadingLmgBelt),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondIf(c_ParamWeaponReady));
+			EnsureTransition(aimReload, relaxedLmgReload, 0.25f,
+				CondIf(c_ParamIsLoadingLmgBelt),
+				CondIfNot(c_ParamIsCyclingBolt),
+				CondIfNot(c_ParamWeaponReady));
 			EnsureTransition(aimBolt, aimLmgReload, 0.25f,
 				CondIf(c_ParamIsLoadingLmgBelt),
 				CondIf(c_ParamWeaponReady));
+
+			EnsureReloadExitGuardsAgainstLmgBelt(aimReload);
+			EnsureReloadExitGuardsAgainstLmgBelt(relaxedReload);
 
 			// Cross-variant: ready ↔ not ready while in LMG reload
 			EnsureTransition(aimLmgReload, relaxedLmgReload, 0.15f,
@@ -850,6 +857,45 @@ public static class UnitAnimControllerAimRelaxedSetup
 
 			if (!hasWeaponReadyIf)
 				_from.RemoveTransition(transition);
+		}
+	}
+
+	/// <summary>
+	/// Выход из reload-состояния при !IsReloadingWeapon не должен срабатывать во время LMG belt-load.
+	/// </summary>
+	private static void EnsureReloadExitGuardsAgainstLmgBelt(AnimatorState _state)
+	{
+		if (_state == null)
+			return;
+
+		foreach (AnimatorStateTransition transition in _state.transitions)
+		{
+			bool exitsWhenNotReloading = false;
+			bool alreadyGuardsLmgBelt = false;
+
+			foreach (AnimatorCondition condition in transition.conditions)
+			{
+				if (condition.parameter == c_ParamIsReloading && condition.mode == AnimatorConditionMode.IfNot)
+					exitsWhenNotReloading = true;
+				if (condition.parameter == c_ParamIsLoadingLmgBelt)
+					alreadyGuardsLmgBelt = true;
+			}
+
+			if (!exitsWhenNotReloading || alreadyGuardsLmgBelt)
+				continue;
+
+			var conditions = new List<AnimatorCondition>(transition.conditions)
+			{
+				new AnimatorCondition
+				{
+					mode = AnimatorConditionMode.IfNot,
+					parameter = c_ParamIsLoadingLmgBelt,
+					threshold = 0f
+				}
+			};
+			transition.conditions = conditions.ToArray();
+			EditorUtility.SetDirty(transition);
+			EditorUtility.SetDirty(_state);
 		}
 	}
 

@@ -95,7 +95,7 @@ public static class GrenadeThrowContentBuilder
 
 			PhysicsMaterial pm = new PhysicsMaterial("GrenadePhysic")
 			{
-				bounciness = 0.3f,
+				bounciness = 0.22f,
 				bounceCombine = PhysicsMaterialCombine.Average,
 				dynamicFriction = 0.4f,
 				staticFriction = 0.4f,

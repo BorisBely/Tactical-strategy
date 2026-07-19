@@ -18,24 +18,55 @@ public static class WeaponModificationAudioUtility
 	public static bool IsAttachmentSlot(ItemModificationSlotDescriptor _slotDescriptor) =>
 		_slotDescriptor.Kind == ItemModificationSlotKind.Attachment;
 
-	public static void TryPlayAttachmentAttachSound(CharacterInventory _inventoryOrNull, bool _useMainHandPosition)
+	public static void TryPlayAttachmentAttachSound(
+		CharacterInventory _inventoryOrNull,
+		bool _useMainHandPosition,
+		bool _playNonSpatial = false,
+		float _nonSpatialVolumeScale = 1f)
 	{
 		if (!TryPickAttachmentAttachSound(out AudioClip clip))
 			return;
 
-		AudioSource.PlayClipAtPoint(clip, ResolveAudioPosition(_inventoryOrNull, _useMainHandPosition), GetSettings().AttachmentAttachSoundVolume);
+		PlayAttachmentClip(
+			clip,
+			ResolveAudioPosition(_inventoryOrNull, _useMainHandPosition),
+			GetSettings().AttachmentAttachSoundVolume,
+			_playNonSpatial,
+			_nonSpatialVolumeScale);
 	}
 
-	public static void TryPlayAttachmentDetachSound(CharacterInventory _inventoryOrNull, bool _useMainHandPosition)
+	public static void TryPlayAttachmentDetachSound(
+		CharacterInventory _inventoryOrNull,
+		bool _useMainHandPosition,
+		bool _playNonSpatial = false,
+		float _nonSpatialVolumeScale = 1f)
 	{
 		if (!TryPickAttachmentDetachSound(out AudioClip clip))
 			return;
 
-		AudioSource.PlayClipAtPoint(clip, ResolveAudioPosition(_inventoryOrNull, _useMainHandPosition), GetSettings().AttachmentDetachSoundVolume);
+		PlayAttachmentClip(
+			clip,
+			ResolveAudioPosition(_inventoryOrNull, _useMainHandPosition),
+			GetSettings().AttachmentDetachSoundVolume,
+			_playNonSpatial,
+			_nonSpatialVolumeScale);
 	}
 	#endregion
 
 	#region Private Methods
+	private static void PlayAttachmentClip(
+		AudioClip _clip,
+		Vector3 _position,
+		float _volume,
+		bool _playNonSpatial,
+		float _nonSpatialVolumeScale = 1f)
+	{
+		if (_playNonSpatial)
+			ItemInventoryAudioUtility.PlayClipNonSpatial(_clip, _volume * _nonSpatialVolumeScale);
+		else
+			AudioSource.PlayClipAtPoint(_clip, _position, _volume);
+	}
+
 	private static bool TryPickAttachmentAttachSound(out AudioClip _clip)
 	{
 		_clip = null;

@@ -1250,6 +1250,7 @@ MonoBehaviour:
   m_ShellEject: {fileID: 7568380500504763553}
   m_SightPivot: {fileID: 514209253036135997}
   m_MagazineSocket: {fileID: 6198384731622422823}
+  m_SecondaryMagazineSocket: {fileID: 0}
   m_MuzzleModuleVisualSocket: {fileID: 6838859501277990528}
   m_OpticModuleVisualSocket: {fileID: 514209253036135997}
   m_SideRailModuleVisualSocket: {fileID: 0}
@@ -1269,13 +1270,20 @@ MonoBehaviour:
   m_VisualRecoilKickPivot: {fileID: 0}
   m_BoltCarrier: {fileID: 3962739113697604927}
   m_BoltOpenLocalOffset: {x: 0, y: 0, z: -0.0790795}
+  m_BoltHandleOpenLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_BoltHandleRotatePhaseNormalized: 0.25
   m_BoltCycleSeconds: 0.085
   m_BoltCycleSecondsSingleShot: 0.16
+  m_BoltActionCycleSeconds: 0.55
   m_BoltShellEjectNormalizedTime: 0.5
   m_DustCoverHinge: {fileID: 83882433681062717}
   m_DustCoverClosedDegrees: -160
   m_DustCoverHingeAxis: {x: 0, y: 0, z: 1}
   m_DustCoverTweenSeconds: 0.12
+  m_LmgTopCoverHinge: {fileID: 0}
+  m_LmgBeltMeshVisual: {fileID: 0}
+  m_LmgCoverOpenDegrees: 110
+  m_LmgCoverTweenSeconds: 0.3
   m_DrawBarrelDebugRay: 0
   m_BarrelDebugRayLength: 4
   m_BarrelDebugRayColor: {r: 0, g: 0.92, b: 1, a: 1}
@@ -1881,7 +1889,7 @@ Transform:
   m_GameObject: {fileID: 7726706316208487449}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.062, z: 0.429}
+  m_LocalPosition: {x: 0, y: 0.062, z: 0.325}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

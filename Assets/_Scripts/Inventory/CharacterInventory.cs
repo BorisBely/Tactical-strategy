@@ -189,7 +189,7 @@ public class CharacterInventory : MonoBehaviour
 
 		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(m_HeadEquipment, this);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(m_HeadEquipment, this);
 		return true;
 	}
 
@@ -209,7 +209,7 @@ public class CharacterInventory : MonoBehaviour
 		m_HeadEquipment = _item;
 		_headEquipment.TryEquip(m_HeadEquipment.Definition, _traits, _appearance);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(m_HeadEquipment, this);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(m_HeadEquipment, this);
 		return true;
 	}
 
@@ -224,7 +224,7 @@ public class CharacterInventory : MonoBehaviour
 		ClearHeadEquipmentVisual();
 		m_BagItems.Add(head);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(head, this);
+		InventoryWindowAudioUtility.TryPlayInventoryRemoveSoundFromSlot(head, this);
 		return true;
 	}
 
@@ -248,7 +248,7 @@ public class CharacterInventory : MonoBehaviour
 		_backEquipment.TryEquip(m_BackEquipment.Definition);
 		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(m_BackEquipment, this);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(m_BackEquipment, this);
 		return true;
 	}
 
@@ -265,7 +265,7 @@ public class CharacterInventory : MonoBehaviour
 		_backEquipment.TryEquip(m_BackEquipment.Definition);
 		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryAddSoundFromSlot(m_BackEquipment, this);
+		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(m_BackEquipment, this);
 		return true;
 	}
 
@@ -281,7 +281,7 @@ public class CharacterInventory : MonoBehaviour
 		m_BagItems.Add(back);
 		DropExcessBagItemsToGround();
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayInventoryRemoveSoundFromSlot(back, this);
+		InventoryWindowAudioUtility.TryPlayInventoryRemoveSoundFromSlot(back, this);
 		return true;
 	}
 
@@ -352,7 +352,7 @@ public class CharacterInventory : MonoBehaviour
 
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayEquipmentAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
+		InventoryWindowAudioUtility.TryPlayEquipmentAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
 		return true;
 	}
 
@@ -368,7 +368,7 @@ public class CharacterInventory : MonoBehaviour
 		m_MainHandEquipment = _item;
 		_equipment.TryEquip(m_MainHandEquipment.Definition);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayEquipmentAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
+		InventoryWindowAudioUtility.TryPlayEquipmentAddSoundFromSlot(this, m_MainHandEquipment, _useMainHandPosition: true);
 		return true;
 	}
 
@@ -383,7 +383,7 @@ public class CharacterInventory : MonoBehaviour
 		ClearUnitEquipmentVisual();
 		m_BagItems.Add(mh);
 		NotifyInventoryChanged();
-		ItemInventoryAudioUtility.TryPlayEquipmentRemoveSoundFromSlot(mh, this, _useMainHandPosition: true);
+		InventoryWindowAudioUtility.TryPlayEquipmentRemoveSoundFromSlot(mh, this, _useMainHandPosition: true);
 		return true;
 	}
 

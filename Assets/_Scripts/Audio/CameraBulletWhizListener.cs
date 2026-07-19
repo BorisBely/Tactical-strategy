@@ -38,13 +38,10 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 	[Tooltip("Множитель громкости whiz, если у выстрела есть звук попадания по поверхности (−30% = 0.7).")]
 	[SerializeField, Range(0f, 1f)] private float m_ImpactAudioWhizVolumeScale = c_ImpactAudioWhizVolumeScale;
 	[SerializeField, Range(0f, 0.25f)] private float m_PitchVariance = 0.06f;
-	[SerializeField, Range(1, 8)] private int m_VoiceCount = 5;
 	#endregion
 
 	#region Private Fields
 	private Transform m_ListenerTransform;
-	private AudioSource[] m_VoicePool;
-	private int m_NextVoiceIndex;
 	private readonly List<PendingWhiz> m_PendingWhizzes = new List<PendingWhiz>(16);
 	#endregion
 
@@ -62,7 +59,6 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 	{
 		m_ListenerTransform = transform;
 		EnsureWhizZoneCollider();
-		EnsureVoicePool();
 		WeaponShotTraceBroadcast.TracePublished += HandleTracePublished;
 	}
 
@@ -147,24 +143,12 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 		m_WhizZoneCollider.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
 	}
 
-	private void EnsureVoicePool()
+	private bool PlayWhiz(float _volume, float _pitch)
 	{
-		if (m_VoicePool != null && m_VoicePool.Length > 0)
-			return;
+		if (!m_WhizClips.TryPickClip(out AudioClip clip) || clip == null || _volume <= c_MinAudibleVolume)
+			return false;
 
-		int count = Mathf.Clamp(m_VoiceCount, 1, 8);
-		m_VoicePool = new AudioSource[count];
-		for (int i = 0; i < count; i++)
-		{
-			GameObject voiceGo = new GameObject($"BulletWhizVoice_{i}");
-			voiceGo.transform.SetParent(transform, false);
-			AudioSource source = voiceGo.AddComponent<AudioSource>();
-			source.playOnAwake = false;
-			source.spatialBlend = 0f;
-			source.dopplerLevel = 0f;
-			source.loop = false;
-			m_VoicePool[i] = source;
-		}
+		return CombatAudioManager.TryPlayBulletWhiz(clip, _volume, _pitch);
 	}
 
 	private void HandleTracePublished(WeaponShotTraceInfo _trace)
@@ -325,25 +309,6 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 		float normalizedProximity = 1f - Mathf.Clamp01(_missDistanceMeters / Mathf.Max(0.01f, _radiusMeters));
 		float shapedProximity = Mathf.Pow(normalizedProximity, m_DistanceFalloffPower);
 		return m_BaseVolume * Mathf.Lerp(m_EdgeVolumeMultiplier, 1f, shapedProximity);
-	}
-
-	private bool PlayWhiz(float _volume, float _pitch)
-	{
-		if (!m_WhizClips.TryPickClip(out AudioClip clip) || clip == null || _volume <= c_MinAudibleVolume)
-			return false;
-
-		EnsureVoicePool();
-		if (m_VoicePool == null || m_VoicePool.Length == 0)
-			return false;
-
-		AudioSource voice = m_VoicePool[m_NextVoiceIndex];
-		m_NextVoiceIndex = (m_NextVoiceIndex + 1) % m_VoicePool.Length;
-		if (voice == null)
-			return false;
-
-		voice.pitch = _pitch;
-		voice.PlayOneShot(clip, _volume);
-		return true;
 	}
 	#endregion
 }

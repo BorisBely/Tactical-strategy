@@ -21,18 +21,18 @@ MonoBehaviour:
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: fa743eecdb874d2eaf44562ba0b25826, type: 3}
   m_EquippedVisualPrefab: {fileID: 9107882517966821505, guid: 7d8da092eb648234c9a4f55ff735c950, type: 3}
-  m_RightHandLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
-  m_RightHandLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
+  m_RightHandLocalPosition: {x: 0.0926, y: 0.0292, z: -0.0125}
+  m_RightHandLocalEulerAngles: {x: 344.94476, y: 91.49594, z: 272.6746}
   m_RightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
-  m_RightHandReadyLocalEulerAngles: {x: 29.532, y: 81.499, z: -87.341}
-  m_RightHandIkNotReadyLocalPosition: {x: 0.096, y: -0.025, z: -0.118}
-  m_RightHandIkNotReadyLocalEulerAngles: {x: 353.1077, y: 316.98206, z: 269.8166}
-  m_RightHandIkReadyLocalPosition: {x: 0.043, y: -0.025, z: -0.011}
-  m_RightHandIkReadyLocalEulerAngles: {x: -12.2669, y: -28.2336, z: -94.142}
-  m_LeftHandIkNotReadyLocalPosition: {x: -0.114, y: 0.104, z: 0.201}
-  m_LeftHandIkNotReadyLocalEulerAngles: {x: 52.095505, y: 42.743694, z: 156.76242}
-  m_LeftHandIkReadyLocalPosition: {x: -0.1075, y: 0.0375, z: 0.2473}
-  m_LeftHandIkReadyLocalEulerAngles: {x: 2.68, y: 33.138, z: 149.69}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532013, y: 81.49897, z: 272.659}
+  m_RightHandIkNotReadyLocalPosition: {x: -0.042, y: -0.021, z: -0.16}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 0.26261145, y: 24.91925, z: 274.73746}
+  m_RightHandIkReadyLocalPosition: {x: 0.03, y: -0.015, z: -0.053}
+  m_RightHandIkReadyLocalEulerAngles: {x: 348.33353, y: 326.81088, z: 265.25867}
+  m_LeftHandIkNotReadyLocalPosition: {x: -0.045, y: 0.087, z: 0.21}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 55.87099, y: 35.322453, z: 124.71844}
+  m_LeftHandIkReadyLocalPosition: {x: -0.127, y: 0.037, z: 0.277}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 2.6800003, y: 33.137997, z: 149.69}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
   m_RightHandIkTargetChildName: RightHandIkTarget

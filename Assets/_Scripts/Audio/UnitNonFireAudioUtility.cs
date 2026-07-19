@@ -8,7 +8,8 @@ public static class UnitNonFireAudioUtility
 {
 	#region Constants
 	public const float VolumeMultiplier = 0.65f;
-	private const float c_SpatialMinDistance = 2.5f;
+	public const float SpatialMinDistance = 2.5f;
+	private const float c_SpatialMinDistance = SpatialMinDistance;
 	private const float c_RolloffMinAudibleVolume = 0.03f;
 	private const float c_RolloffAttenuationPower = 1.6f;
 	private const int c_RolloffCurveKeyCount = 9;
@@ -36,22 +37,7 @@ public static class UnitNonFireAudioUtility
 
 	public static void PlayAtPoint(AudioClip _clip, Vector3 _position, float _volume, float _maxDistance = 40f)
 	{
-		if (_clip == null || _volume <= 0f)
-			return;
-
-		float scaledVolume = ScaleVolume(_volume);
-		if (scaledVolume <= 0f)
-			return;
-
-		GameObject go = new GameObject("NonFireAudioOneShot");
-		go.transform.position = _position;
-		AudioSource source = go.AddComponent<AudioSource>();
-		source.playOnAwake = false;
-		ConfigureSpatial(source, _maxDistance);
-		source.PlayOneShot(_clip, scaledVolume);
-
-		float lifetime = _clip.length / Mathf.Max(0.01f, source.pitch) + 0.05f;
-		Object.Destroy(go, lifetime);
+		CombatAudioManager.TryPlayNonFire(_clip, _position, _volume, _maxDistance);
 	}
 	#endregion
 

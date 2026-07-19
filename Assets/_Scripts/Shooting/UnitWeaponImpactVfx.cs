@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -55,9 +54,15 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		if (!_trace.HasHit || _trace.HitCollider == null)
 			return;
 
+		WeaponVfxQualityTier impactTier = WeaponVfxUtility.ResolveEffectQualityTier(
+			profile,
+			_trace.EndPoint,
+			profile.ImpactFxMaxDistanceMeters);
+
 		if (profile.EnableBodyImpactFx && _trace.ImpactVfxKind is WeaponShotImpactVfxKind.ArmorDeflect or WeaponShotImpactVfxKind.Flesh)
 		{
-			SpawnBodyImpact(profile, _trace);
+			if (impactTier != WeaponVfxQualityTier.Skip)
+				SpawnBodyImpact(profile, _trace, impactTier);
 			return;
 		}
 
@@ -67,24 +72,38 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		if (!profile.TryResolveImpactSurface(_trace.HitCollider, out WeaponImpactSurfaceSet surface) || surface == null)
 			return;
 
-		if (profile.EnableImpactDecals)
-			SpawnImpactDecal(profile, surface, _trace);
+		WeaponVfxQualityTier decalTier = WeaponVfxUtility.ResolveEffectQualityTier(
+			profile,
+			_trace.EndPoint,
+			profile.DecalMaxDistanceMeters);
 
-		if (profile.EnableImpactAudio)
+		if (profile.EnableImpactDecals && decalTier != WeaponVfxQualityTier.Skip)
+			SpawnImpactDecal(profile, surface, _trace, decalTier);
+
+		if (profile.EnableImpactAudio && impactTier != WeaponVfxQualityTier.Skip)
 			PlayImpactAudio(profile, surface, _trace);
 	}
 
-	private void SpawnBodyImpact(WeaponVfxProfile _profile, WeaponShotTraceInfo _trace)
+	private void SpawnBodyImpact(
+		WeaponVfxProfile _profile,
+		WeaponShotTraceInfo _trace,
+		WeaponVfxQualityTier _tier)
 	{
 		bool armorDeflect = _trace.ImpactVfxKind == WeaponShotImpactVfxKind.ArmorDeflect;
 		GameObject prefab = armorDeflect ? _profile.ArmorDeflectImpactPrefab : _profile.FleshImpactPrefab;
 		if (prefab == null)
 			return;
 
+		if (!CombatVfxBudgetService.TryAcquire(CombatVfxBudgetService.Category.ImpactParticle))
+			return;
+
 		Vector3 normal = _trace.HitNormal.sqrMagnitude > 1e-6f ? _trace.HitNormal.normalized : Vector3.up;
 		Vector3 position = _trace.EndPoint + normal * _profile.BodyImpactSurfaceOffset;
 		Quaternion rotation = Quaternion.LookRotation(normal);
 		float intensityScale = armorDeflect ? _profile.ArmorDeflectImpactScale : _profile.FleshImpactScale;
+		if (_tier == WeaponVfxQualityTier.Reduced)
+			intensityScale *= _profile.ReducedParticleScaleMultiplier;
+
 		float lifetime = armorDeflect
 			? _profile.ArmorDeflectImpactLifetimeSeconds
 			: _profile.FleshImpactLifetimeSeconds;
@@ -92,28 +111,36 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			? Vector3.Scale(prefab.transform.localScale, Vector3.one * intensityScale)
 			: Vector3.one * intensityScale;
 
-		SpawnParticleImpact(prefab, position, rotation, scale, lifetime);
+		SpawnParticleImpact(prefab, position, rotation, scale, lifetime, _profile, _tier);
 	}
 
 	private void SpawnImpactDecal(
 		WeaponVfxProfile _profile,
 		WeaponImpactSurfaceSet _surface,
-		WeaponShotTraceInfo _trace)
+		WeaponShotTraceInfo _trace,
+		WeaponVfxQualityTier _tier)
 	{
 		GameObject decalPrefab = _surface.PickRandomDecal();
 		if (decalPrefab == null)
+			return;
+
+		if (!CombatVfxBudgetService.TryAcquire(CombatVfxBudgetService.Category.Decal))
 			return;
 
 		Vector3 normal = _trace.HitNormal.sqrMagnitude > 1e-6f ? _trace.HitNormal.normalized : Vector3.up;
 		Vector3 position = _trace.EndPoint + normal * _profile.DecalSurfaceOffset;
 		Quaternion rotation = Quaternion.LookRotation(normal) *
 			Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.forward);
+		float lifetime = _profile.DecalLifetimeSeconds;
+		if (_tier == WeaponVfxQualityTier.Reduced)
+			lifetime *= _profile.ReducedDecalLifetimeMultiplier;
+
 		SpawnPooled(
 			decalPrefab,
 			position,
 			rotation,
 			Vector3.one * _profile.DecalScale,
-			_profile.DecalLifetimeSeconds);
+			lifetime);
 	}
 
 	private static void PlayImpactAudio(
@@ -124,7 +151,7 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		if (!_surface.TryPickImpactSound(out AudioClip clip, out float volume))
 			return;
 
-		UnitNonFireAudioUtility.PlayAtPoint(
+		CombatAudioManager.TryPlayImpact(
 			clip,
 			_trace.EndPoint,
 			volume,
@@ -136,7 +163,9 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		Vector3 _position,
 		Quaternion _rotation,
 		Vector3 _scale,
-		float _lifetime)
+		float _lifetime,
+		WeaponVfxProfile _profile,
+		WeaponVfxQualityTier _tier)
 	{
 		ObjectPool<GameObject> pool = GetOrCreatePool(_prefab);
 		GameObject instance = pool.Get();
@@ -144,20 +173,14 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		t.SetPositionAndRotation(_position, _rotation);
 		t.localScale = _scale;
 
+		WeaponVfxUtility.ApplyParticleQualityTier(instance, _profile, _tier);
 		WeaponVfxUtility.PlayShellParticles(instance);
-		StartCoroutine(ReleaseParticleAfter(pool, instance, _lifetime));
-	}
-
-	private static IEnumerator ReleaseParticleAfter(ObjectPool<GameObject> _pool, GameObject _instance, float _minSeconds)
-	{
-		if (_minSeconds > 0f)
-			yield return new WaitForSeconds(_minSeconds);
-
-		while (_instance != null && WeaponVfxUtility.IsParticleRootAlive(_instance))
-			yield return null;
-
-		if (_instance != null)
-			_pool.Release(_instance);
+		WeaponVfxRuntimeRelease.StartRelease(
+			pool,
+			instance,
+			CombatVfxBudgetService.Category.ImpactParticle,
+			_lifetime,
+			_waitForParticles: true);
 	}
 
 	private void SpawnPooled(
@@ -173,7 +196,7 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 		t.SetPositionAndRotation(_position, _rotation);
 		t.localScale = _scale;
 
-		StartCoroutine(ReleaseAfter(pool, instance, _lifetime));
+		WeaponVfxRuntimeRelease.StartDecalRelease(pool, instance, _lifetime);
 	}
 
 	private ObjectPool<GameObject> GetOrCreatePool(GameObject _prefab)
@@ -197,13 +220,6 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 
 		m_Pools.Add(_prefab, pool);
 		return pool;
-	}
-
-	private static IEnumerator ReleaseAfter(ObjectPool<GameObject> _pool, GameObject _instance, float _seconds)
-	{
-		yield return new WaitForSeconds(_seconds);
-		if (_instance != null)
-			_pool.Release(_instance);
 	}
 	#endregion
 }

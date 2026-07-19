@@ -535,7 +535,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		NotifyInventoryMutated();
 		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
 		{
-			WeaponModificationAudioUtility.TryPlayAttachmentAttachSound(
+			InventoryWindowAudioUtility.TryPlayAttachmentAttachSound(
 				ActiveInventory,
 				_useMainHandPosition: resolvedIsMainHand && !resolvedIsOnGroundPanel);
 		}
@@ -677,7 +677,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		NotifyInventoryMutated();
 		if (WeaponModificationAudioUtility.IsAttachmentSlot(_slotDescriptor))
 		{
-			WeaponModificationAudioUtility.TryPlayAttachmentDetachSound(
+			InventoryWindowAudioUtility.TryPlayAttachmentDetachSound(
 				ActiveInventory,
 				_useMainHandPosition: resolvedIsMainHand && !resolvedIsOnGroundPanel);
 		}

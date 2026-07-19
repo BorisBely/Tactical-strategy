@@ -4454,7 +4454,6 @@ MonoBehaviour:
   m_DistanceFalloffPower: 1.45
   m_ImpactAudioWhizVolumeScale: 0.7
   m_PitchVariance: 0.06
-  m_VoiceCount: 5
 --- !u!1 &332745177
 GameObject:
   m_ObjectHideFlags: 0
@@ -5719,7 +5718,6 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -5849,7 +5847,7 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   m_Enabled: 1
-  serializedVersion: 13
+  serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 2
@@ -5901,7 +5899,7 @@ Light:
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
-  m_ShapeRadius: 0
+  m_ShadowRadius: 0
   m_ShadowAngle: 0
   m_LightUnit: 1
   m_LuxAtDistance: 1
@@ -7484,6 +7482,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!115 &584370197
+MonoScript:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  serializedVersion: 7
+  m_DefaultReferences: {}
+  m_Icon: {fileID: 0}
+  m_Type: 0
+  m_ExecutionOrder: 0
+  m_ClassName: SmokeVfxComparisonPlayer
+  m_Namespace: 
+  m_AssemblyName: Assembly-CSharp
 --- !u!1 &584801079
 GameObject:
   m_ObjectHideFlags: 0
@@ -8598,6 +8611,11 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!4 &727076695 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4166648332844074, guid: 0558087900bff754495f28acfdbdb0d5, type: 3}
+  m_PrefabInstance: {fileID: 727076694}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &733236637
 GameObject:
   m_ObjectHideFlags: 0
@@ -13721,9 +13739,13 @@ MonoBehaviour:
   m_Equipment: {fileID: 1243261164}
   m_ReadyHands: {fileID: 1243261163}
   m_CombatStats: {fileID: 0}
+  m_EquippedWeaponPose: {fileID: 0}
+  m_ReloadController: {fileID: 0}
+  m_WeaponRuntime: {fileID: 0}
   m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
+  m_RetainTargetDuringReloadOrMalfunction: 1
   m_EyeHeight: 1.6
   m_ScanIntervalMin: 0.25
   m_ScanIntervalMax: 0.45
@@ -13857,6 +13879,13 @@ MonoBehaviour:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
         m_Wear01: 0
         m_Fouling01: 0
         m_EquippedAttachments: []
@@ -13890,6 +13919,13 @@ MonoBehaviour:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
         m_Wear01: 0
         m_Fouling01: 0
         m_EquippedAttachments: []
@@ -13920,6 +13956,13 @@ MonoBehaviour:
         m_CurrentMagazineDisplayName: 
         m_CurrentMagazineLocalizationKey: 
         m_CurrentMagazineRuntimeState:
+          m_Definition: {fileID: 0}
+          m_LoadedAmmoDefinition: {fileID: 0}
+          m_CurrentAmmoCount: 0
+        m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+        m_CurrentSecondaryMagazineDisplayName: 
+        m_CurrentSecondaryMagazineLocalizationKey: 
+        m_CurrentSecondaryMagazineRuntimeState:
           m_Definition: {fileID: 0}
           m_LoadedAmmoDefinition: {fileID: 0}
           m_CurrentAmmoCount: 0
@@ -13995,7 +14038,9 @@ MonoBehaviour:
   m_StanceSource: {fileID: 0}
   m_Vision: {fileID: 0}
   m_ReadyHands: {fileID: 0}
+  m_Equipment: {fileID: 0}
   m_FireController: {fileID: 0}
+  m_GrenadeThrowController: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
   m_StabilizeOther: {fileID: 0}
@@ -15460,6 +15505,11 @@ MonoBehaviour:
     m_PutLoadedMagazineInWeapon: 0
     m_AmmoBoxItems: []
   m_GrenadeThrowData: {fileID: 11400000, guid: 38a5d38522c3e4543a4af33d01d4e616, type: 2}
+--- !u!4 &1284288169 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4501109767796144, guid: 3dd6c3de48ba7aa45a4742f115264f15, type: 3}
+  m_PrefabInstance: {fileID: 1284288168}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1285133463
 GameObject:
   m_ObjectHideFlags: 0
@@ -16316,6 +16366,13 @@ MonoBehaviour:
   m_WaitPointIconSize: 22
   m_WaitPointIconScreenOffsetY: 28
   m_SelectFirstPlayerUnitOnStart: 1
+  m_DrawRouteActivationPixels: 5
+  m_DrawRouteSampleMinDistance: 0.5
+  m_DrawRouteSimplificationEpsilon: 0.4
+  m_DrawRouteMinWaypoints: 1
+  m_DrawRouteEraseDistance: 0.8
+  m_DrawRouteEraseLookback: 3
+  m_DrawRouteEraseBacktrackDistance: 8
   m_FormationLineSpacing: 2
   m_FormationLineSpacingMin: 0.5
   m_FormationLineSpacingMax: 10
@@ -16324,7 +16381,6 @@ MonoBehaviour:
   m_FormationSyncUpdateInterval: 0.25
   m_FormationNavMeshSampleRadius: 3
   m_DestinationMarkerPrefab: {fileID: 9167699386245517432, guid: ea55f4c3438f4f4429b346f9e27aab1c, type: 3}
-  m_ClickMarkerLifetimeSeconds: 1
   m_PathMarkerPrefab: {fileID: 9167699386245517432, guid: 063505ce1373ba6448f16c775189aceb, type: 3}
   m_InventoryBindings: {fileID: 1656890144}
   m_GroundPanel: {fileID: 91343974}
@@ -16334,6 +16390,7 @@ MonoBehaviour:
   m_GrenadeOrderHoverDelay: 0.2
   m_GrenadeAimMarkerPrefab: {fileID: 0}
   m_SelectedUnits: []
+  m_RotateToPointMarkerLifetime: 2
 --- !u!4 &1367927969
 Transform:
   m_ObjectHideFlags: 0
@@ -16917,6 +16974,11 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.0010966659, y: 0.8449393, z: -0.034024134}
     m_Extent: {x: 1.0258031, y: 0.9435851, z: 0.26744437}
   m_DirtyAABB: 0
+--- !u!4 &1438214071 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4883824209199282, guid: acd9c7b39735ec94293a86b632cb5bdc, type: 3}
+  m_PrefabInstance: {fileID: 1438214070}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1443515982
 GameObject:
   m_ObjectHideFlags: 0
@@ -16992,6 +17054,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1443515982}
   m_CullTransparentMesh: 1
+--- !u!4 &1464815157 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4348074474749748, guid: 143fb9c1a73fa2046a11f2a21cd689c3, type: 3}
+  m_PrefabInstance: {fileID: 1464815156}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1494121730
 GameObject:
   m_ObjectHideFlags: 0
@@ -17260,6 +17327,11 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.0013849139, y: 0.8648821, z: -0.023968205}
     m_Extent: {x: 1.0266688, y: 0.965539, z: 0.27693683}
   m_DirtyAABB: 0
+--- !u!4 &1507023743 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4620599329801416, guid: 6942af1c364efcf439ec83d13ab1e114, type: 3}
+  m_PrefabInstance: {fileID: 1507023742}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1510195560
 GameObject:
   m_ObjectHideFlags: 0
@@ -21441,6 +21513,11 @@ Transform:
   - {fileID: 1034871070}
   m_Father: {fileID: 30926292}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1924122916 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4207815789647852, guid: b59c88aca702be94db73c3624a0a8b0b, type: 3}
+  m_PrefabInstance: {fileID: 1924122915}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1932321403
 GameObject:
   m_ObjectHideFlags: 0
@@ -24541,6 +24618,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24573,6 +24651,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24605,6 +24684,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24637,6 +24717,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24669,6 +24750,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24690,6 +24772,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
       - {fileID: 11400000, guid: b2e3d4c5b6a9789090ab1cd2ef30456a, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24711,6 +24794,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
       - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: 75af1b46b6c58ad459c8feb4df918d44, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24732,6 +24816,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: c2a3a4dc7c54d2742b21fff4f4fc5635, type: 2}
       - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: 75af1b46b6c58ad459c8feb4df918d44, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24752,6 +24837,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: d62768ac27c628f4e8ee383888a05074, type: 2}
       - {fileID: 11400000, guid: 8a5e9e7e302baa64bab5e643797a1113, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: 75af1b46b6c58ad459c8feb4df918d44, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24773,6 +24859,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 7fa00235001bdf944afaca5d953b43a6, type: 2}
       - {fileID: 11400000, guid: 94deabebd65ebeb4f88026f5806829e8, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: 4296c5f3353784149b6b54053b55491d, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24793,6 +24880,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 01b86ede3a7574842af0e7b08aeb0b45, type: 2}
       - {fileID: 11400000, guid: 01b86ede3a7574842af0e7b08aeb0b45, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: 7d00972b5e51f9940ae45be9ac57a1c0, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24827,6 +24915,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24859,6 +24948,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24891,6 +24981,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24923,6 +25014,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24955,6 +25047,7 @@ MonoBehaviour:
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
       - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24973,6 +25066,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -24989,6 +25083,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -25005,6 +25100,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -25021,6 +25117,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1
@@ -25037,6 +25134,7 @@ MonoBehaviour:
       m_HeadItem: {fileID: 0}
       m_BackItem: {fileID: 11400000, guid: 7ff0254a638a0b14ea32b399f13ce67d, type: 2}
       m_BagItems: []
+      m_GrenadeItems: []
       m_AmmoForMagazines: {fileID: 0}
       m_RoundsPerMagazine: -1
       m_LoadMagazineIntoWeapon: 1

@@ -59,6 +59,14 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 		if (!_trace.HasHit && !profile.ShowBulletFlightOnMiss)
 			return;
 
+		Vector3 samplePosition = _trace.HasHit ? _trace.EndPoint : _trace.Origin;
+		WeaponVfxQualityTier tier = WeaponVfxUtility.ResolveEffectQualityTier(
+			profile,
+			samplePosition,
+			profile.BulletFlightMaxDistanceMeters);
+		if (tier == WeaponVfxQualityTier.Skip)
+			return;
+
 		GameObject prefab = profile.BulletFlightPrefab;
 		if (prefab == null)
 			return;
@@ -67,21 +75,31 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 		if (distance <= 0.001f)
 			return;
 
+		if (!CombatVfxBudgetService.TryAcquire(CombatVfxBudgetService.Category.BulletTrail))
+			return;
+
 		float ammoVelocity = _trace.Ammo != null ? _trace.Ammo.Velocity : 400f;
 		float flightSeconds = profile.ComputeBulletFlightSeconds(distance, ammoVelocity);
+		if (tier == WeaponVfxQualityTier.Reduced)
+			flightSeconds *= 0.65f;
+
 		if (flightSeconds <= 0.0001f)
+		{
+			CombatVfxBudgetService.Release(CombatVfxBudgetService.Category.BulletTrail);
 			return;
+		}
 
 		ObjectPool<GameObject> pool = GetOrCreatePool(prefab);
 		GameObject instance = pool.Get();
-		PrepareInstance(instance, profile, _trace);
+		PrepareInstance(instance, profile, _trace, tier);
 		StartCoroutine(AnimateFlight(pool, instance, _trace.Origin, _trace.EndPoint, flightSeconds));
 	}
 
 	private static void PrepareInstance(
 		GameObject _instance,
 		WeaponVfxProfile _profile,
-		WeaponShotTraceInfo _trace)
+		WeaponShotTraceInfo _trace,
+		WeaponVfxQualityTier _tier)
 	{
 		Vector3 direction = (_trace.EndPoint - _trace.Origin).normalized;
 		Quaternion rotation = direction.sqrMagnitude > 1e-6f
@@ -89,13 +107,18 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 			: Quaternion.identity;
 		float scale = _profile.BulletFlightScale;
 		float lengthScale = _profile.BulletFlightLengthScale;
+		if (_tier == WeaponVfxQualityTier.Reduced)
+		{
+			scale *= _profile.ReducedBulletFlightScaleMultiplier;
+			lengthScale *= _profile.ReducedBulletFlightScaleMultiplier;
+		}
 
 		Transform t = _instance.transform;
 		t.SetPositionAndRotation(_trace.Origin, rotation);
 		t.localScale = new Vector3(scale, scale, scale * lengthScale);
 	}
 
-	private static IEnumerator AnimateFlight(
+	private IEnumerator AnimateFlight(
 		ObjectPool<GameObject> _pool,
 		GameObject _instance,
 		Vector3 _origin,
@@ -108,7 +131,10 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 		while (elapsed < _flightSeconds)
 		{
 			if (_instance == null || t == null)
+			{
+				CombatVfxBudgetService.Release(CombatVfxBudgetService.Category.BulletTrail);
 				yield break;
+			}
 
 			elapsed += Time.deltaTime;
 			float progress = _flightSeconds > 1e-6f ? Mathf.Clamp01(elapsed / _flightSeconds) : 1f;
@@ -118,6 +144,8 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 
 		if (_instance != null)
 			_pool.Release(_instance);
+
+		CombatVfxBudgetService.Release(CombatVfxBudgetService.Category.BulletTrail);
 	}
 
 	private ObjectPool<GameObject> GetOrCreatePool(GameObject _prefab)

@@ -204,6 +204,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		InterruptReloadIfRunning();
 		ApplyReloadAnimatorLayerWeightsIfBusy();
+		EnsureLmgBeltClipPlayingIfNeeded();
 	}
 
 	private void OnDisable()
@@ -607,6 +608,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_IsCyclingBolt = false;
 		m_BoltPresentationSuppressesFire = false;
 		SyncAnimatorState();
+		ForceSnapAimLayerToLmgBeltClipIfNeeded();
 
 		if (m_LmgBeltPhaseDurationSeconds > 0f)
 			Invoke(nameof(OnLmgBeltPhaseTimeout), m_LmgBeltPhaseDurationSeconds);
@@ -638,26 +640,25 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_PendingMagazineSlotIndex == WeaponRuntimeState.SecondaryMagazineSlotIndex)
 		{
-			Debug.Log($"[Reload] HideLmgBelt: skipping (secondary slot), belt visual stays");
+			ReloadDbg($"HideLmgBelt: skipping (secondary slot), belt visual stays");
 			return;
 		}
 
-		Debug.Log($"[Reload] HideLmgBelt: hiding belt visual (primary slot eject)");
+		ReloadDbg($"HideLmgBelt: hiding belt visual (primary slot eject)");
 		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
 		equippedWeapon?.ShowLmgBelt(false);
 	}
 
 	private void PlayLmgReloadSound(AudioClip _clip)
 	{
-		if (_clip == null || m_ReloadAudioSource == null)
+		if (_clip == null)
 			return;
 
 		Vector3 pos = transform.position;
 		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
 			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
 
-		m_ReloadAudioSource.transform.position = pos;
-		m_ReloadAudioSource.PlayOneShot(_clip, UnitNonFireAudioUtility.ScaleVolume(1f));
+		CombatAudioManager.TryPlayReload(_clip, pos, 1f, transform, m_ReloadSoundSpatialMaxDistance);
 	}
 
 	private bool TryStartShellByShellReload()
@@ -809,7 +810,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void TryPlayShellLoadSound(MagazineDefinition _definition)
 	{
-		if (_definition == null || m_ReloadAudioSource == null)
+		if (_definition == null)
 			return;
 
 		AudioClip[] clips = _definition.RoundLoadSounds;
@@ -833,8 +834,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
 			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
 
-		m_ReloadAudioSource.transform.position = pos;
-		m_ReloadAudioSource.PlayOneShot(clip, UnitNonFireAudioUtility.ScaleVolume(_definition.RoundLoadSoundsVolume));
+		CombatAudioManager.TryPlayReload(
+			clip,
+			pos,
+			_definition.RoundLoadSoundsVolume,
+			transform,
+			m_ReloadSoundSpatialMaxDistance);
 	}
 
 	private bool TryStartReloadInternal(int _preferredBagIndex)
@@ -877,7 +882,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		int fallbackMagazineBagIndex = -1;
 		bool hasReplacementMagazine = TryTakeBestReplacementMagazine(_preferredBagIndex, out int sourceBagIndex, out InventorySlotRuntimeData replacementMagazine);
 		m_PendingMagazineSlotIndex = WeaponRuntimeState.PrimaryMagazineSlotIndex;
-		Debug.Log($"[Reload] TryTakeBestPrimary: found={hasReplacementMagazine}, hasPrimary={m_WeaponRuntime?.RuntimeState?.HasPrimaryMagazine}, hasSecondary={m_WeaponRuntime?.RuntimeState?.HasSecondaryMagazine}");
+		ReloadDbg($"TryTakeBestPrimary: found={hasReplacementMagazine}, hasPrimary={m_WeaponRuntime?.RuntimeState?.HasPrimaryMagazine}, hasSecondary={m_WeaponRuntime?.RuntimeState?.HasSecondaryMagazine}");
 
 		if (!hasReplacementMagazine && UsesDualMagazineWeapon())
 		{
@@ -885,7 +890,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			if (hasReplacementMagazine)
 			{
 				bool hasPrimary = m_WeaponRuntime.RuntimeState.HasPrimaryMagazine;
-				Debug.Log($"[Reload] Secondary mag found, hasPrimary={hasPrimary}");
+				ReloadDbg($"Secondary mag found, hasPrimary={hasPrimary}");
 				if (hasPrimary)
 				{
 					m_PendingChainedReloadAfterEject = true;
@@ -893,7 +898,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 					m_ChainedReloadReservedReplacement = replacementMagazine;
 					m_PendingMagazineSlotIndex = WeaponRuntimeState.PrimaryMagazineSlotIndex;
 					hasReplacementMagazine = false;
-					Debug.Log($"[Reload] Chained: phase1=eject primary(slot={m_PendingMagazineSlotIndex}), phase2=insert secondary(slot={m_ChainedReloadTargetSlotIndex})");
+					ReloadDbg($"Chained: phase1=eject primary(slot={m_PendingMagazineSlotIndex}), phase2=insert secondary(slot={m_ChainedReloadTargetSlotIndex})");
 				}
 				else
 				{
@@ -906,17 +911,17 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			&& m_PendingMagazineSlotIndex == WeaponRuntimeState.PrimaryMagazineSlotIndex
 			&& m_WeaponRuntime.RuntimeState.HasSecondaryMagazine)
 		{
-			Debug.Log($"[Reload] Primary mag found, hasSecondary=True — chaining eject of secondary first");
+			ReloadDbg($"Primary mag found, hasSecondary=True — chaining eject of secondary first");
 			m_PendingChainedReloadAfterEject = true;
 			m_ChainedReloadTargetSlotIndex = WeaponRuntimeState.PrimaryMagazineSlotIndex;
 			m_ChainedReloadReservedReplacement = replacementMagazine;
 			m_PendingMagazineSlotIndex = WeaponRuntimeState.SecondaryMagazineSlotIndex;
 			hasReplacementMagazine = false;
-			Debug.Log($"[Reload] Chained: phase1=eject secondary(slot={m_PendingMagazineSlotIndex}), phase2=insert primary(slot={m_ChainedReloadTargetSlotIndex})");
+			ReloadDbg($"Chained: phase1=eject secondary(slot={m_PendingMagazineSlotIndex}), phase2=insert primary(slot={m_ChainedReloadTargetSlotIndex})");
 		}
 		else if (hasReplacementMagazine && UsesDualMagazineWeapon() && m_WeaponRuntime.RuntimeState.HasSecondaryMagazine)
 		{
-			Debug.Log($"[Reload] Primary mag found, hasSecondary=True but slotIndex={m_PendingMagazineSlotIndex} (expected 0=Primary) — chain NOT triggered");
+			ReloadDbg($"Primary mag found, hasSecondary=True but slotIndex={m_PendingMagazineSlotIndex} (expected 0=Primary) — chain NOT triggered");
 		}
 
 		if (!hasReplacementMagazine && !m_PendingChainedReloadAfterEject && !TryPrepareFallbackManualLoading(out fallbackMagazineBagIndex))
@@ -929,7 +934,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return false;
 		}
 
-		Debug.Log($"[Reload] Starting reload: slotIndex={m_PendingMagazineSlotIndex}, chain={m_PendingChainedReloadAfterEject}, hasReplacement={hasReplacementMagazine}");
+		ReloadDbg($"Starting reload: slotIndex={m_PendingMagazineSlotIndex}, chain={m_PendingChainedReloadAfterEject}, hasReplacement={hasReplacementMagazine}");
 		CancelInvoke(nameof(ClearBoltPresentationSuppressFireOnly));
 		m_IsReloadingWeapon = true;
 		m_IsCyclingBolt = false;
@@ -968,7 +973,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_UiMagazineInstallOnly)
 			return;
 
-		Debug.Log($"[Reload] EjectEvent: slotIndex={m_PendingMagazineSlotIndex}, hasEjected={m_HasEjectedCurrentMagazine}, malfunctionStrip={m_MalfunctionStripReinsertReloadActive}");
+		ReloadDbg($"EjectEvent: slotIndex={m_PendingMagazineSlotIndex}, hasEjected={m_HasEjectedCurrentMagazine}, malfunctionStrip={m_MalfunctionStripReinsertReloadActive}");
 
 		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadMagOutSound(out AudioClip clip) ? clip : null);
 
@@ -1046,20 +1051,20 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_WeaponRuntime.RuntimeState.HasPrimaryMagazine)
 			return;
 
-		Debug.Log($"[Reload] EjectOppositeSlot: ejecting primary magazine (slotIndex is Secondary, primary occupied)");
+		ReloadDbg($"EjectOppositeSlot: ejecting primary magazine (slotIndex is Secondary, primary occupied)");
 
 		EquippedWeapon equippedWeapon = m_Equipment?.EquippedWeapon;
 		GameObject primaryVisual = equippedWeapon?.TryDetachInsertedMagazineVisual();
 		if (primaryVisual != null)
 		{
-			Debug.Log($"[Reload] EjectOppositeSlot: destroyed primary visual");
+			ReloadDbg($"EjectOppositeSlot: destroyed primary visual");
 			Destroy(primaryVisual);
 		}
 
 		if (m_WeaponRuntime.TryEjectMagazine(WeaponRuntimeState.PrimaryMagazineSlotIndex, out InventorySlotRuntimeData primaryEjected, _syncVisual: false))
 		{
 			bool added = m_CharacterInventory != null && !primaryEjected.IsEmpty && m_CharacterInventory.TryAdd(primaryEjected);
-			Debug.Log($"[Reload] EjectOppositeSlot: primary ejected, addedToBag={added}");
+			ReloadDbg($"EjectOppositeSlot: primary ejected, addedToBag={added}");
 		}
 	}
 
@@ -1077,7 +1082,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (m_PendingReplacementMagazine.IsEmpty)
 		{
-			Debug.Log($"[Reload] InsertEvent: no replacement mag, manualLoadingChain={m_ShouldStartManualMagazineLoadingAfterReload}, chain={m_PendingChainedReloadAfterEject}");
+			ReloadDbg($"InsertEvent: no replacement mag, manualLoadingChain={m_ShouldStartManualMagazineLoadingAfterReload}, chain={m_PendingChainedReloadAfterEject}");
 
 			if (m_UiMagazineModificationActive && m_UiMagazineEjectOnly)
 				return;
@@ -1087,7 +1092,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 		}
 
-		Debug.Log($"[Reload] InsertEvent: inserting into slotIndex={m_PendingMagazineSlotIndex}, handVisual={m_LeftHandMagazineVisualInstance != null}");
+		ReloadDbg($"InsertEvent: inserting into slotIndex={m_PendingMagazineSlotIndex}, handVisual={m_LeftHandMagazineVisualInstance != null}");
 
 		EnsurePendingReplacementMagazineInLeftHand();
 
@@ -1103,7 +1108,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		}
 
 		m_MagazineInsertCompletedThisReload = true;
-		Debug.Log($"[Reload] InsertEvent: SUCCESS, inserted into slotIndex={m_PendingMagazineSlotIndex}, handVisual={handMagazineVisual != null}");
+		ReloadDbg($"InsertEvent: SUCCESS, inserted into slotIndex={m_PendingMagazineSlotIndex}, handVisual={handMagazineVisual != null}");
 		TryPlayReloadSoundFromWeaponDefinition(static wd => wd.TryPickReloadMagInSound(out AudioClip clip) ? clip : null);
 
 		if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
@@ -1127,7 +1132,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (IsLmgWeapon() && m_PendingMagazineSlotIndex != WeaponRuntimeState.SecondaryMagazineSlotIndex)
 		{
-			Debug.Log($"[Reload] InsertEvent: starting LMG belt phase (slotIndex={m_PendingMagazineSlotIndex})");
+			ReloadDbg($"InsertEvent: starting LMG belt phase (slotIndex={m_PendingMagazineSlotIndex})");
 			BeginLmgBeltPhase();
 			if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
 				m_MalfunctionController.NotifyLmgBeltRecoveryStarting();
@@ -1136,7 +1141,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (IsLmgWeapon())
 		{
-			Debug.Log($"[Reload] InsertEvent: skipping LMG belt phase (secondary slot), using standard bolt flow");
+			ReloadDbg($"InsertEvent: skipping LMG belt phase (secondary slot), using standard bolt flow");
 		}
 
 		if (!NeedsChamberingAfterMagazineInsert())
@@ -1174,11 +1179,11 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (!m_MagazineInsertCompletedThisReload)
 		{
-			Debug.Log($"[Reload] BoltHoldOpenDelay: SKIPPED (magazineInsertCompleted={m_MagazineInsertCompletedThisReload})");
+			ReloadDbg($"BoltHoldOpenDelay: SKIPPED (magazineInsertCompleted={m_MagazineInsertCompletedThisReload})");
 			return;
 		}
 
-		Debug.Log($"[Reload] BoltHoldOpenDelay: FIRING, slotIndex={m_PendingMagazineSlotIndex}, isLmg={IsLmgWeapon()}, hasBoltHoldOpen={weaponDefinition.HasBoltHoldOpenDelay}");
+		ReloadDbg($"BoltHoldOpenDelay: FIRING, slotIndex={m_PendingMagazineSlotIndex}, isLmg={IsLmgWeapon()}, hasBoltHoldOpen={weaponDefinition.HasBoltHoldOpenDelay}");
 
 		if (ShouldSkipBoltCycleAfterUiMagazineInstall())
 		{
@@ -1188,7 +1193,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (IsLmgWeapon() && m_PendingMagazineSlotIndex != WeaponRuntimeState.SecondaryMagazineSlotIndex)
 		{
-			Debug.Log($"[Reload] BoltHoldOpenDelay: starting LMG belt phase (slotIndex={m_PendingMagazineSlotIndex})");
+			ReloadDbg($"BoltHoldOpenDelay: starting LMG belt phase (slotIndex={m_PendingMagazineSlotIndex})");
 			BeginLmgBeltPhase();
 			if (m_MalfunctionStripReinsertReloadActive && m_MalfunctionController != null)
 				m_MalfunctionController.NotifyLmgBeltRecoveryStarting();
@@ -1197,7 +1202,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		if (IsLmgWeapon())
 		{
-			Debug.Log($"[Reload] BoltHoldOpenDelay: skipping LMG belt phase (secondary slot), finishing reload normally");
+			ReloadDbg($"BoltHoldOpenDelay: skipping LMG belt phase (secondary slot), finishing reload normally");
 		}
 
 		if (!NeedsChamberingAfterMagazineInsert())
@@ -1276,7 +1281,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (!m_IsReloadingWeapon && !m_IsCyclingBolt && !m_IsLoadingLmgBelt)
 			return;
 
-		Debug.Log($"[Reload] FinishEvent: isReloading={m_IsReloadingWeapon}, isCyclingBolt={m_IsCyclingBolt}, isLoadingLmgBelt={m_IsLoadingLmgBelt}, chain={m_PendingChainedReloadAfterEject}");
+		ReloadDbg($"FinishEvent: isReloading={m_IsReloadingWeapon}, isCyclingBolt={m_IsCyclingBolt}, isLoadingLmgBelt={m_IsLoadingLmgBelt}, chain={m_PendingChainedReloadAfterEject}");
 
 		if (m_MalfunctionController != null && m_MalfunctionController.TryConsumeBoltFinishEvent())
 			return;
@@ -1419,7 +1424,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		m_ChainedReloadTargetSlotIndex = -1;
 		m_ChainedReloadReservedReplacement = default;
 
-		Debug.Log($"[Reload] FinalizeReloadSequence: chain={chainReload}, chainTargetSlot={chainTargetSlot}, reservedEmpty={chainReserved.IsEmpty}, manualLoading={shouldStartManualMagazineLoading}");
+		ReloadDbg($"FinalizeReloadSequence: chain={chainReload}, chainTargetSlot={chainTargetSlot}, reservedEmpty={chainReserved.IsEmpty}, manualLoading={shouldStartManualMagazineLoading}");
 
 		StopReloadInternal(false);
 		m_WeaponRuntime?.RuntimeState?.EnsureValidSelectedFireMode();
@@ -1432,7 +1437,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (chainReload && !chainReserved.IsEmpty && m_CharacterInventory != null)
 		{
 			bool added = m_CharacterInventory.TryAdd(chainReserved);
-			Debug.Log($"[Reload] Chain: addedBackToBag={added}, targetSlot={chainTargetSlot}, starting deferred TryStartReload");
+			ReloadDbg($"Chain: addedBackToBag={added}, targetSlot={chainTargetSlot}, starting deferred TryStartReload");
 			StartCoroutine(DeferredTryStartReload());
 			return;
 		}
@@ -1449,9 +1454,9 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	{
 		yield return null;
 		yield return null;
-		Debug.Log($"[Reload] DeferredTryStartReload: attempting TryStartReload (isReloading={m_IsReloadingWeapon}, isBusy={m_BusyState?.IsBusy}, hasPrimary={m_WeaponRuntime?.RuntimeState?.HasPrimaryMagazine}, hasSecondary={m_WeaponRuntime?.RuntimeState?.HasSecondaryMagazine})");
+		ReloadDbg($"DeferredTryStartReload: attempting TryStartReload (isReloading={m_IsReloadingWeapon}, isBusy={m_BusyState?.IsBusy}, hasPrimary={m_WeaponRuntime?.RuntimeState?.HasPrimaryMagazine}, hasSecondary={m_WeaponRuntime?.RuntimeState?.HasSecondaryMagazine})");
 		bool result = TryStartReload();
-		Debug.Log($"[Reload] DeferredTryStartReload result={result}, reason={m_DebugLastFailureReason}");
+		ReloadDbg($"DeferredTryStartReload result={result}, reason={m_DebugLastFailureReason}");
 	}
 
 	private bool ShouldUseBoltCycleOnlyInsteadOfFullReload()
@@ -1802,7 +1807,6 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		SnapEquippedMagazineVisualToSocketOrigin();
 		SyncAnimatorState();
 		RefreshInventoryUiIfActive();
-		Debug.Log($"[Reload] StopReloadInternal: DONE, leftHandVisual={m_LeftHandMagazineVisualInstance != null}");
 	}
 
 	private void HandleMagazineLoadingStopped(int _bagIndex, bool _completedWithUsableMagazine)
@@ -1828,7 +1832,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		bool exitingReload = !reloadBusy && m_WasAimReloadBusy;
 
 		if (enteringReload || exitingReload)
-			Debug.Log($"[Reload] SyncAnimatorState: entering={enteringReload}, exiting={exitingReload}, isReloading={m_IsReloadingWeapon}, isCyclingBolt={m_IsCyclingBolt}, isLoadingLmgBelt={m_IsLoadingLmgBelt}");
+			ReloadDbg($"SyncAnimatorState: entering={enteringReload}, exiting={exitingReload}, isReloading={m_IsReloadingWeapon}, isCyclingBolt={m_IsCyclingBolt}, isLoadingLmgBelt={m_IsLoadingLmgBelt}");
 
 		if (enteringReload)
 			SnapAimLayerToRelaxedIdleIfNotReady();
@@ -1852,7 +1856,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 					if (targetHash != 0 && !m_Animator.IsInTransition(m_AimReloadLayerIndex))
 					{
 						m_Animator.Play(targetHash, m_AimReloadLayerIndex, 0f);
-						Debug.Log($"[Reload] SyncAnimatorState: force-play targetHash={targetHash} from 0 (enteringReload)");
+						ReloadDbg($"SyncAnimatorState: force-play targetHash={targetHash} from 0 (enteringReload)");
 					}
 				}
 			}
@@ -1953,11 +1957,14 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (targetHash == 0 || currentHash == targetHash)
 		{
 			if (currentHash == targetHash)
-				Debug.Log($"[Reload] SyncClipVariant: SKIP (currentHash==targetHash={currentHash}), animNormalizedTime={normalizedTime:F2}");
+				ReloadDbg($"SyncClipVariant: SKIP (currentHash==targetHash={currentHash}), animNormalizedTime={normalizedTime:F2}");
 			return;
 		}
 
-		Debug.Log($"[Reload] SyncClipVariant: switching from {currentHash} to {targetHash} (reloading={reloading}, cyclingBolt={cyclingBolt}, lmgBelt={m_IsLoadingLmgBelt})");
+		ReloadDbg($"SyncClipVariant: switching from {currentHash} to {targetHash} (reloading={reloading}, cyclingBolt={cyclingBolt}, lmgBelt={m_IsLoadingLmgBelt})");
+
+		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash ||
+		                           currentHash == s_AimShellReloadStateHash || currentHash == s_AimRelaxedShellReloadStateHash;
 
 		if (cyclingBolt && (UsesManualBoltCycleWeapon() || UsesAkStyleBoltCycleWeapon()))
 		{
@@ -1969,12 +1976,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		{
 			bool currentIsLmg = currentHash == s_AimLmgStateHash || currentHash == s_AimRelaxedLmgStateHash;
 			float startTime = currentIsLmg ? normalizedTime : 0f;
+			if (currentIsReloadClip || !currentIsLmg)
+				ReloadDbg($"SyncClipVariant LMG: force-play target={targetHash} from {currentHash} at t={startTime:F2} (reloadClip={currentIsReloadClip})");
 			m_Animator.Play(targetHash, m_AimReloadLayerIndex, startTime);
 			return;
 		}
 
-		bool currentIsReloadClip = currentHash == s_AimReloadStateHash || currentHash == s_AimRelaxedReloadStateHash ||
-		                           currentHash == s_AimShellReloadStateHash || currentHash == s_AimRelaxedShellReloadStateHash;
 		bool currentIsBoltClip = currentHash == s_AimBoltStateHash || currentHash == s_AimRelaxedBoltStateHash ||
 		                         currentHash == s_AimBoltAkStateHash || currentHash == s_AimRelaxedBoltAkStateHash ||
 		                         currentHash == s_AimBoltActionStateHash || currentHash == s_AimRelaxedBoltActionStateHash;
@@ -1994,6 +2001,68 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 
 		m_Animator.Play(targetHash, m_AimReloadLayerIndex, normalizedTime);
+	}
+
+	/// <summary>
+	/// Старт LMG belt-load: сразу на парный LMG-клип, пока граф ещё в reload-состоянии после IsReloadingWeapon=false.
+	/// </summary>
+	private void ForceSnapAimLayerToLmgBeltClipIfNeeded()
+	{
+		if (!m_IsLoadingLmgBelt || m_Animator == null)
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return;
+
+		bool weaponReady = m_Animator.GetBool(s_WeaponReady);
+		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, false, false, false, true);
+		if (targetHash == 0)
+			return;
+
+		AnimatorStateInfo stateInfo = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
+		int currentHash = stateInfo.shortNameHash;
+		if (currentHash == targetHash)
+			return;
+
+		bool currentIsLmg = currentHash == s_AimLmgStateHash || currentHash == s_AimRelaxedLmgStateHash;
+		float startTime = currentIsLmg ? Mathf.Repeat(stateInfo.normalizedTime, 1f) : 0f;
+		m_Animator.Play(targetHash, m_AimReloadLayerIndex, startTime);
+	}
+
+	/// <summary>
+	/// Страховка: пока IsLoadingLmgBelt, aim-слой не должен уходить в idle/pitch blend из-за !IsReloadingWeapon.
+	/// </summary>
+	private void EnsureLmgBeltClipPlayingIfNeeded()
+	{
+		if (!m_IsLoadingLmgBelt || m_Animator == null)
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		if (m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return;
+
+		bool weaponReady = m_Animator.GetBool(s_WeaponReady);
+		int targetHash = ResolveAimReloadLayerClipHash(weaponReady, false, false, false, true);
+		if (targetHash == 0)
+			return;
+
+		AnimatorStateInfo stateInfo = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
+		if (stateInfo.shortNameHash == targetHash)
+			return;
+
+		float startTime = stateInfo.shortNameHash == s_AimLmgStateHash || stateInfo.shortNameHash == s_AimRelaxedLmgStateHash
+			? Mathf.Repeat(stateInfo.normalizedTime, 1f)
+			: 0f;
+		m_Animator.Play(targetHash, m_AimReloadLayerIndex, startTime);
 	}
 
 	private int ResolveAimReloadLayerClipHash(bool _weaponReady, bool _cyclingBolt, bool _reloading, bool _shellReload, bool _lmgBelt)
@@ -2291,7 +2360,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_LeftHandMagazineVisualInstance == null)
 			return;
 
-		Debug.Log($"[Reload] ClearLeftHandMagazineVisual: destroying hand visual");
+		ReloadDbg($"ClearLeftHandMagazineVisual: destroying hand visual");
 		Destroy(m_LeftHandMagazineVisualInstance);
 		m_LeftHandMagazineVisualInstance = null;
 	}
@@ -2348,11 +2417,6 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 	private void TryPlayReloadSoundFromWeaponDefinition(Func<WeaponDefinition, AudioClip> _pickClip)
 	{
-		if (m_ReloadAudioSource == null)
-			EnsureReloadAudioSource();
-		if (m_ReloadAudioSource == null)
-			return;
-
 		WeaponDefinition weaponDefinition = ResolveWeaponDefinitionForReloadAudio();
 		if (weaponDefinition == null)
 			return;
@@ -2365,10 +2429,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (m_Equipment != null && m_Equipment.EquippedWeapon != null && m_Equipment.EquippedWeapon.BarrelTransform != null)
 			pos = m_Equipment.EquippedWeapon.BarrelTransform.position;
 
-		m_ReloadAudioSource.transform.position = pos;
-		m_ReloadAudioSource.PlayOneShot(
+		CombatAudioManager.TryPlayReload(
 			clip,
-			UnitNonFireAudioUtility.ScaleVolume(weaponDefinition.ReloadSoundsVolume));
+			pos,
+			weaponDefinition.ReloadSoundsVolume,
+			transform,
+			m_ReloadSoundSpatialMaxDistance);
 	}
 
 	private WeaponDefinition ResolveWeaponDefinitionForReloadAudio()
@@ -2381,5 +2447,12 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 
 		return null;
 	}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+	private static void ReloadDbg(string _message)
+	{
+		WeaponReloadDebug.Log(_message);
+	}
+#endif
 	#endregion
 }
