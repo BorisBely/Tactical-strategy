@@ -137,7 +137,8 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 		{
 			targetLeaf = _stance switch
 			{
-				(int)LocomotionStance.Crouch => "RifleCrouch_Idle",
+				// Must match WeaponReady: CrossFade to RifleCrouch_Idle while ready=true fights Idle↔Ready and snaps bore yaw.
+				(int)LocomotionStance.Crouch => _weaponReady ? "RifleCrouch_Idle_Ready" : "RifleCrouch_Idle",
 				(int)LocomotionStance.Prone => _weaponReady ? "Stand_Aim_Idle" : "Stand_Relaxed_Idle",
 				_ => _weaponReady ? "Stand_Aim_Idle" : "Stand_Relaxed_Idle"
 			};

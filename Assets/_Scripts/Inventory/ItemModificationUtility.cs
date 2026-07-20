@@ -4,7 +4,8 @@ using UnityEngine;
 public enum ItemModificationSlotKind
 {
 	Magazine = 0,
-	Attachment = 1
+	Attachment = 1,
+	RocketProjectile = 2
 }
 
 public readonly struct ItemModificationSlotDescriptor
@@ -31,13 +32,23 @@ public static class ItemModificationUtility
 	#region Constants
 	private const string c_MagazineSlotLabelKey = "weapon.mod_slot.magazine";
 	private const string c_SecondaryMagazineSlotLabelKey = "weapon.mod_slot.magazine_secondary";
+	private const string c_RocketProjectileSlotLabelKey = "weapon.mod_slot.rocket_projectile";
+	public const int RocketProjectileWeaponSlotIndex = -3;
 	#endregion
 
 	#region Public Methods
 	public static bool IsModifiableWeapon(ItemDefinition _definition)
 	{
-		WeaponDefinition weapon = _definition != null ? _definition.WeaponDefinition : null;
-		if (_definition == null || !_definition.IsEquipment || weapon == null)
+		if (_definition == null)
+			return false;
+
+		if (_definition.IsRocketLauncher &&
+		    (_definition.RocketLauncherType == RocketLauncherType.Rpg7 ||
+		     _definition.RocketLauncherType == RocketLauncherType.Disposable))
+			return true;
+
+		WeaponDefinition weapon = _definition.WeaponDefinition;
+		if (!_definition.IsEquipment || weapon == null)
 			return false;
 
 		if (weapon.SupportedMagazineType != MagazineType.None)
@@ -50,17 +61,40 @@ public static class ItemModificationUtility
 		return slots.Length > 0;
 	}
 
+	/// <summary>Одноразовый гранатомёт: слот снаряда только для отображения, снять нельзя.</summary>
+	public static bool IsRocketProjectileSlotLocked(ItemDefinition _definition)
+	{
+		return _definition != null &&
+		       _definition.IsRocketLauncher &&
+		       _definition.RocketLauncherType == RocketLauncherType.Disposable;
+	}
+
 	public static void BuildSlotDescriptors(ItemDefinition _definition, List<ItemModificationSlotDescriptor> _outSlots)
 	{
 		if (_outSlots == null)
 			return;
 
 		_outSlots.Clear();
-		WeaponDefinition weapon = _definition != null ? _definition.WeaponDefinition : null;
-		if (weapon == null)
+		if (_definition == null)
 			return;
 
 		int displayIndex = 0;
+		if (_definition.IsRocketLauncher &&
+		    (_definition.RocketLauncherType == RocketLauncherType.Rpg7 ||
+		     _definition.RocketLauncherType == RocketLauncherType.Disposable))
+		{
+			_outSlots.Add(new ItemModificationSlotDescriptor(
+				ItemModificationSlotKind.RocketProjectile,
+				default,
+				RocketProjectileWeaponSlotIndex,
+				displayIndex++));
+			return;
+		}
+
+		WeaponDefinition weapon = _definition.WeaponDefinition;
+		if (weapon == null)
+			return;
+
 		if (weapon.SupportedMagazineType != MagazineType.None &&
 		    !WeaponBuiltInMagazineUtility.IsMagazineSlotLocked(weapon))
 			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Magazine, default, -1, displayIndex++));
@@ -113,6 +147,9 @@ public static class ItemModificationUtility
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 			return _slot.WeaponSlotIndex == -2 ? c_SecondaryMagazineSlotLabelKey : c_MagazineSlotLabelKey;
 
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+			return c_RocketProjectileSlotLabelKey;
+
 		return _slot.AttachmentSlotType switch
 		{
 			WeaponAttachmentSlotType.Muzzle => "weapon.mod_slot.muzzle",
@@ -127,12 +164,17 @@ public static class ItemModificationUtility
 
 	public static bool IsModificationItem(InventorySlotRuntimeData _item)
 	{
-		return IsMagazineItem(_item) || IsAttachmentItem(_item);
+		return IsMagazineItem(_item) || IsAttachmentItem(_item) || IsRocketProjectileItem(_item);
 	}
 
 	public static bool IsMagazineItem(InventorySlotRuntimeData _item)
 	{
 		return !_item.IsEmpty && _item.Definition != null && _item.Definition.MagazineDefinition != null;
+	}
+
+	public static bool IsRocketProjectileItem(InventorySlotRuntimeData _item)
+	{
+		return !_item.IsEmpty && _item.Definition != null && _item.Definition.IsRpgRocketAmmo;
 	}
 
 	public static bool IsAttachmentItem(InventorySlotRuntimeData _item)
@@ -188,6 +230,15 @@ public static class ItemModificationUtility
 			return false;
 
 		ItemDefinition weaponDefinition = _weaponSlot.Definition;
+		if (weaponDefinition != null &&
+		    weaponDefinition.IsRocketLauncher &&
+		    weaponDefinition.RocketLauncherType == RocketLauncherType.Rpg7)
+		{
+			return IsRocketProjectileItem(_candidate) ||
+			       (weaponDefinition.RpgRocketItemDefinition != null &&
+			        _candidate.Definition == weaponDefinition.RpgRocketItemDefinition);
+		}
+
 		WeaponDefinition weapon = weaponDefinition != null ? weaponDefinition.WeaponDefinition : null;
 		if (weapon == null)
 			return false;
@@ -232,6 +283,15 @@ public static class ItemModificationUtility
 	public static bool TryGetInstalledItem(ItemModificationSlotDescriptor _slot, InventorySlotRuntimeData _weaponSlot, out InventorySlotRuntimeData _installedItem)
 	{
 		_installedItem = default;
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+		{
+			if (IsRocketProjectileSlotLocked(_weaponSlot.Definition))
+				return TryBuildDisposableRocketProjectileStub(_weaponSlot.Definition, out _installedItem);
+
+			RocketLauncherRuntimeState rocketState = GetRocketLauncherState(_weaponSlot);
+			return rocketState != null && rocketState.TryBuildLoadedRocketItem(out _installedItem);
+		}
+
 		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
 		if (weaponState == null)
 			return false;
@@ -283,6 +343,9 @@ public static class ItemModificationUtility
 		out InventorySlotRuntimeData _replacedItem)
 	{
 		_replacedItem = default;
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+			return TryInstallRocketProjectile(_weaponSlot, _candidate, out _replacedItem);
+
 		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
 		if (weaponState == null)
 		{
@@ -309,6 +372,31 @@ public static class ItemModificationUtility
 		out InventorySlotRuntimeData _removedItem)
 	{
 		_removedItem = default;
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+		{
+			if (IsRocketProjectileSlotLocked(_weaponSlot.Definition))
+			{
+				ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "disposable launcher projectile cannot be removed");
+				return false;
+			}
+
+			RocketLauncherRuntimeState rocketState = GetRocketLauncherState(_weaponSlot);
+			if (rocketState == null)
+			{
+				ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "RocketLauncherRuntimeState is null");
+				return false;
+			}
+
+			if (!rocketState.TryEjectLoadedRocket(out _removedItem))
+			{
+				ItemModificationDiagnostics.LogClearRejected("TryClearSlot", _slot, _weaponSlot, "rocket projectile slot is empty");
+				return false;
+			}
+
+			ItemModificationDiagnostics.LogClearAccepted("TryClearSlot", _slot, _weaponSlot, _removedItem);
+			return true;
+		}
+
 		WeaponRuntimeState weaponState = GetWeaponState(_weaponSlot);
 		if (weaponState == null)
 		{
@@ -423,6 +511,83 @@ public static class ItemModificationUtility
 	private static WeaponRuntimeState GetWeaponState(InventorySlotRuntimeData _weaponSlot)
 	{
 		return _weaponSlot.InstanceState != null ? _weaponSlot.InstanceState.WeaponState : null;
+	}
+
+	private static RocketLauncherRuntimeState GetRocketLauncherState(InventorySlotRuntimeData _weaponSlot)
+	{
+		if (_weaponSlot.InstanceState == null)
+			return null;
+
+		if (_weaponSlot.InstanceState.RocketLauncherState == null && _weaponSlot.Definition != null)
+			_weaponSlot.InstanceState.EnsureRocketLauncherState(_weaponSlot.Definition);
+
+		return _weaponSlot.InstanceState.RocketLauncherState;
+	}
+
+	private static bool TryInstallRocketProjectile(
+		InventorySlotRuntimeData _weaponSlot,
+		InventorySlotRuntimeData _candidate,
+		out InventorySlotRuntimeData _replacedItem)
+	{
+		_replacedItem = default;
+		ItemModificationSlotDescriptor descriptor = new ItemModificationSlotDescriptor(
+			ItemModificationSlotKind.RocketProjectile,
+			default,
+			RocketProjectileWeaponSlotIndex,
+			0);
+
+		if (IsRocketProjectileSlotLocked(_weaponSlot.Definition))
+		{
+			ItemModificationDiagnostics.LogInstallRejected(
+				"TryInstallRocketProjectile",
+				descriptor,
+				_weaponSlot,
+				_candidate,
+				"disposable launcher projectile cannot be replaced");
+			return false;
+		}
+
+		string acceptReason = ItemModificationDiagnostics.ExplainCanAcceptItem(descriptor, _weaponSlot, _candidate);
+		if (!string.Equals(acceptReason, ItemModificationDiagnostics.AcceptedReason, System.StringComparison.Ordinal))
+		{
+			ItemModificationDiagnostics.LogInstallRejected("TryInstallRocketProjectile", descriptor, _weaponSlot, _candidate, acceptReason);
+			return false;
+		}
+
+		if (_weaponSlot.InstanceState == null)
+		{
+			ItemModificationDiagnostics.LogInstallRejected("TryInstallRocketProjectile", descriptor, _weaponSlot, _candidate, "InstanceState is null");
+			return false;
+		}
+
+		_weaponSlot.InstanceState.EnsureRocketLauncherState(_weaponSlot.Definition);
+		RocketLauncherRuntimeState state = _weaponSlot.InstanceState.RocketLauncherState;
+		if (state.HasLoadedRocketItem)
+			state.TryEjectLoadedRocket(out _replacedItem);
+		else if (state.IsLoaded)
+			state.ClearLoadedRocket();
+
+		state.SetLoadedRocket(_candidate);
+		ItemModificationDiagnostics.LogInstallAccepted("TryInstallRocketProjectile", descriptor, _weaponSlot, _candidate);
+		return true;
+	}
+
+	private static bool TryBuildDisposableRocketProjectileStub(ItemDefinition _launcher, out InventorySlotRuntimeData _installedItem)
+	{
+		_installedItem = default;
+		if (_launcher == null)
+			return false;
+
+		if (_launcher.RpgRocketItemDefinition != null)
+		{
+			_installedItem = InventorySlotRuntimeData.FromDefinition(_launcher.RpgRocketItemDefinition);
+			return true;
+		}
+
+		_installedItem = InventorySlotRuntimeData.FromDisplayName(
+			LocalizationManager.Get("item.ammo.rpg_rocket", "Projectile"),
+			"item.ammo.rpg_rocket");
+		return !_installedItem.IsEmpty;
 	}
 
 	private static bool TryInstallMagazine(WeaponRuntimeState _weaponState, InventorySlotRuntimeData _candidate, ItemModificationSlotDescriptor _slot, out InventorySlotRuntimeData _replacedItem)
@@ -620,6 +785,9 @@ public static class ItemModificationUtility
 	{
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 			return _slot.WeaponSlotIndex == -2 ? "Side Magazine" : "Magazine";
+
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+			return "Projectile";
 
 		return _slot.AttachmentSlotType switch
 		{

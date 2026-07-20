@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Приказ на бросок гранаты, привязанный к waypoint на маршруте.
-/// Юнит выполняет бросок при прохождении этой точки, не останавливаясь.
+/// Приказ на бросок гранаты, привязанный к якорю на сегменте маршрута.
+/// Срабатывает только при достижении якоря (reach-gate).
 /// </summary>
 [System.Serializable]
 public struct GrenadeRouteOrder
@@ -13,9 +13,12 @@ public struct GrenadeRouteOrder
 	/// <summary>Мировая позиция цели (куда приземлится граната).</summary>
 	public Vector3 TargetPosition;
 
-	/// <summary>Индекс waypoint в очереди маршрута юнита, на котором срабатывает бросок.</summary>
+	/// <summary>Индекс сегмента маршрута (совместимо с прежним RouteWaypointIndex).</summary>
 	public int RouteWaypointIndex;
 
-	/// <summary>Мировая позиция waypoint (для отображения маркера).</summary>
+	/// <summary>Нормализованная позиция на сегменте [0..1].</summary>
+	public float RouteSegmentT;
+
+	/// <summary>Мировая позиция якоря (маркер + reach).</summary>
 	public Vector3 WaypointPosition;
 }

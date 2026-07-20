@@ -110,6 +110,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 02e2d3c1d7c0fc74dafbbb62be003508, type: 2}
   - {fileID: 11400000, guid: b8f3e4d5c6b7a889a0a1bc2de3f41520, type: 2}
   - {fileID: 11400000, guid: 51299ded008f2d24ca946bdda05078cf, type: 2}
+  - {fileID: 11400000, guid: 12244a8ed18372a48885e53cafef780c, type: 2}
+  - {fileID: 11400000, guid: 6ac9fe324c8b1944290fe4a9cb95d4b7, type: 2}
+  - {fileID: 11400000, guid: 5aadf761b62779345bc397c8d4c47a13, type: 2}
   m_MagazineAmmo: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}
   m_MagazineAmmo556: {fileID: 11400000, guid: a1f2e3d4c5b6a9789090ab1cd2ef3045, type: 2}
   m_MagazineAmmo762: {fileID: 11400000, guid: a33bd9274e8567e4fbeb0a04669fabfa, type: 2}

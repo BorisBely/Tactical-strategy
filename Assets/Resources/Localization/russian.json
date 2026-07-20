@@ -330,6 +330,30 @@
       "value": "Граната РГД-5"
     },
     {
+      "key": "item.weapon.rpg7",
+      "value": "РПГ-7"
+    },
+    {
+      "key": "item.weapon.rpg7.desc",
+      "value": "Многоразовый гранатомёт. Заряжается ракетой из сумки."
+    },
+    {
+      "key": "item.weapon.disposable_rocket_launcher",
+      "value": "Одноразовый гранатомёт"
+    },
+    {
+      "key": "item.weapon.disposable_rocket_launcher.desc",
+      "value": "Одноразовый гранатомёт. После выстрела выбрасывается."
+    },
+    {
+      "key": "item.ammo.rpg_rocket",
+      "value": "Ракета РПГ-7"
+    },
+    {
+      "key": "item.ammo.rpg_rocket.desc",
+      "value": "Ракета для РПГ-7. В одноразовый гранатомёт не заряжается."
+    },
+    {
       "key": "item.grenade.f1",
       "value": "Граната Ф-1"
     },
@@ -1111,7 +1135,7 @@
     },
     {
       "key": "pause.help.h",
-      "value": "H - Открыть окно здоровья"
+      "value": "H - Гранатомёт (выстрел / зарядка РПГ)"
     },
     {
       "key": "pause.help.camera",
@@ -1292,6 +1316,10 @@
     {
       "key": "weapon.mod_slot.magazine",
       "value": "Магазин"
+    },
+    {
+      "key": "weapon.mod_slot.rocket_projectile",
+      "value": "Снаряд"
     },
     {
       "key": "weapon.mod_slot.muzzle",

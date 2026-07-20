@@ -42,6 +42,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private readonly List<ItemModificationSlotDescriptor> m_VisibleModificationDescriptorBuffer = new List<ItemModificationSlotDescriptor>(8);
 	private readonly List<WeaponSlotBinding> m_WeaponSlotBindingBuffer = new List<WeaponSlotBinding>(8);
 	private UnitWeaponReloadController m_SubscribedBoundReloadController;
+	private UnitRocketLauncherOrderController m_SubscribedBoundRocketOrderController;
 	private bool m_PendingInlineRefresh;
 	private Coroutine m_DeferredInlineRefreshCoroutine;
 	private Coroutine m_DeferredForcedExpandedRepaintCoroutine;
@@ -101,6 +102,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		MissionPrepModificationDragContext.Changed -= HandleModificationDragContextChanged;
 		InventoryEquipmentEquipHoverContext.Changed -= HandleEquipmentEquipHoverChanged;
 		TryUnsubscribeBoundUnitReloadCompletionHandler();
+		TryUnsubscribeBoundUnitRocketModificationCompletionHandler();
 		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
 		MissionPrepModificationDragContext.ResetAfterDrag();
 		InventoryEquipmentEquipHoverContext.ClearAll();
@@ -1346,6 +1348,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (ShouldUseBoundUnitEquippedMagazineReload(_slotDescriptor, _weaponIsMainHand))
 			return TryInstallEquippedMagazineFromDragMissionPrep(payload, _slotDescriptor, resolvedIsMainHand, resolvedBagIndex);
 
+		if (ShouldUseBoundUnitRocketReload(_slotDescriptor, resolvedBagIndex))
+			return TryInstallEquippedRocketFromDragMissionPrep(payload, _slotDescriptor, resolvedIsMainHand, resolvedBagIndex);
+
 		if (payload.SourceKind != MissionPrepModificationDragSourceKind.PresetBag &&
 		    ItemModificationUtility.TryGetInstalledItem(_slotDescriptor, weaponSlot, out InventorySlotRuntimeData existingInSlot) &&
 		    !existingInSlot.IsEmpty && !snapshot.CanAddToBag(existingInSlot))
@@ -1825,6 +1830,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		       WeaponMagazineModificationApplier.CanStartUiMagazineModification(m_BoundInventory);
 	}
 
+	private bool ShouldUseBoundUnitRocketReload(ItemModificationSlotDescriptor _slotDescriptor, int _weaponBagIndex)
+	{
+		return m_BoundInventory != null &&
+		       _weaponBagIndex >= 0 &&
+		       RocketProjectileModificationApplier.IsRocketProjectileSlot(_slotDescriptor) &&
+		       RocketProjectileModificationApplier.CanStartUiRocketModification(m_BoundInventory);
+	}
+
 	private bool TryInstallEquippedMagazineFromDragMissionPrep(
 		MissionPrepModificationDragPayload _payload,
 		ItemModificationSlotDescriptor _slotDescriptor,
@@ -1880,6 +1893,63 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return true;
 	}
 
+	private bool TryInstallEquippedRocketFromDragMissionPrep(
+		MissionPrepModificationDragPayload _payload,
+		ItemModificationSlotDescriptor _slotDescriptor,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex)
+	{
+		if (m_SharedPresetStore == null || m_BoundInventory == null)
+			return false;
+
+		MissionPrepPresetSnapshot snapshot = m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
+		if (!snapshot.TryGetInventorySlot(_weaponIsMainHand, _weaponBagIndex, out InventorySlotRuntimeData weaponSlot))
+			return false;
+
+		if (!ItemModificationUtility.CanAcceptItem(_slotDescriptor, weaponSlot, _payload.Item))
+			return false;
+
+		InventorySlotRuntimeData rocketToInstall = MissionPrepInventoryCopyUtility.CloneSlot(_payload.Item);
+		int targetBagIndex = _weaponBagIndex;
+		InventorySlotRuntimeData restoredBagItem = default;
+
+		if (_payload.SourceKind == MissionPrepModificationDragSourceKind.PresetBag)
+		{
+			if (_payload.PresetBagIndex < 0)
+				return false;
+
+			if (!snapshot.TryRemoveInventorySlot(_isMainHandEquipmentSlot: false, _payload.PresetBagIndex, out restoredBagItem))
+				return false;
+
+			if (!_weaponIsMainHand && _payload.PresetBagIndex < targetBagIndex)
+				targetBagIndex--;
+
+			rocketToInstall = MissionPrepInventoryCopyUtility.CloneSlot(restoredBagItem);
+		}
+
+		if (!TryStartEquippedRocketInstallOnAllPresetUnits(targetBagIndex, rocketToInstall))
+		{
+			if (!restoredBagItem.IsEmpty)
+				snapshot.TryAddToBag(restoredBagItem);
+
+			return false;
+		}
+
+		TrySubscribeBoundUnitRocketModificationCompletionHandler();
+
+		if (snapshot.TryGetInventorySlot(_weaponIsMainHand, targetBagIndex, out InventorySlotRuntimeData installedWeapon))
+		{
+			TryPreserveExpandedModificationSelectionForWeaponSlot(
+				_weaponIsMainHand,
+				targetBagIndex,
+				installedWeapon.InstanceState);
+			ScheduleForcedExpandedModificationRepaint(_weaponIsMainHand, targetBagIndex);
+		}
+
+		MissionPrepModificationDragContext.NotifyDropConsumed();
+		return true;
+	}
+
 	private void TrySubscribeBoundUnitReloadCompletionHandler()
 	{
 		if (m_BoundInventory == null)
@@ -1903,6 +1973,42 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		m_SubscribedBoundReloadController.UiMagazineModificationCompleted -= HandleBoundUnitUiMagazineModificationCompleted;
 		m_SubscribedBoundReloadController = null;
+	}
+
+	private void TrySubscribeBoundUnitRocketModificationCompletionHandler()
+	{
+		if (m_BoundInventory == null)
+			return;
+
+		if (!RocketProjectileModificationApplier.TryGetOrderController(m_BoundInventory, out UnitRocketLauncherOrderController orderController))
+			return;
+
+		if (m_SubscribedBoundRocketOrderController == orderController)
+			return;
+
+		TryUnsubscribeBoundUnitRocketModificationCompletionHandler();
+		m_SubscribedBoundRocketOrderController = orderController;
+		orderController.UiRocketModificationCompleted += HandleBoundUnitUiRocketModificationCompleted;
+	}
+
+	private void TryUnsubscribeBoundUnitRocketModificationCompletionHandler()
+	{
+		if (m_SubscribedBoundRocketOrderController == null)
+			return;
+
+		m_SubscribedBoundRocketOrderController.UiRocketModificationCompleted -= HandleBoundUnitUiRocketModificationCompleted;
+		m_SubscribedBoundRocketOrderController = null;
+	}
+
+	private void HandleBoundUnitUiRocketModificationCompleted()
+	{
+		MissionPrepModificationUiState preservedModificationUi = m_ModificationUiState;
+		int preservedExpandedListIndex = m_ExpandedWeaponListIndex;
+		SyncBoundUnitInventoryToSnapshot();
+		PropagatePresetToAllUnits(m_EditingPresetCatalogIndex, _refreshBoundUnitRuntime: true, _saveSnapshotFromRuntime: false);
+		StartCoroutine(RepaintInventoryPanelAfterMagazineModificationCompleted(
+			preservedModificationUi,
+			preservedExpandedListIndex));
 	}
 
 	private void HandleBoundUnitUiMagazineModificationCompleted(InventorySlotRuntimeData _ejectedMagazine)
@@ -1936,6 +2042,54 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			(_inventory, _mirrorAnimationOnly, _magazine) =>
 				WeaponMagazineModificationApplier.TryStartEquippedMagazineInstall(_inventory, _magazine, _mirrorAnimationOnly),
 			_magazineFromSource);
+	}
+
+	private bool TryStartEquippedRocketInstallOnAllPresetUnits(int _launcherBagIndex, InventorySlotRuntimeData _rocketFromSource)
+	{
+		if (_rocketFromSource.IsEmpty || _launcherBagIndex < 0)
+			return false;
+
+		EnsureSharedPresetStore();
+		if (m_SharedPresetStore == null || m_BoundInventory == null)
+			return false;
+
+		bool startedAuthoritative = false;
+		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
+			FindObjectsInactive.Exclude,
+			FindObjectsSortMode.None);
+
+		for (int i = 0; i < units.Length; i++)
+		{
+			MissionPrepUnitPresetState unit = units[i];
+			if (unit == null || unit.PresetCatalogIndex != m_EditingPresetCatalogIndex)
+				continue;
+
+			CharacterInventory inventory = unit.GetComponentInChildren<CharacterInventory>(true);
+			if (inventory == null)
+				continue;
+
+			m_SharedPresetStore.ApplyPresetToInventory(m_EditingPresetCatalogIndex, inventory);
+
+			bool isAuthoritative = inventory == m_BoundInventory;
+			bool mirrorAnimationOnly = !isAuthoritative;
+			InventorySlotRuntimeData rocket = MissionPrepInventoryCopyUtility.CloneSlot(_rocketFromSource);
+			if (!RocketProjectileModificationApplier.TryStartEquippedRocketInstall(
+				    inventory,
+				    _launcherBagIndex,
+				    rocket,
+				    mirrorAnimationOnly))
+			{
+				if (isAuthoritative)
+					return false;
+
+				continue;
+			}
+
+			if (isAuthoritative)
+				startedAuthoritative = true;
+		}
+
+		return startedAuthoritative;
 	}
 
 	private bool TryStartEquippedMagazineEjectOnAllPresetUnits(bool _addEjectedMagazineToBag)
@@ -2004,6 +2158,11 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
 
 		decorations?.RefreshFromInventory(_inventory);
+
+		UnitBackWeaponHolsterVisuals holster = _inventory.GetComponentInParent<UnitBackWeaponHolsterVisuals>(true);
+		if (holster == null)
+			holster = _inventory.GetComponentInChildren<UnitBackWeaponHolsterVisuals>(true);
+		holster?.Refresh();
 	}
 
 	private void SyncBoundUnitInventoryToSnapshot()

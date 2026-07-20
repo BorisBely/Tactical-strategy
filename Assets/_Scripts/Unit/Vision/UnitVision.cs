@@ -1327,6 +1327,15 @@ public sealed class UnitVision : MonoBehaviour
 	{
 		if (m_ReadyHands == null || m_Equipment == null)
 			return false;
+
+		// Гранатомёт: основное оружие скрыто — engage facing от корня, не от sight ствола.
+		UnitRocketLauncherOrderController rocketOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (rocketOrder != null &&
+		    rocketOrder.IsBusy &&
+		    (rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Aiming ||
+		     rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Firing))
+			return false;
+
 		ItemDefinition def = m_Equipment.EquippedDefinition;
 		if (def == null || !def.IsEquipment || def.EquipmentKind != EquipmentKind.Weapon)
 			return false;

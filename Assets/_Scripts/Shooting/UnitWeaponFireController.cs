@@ -167,6 +167,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		if (!m_IsFiringCommandActive || !m_EnableAutomaticFireLoop)
 			return;
+
+		if (IsFireBlockedByBusyState())
+		{
+			StopFiring();
+			return;
+		}
+
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return;
 
@@ -187,6 +194,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	{
 		if (!IsConscious())
 			return;
+
+		if (IsFireBlockedByBusyState())
+		{
+			StopFiring();
+			return;
+		}
 
 		m_IsFiringCommandActive = true;
 
@@ -236,11 +249,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return false;
 
-		if (m_BusyState != null &&
-		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax)))
+		if (IsFireBlockedByBusyState())
 			return false;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
@@ -377,11 +386,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return WeaponShotAttemptResult.NotReady;
 
-		if (m_BusyState != null &&
-		    (m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
-		     m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax)))
+		if (IsFireBlockedByBusyState())
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
@@ -436,6 +441,22 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		ClearDisciplineBurstOverride();
 		ResetBurstSpreadCounter();
 		m_FireDisciplineController?.InvalidateCurrentSeries();
+	}
+
+	/// <summary>
+	/// Жёсткий запрет выстрелов экипированного оружия: reload / throw / rocket / stabilize / proximity.
+	/// </summary>
+	private bool IsFireBlockedByBusyState()
+	{
+		if (m_BusyState == null)
+			return false;
+
+		return m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.Throw) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.RocketLauncher) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax);
 	}
 
 	private bool IsAimedEnoughToFire()

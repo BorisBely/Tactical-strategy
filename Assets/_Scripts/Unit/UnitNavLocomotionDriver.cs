@@ -118,6 +118,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField] private bool m_SyncAnimatorPlaybackToGroundSpeed = true;
 	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
 	[SerializeField, Range(0.5f, 2f)] private float m_PlaybackSyncMax = 1.45f;
+
+	[Header("Engage pose settle")]
+	[Tooltip("If |body↔barrel| exceeds this, engage turns the root toward the target (not the bore) until the ready pose settles.")]
+	[SerializeField, Range(10f, 90f)] private float m_EngageRootFacingWhenBarrelOffsetExceeds = 25f;
+
 	#endregion
 
 	#region Private Fields
@@ -739,9 +744,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		if (IsEngagingVisibleTarget())
 		{
-			if (m_Vision == null ||
-			    !m_Vision.TryGetEngageFacingOriginWorld(out Vector3 origin) ||
-			    !m_Vision.TryGetEngageFacingForwardXZ(out Vector3 facingForwardXZ))
+			if (!TryResolveEngageFacing(out Vector3 origin, out Vector3 facingForwardXZ))
 				return;
 
 			Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
@@ -808,6 +811,33 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
 	}
 
+	private bool TryResolveEngageFacing(out Vector3 _origin, out Vector3 _facingForwardXZ)
+	{
+		_origin = default;
+		_facingForwardXZ = default;
+
+		if (m_Vision == null)
+			return false;
+
+		bool largeBarrelOffset =
+			UnitHorizontalFacingUtility.TryGetBodyBarrelYawOffset(transform, m_Equipment, out float bodyBarrel) &&
+			Mathf.Abs(bodyBarrel) >= m_EngageRootFacingWhenBarrelOffsetExceeds;
+
+		if (largeBarrelOffset)
+		{
+			_origin = transform.position;
+			_facingForwardXZ = transform.forward;
+			_facingForwardXZ.y = 0f;
+			if (_facingForwardXZ.sqrMagnitude < 1e-6f)
+				return false;
+			_facingForwardXZ.Normalize();
+			return true;
+		}
+
+		return m_Vision.TryGetEngageFacingOriginWorld(out _origin) &&
+		       m_Vision.TryGetEngageFacingForwardXZ(out _facingForwardXZ);
+	}
+
 	private bool ShouldApplyManualFacingOverride()
 	{
 		if (!OverrideFacingAngle.HasValue)
@@ -865,6 +895,14 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	{
 		if (IsSprintActive() || IsRunActive())
 			return false;
+
+		UnitRocketLauncherOrderController rocketOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (rocketOrder != null &&
+		    rocketOrder.IsBusy &&
+		    (rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Aiming ||
+		     rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Firing))
+			return true;
+
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();

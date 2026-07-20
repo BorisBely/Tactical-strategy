@@ -21,6 +21,7 @@ public sealed class UnitBusyState : MonoBehaviour
 		CarryingFallen = 1 << 7,
 		ProximityRelax = 1 << 8,
 		Throw = 1 << 3,
+		RocketLauncher = 1 << 9,
 		// Future: Melee = 1 << 2,
 	}
 	#endregion

@@ -57,6 +57,18 @@ public enum GrenadeType
 }
 
 /// <summary>
+/// Тип гранатомёта в сумке (приказ H, не MainHand).
+/// </summary>
+public enum RocketLauncherType
+{
+	None = 0,
+	/// <summary>Многоразовый РПГ-7, перезаряжается ракетой из сумки.</summary>
+	Rpg7 = 1,
+	/// <summary>Одноразовый гранатомёт: всегда заряжен, после выстрела выбрасывается.</summary>
+	Disposable = 2
+}
+
+/// <summary>
 /// Соответствует int-параметру <c>WeaponMode</c> на Animator (см. <c>NavMeshLocomotion</c> и граф локомоции).
 /// </summary>
 public enum LocomotionWeaponMode

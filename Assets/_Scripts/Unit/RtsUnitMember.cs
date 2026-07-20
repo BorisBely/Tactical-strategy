@@ -129,9 +129,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private NavMeshPath m_ReusableNavMeshPath;
 	private readonly List<Vector3> m_RouteSegmentPolylineBuffer = new List<Vector3>(32);
 	private readonly List<GrenadeRouteOrder> m_GrenadeOrders = new List<GrenadeRouteOrder>();
+	private readonly List<ReloadRouteOrder> m_ReloadOrders = new List<ReloadRouteOrder>();
+	private readonly List<LocomotionRouteOrder> m_LocomotionOrders = new List<LocomotionRouteOrder>();
+	private readonly List<MagazineRefillRouteOrder> m_RefillOrders = new List<MagazineRefillRouteOrder>();
+	private readonly List<RocketLauncherRouteOrder> m_RocketLauncherOrders = new List<RocketLauncherRouteOrder>();
 	private bool m_IsExecutingGrenadeOrder;
+	private bool m_IsExecutingRouteOrder;
 	private GrenadeRouteOrder m_PendingGrenadeOrder;
 	private UnitGrenadeThrowController m_GrenadeThrowController;
+	private UnitRocketLauncherOrderController m_RocketLauncherOrderController;
 
 	public enum FacingArrowMode
 	{
@@ -305,6 +311,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	/// <summary>Количество приказов на бросок гранаты на маршруте.</summary>
 	public int GrenadeOrderCount => m_GrenadeOrders.Count;
+	public int ReloadOrderCount => m_ReloadOrders.Count;
+	public int LocomotionOrderCount => m_LocomotionOrders.Count;
+	public int RefillOrderCount => m_RefillOrders.Count;
+	public int RocketLauncherOrderCount => m_RocketLauncherOrders.Count;
+	public bool IsExecutingRouteOrder => m_IsExecutingRouteOrder || m_IsExecutingGrenadeOrder;
 
 	/// <summary>
 	/// Угол слота формации для поворота после полной остановки. Не влияет на марш.
@@ -757,6 +768,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UpdateContinuousRouteLocomotionFlags();
 		UpdatePathLinePosition();
 		UpdateActiveFacingArrows();
+		UpdateActiveRouteOrders();
 		UpdateFacingTurn();
 		UpdateArrowPriority();
 		SyncFacingArrows();
@@ -775,7 +787,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (ShouldSuppressRouteArrivalDuringEdit())
 			return;
-		if (m_IsExecutingGrenadeOrder)
+		if (m_IsExecutingGrenadeOrder || m_IsExecutingRouteOrder)
 			return;
 		if (!m_HasActiveDestination)
 			return;
@@ -981,7 +993,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (ShouldSuppressRouteArrivalDuringEdit())
 			return;
-		if (m_IsExecutingGrenadeOrder)
+		if (m_IsExecutingGrenadeOrder || m_IsExecutingRouteOrder)
 			return;
 
 		if (!m_HasActiveDestination)
@@ -2287,18 +2299,54 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return true;
 	}
 
-	#region Grenade Orders
+	#region Route Orders
 	public void AddGrenadeOrder(GrenadeRouteOrder _order)
 	{
 		m_GrenadeOrders.Add(_order);
 	}
 
+	public void AddReloadOrder(ReloadRouteOrder _order) => m_ReloadOrders.Add(_order);
+	public void AddLocomotionOrder(LocomotionRouteOrder _order) => m_LocomotionOrders.Add(_order);
+	public void AddRefillOrder(MagazineRefillRouteOrder _order) => m_RefillOrders.Add(_order);
+	public void AddRocketLauncherOrder(RocketLauncherRouteOrder _order) => m_RocketLauncherOrders.Add(_order);
+
 	public bool TryRemoveGrenadeOrder(int _index)
 	{
 		if (_index < 0 || _index >= m_GrenadeOrders.Count)
 			return false;
-
 		m_GrenadeOrders.RemoveAt(_index);
+		return true;
+	}
+
+	public bool TryRemoveReloadOrder(int _index)
+	{
+		if (_index < 0 || _index >= m_ReloadOrders.Count)
+			return false;
+		m_ReloadOrders.RemoveAt(_index);
+		return true;
+	}
+
+	public bool TryRemoveLocomotionOrder(int _index)
+	{
+		if (_index < 0 || _index >= m_LocomotionOrders.Count)
+			return false;
+		m_LocomotionOrders.RemoveAt(_index);
+		return true;
+	}
+
+	public bool TryRemoveRefillOrder(int _index)
+	{
+		if (_index < 0 || _index >= m_RefillOrders.Count)
+			return false;
+		m_RefillOrders.RemoveAt(_index);
+		return true;
+	}
+
+	public bool TryRemoveRocketLauncherOrder(int _index)
+	{
+		if (_index < 0 || _index >= m_RocketLauncherOrders.Count)
+			return false;
+		m_RocketLauncherOrders.RemoveAt(_index);
 		return true;
 	}
 
@@ -2311,6 +2359,54 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 
 		_worldPos = m_GrenadeOrders[_index].WaypointPosition;
+		return true;
+	}
+
+	public bool TryGetReloadOrderWorldPosition(int _index, out Vector3 _worldPos)
+	{
+		if (_index < 0 || _index >= m_ReloadOrders.Count)
+		{
+			_worldPos = Vector3.zero;
+			return false;
+		}
+
+		_worldPos = m_ReloadOrders[_index].WaypointPosition;
+		return true;
+	}
+
+	public bool TryGetLocomotionOrderWorldPosition(int _index, out Vector3 _worldPos)
+	{
+		if (_index < 0 || _index >= m_LocomotionOrders.Count)
+		{
+			_worldPos = Vector3.zero;
+			return false;
+		}
+
+		_worldPos = m_LocomotionOrders[_index].WaypointPosition;
+		return true;
+	}
+
+	public bool TryGetRefillOrderWorldPosition(int _index, out Vector3 _worldPos)
+	{
+		if (_index < 0 || _index >= m_RefillOrders.Count)
+		{
+			_worldPos = Vector3.zero;
+			return false;
+		}
+
+		_worldPos = m_RefillOrders[_index].WaypointPosition;
+		return true;
+	}
+
+	public bool TryGetRocketLauncherOrderWorldPosition(int _index, out Vector3 _worldPos)
+	{
+		if (_index < 0 || _index >= m_RocketLauncherOrders.Count)
+		{
+			_worldPos = Vector3.zero;
+			return false;
+		}
+
+		_worldPos = m_RocketLauncherOrders[_index].WaypointPosition;
 		return true;
 	}
 
@@ -2352,45 +2448,338 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return false;
 	}
 
-	public void ClearGrenadeOrders()
+	public void ClearGrenadeOrders() => m_GrenadeOrders.Clear();
+
+	public void ClearAllRouteOrders()
 	{
 		m_GrenadeOrders.Clear();
+		m_ReloadOrders.Clear();
+		m_LocomotionOrders.Clear();
+		m_RefillOrders.Clear();
+		m_RocketLauncherOrders.Clear();
+		m_IsExecutingGrenadeOrder = false;
+		m_IsExecutingRouteOrder = false;
 	}
 
 	public bool IsExecutingGrenadeOrder => m_IsExecutingGrenadeOrder;
 
-	public bool TryStartGrenadeOrderAtWaypoint()
+	public bool TryComputeRouteSegmentT(int _segmentIndex, Vector3 _worldPoint, out float _segmentT)
 	{
-		if (m_IsExecutingGrenadeOrder)
-			return false;
-		if (m_GrenadeOrders.Count == 0)
-			return false;
-		if (!TryGetGrenadeOrderForWaypoint(0, out GrenadeRouteOrder order))
+		_segmentT = 1f;
+		if (_segmentIndex < 0 || _segmentIndex >= m_Waypoints.Count)
 			return false;
 
-		if (m_GrenadeThrowController == null)
-			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
-		if (m_GrenadeThrowController == null || !m_GrenadeThrowController.CanStartThrow())
+		bool useLiveAgent = m_HasActiveDestination && _segmentIndex == 0;
+		if (CollectRouteSegmentPolyline(_segmentIndex, m_RouteSegmentPolylineBuffer, useLiveAgent) &&
+		    m_RouteSegmentPolylineBuffer.Count >= 2)
 		{
-			RemoveGrenadeOrderForWaypoint(0);
-			return false;
+			_segmentT = ComputeRouteSegmentTAlongPolyline(m_RouteSegmentPolylineBuffer, _worldPoint);
+			return true;
 		}
 
-		if (!m_GrenadeThrowController.SetSelectedType(order.Type))
+		if (TryGetRouteSegmentEndpoints(
+			    _segmentIndex,
+			    _useActiveSegmentStart: useLiveAgent,
+			    out Vector3 segmentStart,
+			    out Vector3 segmentEnd))
 		{
-			RemoveGrenadeOrderForWaypoint(0);
-			return false;
+			_segmentT = ComputeRouteSegmentT(_worldPoint, segmentStart, segmentEnd);
+			return true;
 		}
 
-		m_IsExecutingGrenadeOrder = true;
-		m_PendingGrenadeOrder = order;
+		return false;
+	}
 
+	private void UpdateActiveRouteOrders()
+	{
+		if (m_IsExecutingGrenadeOrder || m_IsExecutingRouteOrder)
+			return;
+		if (!m_HasActiveDestination)
+			return;
+		if (m_IsWaitingAtRouteGate)
+			return;
+
+		Vector3 unitPos = transform.position;
+
+		if (TryActivateReachedGrenadeOrder(unitPos))
+			return;
+		if (TryActivateReachedRocketLauncherOrder(unitPos))
+			return;
+		if (TryActivateReachedReloadOrder(unitPos))
+			return;
+		if (TryActivateReachedRefillOrder(unitPos))
+			return;
+		TryActivateReachedLocomotionOrder(unitPos);
+	}
+
+	private static bool HasReachedRouteOrderAnchor(Vector3 _unitPos, Vector3 _anchorWorld)
+	{
+		float dx = _unitPos.x - _anchorWorld.x;
+		float dz = _unitPos.z - _anchorWorld.z;
+		return dx * dx + dz * dz <= c_FacingArrowActivationReachRadius * c_FacingArrowActivationReachRadius;
+	}
+
+	private void StopAgentForRouteOrder()
+	{
 		NavMeshAgent agent = GetComponent<NavMeshAgent>();
 		if (agent != null && agent.isOnNavMesh)
 		{
 			agent.isStopped = true;
 			agent.ResetPath();
 		}
+	}
+
+	private void ResumeRouteAfterOrder()
+	{
+		m_IsExecutingRouteOrder = false;
+		m_IsExecutingGrenadeOrder = false;
+		ResumeAgentAfterRouteGate();
+
+		if (m_HasActiveDestination && m_Waypoints.Count > 0)
+			IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], m_ActiveMoveTier);
+		else
+			TryAdvanceRouteQueue();
+	}
+
+	private bool TryActivateReachedGrenadeOrder(Vector3 _unitPos)
+	{
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
+		{
+			GrenadeRouteOrder order = m_GrenadeOrders[i];
+			if (order.RouteWaypointIndex != 0)
+				continue;
+			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+				continue;
+
+			return TryStartGrenadeOrderAtIndex(i);
+		}
+
+		return false;
+	}
+
+	private bool TryActivateReachedReloadOrder(Vector3 _unitPos)
+	{
+		for (int i = 0; i < m_ReloadOrders.Count; i++)
+		{
+			ReloadRouteOrder order = m_ReloadOrders[i];
+			if (order.RouteSegmentIndex != 0)
+				continue;
+			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+				continue;
+
+			m_ReloadOrders.RemoveAt(i);
+			m_IsExecutingRouteOrder = true;
+			StopAgentForRouteOrder();
+			StartWeaponReload();
+			StartCoroutine(CoWaitReloadThenResume());
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryActivateReachedRefillOrder(Vector3 _unitPos)
+	{
+		for (int i = 0; i < m_RefillOrders.Count; i++)
+		{
+			MagazineRefillRouteOrder order = m_RefillOrders[i];
+			if (order.RouteSegmentIndex != 0)
+				continue;
+			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+				continue;
+
+			m_RefillOrders.RemoveAt(i);
+			if (m_MagazineLoadingController == null)
+				m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+
+			m_IsExecutingRouteOrder = true;
+			StopAgentForRouteOrder();
+			if (m_MagazineLoadingController == null || !m_MagazineLoadingController.TryStartLoadingAllMagazines())
+			{
+				ResumeRouteAfterOrder();
+				return true;
+			}
+
+			m_MagazineLoadingController.AllMagazinesLoadingCompleted += OnRefillRouteOrderCompleted;
+			return true;
+		}
+
+		return false;
+	}
+
+	private void OnRefillRouteOrderCompleted()
+	{
+		if (m_MagazineLoadingController != null)
+			m_MagazineLoadingController.AllMagazinesLoadingCompleted -= OnRefillRouteOrderCompleted;
+
+		if (!m_IsExecutingRouteOrder)
+			return;
+
+		ResumeRouteAfterOrder();
+	}
+
+	private bool TryActivateReachedLocomotionOrder(Vector3 _unitPos)
+	{
+		for (int i = 0; i < m_LocomotionOrders.Count; i++)
+		{
+			LocomotionRouteOrder order = m_LocomotionOrders[i];
+			if (order.RouteSegmentIndex != 0)
+				continue;
+			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+				continue;
+
+			m_LocomotionOrders.RemoveAt(i);
+			ApplyLocomotionRouteOrder(order);
+			return true;
+		}
+
+		return false;
+	}
+
+	private void ApplyLocomotionRouteOrder(in LocomotionRouteOrder _order)
+	{
+		m_ActiveMoveTier = _order.MoveTier;
+		m_ActiveRouteStance = _order.Stance;
+		RequestStance(_order.Stance);
+
+		if (m_HasActiveDestination && m_Waypoints.Count > 0)
+		{
+			IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], m_ActiveMoveTier);
+			RebuildPathLine();
+		}
+	}
+
+	private bool TryActivateReachedRocketLauncherOrder(Vector3 _unitPos)
+	{
+		for (int i = 0; i < m_RocketLauncherOrders.Count; i++)
+		{
+			RocketLauncherRouteOrder order = m_RocketLauncherOrders[i];
+			if (order.RouteSegmentIndex != 0)
+				continue;
+			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+				continue;
+
+			m_RocketLauncherOrders.RemoveAt(i);
+			if (m_RocketLauncherOrderController == null)
+				m_RocketLauncherOrderController = GetComponent<UnitRocketLauncherOrderController>();
+
+			m_IsExecutingRouteOrder = true;
+			StopAgentForRouteOrder();
+
+			int bagIndex = ResolveRocketLauncherBagIndex(order);
+			if (m_RocketLauncherOrderController == null || bagIndex < 0 ||
+			    !m_RocketLauncherOrderController.TryStartOrder(bagIndex))
+			{
+				ResumeRouteAfterOrder();
+				return true;
+			}
+
+			m_RocketLauncherOrderController.OrderStateChanged += OnRocketLauncherRouteOrderStateChanged;
+			return true;
+		}
+
+		return false;
+	}
+
+	private int ResolveRocketLauncherBagIndex(in RocketLauncherRouteOrder _order)
+	{
+		if (m_CharacterInventory == null)
+			m_CharacterInventory = GetComponent<CharacterInventory>();
+		if (m_CharacterInventory == null)
+			return -1;
+
+		if (_order.LauncherInstance != null)
+		{
+			for (int i = 0; i < m_CharacterInventory.BagCount; i++)
+			{
+				InventorySlotRuntimeData slot = m_CharacterInventory.BagItems[i];
+				if (!slot.IsEmpty && ReferenceEquals(slot.InstanceState, _order.LauncherInstance))
+					return i;
+			}
+		}
+
+		if (_order.BagIndex >= 0 && _order.BagIndex < m_CharacterInventory.BagCount)
+		{
+			InventorySlotRuntimeData slot = m_CharacterInventory.BagItems[_order.BagIndex];
+			if (!slot.IsEmpty && slot.Definition != null && slot.Definition.IsRocketLauncher)
+				return _order.BagIndex;
+		}
+
+		return -1;
+	}
+
+	private void OnRocketLauncherRouteOrderStateChanged()
+	{
+		if (m_RocketLauncherOrderController == null)
+			return;
+		if (m_RocketLauncherOrderController.IsBusy)
+			return;
+
+		m_RocketLauncherOrderController.OrderStateChanged -= OnRocketLauncherRouteOrderStateChanged;
+		if (!m_IsExecutingRouteOrder)
+			return;
+
+		ResumeRouteAfterOrder();
+	}
+
+	private IEnumerator CoWaitReloadThenResume()
+	{
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+
+		float timeout = 12f;
+		float elapsed = 0f;
+		while (elapsed < timeout)
+		{
+			elapsed += Time.deltaTime;
+			if (m_WeaponReloadController == null || !m_WeaponReloadController.IsReloadBusy)
+				break;
+			yield return null;
+		}
+
+		ResumeRouteAfterOrder();
+	}
+
+	public bool TryStartGrenadeOrderAtWaypoint()
+	{
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
+		{
+			if (m_GrenadeOrders[i].RouteWaypointIndex != 0)
+				continue;
+			return TryStartGrenadeOrderAtIndex(i);
+		}
+
+		return false;
+	}
+
+	private bool TryStartGrenadeOrderAtIndex(int _index)
+	{
+		if (m_IsExecutingGrenadeOrder || m_IsExecutingRouteOrder)
+			return false;
+		if (_index < 0 || _index >= m_GrenadeOrders.Count)
+			return false;
+
+		GrenadeRouteOrder order = m_GrenadeOrders[_index];
+
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_GrenadeThrowController == null || !m_GrenadeThrowController.CanStartThrow())
+		{
+			m_GrenadeOrders.RemoveAt(_index);
+			return false;
+		}
+
+		if (!m_GrenadeThrowController.SetSelectedType(order.Type))
+		{
+			m_GrenadeOrders.RemoveAt(_index);
+			return false;
+		}
+
+		m_IsExecutingGrenadeOrder = true;
+		m_PendingGrenadeOrder = order;
+		m_GrenadeOrders.RemoveAt(_index);
+
+		StopAgentForRouteOrder();
 
 		m_GrenadeThrowController.BeginAiming();
 		m_GrenadeThrowController.SetTargetPosition(order.TargetPosition);
@@ -2408,18 +2797,223 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsExecutingGrenadeOrder)
 			return;
 
-		RemoveGrenadeOrderForWaypoint(0);
 		m_IsExecutingGrenadeOrder = false;
-
-		TryAdvanceRouteQueue();
+		ResumeRouteAfterOrder();
 	}
 
-	private void RemoveGrenadeOrderForWaypoint(int _waypointIndex)
+	private void ShiftRouteOrdersAfterWaypointRemoved(int _removedWaypointIndex)
 	{
-		for (int i = m_GrenadeOrders.Count - 1; i >= 0; i--)
+		ShiftGrenadeOrdersAfterWaypointRemoved();
+		ShiftOrderListSegmentsForRemove(m_ReloadOrders, _removedWaypointIndex);
+		ShiftOrderListSegmentsForRemove(m_LocomotionOrders, _removedWaypointIndex);
+		ShiftOrderListSegmentsForRemove(m_RefillOrders, _removedWaypointIndex);
+		ShiftOrderListSegmentsForRemove(m_RocketLauncherOrders, _removedWaypointIndex);
+	}
+
+	private void ShiftRouteOrdersForWaypointInsert(int _insertSegmentIndex, float _insertSegmentT)
+	{
+		for (int i = 0; i < m_GrenadeOrders.Count; i++)
 		{
-			if (m_GrenadeOrders[i].RouteWaypointIndex == _waypointIndex)
-				m_GrenadeOrders.RemoveAt(i);
+			GrenadeRouteOrder order = m_GrenadeOrders[i];
+			int segmentIndex = order.RouteWaypointIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForInsert(ref segmentIndex, ref segmentT, _insertSegmentIndex, _insertSegmentT);
+			order.RouteWaypointIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			m_GrenadeOrders[i] = order;
+		}
+
+		ShiftOrderListSegmentsForInsert(m_ReloadOrders, _insertSegmentIndex, _insertSegmentT);
+		ShiftOrderListSegmentsForInsert(m_LocomotionOrders, _insertSegmentIndex, _insertSegmentT);
+		ShiftOrderListSegmentsForInsert(m_RefillOrders, _insertSegmentIndex, _insertSegmentT);
+		ShiftOrderListSegmentsForInsert(m_RocketLauncherOrders, _insertSegmentIndex, _insertSegmentT);
+	}
+
+	private void ShiftOrderListSegmentsForRemove(List<ReloadRouteOrder> _orders, int _removedWaypointIndex)
+	{
+		for (int i = _orders.Count - 1; i >= 0; i--)
+		{
+			ReloadRouteOrder order = _orders[i];
+			if (_removedWaypointIndex == 0)
+			{
+				order.RouteSegmentIndex--;
+				if (order.RouteSegmentIndex < 0)
+				{
+					_orders.RemoveAt(i);
+					continue;
+				}
+
+				_orders[i] = order;
+				continue;
+			}
+
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForRemove(ref segmentIndex, ref segmentT, _removedWaypointIndex);
+			if (segmentIndex < 0)
+			{
+				_orders.RemoveAt(i);
+				continue;
+			}
+
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForRemove(List<LocomotionRouteOrder> _orders, int _removedWaypointIndex)
+	{
+		for (int i = _orders.Count - 1; i >= 0; i--)
+		{
+			LocomotionRouteOrder order = _orders[i];
+			if (_removedWaypointIndex == 0)
+			{
+				order.RouteSegmentIndex--;
+				if (order.RouteSegmentIndex < 0)
+				{
+					_orders.RemoveAt(i);
+					continue;
+				}
+
+				_orders[i] = order;
+				continue;
+			}
+
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForRemove(ref segmentIndex, ref segmentT, _removedWaypointIndex);
+			if (segmentIndex < 0)
+			{
+				_orders.RemoveAt(i);
+				continue;
+			}
+
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForRemove(List<MagazineRefillRouteOrder> _orders, int _removedWaypointIndex)
+	{
+		for (int i = _orders.Count - 1; i >= 0; i--)
+		{
+			MagazineRefillRouteOrder order = _orders[i];
+			if (_removedWaypointIndex == 0)
+			{
+				order.RouteSegmentIndex--;
+				if (order.RouteSegmentIndex < 0)
+				{
+					_orders.RemoveAt(i);
+					continue;
+				}
+
+				_orders[i] = order;
+				continue;
+			}
+
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForRemove(ref segmentIndex, ref segmentT, _removedWaypointIndex);
+			if (segmentIndex < 0)
+			{
+				_orders.RemoveAt(i);
+				continue;
+			}
+
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForRemove(List<RocketLauncherRouteOrder> _orders, int _removedWaypointIndex)
+	{
+		for (int i = _orders.Count - 1; i >= 0; i--)
+		{
+			RocketLauncherRouteOrder order = _orders[i];
+			if (_removedWaypointIndex == 0)
+			{
+				order.RouteSegmentIndex--;
+				if (order.RouteSegmentIndex < 0)
+				{
+					_orders.RemoveAt(i);
+					continue;
+				}
+
+				_orders[i] = order;
+				continue;
+			}
+
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForRemove(ref segmentIndex, ref segmentT, _removedWaypointIndex);
+			if (segmentIndex < 0)
+			{
+				_orders.RemoveAt(i);
+				continue;
+			}
+
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForInsert(List<ReloadRouteOrder> _orders, int _insertSegmentIndex, float _insertSegmentT)
+	{
+		for (int i = 0; i < _orders.Count; i++)
+		{
+			ReloadRouteOrder order = _orders[i];
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForInsert(ref segmentIndex, ref segmentT, _insertSegmentIndex, _insertSegmentT);
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForInsert(List<LocomotionRouteOrder> _orders, int _insertSegmentIndex, float _insertSegmentT)
+	{
+		for (int i = 0; i < _orders.Count; i++)
+		{
+			LocomotionRouteOrder order = _orders[i];
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForInsert(ref segmentIndex, ref segmentT, _insertSegmentIndex, _insertSegmentT);
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForInsert(List<MagazineRefillRouteOrder> _orders, int _insertSegmentIndex, float _insertSegmentT)
+	{
+		for (int i = 0; i < _orders.Count; i++)
+		{
+			MagazineRefillRouteOrder order = _orders[i];
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForInsert(ref segmentIndex, ref segmentT, _insertSegmentIndex, _insertSegmentT);
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
+		}
+	}
+
+	private void ShiftOrderListSegmentsForInsert(List<RocketLauncherRouteOrder> _orders, int _insertSegmentIndex, float _insertSegmentT)
+	{
+		for (int i = 0; i < _orders.Count; i++)
+		{
+			RocketLauncherRouteOrder order = _orders[i];
+			int segmentIndex = order.RouteSegmentIndex;
+			float segmentT = order.RouteSegmentT;
+			RemapRouteSegmentBindingForInsert(ref segmentIndex, ref segmentT, _insertSegmentIndex, _insertSegmentT);
+			order.RouteSegmentIndex = segmentIndex;
+			order.RouteSegmentT = segmentT;
+			_orders[i] = order;
 		}
 	}
 	#endregion
@@ -2564,6 +3158,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		ShiftFacingArrowSegmentsForWaypointInsert(0, 0f);
 		ShiftWaitHoldSegmentsForWaypointInsert(0, 0f);
+		ShiftRouteOrdersForWaypointInsert(0, 0f);
 		m_CommandQueue.Insert(0, holdCommand);
 		RebuildPathLine();
 		MarkFacingArrowsDirty();
@@ -2609,6 +3204,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		ShiftFacingArrowSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
 		ShiftWaitHoldSegmentsForWaypointInsert(_segmentIndex, insertSegmentT);
+		ShiftRouteOrdersForWaypointInsert(_segmentIndex, insertSegmentT);
 
 		int normalizedWait = NormalizeWaitGroup(_waitGroup);
 
@@ -2859,6 +3455,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		ClearFormationSync();
 		ClearPendingFormationSlotArrivalYaw();
 		m_RouteMarchEngaged = false;
+		ClearAllRouteOrders();
 	}
 
 	/// <summary>Заглушка для совместимости с менеджером выделения.</summary>
@@ -5426,10 +6023,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		LogRouteDebugEvent($"ADVANCE_QUEUE {BuildRouteDebugSnapshot()}");
 #endif
-		if (TryStartGrenadeOrderAtWaypoint())
-			return;
-
-		ShiftGrenadeOrdersAfterWaypointRemoved();
+		// Reach-gate handles mid-segment orders; on segment advance only remap bindings.
+		ShiftRouteOrdersAfterWaypointRemoved(0);
 
 		int arrivalWaitGroup = m_ActiveDestinationWaitGroup;
 		Vector3 arrivalWaitIconPos = ResolveActiveDestinationWaitIconWorldPosition();
@@ -5784,6 +6379,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_HasActiveDestination ||
 		    m_IsWaitingAtRouteGate ||
 		    m_IsExecutingGrenadeOrder ||
+		    m_IsExecutingRouteOrder ||
 		    m_IsExecutingSmoothingArc ||
 		    m_ActiveDestinationWaitGroup < 1 ||
 		    !m_ActiveDestinationWaitHasRouteBinding ||

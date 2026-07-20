@@ -227,6 +227,11 @@ public sealed class MissionPrepUnitPresetState : MonoBehaviour
 			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
 
 		decorations?.RefreshFromInventory(_inventory);
+
+		UnitBackWeaponHolsterVisuals holster = _inventory.GetComponentInParent<UnitBackWeaponHolsterVisuals>(true);
+		if (holster == null)
+			holster = _inventory.GetComponentInChildren<UnitBackWeaponHolsterVisuals>(true);
+		holster?.Refresh();
 	}
 	#endregion
 }

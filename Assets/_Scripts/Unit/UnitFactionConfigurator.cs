@@ -314,6 +314,12 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	private void ApplyFactionVisualRefreshes()
 	{
 		RefreshHeadAppearance();
+
+		UnitBackWeaponHolsterVisuals holster = GetComponentInChildren<UnitBackWeaponHolsterVisuals>(true);
+		holster?.Refresh();
+
+		if (m_InventoryDecorations != null)
+			m_InventoryDecorations.RefreshFromInventory(m_Inventory);
 	}
 
 	private void ApplyLoadout()

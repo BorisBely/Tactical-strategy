@@ -42,10 +42,14 @@ public class WorldPickupItem : MonoBehaviour
 		if (Application.isPlaying)
 			return;
 
-		if (m_InstanceState == null || m_Definition == null)
+		if (m_Definition == null)
 			return;
 
+		if (m_InstanceState == null)
+			m_InstanceState = ItemInstanceState.CreateForDefinition(m_Definition);
+
 		TryCopyEquippedAttachmentsToWeaponStateIfEmpty();
+		RefreshRocketLauncherLoadedVisual();
 	}
 #endif
 	#endregion
@@ -164,9 +168,13 @@ public class WorldPickupItem : MonoBehaviour
 	private void RefreshVisualState()
 	{
 		if (!Application.isPlaying)
+		{
+			RefreshRocketLauncherLoadedVisual();
 			return;
+		}
 
 		EnsureWorldPickupVisual();
+		RefreshRocketLauncherLoadedVisual();
 
 		EquippedWeapon equippedWeapon = GetComponentInChildren<EquippedWeapon>(true);
 		if (equippedWeapon == null)
@@ -182,6 +190,23 @@ public class WorldPickupItem : MonoBehaviour
 			equippedWeapon.RefreshAttachmentVisualsFromState(m_Definition.WeaponDefinition, m_InstanceState?.WeaponState);
 		else
 			equippedWeapon.ClearAttachmentVisuals();
+	}
+
+	/// <summary>
+	/// Ракета/missile на модели гранатомёта: видна только если экземпляр заряжен.
+	/// </summary>
+	private void RefreshRocketLauncherLoadedVisual()
+	{
+		if (m_Definition == null || !m_Definition.IsRocketLauncher)
+			return;
+
+		EnsureRuntimeStateInitialized();
+		bool loaded = RocketLauncherVisualUtility.ResolveIsLoaded(m_Definition, m_InstanceState);
+
+		if (m_SpawnedWorldVisualRoot != null)
+			RocketLauncherVisualUtility.ApplyLoadedRocketVisual(m_SpawnedWorldVisualRoot, loaded);
+
+		RocketLauncherVisualUtility.ApplyLoadedRocketVisual(gameObject, loaded);
 	}
 
 	private ItemDefinition GetInsertedMagazineDefinition()

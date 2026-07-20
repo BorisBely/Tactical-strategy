@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_Rpg7
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.rpg7
+  m_Description: RPG-7 reusable rocket launcher.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 2500
+  m_WeightKg: 6.3
+  m_Category: 0
+  m_DropWorldPrefab: {fileID: 217925556855986492, guid: 9a23fe42b1e4d6b4cabe771f6fd1f723, type: 3}
+  m_EquippedVisualPrefab: {fileID: 1923197755458386, guid: f1a2b3c4d5e6478890a1b2c3d4e5f601, type: 3}
+  m_RightHandLocalPosition: {x: 0.094, y: 0.048, z: -0.036}
+  m_RightHandLocalEulerAngles: {x: 27.31639, y: 85.70107, z: 281.36792}
+  m_RightHandReadyLocalPosition: {x: 0.094, y: 0.048, z: -0.036}
+  m_RightHandReadyLocalEulerAngles: {x: 27.316393, y: 85.701065, z: 281.36792}
+  m_RightHandIkNotReadyLocalPosition: {x: -0.002, y: -0.338, z: -0.452}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 1.090625, y: 17.285048, z: 268.78522}
+  m_RightHandIkReadyLocalPosition: {x: 0.1329, y: -0.0485, z: -0.0453}
+  m_RightHandIkReadyLocalEulerAngles: {x: 346.9025, y: 334.54315, z: 259.8343}
+  m_LeftHandIkNotReadyLocalPosition: {x: -0.0336, y: -0.2184, z: -0.0136}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 73.43122, y: 16.172003, z: 108.67517}
+  m_LeftHandIkReadyLocalPosition: {x: 0.0016, y: -0.061, z: -0.2416}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 332.1871, y: 23.292358, z: 85.57579}
+  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
+  m_RightHandIkTargetChildName: RightHandIkTarget
+  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
+  m_CrouchRightHandLocalPosition: {x: 0.087, y: 0.057, z: -0.019}
+  m_CrouchRightHandLocalEulerAngles: {x: 25.645899, y: 94.66189, z: 290.84268}
+  m_CrouchRightHandReadyLocalPosition: {x: 0.087, y: 0.057, z: -0.019}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 25.645903, y: 94.66189, z: 290.84268}
+  m_CrouchRightHandIkNotReadyLocalPosition: {x: 0.0103, y: -0.3177, z: -0.3741}
+  m_CrouchRightHandIkNotReadyLocalEulerAngles: {x: 355.0428, y: 359.94086, z: 251.62717}
+  m_CrouchRightHandIkReadyLocalPosition: {x: 0.176, y: 0.009, z: -0.059}
+  m_CrouchRightHandIkReadyLocalEulerAngles: {x: 353.13025, y: 335.64575, z: 254.34146}
+  m_CrouchLeftHandIkNotReadyLocalPosition: {x: -0.133, y: -0.099, z: 0.048}
+  m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 61.593998, y: 23.55557, z: 145.47899}
+  m_CrouchLeftHandIkReadyLocalPosition: {x: 0.0223, y: -0.031, z: -0.2238}
+  m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 330.64838, y: 53.860764, z: 86.35226}
+  m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
+  m_WeaponType: 0
+  m_WeaponDefinition: {fileID: 0}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 1
+  m_RocketLauncherHandPrefab: {fileID: 1923197755458386, guid: f1a2b3c4d5e6478890a1b2c3d4e5f601, type: 3}
+  m_RocketProjectilePrefab: {fileID: 1765726754486826, guid: f1a2b3c4d5e6478890a1b2c3d4e5f603, type: 3}
+  m_RpgRocketItemDefinition: {fileID: 11400000, guid: 5aadf761b62779345bc397c8d4c47a13, type: 2}
+  m_RpgRocketHandPrefab: {fileID: 1765726754486826, guid: f1a2b3c4d5e6478890a1b2c3d4e5f605, type: 3}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
+  m_MedkitDefinition: {fileID: 0}
+  m_BagAddSounds:
+    m_Clips: []
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips: []
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
+    m_Clips: []
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
+    m_Clips: []
+  m_EquipmentRemoveSoundVolume: 0.85

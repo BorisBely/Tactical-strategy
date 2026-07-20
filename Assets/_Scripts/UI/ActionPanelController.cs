@@ -47,7 +47,11 @@ public sealed class ActionPanelController : MonoBehaviour
 	private bool m_UiBuilt;
 	private TMP_FontAsset m_ResolvedFont;
 	private GameObject[] m_ButtonObjects;
+	private TextMeshProUGUI[] m_ButtonLabels;
 	private bool m_SubscribedToSelection;
+	private const int c_RocketLauncherButtonIndex = 1;
+	private const int c_FormationButtonIndex = 9;
+	private const int c_InventoryButtonIndex = 10;
 	#endregion
 
 	#region Entries
@@ -121,6 +125,8 @@ public sealed class ActionPanelController : MonoBehaviour
 		{
 			m_TargetAlpha = desired;
 			StartFade(desired);
+			if (desired > 0.5f)
+				RefreshConditionalButtons();
 		}
 
 		// Прямой клик: EventSystem/IsPointerOverGameObject с Input System часто не видит эту панель.
@@ -252,14 +258,16 @@ public sealed class ActionPanelController : MonoBehaviour
 	private void BuildButtons()
 	{
 		m_ButtonObjects = new GameObject[m_Entries.Length];
+		m_ButtonLabels = new TextMeshProUGUI[m_Entries.Length];
 		for (int i = 0; i < m_Entries.Length; i++)
 		{
 			Entry entry = m_Entries[i];
-			m_ButtonObjects[i] = BuildButton(entry, i);
+			m_ButtonObjects[i] = BuildButton(entry, i, out TextMeshProUGUI label);
+			m_ButtonLabels[i] = label;
 		}
 	}
 
-	private GameObject BuildButton(Entry _entry, int _index)
+	private GameObject BuildButton(Entry _entry, int _index, out TextMeshProUGUI _label)
 	{
 		GameObject btnGo = new GameObject($"Btn_{_entry.Label}", typeof(RectTransform));
 		btnGo.transform.SetParent(m_PanelRect, false);
@@ -299,8 +307,11 @@ public sealed class ActionPanelController : MonoBehaviour
 		label.alignment = TextAlignmentOptions.Center;
 		label.color = new Color(0.82f, 0.82f, 0.82f, 1f);
 		label.raycastTarget = false;
+		label.enableWordWrapping = true;
+		label.overflowMode = TextOverflowModes.Truncate;
 		if (m_ResolvedFont != null)
 			label.font = m_ResolvedFont;
+		_label = label;
 
 		GameObject keyGo = new GameObject("Key", typeof(RectTransform));
 		keyGo.transform.SetParent(btnRect, false);
@@ -327,6 +338,7 @@ public sealed class ActionPanelController : MonoBehaviour
 		m_Entries = new Entry[]
 		{
 			new Entry { Label = "Граната",    KeyDisplay = "G", OnClick = OnClickGrenade },
+			new Entry { Label = "Гранатомёт", KeyDisplay = "H", OnClick = OnClickRocketLauncher },
 			new Entry { Label = "Готовность", KeyDisplay = "E", OnClick = OnClickReady },
 			new Entry { Label = "Присед",     KeyDisplay = "C", OnClick = OnClickCrouch },
 			new Entry { Label = "Зарядка",    KeyDisplay = "T", OnClick = OnClickMagazineLoad },
@@ -418,11 +430,31 @@ public sealed class ActionPanelController : MonoBehaviour
 		RtsUnitSelectionManager mgr = RtsUnitSelectionManager.Instance;
 		int count = mgr != null ? mgr.SelectedUnitCount : 0;
 
-		if (m_ButtonObjects.Length > 8 && m_ButtonObjects[8] != null)
-			m_ButtonObjects[8].SetActive(count > 1);
+		bool hasLauncher = false;
+		bool showReloadLabel = false;
+		if (mgr != null && count > 0 && mgr.TryGetPrimarySelectedRocketLauncherController(out UnitRocketLauncherOrderController launcher))
+		{
+			hasLauncher = launcher.HasAnyRocketLauncher();
+			showReloadLabel = launcher.ShouldShowReloadButtonLabel();
+		}
 
-		if (m_ButtonObjects.Length > 9 && m_ButtonObjects[9] != null)
-			m_ButtonObjects[9].SetActive(count == 1);
+		if (m_ButtonObjects.Length > c_RocketLauncherButtonIndex && m_ButtonObjects[c_RocketLauncherButtonIndex] != null)
+			m_ButtonObjects[c_RocketLauncherButtonIndex].SetActive(hasLauncher);
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_RocketLauncherButtonIndex &&
+		    m_ButtonLabels[c_RocketLauncherButtonIndex] != null)
+		{
+			TextMeshProUGUI label = m_ButtonLabels[c_RocketLauncherButtonIndex];
+			label.text = showReloadLabel ? "Зарядить гранатомёт" : "Гранатомёт";
+			label.fontSize = showReloadLabel ? 10f : c_LabelFontSize;
+		}
+
+		if (m_ButtonObjects.Length > c_FormationButtonIndex && m_ButtonObjects[c_FormationButtonIndex] != null)
+			m_ButtonObjects[c_FormationButtonIndex].SetActive(count > 1);
+
+		if (m_ButtonObjects.Length > c_InventoryButtonIndex && m_ButtonObjects[c_InventoryButtonIndex] != null)
+			m_ButtonObjects[c_InventoryButtonIndex].SetActive(count == 1);
 
 		UpdatePanelWidth();
 	}
@@ -492,6 +524,14 @@ public sealed class ActionPanelController : MonoBehaviour
 		if (manager == null)
 			return;
 		manager.CycleGrenadeThrowTypePublic();
+	}
+
+	private static void OnClickRocketLauncher()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		if (manager == null)
+			return;
+		manager.CommandSelectedRocketLauncher();
 	}
 
 	private static void OnClickReady()

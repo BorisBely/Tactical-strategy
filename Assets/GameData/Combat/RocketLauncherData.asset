@@ -1,0 +1,288 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7c3e91f2b4d4e6a8f1c0d5e9b3a7c12, type: 3}
+  m_Name: RocketLauncherData
+  m_EditorClassIdentifier: Assembly-CSharp::RocketLauncherData
+  m_RpgAimTimeSeconds: 2.3
+  m_RpgDistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0.85
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 1.4
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 1.95
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 2.7
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0.75
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 1.25
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 1.5
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 1.75
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  m_DisposableAimTimeSeconds: 2
+  m_DisposableDistanceAimProfile:
+    m_DispersionMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1.2
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 1.7
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 2.4
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 3.3
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    m_AimTimeMultiplierByDistance:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0.7
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 125
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 250
+        value: 1.25
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 375
+        value: 1.5
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 500
+        value: 1.75
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  m_RpgBaseDispersionDegrees: 0.95
+  m_DisposableBaseDispersionDegrees: 1.2
+  m_MinHalfAngleDegrees: 0.08
+  m_MaxHalfAngleDegrees: 8
+  m_AimCrossfadeSeconds: 0.2
+  m_RpgMuzzleSpeed: 115
+  m_DisposableMuzzleSpeed: 130
+  m_ProjectileGravity: 9.81
+  m_ProjectileLinearDamping: 0.02
+  m_ProjectileLifetimeSeconds: 12
+  m_DrawAimTrajectoryGizmo: 1
+  m_AimGizmoPointCount: 48
+  m_AimGizmoStepSeconds: 0.08
+  m_ExplosionPrefab: {fileID: 1273314581925930, guid: c73519d76f0a4eb409d0fcdc54d48d83, type: 3}
+  m_ExplosionVfxScale: 2.15
+  m_ExplosionVfxDurationSeconds: 5.5
+  m_ExplosionMaxDistanceMeters: 95
+  m_ExplosionVfxYawOffsetDegrees: 0
+  m_EnableFireMuzzleVfx: 1
+  m_FireMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_FireMuzzleVfxScale: {x: 5.5, y: 5.5, z: 10}
+  m_FireBackblastVfxScale: {x: 7.5, y: 7.5, z: 7}
+  m_FireMuzzleVfxLifetimeSeconds: 0.4
+  m_FireMuzzleVfxMaxDistanceMeters: 70
+  m_DiscardedLauncherLifetimeSeconds: 30
+  m_DiscardImpulseLocal: {x: 2.6, y: 2, z: 3.2}
+  m_DiscardTorque: 3.5
+  m_FireWhooshClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 94212cc993983b645b1b44425b8c0012, type: 3}
+  m_DisposableFireAccentClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 6999b70e75429064e9ce559cbf515080, type: 3}
+  m_RpgFireAccentClips:
+    m_Clips:
+    - {fileID: 8300000, guid: e89b3a12f323a4541a6ba2d3b7ffbda4, type: 3}
+  m_FireWhooshVolume: 1
+  m_FireAccentVolume: 0.95
+  m_FireAudioMaxDistance: 120
+  m_FlybyClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 7e7c4c6275e8e6c449d21d880daa6cbe, type: 3}
+  m_FlybyVolume: 1
+  m_FlybyRadiusMeters: 10
+  m_FlybyMinSpawnDistanceMeters: 2.5
+  m_DisposableExplosionClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 191b7d5c82834e64c870ca4a8f8c86fa, type: 3}
+    - {fileID: 8300000, guid: e04b263a0f8ec5c4b84cab439939fc8c, type: 3}
+    - {fileID: 8300000, guid: 73cc62c9b0cdc02479f26e7f4d9e6ef1, type: 3}
+  m_RpgExplosionClips:
+    m_Clips:
+    - {fileID: 8300000, guid: bff45f5795421f34c830f5d4512af1e6, type: 3}
+    - {fileID: 8300000, guid: 202db320cba9d52459b8008b883c169d, type: 3}
+  m_ExplosionAudioVolume: 1
+  m_ExplosionAudioMaxDistance: 110
+  m_RpgReloadInsertClips:
+    m_Clips:
+    - {fileID: 8300000, guid: 7a148563a63d9a34cae61226380e9b93, type: 3}
+  m_RpgReloadInsertVolume: 1
+  m_RpgReloadInsertMaxDistance: 45
+  m_FallbackRpgHandPrefab: {fileID: 1923197755458386, guid: f1a2b3c4d5e6478890a1b2c3d4e5f601, type: 3}
+  m_FallbackRpgProjectilePrefab: {fileID: 1765726754486826, guid: f1a2b3c4d5e6478890a1b2c3d4e5f603, type: 3}
+  m_FallbackRpgRocketHandPrefab: {fileID: 1765726754486826, guid: f1a2b3c4d5e6478890a1b2c3d4e5f605, type: 3}
+  m_FallbackDisposableHandPrefab: {fileID: 1485646498701080, guid: f1a2b3c4d5e6478890a1b2c3d4e5f602, type: 3}
+  m_FallbackDisposableProjectilePrefab: {fileID: 1206594183249076, guid: f1a2b3c4d5e6478890a1b2c3d4e5f604, type: 3}

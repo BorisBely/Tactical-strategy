@@ -130,6 +130,10 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 			return 4;
 		if (_definition.IsGrenade)
 			return 5;
+		if (_definition.IsRocketLauncher)
+			return 0;
+		if (_definition.IsRpgRocketAmmo)
+			return 4;
 
 		return 6;
 	}
@@ -177,11 +181,17 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 			AppendDefinition(_outSlots, _seen, preset.WeaponItem);
 			AppendDefinition(_outSlots, _seen, preset.MagazineItem, preset.AmmoForMagazine, preset.RoundsPerMagazine);
 
-			if (preset.AmmoBoxItems == null)
+			if (preset.AmmoBoxItems != null)
+			{
+				for (int i = 0; i < preset.AmmoBoxItems.Length; i++)
+					AppendDefinition(_outSlots, _seen, preset.AmmoBoxItems[i]);
+			}
+
+			if (preset.ExtraBagItems == null)
 				continue;
 
-			for (int i = 0; i < preset.AmmoBoxItems.Length; i++)
-				AppendDefinition(_outSlots, _seen, preset.AmmoBoxItems[i]);
+			for (int i = 0; i < preset.ExtraBagItems.Length; i++)
+				AppendDefinition(_outSlots, _seen, preset.ExtraBagItems[i]);
 		}
 	}
 

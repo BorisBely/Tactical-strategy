@@ -32,6 +32,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	private int m_SuppressOutsideClickUntilFrame = -1;
 	private System.Action<InventorySlotRuntimeData> m_PendingUiMagazineEjectHandler;
 	private UnitWeaponReloadController m_SubscribedReloadController;
+	private UnitRocketLauncherOrderController m_SubscribedRocketOrderController;
 	#endregion
 
 	private readonly struct WeaponSlotBinding
@@ -119,6 +120,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		RuntimeInventoryModificationDragContext.Changed -= HandleModificationDragContextChanged;
 		InventoryEquipmentEquipHoverContext.Changed -= HandleEquipmentEquipHoverChanged;
 		TryUnsubscribeReloadCompletionHandler();
+		TryUnsubscribeRocketModificationCompletionHandler();
 		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
 		RuntimeInventoryModificationDragContext.ResetAfterDrag();
 		InventoryEquipmentEquipHoverContext.ClearAll();
@@ -476,6 +478,15 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 		if (useEquippedMagazineReload)
 			return TryInstallEquippedMagazineFromDrag(payload, resolvedIsMainHand, resolvedBagIndex);
+
+		bool useUiRocketInstall = !resolvedIsOnGroundPanel &&
+		                          RocketProjectileModificationApplier.IsRocketProjectileSlot(_slotDescriptor) &&
+		                          inventory != null &&
+		                          resolvedBagIndex >= 0 &&
+		                          RocketProjectileModificationApplier.CanStartUiRocketModification(inventory);
+
+		if (useUiRocketInstall)
+			return TryInstallEquippedRocketFromDrag(payload, resolvedIsMainHand, resolvedBagIndex);
 
 		if (payload.SourceKind == RuntimeInventoryModificationDragSourceKind.GroundPanel &&
 		    ActiveInventory != null && ActiveInventory.IsBagOverweight &&
@@ -1321,6 +1332,11 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			decorations = _inventory.GetComponentInChildren<UnitInventoryBodyDecorations>(true);
 
 		decorations?.RefreshFromInventory(_inventory);
+
+		UnitBackWeaponHolsterVisuals holster = _inventory.GetComponentInParent<UnitBackWeaponHolsterVisuals>(true);
+		if (holster == null)
+			holster = _inventory.GetComponentInChildren<UnitBackWeaponHolsterVisuals>(true);
+		holster?.Refresh();
 	}
 
 	private bool TryPlaceEjectedModificationOnGround(CharacterInventory _inventory, InventorySlotRuntimeData _item)
@@ -1421,6 +1437,50 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 	}
 
+	private void TrySubscribeRocketModificationCompletionHandler()
+	{
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory == null)
+		{
+			TryUnsubscribeRocketModificationCompletionHandler();
+			return;
+		}
+
+		if (!RocketProjectileModificationApplier.TryGetOrderController(inventory, out UnitRocketLauncherOrderController orderController))
+		{
+			TryUnsubscribeRocketModificationCompletionHandler();
+			return;
+		}
+
+		if (m_SubscribedRocketOrderController == orderController)
+			return;
+
+		TryUnsubscribeRocketModificationCompletionHandler();
+		m_SubscribedRocketOrderController = orderController;
+		orderController.UiRocketModificationCompleted += HandleUiRocketModificationCompleted;
+	}
+
+	private void TryUnsubscribeRocketModificationCompletionHandler()
+	{
+		if (m_SubscribedRocketOrderController == null)
+			return;
+
+		m_SubscribedRocketOrderController.UiRocketModificationCompleted -= HandleUiRocketModificationCompleted;
+		m_SubscribedRocketOrderController = null;
+	}
+
+	private void HandleUiRocketModificationCompleted()
+	{
+		RuntimeInventoryModificationUiState preservedModificationUi = m_ModificationUiState;
+		if (isActiveAndEnabled)
+			ScheduleRepaintAfterMagazineModificationCompleted(preservedModificationUi);
+		else
+		{
+			m_ModificationUiState = preservedModificationUi;
+			NotifyInventoryMutated();
+		}
+	}
+
 	private bool TryInstallEquippedMagazineFromDrag(
 		RuntimeInventoryModificationDragPayload _payload,
 		bool _weaponIsMainHand,
@@ -1439,6 +1499,43 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			TryRestoreModificationDragSource(_payload, _payload.Item);
 			return false;
 		}
+
+		CharacterInventory inventoryAfterInstall = ActiveInventory;
+		if (inventoryAfterInstall != null &&
+		    inventoryAfterInstall.TryGetInventorySlot(_weaponIsMainHand, targetBagIndex, out InventorySlotRuntimeData installedWeaponSlot))
+		{
+			KeepExpandedSelectionAfterModificationInstall(
+				false,
+				-1,
+				_weaponIsMainHand,
+				targetBagIndex,
+				installedWeaponSlot.InstanceState);
+		}
+
+		RuntimeInventoryModificationDragContext.NotifyDropConsumed();
+		return true;
+	}
+
+	private bool TryInstallEquippedRocketFromDrag(
+		RuntimeInventoryModificationDragPayload _payload,
+		bool _weaponIsMainHand,
+		int _weaponBagIndex)
+	{
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory == null || !RocketProjectileModificationApplier.CanStartUiRocketModification(inventory))
+			return false;
+
+		int targetBagIndex = _weaponBagIndex;
+		if (!TryConsumeModificationDragSource(_payload, ref targetBagIndex))
+			return false;
+
+		if (!RocketProjectileModificationApplier.TryStartEquippedRocketInstall(inventory, targetBagIndex, _payload.Item))
+		{
+			TryRestoreModificationDragSource(_payload, _payload.Item);
+			return false;
+		}
+
+		TrySubscribeRocketModificationCompletionHandler();
 
 		CharacterInventory inventoryAfterInstall = ActiveInventory;
 		if (inventoryAfterInstall != null &&

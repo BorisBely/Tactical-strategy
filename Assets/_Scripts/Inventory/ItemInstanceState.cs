@@ -12,6 +12,7 @@ public sealed class ItemInstanceState
 	[SerializeField] private MagazineRuntimeState m_MagazineState;
 	[SerializeField] private AmmoContainerRuntimeState m_AmmoContainerState;
 	[SerializeField] private MedkitRuntimeState m_MedkitState;
+	[SerializeField] private RocketLauncherRuntimeState m_RocketLauncherState;
 	#endregion
 
 	#region Public Properties
@@ -19,6 +20,7 @@ public sealed class ItemInstanceState
 	public MagazineRuntimeState MagazineState => m_MagazineState;
 	public AmmoContainerRuntimeState AmmoContainerState => m_AmmoContainerState;
 	public MedkitRuntimeState MedkitState => m_MedkitState;
+	public RocketLauncherRuntimeState RocketLauncherState => m_RocketLauncherState;
 	#endregion
 
 	#region Public Methods
@@ -35,6 +37,7 @@ public sealed class ItemInstanceState
 		m_MagazineState = null;
 		m_AmmoContainerState = null;
 		m_MedkitState = null;
+		m_RocketLauncherState = null;
 
 		if (_definition == null)
 			return;
@@ -62,6 +65,18 @@ public sealed class ItemInstanceState
 			return;
 		}
 
+		if (_definition.IsRocketLauncher)
+		{
+			m_RocketLauncherState = new RocketLauncherRuntimeState();
+			bool startsLoaded = _definition.RocketLauncherType == RocketLauncherType.Disposable ||
+			                   _definition.RocketLauncherStartsLoaded;
+			ItemDefinition defaultRocket = _definition.RocketLauncherType == RocketLauncherType.Rpg7
+				? _definition.RpgRocketItemDefinition
+				: null;
+			m_RocketLauncherState.Configure(startsLoaded, defaultRocket);
+			return;
+		}
+
 		if (_definition.WeaponDefinition != null)
 		{
 			m_WeaponState = new WeaponRuntimeState();
@@ -80,8 +95,26 @@ public sealed class ItemInstanceState
 		ItemInstanceState state = new ItemInstanceState();
 		state.m_WeaponState = null;
 		state.m_AmmoContainerState = null;
+		state.m_MedkitState = null;
+		state.m_RocketLauncherState = null;
 		state.m_MagazineState = _magazineRuntimeState;
 		return state;
+	}
+
+	public void EnsureRocketLauncherState(ItemDefinition _definition)
+	{
+		if (m_RocketLauncherState != null)
+			return;
+
+		m_RocketLauncherState = new RocketLauncherRuntimeState();
+		bool startsLoaded = _definition != null &&
+		                    (_definition.RocketLauncherType == RocketLauncherType.Disposable ||
+		                     _definition.RocketLauncherStartsLoaded);
+		ItemDefinition defaultRocket = _definition != null &&
+		                               _definition.RocketLauncherType == RocketLauncherType.Rpg7
+			? _definition.RpgRocketItemDefinition
+			: null;
+		m_RocketLauncherState.Configure(startsLoaded, defaultRocket);
 	}
 	#endregion
 }

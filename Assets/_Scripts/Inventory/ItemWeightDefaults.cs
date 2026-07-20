@@ -99,6 +99,9 @@ public static class ItemWeightDefaults
 		{ "item.grenade.f1", 0.6f },
 		{ "item.grenade.flash_01", 0.3f },
 		{ "item.grenade.smoke_01", 0.5f },
+		{ "item.weapon.rpg7", 6.3f },
+		{ "item.weapon.disposable_rocket_launcher", 4.5f },
+		{ "item.ammo.rpg_rocket", 2.5f },
 
 		{ "item.medkit.ifak", 0.5f },
 
@@ -152,7 +155,20 @@ public static class ItemWeightDefaults
 
 	public static float GetWeaponModificationWeight(InventorySlotRuntimeData _slot)
 	{
-		if (_slot.IsEmpty || _slot.Definition == null || _slot.Definition.WeaponDefinition == null)
+		if (_slot.IsEmpty || _slot.Definition == null)
+			return 0f;
+
+		if (_slot.Definition.IsRocketLauncher)
+		{
+			RocketLauncherRuntimeState rocketState = _slot.InstanceState != null
+				? _slot.InstanceState.RocketLauncherState
+				: null;
+			if (rocketState != null && rocketState.LoadedRocketDefinition != null)
+				return rocketState.LoadedRocketDefinition.WeightKg;
+			return 0f;
+		}
+
+		if (_slot.Definition.WeaponDefinition == null)
 			return 0f;
 
 		WeaponRuntimeState state = _slot.InstanceState?.WeaponState;

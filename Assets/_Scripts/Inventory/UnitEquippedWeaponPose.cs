@@ -20,6 +20,9 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitRagdollController m_RagdollController;
 	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
+	[SerializeField] private UnitRocketLauncherOrderController m_RocketLauncherOrder;
+	[SerializeField] private UnitAnimatorStance m_Stance;
+	[SerializeField] private Animator m_Animator;
 
 	[Header("Переход Ready / Relaxed")]
 	[SerializeField, Min(0f)] private float m_ReadyPoseBlendDuration = 0.28f;
@@ -143,6 +146,18 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
 		if (m_RuntimeTuner == null)
 			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (m_RocketLauncherOrder == null)
+			m_RocketLauncherOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (m_RocketLauncherOrder == null)
+			m_RocketLauncherOrder = GetComponentInParent<UnitRocketLauncherOrderController>();
+
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_Stance == null)
+			m_Stance = GetComponentInParent<UnitAnimatorStance>();
+
+		if (m_Animator == null)
+			m_Animator = GetComponentInChildren<Animator>();
 	}
 
 	private bool IsBlockedByRagdoll()
@@ -210,11 +225,16 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 	private void ApplyWeaponLocalPose()
 	{
-		if (m_UnitEquipment == null)
+		bool useRocketLauncher = m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldDriveWeaponPose;
+		if (m_UnitEquipment == null && !useRocketLauncher)
 			return;
 
-		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
-		ItemDefinition def = m_UnitEquipment.EquippedDefinition;
+		Transform weaponRoot = useRocketLauncher
+			? m_RocketLauncherOrder.HandLauncherRoot
+			: m_UnitEquipment.MainWeaponRoot;
+		ItemDefinition def = useRocketLauncher
+			? m_RocketLauncherOrder.ActiveLauncherDefinition
+			: m_UnitEquipment.EquippedDefinition;
 		if (weaponRoot == null || def == null)
 		{
 			m_CurrentBaseWeaponLocalPosition = Vector3.zero;
@@ -222,10 +242,10 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			return;
 		}
 
-		Vector3 relaxedPosition = def.RightHandLocalPosition;
-		Quaternion relaxedRotation = def.RightHandLocalRotation;
-		Vector3 readyPosition = def.RightHandReadyLocalPosition;
-		Quaternion readyRotation = def.RightHandReadyLocalRotation;
+		Vector3 relaxedPosition = def.ResolveRightHandLocalPosition(GetCurrentStance());
+		Quaternion relaxedRotation = def.ResolveRightHandLocalRotation(GetCurrentStance());
+		Vector3 readyPosition = def.ResolveRightHandReadyLocalPosition(GetCurrentStance());
+		Quaternion readyRotation = def.ResolveRightHandReadyLocalRotation(GetCurrentStance());
 		float blend01 = m_ReadyBlend01;
 
 		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
@@ -237,7 +257,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 				out readyRotation,
 				out blend01);
 		}
-		else if (readyPosition == Vector3.zero && def.RightHandReadyLocalEulerAngles == Vector3.zero)
+		else if (ShouldInheritReadyPoseFromNotReady(def, GetCurrentStance()))
 		{
 			readyPosition = relaxedPosition;
 			readyRotation = relaxedRotation;
@@ -263,6 +283,62 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		if (m_RuntimeTuner == null)
 			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
 		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldSkipWeaponPoseWrite;
+	}
+
+	private LocomotionStance GetCurrentStance()
+	{
+		if (m_Stance != null)
+			return m_Stance.CurrentStance;
+
+		if (m_Animator != null)
+		{
+			int stance = m_Animator.GetInteger(Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance));
+			if (stance == (int)LocomotionStance.Crouch)
+				return LocomotionStance.Crouch;
+			if (stance == (int)LocomotionStance.Prone)
+				return LocomotionStance.Prone;
+		}
+
+		return LocomotionStance.Standing;
+	}
+
+	private static bool ShouldInheritReadyPoseFromNotReady(ItemDefinition _def, LocomotionStance _stance)
+	{
+		if (_def == null || ItemDefinition.UsesCrouchHandPose(_stance))
+			return false;
+
+		Vector3 notReadyPosition = _def.ResolveRightHandLocalPosition(_stance);
+		Vector3 notReadyEuler = _def.RightHandLocalEulerAngles;
+		Vector3 readyPosition = _def.ResolveRightHandReadyLocalPosition(_stance);
+		Vector3 readyEuler = _def.RightHandReadyLocalEulerAngles;
+
+		if (readyPosition == Vector3.zero && readyEuler == Vector3.zero)
+			return true;
+
+		const float positionTolerance = 0.02f;
+		const float angleTolerance = 0.75f;
+		Vector3 templatePosition = new Vector3(0.05f, 0.02f, 0.08f);
+		Vector3 templateEuler = new Vector3(-10f, 90f, 90f);
+
+		bool readyStillTemplate = Approximately(readyPosition, templatePosition, positionTolerance)
+		                          && ApproximatelyEuler(readyEuler, templateEuler, angleTolerance);
+		if (!readyStillTemplate)
+			return false;
+
+		return !Approximately(notReadyPosition, templatePosition, positionTolerance)
+		       || !ApproximatelyEuler(notReadyEuler, templateEuler, angleTolerance);
+	}
+
+	private static bool Approximately(Vector3 _a, Vector3 _b, float _tolerance)
+	{
+		return (_a - _b).sqrMagnitude <= _tolerance * _tolerance;
+	}
+
+	private static bool ApproximatelyEuler(Vector3 _a, Vector3 _b, float _tolerance)
+	{
+		return Mathf.Abs(Mathf.DeltaAngle(_a.x, _b.x)) <= _tolerance
+		       && Mathf.Abs(Mathf.DeltaAngle(_a.y, _b.y)) <= _tolerance
+		       && Mathf.Abs(Mathf.DeltaAngle(_a.z, _b.z)) <= _tolerance;
 	}
 	#endregion
 }

@@ -186,6 +186,30 @@
       "value": "RGD-5 grenade"
     },
     {
+      "key": "item.weapon.rpg7",
+      "value": "RPG-7"
+    },
+    {
+      "key": "item.weapon.rpg7.desc",
+      "value": "Reusable rocket launcher. Load rockets from the bag."
+    },
+    {
+      "key": "item.weapon.disposable_rocket_launcher",
+      "value": "Disposable rocket launcher"
+    },
+    {
+      "key": "item.weapon.disposable_rocket_launcher.desc",
+      "value": "Single-use launcher. Discarded after firing."
+    },
+    {
+      "key": "item.ammo.rpg_rocket",
+      "value": "RPG-7 rocket"
+    },
+    {
+      "key": "item.ammo.rpg_rocket.desc",
+      "value": "Rocket for RPG-7. Cannot load into disposable launchers."
+    },
+    {
       "key": "item.grenade.f1",
       "value": "F-1 grenade"
     },
@@ -967,7 +991,7 @@
     },
     {
       "key": "pause.help.h",
-      "value": "H - Open health window"
+      "value": "H - Rocket launcher (fire / reload RPG)"
     },
     {
       "key": "pause.help.camera",
@@ -1148,6 +1172,10 @@
     {
       "key": "weapon.mod_slot.magazine",
       "value": "Magazine"
+    },
+    {
+      "key": "weapon.mod_slot.rocket_projectile",
+      "value": "Projectile"
     },
     {
       "key": "weapon.mod_slot.muzzle",

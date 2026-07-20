@@ -31,10 +31,12 @@ public static class CombatAudioManager
 	private const int c_RolloffCurveKeyCount = 9;
 
 	private const int c_TierGunshot = 400;
+	private const int c_TierRocketLauncher = 500;
 	private const int c_TierImpact = 300;
 	private const int c_TierCombatSecondary = 200;
 	private const int c_TierNonFire = 100;
 	private const int c_TierScoreMultiplier = 1000;
+	private const int c_RocketLauncherPriorityBonus = 8000;
 
 	private const int c_UnityPriorityGunshot = 0;
 	private const int c_UnityPriorityImpact = 64;
@@ -48,6 +50,7 @@ public static class CombatAudioManager
 		Impact = 1,
 		CombatSecondary = 2,
 		NonFire = 3,
+		RocketLauncher = 4,
 	}
 
 	private enum VoiceGroup
@@ -243,6 +246,45 @@ public static class CombatAudioManager
 			0,
 			_nonSpatial: false);
 	}
+
+	/// <summary>
+	/// Гранатомёт: fire / flyby / explosion — всегда с максимальным приоритетом, без NonFire- attenuation.
+	/// </summary>
+	public static bool TryPlayRocketLauncher(
+		AudioClip _clip,
+		Vector3 _position,
+		float _volume,
+		float _maxDistance = 120f,
+		Transform _ownerOrNull = null,
+		float _pitch = 1f,
+		bool _nonSpatial = false)
+	{
+		if (_clip == null || _volume <= 0f)
+			return false;
+
+		float maxDistance = _nonSpatial ? 1f : Mathf.Max(5f, _maxDistance);
+		float minDistance = _nonSpatial ? 0.01f : c_DefaultSpatialMinDistance;
+		float estimatedVolume = _nonSpatial
+			? _volume
+			: EstimateVolumeAtListener(_position, _volume, maxDistance);
+
+		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
+		int priority = ComputeRocketLauncherPriority(_position, _ownerOrNull, estimatedVolume, ownerId);
+		return TryPlayInternal(
+			_clip,
+			_position,
+			_volume,
+			_pitch,
+			maxDistance,
+			minDistance,
+			Category.RocketLauncher,
+			priority,
+			ownerId,
+			0,
+			_nonSpatial: _nonSpatial,
+			_isBulletWhiz: false,
+			_forceMaximumPriority: true);
+	}
 	#endregion
 
 	#region Private Methods
@@ -375,14 +417,15 @@ public static class CombatAudioManager
 		int _ownerInstanceId,
 		int _weaponSignatureId,
 		bool _nonSpatial,
-		bool _isBulletWhiz = false)
+		bool _isBulletWhiz = false,
+		bool _forceMaximumPriority = false)
 	{
 		EnsureVoicePool();
 		if (s_VoiceSlots == null || s_VoiceSlots.Length == 0)
 			return false;
 
 		VoiceGroup group = ResolveVoiceGroup(_category);
-		if (!TryAcquireVoiceSlot(group, _priority, out int slotIndex))
+		if (!TryAcquireVoiceSlot(group, _priority, out int slotIndex, _forceMaximumPriority))
 			return false;
 
 		ref VoiceSlot slot = ref s_VoiceSlots[slotIndex];
@@ -395,7 +438,7 @@ public static class CombatAudioManager
 		else
 			ConfigureSpatial(source, _minDistance, _maxDistance);
 
-		source.priority = ResolveUnityPriority(group);
+		source.priority = ResolveUnityPriority(_category);
 		source.transform.position = _position;
 		source.pitch = Mathf.Clamp(_pitch, 0.1f, 3f);
 		source.volume = Mathf.Clamp01(_volume);
@@ -419,6 +462,7 @@ public static class CombatAudioManager
 		switch (_category)
 		{
 			case Category.Gunshot:
+			case Category.RocketLauncher:
 				return VoiceGroup.Gunshot;
 			case Category.Impact:
 				return VoiceGroup.Impact;
@@ -453,11 +497,34 @@ public static class CombatAudioManager
 		}
 	}
 
-	private static bool TryAcquireVoiceSlot(VoiceGroup _group, int _priority, out int _slotIndex)
+	private static int ResolveUnityPriority(Category _category)
+	{
+		if (_category == Category.RocketLauncher)
+			return c_UnityPriorityGunshot;
+
+		return ResolveUnityPriority(ResolveVoiceGroup(_category));
+	}
+
+	private static bool TryAcquireVoiceSlot(
+		VoiceGroup _group,
+		int _priority,
+		out int _slotIndex,
+		bool _forceMaximumPriority = false)
 	{
 		_slotIndex = -1;
 		EnsureVoicePool();
 		ReleaseFinishedSlots();
+
+		if (_forceMaximumPriority)
+		{
+			if (TryFindFreeVoiceSlot(out _slotIndex))
+				return true;
+
+			if (TryForceStealWeakestAnyGroup(out _slotIndex))
+				return true;
+
+			return TryForceStealWeakestInGroup(_group, out _slotIndex);
+		}
 
 		int playing = CountPlayingVoiceGroup(_group);
 		int budget = GetVoiceGroupBudget(_group);
@@ -731,6 +798,8 @@ public static class CombatAudioManager
 	{
 		switch (_category)
 		{
+			case Category.RocketLauncher:
+				return c_TierRocketLauncher;
 			case Category.Gunshot:
 				return c_TierGunshot;
 			case Category.Impact:
@@ -740,6 +809,56 @@ public static class CombatAudioManager
 			default:
 				return c_TierNonFire;
 		}
+	}
+
+	private static int ComputeRocketLauncherPriority(
+		Vector3 _position,
+		Transform _ownerOrNull,
+		float _estimatedVolume,
+		int _ownerId)
+	{
+		int priority = c_TierRocketLauncher * c_TierScoreMultiplier + c_RocketLauncherPriorityBonus;
+		float listenerDistance = GetListenerDistance(_position);
+		priority += Mathf.RoundToInt(1200f - listenerDistance + _estimatedVolume * 200f);
+
+		if (IsOwnerSelected(_ownerOrNull))
+			priority += Mathf.RoundToInt(c_SelectedUnitPriorityBonus);
+
+		if (_ownerId != 0)
+			priority += 120;
+
+		return priority;
+	}
+
+	private static bool TryForceStealWeakestAnyGroup(out int _slotIndex)
+	{
+		_slotIndex = -1;
+		int bestPriority = int.MaxValue;
+		float soonestEnd = float.MaxValue;
+
+		for (int i = 0; i < s_VoiceSlots.Length; i++)
+		{
+			ref VoiceSlot slot = ref s_VoiceSlots[i];
+			if (!IsSlotActivelyPlaying(ref slot))
+				continue;
+
+			bool better =
+				slot.Priority < bestPriority ||
+				(slot.Priority == bestPriority && slot.EndUnscaledTime < soonestEnd);
+
+			if (!better)
+				continue;
+
+			bestPriority = slot.Priority;
+			soonestEnd = slot.EndUnscaledTime;
+			_slotIndex = i;
+		}
+
+		if (_slotIndex < 0)
+			return false;
+
+		StopSlot(_slotIndex);
+		return true;
 	}
 
 	private static bool IsOwnerSelected(Transform _ownerOrNull)

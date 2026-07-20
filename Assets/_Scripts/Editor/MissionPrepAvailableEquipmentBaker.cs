@@ -115,6 +115,10 @@ public static class MissionPrepAvailableEquipmentBaker
 			return 5;
 		if (_item.IsGrenade || name.Contains("Grenade"))
 			return 6;
+		if (_item.IsRocketLauncher)
+			return 0;
+		if (_item.IsRpgRocketAmmo)
+			return 5;
 
 		return 7;
 	}

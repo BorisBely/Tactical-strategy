@@ -82,12 +82,36 @@ public static class ItemModificationDiagnostics
 		InventorySlotRuntimeData _weaponSlot,
 		InventorySlotRuntimeData _candidate)
 	{
+		if (_candidate.IsEmpty)
+			return "candidate item is empty";
+
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+		{
+			ItemDefinition launcher = _weaponSlot.Definition;
+			if (launcher == null || !launcher.IsRocketLauncher)
+				return "weapon is not a rocket launcher";
+
+			if (ItemModificationUtility.IsRocketProjectileSlotLocked(launcher))
+				return "disposable launcher projectile cannot be replaced";
+
+			if (launcher.RocketLauncherType != RocketLauncherType.Rpg7)
+				return "weapon is not an RPG-7 launcher";
+
+			if (_candidate.Definition == null)
+				return "candidate has no ItemDefinition";
+
+			if (_candidate.Definition.IsRpgRocketAmmo)
+				return AcceptedReason;
+
+			if (launcher.RpgRocketItemDefinition != null && _candidate.Definition == launcher.RpgRocketItemDefinition)
+				return AcceptedReason;
+
+			return "candidate is not a compatible RPG rocket projectile";
+		}
+
 		WeaponRuntimeState weaponState = _weaponSlot.InstanceState != null ? _weaponSlot.InstanceState.WeaponState : null;
 		if (weaponState == null)
 			return "weapon has no WeaponRuntimeState (InstanceState missing or not a weapon)";
-
-		if (_candidate.IsEmpty)
-			return "candidate item is empty";
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 		{
@@ -189,6 +213,9 @@ public static class ItemModificationDiagnostics
 
 		if (_slot.Kind == ItemModificationSlotKind.Magazine)
 			return $"weapon={weaponName}, slot={ItemModificationUtility.GetSlotLabel(_slot, weapon)} (Magazine, index={_slot.WeaponSlotIndex})";
+
+		if (_slot.Kind == ItemModificationSlotKind.RocketProjectile)
+			return $"weapon={weaponName}, slot={ItemModificationUtility.GetSlotLabel(_slot, weapon)} (RocketProjectile, index={_slot.WeaponSlotIndex})";
 
 		int railIndex = weapon != null ? ItemModificationUtility.ResolveRailSocketIndexForSlot(weapon, _slot) : -1;
 		string railSuffix = _slot.AttachmentSlotType == WeaponAttachmentSlotType.Rail && railIndex >= 0

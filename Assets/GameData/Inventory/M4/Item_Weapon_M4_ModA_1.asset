@@ -36,6 +36,18 @@ MonoBehaviour:
   m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
   m_RightHandIkTargetChildName: RightHandIkTarget
   m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
+  m_CrouchRightHandLocalPosition: {x: 0.1216, y: 0.0232, z: -0.0195}
+  m_CrouchRightHandLocalEulerAngles: {x: 344.94476, y: 91.49594, z: 272.6746}
+  m_CrouchRightHandReadyLocalPosition: {x: 0.0756, y: 0.0304, z: -0.0136}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 29.532015, y: 81.49896, z: 272.659}
+  m_CrouchRightHandIkNotReadyLocalPosition: {x: -0.0297, y: -0.0007, z: -0.0821}
+  m_CrouchRightHandIkNotReadyLocalEulerAngles: {x: 354.21478, y: 7.575063, z: 257.5794}
+  m_CrouchRightHandIkReadyLocalPosition: {x: 0.0286, y: -0.0297, z: -0.0418}
+  m_CrouchRightHandIkReadyLocalEulerAngles: {x: 344.38068, y: 327.25967, z: 268.20538}
+  m_CrouchLeftHandIkNotReadyLocalPosition: {x: -0.126, y: 0.195, z: 0.28}
+  m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 35.66991, y: 34.35433, z: 147.2433}
+  m_CrouchLeftHandIkReadyLocalPosition: {x: -0.127, y: 0.037, z: 0.277}
+  m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 2.680001, y: 33.137997, z: 149.69}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

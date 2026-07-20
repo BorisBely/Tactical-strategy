@@ -53,6 +53,18 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			}
 		}
 
+		if (_entry.ExtraBagItems != null)
+		{
+			for (int i = 0; i < _entry.ExtraBagItems.Length; i++)
+			{
+				ItemDefinition extraItem = _entry.ExtraBagItems[i];
+				if (extraItem == null)
+					continue;
+
+				bagItems.Add(InventorySlotRuntimeData.FromDefinition(extraItem));
+			}
+		}
+
 		if (_grenadeThrowData != null && _grenadeThrowData.ItemMappings != null)
 		{
 			for (int i = 0; i < _grenadeThrowData.ItemMappings.Count; i++)
@@ -175,6 +187,15 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			for (int i = 0; i < _entry.AmmoBoxItems.Length; i++)
 			{
 				if (_entry.AmmoBoxItems[i] != null)
+					return true;
+			}
+		}
+
+		if (_entry.ExtraBagItems != null)
+		{
+			for (int i = 0; i < _entry.ExtraBagItems.Length; i++)
+			{
+				if (_entry.ExtraBagItems[i] != null)
 					return true;
 			}
 		}

@@ -32,6 +32,8 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		[SerializeField] private int m_RoundsPerMagazine = -1;
 		[SerializeField] private bool m_PutLoadedMagazineInWeapon;
 		[SerializeField] private ItemDefinition[] m_AmmoBoxItems = Array.Empty<ItemDefinition>();
+		[Tooltip("Дополнительные предметы в сумку (гранатомёты, ракеты и т.п.).")]
+		[SerializeField] private ItemDefinition[] m_ExtraBagItems = Array.Empty<ItemDefinition>();
 
 		public string DisplayName => m_DisplayName;
 		public string LocalizationKey => m_LocalizationKey;
@@ -47,6 +49,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		public int RoundsPerMagazine => m_RoundsPerMagazine;
 		public bool PutLoadedMagazineInWeapon => m_PutLoadedMagazineInWeapon;
 		public ItemDefinition[] AmmoBoxItems => m_AmmoBoxItems;
+		public ItemDefinition[] ExtraBagItems => m_ExtraBagItems;
 
 		public PresetEntry()
 		{

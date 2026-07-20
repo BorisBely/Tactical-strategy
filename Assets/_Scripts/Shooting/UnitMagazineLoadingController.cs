@@ -12,6 +12,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 {
 	#region Events
 	public event Action<int, bool> LoadingStopped;
+	public event Action AllMagazinesLoadingCompleted;
 	#endregion
 
 	#region Constants
@@ -27,6 +28,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitEquipment m_UnitEquipment;
 	[SerializeField] private UnitWeaponReloadController m_WeaponReloadController;
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[Tooltip("Для обновления UI, если инвентарь этого юнита сейчас открыт.")]
@@ -58,10 +60,13 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	private int m_MagazineLoadingLayerIndex = -1;
 	private float m_SmoothedLayerWeight;
 	private Coroutine m_FinishPresentationAfterFadeCoroutine;
+	private bool m_IsLoadingAllMagazines;
+	private Coroutine m_LoadAllMagazinesCoroutine;
 	#endregion
 
 	#region Public Properties
 	public bool IsLoadingMagazine => m_IsLoadingMagazine;
+	public bool IsLoadingAllMagazines => m_IsLoadingAllMagazines;
 	#endregion
 
 	#region Unity Lifecycle
@@ -75,6 +80,8 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 			m_UnitEquipment = GetComponent<UnitEquipment>();
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
@@ -105,6 +112,7 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 
 	private void OnDisable()
 	{
+		StopLoadAllMagazinesInternal(true);
 		StopLoadingInternal(false, true);
 	}
 	#endregion
@@ -180,6 +188,31 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 	public void StopLoading()
 	{
 		StopLoadingInternal(false, false);
+	}
+
+	public bool TryStartLoadingAllMagazines()
+	{
+		if (m_IsLoadingAllMagazines)
+			return false;
+
+		if (m_IsLoadingMagazine)
+			return false;
+
+		if (IsRunOrSprintBlockingLoading())
+			return false;
+
+		if (m_CharacterInventory == null)
+			return false;
+
+		if (m_BusyState != null && m_BusyState.IsBusy)
+			return false;
+
+		if (!HasAnyLoadAllMagazinesWork())
+			return false;
+
+		m_IsLoadingAllMagazines = true;
+		m_LoadAllMagazinesCoroutine = StartCoroutine(LoadAllMagazinesRoutine());
+		return true;
 	}
 
 	/// <summary>
@@ -290,6 +323,141 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		}
 
 		return _bagIndex >= 0 && _magazineState != null;
+	}
+
+	private bool HasAnyLoadAllMagazinesWork()
+	{
+		if (TryFindNextLoadableBagMagazineIndex(out _))
+			return true;
+
+		return !IsEquippedWeaponMagazineFull();
+	}
+
+	private bool TryFindNextLoadableBagMagazineIndex(out int _bagIndex)
+	{
+		_bagIndex = -1;
+
+		if (m_CharacterInventory == null)
+			return false;
+
+		for (int i = 0; i < m_CharacterInventory.BagCount; i++)
+		{
+			if (!TryGetLoadableMagazineStateAt(i, out _))
+				continue;
+
+			_bagIndex = i;
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool IsEquippedWeaponMagazineFull()
+	{
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+
+		MagazineRuntimeState magazineState = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentMagazine : null;
+		if (magazineState == null || magazineState.Definition == null)
+			return true;
+
+		return magazineState.CurrentAmmoCount >= magazineState.Definition.Capacity;
+	}
+
+	private IEnumerator LoadAllMagazinesRoutine()
+	{
+		try
+		{
+			while (TryFindNextLoadableBagMagazineIndex(out int bagIndex))
+			{
+				if (!m_IsLoadingAllMagazines)
+					yield break;
+
+				if (!TryStartLoadingMagazineFromAmmoBoxes(bagIndex))
+				{
+					yield break;
+				}
+
+				yield return WaitForLoadingStoppedOnce();
+			}
+
+			if (!IsEquippedWeaponMagazineFull() && m_WeaponReloadController != null)
+			{
+				if (m_WeaponReloadController.TryStartReload())
+					yield return WaitForReloadSequenceCompletedOnce();
+			}
+
+			if (!IsEquippedWeaponMagazineFull() && TryFindNextLoadableBagMagazineIndex(out _))
+			{
+				if (TryStartLoadingMagazineFromAmmoBoxes(-1))
+					yield return WaitForLoadingStoppedOnce();
+			}
+		}
+		finally
+		{
+			FinishLoadAllMagazines();
+		}
+	}
+
+	private IEnumerator WaitForLoadingStoppedOnce()
+	{
+		bool received = false;
+
+		void HandleLoadingStopped(int _bagIndex, bool _completedNaturally)
+		{
+			received = true;
+		}
+
+		LoadingStopped += HandleLoadingStopped;
+		while (!received)
+			yield return null;
+
+		LoadingStopped -= HandleLoadingStopped;
+	}
+
+	private IEnumerator WaitForReloadSequenceCompletedOnce()
+	{
+		if (m_WeaponReloadController == null)
+			yield break;
+
+		bool received = false;
+
+		void HandleReloadSequenceCompleted()
+		{
+			received = true;
+		}
+
+		m_WeaponReloadController.ReloadSequenceCompleted += HandleReloadSequenceCompleted;
+		while (!received)
+			yield return null;
+
+		m_WeaponReloadController.ReloadSequenceCompleted -= HandleReloadSequenceCompleted;
+	}
+
+	private void FinishLoadAllMagazines()
+	{
+		if (!m_IsLoadingAllMagazines)
+			return;
+
+		m_IsLoadingAllMagazines = false;
+		m_LoadAllMagazinesCoroutine = null;
+		AllMagazinesLoadingCompleted?.Invoke();
+	}
+
+	private void StopLoadAllMagazinesInternal(bool _invokeCompleted)
+	{
+		if (m_LoadAllMagazinesCoroutine != null)
+		{
+			StopCoroutine(m_LoadAllMagazinesCoroutine);
+			m_LoadAllMagazinesCoroutine = null;
+		}
+
+		if (!m_IsLoadingAllMagazines)
+			return;
+
+		m_IsLoadingAllMagazines = false;
+		if (_invokeCompleted)
+			AllMagazinesLoadingCompleted?.Invoke();
 	}
 
 	private bool TryGetLoadableMagazineStateAt(int _bagIndex, out MagazineRuntimeState _magazineState)

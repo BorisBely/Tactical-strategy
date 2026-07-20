@@ -31,6 +31,8 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitRagdollController m_RagdollController;
 	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
+	[SerializeField] private UnitRocketLauncherOrderController m_RocketLauncherOrder;
+	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private RtsUnitMember m_RtsMember;
@@ -104,6 +106,7 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	[SerializeField] private bool m_DrawBarrelForwardRay;
 	[SerializeField, Min(0.1f)] private float m_BarrelForwardRayLength = 4f;
 	[SerializeField] private Color m_BarrelForwardRayColor = new Color(1f, 0.85f, 0f, 0.95f);
+
 	#endregion
 
 	#region Private Fields
@@ -156,6 +159,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_RagdollController = GetComponent<UnitRagdollController>();
 		if (m_GrenadeThrowController == null)
 			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_RocketLauncherOrder == null)
+			m_RocketLauncherOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
 		if (m_LocomotionDriver == null)
@@ -195,18 +202,22 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (IsBlockedByRagdoll())
 			return;
 
-		if (m_UnitEquipment == null || m_Animator == null)
+		if (m_Animator == null)
 			return;
 
-		Transform weaponRoot = m_UnitEquipment.MainWeaponRoot;
-		ItemDefinition def = m_UnitEquipment.EquippedDefinition;
-		if (weaponRoot == null || def == null)
+		bool rocketLauncherNeedsAimLayer = ShouldHoldAimLayerForRocketLauncher();
+		if (m_UnitEquipment == null && !rocketLauncherNeedsAimLayer)
+			return;
+
+		Transform weaponRoot = m_UnitEquipment != null ? m_UnitEquipment.MainWeaponRoot : null;
+		ItemDefinition def = m_UnitEquipment != null ? m_UnitEquipment.EquippedDefinition : null;
+		if (!rocketLauncherNeedsAimLayer && (weaponRoot == null || def == null))
 		{
 			ResetAimAnimatorParameters();
 			return;
 		}
 
-		if (!TrySyncWeaponDefinition(weaponRoot, def))
+		if (weaponRoot != null && def != null && !TrySyncWeaponDefinition(weaponRoot, def))
 			return;
 
 		ApplyAnimatorAimParameters();
@@ -301,10 +312,53 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private bool IsRuntimePoseTuningActive()
 	{
-		UnitEquippedWeaponPoseRuntimeTuner tuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
-		if (tuner == null)
-			tuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
-		return tuner != null && tuner.ShouldSkipWeaponPoseWrite;
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldSkipWeaponPoseWrite;
+	}
+
+	/// <summary>
+	/// Гранатомёт держит клипы aim/fire/reload на Aim_Point_U90-D90 — слой не должен гаситься боевым прицелом.
+	/// </summary>
+	private bool ShouldHoldAimLayerForRocketLauncher()
+	{
+		if (m_RocketLauncherOrder == null)
+			m_RocketLauncherOrder = GetComponent<UnitRocketLauncherOrderController>();
+		return m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldHoldAimLayerVisible;
+	}
+
+	private bool IsRocketLauncherIkTuningActive()
+	{
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		if (m_RuntimeTuner == null)
+			m_RuntimeTuner = GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
+		return m_RuntimeTuner != null &&
+		       m_RuntimeTuner.IsTuningActive &&
+		       m_RuntimeTuner.UsesRocketLauncherContext;
+	}
+
+	private bool TryResolveAimPitchOrigin(out Vector3 _origin)
+	{
+		_origin = Vector3.zero;
+
+		if (m_RocketLauncherOrder == null)
+			m_RocketLauncherOrder = GetComponent<UnitRocketLauncherOrderController>();
+
+		if (m_RocketLauncherOrder != null &&
+		    m_RocketLauncherOrder.ShouldHoldAimLayerVisible &&
+		    m_RocketLauncherOrder.TryGetAimPitchOrigin(out _origin, out _))
+			return true;
+
+		if (m_BarrelTransform != null)
+		{
+			_origin = m_BarrelTransform.position;
+			return true;
+		}
+
+		return false;
 	}
 
 	private bool ShouldApplyWeaponLocalOnlyForAim()
@@ -513,6 +567,23 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		m_DebugAimLayerWeight = 0f;
 	}
 
+	/// <summary>
+	/// Мгновенно снять вес Aim-слоя (после гранатомёта/броска), чтобы не залипать в override-позе.
+	/// </summary>
+	public void SnapAimLayerWeightOff()
+	{
+		if (m_Animator != null && m_AimLayerIndex < 0)
+			ResolveAimLayerIndices();
+
+		m_SmoothedLayerWeight = 0f;
+		m_SmoothedPitch01 = 0f;
+		m_PitchVelocity = 0f;
+		if (m_Animator != null)
+			m_Animator.SetFloat(s_AimPitch, 0f);
+		SetAimLayerWeights(0f);
+		m_DebugAimLayerWeight = 0f;
+	}
+
 	private void ResolveAimLayerIndices()
 	{
 		if (m_Animator == null)
@@ -589,24 +660,42 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 		bool magazineLoadingBlocks = m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine;
 
-		bool combatAim = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks && !throwBlocks && !magazineLoadingBlocks;
+		bool rocketLauncherNeedsAimLayer = ShouldHoldAimLayerForRocketLauncher();
+		bool rocketLauncherTuningAimPose = IsRocketLauncherIkTuningActive();
+		// Гранатомёт: подъём AimPitch к цели уже на фазе aim (не только fire).
+		bool rocketLauncherCombatAim = rocketLauncherNeedsAimLayer &&
+		                              !rocketLauncherTuningAimPose &&
+		                              hasTarget &&
+		                              m_AimAtVisibleTarget &&
+		                              !stanceBlocks &&
+		                              !throwBlocks &&
+		                              !magazineLoadingBlocks;
+
+		bool combatAim = (m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !reloadBlocks && !throwBlocks && !magazineLoadingBlocks)
+		                 || rocketLauncherCombatAim;
 		int currentStance = m_Animator != null ? m_Animator.GetInteger(s_Stance) : 0;
 
 		bool canUseAimLayerForStance = currentStance == (int)LocomotionStance.Standing || currentStance == (int)LocomotionStance.Crouch;
 		bool reloadNeedsAimLayerClips = m_ReloadController != null && m_ReloadController.IsReloadBusy;
 		bool throwNeedsAimLayerClips = m_GrenadeThrowController != null && m_GrenadeThrowController.IsThrowAnimPlaying;
 		bool aimLayerHoldForCombat = m_RequireReadyAndTarget && ready && hasTarget && m_AimAtVisibleTarget && !stanceBlocks && !magazineLoadingBlocks && !throwBlocks;
-		float targetLayer = canUseAimLayerForStance && (reloadNeedsAimLayerClips || throwNeedsAimLayerClips || aimLayerHoldForCombat) ? 1f : 0f;
+		float targetLayer = canUseAimLayerForStance &&
+		                    (reloadNeedsAimLayerClips || throwNeedsAimLayerClips || rocketLauncherNeedsAimLayer || aimLayerHoldForCombat)
+			? 1f
+			: 0f;
 
-		if (reloadNeedsAimLayerClips || throwNeedsAimLayerClips)
+		if (reloadNeedsAimLayerClips || throwNeedsAimLayerClips || rocketLauncherNeedsAimLayer)
 		{
-			// Клипы перезарядки/затвора/броска на Aim_Point_U90-D90; при весе 0 animation events не приходят.
+			// Клипы перезарядки/затвора/броска/гранатомёта на Aim_Point_U90-D90; при весе 0 animation events не приходят.
 			m_SmoothedLayerWeight = 1f;
 			SetAimLayerWeights(1f);
 
-			// Not-ready reload: pitch-blend не должен влиять даже на доли кадра до Play(relaxed idle).
-			// Бросок гранаты: всегда сбрасываем pitch — руки заняты анимацией.
-			if (!ready || throwNeedsAimLayerClips)
+			// Not-ready reload / бросок / тюнер IK: нейтральный pitch.
+			// Гранатомёт с целью — не обнулять: AimPitch поднимает трубу уже на aim.
+			bool forceNeutralPitch = throwNeedsAimLayerClips ||
+			                         rocketLauncherTuningAimPose ||
+			                         (!ready && !rocketLauncherCombatAim);
+			if (forceNeutralPitch)
 			{
 				m_SmoothedPitch01 = 0f;
 				m_PitchVelocity = 0f;
@@ -621,11 +710,11 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		}
 
 		float targetPitch01 = 0f;
-		if (combatAim && m_BarrelTransform != null)
+		if (combatAim && TryResolveAimPitchOrigin(out Vector3 pitchOrigin))
 		{
 			Vector3 aimPoint = GetTargetAimPointWorld(target);
 			m_DebugAimPointWorld = aimPoint;
-			Vector3 dir = aimPoint - m_BarrelTransform.position;
+			Vector3 dir = aimPoint - pitchOrigin;
 			if (dir.sqrMagnitude > 1e-6f)
 			{
 				dir.Normalize();

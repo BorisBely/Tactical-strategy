@@ -23,6 +23,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	[SerializeField, Min(0.05f)] private float m_DoubleRightClickSeconds = 0.28f;
 	[SerializeField, Min(1f)] private float m_QuickRotateDragThresholdPixels = 90f;
 	[SerializeField, Min(1f)] private float m_InPlaceFacingDragThresholdPixels = 5f;
+	[SerializeField, Min(1f)] private float m_RouteMenuDragThresholdPixels = 15f;
 	[Header("Path Waypoint Hover")]
 	[SerializeField, Min(0.05f)] private float m_PathHoverDelay = 0.2f;
 	[SerializeField, Min(5f)] private float m_PathHoverThresholdPixels = 30f;
@@ -138,6 +139,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Vector3 m_HoveredSegmentWorldPoint;
 	private float m_HoveredSegmentFacingAngle;
 	private bool m_IsEditingWaypointFacing;
+	private bool m_IsMenuDrivenFacingEdit;
+	private bool m_IsRouteMenuPending;
+	private Vector2 m_RouteMenuDownScreen;
+	private int m_RouteMenuUnitIndex = -1;
+	private int m_RouteMenuSegmentIndex = -1;
+	private Vector3 m_RouteMenuWorldPoint;
 	private bool m_IsWaypointFacingLookLocked;
 	private Vector3 m_WaypointFacingLockedLookPoint;
 	private int m_HoveredArrowUnitIndex = -1;
@@ -188,8 +195,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private Rect m_GrenadeOrderDeleteButtonScreenRect;
 	private int m_HoveredGrenadeOrderUnitIndex = -1;
 	private int m_HoveredGrenadeOrderIndex = -1;
+	private RouteOrderMarkerKind m_HoveredRouteOrderKind = RouteOrderMarkerKind.Grenade;
 	private float m_GrenadeOrderHoverStartTime;
 	private static GUIStyle s_GrenadeOrderDeleteButtonGuiStyle;
+	private static GUIStyle s_RouteOrderMarkerGuiStyle;
+
+	private enum RouteOrderMarkerKind
+	{
+		Grenade = 0,
+		Reload = 1,
+		Locomotion = 2,
+		Refill = 3,
+		RocketLauncher = 4,
+	}
 
 	private bool m_IsRotateToPointMode;
 	private bool m_RotateToPointExitAfterCommand;
@@ -312,6 +330,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (FallenUnitInteractionMenuController.Instance != null)
 			FallenUnitInteractionMenuController.Instance.ActionClicked -= HandleFallenUnitMenuAction;
 
+		if (RouteInteractionMenuController.Instance != null)
+			RouteInteractionMenuController.Instance.ActionClicked -= HandleRouteInteractionMenuAction;
+
 		if (m_RouteEditHandle != null)
 			Destroy(m_RouteEditHandle);
 
@@ -327,6 +348,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void Start()
 	{
 		FallenUnitInteractionMenuController.Instance.ActionClicked += HandleFallenUnitMenuAction;
+		RouteInteractionMenuController.Instance.ActionClicked += HandleRouteInteractionMenuAction;
 
 		if (m_SelectFirstPlayerUnitOnStart)
 		{
@@ -389,6 +411,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		DrawFormationPickerIfAny();
 		DrawArrowDeleteButtonIfAny();
 		DrawWaitPointIconsIfAny();
+		DrawRouteOrderMarkersIfAny();
 		DrawGrenadeOrderDeleteButtonIfAny();
 		DrawGrenadeThrowModeIndicator();
 		DrawTransientMessageIfAny();
@@ -1671,6 +1694,45 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		CommandSelectedStance(GetNextCTargetStance());
 	}
 
+	public void CommandSelectedRocketLauncher()
+	{
+		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
+			return;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit == null)
+				continue;
+
+			UnitRocketLauncherOrderController controller = unit.GetComponent<UnitRocketLauncherOrderController>();
+			if (controller == null)
+				controller = unit.GetComponentInChildren<UnitRocketLauncherOrderController>();
+
+			if (controller == null || controller.IsBusy)
+				continue;
+
+			controller.TryStartOrder();
+		}
+	}
+
+	public bool TryGetPrimarySelectedRocketLauncherController(out UnitRocketLauncherOrderController _controller)
+	{
+		_controller = null;
+		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
+			return false;
+
+		RtsUnitMember unit = m_SelectedUnits[0];
+		if (unit == null)
+			return false;
+
+		_controller = unit.GetComponent<UnitRocketLauncherOrderController>();
+		if (_controller == null)
+			_controller = unit.GetComponentInChildren<UnitRocketLauncherOrderController>();
+
+		return _controller != null;
+	}
+
 	public void EnterGrenadeThrowMode()
 	{
 		if (m_SelectedUnits.Count == 0)
@@ -1693,6 +1755,417 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		FormationType current = GetDominantFormation(m_SelectedUnits);
 		FormationType next = FormationLayoutUtility.CycleFormation(current);
 		SetSelectedFormation(next, true);
+	}
+	#endregion
+
+	#region Private Methods - Route Interaction Menu
+	private void BeginPendingRouteMenu(int _unitIndex, int _segmentIndex, Vector3 _worldPoint, Vector2 _screenPos)
+	{
+		m_IsRouteMenuPending = true;
+		m_RouteMenuDownScreen = _screenPos;
+		m_RouteMenuUnitIndex = _unitIndex;
+		m_RouteMenuSegmentIndex = _segmentIndex;
+		m_RouteMenuWorldPoint = _worldPoint;
+	}
+
+	private void ClearPendingRouteMenu()
+	{
+		m_IsRouteMenuPending = false;
+		m_RouteMenuUnitIndex = -1;
+		m_RouteMenuSegmentIndex = -1;
+	}
+
+	private void UpdatePendingRouteMenuGesture()
+	{
+		if (Mouse.current == null)
+		{
+			ClearPendingRouteMenu();
+			return;
+		}
+
+		Vector2 current = Mouse.current.position.ReadValue();
+		float dragPixels = (current - m_RouteMenuDownScreen).magnitude;
+
+		if (Mouse.current.rightButton.isPressed && dragPixels >= m_RouteMenuDragThresholdPixels)
+		{
+			int unitIndex = m_RouteMenuUnitIndex;
+			int segmentIndex = m_RouteMenuSegmentIndex;
+			Vector3 worldPoint = m_RouteMenuWorldPoint;
+			ClearPendingRouteMenu();
+			BeginWaypointFacingEdit(
+				unitIndex,
+				segmentIndex,
+				worldPoint,
+				ResolveWaypointFacingModeFromModifiers(),
+				_menuDriven: false);
+			return;
+		}
+
+		if (!Mouse.current.rightButton.wasReleasedThisFrame)
+			return;
+
+		int pendingUnit = m_RouteMenuUnitIndex;
+		int pendingSegment = m_RouteMenuSegmentIndex;
+		Vector3 pendingWorld = m_RouteMenuWorldPoint;
+		Vector2 pendingScreen = m_RouteMenuDownScreen;
+		ClearPendingRouteMenu();
+
+		if (dragPixels < m_RouteMenuDragThresholdPixels)
+			ShowRouteInteractionMenu(pendingUnit, pendingSegment, pendingWorld, pendingScreen);
+		else
+		{
+			BeginWaypointFacingEdit(
+				pendingUnit,
+				pendingSegment,
+				pendingWorld,
+				ResolveWaypointFacingModeFromModifiers(),
+				_menuDriven: false);
+		}
+	}
+
+	private void ShowRouteInteractionMenu(int _unitIndex, int _segmentIndex, Vector3 _worldPoint, Vector2 _screenPos)
+	{
+		if (_unitIndex < 0 || _unitIndex >= m_SelectedUnits.Count)
+			return;
+
+		RtsUnitMember unit = m_SelectedUnits[_unitIndex];
+		if (unit == null)
+			return;
+
+		var items = BuildRouteMenuItems(unit);
+		RouteInteractionMenuController.Instance.ShowForRoute(unit, _segmentIndex, _worldPoint, _screenPos, items);
+	}
+
+	private List<RouteInteractionMenuController.RouteMenuItemDefinition> BuildRouteMenuItems(RtsUnitMember _unit)
+	{
+		var items = new List<RouteInteractionMenuController.RouteMenuItemDefinition>(8)
+		{
+			new RouteInteractionMenuController.RouteMenuItemDefinition
+			{
+				Label = "Перезарядка",
+				Action = RouteInteractionMenuAction.Reload
+			},
+		};
+
+		RouteInteractionMenuController.RouteMenuItemDefinition grenadeItem = BuildGrenadeMenuItem(_unit);
+		if (grenadeItem != null)
+			items.Add(grenadeItem);
+
+		RouteInteractionMenuController.RouteMenuItemDefinition rocketItem = BuildRocketLauncherMenuItem(_unit);
+		if (rocketItem != null)
+			items.Add(rocketItem);
+
+		items.Add(BuildLocomotionMenuItem());
+		items.Add(BuildFacingMenuItem());
+		items.Add(new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Пополнить магазины",
+			Action = RouteInteractionMenuAction.MagazineRefill
+		});
+		items.Add(new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Остановка",
+			Action = RouteInteractionMenuAction.WaitPoint
+		});
+		return items;
+	}
+
+	private RouteInteractionMenuController.RouteMenuItemDefinition BuildGrenadeMenuItem(RtsUnitMember _unit)
+	{
+		UnitGrenadeThrowController throwController = _unit.GetComponent<UnitGrenadeThrowController>();
+		if (throwController == null)
+			return null;
+
+		List<ItemDefinition> grenades = throwController.GetAvailableGrenadesFiltered(
+			_unit.GetGrenadeOrderCountByType(GrenadeType.Fragmentation),
+			_unit.GetGrenadeOrderCountByType(GrenadeType.Flash),
+			_unit.GetGrenadeOrderCountByType(GrenadeType.Smoke));
+
+		var children = new List<RouteInteractionMenuController.RouteMenuItemDefinition>();
+		var addedTypes = new HashSet<GrenadeType>();
+		for (int i = 0; i < grenades.Count; i++)
+		{
+			ItemDefinition def = grenades[i];
+			if (def == null || addedTypes.Contains(def.GrenadeType))
+				continue;
+
+			addedTypes.Add(def.GrenadeType);
+			string label = def.GetLocalizedDisplayName();
+			if (string.IsNullOrWhiteSpace(label))
+				label = def.GrenadeType.ToString();
+
+			children.Add(new RouteInteractionMenuController.RouteMenuItemDefinition
+			{
+				Label = label,
+				Action = RouteInteractionMenuAction.Grenade,
+				Payload = def.GrenadeType
+			});
+		}
+
+		if (children.Count == 0)
+			return null;
+
+		return new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Граната",
+			Action = RouteInteractionMenuAction.Grenade,
+			HasSubmenu = true,
+			Children = children
+		};
+	}
+
+	private RouteInteractionMenuController.RouteMenuItemDefinition BuildRocketLauncherMenuItem(RtsUnitMember _unit)
+	{
+		CharacterInventory inventory = _unit.GetComponent<CharacterInventory>();
+		UnitRocketLauncherOrderController rocketController = _unit.GetComponent<UnitRocketLauncherOrderController>();
+		if (inventory == null || rocketController == null || !rocketController.HasAnyRocketLauncher())
+			return null;
+
+		var launchers = new List<(int BagIndex, InventorySlotRuntimeData Slot)>();
+		for (int i = 0; i < inventory.BagCount; i++)
+		{
+			InventorySlotRuntimeData slot = inventory.BagItems[i];
+			if (slot.IsEmpty || slot.Definition == null || !slot.Definition.IsRocketLauncher)
+				continue;
+			launchers.Add((i, slot));
+		}
+
+		if (launchers.Count == 0)
+			return null;
+
+		if (launchers.Count == 1)
+		{
+			return new RouteInteractionMenuController.RouteMenuItemDefinition
+			{
+				Label = "Гранатомёт",
+				Action = RouteInteractionMenuAction.RocketLauncher,
+				Payload = launchers[0].BagIndex
+			};
+		}
+
+		var item = new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Гранатомёт",
+			Action = RouteInteractionMenuAction.RocketLauncher,
+			HasSubmenu = true,
+			Children = new List<RouteInteractionMenuController.RouteMenuItemDefinition>(launchers.Count)
+		};
+
+		for (int i = 0; i < launchers.Count; i++)
+		{
+			InventorySlotRuntimeData slot = launchers[i].Slot;
+			string name = slot.Definition != null ? slot.Definition.GetLocalizedDisplayName() : "Гранатомёт";
+			bool loaded = false;
+			if (slot.InstanceState != null && slot.Definition != null)
+			{
+				slot.InstanceState.EnsureRocketLauncherState(slot.Definition);
+				loaded = slot.InstanceState.RocketLauncherState != null &&
+				         slot.InstanceState.RocketLauncherState.IsLoaded;
+			}
+
+			string status = loaded ? "заряжен" : "пустой";
+			item.Children.Add(new RouteInteractionMenuController.RouteMenuItemDefinition
+			{
+				Label = $"{name} #{launchers[i].BagIndex + 1} ({status})",
+				Action = RouteInteractionMenuAction.RocketLauncher,
+				Payload = launchers[i].BagIndex
+			});
+		}
+
+		return item;
+	}
+
+	private static RouteInteractionMenuController.RouteMenuItemDefinition BuildLocomotionMenuItem()
+	{
+		return new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Режим движения",
+			Action = RouteInteractionMenuAction.Locomotion,
+			HasSubmenu = true,
+			Children = new List<RouteInteractionMenuController.RouteMenuItemDefinition>
+			{
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "Бег",
+					Action = RouteInteractionMenuAction.Locomotion,
+					Payload = new LocomotionRouteOrder
+					{
+						MoveTier = UnitClickToMove.MoveTier.Run,
+						Stance = LocomotionStance.Standing
+					}
+				},
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "Шаг",
+					Action = RouteInteractionMenuAction.Locomotion,
+					Payload = new LocomotionRouteOrder
+					{
+						MoveTier = UnitClickToMove.MoveTier.Walk,
+						Stance = LocomotionStance.Standing
+					}
+				},
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "Присед",
+					Action = RouteInteractionMenuAction.Locomotion,
+					Payload = new LocomotionRouteOrder
+					{
+						MoveTier = UnitClickToMove.MoveTier.Walk,
+						Stance = LocomotionStance.Crouch
+					}
+				}
+			}
+		};
+	}
+
+	private static RouteInteractionMenuController.RouteMenuItemDefinition BuildFacingMenuItem()
+	{
+		return new RouteInteractionMenuController.RouteMenuItemDefinition
+		{
+			Label = "Поворот",
+			Action = RouteInteractionMenuAction.Facing,
+			HasSubmenu = true,
+			Children = new List<RouteInteractionMenuController.RouteMenuItemDefinition>
+			{
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "Поворот",
+					Action = RouteInteractionMenuAction.Facing,
+					Payload = RtsUnitMember.FacingArrowMode.TurnOverDistance
+				},
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "Пост.поворот",
+					Action = RouteInteractionMenuAction.Facing,
+					Payload = RtsUnitMember.FacingArrowMode.HoldToEnd
+				},
+				new RouteInteractionMenuController.RouteMenuItemDefinition
+				{
+					Label = "В точку",
+					Action = RouteInteractionMenuAction.Facing,
+					Payload = RtsUnitMember.FacingArrowMode.LookAtPoint
+				}
+			}
+		};
+	}
+
+	private void HandleRouteInteractionMenuAction(
+		RouteInteractionMenuAction _action,
+		RtsUnitMember _unit,
+		int _segmentIndex,
+		Vector3 _worldPoint,
+		object _payload)
+	{
+		if (_unit == null)
+			return;
+
+		int unitIndex = m_SelectedUnits.IndexOf(_unit);
+		if (unitIndex < 0)
+			unitIndex = 0;
+
+		_unit.TryComputeRouteSegmentT(_segmentIndex, _worldPoint, out float segmentT);
+
+		switch (_action)
+		{
+			case RouteInteractionMenuAction.Reload:
+				_unit.AddReloadOrder(new ReloadRouteOrder
+				{
+					RouteSegmentIndex = _segmentIndex,
+					RouteSegmentT = segmentT,
+					WaypointPosition = _worldPoint
+				});
+				break;
+
+			case RouteInteractionMenuAction.Grenade:
+				if (_payload is GrenadeType grenadeType)
+					BeginRouteGrenadePlanningFromMenu(_unit, unitIndex, _segmentIndex, _worldPoint, grenadeType);
+				break;
+
+			case RouteInteractionMenuAction.RocketLauncher:
+				if (_payload is int bagIndex)
+				{
+					CharacterInventory inventory = _unit.GetComponent<CharacterInventory>();
+					ItemInstanceState instance = null;
+					if (inventory != null && bagIndex >= 0 && bagIndex < inventory.BagCount)
+						instance = inventory.BagItems[bagIndex].InstanceState;
+
+					_unit.AddRocketLauncherOrder(new RocketLauncherRouteOrder
+					{
+						BagIndex = bagIndex,
+						LauncherInstance = instance,
+						RouteSegmentIndex = _segmentIndex,
+						RouteSegmentT = segmentT,
+						WaypointPosition = _worldPoint
+					});
+				}
+				break;
+
+			case RouteInteractionMenuAction.Locomotion:
+				if (_payload is LocomotionRouteOrder locomotionTemplate)
+				{
+					locomotionTemplate.RouteSegmentIndex = _segmentIndex;
+					locomotionTemplate.RouteSegmentT = segmentT;
+					locomotionTemplate.WaypointPosition = _worldPoint;
+					_unit.AddLocomotionOrder(locomotionTemplate);
+				}
+				break;
+
+			case RouteInteractionMenuAction.Facing:
+				if (_payload is RtsUnitMember.FacingArrowMode facingMode)
+				{
+					BeginWaypointFacingEdit(unitIndex, _segmentIndex, _worldPoint, facingMode, _menuDriven: true);
+				}
+				break;
+
+			case RouteInteractionMenuAction.MagazineRefill:
+				_unit.AddRefillOrder(new MagazineRefillRouteOrder
+				{
+					RouteSegmentIndex = _segmentIndex,
+					RouteSegmentT = segmentT,
+					WaypointPosition = _worldPoint
+				});
+				break;
+
+			case RouteInteractionMenuAction.WaitPoint:
+			{
+				int waitGroup = _unit.GetNextAutoWaitGroup();
+				_unit.TrySetWaitAtRouteSegment(_segmentIndex, segmentT, waitGroup);
+				break;
+			}
+		}
+	}
+
+	private void BeginRouteGrenadePlanningFromMenu(
+		RtsUnitMember _unit,
+		int _unitIndex,
+		int _segmentIndex,
+		Vector3 _worldPoint,
+		GrenadeType _type)
+	{
+		UnitGrenadeThrowController controller = _unit.GetComponent<UnitGrenadeThrowController>();
+		if (controller == null || !controller.CanStartThrow())
+			return;
+
+		if (!controller.SetSelectedType(_type))
+			return;
+
+		if (m_IsPreviewingMove)
+			CancelMovePreview();
+		if (m_IsRotateToPointMode)
+			ExitRotateToPointMode();
+
+		m_ActiveThrowController = controller;
+		m_SelectedGrenadeType = _type;
+		m_IsGrenadeThrowMode = true;
+		m_IsRouteGrenadePlanning = true;
+		m_RouteGrenadePlanningOrigin = _worldPoint;
+		m_RouteGrenadePlanningUnitIndex = _unitIndex;
+		m_RouteGrenadePlanningSegmentIndex = _segmentIndex;
+		controller.BeginAiming();
+		EnsureGrenadeAimMarker();
+		if (m_GrenadeAimMarker != null)
+			m_GrenadeAimMarker.SetThrowController(controller);
+		ShowGrenadeAimMarker();
 	}
 	#endregion
 
@@ -2332,6 +2805,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsEditingWaypointFacing)
 		{
+			if (m_IsMenuDrivenFacingEdit)
+			{
+				if (Mouse.current.leftButton.wasPressedThisFrame)
+					EndWaypointFacingEdit();
+				return;
+			}
+
 			if (Mouse.current.leftButton.wasPressedThisFrame)
 				LockWaypointFacingToLookAtPoint();
 			return;
@@ -3194,6 +3674,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		m_IsEditingWaypointFacing = false;
+		m_IsMenuDrivenFacingEdit = false;
 		m_EditingUnitIndex = -1;
 		m_EditingSegmentIndex = -1;
 		m_PreviewFacingAngles = null;
@@ -4018,10 +4499,36 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (m_IsEditingWaypointFacing)
 		{
+			if (m_IsMenuDrivenFacingEdit)
+			{
+				if (Keyboard.current != null &&
+				    (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.fKey.wasPressedThisFrame))
+				{
+					CancelWaypointFacingEdit();
+					return;
+				}
+
+				if (Mouse.current.rightButton.wasPressedThisFrame)
+				{
+					CancelWaypointFacingEdit();
+					return;
+				}
+
+				if (m_SelectedUnits.Count > 0)
+					UpdateWaypointFacingEdit();
+				return;
+			}
+
 			if (!Mouse.current.rightButton.isPressed)
 				EndWaypointFacingEdit();
 			else if (m_SelectedUnits.Count > 0)
 				UpdateWaypointFacingEdit();
+			return;
+		}
+
+		if (m_IsRouteMenuPending)
+		{
+			UpdatePendingRouteMenuGesture();
 			return;
 		}
 
@@ -4036,6 +4543,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (m_IsPreviewingMove || m_PreviewPending || m_IsAwaitingDoubleClick)
 				CancelMovePreview();
 			return;
+		}
+
+		RouteInteractionMenuController routeMenu = RouteInteractionMenuController.Instance;
+		if (routeMenu != null && routeMenu.IsVisible)
+		{
+			Vector2 menuMouse = Mouse.current.position.ReadValue();
+			if (routeMenu.IsScreenPointOverMenu(menuMouse))
+				return;
 		}
 
 		if (IsPointerOverUi())
@@ -4107,10 +4622,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		    m_HoveredUnitIndex >= 0 &&
 		    Time.unscaledTime - m_PathHoverStartTime >= m_PathHoverDelay)
 		{
-			int unitIndex = m_HoveredUnitIndex;
-			int segmentIndex = m_HoveredSegmentIndex;
+			// RMB click/drag on segment is handled by route menu pending gesture.
 			CancelMovePreview();
-			BeginWaypointFacingEdit(unitIndex, segmentIndex);
 			return true;
 		}
 
@@ -4135,6 +4648,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
 		FallenUnitInteractionMenuController menu = FallenUnitInteractionMenuController.Instance;
 		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
+			return;
+
+		RouteInteractionMenuController routeMenu = RouteInteractionMenuController.Instance;
+		if (routeMenu != null && routeMenu.IsVisible && routeMenu.IsScreenPointOverMenu(mousePosition))
 			return;
 
 		if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
@@ -4189,9 +4706,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			}
 		}
 
-		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0 && !IsAltHeld() && !clickedSelectedUnit)
+		if (m_IsHoveringPathSegment && m_SelectedUnits.Count > 0 && !clickedSelectedUnit)
 		{
-			BeginWaypointFacingEdit(m_HoveredUnitIndex, m_HoveredSegmentIndex);
+			BeginPendingRouteMenu(m_HoveredUnitIndex, m_HoveredSegmentIndex, m_HoveredSegmentWorldPoint, mousePosition);
 			return;
 		}
 
@@ -4949,12 +5466,28 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void BeginWaypointFacingEdit(int _unitIndex, int _segmentIndex)
 	{
+		BeginWaypointFacingEdit(
+			_unitIndex,
+			_segmentIndex,
+			m_HoveredSegmentWorldPoint,
+			ResolveWaypointFacingModeFromModifiers(),
+			_menuDriven: false);
+	}
+
+	private void BeginWaypointFacingEdit(
+		int _unitIndex,
+		int _segmentIndex,
+		Vector3 _anchorWorld,
+		RtsUnitMember.FacingArrowMode _mode,
+		bool _menuDriven)
+	{
 		m_IsEditingWaypointFacing = true;
+		m_IsMenuDrivenFacingEdit = _menuDriven;
 		m_IsWaypointFacingLookLocked = false;
 		m_EditingUnitIndex = _unitIndex;
 		m_EditingSegmentIndex = _segmentIndex;
-		m_EditingWaypointAnchor = m_HoveredSegmentWorldPoint;
-		m_EditingWaypointMode = ResolveWaypointFacingModeFromModifiers();
+		m_EditingWaypointAnchor = _anchorWorld;
+		m_EditingWaypointMode = _mode;
 
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		if (validUnits.Count == 0)
@@ -5020,7 +5553,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
-		m_EditingWaypointMode = ResolveWaypointFacingModeFromModifiers();
+		if (!m_IsMenuDrivenFacingEdit)
+			m_EditingWaypointMode = ResolveWaypointFacingModeFromModifiers();
 		arrowColor = GetFacingArrowColor(m_EditingWaypointMode);
 
 		Ray ray = m_SelectionCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
@@ -5095,6 +5629,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void EndWaypointFacingEdit()
 	{
 		m_IsEditingWaypointFacing = false;
+		m_IsMenuDrivenFacingEdit = false;
 		int unitIndex = m_EditingUnitIndex;
 		int segmentIndex = m_EditingSegmentIndex;
 		float angle = m_EditingWaypointAngle;
@@ -5758,6 +6293,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				CycleGrenadeThrowType();
 			else
 				TryEnterGrenadeThrowMode();
+			return;
+		}
+
+		if (Keyboard.current.hKey.wasPressedThisFrame)
+		{
+			CommandSelectedRocketLauncher();
 			return;
 		}
 
@@ -7079,11 +7620,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (unit != null)
 			{
 				Vector3 targetPos = m_GrenadeAimMarker != null ? m_GrenadeAimMarker.MarkerWorldPosition : m_RouteGrenadePlanningOrigin;
+				float segmentT = 1f;
+				unit.TryComputeRouteSegmentT(m_RouteGrenadePlanningSegmentIndex, m_RouteGrenadePlanningOrigin, out segmentT);
 				GrenadeRouteOrder order = new GrenadeRouteOrder
 				{
 					Type = m_SelectedGrenadeType,
 					TargetPosition = targetPos,
 					RouteWaypointIndex = m_RouteGrenadePlanningSegmentIndex,
+					RouteSegmentT = segmentT,
 					WaypointPosition = m_RouteGrenadePlanningOrigin
 				};
 				unit.AddGrenadeOrder(order);
@@ -7543,19 +8087,14 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 	private void UpdateGrenadeOrderHover()
 	{
-		if (m_SelectedUnits.Count == 0)
-		{
-			ClearGrenadeOrderHover();
-			return;
-		}
-
-		if (Mouse.current == null)
+		if (m_SelectedUnits.Count == 0 || Mouse.current == null || m_SelectionCamera == null)
 		{
 			ClearGrenadeOrderHover();
 			return;
 		}
 
 		Vector2 mousePos = Mouse.current.position.ReadValue();
+		Vector2 guiMouse = new Vector2(mousePos.x, Screen.height - mousePos.y);
 
 		for (int ui = 0; ui < m_SelectedUnits.Count; ui++)
 		{
@@ -7563,49 +8102,130 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null)
 				continue;
 
-			int orderCount = unit.GrenadeOrderCount;
-			for (int oi = 0; oi < orderCount; oi++)
-			{
-				if (!unit.TryGetGrenadeOrderWorldPosition(oi, out Vector3 worldPos))
-					continue;
-
-				Vector3 screenPos = m_SelectionCamera != null ? m_SelectionCamera.WorldToScreenPoint(worldPos) : Vector3.zero;
-				if (screenPos.z < 0f)
-					continue;
-
-				float dist = Vector2.Distance(mousePos, new Vector2(screenPos.x, Screen.height - screenPos.y));
-				if (dist < m_PathHoverThresholdPixels)
-				{
-					if (m_HoveredGrenadeOrderUnitIndex != ui || m_HoveredGrenadeOrderIndex != oi)
-					{
-						m_HoveredGrenadeOrderUnitIndex = ui;
-						m_HoveredGrenadeOrderIndex = oi;
-						m_GrenadeOrderHoverStartTime = Time.unscaledTime;
-						m_IsGrenadeOrderDeleteButtonVisible = false;
-					}
-
-					if (!m_IsGrenadeOrderDeleteButtonVisible &&
-					    Time.unscaledTime - m_GrenadeOrderHoverStartTime >= m_GrenadeOrderHoverDelay)
-					{
-						m_IsGrenadeOrderDeleteButtonVisible = true;
-						float buttonX = screenPos.x - m_GrenadeOrderDeleteButtonSize * 0.5f;
-						float buttonY = Screen.height - screenPos.y - m_GrenadeOrderDeleteButtonSize - 10f;
-						m_GrenadeOrderDeleteButtonScreenRect = new Rect(buttonX, buttonY, m_GrenadeOrderDeleteButtonSize, m_GrenadeOrderDeleteButtonSize);
-					}
-
-					return;
-				}
-			}
+			if (TryHoverRouteOrder(unit, ui, RouteOrderMarkerKind.Grenade, unit.GrenadeOrderCount, unit.TryGetGrenadeOrderWorldPosition, guiMouse))
+				return;
+			if (TryHoverRouteOrder(unit, ui, RouteOrderMarkerKind.Reload, unit.ReloadOrderCount, unit.TryGetReloadOrderWorldPosition, guiMouse))
+				return;
+			if (TryHoverRouteOrder(unit, ui, RouteOrderMarkerKind.Locomotion, unit.LocomotionOrderCount, unit.TryGetLocomotionOrderWorldPosition, guiMouse))
+				return;
+			if (TryHoverRouteOrder(unit, ui, RouteOrderMarkerKind.Refill, unit.RefillOrderCount, unit.TryGetRefillOrderWorldPosition, guiMouse))
+				return;
+			if (TryHoverRouteOrder(unit, ui, RouteOrderMarkerKind.RocketLauncher, unit.RocketLauncherOrderCount, unit.TryGetRocketLauncherOrderWorldPosition, guiMouse))
+				return;
 		}
 
 		ClearGrenadeOrderHover();
+	}
+
+	private delegate bool TryGetRouteOrderWorldPositionDelegate(int _index, out Vector3 _worldPos);
+
+	private bool TryHoverRouteOrder(
+		RtsUnitMember _unit,
+		int _unitIndex,
+		RouteOrderMarkerKind _kind,
+		int _count,
+		TryGetRouteOrderWorldPositionDelegate _tryGetWorldPos,
+		Vector2 _guiMouse)
+	{
+		for (int oi = 0; oi < _count; oi++)
+		{
+			if (!_tryGetWorldPos(oi, out Vector3 worldPos))
+				continue;
+
+			Vector3 screenPos = m_SelectionCamera.WorldToScreenPoint(worldPos);
+			if (screenPos.z < 0f)
+				continue;
+
+			Vector2 guiPos = new Vector2(screenPos.x, Screen.height - screenPos.y);
+			if (Vector2.Distance(_guiMouse, guiPos) >= m_PathHoverThresholdPixels)
+				continue;
+
+			if (m_HoveredGrenadeOrderUnitIndex != _unitIndex ||
+			    m_HoveredGrenadeOrderIndex != oi ||
+			    m_HoveredRouteOrderKind != _kind)
+			{
+				m_HoveredGrenadeOrderUnitIndex = _unitIndex;
+				m_HoveredGrenadeOrderIndex = oi;
+				m_HoveredRouteOrderKind = _kind;
+				m_GrenadeOrderHoverStartTime = Time.unscaledTime;
+				m_IsGrenadeOrderDeleteButtonVisible = false;
+			}
+
+			if (!m_IsGrenadeOrderDeleteButtonVisible &&
+			    Time.unscaledTime - m_GrenadeOrderHoverStartTime >= m_GrenadeOrderHoverDelay)
+			{
+				m_IsGrenadeOrderDeleteButtonVisible = true;
+				float buttonX = screenPos.x - m_GrenadeOrderDeleteButtonSize * 0.5f;
+				float buttonY = Screen.height - screenPos.y - m_GrenadeOrderDeleteButtonSize - 10f;
+				m_GrenadeOrderDeleteButtonScreenRect = new Rect(buttonX, buttonY, m_GrenadeOrderDeleteButtonSize, m_GrenadeOrderDeleteButtonSize);
+			}
+
+			return true;
+		}
+
+		return false;
 	}
 
 	private void ClearGrenadeOrderHover()
 	{
 		m_HoveredGrenadeOrderUnitIndex = -1;
 		m_HoveredGrenadeOrderIndex = -1;
+		m_HoveredRouteOrderKind = RouteOrderMarkerKind.Grenade;
 		m_IsGrenadeOrderDeleteButtonVisible = false;
+	}
+
+	private void DrawRouteOrderMarkersIfAny()
+	{
+		if (m_SelectedUnits.Count == 0 || m_SelectionCamera == null)
+			return;
+
+		if (s_RouteOrderMarkerGuiStyle == null)
+		{
+			s_RouteOrderMarkerGuiStyle = new GUIStyle(GUI.skin.box)
+			{
+				fontSize = 11,
+				alignment = TextAnchor.MiddleCenter,
+				fontStyle = FontStyle.Bold
+			};
+			s_RouteOrderMarkerGuiStyle.normal.textColor = Color.white;
+		}
+
+		for (int ui = 0; ui < m_SelectedUnits.Count; ui++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[ui];
+			if (unit == null)
+				continue;
+
+			DrawRouteOrderMarkerSet(unit.GrenadeOrderCount, unit.TryGetGrenadeOrderWorldPosition, "G", new Color(0.85f, 0.35f, 0.15f, 0.9f));
+			DrawRouteOrderMarkerSet(unit.ReloadOrderCount, unit.TryGetReloadOrderWorldPosition, "R", new Color(0.2f, 0.85f, 0.7f, 0.9f));
+			DrawRouteOrderMarkerSet(unit.LocomotionOrderCount, unit.TryGetLocomotionOrderWorldPosition, "M", new Color(0.35f, 0.75f, 1f, 0.9f));
+			DrawRouteOrderMarkerSet(unit.RefillOrderCount, unit.TryGetRefillOrderWorldPosition, "A", new Color(1f, 0.55f, 0.15f, 0.9f));
+			DrawRouteOrderMarkerSet(unit.RocketLauncherOrderCount, unit.TryGetRocketLauncherOrderWorldPosition, "H", new Color(0.75f, 0.25f, 0.9f, 0.9f));
+		}
+	}
+
+	private void DrawRouteOrderMarkerSet(
+		int _count,
+		TryGetRouteOrderWorldPositionDelegate _tryGetWorldPos,
+		string _label,
+		Color _color)
+	{
+		const float size = 18f;
+		for (int i = 0; i < _count; i++)
+		{
+			if (!_tryGetWorldPos(i, out Vector3 worldPos))
+				continue;
+
+			Vector3 screenPos = m_SelectionCamera.WorldToScreenPoint(worldPos + Vector3.up * 0.05f);
+			if (screenPos.z < 0f)
+				continue;
+
+			Rect rect = new Rect(screenPos.x - size * 0.5f, Screen.height - screenPos.y - size * 0.5f, size, size);
+			Color previous = GUI.color;
+			GUI.color = _color;
+			GUI.Box(rect, _label, s_RouteOrderMarkerGuiStyle);
+			GUI.color = previous;
+		}
 	}
 
 	private void DrawGrenadeOrderDeleteButtonIfAny()
@@ -7626,12 +8246,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (GUI.Button(m_GrenadeOrderDeleteButtonScreenRect, "X", s_GrenadeOrderDeleteButtonGuiStyle))
 		{
-			RemoveHoveredGrenadeOrder();
+			RemoveHoveredRouteOrder();
 			m_IsGrenadeOrderDeleteButtonVisible = false;
 		}
 	}
 
-	private void RemoveHoveredGrenadeOrder()
+	private void RemoveHoveredRouteOrder()
 	{
 		if (m_HoveredGrenadeOrderUnitIndex < 0 || m_HoveredGrenadeOrderIndex < 0)
 			return;
@@ -7641,7 +8261,26 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		RtsUnitMember unit = m_SelectedUnits[m_HoveredGrenadeOrderUnitIndex];
 		if (unit != null)
-			unit.TryRemoveGrenadeOrder(m_HoveredGrenadeOrderIndex);
+		{
+			switch (m_HoveredRouteOrderKind)
+			{
+				case RouteOrderMarkerKind.Grenade:
+					unit.TryRemoveGrenadeOrder(m_HoveredGrenadeOrderIndex);
+					break;
+				case RouteOrderMarkerKind.Reload:
+					unit.TryRemoveReloadOrder(m_HoveredGrenadeOrderIndex);
+					break;
+				case RouteOrderMarkerKind.Locomotion:
+					unit.TryRemoveLocomotionOrder(m_HoveredGrenadeOrderIndex);
+					break;
+				case RouteOrderMarkerKind.Refill:
+					unit.TryRemoveRefillOrder(m_HoveredGrenadeOrderIndex);
+					break;
+				case RouteOrderMarkerKind.RocketLauncher:
+					unit.TryRemoveRocketLauncherOrder(m_HoveredGrenadeOrderIndex);
+					break;
+			}
+		}
 
 		ClearGrenadeOrderHover();
 	}

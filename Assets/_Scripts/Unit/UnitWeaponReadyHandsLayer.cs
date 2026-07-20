@@ -42,6 +42,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool m_RestoreReadyAfterRun;
 	private bool m_RestoreReadyAfterTurn;
 	private bool m_ProximityBlocksReady;
+	private bool m_RocketLauncherFireReadyOverride;
 	#endregion
 
 	#region Public Methods
@@ -74,6 +75,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// </summary>
 	public bool IsWeaponEquippedAndReady()
 	{
+		// Rocket launcher aim/fire: allow body facing + AimPitch without an equipped main weapon.
+		if (m_RocketLauncherFireReadyOverride && GetEffectiveIsReady())
+			return true;
+
 		return IsWeaponEquipped() && GetEffectiveIsReady();
 	}
 
@@ -243,6 +248,46 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	{
 		m_EnableKeyboardInput = _enabled;
 	}
+
+	/// <summary>
+	/// Temporary high ready without an equipped main weapon (rocket launcher aim/fire clips).
+	/// </summary>
+	public void BeginRocketLauncherFireReadyOverride()
+	{
+		if (m_RocketLauncherFireReadyOverride)
+			return;
+
+		m_RocketLauncherFireReadyOverride = true;
+		ApplyReadyWanted(true, true, true);
+	}
+
+	/// <summary>
+	/// After rocket-launcher fire/cancel: force low ready and clear the override.
+	/// </summary>
+	public void ForceNotReadyAfterRocketLauncherFire()
+	{
+		bool hadOverride = m_RocketLauncherFireReadyOverride;
+		m_RocketLauncherFireReadyOverride = false;
+
+		if (!hadOverride && !m_UserWantsReady)
+		{
+			PushWeaponReadyParameter();
+			return;
+		}
+
+		bool didChange = m_UserWantsReady;
+		m_UserWantsReady = false;
+		CancelDeferredReadyRestores();
+		PushWeaponReadyParameter();
+
+		if (didChange)
+		{
+			m_EquippedWeaponPose?.OnWeaponReadyStateChanged();
+			m_LeftHandIk?.OnWeaponReadyStateChanged();
+			m_Vision?.NotifyWeaponReadyChanged(false);
+			ApplyVisualRefreshAfterReadyToggle();
+		}
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -303,9 +348,13 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!ReferenceEquals(current, m_LastEquipped))
 		{
 			m_LastEquipped = current;
-			m_UserWantsReady = false;
-			m_RestoreReadyAfterSprint = false;
-			m_RestoreReadyAfterRun = false;
+			if (!m_RocketLauncherFireReadyOverride)
+			{
+				m_UserWantsReady = false;
+				m_RestoreReadyAfterSprint = false;
+				m_RestoreReadyAfterRun = false;
+			}
+
 			PushWeaponReadyParameter();
 		}
 
@@ -416,7 +465,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private void ApplyReadyWanted(bool _ready, bool _forceWalkIfNeeded, bool _refreshImmediately)
 	{
-		if (!IsWeaponEquipped())
+		if (!IsWeaponEquipped() && !(m_RocketLauncherFireReadyOverride && _ready))
 		{
 			m_UserWantsReady = false;
 			m_RestoreReadyAfterSprint = false;
@@ -464,9 +513,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
 			return false;
 
-		// В стоя переход Aim↔Relaxed уже на bool WeaponReady; CrossFade сбрасывает normalizedTime и дёргает позу.
+		// Standing/crouch: Idle↔Ready already on WeaponReady bool.
+		// CrossFade resets normalizedTime, often to the wrong idle leaf, and creates a huge body↔barrel snap → engage overshoots.
 		int stance = m_Animator.GetInteger(s_Stance);
-		return stance == (int)LocomotionStance.Crouch || stance == (int)LocomotionStance.Prone;
+		return stance == (int)LocomotionStance.Prone;
 	}
 
 	private void ForceWalkMoveModeOnAllLocomotionDrivers()
@@ -482,7 +532,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_Animator == null)
 			return;
 
-		m_Animator.SetBool(s_WeaponReady, GetEffectiveIsReady() && IsWeaponEquipped());
+		bool allowReadyParameter = IsWeaponEquipped() || m_RocketLauncherFireReadyOverride;
+		m_Animator.SetBool(s_WeaponReady, GetEffectiveIsReady() && allowReadyParameter);
 	}
 	#endregion
 }

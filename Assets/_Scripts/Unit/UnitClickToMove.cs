@@ -163,6 +163,10 @@ public sealed class UnitClickToMove : MonoBehaviour
 	[Tooltip("Логировать только если |body↔barrel| или |move↔barrel| больше этого порога (градусы). 0 = всегда.")]
 	[SerializeField, Min(0f)] private float m_LogReadyMoveFacingMinDeltaDegrees = 5f;
 
+	[Header("Engage pose settle")]
+	[Tooltip("If |body↔barrel| exceeds this, engage turns the root toward the target (not the bore) until the ready pose settles. Prevents crouch ready overshoot.")]
+	[SerializeField, Range(10f, 90f)] private float m_EngageRootFacingWhenBarrelOffsetExceeds = 25f;
+
 	private NavMeshAgent m_Agent;
 	private MoveTier m_Mode = MoveTier.Walk;
 	private LocomotionStance m_LastStance = LocomotionStance.Standing;
@@ -966,6 +970,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_GrenadeThrowController != null && (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
 			return;
 
+		// Reload RPG: не крутить корпус (руки заняты вставкой ракеты).
+		// Aim/Fire: наоборот — обязаны смотреть на VisibleTarget.
+		UnitRocketLauncherOrderController rocketOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (rocketOrder != null &&
+		    rocketOrder.IsBusy &&
+		    rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Reloading)
+			return;
+
 		if (m_CachedRtsMember != null && m_CachedRtsMember.IsRotatingToRouteFacing)
 			return;
 
@@ -990,9 +1002,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (IsEngagingVisibleTarget())
 		{
-			if (m_Vision == null ||
-			    !m_Vision.TryGetEngageFacingOriginWorld(out Vector3 origin) ||
-			    !m_Vision.TryGetEngageFacingForwardXZ(out Vector3 facingForwardXZ))
+			if (!TryResolveEngageFacing(out Vector3 origin, out Vector3 facingForwardXZ))
 				return;
 
 			Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
@@ -1054,6 +1064,22 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void HandleTurnReady(float _angleDegrees)
 	{
+		// Во время aim/fire гранатомёта high ready держим — не сбрасывать из‑за большого yaw.
+		UnitRocketLauncherOrderController rocketOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (rocketOrder != null &&
+		    rocketOrder.IsBusy &&
+		    (rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Aiming ||
+		     rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Firing))
+		{
+			if (m_TurnSuppressedReady)
+			{
+				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+				m_TurnSuppressedReady = false;
+			}
+
+			return;
+		}
+
 		if (_angleDegrees > 90f)
 		{
 			if (!m_TurnSuppressedReady)
@@ -1072,6 +1098,41 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private bool IsEngagingVisibleTarget()
 	{
 		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	/// <summary>
+	/// Bore-centric engage is correct when ready pose is settled.
+	/// While body↔barrel is still large (crouch ready snap), chase the root toward the target instead —
+	/// otherwise yawError tracks a moving bore and overshoots.
+	/// </summary>
+	private bool TryResolveEngageFacing(out Vector3 _origin, out Vector3 _facingForwardXZ)
+	{
+		_origin = default;
+		_facingForwardXZ = default;
+
+		if (m_Vision == null)
+			return false;
+
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+
+		bool largeBarrelOffset =
+			UnitHorizontalFacingUtility.TryGetBodyBarrelYawOffset(transform, m_Equipment, out float bodyBarrel) &&
+			Mathf.Abs(bodyBarrel) >= m_EngageRootFacingWhenBarrelOffsetExceeds;
+
+		if (largeBarrelOffset)
+		{
+			_origin = transform.position;
+			_facingForwardXZ = transform.forward;
+			_facingForwardXZ.y = 0f;
+			if (_facingForwardXZ.sqrMagnitude < 1e-6f)
+				return false;
+			_facingForwardXZ.Normalize();
+			return true;
+		}
+
+		return m_Vision.TryGetEngageFacingOriginWorld(out _origin) &&
+		       m_Vision.TryGetEngageFacingForwardXZ(out _facingForwardXZ);
 	}
 
 	private void LogReadyMoveFacingMismatchIfNeeded()
@@ -1254,7 +1315,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Rotation toward <see cref="UnitVision.VisibleTarget"/>: only weapon + high ready, without sprint.
+	/// Rotation toward <see cref="UnitVision.VisibleTarget"/>: weapon + high ready, or rocket-launcher aim/fire, without sprint.
 	/// </summary>
 	private bool ShouldRotateRootTowardVisionTarget()
 	{
@@ -1267,6 +1328,14 @@ public sealed class UnitClickToMove : MonoBehaviour
 			if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
 				return false;
 		}
+
+		UnitRocketLauncherOrderController rocketOrder = GetComponent<UnitRocketLauncherOrderController>();
+		if (rocketOrder != null &&
+		    rocketOrder.IsBusy &&
+		    (rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Aiming ||
+		     rocketOrder.CurrentPhase == RocketLauncherOrderPhase.Firing))
+			return true;
+
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
