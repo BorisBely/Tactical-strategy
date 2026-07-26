@@ -74,16 +74,22 @@ namespace VehicleNavigation
 			ral = Mathf.Max(0f, ral);
 			rar = Mathf.Max(0f, rar);
 
-			// Drop check: cast down ahead and behind
+			// Drop check: double-ray — both must miss to confirm cliff
 			Vector3 dropForwardOrigin = origin + _vehicle.forward * (halfWidth + 0.5f);
 			dropForwardOrigin.y += 0.5f;
-			bool dropAhead = !Physics.Raycast(
-				dropForwardOrigin, Vector3.down, 3f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropAhead1 = !Physics.Raycast(dropForwardOrigin, Vector3.down, out RaycastHit hit1, 5f, _mask, QueryTriggerInteraction.Ignore);
+			Vector3 dropForwardOrigin2 = origin + _vehicle.forward * (halfWidth + 1.5f);
+			dropForwardOrigin2.y += 0.5f;
+			bool dropAhead2 = !Physics.Raycast(dropForwardOrigin2, Vector3.down, out RaycastHit hit2, 5f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropAhead = dropAhead1 && dropAhead2;
 
 			Vector3 dropBackOrigin = origin - _vehicle.forward * (halfWidth + 0.5f);
 			dropBackOrigin.y += 0.5f;
-			bool dropBehind = !Physics.Raycast(
-				dropBackOrigin, Vector3.down, 3f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropBehind1 = !Physics.Raycast(dropBackOrigin, Vector3.down, out RaycastHit hit3, 5f, _mask, QueryTriggerInteraction.Ignore);
+			Vector3 dropBackOrigin2 = origin - _vehicle.forward * (halfWidth + 1.5f);
+			dropBackOrigin2.y += 0.5f;
+			bool dropBehind2 = !Physics.Raycast(dropBackOrigin2, Vector3.down, out RaycastHit hit4, 5f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropBehind = dropBehind1 && dropBehind2;
 
 			// Narrow passage: both left and right clearances are tight
 			bool narrowPassage = left < 2f && right < 2f;

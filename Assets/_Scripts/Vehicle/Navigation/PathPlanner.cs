@@ -54,9 +54,9 @@ namespace VehicleNavigation
 				return PathResult.Invalid;
 			}
 
-			Vector3[] direct = new[] { _from, _to };
+			Vector3[] direct = BuildDirectPath(_from, _to);
 			if (DebugLog)
-				Debug.Log($"[PathPlanner] NavMesh failed, using direct fallback [{_from:F0} → {_to:F0}] fromNav={fromOnNav} toNav={toOnNav}");
+				Debug.Log($"[PathPlanner] NavMesh failed, using direct fallback [{_from:F0} → {_to:F0}] points={direct.Length} fromNav={fromOnNav} toNav={toOnNav}");
 			return new PathResult(direct, EstimateLength(direct), true, false,
 				_usedDirectFallback: true);
 		}
@@ -76,7 +76,21 @@ namespace VehicleNavigation
 				length += Vector3.Distance(a, b);
 			}
 
-			return length;
-		}
+		return length;
 	}
+
+	private static Vector3[] BuildDirectPath(Vector3 _from, Vector3 _to)
+	{
+		Vector3 dir = _to - _from;
+		dir.y = 0f;
+		float dist = dir.magnitude;
+		if (dist < 10f) return new[] { _from, _to };
+		var list = new System.Collections.Generic.List<Vector3> { _from };
+		float step = Mathf.Max(5f, dist / 3f);
+		float t = step;
+		while (t < dist - step) { list.Add(_from + dir.normalized * t); t += step; }
+		list.Add(_to);
+		return list.ToArray();
+	}
+}
 }

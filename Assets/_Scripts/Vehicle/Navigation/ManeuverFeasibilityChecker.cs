@@ -140,13 +140,21 @@ namespace VehicleNavigation
 		public FeasibilityResult CheckForwardPath(VehicleLocalGeometry.Sample _geometry)
 		{
 			if (_geometry.HasDropAhead)
-				return FeasibilityResult.Invalid("drop ahead");
+				return FeasibilityResult.Impossible("drop ahead");
 
 			float safeSpeed = ComputeRecommendedSpeed(_geometry);
 
+			if (_geometry.FrontClearance < c_MinFrontClearance * 0.5f)
+			{
+				var result = FeasibilityResult.Impossible(
+					$"front clearance {_geometry.FrontClearance:F1}m < {c_MinFrontClearance * 0.5f:F1}m");
+				result.HasFrontCollision = true;
+				return result;
+			}
+
 			if (_geometry.FrontClearance < c_MinFrontClearance)
 			{
-				var result = FeasibilityResult.Invalid(
+				var result = FeasibilityResult.Unsafe(
 					$"front clearance {_geometry.FrontClearance:F1}m < {c_MinFrontClearance}m");
 				result.HasFrontCollision = true;
 				return result;
@@ -154,16 +162,7 @@ namespace VehicleNavigation
 
 			if (_geometry.HasNarrowPassage && _geometry.FrontClearance < c_MinFrontClearance * 1.5f)
 			{
-				var result = new FeasibilityResult
-				{
-					IsValid = true,
-					IsFullySafe = false,
-					MinClearance = _geometry.FrontClearance,
-					RiskScore = 0.3f,
-					HasNarrowPassage = true,
-					RecommendedMaxSpeedKmh = Mathf.Min(safeSpeed, 8f)
-				};
-				return result;
+				return FeasibilityResult.Risky(0.3f, "narrow passage");
 			}
 
 			var safe = FeasibilityResult.Valid;
@@ -210,12 +209,20 @@ namespace VehicleNavigation
 			float _turnRadius,
 			VehicleLocalGeometry.Sample _geometry)
 		{
-			float neededFront = _turnRadius * 0.8f;
-			float neededBack = _turnRadius * 0.5f;
+			float neededFront = _turnRadius * 0.7f;
+			float neededBack = _turnRadius * 0.4f;
+
+			if (_geometry.FrontClearance < neededFront * 0.5f)
+			{
+				var result = FeasibilityResult.Impossible(
+					$"front clearance {_geometry.FrontClearance:F1}m < {neededFront * 0.5f:F1}m for turn");
+				result.HasFrontCollision = true;
+				return result;
+			}
 
 			if (_geometry.FrontClearance < neededFront)
 			{
-				var result = FeasibilityResult.Invalid(
+				var result = FeasibilityResult.Unsafe(
 					$"front clearance {_geometry.FrontClearance:F1}m < {neededFront:F1}m for turn");
 				result.HasFrontCollision = true;
 				return result;
@@ -223,7 +230,7 @@ namespace VehicleNavigation
 
 			if (_geometry.RearClearance < neededBack)
 			{
-				var result = FeasibilityResult.Invalid(
+				var result = FeasibilityResult.Unsafe(
 					$"rear clearance {_geometry.RearClearance:F1}m < {neededBack:F1}m for turn");
 				result.HasRearCollision = true;
 				return result;
@@ -232,30 +239,13 @@ namespace VehicleNavigation
 			bool preferLeft = _turnSign < 0f || _geometry.PreferredTurnSign < 0f;
 			bool preferRight = _turnSign > 0f || _geometry.PreferredTurnSign > 0f;
 
-			if (preferLeft)
-			{
-				if (_geometry.LeftClearance < neededFront * 0.7f &&
-				    _geometry.FrontDiagonalLeftClearance < neededFront * 0.6f)
-				{
-					return FeasibilityResult.Invalid(
-						$"left side {_geometry.LeftClearance:F1}m too tight for left turn");
-				}
-			}
-			else if (preferRight)
-			{
-				if (_geometry.RightClearance < neededFront * 0.7f &&
-				    _geometry.FrontDiagonalRightClearance < neededFront * 0.6f)
-				{
-					return FeasibilityResult.Invalid(
-						$"right side {_geometry.RightClearance:F1}m too tight for right turn");
-				}
-			}
+			if (preferLeft && _geometry.LeftClearance < 3f && _geometry.FrontDiagonalLeftClearance < 2.5f)
+				return FeasibilityResult.Unsafe($"left side {_geometry.LeftClearance:F1}m too tight for left turn");
+			if (preferRight && _geometry.RightClearance < 3f && _geometry.FrontDiagonalRightClearance < 2.5f)
+				return FeasibilityResult.Unsafe($"right side {_geometry.RightClearance:F1}m too tight for right turn");
 
 			if (!VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _geometry))
-			{
-				return FeasibilityResult.Invalid(
-					$"cannot fit turn radius {_turnRadius:F1}m in {_geometry.LeftClearance:F1}m/{_geometry.RightClearance:F1}m");
-			}
+				return FeasibilityResult.Unsafe($"cannot fit turn radius {_turnRadius:F1}m");
 
 			return FeasibilityResult.Valid;
 		}

@@ -123,9 +123,18 @@ namespace VehicleNavigation
 
 			if (best == null)
 			{
-				best = candidates[0];
+				// Pick best by severity: try Unsafe before Impossible
+				DrivingCandidate bestUnsafe = null;
+				int bestSev = 99;
+				for (int i = 0; i < candidates.Count; i++)
+				{
+					var c = candidates[i];
+					int sev = c.Feasibility != null ? (int)c.Feasibility.Severity : 0;
+					if (sev < bestSev) { bestSev = sev; bestUnsafe = c; }
+				}
+				best = bestUnsafe ?? candidates[0];
 				if (DebugLog)
-					Debug.LogWarning($"[DrivingPlanner] ALL candidates invalid, falling back to {best.Mode}");
+					Debug.LogWarning($"[DrivingPlanner] ALL candidates invalid — fallback to {best.Mode} (severity={(FeasibilitySeverity)bestSev}) reason={best.Feasibility?.FailureReason}");
 			}
 
 			if (DebugLog)
