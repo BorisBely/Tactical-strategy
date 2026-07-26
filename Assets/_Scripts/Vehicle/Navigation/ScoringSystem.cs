@@ -16,11 +16,14 @@ namespace VehicleNavigation
 			DriverIntent _intent,
 			float _pathLength,
 			int _turnCount,
-			FeasibilityResult _feasibility)
+			FeasibilityResult _feasibility,
+			float _firstAngle = 0f)
 		{
 			float baseScore = _pathLength * c_Weight_Distance
 			                  + _turnCount * c_Weight_Turns
 			                  + _pathLength / 10f * c_Weight_Time;
+
+			float absAngle = System.Math.Abs(_firstAngle);
 
 			switch (_intent)
 			{
@@ -29,6 +32,10 @@ namespace VehicleNavigation
 					break;
 				case DriverIntent.TurnAround:
 					baseScore += 10f;
+					break;
+				case DriverIntent.DriveForward:
+					if (absAngle > 135f) baseScore += 50f;      // target behind → huge penalty
+					else if (absAngle > 90f) baseScore += 25f;  // target to the side → moderate penalty
 					break;
 			}
 
