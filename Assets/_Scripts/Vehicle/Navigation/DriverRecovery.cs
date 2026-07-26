@@ -54,7 +54,8 @@ namespace VehicleNavigation
 			if (_ctx.IsStuck)
 				return (RecoveryReason.Stuck, RecoveryAction.TurnAround);
 
-			if (Mathf.Abs(_ctx.CurrentSteerAngle) > _ctx.MaxSteeringAngleDeg * 0.95f)
+			if (Mathf.Abs(_ctx.CurrentSteerAngle) > _ctx.MaxSteeringAngleDeg * 0.95f
+			    && _ctx.SpeedKmh < 2f)
 			{
 				m_SteerSaturatedTimer += _dt;
 				if (m_SteerSaturatedTimer > c_SteerSaturatedTime)
