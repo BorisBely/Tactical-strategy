@@ -1,1081 +1,813 @@
-# Документация — Новая система навигации машины
-# Версия 2.0 (реализовано: июль 2026)
+# Vehicle Navigation System v2.1
+## Полная документация — июль 2026
 
 ---
 
 ## 1. Оглавление
 
-1. [Обзор архитектуры](#2-обзор-архитектуры)
-2. [Поток данных: от клика до колёс](#3-поток-данных-от-клика-до-колёс)
-3. [Система приказов](#4-система-приказов)
-4. [Очередь приказов](#5-очередь-приказов)
-5. [Навигационный запрос](#6-навигационный-запрос)
-6. [Планировщик пути](#7-планировщик-пути)
-7. [Планировщик движения](#8-планировщик-движения)
-8. [Проверка выполнимости](#9-проверка-выполнимости)
-9. [Манёвры](#10-манёвры)
-10. [Прибытие с направлением](#11-прибытие-с-направлением)
-11. [Конечный автомат водителя](#12-конечный-автомат-водителя)
-12. [Система восстановления](#13-система-восстановления)
-13. [Визуализация и отладка](#14-визуализация-и-отладка)
-14. [Физический слой](#15-физический-слой)
-15. [Полный список файлов](#16-полный-список-файлов)
-16. [Отчёт: что сделано и что нет](#17-отчёт-что-сделано-и-что-нет)
+1. [Архитектура — общая схема](#2-архитектура--общая-схема)
+2. [Поток данных — от клика до колёс](#3-поток-данных--от-клика-до-колёс)
+3. [Часть 1: Система приказов и очередь](#4-часть-1-система-приказов-и-очередь)
+4. [Часть 2: Heading-aware прибытие](#5-часть-2-heading-aware-прибытие)
+5. [Часть 3: Проверка выполнимости](#6-часть-3-проверка-выполнимости)
+6. [Часть 4: Умный планировщик движения](#7-часть-4-умный-планировщик-движения)
+7. [Часть 5: Восстановление, стратегии, композиты](#8-часть-5-восстановление-стратегии-композиты)
+8. [Часть 6: Физический слой и фазы движения](#9-часть-6-физический-слой-и-фазы-движения)
+9. [Часть 7: Vehicle Safety System](#10-часть-7-vehicle-safety-system)
+10. [Часть 8: Precision Arrival System](#11-часть-8-precision-arrival-system)
+11. [Манёвры — полный справочник](#12-манёвры--полный-справочник)
+12. [Логирование — все теги и сообщения](#13-логирование--все-теги-и-сообщения)
+13. [Тестовый полигон](#14-тестовый-полигон)
+14. [Полный список файлов](#15-полный-список-файлов)
+15. [Словарь терминов](#16-словарь-терминов)
 
 ---
 
-## 2. Обзор архитектуры
-
-Система построена по принципу конвейера. Каждый слой отвечает за одну задачу и ничего не знает о слоях выше или ниже, кроме соседних.
+## 2. Архитектура — общая схема
 
 ```
-Игрок (клик ПКМ, Shift+клик, тянуть с зажатой кнопкой)
-  │
-  ▼
-VehicleController          — фасад. Принимает ввод, формирует приказ.
-  │
-  ▼
-VehicleOrderQueue          — диспетчер. Хранит очередь приказов, продвигает их.
-  │
-  ▼
-VehicleNavigation          — точка входа виртуального водителя. Владеет всеми подсистемами.
-  │
-  ├─► PathPlanner          — строит путь по NavMesh
-  ├─► DrivingPlanner       — решает, как ехать (вперёд/назад/разворот)
-  ├─► ManeuverFeasibilityChecker — проверяет, можно ли выполнить манёвр
-  ├─► ScoringSystem         — оценивает варианты по стоимости и риску
-  ├─► ManeuverPlanner       — генерирует waypoint-ы для каждого манёвра
-  ├─► DriverFSM             — исполняет план: ведёт машину по манёврам
-  │     ├─► PursuitController   — чистое преследование (руль + скорость)
-  │     ├─► SpeedPlanner        — ограничения скорости
-  │     ├─► MotionController    — переводит желаемое движение в газ/тормоз
-  │     ├─► ArrivalController   — проверяет, приехали ли
-  │     ├─► RecoveryController  — выход из застревания
-  │     └─► ReverseDriver       — езда задним ходом
-  │
-  ▼
-VehicleCommand             — пакет управления (руль, газ, тормоз, фаза движения)
-  │
-  ▼
-VehicleBrain               — маршрутизатор команд
-  │
-  ▼
-WheeledMotor               — физика колёс
+                                  Игрок (клик / Shift+клик / ПКМ+тянуть)
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────┐
+│ VehicleController (фасад)                                 │
+│   IssueMoveOrder() — замена цели                          │
+│   AppendMoveToQueue() — добавить в очередь                 │
+│   StopCurrentOrder() / ClearOrders() / HardStop()         │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────┐
+│ VehicleOrderQueue                                         │
+│   m_Queue: [Order₁, Order₂, Order₃]                       │
+│   m_Current: Order₀ (Executing)                           │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────┐
+│ VehicleNavigation (владелец всех подсистем)                │
+│   EnqueueOrder() → TryPromoteNextOrder()                  │
+│                                                           │
+│   ┌──────────┐ ┌───────────┐ ┌───────────────┐           │
+│   │PathPlanner│ │DrivingPl. │ │ArrivalPlanner │           │
+│   │(NavMesh) │ │(кандид.)  │ │(precision)    │           │
+│   └────┬─────┘ └─────┬─────┘ └───────┬───────┘           │
+│        │              │               │                    │
+│   ┌────┴──────────────┴───────────────┴────┐              │
+│   │  ManeuverFeasibilityChecker + Scoring  │              │
+│   └────────────────┬───────────────────────┘              │
+│                    │                                       │
+│   ┌────────────────┴──────────────────────┐               │
+│   │  ManeuverPlanner → DriverFSM           │               │
+│   │    PursuitController + SpeedPlanner    │               │
+│   │    MotionController                    │               │
+│   └────────────────┬──────────────────────┘               │
+└────────────────────┼──────────────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────────────────┐
+│ VehicleSafetyController (последний фильтр)                 │
+│   CommandSanitizer → DynamicsLimiter → StabilityLimiter    │
+│   → AirborneProtection → RecoveryProtection               │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────┐
+│ VehicleCommand → VehicleBrain → WheeledMotor               │
+│   Steer, Throttle, BrakeMode, HoldPosition, Phase          │
+└──────────────────────────────────────────────────────────┘
 ```
-
-**Ключевой принцип:** каждый слой получает данные от верхнего, обрабатывает и передаёт нижнему. Нижние слои ничего не знают о верхних.
 
 ---
 
-## 3. Поток данных: от клика до колёс
+## 3. Поток данных — от клика до колёс
 
-### 3.1 Обычный клик ПКМ (замена цели)
-
+### Обычный клик ПКМ (замена цели)
 ```
-1. VehicleController.IssueMoveOrder(Vector3 position)
+1. VehicleController.IssueMoveOrder(position)
 2. → VehicleController.IssueMoveOrder(VehicleMoveGoal)
-3.   → VehicleNavigation.SetDestination(VehicleMoveGoal)
+3.   → VehicleNavigation.SetDestination(goal)
 4.     → m_OrderQueue.Clear()                    // очистить очередь
-5.     → m_QueueAutoAdvance = true
-6.     → SetDestinationFromGoal(goal)
-7.       → NavigationRequest.FromPosition(...)    // создать запрос
-8.       → m_FSM.SetDestination(request)          // запустить конечный автомат
-9.         → DriverFSM: State = Driving
-10.          → RebuildPlan()                      // построить путь и план
-11.            → PathPlanner.BuildPath(from, to)   // NavMesh или прямой
-12.            → DrivingPlanner.BuildPlan()        // выбрать режим (вперёд/назад/разворот)
-13.              → генерирует 2-3 кандидата
-14.              → проверяет каждый через FeasibilityChecker
-15.              → оценивает через ScoringSystem
-16.              → возвращает лучший план
-17.            → ManeuverPlanner.BuildWaypoints()  // построить маршрутные точки
-18.            → FeasibilityChecker.CheckPlan()    // финальная проверка
-19.          → ExecuteManeuver()                   // исполнение
-20.            → PursuitController.Tick()          // чистое преследование
-21.            → SpeedPlanner.ComputeTargetSpeed()  // ограничение скорости
-22.            → MotionController.Convert()        // в газ/тормоз/руль
-23.              → VehicleCommand
-24.                → VehicleBrain.SetCommand()
-25.                  → WheeledMotor.TickDrive()
+5.     → SetDestinationFromGoal(goal)
+6.       → NavigationRequest.FromPosition(...)    // создать запрос
+7.       → m_FSM.SetDestination(request)          // State = Driving
+8.         → RebuildPlan()
+9.           → PathPlanner.BuildPath(from, to)     // NavMesh или прямой
+10.          → DrivingPlanner.BuildPlan()          // выбор режима
+11.            → генерирует 2-3 кандидата
+12.            → проверяет через FeasibilityChecker
+13.            → оценивает через ScoringSystem
+14.            → вызывает ArrivalPlanner (если близко)
+15.            → возвращает лучший план
+16.          → ManeuverPlanner.BuildWaypoints()    // waypoints
+17.        → ExecuteManeuver()
+18.          → PursuitController.Tick()           // curvature + speed
+19.          → SpeedPlanner.ComputeTargetSpeed()   // лимиты
+20.          → MotionController.Convert()          // → VehicleCommand
+21.          → VehicleSafetyController.Apply()     // фильтр безопасности
+22.            → VehicleBrain → WheeledMotor
 ```
 
-### 3.2 Shift+клик (добавление в очередь)
-
+### Shift+клик (добавление в очередь)
 ```
-1. VehicleController.AppendMoveToQueue(Vector3 position, VehicleSpeedMode)
-2. → VehicleController.EnqueueMoveOrder(VehicleMoveOrder)
-3.   → VehicleNavigation.EnqueueOrder(order)
-4.     → m_OrderQueue.Enqueue(order)              // добавить в конец очереди
-5.     → TryPromoteNextOrder()                    // если нет текущего — начать
-6.       → VehicleOrderQueue.PromoteNext()
-7.         → order.MarkStarted()                  // отметить начало исполнения
-8.         → возвращает order
-9.       → SetDestinationFromOrder(order)         // запустить FSM
-10.         → NavigationRequest.FromOrder(order)
-11.           → m_FSM.SetDestination(request)
+1. VehicleController.AppendMoveToQueue(pos, speed)
+2. → VehicleNavigation.EnqueueOrder(order)
+3.   → m_OrderQueue.Enqueue(order)               // в конец очереди
+4.   → TryPromoteNextOrder()                     // если нет текущего
+5.     → PromoteNext() → MarkStarted()
+6.     → SetDestinationFromOrder() → FSM.SetDestination()
 ```
 
-### 3.3 Завершение манёвра и авто-продвижение
-
+### Авто-продвижение очереди
 ```
-1. DriverFSM.Tick()
-2. → FSM достиг состояния Idle или Holding
-3.   → TryPromoteNextOrder()                     // в VehicleNavigation
-4.     → m_OrderQueue.MarkCurrentOrderCompleted()  // отметить завершение
-5.     → m_OrderQueue.PromoteNext()                // взять следующий из очереди
-6.       → order.MarkStarted()
-7.     → SetDestinationFromOrder(next)             // начать следующий
+1. FSM достигает Idle/Holding
+2. → TryPromoteNextOrder()
+3.   → MarkCurrentOrderCompleted()
+4.   → PromoteNext() → MarkStarted()
+5.   → SetDestinationFromOrder(next) → новый FSM.Driving
 ```
 
 ---
 
-## 4. Система приказов
+## 4. Часть 1: Система приказов и очередь
 
-### 4.1 VehicleOrderType
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleOrderType.cs`
+### 4.1 VehicleOrderType (enum)
+`Assets\_Scripts\Vehicle\Navigation\VehicleOrderType.cs`
 
-Типы приказов, которые может отдать игрок или система:
+| Значение | Смысл |
+|----------|-------|
+| `Move` | Поехать в точку |
+| `Stop` | Мягкая остановка, сохранить очередь |
+| `Hold` | Держать позицию |
+| `Park` | Приехать и встать по направлению |
+| `Reverse` | Ехать задним ходом |
+| `Repath` | Перестроить маршрут |
+| `EmergencyStop` | Экстренная остановка, очистить всё |
 
-| Значение | Смысл | Кто отдаёт |
-|----------|-------|-----------|
-| `Move` | Поехать в точку | Игрок (ПКМ) |
-| `Stop` | Мягкая остановка, сохранить очередь | Игрок (клавиша S) |
-| `Hold` | Держать позицию | Система / AI |
-| `Park` | Приехать и встать по направлению | Игрок (ПКМ + тянуть) |
-| `Reverse` | Ехать задним ходом | Система (recovery) |
-| `Repath` | Перестроить маршрут | Система (recovery) |
-| `EmergencyStop` | Экстренная остановка, очистить всё | Система / игрок (пробел) |
+### 4.2 OrderState (enum)
+`Assets\_Scripts\Vehicle\Navigation\VehicleMoveOrder.cs`
 
-### 4.2 VehicleMoveOrder
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleMoveOrder.cs`
+```
+Pending → Executing → Completed
+            │
+            ├── Aborted
+            └── Expired
+```
 
-Приказ — это НЕ просто точка. Это полноценный объект с жизненным циклом.
-
-**Поля:**
+### 4.3 VehicleMoveOrder
+`Assets\_Scripts\Vehicle\Navigation\VehicleMoveOrder.cs`
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `OrderId` | `long` | Уникальный номер приказа (автоинкремент) |
-| `ParentOrderId` | `long?` | Родительский приказ (для цепочек) |
-| `Type` | `VehicleOrderType` | Тип приказа |
-| `State` | `OrderState` | Текущее состояние (см. ниже) |
-| `Destination` | `Vector3` | Точка назначения |
-| `HasDestination` | `bool` | Задана ли точка |
-| `DesiredHeadingYaw` | `float` | Желаемый угол корпуса |
-| `HasDesiredHeading` | `bool` | Задан ли угол |
-| `FacingMode` | `ArrivalFacingMode` | Как встать в конечной точке |
-| `SpeedMode` | `VehicleSpeedMode` | Режим скорости |
-| `AllowReverse` | `bool` | Разрешён ли задний ход |
-| `AllowTurnAround` | `bool` | Разрешён ли разворот |
-| `AllowThreePointTurn` | `bool` | Разрешён ли трёхточечный разворот |
-| `Priority` | `int` | Приоритет (больше = важнее) |
-| `IsCancelable` | `bool` | Можно ли отменить |
-| `TimeoutSeconds` | `float` | Таймаут (0 = бесконечно) |
-| `CreatedTime` | `float` | Время создания |
-| `SourceTag` | `string` | Кто создал (user, system, emergency, legacy-move-goal) |
+| `OrderId` | long | Уникальный номер (автоинкремент) |
+| `ParentOrderId` | long? | Родительский приказ |
+| `Type` | VehicleOrderType | Тип приказа |
+| `State` | OrderState | Текущее состояние |
+| `Destination` | Vector3 | Точка назначения |
+| `HasDestination` | bool | Задана ли точка |
+| `DesiredHeadingYaw` | float | Желаемый угол корпуса |
+| `HasDesiredHeading` | bool | Задан ли угол |
+| `FacingMode` | ArrivalFacingMode | Как встать в точке |
+| `SpeedMode` | VehicleSpeedMode | Slow/Medium/Fast/Max |
+| `AllowReverse` | bool | Разрешён задний ход |
+| `AllowTurnAround` | bool | Разрешён разворот |
+| `AllowThreePointTurn` | bool | Разрешён трёхточечный |
+| `Priority` | int | Приоритет |
+| `IsCancelable` | bool | Можно ли отменить |
+| `TimeoutSeconds` | float | Таймаут (0=бесконечно) |
+| `CreatedTime` | float | Время создания |
+| `SourceTag` | string | Кто создал (user/emergency/legacy) |
 
-**Жизненный цикл приказа:**
+Фабрики: `CreateMove(pos, speed)`, `CreateMove(pos, heading, speed)`, `CreateStop()`, `CreateHold()`, `CreateEmergencyStop()`, `FromMoveGoal(goal)`.
 
-```
-Pending ──► Executing ──► Completed
-                │
-                ├──► Aborted (отменён игроком или системой)
-                └──► Expired  (истекло время)
-```
+### 4.4 VehicleOrderQueue
+`Assets\_Scripts\Vehicle\Navigation\VehicleOrderQueue.cs`
 
-Переходы:
-- `Pending → Executing` — когда `PromoteNext()` делает приказ текущим
-- `Executing → Completed` — когда FSM успешно доехал до цели
-- `Executing → Aborted` — когда игрок нажал Stop, или система прервала
-- `Pending → Aborted` — когда приказ удалён из очереди
-- `Pending/Executing → Expired` — когда истекло время
+Свойства: `Count`, `HasCurrent`, `HasPendingInterrupt`, `CurrentOrder`, `QueuedOrders`.
 
-**Статические фабрики:**
+Методы:
+- `Enqueue(order)` — EmergencyStop чистит всё, Stop сохраняет очередь, Move мержит близкие точки
+- `EnqueueFront(order)` — вставить в начало
+- `CancelAll(reason)` — очистить всё (Emergency)
+- `CancelCurrent(reason)` — прервать текущий (Stop, сохраняет очередь)
+- `PromoteNext(timeNow)` — завершить текущий, начать следующий
+- `TryPromoteInterrupt(timeNow)` — продвинуть прерывание
+- `MarkCurrentOrderStarted/Completed/Aborted()`
+- `RemoveExpiredOrders(timeNow)` — удалить просроченные
 
-```csharp
-VehicleMoveOrder.CreateMove(Vector3 destination, VehicleSpeedMode speedMode)
-VehicleMoveOrder.CreateMove(Vector3 destination, float headingYaw, VehicleSpeedMode speedMode)
-VehicleMoveOrder.CreateStop()
-VehicleMoveOrder.CreateHold()
-VehicleMoveOrder.CreateEmergencyStop()
-VehicleMoveOrder.FromMoveGoal(VehicleMoveGoal goal)  // для обратной совместимости
-```
+### 4.5 NavigationRequest
+`Assets\_Scripts\Vehicle\Navigation\NavigationRequest.cs`
 
-### 4.3 OrderState
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleMoveOrder.cs`
-
-```csharp
-enum OrderState { Pending, Executing, Completed, Aborted, Expired, Interrupting }
-```
-
----
-
-## 5. Очередь приказов
-
-### 5.1 VehicleOrderQueue
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleOrderQueue.cs`
-
-Диспетчер очереди. Хранит цепочку приказов и управляет их жизненным циклом.
-
-**Поля:**
-- `m_Queue` — `Queue<VehicleMoveOrder>` — основная очередь
-- `m_Current` — текущий исполняемый приказ
-- `m_PendingInterrupt` — приоритетное прерывание (Stop / EmergencyStop)
-
-**Свойства:**
-- `Count` — сколько приказов в очереди
-- `HasCurrent` — есть ли текущий исполняемый приказ
-- `HasPendingInterrupt` — есть ли ожидающее прерывание
-- `CurrentOrder` — текущий приказ
-- `QueuedOrders` — `IReadOnlyList<VehicleMoveOrder>` — снимок очереди для отладки
-
-**Методы:**
-
-```csharp
-// Добавление
-void Enqueue(VehicleMoveOrder order)
-  // EmergencyStop → очищает всё и ставит как прерывание
-  // Stop → ставит как прерывание (сохраняет очередь)
-  // Move → добавляет в конец, мержит близкие точки (замена последнего)
-
-void EnqueueFront(VehicleMoveOrder order)
-  // Вставить в начало очереди (важнее текущих)
-
-// Управление
-void Clear()                       // очистить всё
-void CancelAll(string reason)      // отменить всё (Emergency)
-void CancelCurrent(string reason)  // отменить только текущий (сохранить очередь)
-
-// Навигация по очереди
-bool TryPeek(out VehicleMoveOrder)   // посмотреть следующий
-bool TryDequeue(out VehicleMoveOrder) // извлечь следующий
-VehicleMoveOrder PromoteNext(float timeNow)  // продвинуть: завершить текущий, начать следующий
-bool TryPromoteInterrupt(float timeNow)      // продвинуть прерывание в текущий
-
-// Жизненный цикл
-void MarkCurrentOrderStarted(float timeNow)    // отметить начало
-void MarkCurrentOrderCompleted()               // отметить завершение
-void MarkCurrentOrderAborted()                 // отметить отмену
-void RemoveExpiredOrders(float timeNow)         // удалить просроченные
-
-// Защита от дубликатов
-// Если новый Move-приказ ближе чем m_OrderMergeDistance (2м) к последнему в очереди —
-// последний заменяется, а не добавляется новый.
-```
-
----
-
-## 6. Навигационный запрос
-
-### 6.1 NavigationRequest
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\NavigationRequest.cs`
-
-Иммутабельная структура. Это то, что передаётся из слоя приказов в слой планирования. Планировщик не знает про `VehicleMoveOrder` — он работает только с `NavigationRequest`.
-
-**Поля:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `Destination` | `Vector3` | Точка назначения |
-| `HeadingYaw` | `float?` | Желаемый угол корпуса |
-| `SpeedMode` | `VehicleSpeedMode` | Режим скорости |
-| `FacingMode` | `ArrivalFacingMode` | Как встать в конечной точке |
-| `AllowReverse` | `bool` | Разрешён ли задний ход |
-| `AllowTurnAround` | `bool` | Разрешён ли разворот |
-| `AllowRepath` | `bool` | Разрешено ли перестроение маршрута |
-| `MinArrivalDistance` | `float` | Минимальная дистанция прибытия (по умолчанию 0.6м) |
-| `MinArrivalHeading` | `float` | Допуск по углу прибытия (по умолчанию 8°) |
-
-**Фабрики:**
-
-```csharp
-NavigationRequest.FromPosition(Vector3 dest, VehicleSpeedMode mode)
-NavigationRequest.FromPositionAndHeading(Vector3 dest, float headingYaw, VehicleSpeedMode mode)
-NavigationRequest.FromOrder(VehicleMoveOrder order)  // основной путь: приказ → запрос
-```
-
----
-
-## 7. Планировщик пути
-
-### 7.1 PathPlanner
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\PathPlanner.cs`
-
-Строит глобальный маршрут от текущей позиции до цели.
-
-**Методы:**
-```csharp
-PathResult BuildPath(Vector3 from, Vector3 to)
-  // Старая сигнатура — обёртка над новой с параметрами по умолчанию
-
-PathResult BuildPath(Vector3 from, Vector3 to, PathBuildOptions options)
-  // Новая сигнатура с опциями
-  // 1. Пробует сэмплировать from и to на NavMesh
-  // 2. Если оба на NavMesh — строит путь через NavMesh.CalculatePath
-  // 3. Если путь частичный и AllowPartialPath=false — возвращает Invalid
-  // 4. Если NavMesh недоступен и AllowDirectFallback=true — прямой путь [from, to]
-  // 5. Если AllowDirectFallback=false — возвращает Invalid
-```
-
-### 7.2 PathBuildOptions
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\PathBuildOptions.cs`
+Иммутабельный struct. Планировщик работает только с ним.
 
 | Поле | По умолчанию | Описание |
 |------|-------------|----------|
-| `AllowPartialPath` | `true` | Разрешить частичный NavMesh-путь |
-| `AllowDirectFallback` | `true` | Разрешить прямой путь если NavMesh недоступен |
-| `SampleRadiusFrom` | `3f` | Радиус поиска ближайшей точки NavMesh от начала |
-| `SampleRadiusTo` | `4f` | Радиус поиска ближайшей точки NavMesh до цели |
+| `Destination` | Vector3.zero | Точка назначения |
+| `HeadingYaw` | null | Желаемый угол |
+| `SpeedMode` | Medium | Режим скорости |
+| `FacingMode` | None | Как встать |
+| `AllowReverse` | true | Разрешён ли задний ход |
+| `AllowTurnAround` | true | Разрешён ли разворот |
+| `AllowRepath` | true | Разрешено ли перестроение |
+| `MinArrivalDistance` | 0.6f | Допуск расстояния |
+| `MinArrivalHeading` | 8f | Допуск угла |
 
-Статические пресеты:
-- `PathBuildOptions.Default` — всё разрешено
-- `PathBuildOptions.SafeOnly` — только полный NavMesh-путь, без прямого
-- `PathBuildOptions.ForReverse` — расширенные радиусы для заднего хода
-
-### 7.3 PathResult
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\PathResult.cs`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `Corners` | `Vector3[]` | Углы пути (точки поворота) |
-| `Length` | `float` | Длина пути в метрах |
-| `IsValid` | `bool` | Валиден ли путь |
-| `IsPartial` | `bool` | Частичный ли путь (NavMesh не полный) |
-| `UsedDirectFallback` | `bool` | Использован ли прямой путь вместо NavMesh |
+Фабрики: `FromPosition()`, `FromPositionAndHeading()`, `FromOrder(order)`.
 
 ---
 
-## 8. Планировщик движения
+## 5. Часть 2: Heading-aware прибытие
 
-### 8.1 DrivingPlanner
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\DrivingPlanner.cs`
-
-**Это ключевое изменение версии 2.0.** Раньше планировщик выбирал один режим (вперёд/назад/разворот) по первому углу пути. Теперь он генерирует 2-3 кандидата, проверяет каждый и выбирает лучший.
-
-**Поля:**
-- `m_DecisionEvaluator` — проверяет безопасность режима по геометрии
-- `m_Feasibility` — проверяет выполнимость манёвров
-
-**Алгоритм `BuildPlan()`:**
-
-```
-1. Получить путь (PathResult) — он уже построен снаружи.
-2. Сгенерировать кандидатов:
-   a. ForwardCandidate     — всегда (едем вперёд по пути)
-   b. ReverseCandidate     — если геометрия позволяет (есть место сзади)
-   c. TurnAroundCandidate  — если геометрия позволяет (хватает места для разворота)
-
-3. Для каждого кандидата:
-   a. Построить последовательность манёвров
-   b. Добавить финальный манёвр (парковка / подъезд с heading)
-   c. Проверить выполнимость → FeasibilityResult
-   d. Посчитать стоимость → ScoringSystem.ScoreCandidate()
-
-4. Отсортировать по стоимости, выбрать самый дешёвый валидный.
-5. Если все невалидны — вернуть Forward как fallback.
-```
-
-**Методы:**
-```csharp
-void SetFeasibility(ManeuverFeasibilityChecker)  // инъекция проверщика
-DrivingPlan BuildPlan(NavigationRequest, PathResult, FeedbackState, ...)  // основной метод
-```
-
-### 8.2 DrivingPlan
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\DrivingPlan.cs`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `Maneuvers` | `IReadOnlyList<Maneuver>` | Последовательность манёвров |
-| `Reason` | `string` | Пояснение выбора |
-| `IsValid` | `bool` | Есть ли манёвры |
-| `DrivingMode` | `VehicleDrivingMode` | Выбранный режим (Forward/Reverse/TurnAround) |
-| `TotalCost` | `float` | Стоимость плана (меньше = лучше) |
-
-### 8.3 ScoringSystem
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\ScoringSystem.cs`
-
-Статический класс для оценки вариантов.
-
-**Методы:**
-```csharp
-DriverIntent Evaluate(DriverContext ctx)  // старый метод (сохранён для совместимости)
-
-float ScoreCandidate(DriverIntent intent, float pathLength, int turnCount, FeasibilityResult feasibility)
-  // Новый метод для оценки кандидата
-  // Формула: pathLength * 1.0 + turnCount * 2.0 + штрафы за режим
-  //   Reverse: +10
-  //   TurnAround: +15
-  //   ApplyRiskPenalty: невалидный → MaxValue, риск → +25 за единицу риска
-
-float ApplyRiskPenalty(float baseScore, FeasibilityResult feasibility)
-  // Добавляет штраф за риск: RiskScore * 25 + штрафы за типы коллизий
-```
-
----
-
-## 9. Проверка выполнимости
-
-### 9.1 ManeuverFeasibilityChecker
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\ManeuverFeasibilityChecker.cs`
-
-**Это новый слой безопасности.** Проверяет, можно ли физически выполнить манёвр ДО того, как машина начнёт движение.
-
-**Константы:**
-- Минимальный передний зазор: 1.8м
-- Минимальный задний зазор: 1.8м
-- Минимальный боковой зазор: 1.0м
-- Минимальная ширина коридора для заднего хода: 2.5м
-
-**Методы:**
-
-```csharp
-FeasibilityResult CheckPlan(DrivingPlan, NavigationContext, VehicleParameters)
-  // Проверяет ВЕСЬ план: проходит по всем манёврам, возвращает первый Invalid
-  // или наихудший по риску.
-
-FeasibilityResult CheckPlan(DrivingPlan, VehicleLocalGeometry.Sample, float turnRadius)
-  // Облегчённая версия для вызова из DrivingPlanner (без NavigationContext)
-
-FeasibilityResult CheckForwardPath(VehicleLocalGeometry.Sample geometry)
-  // Проверяет: нет ли обрыва спереди, хватает ли зазора, не слишком ли узко.
-
-FeasibilityResult CheckReversePath(VehicleLocalGeometry.Sample geometry)
-  // Проверяет: нет ли обрыва сзади, хватает ли зазора, не слишком ли узкий коридор.
-
-FeasibilityResult CheckTurnAroundArc(float turnSign, float turnRadius, VehicleLocalGeometry.Sample geometry)
-  // Проверяет: хватает ли места спереди и сзади, смотрит на диагональные зазоры,
-  // проверяет CanFitTurnRadius.
-
-FeasibilityResult CheckParkingSpot(Vector3 destination, float targetYaw, VehicleLocalGeometry.Sample geometry)
-  // Проверяет: нет ли обрывов около места парковки, хватает ли места.
-```
-
-### 9.2 FeasibilityResult
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\FeasibilityResult.cs`
-
-Единый вердикт проверки. Собирает информацию из геометрии и предсказания траектории.
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `IsValid` | `bool` | Можно ли выполнить манёвр вообще |
-| `IsFullySafe` | `bool` | Полностью безопасно (без рисков) |
-| `MinClearance` | `float` | Минимальный зазор в метрах |
-| `RiskScore` | `float` | Оценка риска (0 = безопасно, 1+ = рискованно) |
-| `HasFrontCollision` | `bool` | Есть риск столкновения спереди |
-| `HasRearCollision` | `bool` | Есть риск столкновения сзади |
-| `HasSideCollision` | `bool` | Есть риск бокового столкновения |
-| `HasCliffRisk` | `bool` | Есть риск падения с обрыва |
-| `HasSlopeRisk` | `bool` | Есть риск на слишком крутом склоне |
-| `HasNarrowPassage` | `bool` | Слишком узкий проход |
-| `FailureReason` | `string` | Причина отказа (понятный текст) |
-| `FailurePoint` | `Vector3` | Точка, где обнаружена проблема |
-
-**Статические фабрики:**
-```csharp
-FeasibilityResult.Valid           // всё хорошо
-FeasibilityResult.Invalid(reason) // нельзя выполнить
-FeasibilityResult.Invalid(reason, point) // нельзя с указанием точки
-```
-
-### 9.3 VehicleLocalGeometry (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleLocalGeometry.cs`
-
-**Добавленные поля в Sample:**
-
-| Поле | Описание |
-|------|----------|
-| `FrontDiagonalLeftClearance` | Зазор спереди-слева (30° от носа) |
-| `FrontDiagonalRightClearance` | Зазор спереди-справа (30° от носа) |
-| `RearDiagonalLeftClearance` | Зазор сзади-слева (150° от носа) |
-| `RearDiagonalRightClearance` | Зазор сзади-справа (150° от носа) |
-| `HasDropAhead` | Есть ли обрыв спереди (луч вниз на 3м) |
-| `HasDropBehind` | Есть ли обрыв сзади |
-| `HasNarrowPassage` | Узкий проход (оба боковых зазора < 2м) |
-
-**Новые статические методы:**
-```csharp
-bool CanFitTurnRadius(float radius, Sample geometry)    // помещается ли радиус разворота
-bool HasSafeBackingSpace(Sample geometry, float minDist) // безопасно ли сдать назад
-bool HasSafeForwardSpace(Sample geometry, float minDist) // безопасно ли ехать вперёд
-```
-
-### 9.4 TrajectoryPrediction (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\TrajectoryPrediction.cs`
-
-**Добавленные поля в PredictionResult:**
-
-| Поле | Описание |
-|------|----------|
-| `RiskScore` | Оценка риска: 0 при TTC>0.5с, 1 при TTC=0 |
-| `CollisionPoint` | Точка предполагаемого столкновения |
-| `CollisionStepIndex` | На каком шаге предсказания обнаружено |
-
-**Новые методы:**
-```csharp
-PredictionResult PredictForManeuver(Maneuver, DriverContext, VehicleParameters)
-  // Диспетчер: выбирает PredictForward / PredictReverse / PredictTurnAround по типу
-
-PredictionResult PredictForward(DriverContext, VehicleParameters)
-  // Прямолинейное движение вперёд на крейсерской скорости
-
-PredictionResult PredictReverse(DriverContext, VehicleParameters)
-  // Прямолинейное движение назад (с разворотом контекста на 180°)
-
-PredictionResult PredictTurnAround(DriverContext, VehicleParameters, float turnSign)
-  // Движение по дуге разворота с заданным радиусом
-```
-
----
-
-## 10. Манёвры
-
-### 10.1 Общая архитектура манёвров
-
-Манёвр — это атомарная единица плана движения. Каждый манёвр описывает ЧТО делать (тип, скорость, разрешения), а КАК ехать определяет `PursuitController` через waypoint-ы.
-
-**Базовый класс `Maneuver`:**
-```csharp
-abstract class Maneuver {
-    VehicleManeuverType Type       // тип манёвра
-    IReadOnlyList<Vector3> Waypoints  // маршрутные точки
-    bool AllowReverse              // разрешён ли задний ход
-    float SpeedScale               // множитель скорости (0.15 = 15% от максимальной)
-    float? LookAheadOverride       // фиксированная дистанция преследования
-    bool IsArrivalManeuver         // финальный ли это манёвр (для обработки прибытия)
-}
-```
-
-### 10.2 Типы манёвров
-
-**ForwardManeuver** — движение вперёд.
-- `AllowReverse = false`
-- `SpeedScale = 1.0`
-- Waypoints: все углы NavMesh-пути
-- **Когда используется:** основной режим движения, цель впереди.
-
-**ReverseManeuver** — движение назад (устаревший, заменён на ReverseIntentManeuver).
-- `AllowReverse = true`
-- Waypoints: текущая позиция + первая точка пути
-
-**ReverseIntentManeuver** — полноценный задний ход (новый).
-- `AllowReverse = true`
-- Строит свой путь через `ReversePathBuilder`
-- Исполняется через отдельный `ReverseDriver` (собственный конечный автомат)
-- **Когда используется:** цель сзади и расстояние небольшое.
-
-**TurnAroundManeuver** — разворот на 180°.
-- `AllowReverse = false`
-- `SpeedScale = 0.5`
-- Параметр: `TurnSign` (-1 = влево, +1 = вправо)
-- Waypoints: дуга из 30+ точек, построенная `PathSmoother.GenerateTurnaroundTrajectory()`
-- **Как происходит разворот:**
-  1. Машина начинает движение по дуге с прогрессивным поворотом руля
-  2. Фазы: вход (20°) → поворот (140°) → выход (20°)
-  3. Руль плавно нарастает и спадает между фазами
-  4. В конце добавляется прямолинейный отрезок для выравнивания
-
-**ThreePointTurnManeuver** — трёхточечный разворот в узком месте.
-- `AllowReverse = true`
-- `SpeedScale = 0.3`
-- Waypoints: 4 точки (вперёд → назад-вбок → вперёд)
-- **Как происходит:** сдал назад под углом, проехал вперёд — развернулся в ограниченном пространстве.
-
-**ParkingManeuver** — парковка с выравниванием по heading.
-- `AllowReverse = true`
-- `SpeedScale = 0.22`
-- `LookAheadOverride = 1.6`
-- `IsArrivalManeuver = true`
-- Параметр: `TargetHeadingYaw`
-- Waypoints: 3 точки (from → lerp(65%) → to)
-- **Как происходит парковка:**
-  1. Машина подъезжает к точке
-  2. `DriverFSM.TickArrival()` обнаруживает, что дистанция < `HeadingBlendStartDistance` (6м)
-  3. Начинает подмешивать curvature для выравнивания по heading
-  4. Скорость ограничивается `HeadingBlendMaxSpeedKmh` (5 км/ч)
-  5. Когда дистанция < `PositionTolerance` И угол < `HeadingToleranceDeg` → Holding
-  6. `GoalLimiter` в `SpeedPlanner` автоматически снижает скорость при подъезде
-
-**ApproachWithHeadingManeuver** — подъезд с гарантированным выходом на heading (новый).
-- `AllowReverse = true`
-- `SpeedScale = 0.28`
-- `LookAheadOverride = 2.0`
-- `IsArrivalManeuver = true`
-- Параметры: `Destination`, `TargetHeadingYaw`
-- Waypoints: 4-5 точек, где последний отрезок идёт строго по целевому направлению
-- **Как происходит:**
-  1. `PathSmoother.GenerateApproachWithHeadingArc()` строит маршрут:
-     - Точка входа (entry point): на расстоянии min(3м, turnRadius) ПЕРЕД целью, строго на линии heading
-     - Промежуточные точки от текущей позиции к точке входа
-     - Финальная точка — сама цель
-  2. Машина едет к точке входа, затем прямо к цели уже по правильному heading
-  3. `GoalLimiter` форсирует creep-скорость для точности
-  4. **Отличие от ParkingManeuver:** ApproachWithHeading гарантирует правильную геометрию подъезда, а не просто «приехал — довернул»
-
-**UnstuckManeuver** — выход из застревания.
-- `AllowReverse = false`
-- Параметр: `SteerSign` (чередуется при повторных попытках)
-- Waypoints: дуга выхода
-- **Как происходит:** машина поворачивает руль и даёт газ, пытаясь выехать из заблокированного положения.
-
-**StopManeuver** — остановка.
-- Waypoints: текущая позиция (одна точка)
-- Используется для немедленной остановки без продолжения движения.
-
-### 10.3 Как манёвры создаются и исполняются
-
-```
-DrivingPlanner.BuildPlan()
-  │
-  ├─► BuildForwardCandidate()
-  │     └─► maneuvers = [ForwardManeuver] + AppendArrivalManeuver()
-  │
-  ├─► BuildReverseCandidate()
-  │     └─► maneuvers = [ReverseIntentManeuver] + AppendArrivalManeuver()
-  │
-  └─► BuildTurnAroundCandidate()
-        └─► maneuvers = [TurnAroundManeuver, ForwardManeuver] + AppendArrivalManeuver()
-
-AppendArrivalManeuver() выбирает финальный манёвр по FacingMode:
-  FaceHeading   → ApproachWithHeadingManeuver
-  UsePathFacing → ParkingManeuver (с направлением последнего сегмента пути)
-  KeepCurrent   → без финального манёвра
-  None          → старый fallback: ParkingManeuver если heading задан и угол > 18°
-
-ManeuverPlanner.BuildWaypoints() генерирует waypoint-ы для каждого манёвра:
-  Forward         → все углы пути
-  Reverse         → текущая позиция + первая точка
-  TurnAround      → PathSmoother.GenerateTurnaroundTrajectory()
-  ThreePointTurn  → PathSmoother.GenerateThreePointWaypoints()
-  Parking         → PathSmoother.GenerateParkingWaypoints()
-  ApproachHeading → PathSmoother.GenerateApproachWithHeadingArc()
-  Unstuck         → PathSmoother.GenerateUnstuckWaypoints()
-  Stop            → текущая позиция
-
-DriverFSM.ExecuteManeuver():
-  1. Если ReverseIntentManeuver → делегирует ReverseDriver.Tick()
-  2. Иначе:
-     a. PursuitController.Tick() — находит точку преследования, считает curvature и скорость
-     b. SpeedPlanner.ComputeTargetSpeed() — применяет лимиты
-     c. MotionController.Convert() → VehicleCommand
-```
-
----
-
-## 11. Прибытие с направлением
-
-### 11.1 ArrivalFacingMode
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\ArrivalFacingMode.cs`
+### 5.1 ArrivalFacingMode (enum)
+`Assets\_Scripts\Vehicle\Navigation\ArrivalFacingMode.cs`
 
 | Значение | Поведение |
 |----------|----------|
-| `None` | Просто приехать в точку. Ориентация не важна. |
-| `UsePathFacing` | Встать по направлению последнего сегмента NavMesh-пути. |
-| `FaceHeading` | Встать капотом строго по заданному углу (от игрока через drag). |
-| `KeepCurrent` | Не менять ориентацию. |
+| `None` | Просто приехать. Старый fallback: ParkingManeuver если угол > 18° |
+| `UsePathFacing` | Встать по направлению последнего сегмента NavMesh-пути |
+| `FaceHeading` | Встать капотом по DesiredHeadingYaw |
+| `KeepCurrent` | Не менять ориентацию |
 
-### 11.2 ArrivalCriteria
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\ArrivalCriteria.cs`
-
-Собирает все настройки прибытия в один объект.
+### 5.2 ArrivalCriteria
+`Assets\_Scripts\Vehicle\Navigation\ArrivalCriteria.cs`
 
 | Поле | По умолчанию | Описание |
 |------|-------------|----------|
-| `PositionTolerance` | `0.6f` | Допуск по расстоянию (метры) |
-| `HeadingToleranceDeg` | `8f` | Допуск по углу (градусы) |
-| `RequireFaceHeading` | `false` | Требуется ли выравнивание по heading |
-| `HeadingBlendStartDistance` | `6f` | С какого расстояния начинать подмешивать curvature для выравнивания |
-| `HeadingBlendMaxSpeedKmh` | `5f` | Максимальная скорость при выравнивании |
-| `TargetForward` | `Vector3` | Вектор желаемого направления |
-| `HasTargetForward` | `bool` | Задан ли вектор |
+| `PositionTolerance` | 0.6f | Допуск по расстоянию (м) |
+| `HeadingToleranceDeg` | 8f | Допуск по углу (градусы) |
+| `RequireFaceHeading` | false | Требуется ли выравнивание |
+| `HeadingBlendStartDistance` | 6f | С какого расстояния подмешивать curvature |
+| `HeadingBlendMaxSpeedKmh` | 5f | Макс. скорость при выравнивании |
+| `TargetForward` | Vector3 | Вектор желаемого направления |
+| `HasTargetForward` | bool | Задан ли вектор |
 
-Статическая фабрика: `ArrivalCriteria.FromRequest(NavigationRequest)` — создаёт критерии из навигационного запроса.
+Фабрика: `FromRequest(NavigationRequest)`.
 
-### 11.3 Как происходит прибытие с heading
-
+### 5.3 Как работает прибытие с heading
 ```
-1. Игрок зажимает ПКМ, тянет — появляется стрелка направления.
-2. Создаётся VehicleMoveOrder с FacingMode = FaceHeading и DesiredHeadingYaw.
-3. NavigationRequest.FromOrder() пробрасывает FacingMode в запрос.
-4. DrivingPlanner.AppendArrivalManeuver() видит FaceHeading → создаёт ApproachWithHeadingManeuver.
-5. ManeuverPlanner строит waypoint-ы с финальным прямым участком по heading.
-6. PursuitController ведёт машину по waypoint-ам.
-7. SpeedPlanner.GoalLimiter форсирует creep-скорость (3 км/ч) для точности.
-8. Когда дистанция до цели < HeadingBlendStartDistance (6м):
-   a. Вычисляется ошибка heading = разница между текущим и желаемым углом
-   b. Вычисляется curvature для доворота = ошибка * Deg2Rad / 5
-   c. Curvature подмешивается с весом = 1 - distance/6
-   d. Скорость ограничивается до 5 км/ч
-9. Когда дистанция < PositionTolerance И угол < HeadingToleranceDeg → машина остановилась правильно.
-10. FSM переходит в Holding, применяется HoldPosition.
+1. ПКМ+тянуть → стрелка → FacingMode = FaceHeading
+2. DrivingPlanner.AppendArrivalManeuver() → ApproachWithHeadingManeuver
+3. ManeuverPlanner → waypoints с финальным прямым участком по heading
+4. PursuitController ведёт по waypoints
+5. При dist < 6м: подмешивается curvature для выравнивания
+6. При dist < tolerance И angle < tolerance → Holding → HoldInPlace()
 ```
 
----
-
-## 12. Конечный автомат водителя
-
-### 12.1 DriverFSM
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\DriverFSM.cs`
-
-**Состояния:**
-
-| Состояние | Описание |
-|-----------|----------|
-| `Idle` | Нет цели, машина стоит |
-| `Driving` | Движение по манёврам |
-| `Arrival` | Финальная фаза — подъезд к цели |
-| `Holding` | Цель достигнута, удержание позиции |
-| `Recovery` | Выход из застревания |
-| `EmergencyStop` | Экстренное торможение |
-
-**Основной цикл `Tick()`:**
-```
-1. Проверить EmergencyStop
-2. Если Idle → Idle()
-3. Если Holding → TickHolding()
-4. Если PlanDirty или нет плана → RebuildPlan()
-5. Проверить Recovery:
-   a. RecoveryController.EvaluateAndGetManeuver() → (RecoveryAction, Maneuver?)
-   b. RebuildPath → m_PlanDirty=true, BrakeToStop
-   c. AbortAndStop → State=Idle, сброс счётчиков
-   d. UnstuckRock → State=Recovery, исполнить UnstuckManeuver
-6. Проверить завершение манёвра → AdvanceManeuverIfComplete()
-7. Если все манёвры пройдены → State=Arrival
-8. Если Arrival → TickArrival()
-9. Исполнить текущий манёвр:
-   a. Если ReverseIntentManeuver → ReverseDriver.Tick()
-   b. Иначе → PursuitController + SpeedPlanner + MotionController
-```
-
-**Ключевые методы:**
-```csharp
-void SetDestination(NavigationRequest)  // начать движение к цели
-void Stop()                             // остановка, сброс контекста
-void EmergencyStop(StopReason)          // экстренная остановка
-VehicleCommand Tick()                   // главный метод (каждый FixedUpdate)
-
-private void RebuildPlan()              // построить путь + план + waypoint-ы
-private VehicleCommand ExecuteManeuver(Maneuver)  // исполнить манёвр
-private VehicleCommand TickArrival()     // финальная фаза прибытия
-private VehicleCommand TickHolding()     // удержание позиции
-```
-
-### 12.2 NavigationContext
-Единый контекст, передаваемый всем подсистемам каждый кадр.
-
-**Поля:**
-- `Params` — `VehicleParameters` (длина, ширина, скорость, руль)
-- `State` — `FeedbackState` (позиция, скорость, застревание, геометрия)
-- `Request` — `NavigationRequest` (текущая цель)
-- `Path` — `PathResult` (построенный путь)
-- `Plan` — `DrivingPlan` (план манёвров)
-- `CurrentManeuverIndex` — индекс текущего манёвра
-- `RemainingDistance` — оставшееся расстояние
-- `Memory` — `VehicleDriverMemory` (история решений, анти-осцилляция)
-
----
-
-## 13. Система восстановления
-
-### 13.1 RecoveryController
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\RecoveryController.cs`
-
-**Методы:**
-```csharp
-(RecoveryAction Action, Maneuver Maneuver) EvaluateAndGetManeuver(FeedbackState, VehicleDriverMemory)
-  // Главный метод. Вызывает RecoveryDecision.Evaluate(), возвращает действие и манёвр.
-  // UnstuckRock → создаёт UnstuckManeuver
-  // ReverseOut/RebuildPath/AbortAndStop → возвращает только действие (манёвр = null)
-
-bool CheckRecoveryComplete(FeedbackState)  // проверка: скорость > 2.5 км/ч И зазор > 2м
-```
-
-### 13.2 RecoveryDecision
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\RecoveryDecision.cs`
-
-Статический метод `Evaluate()` принимает решение по приоритету (от наиболее специфичного к общему):
-
-```
-1. UnstuckAttempts >= 6 → AbortAndStop (сдаёмся)
-2. UnstuckAttempts >= 4 → RebuildPath (перестроить маршрут)
-3. Спереди блок И сзади свободно И >= 1 попытки → ReverseOut (сдать назад)
-4. IsStuck → UnstuckRock (раскачка)
-5. Иначе → None
-```
-
-Типы действий (`RecoveryAction`):
-
-| Действие | Описание |
-|----------|----------|
-| `None` | Ничего не делать |
-| `UnstuckRock` | Раскачка вперёд-назад (текущее поведение) |
-| `ReverseOut` | Сдать назад и перестроить путь |
-| `CreepAside` | Сместиться в сторону |
-| `RebuildPath` | Перестроить NavMesh-путь |
-| `AbortAndStop` | Остановиться и сдаться |
-
-### 13.3 VehicleDriverMemory (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleDriverMemory.cs`
-
-Добавленные счётчики:
-- `FeasibilityFailures` — сколько раз план не прошёл проверку выполнимости
-- `RecoveryCycles` — сколько циклов восстановления было
-- `UnstuckAttempts` — сколько попыток раскачки (уже был)
+### 5.4 ArrivalController (расширен)
+`Assets\_Scripts\Vehicle\Navigation\ArrivalController.cs`
 
 Методы:
-```csharp
-void RecordFeasibilityFailure()    // +1 к счётчику ошибок
-void RecordRecoveryCycle()         // +1 к счётчику циклов
-void ResetRecoveryCounters()       // сброс всех recovery-счётчиков
-```
-
-Все счётчики сбрасываются в `ResetForNewOrder()` при новом приказе.
+- `HasArrived(pos, yaw, dest, heading?)` — старый, совместимость
+- `HasArrived(FeedbackState, dest, ArrivalCriteria)` — новый
+- `HasCorrectHeading(state, targetYaw, tolerance)` — проверка угла
+- `IsFacingDestination(state, forward)` — смотрит ли на цель
 
 ---
 
-## 14. Визуализация и отладка
+## 6. Часть 3: Проверка выполнимости
 
-### 14.1 VehicleNavigationDebugDrawer (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\VehicleNavigationDebugDrawer.cs`
-
-**Существующие режимы отрисовки:**
-- `m_DrawNavMeshPath` — синие линии и сферы по углам NavMesh-пути
-- `m_DrawManeuverWaypoints` — цветные сферы waypoint-ов (зелёные=вперёд, фиолетовые=назад, оранжевые=разворот)
-- `m_DrawPursuitTarget` — жёлтая сфера точки преследования + пунктир + перекрёстная ошибка
-- `m_DrawCurvatureArc` — дуга поворота (красная=крутой, зелёная=плавный)
-- `m_DrawGeometryProbes` — 4 луча (перед/зад/лево/право) с цветом по зазору
-- `m_DrawVehicleInfo` — состояние, скорость, газ, руль над машиной
-- `m_DrawDestination` — оранжевый крест на цели + стрелка heading
-- `m_DrawLookAheadRing` — кольца дистанции преследования
-
-**Новые режимы:**
-
-`m_DrawDiagonalProbes` — диагональные лучи (±30° вперёд, ±150° назад). Цвет как у основных: зелёный > 4м, жёлтый > 2м, красный < 2м.
-
-`m_DrawFeasibilityInfo` — статус проверки выполнимости над машиной:
-- Зелёный: `F:SAFE`
-- Жёлтый: `F:RISK 0.3 clr=2.1m`
-- Красный: `F:INVALID (drop ahead)`
-
-`m_DrawQueuePreview` — список приказов в очереди:
-```
-Очередь (3):
-  [0] Move → (12, 0, 34) st=Pending
-  [1] Move → (45, 0, 12) st=Pending
-  [2] Park → (67, 0, 89) st=Pending
-```
-
-**Логирование:**
-- `m_LogPlanRebuild` — детальный лог при перестроении плана (режим, дистанция, манёвры, геометрия)
-- `m_LogManeuverTransitions` — лог при смене манёвра
-- `m_LogPursuitEveryFrame` / `m_LogPursuitPeriodSeconds` — периодический лог преследования
-- `m_LogArrival` — лог при смене состояния FSM
-- `m_LogGeometry` — лог геометрии раз в 60 кадров
-
----
-
-## 15. Физический слой
-
-### 15.1 VehicleCommand (расширен)
-**Файл:** `Assets\CombatVehicleSystem\Scripts\Core\VehicleCommand.cs`
-
-**Новые поля:**
+### 6.1 FeasibilityResult
+`Assets\_Scripts\Vehicle\Navigation\FeasibilityResult.cs`
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `HoldPosition` | `bool` | Активно удерживать позицию (тормоз + нулевой газ). Отличается от пассивного coast. |
-| `Phase` | `DrivingPhase` | Фаза движения (см. ниже) |
+| `IsValid` | bool | Можно ли выполнить вообще |
+| `IsFullySafe` | bool | Полностью безопасно |
+| `MinClearance` | float | Минимальный зазор (м) |
+| `RiskScore` | float | 0=безопасно, 1+=рискованно |
+| `HasFrontCollision` | bool | Столкновение спереди |
+| `HasRearCollision` | bool | Столкновение сзади |
+| `HasSideCollision` | bool | Боковое столкновение |
+| `HasCliffRisk` | bool | Риск падения с обрыва |
+| `HasSlopeRisk` | bool | Слишком крутой склон |
+| `HasNarrowPassage` | bool | Узкий проход |
+| `FailureReason` | string | Причина отказа |
+| `FailurePoint` | Vector3 | Точка проблемы |
+| `RecommendedMaxSpeedKmh` | float | Безопасная скорость |
 
-**DrivingPhase — фазы движения:**
-| Значение | Когда используется |
-|----------|-------------------|
-| `Cruise` | Обычное движение вперёд |
-| `Precision` | Точное маневрирование: задний ход, разворот, трёхточечный разворот |
+Фабрики: `Valid`, `Invalid(reason)`, `Invalid(reason, point)`.
+
+### 6.2 ManeuverFeasibilityChecker
+`Assets\_Scripts\Vehicle\Navigation\ManeuverFeasibilityChecker.cs`
+
+Проверяет манёвр ДО исполнения. Константы: мин. зазор спереди 1.8м, сзади 1.8м, сбоку 1.0м, коридор 2.5м.
+
+Методы:
+- `CheckPlan(plan, ctx, params)` / `CheckPlan(plan, geometry, turnRadius)`
+- `CheckForwardPath(geo)` — обрыв? зазор? узко?
+- `CheckReversePath(geo)` — обрыв? зазор? коридор?
+- `CheckTurnAroundArc(sign, radius, geo)` — диагонали + CanFitTurnRadius
+- `CheckParkingSpot(dest, yaw, geo)` — обрыв? тесно?
+
+### 6.3 VehicleLocalGeometry (расширен)
+`Assets\_Scripts\Vehicle\Navigation\VehicleLocalGeometry.cs`
+
+Добавлены в Sample: `FrontDiagonalLeftClearance`, `FrontDiagonalRightClearance`, `RearDiagonalLeftClearance`, `RearDiagonalRightClearance`, `HasDropAhead`, `HasDropBehind`, `HasNarrowPassage`.
+
+Новые методы: `CanFitTurnRadius(radius, geo)`, `HasSafeBackingSpace(geo, min)`, `HasSafeForwardSpace(geo, min)`.
+
+### 6.4 TrajectoryPrediction (расширен)
+`Assets\_Scripts\Vehicle\Navigation\TrajectoryPrediction.cs`
+
+PredictionResult: + `RiskScore`, `CollisionPoint`, `CollisionStepIndex`.
+
+Новые методы: `PredictForManeuver()`, `PredictForward()`, `PredictReverse()`, `PredictTurnAround()`.
+
+---
+
+## 7. Часть 4: Умный планировщик движения
+
+### 7.1 PathBuildOptions
+`Assets\_Scripts\Vehicle\Navigation\PathBuildOptions.cs`
+
+| Поле | По умолчанию | Описание |
+|------|-------------|----------|
+| `AllowPartialPath` | true | Разрешить частичный NavMesh-путь |
+| `AllowDirectFallback` | true | Разрешить прямой fallback |
+| `SampleRadiusFrom` | 3f | Радиус поиска NavMesh от начала |
+| `SampleRadiusTo` | 4f | Радиус поиска NavMesh до цели |
+
+Статические пресеты: `Default`, `SafeOnly`, `ForReverse`.
+
+### 7.2 PathResult (расширен)
+Добавлен `UsedDirectFallback` — был ли использован прямой путь вместо NavMesh.
+
+### 7.3 DrivingPlanner (переработан)
+`Assets\_Scripts\Vehicle\Navigation\DrivingPlanner.cs`
+
+КЛЮЧЕВОЕ ИЗМЕНЕНИЕ. Вместо выбора одного режима по первому углу — генерирует 2-3 кандидата:
+1. **ForwardCandidate** — всегда
+2. **ReverseCandidate** — если геометрия позволяет (`HasSafeBackingSpace`)
+3. **TurnAroundCandidate** — если геометрия позволяет (`CanFitTurnRadius`)
+
+Для каждого: строит манёвры → проверяет Feasibility → считает Cost. Выбирает самый дешёвый валидный. Если все невалидны — fallback на Forward.
+
+### 7.4 DrivingPlan (расширен)
+`Assets\_Scripts\Vehicle\Navigation\DrivingPlan.cs`
+
+| Поле | Описание |
+|------|----------|
+| `Maneuvers` | Список манёвров |
+| `Reason` | Пояснение выбора |
+| `DrivingMode` | Forward/Reverse/TurnAround |
+| `TotalCost` | Стоимость плана |
+| `Feasibility` | Результат проверки (не пересчитывается!) |
+| `Segments` | `IReadOnlyList<ManeuverPlanSegment>` |
+| `EstimatedDistance` | Общая длина |
+| `ReverseDistance` | Длина задним ходом |
+| `TurnCount` | Число разворотов |
+| `Risk` | RiskScore из Feasibility |
+
+Метод `BuildSegments()` вычисляет статистику из манёвров.
+
+### 7.5 ScoringSystem (расширен)
+`Assets\_Scripts\Vehicle\Navigation\ScoringSystem.cs`
+
+Методы:
+- `ScoreCandidate(intent, length, turns, feasibility)` — оценка кандидата
+- `ApplyRiskPenalty(base, feasibility)` — штраф за риск
+- `Evaluate(ctx)` — старый метод (сохранён)
+
+### 7.6 ManeuverPlanSegment
+`Assets\_Scripts\Vehicle\Navigation\ManeuverPlanSegment.cs`
+
+Хранит waypoints и метаданные ОТДЕЛЬНО от логики манёвра.
+
+| Поле | Описание |
+|------|----------|
+| `ManeuverType` | Тип манёвра |
+| `Waypoints` | Маршрутные точки |
+| `DesiredHeadingYaw` | Желаемый угол |
+| `AllowReverse` | Разрешён задний ход |
+| `SpeedScale` | Множитель скорости |
+| `LookAheadOverride` | Фикс. lookahead |
+| `IsArrivalSegment` | Финальный сегмент |
+| `SegmentLength` | Длина сегмента |
+
+---
+
+## 8. Часть 5: Восстановление, стратегии, композиты
+
+### 8.1 RecoveryDecision
+`Assets\_Scripts\Vehicle\Navigation\RecoveryDecision.cs`
+
+Data-класс: `Action`, `SuggestedSteerSign`, `SuggestedCruiseSpeedKmh`, `Reason`.
+
+### 8.2 IRecoveryStrategy
+Интерфейс: `Priority` + `Evaluate(state, geometry, memory) → RecoveryDecision`.
+
+Реализации (в порядке приоритета):
+1. **AbortIfTooManyAttemptsStrategy** (P=1): ≥6 попыток → AbortAndStop
+2. **RebuildPathAfterAttemptsStrategy** (P=2): ≥4 попыток → RebuildPath
+3. **ReverseOutStrategy** (P=3): спереди блок + сзади свободно → ReverseOut
+4. **UnstuckRockStrategy** (P=10): IsStuck → UnstuckRock
+
+`RecoveryStrategyRegistry.Evaluate()` — единая точка входа.
+
+### 8.3 RecoveryAction (enum, расширен)
+`Assets\_Scripts\Vehicle\Navigation\DriverRecovery.cs`
+
+None, StopAndReplan, TurnAround, ThreePointTurn, Abort, **UnstuckRock, ReverseOut, CreepAside, RebuildPath, AbortAndStop**.
+
+### 8.4 RecoveryController (обновлён)
+`Assets\_Scripts\Vehicle\Navigation\RecoveryController.cs`
+
+`EvaluateAndGetManeuver(fb, memory) → (RecoveryAction, Maneuver?)` — вызывает стратегии через `RecoveryStrategyRegistry`. Recovery больше не строит маршруты сам — только инициирует.
+
+### 8.5 VehicleDriverMemory (расширен)
+Добавлены: `FeasibilityFailures`, `RecoveryCycles`. Методы: `RecordFeasibilityFailure()`, `RecordRecoveryCycle()`, `ResetRecoveryCounters()`.
+
+### 8.6 CompositeManeuver
+`Assets\_Scripts\Vehicle\Navigation\CompositeManeuver.cs`
+
+Содержит `List<Maneuver> SubManeuvers`. Метод `Flatten()` разворачивает в плоский список. Пример: `TurnAround = [Forward, Reverse, Forward]`.
+
+---
+
+## 9. Часть 6: Физический слой и фазы движения
+
+### 9.1 DrivingPhase (enum)
+`Assets\CombatVehicleSystem\Scripts\Core\VehicleCommand.cs`
+
+| Значение | Когда |
+|----------|------|
+| `Cruise` | Обычное движение |
+| `Precision` | Точное маневрирование (задний ход, развороты) |
 | `Parking` | Парковка, подъезд с heading |
 | `Recovery` | Выход из застревания |
 
-Фаза задаётся в `MotionController.ResolvePhase()` на основе типа текущего манёвра и автоматически пробрасывается в `VehicleCommand`.
+### 9.2 VehicleCommand (расширен)
+Добавлены: `HoldPosition` (активное удержание), `Phase` (DrivingPhase).
 
-### 15.2 MotionController (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\MotionController.cs`
+Фабрики: `Idle` (HoldPosition=false, Phase=Cruise), `SoftPark` (HoldPosition=false, Phase=Parking).
 
-**Новые методы:**
+### 9.3 MotionController (расширен)
+`Assets\_Scripts\Vehicle\Navigation\MotionController.cs`
 
-```csharp
-VehicleCommand HoldInPlace()
-  // Активное удержание позиции:
-  //   Steer = текущий (не меняется)
-  //   Throttle = 0
-  //   BrakeMode = Soft
-  //   HoldPosition = true
-  //   Phase = Parking
+Новые методы:
+- `HoldInPlace()` — активное удержание: throttle=0, Brake=Soft, HoldPosition=true, Phase=Parking
+- `Park()` — вызывает HoldInPlace() + плавно выравнивает руль
+- `ResolvePhase(ctx)` — определяет Phase по типу манёвра
 
-VehicleCommand Park()
-  // Парковочная остановка:
-  //   Вызывает HoldInPlace()
-  //   Дополнительно: плавно выравнивает руль к нулю
-  //   Phase = Parking
-```
+`Convert()` — устанавливает Phase через ResolvePhase.
 
-**Модификация `Convert()`:** теперь устанавливает `Phase` через `ResolvePhase(ctx)`.
+Добавлены:
+- **DriverComfortLimiter** — сглаживание throttle (rate 0.15/кадр)
+- **SteeringDamping** — экспоненциальное замедление руля при >40 км/ч
 
-**`BrakeToStop()`:** теперь также устанавливает `Phase` из контекста.
+### 9.4 GoalLimiter (расширен)
+`Assets\_Scripts\Vehicle\Navigation\Speed\GoalLimiter.cs`
 
-### 15.3 GoalLimiter (расширен)
-**Файл:** `Assets\_Scripts\Vehicle\Navigation\Speed\GoalLimiter.cs`
+При ApproachWithHeading/Parking форсирует creep-скорость независимо от расстояния.
 
-Добавлена проверка типа манёвра: если текущий манёвр — `ApproachWithHeading` или `Parking`, скорость принудительно ограничивается до `m_CreepSpeedKmh` (3 км/ч) независимо от расстояния до цели.
+### 9.5 SpeedPlanner (расширен)
+Учитывает `FeasibilityResult.RecommendedMaxSpeedKmh` как дополнительный лимит.
 
-### 15.4 DriverFSM.TickHolding()
-Упрощён до одной строки: `return m_Motion.HoldInPlace()`. Раньше был ручной if/else с проверкой скорости и созданием команды вручную.
+### 9.6 DriverFSM.TickHolding()
+Упрощён до `return m_Motion.HoldInPlace()`.
 
 ---
 
-## 16. Полный список файлов
+## 10. Часть 7: Vehicle Safety System
 
-### Новые файлы (созданы в ходе рефакторинга)
+**Принцип:** последний фильтр перед физикой. Не меняет планы, не вмешивается в Pursuit. Только не даёт отправить опасную команду.
 
-| Файл | Назначение | Часть |
-|------|-----------|------|
-| `Navigation/VehicleOrderType.cs` | Типы приказов (Move, Stop, Hold, Park...) | 1 |
-| `Navigation/ArrivalFacingMode.cs` | Режимы ориентации при прибытии | 1 |
-| `Navigation/VehicleMoveOrder.cs` | Класс приказа с жизненным циклом | 1 |
-| `Navigation/VehicleOrderQueue.cs` | Диспетчер очереди приказов | 1 |
-| `Navigation/ArrivalCriteria.cs` | Конфигурация критериев прибытия | 2 |
-| `Navigation/ApproachWithHeadingManeuver.cs` | Манёвр подъезда с heading | 2 |
-| `Navigation/FeasibilityResult.cs` | Вердикт проверки выполнимости | 3 |
-| `Navigation/ManeuverFeasibilityChecker.cs` | Проверщик выполнимости манёвров | 3 |
-| `Navigation/PathBuildOptions.cs` | Опции построения пути | 4 |
-| `Navigation/RecoveryDecision.cs` | Выбор стратегии выхода из застревания | 5 |
+### 10.1 Архитектура
+```
+MotionController.Convert() → сырая команда
+    │
+    ▼
+VehicleSafetyController.Apply()
+    │
+    ├── 1. CommandSanitizer        (логика)
+    ├── 2. DynamicsLimiter         (RollLimit + SteeringRate)
+    ├── 3. StabilityLimiter        (WheelLift + Slip + RollAngle + Pitch)
+    ├── 4. AirborneProtection      (в воздухе)
+    └── 5. RecoveryProtection      (recovery в опасности)
+    │
+    ▼
+VehicleBrain.SetCommand()
+```
+
+### 10.2 ISafetyLimiter (интерфейс)
+`Assets\_Scripts\Vehicle\Navigation\Safety\ISafetyLimiter.cs`
+
+`SafetyInput`: State, Params, ProposedCommand, DeltaTime, IsRecovering, EulerAngles.
+`SafetyOutput`: Command, Triggered, Warning, ShouldAbortRecovery.
+
+### 10.3 CommandSanitizer
+Проверяет: Throttle+HardBrake → газ=0, HoldPosition+Throttle → газ=0, HoldPosition без Brake → добавляет Soft.
+
+### 10.4 DynamicsLimiter
+- **RollLimiter**: a = V²/R. Если >6 м/с² → throttle снижается. Ограничивает СКОРОСТЬ, не руль.
+- **SteeringRateLimiter**: Δsteer ≤ 1.2/сек. Убирает дёрганье на высоких скоростях.
+
+### 10.5 StabilityLimiter
+- **WheelLift**: ≥2 колёс одного борта в воздухе → газ×0.3, руль×0.5
+- **SlipProtection**: sidewaysSlip>0.15 → газ×0.5; >0.3 → газ=0, руль×0.5
+- **RollAngleMonitor**: 20°→газ×0.5, 25°→SoftBrake, 35°→HardBrake+Steer=0
+- **PitchProtection**: 20°→газ×0.5, 30°→SoftBrake
+
+### 10.6 AirborneProtection
+В воздухе: газ=0, тормоз=0, руль сохранён. Запрещает смену передачи.
+
+### 10.7 RecoveryProtection
+Roll>30° или Pitch>35° или airborne → прервать recovery.
+
+### 10.8 PursuitController.AdaptiveLookAhead
+Если curvature меняет знак ≥3 раз → lookahead×1.5. Плавно возвращается к 1.0.
+
+### 10.9 PrecisionArrival в PursuitController
+При distanceToEnd < 2м: lookahead ≤1.2м, curvature ≤0.25, скорость понижена.
+
+---
+
+## 11. Часть 8: Precision Arrival System
+
+**Принцип:** включается только у цели (< planningDistance). Генерирует 5 стратегий, выбирает по стоимости.
+
+### 11.1 ArrivalPlanningSettings
+`Assets\_Scripts\Vehicle\Navigation\ArrivalPlanningSettings.cs`
+
+Все расстояния вычисляются от `TurnRadius`:
+- `PlanningDistance` = max(4R, 6м)
+- `PreGoalDistance` = max(0.4R, 2м)
+- `RepositionStep` = max(0.55R, 1.5м)
+- `PrecisionMaxSpeedKmh` = 3
+- `PrecisionLookAhead` = 1.2м
+
+### 11.2 ArrivalAnalysis
+`Assets\_Scripts\Vehicle\Navigation\ArrivalAnalysis.cs`
+
+Чистая геометрия, не решения:
+- `Distance`, `HeadingError`, `LateralOffset`
+- `TargetInFront`, `TargetInsideTurningCircle`
+- `CanReachForward`, `CanReachReverse`
+
+### 11.3 IArrivalStrategy
+Интерфейс: `Generate(analysis, settings, pos, yaw, target, heading) → ArrivalPlan { Maneuvers, Cost, DebugName }`.
+
+### 11.4 Стратегии (5 штук)
+- **DirectArrivalStrategy**: цель достижима прямо → ApproachWithHeading/Parking
+- **ArcArrivalStrategy**: дуга если угол 15°-120° → TurnAroundManeuver + Arrival
+- **ReverseArrivalStrategy**: задний ход если цель сзади близко → ReverseManeuver + Arrival
+- **RepositionArrivalStrategy**: отъезд назад → Reverse + Arrival
+- **TurnAroundArrivalStrategy**: полный разворот → TurnAround + Forward + Arrival
+
+### 11.5 ArrivalCostEvaluator
+`cost = distance*1.2 + headingError*0.3 + reverse*8 + maneuvers*5 + precision*2`
+
+### 11.6 ArrivalPlanner
+Главный оркестратор. Вызывается из `DrivingPlanner.AppendArrivalManeuver()` когда расстояние < PlanningDistance.
+
+---
+
+## 12. Манёвры — полный справочник
+
+### Базовый класс Maneuver
+`Assets\_Scripts\Vehicle\Navigation\Maneuver.cs`
+
+Абстрактный. Свойства: `Type`, `Waypoints`, `AllowReverse`, `SpeedScale`, `LookAheadOverride`, `IsArrivalManeuver`. Метод: `IsComplete(ctx)`.
+
+### Типы (VehicleManeuverType)
+| Тип | Класс | Когда | SpeedScale | AllowReverse |
+|-----|-------|------|------------|-------------|
+| Forward | ForwardManeuver | Основной режим | 1.0 | false |
+| Reverse | ReverseManeuver | Устаревший | 1.0 | true |
+| ReverseIntent | ReverseIntentManeuver | Полный задний ход | — | true |
+| TurnAround | TurnAroundManeuver | Разворот 180° | 0.5 | false |
+| ThreePointTurn | ThreePointTurnManeuver | Узкое место | 0.3 | true |
+| Parking | ParkingManeuver | Парковка + heading | 0.22 | true |
+| ApproachWithHeading | ApproachWithHeadingManeuver | Подъезд с heading | 0.28 | true |
+| Unstuck | UnstuckManeuver | Раскачка | — | false |
+| Stop | StopManeuver | Остановка | 0 | false |
+
+### Как работает Pursuit (чистое преследование)
+```
+PursuitController.Tick(ctx, maneuver, speedFrac, topSpeed, lookAhead, override?)
+  1. ComputeLookAhead(speed, base) → dynamic lookahead
+  2. FindNearestWaypointIndex(waypoints, pos)
+  3. FindLookAheadIndex(waypoints, nearest, pos, lookAhead)
+  4. Pure pursuit: κ = 2·crossTrack / L²
+  5. Clamp curvature (distance-based + speed-based via SteeringLimitCurve)
+  6. AdaptiveLookAhead: detect oscillation, increase lookahead
+  7. Speed = capKmh * min(curvatureFraction, arrivalScale) * launchRamp
+  8. Precision mode: if distToEnd < 2m → tighter control
+  9. Return MotionCommand { DesiredSpeedKmh, DesiredCurvature, Reverse }
+```
+
+### Как манёвры создаются
+```
+DrivingPlanner.BuildPlan()
+  ├─ BuildForwardCandidate()    → [Forward] + AppendArrival()
+  ├─ BuildReverseCandidate()    → [ReverseIntent] + AppendArrival()
+  └─ BuildTurnAroundCandidate() → [TurnAround, Forward] + AppendArrival()
+
+AppendArrivalManeuver():
+  → ArrivalPlanner.PlanArrival() (если dist < PlanningDistance)
+    → генерирует 5 кандидатов, выбирает лучший
+  → fallback: старый switch по FacingMode
+```
+
+---
+
+## 13. Логирование — все теги и сообщения
+
+Каждый модуль имеет `public static bool DebugLog = true`. В консоли фильтровать по тегу:
+
+### [DrivingPlanner]
+```
+[DrivingPlanner] candidates: Forward (always), Reverse=True (ok), TurnAround=False (no space), proposed=Reverse safe=Reverse
+[DrivingPlanner]   Forward: cost=45.2 valid=True risk=0.00
+[DrivingPlanner]   Reverse: cost=38.1 valid=True risk=0.15
+[DrivingPlanner] => CHOSE Reverse cost=38.1 (of 2 candidates), firstAngle=160° dist=8.3m
+```
+Если Reverse не создался — искать причину: `disabled` (AllowReverse=false), `no space` (HasSafeBackingSpace=false).
+
+### [ArrivalPlanner]
+```
+[ArrivalPlanner] dist=3.2m angle=25° lateral=1.4m front=True deadZone=False turnR=6.5
+[ArrivalPlanner]   Direct: cost=8.3 maneuvers=1
+[ArrivalPlanner]   Arc: SKIP (angle out of arc range)
+[ArrivalPlanner]   Reverse: cost=15.2 maneuvers=2
+[ArrivalPlanner] => CHOSE Direct cost=8.3
+```
+Если слишком далеко: `too far: 12.3m > 10.0m planning distance`.
+Если нет стратегий: `NO valid arrival strategy found` — fallback на старую логику.
+
+### [Feasibility]
+```
+[Feasibility] Forward REJECTED: front clearance 0.5m < 1.8m
+[Feasibility] Reverse REJECTED: drop behind
+[Feasibility] TurnAround REJECTED: cannot fit turn radius 6.5m
+```
+Молча проходит — значит план принят.
+
+### [Recovery]
+```
+[Recovery] action=UnstuckRock reason=stuck — rocking attempts=1 recovering=False
+[Recovery] action=ReverseOut reason=front blocked, rear clear — backing out attempts=3 recovering=True
+[Recovery] action=RebuildPath reason=unstuck 4 attempts — replanning attempts=4 recovering=True
+[Recovery] action=AbortAndStop reason=unstuck 6 attempts — aborting attempts=6 recovering=True
+```
+
+### [PathPlanner]
+```
+[PathPlanner] NavMesh failed, using direct fallback [ (12,0,5) → (45,0,30) ] fromNav=True toNav=False
+[PathPlanner] NavMesh path failed, direct fallback disabled → Invalid
+```
+
+### [OrderQueue]
+```
+[OrderQueue] EmergencyStop — cancel all, queue was 3
+[OrderQueue] completed #1 Move
+[OrderQueue] CancelAll: hard-stop (queue=2 current=True)
+```
+
+### [DriverFSM]
+```
+[DriverFSM] RebuildPlan: mode=Forward maneuvers=[ [0]Forward [1]ApproachWithHeading ] cost=38.1 dist=42.5m rev=0.0m risk=0.00 reason=mode=Forward cost=38.1...
+```
+
+### [Safety]
+```
+[Safety] DynamicsLimiter: RollLimit: lat=7.2>6 safe=38.5kmh
+[Safety] DynamicsLimiter: (steering rate clamped)
+[Safety] StabilityLimiter: SlipCritical: 0.35>0.3
+[Safety] StabilityLimiter: WheelLift: left=2 right=0 off ground
+[Safety] StabilityLimiter: RollCritical: 27.3°>25°
+[Safety] AirborneProtection: airborne
+[Safety] RecoveryProtection: RecoveryAbort: roll=32° pitch=12° airborne=False
+```
+
+### [Polygon] (при сборке трека)
+```
+[Polygon] Ready. X=80, Z=5, length ~370m, 10 sections.
+```
+
+---
+
+## 14. Тестовый полигон
+
+Меню: **Polygone → Vehicles → Build NAVIGATION Test Track**
+
+Создаёт полигон справа от существующей сцены (X=80, Z=5).
+
+| Секция | Название | Длина | Описание |
+|--------|---------|------|----------|
+| START | Старт | — | Зелёный столб |
+| 1 | Slalom | ~72м | 8 оранжевых конусов через 9м, смещение ±6м |
+| 2 | Narrow passage | 30м | Стены 5м шириной, 30м длины |
+| 3 | Sharp 90° right | 16м | Красная стена, поворот вправо |
+| 4 | Obstacle | 18м | Красная стена, объезд справа |
+| 5a | Ramp up 10° | 24м | Подъём +4.2м |
+| 5b | Plateau | 12м | Плоская вершина |
+| 5c | Ramp down | 18м | Спуск |
+| 6 | Side slope | 22м | Боковой уклон |
+| 7 | Drop edge | 10м | Платформа с краем |
+| 8 | Reverse target | 11м | Цель сзади, стены по бокам |
+| 9 | Heading arrival | 11м | Синий маркер + стрелка |
+| 10 | Waypoint chain | 45м | 4 оранжевых маркера для Shift+клик |
+| FINISH | Финиш | — | Красный столб |
+
+Параметры: Ground 80×380м, полоса 14м, камера Y=25 (угол 60°). Машина ставится в начало. NavMesh перезапекается.
+
+---
+
+## 15. Полный список файлов
+
+### Новые файлы (созданы)
+
+| Файл | Часть | Назначение |
+|------|-------|-----------|
+| `Navigation/VehicleOrderType.cs` | 1 | Enum типов приказов |
+| `Navigation/ArrivalFacingMode.cs` | 1 | Enum режимов ориентации |
+| `Navigation/VehicleMoveOrder.cs` | 1 | Класс приказа с OrderState |
+| `Navigation/VehicleOrderQueue.cs` | 1 | Очередь приказов |
+| `Navigation/ArrivalCriteria.cs` | 2 | Критерии прибытия |
+| `Navigation/ApproachWithHeadingManeuver.cs` | 2 | Манёвр подъезда с heading |
+| `Navigation/FeasibilityResult.cs` | 3 | Вердикт проверки |
+| `Navigation/ManeuverFeasibilityChecker.cs` | 3 | Проверщик выполнимости |
+| `Navigation/PathBuildOptions.cs` | 4 | Опции построения пути |
+| `Navigation/ManeuverPlanSegment.cs` | 4 | Сегмент с waypoints |
+| `Navigation/CompositeManeuver.cs` | 5 | Составной манёвр |
+| `Navigation/RecoveryDecision.cs` | 5 | Data-класс + стратегии |
+| `Navigation/ArrivalPlanningSettings.cs` | 8 | Настройки точного прибытия |
+| `Navigation/ArrivalAnalysis.cs` | 8 | Геометрический анализ |
+| `Navigation/IArrivalStrategy.cs` | 8 | Интерфейс + ArrivalPlan |
+| `Navigation/ArrivalCostEvaluator.cs` | 8 | Оценка стоимости |
+| `Navigation/DirectArrivalStrategy.cs` | 8 | Прямой подъезд |
+| `Navigation/ArcArrivalStrategy.cs` | 8 | Плавная дуга |
+| `Navigation/ReverseArrivalStrategy.cs` | 8 | Задний ход |
+| `Navigation/RepositionArrivalStrategy.cs` | 8 | Перепозиционирование |
+| `Navigation/TurnAroundArrivalStrategy.cs` | 8 | Полный разворот |
+| `Navigation/ArrivalPlanner.cs` | 8 | Главный оркестратор |
+| `Navigation/Safety/ISafetyLimiter.cs` | 7 | Интерфейс защит |
+| `Navigation/Safety/VehicleSafetyController.cs` | 7 | Диспетчер |
+| `Navigation/Safety/CommandSanitizer.cs` | 7 | Логическая проверка |
+| `Navigation/Safety/DynamicsLimiter.cs` | 7 | RollLimit + SteeringRate |
+| `Navigation/Safety/StabilityLimiter.cs` | 7 | WheelLift + Slip + Roll + Pitch |
+| `Navigation/Safety/AirborneProtection.cs` | 7 | Защита в воздухе |
+| `Navigation/Safety/RecoveryProtection.cs` | 7 | Защита recovery |
+| `Editor/VehicleNavTestSceneSetup.cs` | — | Сборка тестового полигона |
 
 ### Изменённые файлы
 
-| Файл | Что изменилось | Части |
-|------|---------------|-------|
-| `Navigation/NavigationRequest.cs` | +FacingMode, +Allow*, +MinArrival*, +FromOrder() | 1, 2 |
-| `Navigation/VehicleNavigation.cs` | +Очередь, +EnqueueOrder, +TryPromoteNextOrder, +LastFeasibility | 1, 3, 4 |
-| `VehicleController.cs` | +EnqueueMoveOrder, +AppendMoveToQueue, +StopCurrentOrder, +ClearOrders | 1 |
-| `Navigation/DriverFSM.cs` | +Recovery-логика, +Feasibility, +TickHolding через HoldInPlace, +TickArrival через ArrivalCriteria | 2, 3, 5, 6 |
-| `Navigation/VehicleManeuverType.cs` | +ApproachWithHeading | 2 |
-| `Navigation/PathPlanner.cs` | +BuildPath с PathBuildOptions | 4 |
-| `Navigation/PathResult.cs` | +UsedDirectFallback | 4 |
-| `Navigation/DrivingPlan.cs` | +TotalCost, +DrivingMode | 4 |
-| `Navigation/DrivingPlanner.cs` | Полная переработка: многокандидатная логика | 4 |
-| `Navigation/ScoringSystem.cs` | +ScoreCandidate, +ApplyRiskPenalty | 3, 4 |
-| `Navigation/ArrivalController.cs` | +HasArrived с ArrivalCriteria, +HasCorrectHeading, +IsFacingDestination | 2 |
-| `Navigation/ManeuverPlanner.cs` | +case ApproachWithHeading | 2 |
-| `Navigation/PathSmoother.cs` | +GenerateApproachWithHeadingArc | 2 |
-| `Navigation/VehicleLocalGeometry.cs` | +Диагонали, +Обрывы, +CanFitTurnRadius, +HasSafe*Space | 3 |
-| `Navigation/TrajectoryPrediction.cs` | +PredictForManeuver, +PredictForward/Reverse/TurnAround, +RiskScore | 3 |
-| `Navigation/RecoveryController.cs` | +EvaluateAndGetManeuver | 5 |
-| `Navigation/VehicleDriverMemory.cs` | +FeasibilityFailures, +RecoveryCycles, +Record* | 5 |
-| `Navigation/DriverRecovery.cs` | +UnstuckRock, +ReverseOut, +CreepAside, +RebuildPath, +AbortAndStop в enum | 5 |
-| `Navigation/VehicleNavigationDebugDrawer.cs` | +Диагонали, +Feasibility, +Очередь | 5 |
-| `Navigation/VehicleOrderQueue.cs` | +QueuedOrders свойство | 5 |
-| `Core/VehicleCommand.cs` | +HoldPosition, +Phase (DrivingPhase) | 6 |
-| `Navigation/MotionController.cs` | +HoldInPlace(), +Park(), +ResolvePhase() | 6 |
-| `Navigation/Speed/GoalLimiter.cs` | +Проверка манёвра для creep-скорости | 6 |
+| Файл | Части |
+|------|-------|
+| `VehicleController.cs` | 1 |
+| `Navigation/NavigationRequest.cs` | 1, 2 |
+| `Navigation/VehicleNavigation.cs` | 1, 3, 4, 7, 8 |
+| `Navigation/DriverFSM.cs` | 2, 3, 5, 6 |
+| `Navigation/PathPlanner.cs` | 4 |
+| `Navigation/PathResult.cs` | 4 |
+| `Navigation/DrivingPlan.cs` | 4 |
+| `Navigation/DrivingPlanner.cs` | 2, 4, 8 |
+| `Navigation/ScoringSystem.cs` | 3, 4 |
+| `Navigation/ArrivalController.cs` | 2 |
+| `Navigation/ManeuverPlanner.cs` | 2 |
+| `Navigation/Maneuver.cs` | — |
+| `Navigation/PathSmoother.cs` | 2 |
+| `Navigation/VehicleManeuverType.cs` | 2 |
+| `Navigation/VehicleLocalGeometry.cs` | 3 |
+| `Navigation/TrajectoryPrediction.cs` | 3 |
+| `Navigation/RecoveryController.cs` | 5 |
+| `Navigation/DriverRecovery.cs` | 5 |
+| `Navigation/VehicleDriverMemory.cs` | 5 |
+| `Navigation/MotionController.cs` | 6 |
+| `Navigation/PursuitController.cs` | 7, 8 |
+| `Navigation/Speed/SpeedPlanner.cs` | 4, 6 |
+| `Navigation/Speed/GoalLimiter.cs` | 6 |
+| `Navigation/VehicleNavigationDebugDrawer.cs` | 5 |
+| `Core/VehicleCommand.cs` | 6 |
 
 ---
 
-## 17. Отчёт: что сделано и что нет
+## 16. Словарь терминов
 
-### Сделано (все 8 этапов)
-
-1. **Очередь приказов** — можно ставить цепочки команд, Shift+клик добавляет в очередь, EmergencyStop прерывает всё.
-2. **Прибытие с направлением** — машина паркуется капотом по стрелке, FacingMode управляет поведением.
-3. **Проверка выполнимости** — перед движением проверяется геометрия, обрывы, зазоры. Невыполнимые манёвры отвергаются.
-4. **Умный выбор маршрута** — просчитывается 2-3 варианта (вперёд/назад/разворот), выбирается лучший по стоимости и безопасности.
-5. **Восстановление** — умный выход из застревания: раскачка → задний ход → перестроение → остановка.
-6. **Визуализация** — диагональные лучи, статус проверки, очередь приказов.
-7. **Финальный регулятор** — фазы движения (Cruise/Precision/Parking/Recovery), активное удержание позиции, creep при парковке.
-8. **Обратная совместимость** — старые команды (один клик ПКМ) работают без изменений.
-
-### Не сделано (отложено осознанно)
-
-| Пункт | Причина |
-|-------|---------|
-| `CreepForwardManeuver` — медленный подкат для тесных мест | Отложен. Частично заменён creep-режимом в GoalLimiter. |
-| `WaitInPlaceManeuver` — держать позицию без выхода из FSM | Отложен. Функционально покрыто Holding + HoldPosition. |
-| `PullAsideManeuver` — съехать в сторону если дорога блокирована | Отложен. Требует сложной геометрии объезда. |
-| `RepathManeuver` — перестроить путь если текущий не проходит | Отложен. Частично покрыто RecoveryAction.RebuildPath. |
-| `AbortToStopManeuver` — быстро но безопасно остановиться | Отложен. Покрыто BrakeToStop + EmergencyStop. |
-| `RecoverAndTurnManeuver` — раскачка + выбор нового направления | Отложен. Покрыто RecoveryDecision с эскалацией. |
-| `RouteVisualizer` — отдельная система визуализации маршрута | Заменено расширением существующего DebugDrawer. |
-| `ManeuverPlanSegment` — метаданные сегментов манёвра | Отложен. Без потребителей (визуализация, отладка) не нужен. |
-| `PathResult.EstimatedRisk` — оценка риска на уровне пути | Отложен. Дублирует FeasibilityResult. |
-| `VehicleLocalGeometry.CanFitVehicleBox` — проверка вписывания габаритов | Отложен. Слишком сложная геометрия для текущего этапа. |
-| `ReversePlan` — расширение ReverseDriver | Отложен. ReverseDriver уже работает хорошо. |
-
----
-
-## 18. Итоговая схема системы
-
-```
-┌─────────────────────────────────────────────────┐
-│                  ИГРОК / AI                       │
-│   ПКМ = замена цели                               │
-│   Shift+ПКМ = добавить в очередь                   │
-│   ПКМ+тянуть = цель с направлением                 │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│              VehicleController                    │
-│   IssueMoveOrder() — замена цели (старый API)      │
-│   AppendMoveToQueue() — добавить в очередь         │
-│   StopCurrentOrder() — прервать текущий            │
-│   ClearOrders() — очистить всё                     │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│             VehicleOrderQueue                     │
-│   m_Queue: [Order₁, Order₂, Order₃]               │
-│   m_Current: Order₀ (Executing)                   │
-│   Продвижение: Complete → PromoteNext             │
-│   Прерывание: Stop (сохранить), Emergency (очистить)│
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│           VehicleNavigation                       │
-│   Владеет всеми подсистемами                       │
-│   EnqueueOrder() → TryPromoteNextOrder()          │
-└───┬──────────┬──────────┬──────────┬─────────────┘
-    │          │          │          │
-    ▼          ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────┐
-│PathPlanner│ │Driving │ │Maneuver│ │ManeuverFeasi-│
-│ NavMesh  │ │Planner │ │Planner │ │bilityChecker │
-│ + прямой │ │Кандида-│ │Waypoint│ │Геометрия +   │
-│ fallback │ │ты +    │ │генера- │ │Предикшн =    │
-│          │ │Scoring │ │ция     │ │Вердикт       │
-└────┬─────┘ └───┬────┘ └───┬────┘ └──────┬───────┘
-     │           │          │              │
-     └───────────┴──────────┴──────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────┐
-│                 DriverFSM                         │
-│   Idle → Driving → Arrival → Holding              │
-│          ↓                                        │
-│       Recovery (Unstuck/Reverse/Rebuild/Abort)    │
-│                                                    │
-│   ExecuteManeuver():                               │
-│     PursuitController → SpeedPlanner → MotionCtrl  │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│              VehicleCommand                       │
-│   Steer, Throttle, BrakeMode, HoldPosition,       │
-│   Phase (Cruise/Precision/Parking/Recovery)        │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│         VehicleBrain → WheeledMotor               │
-│   Физика колёс, мотор, руль, тормоза               │
-└─────────────────────────────────────────────────┘
-```
+| Термин | Определение |
+|--------|-----------|
+| **Order** | Приказ — высокоуровневая команда (Move, Stop, Hold, Park...) |
+| **Request** | Навигационный запрос — иммутабельный struct, мост от приказов к планировщику |
+| **Path** | Путь — результат PathPlanner (NavMesh-углы или прямой fallback) |
+| **Plan** | План — результат DrivingPlanner (список манёвров + cost + feasibility) |
+| **Maneuver** | Манёвр — атомарная единица плана (Forward, Reverse, TurnAround...) |
+| **Segment** | Сегмент — waypoints + метаданные одного манёвра |
+| **Candidate** | Кандидат — вариант плана (DrivingPlanner генерирует несколько) |
+| **Feasibility** | Выполнимость — можно ли физически проехать (геометрия + предикшн) |
+| **Pursuit** | Чистое преследование — κ = 2·crossTrack / L² |
+| **Curvature** | Кривизна (κ) — обратный радиус поворота, 1/м |
+| **Arrival** | Прибытие — финальная фаза подъезда к цели |
+| **Recovery** | Восстановление — выход из застревания |
+| **Safety** | Безопасность — последний фильтр перед физикой |
+| **Phase** | Фаза движения — Cruise / Precision / Parking / Recovery |
+| **FSM** | Конечный автомат водителя — DriverFSM |
+| **NavMesh** | Навигационная сетка Unity |
+| **TTC** | Time To Collision — время до столкновения |
+| **PID** | Пропорционально-интегрально-дифференциальный регулятор |
+| **Waypoint** | Маршрутная точка |
+| **LookAhead** | Дистанция упреждения для Pure Pursuit |
+| **Cross-track** | Боковое отклонение от траектории |
+| **Slip** | Боковое скольжение колеса |
+| **Roll** | Крен (вращение вокруг оси Z) |
+| **Pitch** | Тангаж (вращение вокруг оси X) |
