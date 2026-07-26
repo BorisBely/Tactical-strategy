@@ -298,6 +298,7 @@ namespace VehicleNavigation
 		{
 			m_PlanDirty = false;
 			m_GoalLocked = false;
+			m_ReverseDriver = null;
 			FeedbackState fb = m_Ctx.State;
 
 			if (!m_Ctx.HasRequest)
