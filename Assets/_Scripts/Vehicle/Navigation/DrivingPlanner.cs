@@ -93,7 +93,7 @@ namespace VehicleNavigation
 				c.Feasibility = m_Feasibility != null
 					? m_Feasibility.CheckPlan(c.Plan, _feedback.Geometry, _turnRadius)
 					: FeasibilityResult.Valid;
-				c.Cost = ScoreCandidate(c, flatToDest, firstAngle, _ctx);
+				c.Cost = ScoreCandidate(c, flatToDest, firstAngle, _turnRadius, _ctx);
 				if (c.Feasibility != null && c.Feasibility.IsValid)
 					bestFeasibility = c.Feasibility;
 				if (DebugLog)
@@ -221,7 +221,7 @@ namespace VehicleNavigation
 			return new DrivingCandidate(VehicleDrivingMode.TurnAround, maneuvers);
 		}
 
-		private static float ScoreCandidate(DrivingCandidate _candidate, float _flatToDest, float _firstAngle, DriverContext _ctx)
+		private static float ScoreCandidate(DrivingCandidate _candidate, float _flatToDest, float _firstAngle, float _turnRadius, DriverContext _ctx)
 		{
 			int turns = _candidate.Mode == VehicleDrivingMode.TurnAround ? 1 : 0;
 			DriverIntent intent = _candidate.Mode switch
@@ -230,7 +230,7 @@ namespace VehicleNavigation
 				VehicleDrivingMode.TurnAround => DriverIntent.TurnAround,
 				_ => DriverIntent.DriveForward
 			};
-			return ScoringSystem.ScoreCandidate(intent, _flatToDest, turns, _candidate.Feasibility, _firstAngle);
+			return ScoringSystem.ScoreCandidate(intent, _flatToDest, turns, _candidate.Feasibility, _firstAngle, _turnRadius);
 		}
 
 		private sealed class DrivingCandidate

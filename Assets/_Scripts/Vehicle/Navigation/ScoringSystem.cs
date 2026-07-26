@@ -17,7 +17,8 @@ namespace VehicleNavigation
 			float _pathLength,
 			int _turnCount,
 			FeasibilityResult _feasibility,
-			float _firstAngle = 0f)
+			float _firstAngle = 0f,
+			float _turnRadius = 6f)
 		{
 			float baseScore = _pathLength * c_Weight_Distance
 			                  + _turnCount * c_Weight_Turns
@@ -28,16 +29,20 @@ namespace VehicleNavigation
 			switch (_intent)
 			{
 				case DriverIntent.Reverse:
-					baseScore += 15f;
+					baseScore += 12f;
 					break;
 				case DriverIntent.TurnAround:
-					baseScore += 10f;
+					// Turn arc adds significant distance: ~πR
+					baseScore += 8f + _turnRadius * 1.5f;
 					break;
 				case DriverIntent.DriveForward:
-					if (absAngle > 135f) baseScore += 50f;      // target behind → huge penalty
-					else if (absAngle > 90f) baseScore += 25f;  // target to the side → moderate penalty
+					if (absAngle > 135f) baseScore += 50f;
+					else if (absAngle > 90f) baseScore += 25f;
 					break;
 			}
+
+			return ApplyRiskPenalty(baseScore, _feasibility);
+		}
 
 			return ApplyRiskPenalty(baseScore, _feasibility);
 		}
