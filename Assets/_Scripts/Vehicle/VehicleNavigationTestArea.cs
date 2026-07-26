@@ -2,286 +2,266 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Builds a comprehensive navigation test track for the vehicle navigation system v2.0.
-/// Places the track to the RIGHT of the existing targets/demo area.
-/// Includes: slalom, narrow passage, sharp turns, obstacles, ramps, drops,
-/// heading-arrival test, reverse test, and multi-waypoint queue test.
+/// Builds a navigation test track at a fixed world position.
+/// 10 sections of increasing complexity.
 /// </summary>
 public static class VehicleNavigationTestArea
 {
 	public const string RootName = "VehicleNavTestTrack";
 
-	private const float c_LaneWidth = 10f;
-	private const float c_TrackOffsetX = 60f; // offset to the right from car position
-	private const float c_BarrierHeight = 1.2f;
-	private const float c_BarrierThickness = 0.3f;
+	// Fixed track origin — far from existing scene content
+	public static readonly Vector3 TrackOrigin = new Vector3(80f, 0f, 5f);
 
-	#region Public API
-	public static GameObject Build(Vector3 _origin)
+	// Ground slab size covering entire track
+	private const float c_GroundW = 40f;
+	private const float c_GroundL = 180f;
+	private const float c_Lane = 10f;
+	private const float c_BarrierH = 1.5f;
+	private const float c_BarrierT = 0.4f;
+
+	private const int c_LayerGround = 6;   // "Ground"
+	private const int c_LayerObstacle = 9;  // "Obstacle"
+
+	public static GameObject Build()
 	{
-		GameObject existing = GameObject.Find(RootName);
-		if (existing != null)
-			DestroyGo(existing);
+		// Remove old track
+		GameObject old = GameObject.Find(RootName);
+		if (old != null) DestroyGo(old);
+
+		// Remove old ground slab
+		GameObject oldGround = GameObject.Find("NavTestGround");
+		if (oldGround != null) DestroyGo(oldGround);
 
 		var root = new GameObject(RootName);
-		root.transform.position = _origin;
+		root.transform.position = TrackOrigin;
 		SceneManager.MoveGameObjectToScene(root, SceneManager.GetActiveScene());
+
+		// Large drivable ground slab (top face at y=0)
+		CreateGroundSlab(root.transform);
 
 		float x = 0f;
 		float z = 0f;
 
-		// --- Start area ---
-		CreateMarker(root.transform, "START", new Vector3(x, 0.05f, z), Color.green, 2f);
-		CreateLabel(root.transform, "START", new Vector3(x, 1.5f, z), "СТАРТ");
-		z += 4f;
-
-		// --- Section 1: Slalom (cones every 4m, offset ±3m) ---
-		CreateLabel(root.transform, "S1_Slalom", new Vector3(x, 1.5f, z), "1. Змейка (слалом)");
-		float[] slalomOffsets = { 0f, 3f, -3f, 3f, -3f, 3f };
-		for (int i = 0; i < slalomOffsets.Length; i++)
-		{
-			CreateCone(root.transform, $"Cone_S1_{i}", new Vector3(x + slalomOffsets[i], 0f, z + 2f + i * 4f));
-		}
-		z += 2f + slalomOffsets.Length * 4f;
-
-		// --- Section 2: Narrow passage (walls on both sides, 3m gap) ---
-		CreateLabel(root.transform, "S2_Narrow", new Vector3(x, 1.5f, z), "2. Узкий проезд (3м)");
-		float narrowWidth = 1.5f;
-		float narrowLen = 12f;
-		CreateWall(root.transform, "Wall_L_S2", new Vector3(x - narrowWidth, 0.6f, z + narrowLen * 0.5f), new Vector3(c_BarrierThickness, c_BarrierHeight, narrowLen), Color.yellow);
-		CreateWall(root.transform, "Wall_R_S2", new Vector3(x + narrowWidth, 0.6f, z + narrowLen * 0.5f), new Vector3(c_BarrierThickness, c_BarrierHeight, narrowLen), Color.yellow);
-		z += narrowLen + 2f;
-
-		// --- Section 3: Tight right turn ---
-		CreateLabel(root.transform, "S3_TightTurn", new Vector3(x, 1.5f, z), "3. Крутой поворот (вправо 90°)");
-		// Outer wall to force the turn
-		CreateWall(root.transform, "Wall_L_S3", new Vector3(x - 3f, 0.6f, z + 4f), new Vector3(c_BarrierThickness, c_BarrierHeight, 14f), Color.red);
-		z += 8f;
-		// Path turns right
-		float turnX = x + 6f;
-		float turnZ = z;
-		CreateWall(root.transform, "Wall_Back_S3", new Vector3(turnX + 3f, 0.6f, turnZ + 2f), new Vector3(c_BarrierThickness, c_BarrierHeight, 8f), Color.red);
-		x = turnX;
-		z = turnZ + 6f;
-
-		// --- Section 4: Obstacle ahead (wall blocks path, must detour) ---
-		CreateLabel(root.transform, "S4_Obstacle", new Vector3(x, 1.5f, z), "4. Препятствие (объезд)");
-		CreateWall(root.transform, "Block_S4", new Vector3(x, 0.6f, z + 4f), new Vector3(3f, c_BarrierHeight, 1f), Color.red);
-		// Opening on the right
-		CreateWall(root.transform, "Wall_R_S4", new Vector3(x + 4f, 0.6f, z + 4f), new Vector3(c_BarrierThickness, c_BarrierHeight, 8f), Color.yellow);
-		z += 10f;
-		// Path shifted right
-		x += 4f;
-
-		// --- Section 5: Ramp up ---
-		CreateLabel(root.transform, "S5_Ramp", new Vector3(x, 1.5f, z), "5. Подъём (10°)");
-		float rampLen = 10f;
-		float rampRise = 1.7f;
-		CreateRamp(root.transform, "Ramp_S5", new Vector3(x, 0f, z), rampLen, rampRise, c_LaneWidth);
-		z += rampLen;
-		// Plateau
-		CreateBox(root.transform, "Plateau_S5", new Vector3(x, rampRise * 0.5f, z + 3f), new Vector3(c_LaneWidth, rampRise, 6f), new Color(0.4f, 0.5f, 0.35f));
+		// === START ===
+		Marker(root, "START", x, z, Color.green, 3f);
+		Label(root, "L_Start", x, 2f, z, "СТАРТ");
 		z += 6f;
-		// Descent
-		CreateRamp(root.transform, "RampDown_S5", new Vector3(x, rampRise, z), rampLen * 0.7f, -rampRise, c_LaneWidth);
-		z += rampLen * 0.7f;
 
-		// --- Section 6: Side slope ---
-		CreateLabel(root.transform, "S6_SideSlope", new Vector3(x, 1.5f, z), "6. Боковой уклон (15°)");
-		CreateSideBank(root.transform, "Bank_S6", new Vector3(x, 0f, z), 10f, 0.5f, c_LaneWidth);
+		// === 1. Slalom ===
+		Label(root, "L_S1", x, 2f, z, "1. Змейка");
+		float[] sl = { 0f, 3.5f, -3.5f, 3.5f, -3.5f, 3.5f };
+		for (int i = 0; i < sl.Length; i++)
+			Cone(root, $"S1_C{i}", x + sl[i], z + 3f + i * 4f);
+		z += 3f + sl.Length * 4f + 2f;
+
+		// === 2. Narrow passage (3m gap) ===
+		Label(root, "L_S2", x, 2f, z, "2. Узкий проезд (3м)");
+		Wall(root, "S2_WL", x - 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
+		Wall(root, "S2_WR", x + 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
+		z += 16f;
+
+		// === 3. Sharp 90° turn right ===
+		Label(root, "L_S3", x, 2f, z, "3. Поворот 90°");
+		Wall(root, "S3_Block", x, z + 6f, 8f, c_BarrierH, 0.4f, Color.red);
+		// Opening to the right
+		x += 7f;
+		z += 10f;
+
+		// === 4. Obstacle — wall blocks path, detour right ===
+		Label(root, "L_S4", x, 2f, z, "4. Препятствие");
+		Wall(root, "S4_Block", x - 3f, z + 4f, 6f, c_BarrierH, 0.5f, Color.red);
+		Wall(root, "S4_WR", x + 4f, z + 4f, 0.4f, c_BarrierH, 10f, Color.yellow);
+		x += 5f;
 		z += 12f;
 
-		// --- Section 7: Drop edge test ---
-		CreateLabel(root.transform, "S7_DropEdge", new Vector3(x, 1.5f, z), "7. Обрыв (стоп-линия)");
-		// Platform that ends abruptly
-		CreateBox(root.transform, "DropPlateau_S7", new Vector3(x, 0.25f, z + 2f), new Vector3(c_LaneWidth, 0.5f, 4f), new Color(0.5f, 0.4f, 0.3f));
-		CreateWall(root.transform, "DropStop_S7", new Vector3(x, 0.05f, z + 4.5f), new Vector3(c_LaneWidth, 0.05f, 0.3f), Color.red);
+		// === 5. Ramp up + plateau + ramp down ===
+		Label(root, "L_S5", x, 2f, z, "5. Подъём 10°");
+		Ramp(root, "S5_Up", x, z, 12f, 2f, c_Lane);
+		z += 12f;
+		Box(root, "S5_Plateau", x, 1f, z + 3.5f, c_Lane, 2f, 7f, new Color(0.4f, 0.5f, 0.35f), c_LayerGround);
+		z += 7f;
+		Ramp(root, "S5_Dn", x, z + 2f, 8f, -2f, c_Lane);
+		z += 10f;
+
+		// === 6. Side slope ===
+		Label(root, "L_S6", x, 2f, z, "6. Боковой уклон");
+		SideBank(root, "S6_Bank", x, z, 12f, 0.6f, c_Lane);
+		z += 14f;
+
+		// === 7. Dead end / drop edge ===
+		Label(root, "L_S7", x, 2f, z, "7. Тупик / обрыв");
+		Box(root, "S7_Platform", x, 0.5f, z + 3f, c_Lane, 1f, 6f, new Color(0.5f, 0.4f, 0.3f), c_LayerGround);
+		Wall(root, "S7_Stop", x, z + 6.5f, c_Lane, 0.1f, 0.3f, Color.red);
+		z += 8f;
+
+		// === 8. Reverse target ===
+		Label(root, "L_S8", x, 2f, z, "8. Цель сзади (задний ход)");
+		Marker(root, "S8_Target", x, z + 2f, Color.magenta, 1.2f);
+		Label(root, "S8_Lbl", x, 1.5f, z + 2f, "Reverse");
+		Wall(root, "S8_WL", x - 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
+		Wall(root, "S8_WR", x + 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
 		z += 6f;
 
-		// --- Section 8: Reverse target ---
-		CreateLabel(root.transform, "S8_Reverse", new Vector3(x, 1.5f, z), "8. Цель сзади (задний ход)");
-		CreateMarker(root.transform, "RevTarget_S8", new Vector3(x, 0.05f, z + 2f), Color.magenta, 1f);
-		CreateLabel(root.transform, "RevLbl_S8", new Vector3(x, 1f, z + 2f), "Reverse");
-		// walls to force reverse approach
-		CreateWall(root.transform, "Wall_L_S8", new Vector3(x - 2.5f, 0.6f, z + 1f), new Vector3(c_BarrierThickness, c_BarrierHeight, 3f), Color.yellow);
-		CreateWall(root.transform, "Wall_R_S8", new Vector3(x + 2.5f, 0.6f, z + 1f), new Vector3(c_BarrierThickness, c_BarrierHeight, 3f), Color.yellow);
-		z += 5f;
+		// === 9. Heading arrival ===
+		Label(root, "L_S9", x, 2f, z, "9. Прибытие с курсом");
+		Marker(root, "S9_Target", x, z + 2f, Color.cyan, 1.5f);
+		Arrow(root, "S9_Arrow", x, 0.1f, z + 2f, Vector3.forward, 2.5f, Color.cyan);
+		z += 6f;
 
-		// --- Section 9: Heading arrival ---
-		CreateLabel(root.transform, "S9_Heading", new Vector3(x, 1.5f, z), "9. Прибытие с направлением (капот на СЕВЕР)");
-		CreateMarker(root.transform, "Heading_S9", new Vector3(x, 0.05f, z + 2f), Color.cyan, 1.5f);
-		// Arrow pointing north (Z+)
-		CreateArrow(root.transform, "Arrow_S9", new Vector3(x, 0.1f, z + 2f), Vector3.forward, 2f, Color.cyan);
-		z += 5f;
-
-		// --- Section 10: Multi-waypoint queue ---
-		CreateLabel(root.transform, "S10_Queue", new Vector3(x, 1.5f, z), "10. Очередь точек (Shift+клик)");
+		// === 10. Queue / waypoints ===
+		Label(root, "L_S10", x, 2f, z, "10. Очередь (Shift+клик)");
 		for (int i = 0; i < 4; i++)
 		{
-			float ox = (i % 2 == 0) ? -3f : 3f;
-			CreateMarker(root.transform, $"Q{i}_S10", new Vector3(x + ox, 0.05f, z + 2f + i * 5f), new Color(1f, 0.7f, 0.2f), 0.8f);
-			CreateLabel(root.transform, $"Q{i}Lbl_S10", new Vector3(x + ox, 0.8f, z + 2f + i * 5f), $"{i + 1}");
+			float ox = (i % 2 == 0) ? -3.5f : 3.5f;
+			Marker(root, $"S10_Q{i}", x + ox, z + 3f + i * 5f, new Color(1f, 0.7f, 0.2f), 0.9f);
+			Label(root, $"S10_L{i}", x + ox, 1f, z + 3f + i * 5f, $"{i + 1}");
 		}
-		z += 2f + 4 * 5f;
+		z += 3f + 4 * 5f + 2f;
 
-		// --- Finish ---
-		CreateMarker(root.transform, "FINISH", new Vector3(x, 0.05f, z), Color.red, 2f);
-		CreateLabel(root.transform, "FINISH_Lbl", new Vector3(x, 1.5f, z), "ФИНИШ");
+		// === FINISH ===
+		Marker(root, "FINISH", x, z, Color.red, 3f);
+		Label(root, "L_Finish", x, 2f, z, "ФИНИШ");
 
 		return root;
 	}
-	#endregion
 
-	#region Builders
-	private static void CreateCone(Transform _parent, string _name, Vector3 _localPos)
-	{
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos;
-		go.transform.localScale = new Vector3(0.4f, 0.8f, 0.4f);
-		go.layer = ResolveGroundLayer();
-		ApplyColor(go, new Color(1f, 0.55f, 0f));
-		ConfigureCollider(go);
-	}
+	// --- Primitive builders ---
 
-	private static void CreateWall(Transform _parent, string _name, Vector3 _localPos, Vector3 _scale, Color _color)
+	private static void CreateGroundSlab(Transform _parent)
 	{
 		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
+		go.name = "NavTestGround";
 		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos;
-		go.transform.localScale = _scale;
-		go.layer = ResolveGroundLayer();
-		ApplyColor(go, _color);
-		ConfigureCollider(go);
+		go.transform.localPosition = new Vector3(0f, -0.5f, c_GroundL * 0.5f);
+		go.transform.localScale = new Vector3(c_GroundW, 1f, c_GroundL);
+		go.layer = c_LayerGround;
+		if (go.TryGetComponent(out MeshRenderer r)) r.sharedMaterial = Mat(new Color(0.25f, 0.28f, 0.22f));
+		if (go.TryGetComponent(out Collider c)) { c.isTrigger = false; c.enabled = true; }
 	}
 
-	private static void CreateRamp(Transform _parent, string _name, Vector3 _localPos, float _length, float _rise, float _width)
+	private static void Cone(Transform p, string n, float x, float z)
 	{
-		float absRise = Mathf.Abs(_rise);
-		float hyp = Mathf.Sqrt(_length * _length + absRise * absRise);
-		float angleDeg = Mathf.Atan2(absRise, _length) * Mathf.Rad2Deg;
-		float pitch = _rise >= 0f ? -angleDeg : angleDeg;
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, 0.8f, z);
+		go.transform.localScale = new Vector3(0.5f, 0.8f, 0.5f);
+		go.layer = c_LayerObstacle;
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(new Color(1f, 0.5f, 0f));
+		go.GetComponent<Collider>().isTrigger = false;
+	}
 
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.layer = ResolveGroundLayer();
+	private static void Wall(Transform p, string n, float x, float z, float sx, float sy, float sz, Color c)
+	{
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, sy * 0.5f, z);
+		go.transform.localScale = new Vector3(sx, sy, sz);
+		go.layer = c_LayerObstacle;
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(c);
+		go.GetComponent<Collider>().isTrigger = false;
+	}
 
-		float centerY = _localPos.y + absRise * 0.5f;
-		float centerZ = _localPos.z + _length * 0.5f;
-		go.transform.localPosition = new Vector3(_localPos.x, centerY, centerZ);
+	private static void Box(Transform p, string n, float x, float y, float z, float sx, float sy, float sz, Color c, int layer)
+	{
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, y, z);
+		go.transform.localScale = new Vector3(sx, sy, sz);
+		go.layer = layer;
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(c);
+		go.GetComponent<Collider>().isTrigger = false;
+	}
+
+	private static void Ramp(Transform p, string n, float x, float z, float len, float rise, float w)
+	{
+		float abs = Mathf.Abs(rise);
+		float hyp = Mathf.Sqrt(len * len + abs * abs);
+		float ang = Mathf.Atan2(abs, len) * Mathf.Rad2Deg;
+		float pitch = rise >= 0f ? -ang : ang;
+
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.layer = c_LayerGround;
+		go.transform.localPosition = new Vector3(x, abs * 0.5f, z + len * 0.5f);
 		go.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
-		go.transform.localScale = new Vector3(_width, 0.3f, hyp);
-
-		ApplyColor(go, _rise >= 0f ? new Color(0.35f, 0.5f, 0.7f) : new Color(0.4f, 0.55f, 0.65f));
-		ConfigureCollider(go);
+		go.transform.localScale = new Vector3(w, 0.3f, hyp);
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(new Color(0.35f, 0.5f, 0.7f));
+		go.GetComponent<Collider>().isTrigger = false;
 	}
 
-	private static void CreateSideBank(Transform _parent, string _name, Vector3 _localPos, float _length, float _bankHeight, float _width)
+	private static void SideBank(Transform p, string n, float x, float z, float len, float bank, float w)
 	{
-		float halfWidth = _width * 0.5f;
-		float hyp = Mathf.Sqrt(halfWidth * halfWidth + _bankHeight * _bankHeight);
-		float angle = Mathf.Atan2(_bankHeight, halfWidth) * Mathf.Rad2Deg;
+		float half = w * 0.5f;
+		float hyp = Mathf.Sqrt(half * half + bank * bank);
+		float ang = Mathf.Atan2(bank, half) * Mathf.Rad2Deg;
 
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.layer = ResolveGroundLayer();
-		go.transform.localPosition = new Vector3(_localPos.x + halfWidth * 0.5f, _localPos.y + _bankHeight * 0.5f, _localPos.z + _length * 0.5f);
-		go.transform.localRotation = Quaternion.Euler(0f, 0f, -angle);
-		go.transform.localScale = new Vector3(hyp, 0.25f, _length);
-		ApplyColor(go, new Color(0.55f, 0.4f, 0.55f));
-		ConfigureCollider(go);
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.layer = c_LayerGround;
+		go.transform.localPosition = new Vector3(x + half * 0.5f, bank * 0.5f, z + len * 0.5f);
+		go.transform.localRotation = Quaternion.Euler(0f, 0f, -ang);
+		go.transform.localScale = new Vector3(hyp, 0.25f, len);
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(new Color(0.55f, 0.4f, 0.55f));
+		go.GetComponent<Collider>().isTrigger = false;
 	}
 
-	private static void CreateBox(Transform _parent, string _name, Vector3 _localPos, Vector3 _scale, Color _color)
+	private static void Marker(Transform p, string n, float x, float z, Color c, float s)
 	{
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos;
-		go.transform.localScale = _scale;
-		go.layer = ResolveGroundLayer();
-		ApplyColor(go, _color);
-		ConfigureCollider(go);
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, 0.06f, z);
+		go.transform.localScale = new Vector3(s, 0.12f, s);
+		go.layer = c_LayerGround;
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(c);
+		go.GetComponent<Collider>().isTrigger = false;
 	}
 
-	private static void CreateMarker(Transform _parent, string _name, Vector3 _localPos, Color _color, float _size = 1f)
+	private static void Arrow(Transform p, string n, float x, float y, float z, Vector3 dir, float len, Color c)
 	{
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos;
-		go.transform.localScale = new Vector3(_size, 0.1f, _size);
-		go.layer = ResolveGroundLayer();
-		ApplyColor(go, _color);
-		ConfigureCollider(go);
+		var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		go.name = n;
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, y, z) + dir * (len * 0.5f);
+		go.transform.localRotation = Quaternion.LookRotation(dir, Vector3.up);
+		go.transform.localScale = new Vector3(0.2f, 0.1f, len);
+		go.layer = c_LayerGround;
+		go.GetComponent<MeshRenderer>().sharedMaterial = Mat(c);
 	}
 
-	private static void CreateArrow(Transform _parent, string _name, Vector3 _localPos, Vector3 _dir, float _length, Color _color)
+	private static void Label(Transform p, string n, float x, float y, float z, string text)
 	{
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = _name;
-		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos + _dir * (_length * 0.5f);
-		go.transform.localRotation = Quaternion.LookRotation(_dir, Vector3.up);
-		go.transform.localScale = new Vector3(0.15f, 0.08f, _length);
-		go.layer = ResolveGroundLayer();
-		ApplyColor(go, _color);
-		ConfigureCollider(go);
-	}
-
-	private static void CreateLabel(Transform _parent, string _name, Vector3 _localPos, string _text)
-	{
-		GameObject go = new GameObject(_name);
-		go.transform.SetParent(_parent, false);
-		go.transform.localPosition = _localPos;
+		var go = new GameObject(n);
+		go.transform.SetParent(p, false);
+		go.transform.localPosition = new Vector3(x, y, z);
+		go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 		var tmp = go.AddComponent<TMPro.TextMeshPro>();
-		tmp.text = _text;
-		tmp.fontSize = 2f;
+		tmp.text = text;
+		tmp.fontSize = 3f;
 		tmp.alignment = TMPro.TextAlignmentOptions.Center;
 		tmp.color = Color.white;
-		var rect = go.GetComponent<RectTransform>();
-		if (rect != null) rect.sizeDelta = new Vector2(8f, 1.5f);
+		tmp.enableWordWrapping = false;
 	}
 
-	private static void ApplyColor(GameObject _go, Color _color)
+	private static Material Mat(Color c)
 	{
-		if (!_go.TryGetComponent(out MeshRenderer renderer))
-			return;
-		Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-		if (shader == null) shader = Shader.Find("Standard");
-		if (shader == null) return;
-		var mat = new Material(shader);
-		if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", _color);
-		if (mat.HasProperty("_Color")) mat.color = _color;
-		renderer.sharedMaterial = mat;
+		Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+		if (sh == null) return null;
+		var m = new Material(sh);
+		if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+		if (m.HasProperty("_Color")) m.color = c;
+		return m;
 	}
 
-	private static void ConfigureCollider(GameObject _go)
+	private static void DestroyGo(GameObject go)
 	{
-		if (_go.TryGetComponent(out Collider col))
-		{
-			col.isTrigger = false;
-			col.enabled = true;
-		}
+		if (go == null) return;
+		if (Application.isPlaying) Object.Destroy(go);
+		else Object.DestroyImmediate(go);
 	}
-
-	private static int ResolveGroundLayer()
-	{
-		int layer = LayerMask.NameToLayer("Ground");
-		return layer >= 0 ? layer : 6;
-	}
-
-	private static void DestroyGo(GameObject _go)
-	{
-		if (_go == null) return;
-		if (Application.isPlaying)
-			Object.Destroy(_go);
-		else
-			Object.DestroyImmediate(_go);
-	}
-	#endregion
 }

@@ -3,111 +3,77 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.AI;
 
 /// <summary>
-/// Builds the vehicle navigation test track and positions camera + car.
+/// Menu: Polygone → Vehicles → Build NAVIGATION Test Track
+/// Instantiates the vehicle prefab, builds the 10-section test track,
+/// positions camera, bakes NavMesh.
 /// </summary>
 public static class VehicleNavTestSceneSetup
 {
 	private const string c_ScenePath = "Assets/Scenes/SampleScene.unity";
+	private const string c_VehiclePrefab = "Assets/Prefabs/Vehicles/Light_Armored_Car.prefab";
 
 	[MenuItem("Polygone/Vehicles/Build NAVIGATION Test Track")]
-	public static void BuildNavigationTestTrack()
+	public static void BuildTrack()
 	{
 		Scene scene = EditorSceneManager.OpenScene(c_ScenePath, OpenSceneMode.Single);
-		
-		// Destroy old demo area if it exists
-		GameObject oldDemo = GameObject.Find(VehiclePhysicsDemoArea.RootName);
-		if (oldDemo != null)
-			Object.DestroyImmediate(oldDemo);
 
-		// Find the vehicle
+		// 1. Remove old debug demo
+		GameObject oldDemo = GameObject.Find(VehiclePhysicsDemoArea.RootName);
+		if (oldDemo != null) Object.DestroyImmediate(oldDemo);
+
+		// 2. Build the test track at fixed origin
+		GameObject track = VehicleNavigationTestArea.Build();
+		Vector3 origin = VehicleNavigationTestArea.TrackOrigin;
+
+		// 3. Ensure vehicle is in the scene
 		VehicleController vehicle = Object.FindFirstObjectByType<VehicleController>();
 		if (vehicle == null)
 		{
-			GameObject named = GameObject.Find("Light_Armored_Car");
-			if (named != null) vehicle = named.GetComponent<VehicleController>();
-		}
-
-		Vector3 carPos = vehicle != null ? vehicle.transform.position : new Vector3(13.24f, 0f, 5f);
-		
-		// Build test track to the RIGHT of the car
-		Vector3 trackOrigin = new Vector3(carPos.x + c_TrackOffsetX, 0f, carPos.z);
-		GameObject trackRoot = VehicleNavigationTestArea.Build(trackOrigin);
-		
-		// Create a large ground slab under the track (extends from car to end of track)
-		float slabWidth = 30f;
-		float slabLength = 140f;
-		CreateGroundSlab(trackOrigin, slabWidth, slabLength);
-
-		// Place car at start of track
-		if (vehicle != null)
-		{
-			vehicle.transform.position = new Vector3(trackOrigin.x, 0.5f, trackOrigin.z + 2f);
-			vehicle.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-			// Snap to ground
-			vehicle.SnapChassisToGround(true);
-		}
-
-		// Move camera above car
-		MoveCameraToStart(vehicle != null ? vehicle.transform.position : trackOrigin);
-
-		// Rebuild NavMesh
-		RebuildNavMesh();
-
-		EditorSceneManager.MarkSceneDirty(scene);
-		EditorSceneManager.SaveScene(scene);
-
-		Debug.Log($"[NavTest] Track built at X={trackOrigin.x} Z={trackOrigin.z}. Car positioned at start. Camera moved.");
-	}
-
-	private const float c_TrackOffsetX = 60f;
-
-	private static void CreateGroundSlab(Vector3 _origin, float _width, float _length)
-	{
-		GameObject existing = GameObject.Find("NavTestGround");
-		if (existing != null) Object.DestroyImmediate(existing);
-
-		GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-		go.name = "NavTestGround";
-		go.transform.position = new Vector3(_origin.x, -0.5f, _origin.z + _length * 0.5f);
-		go.transform.localScale = new Vector3(_width, 1f, _length);
-		go.layer = LayerMask.NameToLayer("Ground");
-
-		if (go.TryGetComponent(out MeshRenderer r)) r.enabled = false;
-		if (go.TryGetComponent(out Collider c)) { c.isTrigger = false; c.enabled = true; }
-
-		SceneManager.MoveGameObjectToScene(go, SceneManager.GetActiveScene());
-	}
-
-	private static void MoveCameraToStart(Vector3 _carPos)
-	{
-		// Find Cinemachine brain or main camera
-		var cameras = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
-		foreach (var cam in cameras)
-		{
-			if (cam.name.Contains("Main") || cam.name.Contains("Camera") || cam.CompareTag("MainCamera"))
+			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(c_VehiclePrefab);
+			if (prefab != null)
 			{
-				cam.transform.position = _carPos + new Vector3(0f, 15f, -10f);
-				cam.transform.rotation = Quaternion.Euler(55f, 0f, 0f);
-				Debug.Log($"[NavTest] Camera moved to {cam.transform.position}");
+				GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+				vehicle = instance.GetComponent<VehicleController>();
+				Debug.Log($"[NavTest] Instantiated vehicle prefab: {instance.name}");
+			}
+			else
+			{
+				Debug.LogError($"[NavTest] Vehicle prefab not found at {c_VehiclePrefab}");
 				return;
 			}
 		}
 
-		// Fallback: any camera
-		if (cameras.Length > 0)
+		// 4. Place vehicle at track start
+		if (vehicle != null)
 		{
-			cameras[0].transform.position = _carPos + new Vector3(0f, 15f, -10f);
-			cameras[0].transform.rotation = Quaternion.Euler(55f, 0f, 0f);
+			vehicle.transform.position = new Vector3(origin.x, 1f, origin.z + 3f);
+			vehicle.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+			Debug.Log($"[NavTest] Vehicle placed at {vehicle.transform.position}");
 		}
-	}
 
-	private static void RebuildNavMesh()
-	{
-		// Trigger Unity to rebake NavMesh
+		// 5. Camera above the car
+		Camera cam = Camera.main;
+		if (cam == null)
+			cam = Object.FindFirstObjectByType<Camera>();
+		if (cam != null)
+		{
+			cam.transform.position = new Vector3(origin.x, 18f, origin.z - 8f);
+			cam.transform.rotation = Quaternion.Euler(55f, 0f, 0f);
+			Debug.Log($"[NavTest] Camera at {cam.transform.position}");
+		}
+
+		// 6. Bake NavMesh for the new geometry
 		UnityEditor.AI.NavMeshBuilder.BuildNavMesh();
 		Debug.Log("[NavTest] NavMesh rebuilt");
+
+		// 7. Save
+		EditorSceneManager.MarkSceneDirty(scene);
+		EditorSceneManager.SaveScene(scene);
+
+		Debug.Log("[NavTest] ✓ Готово! Polygone → Vehicles → Build NAVIGATION Test Track");
 	}
 }
 #endif
