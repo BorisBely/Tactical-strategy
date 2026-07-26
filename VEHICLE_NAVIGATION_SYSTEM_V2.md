@@ -1,4 +1,4 @@
-# Vehicle Navigation System v2.1
+# Vehicle Navigation System v2.2
 ## РџРѕР»РЅР°СЏ РґРѕРєСѓРјРµРЅС‚Р°С†РёСЏ вЂ” РёСЋР»СЊ 2026
 
 ---
@@ -20,6 +20,7 @@
 13. [РўРµСЃС‚РѕРІС‹Р№ РїРѕР»РёРіРѕРЅ](#14-С‚РµСЃС‚РѕРІС‹Р№-РїРѕР»РёРіРѕРЅ)
 14. [РџРѕР»РЅС‹Р№ СЃРїРёСЃРѕРє С„Р°Р№Р»РѕРІ](#15-РїРѕР»РЅС‹Р№-СЃРїРёСЃРѕРє-С„Р°Р№Р»РѕРІ)
 15. [РЎР»РѕРІР°СЂСЊ С‚РµСЂРјРёРЅРѕРІ](#16-СЃР»РѕРІР°СЂСЊ-С‚РµСЂРјРёРЅРѕРІ)
+16. [РСЃРїСЂР°РІР»РµРЅРёСЏ v2.2 вЂ” РµРґРёРЅС‹Р№ СЃРєРѕСЂРёРЅРі Рё С‚РёСЂРёСЂРѕРІР°РЅРЅС‹Рµ РїСЂРѕРІРµСЂРєРё](#17-РёСЃРїСЂР°РІР»РµРЅРёСЏ-v22--РµРґРёРЅС‹Р№-СЃРєРѕСЂРёРЅРі-Рё-С‚РёСЂРёСЂРѕРІР°РЅРЅС‹Рµ-РїСЂРѕРІРµСЂРєРё)
 
 ---
 
@@ -273,6 +274,7 @@ Pending в†’ Executing в†’ Completed
 |------|-----|----------|
 | `IsValid` | bool | РњРѕР¶РЅРѕ Р»Рё РІС‹РїРѕР»РЅРёС‚СЊ РІРѕРѕР±С‰Рµ |
 | `IsFullySafe` | bool | РџРѕР»РЅРѕСЃС‚СЊСЋ Р±РµР·РѕРїР°СЃРЅРѕ |
+| `Severity` | FeasibilitySeverity | **v2.2** вЂ” РіСЂР°РґР°С†РёСЏ: Valid/Risky/Unsafe/Impossible |
 | `MinClearance` | float | РњРёРЅРёРјР°Р»СЊРЅС‹Р№ Р·Р°Р·РѕСЂ (Рј) |
 | `RiskScore` | float | 0=Р±РµР·РѕРїР°СЃРЅРѕ, 1+=СЂРёСЃРєРѕРІР°РЅРЅРѕ |
 | `HasFrontCollision` | bool | РЎС‚РѕР»РєРЅРѕРІРµРЅРёРµ СЃРїРµСЂРµРґРё |
@@ -285,26 +287,28 @@ Pending в†’ Executing в†’ Completed
 | `FailurePoint` | Vector3 | РўРѕС‡РєР° РїСЂРѕР±Р»РµРјС‹ |
 | `RecommendedMaxSpeedKmh` | float | Р‘РµР·РѕРїР°СЃРЅР°СЏ СЃРєРѕСЂРѕСЃС‚СЊ |
 
-Р¤Р°Р±СЂРёРєРё: `Valid`, `Invalid(reason)`, `Invalid(reason, point)`.
+**FeasibilitySeverity (v2.2):**
+| РЈСЂРѕРІРµРЅСЊ | РЎРјС‹СЃР» | РљРѕРіРґР° |
+|---------|-------|------|
+| `Valid` | Р‘РµР·РѕРїР°СЃРЅРѕ | Р’СЃРµ РїСЂРѕРІРµСЂРєРё РїСЂРѕР№РґРµРЅС‹ |
+| `Risky` | Р РёСЃРєРѕРІР°РЅРЅРѕ, РЅРѕ РјРѕР¶РЅРѕ | РЈР·РєРёР№ РїСЂРѕС…РѕРґ, РЅРµР±РѕР»СЊС€РѕР№ РЅРµРґРѕР±РѕСЂ Р·Р°Р·РѕСЂР° |
+| `Unsafe` | РќРµР¶РµР»Р°С‚РµР»СЊРЅРѕ | Р—Р°Р·РѕСЂ < РїРѕСЂРѕРіР°, РЅРѕ РЅРµ РєСЂРёС‚РёС‡РЅРѕ |
+| `Impossible` | РќРµРІРѕР·РјРѕР¶РЅРѕ | РћР±СЂС‹РІ, Р·Р°Р·РѕСЂ < 50% РїРѕСЂРѕРіР° |
+
+Р¤Р°Р±СЂРёРєРё: `Valid`, `Risky(risk, reason)`, `Unsafe(reason)`, `Impossible(reason)`, `Invalid(reason)` (СЃС‚Р°СЂР°СЏ = Unsafe).
 
 ### 6.2 ManeuverFeasibilityChecker
 `Assets\_Scripts\Vehicle\Navigation\ManeuverFeasibilityChecker.cs`
 
-РџСЂРѕРІРµСЂСЏРµС‚ РјР°РЅС‘РІСЂ Р”Рћ РёСЃРїРѕР»РЅРµРЅРёСЏ. РљРѕРЅСЃС‚Р°РЅС‚С‹: РјРёРЅ. Р·Р°Р·РѕСЂ СЃРїРµСЂРµРґРё 1.8Рј, СЃР·Р°РґРё 1.8Рј, СЃР±РѕРєСѓ 1.0Рј, РєРѕСЂРёРґРѕСЂ 2.5Рј.
+РўРёСЂРёСЂРѕРІР°РЅРЅС‹Рµ РїРѕСЂРѕРіРё (v2.2):
+- **Forward:** < 0.9Рј в†’ Impossible, < 1.8Рј в†’ Unsafe, СѓР·РєРёР№ в†’ Risky
+- **TurnAround:** < 0.35R в†’ Impossible, < 0.7R в†’ Unsafe
+- **Drop:** РґРІРѕР№РЅРѕР№ Р»СѓС‡ (РѕР±Р° РґРѕР»Р¶РЅС‹ РїСЂРѕРјР°Р·Р°С‚СЊ) в†’ Impossible
 
-РњРµС‚РѕРґС‹:
-- `CheckPlan(plan, ctx, params)` / `CheckPlan(plan, geometry, turnRadius)`
-- `CheckForwardPath(geo)` вЂ” РѕР±СЂС‹РІ? Р·Р°Р·РѕСЂ? СѓР·РєРѕ?
-- `CheckReversePath(geo)` вЂ” РѕР±СЂС‹РІ? Р·Р°Р·РѕСЂ? РєРѕСЂРёРґРѕСЂ?
-- `CheckTurnAroundArc(sign, radius, geo)` вЂ” РґРёР°РіРѕРЅР°Р»Рё + CanFitTurnRadius
-- `CheckParkingSpot(dest, yaw, geo)` вЂ” РѕР±СЂС‹РІ? С‚РµСЃРЅРѕ?
-
-### 6.3 VehicleLocalGeometry (СЂР°СЃС€РёСЂРµРЅ)
+### 6.3 VehicleLocalGeometry (v2.2 вЂ” РґРІРѕР№РЅРѕР№ Р»СѓС‡)
 `Assets\_Scripts\Vehicle\Navigation\VehicleLocalGeometry.cs`
 
-Р”РѕР±Р°РІР»РµРЅС‹ РІ Sample: `FrontDiagonalLeftClearance`, `FrontDiagonalRightClearance`, `RearDiagonalLeftClearance`, `RearDiagonalRightClearance`, `HasDropAhead`, `HasDropBehind`, `HasNarrowPassage`.
-
-РќРѕРІС‹Рµ РјРµС‚РѕРґС‹: `CanFitTurnRadius(radius, geo)`, `HasSafeBackingSpace(geo, min)`, `HasSafeForwardSpace(geo, min)`.
+РџСЂРѕРІРµСЂРєР° РѕР±СЂС‹РІР°: РґРІР° Р»СѓС‡Р° РІРїРµСЂС‘Рґ (0.5Рј Рё 1.5Рј РѕС‚ РЅРѕСЃР°), РѕР±Р° РЅР° 5Рј РІРЅРёР·. РўРѕР»СЊРєРѕ РµСЃР»Рё РћР‘Рђ РЅРµ РїРѕРїР°Р»Рё РІ Р·РµРјР»СЋ в†’ `HasDropAhead = true`. РЈСЃС‚СЂР°РЅСЏРµС‚ Р»РѕР¶РЅС‹Рµ СЃСЂР°Р±Р°С‚С‹РІР°РЅРёСЏ РЅР° РЅРµСЂРѕРІРЅРѕР№ РјРµСЃС‚РЅРѕСЃС‚Рё.
 
 ### 6.4 TrajectoryPrediction (СЂР°СЃС€РёСЂРµРЅ)
 `Assets\_Scripts\Vehicle\Navigation\TrajectoryPrediction.cs`
@@ -811,3 +815,74 @@ AppendArrivalManeuver():
 | **Slip** | Р‘РѕРєРѕРІРѕРµ СЃРєРѕР»СЊР¶РµРЅРёРµ РєРѕР»РµСЃР° |
 | **Roll** | РљСЂРµРЅ (РІСЂР°С‰РµРЅРёРµ РІРѕРєСЂСѓРі РѕСЃРё Z) |
 | **Pitch** | РўР°РЅРіР°Р¶ (РІСЂР°С‰РµРЅРёРµ РІРѕРєСЂСѓРі РѕСЃРё X) |
+
+---
+
+## 17. Исправления v2.2 — единый скоринг и тирированные проверки
+
+### 17.1 Проблемы v2.1 (исправлены)
+
+| Баг | Причина | Исправление |
+|-----|---------|-------------|
+| Машина с целью сзади едет вперёд и крутится бесконечно | Fallback всегда брал Forward независимо от геометрии | Fallback удалён — выбор всегда по Score. Impossible=+999999 гарантирует что Forward проиграет TurnAround |
+| Машина не входит в разворот | TurnAround требовал 0.8?R зазора спереди, жёсткий отказ | Тирировано: <0.35R > Impossible, <0.7R > Unsafe (допустимо как fallback) |
+| Ложный «drop ahead» на неровной местности | Один луч не попадал в землю на рельефе | Двойной луч: оба должны промазать. Дистанция увеличена с 3м до 5м |
+| Осцилляция Pursuit на длинных прямых | 2 waypoints на 20+ метров | Промежуточные точки каждые 5м для путей >10м |
+| Узкий проход сразу отвергался | Clearance < 1.8м > Invalid | Тирировано: <0.9м > Impossible, <1.8м > Unsafe |
+
+### 17.2 FeasibilitySeverity
+
+Новый enum заменяет бинарный IsValid:
+
+| Уровень | Смысл | Штраф в Score |
+|---------|-------|--------------|
+| Valid | Безопасно | +0 |
+| Risky | Рискованно, но допустимо | +50 |
+| Unsafe | Нежелательно, но возможно | +200 |
+| Impossible | Невозможно | +999999 |
+
+Фабрики: Valid, Risky(risk, reason), Unsafe(reason), Impossible(reason).
+
+### 17.3 Единый Score (без fallback)
+
+**Было (v2.1):**
+`
+1. Cost = ScoringSystem.ScoreCandidate()
+2. Если IsValid=false > пропустить
+3. Если все пропущены > fallback по severity
+`
+
+**Стало (v2.2):**
+`
+Score = BaseCost + SeverityPenalty
+Выбор по минимальному Score
+`
+
+ApplyRiskPenalty() добавляет штраф за Severity:
+- Impossible > +999999
+- Unsafe > +200
+- Risky > +50
+- Valid > +0
+
+Дополнительно: HasCliffRisk +50, HasNarrowPassage +10.
+
+### 17.4 Двойной луч обрыва
+
+В VehicleLocalGeometry.Probe() два луча вперёд (0.5м и 1.5м от носа), оба на 5м вниз. Только если ОБА не попали в землю > HasDropAhead = true. Аналогично для HasDropBehind.
+
+Это устраняет ложные срабатывания на неровной местности, где один луч может не попасть в ground из-за перепада высот.
+
+### 17.5 Промежуточные waypoints
+
+PathPlanner.BuildDirectPath() — при прямом fallback > 10м добавляет промежуточные точки каждые 5м. Pure Pursuit сходится на длинных прямых без осцилляции.
+
+### 17.6 Изменённые файлы
+
+| Файл | Что изменилось |
+|------|---------------|
+| FeasibilityResult.cs | + FeasibilitySeverity enum, фабрики Impossible/Unsafe/Risky |
+| ManeuverFeasibilityChecker.cs | Тирированные пороги: Forward 0.5R/1.0R, TurnAround 0.35R/0.7R |
+| ScoringSystem.cs | ApplyRiskPenalty добавляет SeverityPenalty вместо MaxValue |
+| DrivingPlanner.cs | Fallback удалён, выбор всегда по Score |
+| VehicleLocalGeometry.cs | Двойной луч для проверки обрыва |
+| PathPlanner.cs | Промежуточные waypoints при прямом fallback >10м |
