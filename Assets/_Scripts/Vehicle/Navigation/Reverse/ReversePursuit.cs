@@ -56,9 +56,10 @@ namespace VehicleNavigation
 			{
 				Vector3 toTargetDir = toTarget / dist;
 
-				float cross = Vector3.Cross(_ctx.Forward, toTargetDir).y;
+				Vector3 travelDir = -_ctx.Forward;
+				float cross = Vector3.Cross(travelDir, toTargetDir).y;
 				float crossTrack = cross * dist;
-				curvature = -2f * crossTrack / (lookBehind * lookBehind);
+				curvature = 2f * crossTrack / (lookBehind * lookBehind);
 
 				float closeness = 1f - Mathf.Clamp01(result.DistanceToEnd / 6f);
 				float maxCurv = Mathf.Lerp(0.35f, 0.12f, closeness);
