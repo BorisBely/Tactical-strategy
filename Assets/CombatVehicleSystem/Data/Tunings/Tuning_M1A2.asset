@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76db1d190e416ee4e9b6d1ec9e882ec5, type: 3}
+  m_Name: Tuning_M1A2
+  m_EditorClassIdentifier: CombatVehicleSystem::CombatVehicleSystem.VehicleTuning
+  m_CenterOfMass: {x: 0, y: -1, z: 0}
+  m_MotorForce: 1500
+  m_TopSpeedKmh: 65
+  m_MaxBrakeTorque: 2000
+  m_TrackScrollScale: 2
+  m_TurnRate: 120
+  m_LimitYaw: 0
+  m_LeftYawLimit: 60
+  m_RightYawLimit: 60
+  m_UpPitchLimit: 60
+  m_DownPitchLimit: 12
+  m_DefaultAimDistance: 200
+  m_FireInterval: 2
+  m_ShellSpeed: 3500
+  m_HullRecoilForce: 6000
+  m_MagazineSize: 300
+  m_InfiniteAmmo: 0
+  m_ShotSpread: {x: 0, y: 0, z: 0}
+  m_BarrelKick: {x: 0, y: 0, z: 1}
+  m_BarrelKickSpeed: 40
+  m_BarrelReturnSpeed: 10
+  m_HitFxLifetime: 10
+  m_ShellLifetime: 25
+  m_MinShotPitch: 0.9
+  m_MaxShotPitch: 1.1
