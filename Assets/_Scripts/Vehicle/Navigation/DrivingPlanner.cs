@@ -212,7 +212,12 @@ namespace VehicleNavigation
 				new TurnAroundManeuver(sign),
 				new ForwardManeuver()
 			};
-			AppendArrivalManeuver(_request, _path, _feedback, maneuvers);
+			// Don't call AppendArrivalManeuver for TurnAround — it would add Reverse based on pre-turn angle
+			// After TurnAround+Forward, the vehicle faces the target. Just add Parking/Approach as needed.
+			if (_request.FacingMode == ArrivalFacingMode.FaceHeading && _request.HasHeading)
+				maneuvers.Add(new ApproachWithHeadingManeuver(_request.Destination, _request.HeadingYaw.Value));
+			else
+				maneuvers.Add(new ParkingManeuver(_yaw ?? _feedback.Yaw));
 			return new DrivingCandidate(VehicleDrivingMode.TurnAround, maneuvers);
 		}
 
