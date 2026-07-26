@@ -7,6 +7,7 @@ namespace VehicleNavigation
 	/// </summary>
 	public sealed class RecoveryController
 	{
+		public static bool DebugLog = true;
 		private readonly float m_MaxRecoveryDuration;
 		private readonly float m_Cooldown;
 
@@ -40,6 +41,9 @@ namespace VehicleNavigation
 			var decision = RecoveryStrategyRegistry.Evaluate(_feedback, _feedback.Geometry, _memory);
 			if (decision.Action == RecoveryAction.None)
 				return (RecoveryAction.None, null);
+
+			if (DebugLog)
+				Debug.Log($"[Recovery] action={decision.Action} reason={decision.Reason} attempts={_memory.UnstuckAttempts} recovering={IsRecovering}");
 
 			_memory.RecordRecoveryCycle();
 

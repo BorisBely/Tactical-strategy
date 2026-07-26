@@ -4,6 +4,7 @@ namespace VehicleNavigation
 {
 	public sealed class ManeuverFeasibilityChecker
 	{
+		public static bool DebugLog = true;
 		private readonly TrajectoryPrediction m_Prediction;
 
 		private const float c_MinFrontClearance = 1.8f;
@@ -43,7 +44,11 @@ namespace VehicleNavigation
 
 				FeasibilityResult result = CheckManeuverInternal(m, _geometry, _turnRadius);
 				if (!result.IsValid)
+				{
+					if (DebugLog)
+						Debug.LogWarning($"[Feasibility] {m.Type} REJECTED: {result.FailureReason}");
 					return result;
+				}
 				if (result.RiskScore > worst.RiskScore)
 					worst = result;
 			}

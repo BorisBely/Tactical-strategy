@@ -50,6 +50,7 @@ namespace VehicleNavigation
 
 	public sealed class DriverFSM
 	{
+		public static bool DebugLog = true;
 		public enum State
 		{
 			Idle,
@@ -340,6 +341,16 @@ namespace VehicleNavigation
 			}
 
 			m_Ctx.CurrentManeuverIndex = 0;
+
+			if (DebugLog)
+			{
+				var plan = m_Ctx.Plan;
+				string ml = "";
+				if (plan.Maneuvers != null)
+					for (int i = 0; i < plan.Maneuvers.Count; i++)
+						ml += $"[{i}]{plan.Maneuvers[i]?.Type} ";
+				Debug.Log($"[DriverFSM] RebuildPlan: mode={plan.DrivingMode} maneuvers=[{ml}] cost={plan.TotalCost:F1} dist={plan.EstimatedDistance:F1}m rev={plan.ReverseDistance:F1}m risk={plan.Risk:F2} reason={plan.Reason}");
+			}
 
 			Maneuver next = m_Ctx.CurrentManeuver;
 			if (previous != next)

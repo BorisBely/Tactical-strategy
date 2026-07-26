@@ -13,6 +13,7 @@ namespace VehicleNavigation
 		private readonly DecisionEvaluator m_DecisionEvaluator;
 		private ManeuverFeasibilityChecker m_Feasibility;
 		private ArrivalPlanner m_ArrivalPlanner;
+		public static bool DebugLog = true;
 
 		public DrivingPlanner(DecisionEvaluator _decisionEvaluator)
 		{
@@ -75,6 +76,15 @@ namespace VehicleNavigation
 				bool canTurn = _request.AllowTurnAround
 					&& VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry);
 
+				if (DebugLog)
+				{
+					string revWhy = !_request.AllowReverse ? "disabled" :
+						!VehicleLocalGeometry.HasSafeBackingSpace(_feedback.Geometry, 1.8f) ? "no space" : "ok";
+					string turnWhy = !_request.AllowTurnAround ? "disabled" :
+						!VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry) ? "no space" : "ok";
+					Debug.Log($"[DrivingPlanner] candidates: Forward (always), Reverse={canReverse} ({revWhy}), TurnAround={canTurn} ({turnWhy}), proposed={proposedMode} safe={safeMode}");
+				}
+
 				if (canReverse)
 					candidates.Add(BuildReverseCandidate(_request, _path, _feedback, _turnRadius, _ctx));
 				if (canTurn)
@@ -92,6 +102,8 @@ namespace VehicleNavigation
 				c.Cost = ScoreCandidate(c, flatToDest, _ctx);
 				if (c.Feasibility != null && c.Feasibility.IsValid)
 					bestFeasibility = c.Feasibility;
+				if (DebugLog)
+					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} valid={c.Feasibility?.IsValid} risk={c.Feasibility?.RiskScore:F2} {(c.Feasibility != null && !c.Feasibility.IsValid ? c.Feasibility.FailureReason : "")}");
 			}
 
 			// Pick best valid
@@ -112,7 +124,12 @@ namespace VehicleNavigation
 			if (best == null)
 			{
 				best = candidates[0];
+				if (DebugLog)
+					Debug.LogWarning($"[DrivingPlanner] ALL candidates invalid, falling back to {best.Mode}");
 			}
+
+			if (DebugLog)
+				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} (of {candidates.Count} candidates), firstAngle={firstAngle:F0}° dist={flatToDest:F1}m");
 
 			string reason = $"mode={best.Mode} cost={best.Cost:F1} candidates={candidates.Count} safe={safeMode}";
 			var plan = new DrivingPlan(best.Maneuvers, reason, best.Mode, best.Cost, bestFeasibility);

@@ -6,6 +6,7 @@ namespace VehicleNavigation
 {
 	public sealed class VehicleOrderQueue
 	{
+		public static bool DebugLog = true;
 		private readonly Queue<VehicleMoveOrder> m_Queue = new Queue<VehicleMoveOrder>();
 		private VehicleMoveOrder m_Current;
 		private VehicleMoveOrder m_PendingInterrupt;
@@ -43,6 +44,7 @@ namespace VehicleNavigation
 
 			if (_order.Type == VehicleOrderType.EmergencyStop)
 			{
+				if (DebugLog) Debug.LogWarning($"[OrderQueue] EmergencyStop — cancel all, queue was {m_Queue.Count}");
 				CancelAll("emergency-stop");
 				m_Current = null;
 				m_PendingInterrupt = _order;
@@ -108,6 +110,7 @@ namespace VehicleNavigation
 		/// <summary>Emergency: очистить всё, текущий и очередь. Безвозвратно.</summary>
 		public void CancelAll(string _reason)
 		{
+			if (DebugLog) Debug.LogWarning($"[OrderQueue] CancelAll: {_reason} (queue={m_Queue.Count} current={m_Current!=null})");
 			while (m_Queue.Count > 0)
 			{
 				var o = m_Queue.Dequeue();
@@ -165,6 +168,8 @@ namespace VehicleNavigation
 			if (m_Current != null)
 			{
 				m_Current.MarkCompleted();
+				if (DebugLog)
+					Debug.Log($"[OrderQueue] completed #{m_Current.OrderId} {m_Current.Type}");
 				m_Current = null;
 			}
 

@@ -11,6 +11,7 @@ namespace VehicleNavigation
 	{
 		private readonly ArrivalPlanningSettings m_Settings;
 		private readonly List<IArrivalStrategy> m_Strategies;
+		public static bool DebugLog = true;
 
 		public ArrivalPlanner(float _turnRadius)
 		{
@@ -34,9 +35,16 @@ namespace VehicleNavigation
 		{
 			float dist = FlatDistance(_position, _target);
 			if (dist > m_Settings.PlanningDistance || dist < 0.1f)
+			{
+				if (DebugLog && dist > 0.1f)
+					Debug.Log($"[ArrivalPlanner] too far: {dist:F1}m > {m_Settings.PlanningDistance:F1}m planning distance");
 				return null;
+			}
 
 			var analysis = ArrivalAnalysis.Compute(_position, _yaw, m_Settings.TurnRadius, _target, _targetHeading);
+
+			if (DebugLog)
+				Debug.Log($"[ArrivalPlanner] dist={dist:F1}m angle={analysis.HeadingError:F0}° lateral={analysis.LateralOffset:F1}m front={analysis.TargetInFront} deadZone={analysis.TargetInsideTurningCircle} turnR={m_Settings.TurnRadius:F1}");
 
 			ArrivalPlan best = null;
 			float bestCost = float.MaxValue;
@@ -44,10 +52,15 @@ namespace VehicleNavigation
 			foreach (var strategy in m_Strategies)
 			{
 				var plan = strategy.Generate(analysis, m_Settings, _position, _yaw, _target, _targetHeading);
-				if (plan == null || !plan.Valid) continue;
+				if (plan == null || !plan.Valid)
+				{
+					if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: SKIP (not valid)");
+					continue;
+				}
 
 				float cost = ArrivalCostEvaluator.Evaluate(plan, analysis, m_Settings);
 				plan.Cost = cost;
+				if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: cost={cost:F1} maneuvers={plan.Maneuvers.Count}");
 
 				if (cost < bestCost)
 				{
@@ -58,10 +71,11 @@ namespace VehicleNavigation
 
 			if (best != null && best.Valid)
 			{
-				Debug.Log($"[ArrivalPlanner] best={best.DebugName} cost={best.Cost:F1} dist={dist:F1} angle={analysis.HeadingError:F0}° lateral={analysis.LateralOffset:F1}");
+				if (DebugLog) Debug.Log($"[ArrivalPlanner] => CHOSE {best.DebugName} cost={best.Cost:F1}");
 				return new List<Maneuver>(best.Maneuvers);
 			}
 
+			if (DebugLog) Debug.LogWarning($"[ArrivalPlanner] => NO valid arrival strategy found");
 			return null;
 		}
 

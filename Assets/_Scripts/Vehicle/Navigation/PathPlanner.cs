@@ -8,6 +8,7 @@ namespace VehicleNavigation
 	/// </summary>
 	public sealed class PathPlanner
 	{
+		public static bool DebugLog = true;
 		private readonly NavMeshPath m_Path = new NavMeshPath();
 
 		public PathResult BuildPath(Vector3 _from, Vector3 _to)
@@ -47,9 +48,15 @@ namespace VehicleNavigation
 			}
 
 			if (!_options.AllowDirectFallback)
+			{
+				if (DebugLog)
+					Debug.LogWarning($"[PathPlanner] NavMesh path failed, direct fallback disabled → Invalid");
 				return PathResult.Invalid;
+			}
 
 			Vector3[] direct = new[] { _from, _to };
+			if (DebugLog)
+				Debug.Log($"[PathPlanner] NavMesh failed, using direct fallback [{_from:F0} → {_to:F0}] fromNav={fromOnNav} toNav={toOnNav}");
 			return new PathResult(direct, EstimateLength(direct), true, false,
 				_usedDirectFallback: true);
 		}
