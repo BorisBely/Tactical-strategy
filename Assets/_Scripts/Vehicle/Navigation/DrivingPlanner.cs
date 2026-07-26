@@ -217,7 +217,7 @@ namespace VehicleNavigation
 			if (_request.FacingMode == ArrivalFacingMode.FaceHeading && _request.HasHeading)
 				maneuvers.Add(new ApproachWithHeadingManeuver(_request.Destination, _request.HeadingYaw.Value));
 			else
-				maneuvers.Add(new ParkingManeuver(_yaw ?? _feedback.Yaw));
+				maneuvers.Add(new ParkingManeuver(_feedback.Yaw));
 			return new DrivingCandidate(VehicleDrivingMode.TurnAround, maneuvers);
 		}
 
