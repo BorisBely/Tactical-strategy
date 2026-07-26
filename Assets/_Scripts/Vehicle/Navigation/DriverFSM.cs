@@ -416,7 +416,8 @@ namespace VehicleNavigation
 				if (m_DriverCtx != null)
 				{
 					m_DriverCtx.UpdateFrom(m_Ctx.State, m_Ctx.Params, m_Ctx.Request, m_Ctx.Path);
-					float speedFraction = VehicleSpeedModeUtil.Fraction(m_Ctx.Request.SpeedMode) * _maneuver.SpeedScale;
+					float speedFraction = VehicleSpeedModeUtil.Fraction(m_Ctx.Request.SpeedMode);
+					speedFraction = Mathf.Max(speedFraction, 0.6f); // minimum reverse speed
 					m_ReverseDriver.TryStart(m_DriverCtx, speedFraction);
 				}
 			}
