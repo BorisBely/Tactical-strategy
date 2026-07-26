@@ -106,14 +106,12 @@ namespace VehicleNavigation
 					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} valid={c.Feasibility?.IsValid} risk={c.Feasibility?.RiskScore:F2} {(c.Feasibility != null && !c.Feasibility.IsValid ? c.Feasibility.FailureReason : "")}");
 			}
 
-			// Pick best valid
+			// Pick best by score (severity penalty is baked into Cost)
 			DrivingCandidate best = null;
 			float bestCost = float.MaxValue;
 			for (int i = 0; i < candidates.Count; i++)
 			{
 				var c = candidates[i];
-				if (c.Feasibility != null && !c.Feasibility.IsValid)
-					continue;
 				if (c.Cost < bestCost)
 				{
 					bestCost = c.Cost;
@@ -121,20 +119,12 @@ namespace VehicleNavigation
 				}
 			}
 
-			if (best == null)
+			if (DebugLog && candidates.Count > 1)
 			{
-				// Pick best by severity: try Unsafe before Impossible
-				DrivingCandidate bestUnsafe = null;
-				int bestSev = 99;
-				for (int i = 0; i < candidates.Count; i++)
-				{
-					var c = candidates[i];
-					int sev = c.Feasibility != null ? (int)c.Feasibility.Severity : 0;
-					if (sev < bestSev) { bestSev = sev; bestUnsafe = c; }
-				}
-				best = bestUnsafe ?? candidates[0];
-				if (DebugLog)
-					Debug.LogWarning($"[DrivingPlanner] ALL candidates invalid — fallback to {best.Mode} (severity={(FeasibilitySeverity)bestSev}) reason={best.Feasibility?.FailureReason}");
+				string sevInfo = "";
+				foreach (var c in candidates)
+					sevInfo += $" {c.Mode}={c.Feasibility?.Severity}";
+				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} severities=[{sevInfo.Trim()}]");
 			}
 
 			if (DebugLog)
