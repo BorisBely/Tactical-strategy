@@ -29,10 +29,10 @@ namespace VehicleNavigation
 			switch (_intent)
 			{
 				case DriverIntent.Reverse:
-					baseScore += 12f;
+					// Reverse is cheap for short distances, expensive for long
+					baseScore += 8f + System.Math.Max(0, _pathLength - 15f) * 3f;
 					break;
 				case DriverIntent.TurnAround:
-					// Turn arc adds significant distance: ~πR
 					baseScore += 8f + _turnRadius * 1.5f;
 					break;
 				case DriverIntent.DriveForward:
