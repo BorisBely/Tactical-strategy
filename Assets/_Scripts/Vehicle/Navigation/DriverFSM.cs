@@ -433,6 +433,17 @@ namespace VehicleNavigation
 			{
 				CurrentState = State.Holding;
 				m_Ctx.ActiveStopReason = StopReason.Goal;
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] ARRIVED at {m_Ctx.Request.Destination}, dist={FlatDistance(fb.Position, m_Ctx.Request.Destination):F2}m, speed={fb.SpeedKmh:F1}");
+				return m_Motion.BrakeToStop(_hard: true);
+			}
+
+			// Guard: if very close but not yet arrived, force crawl
+			float dist = FlatDistance(fb.Position, m_Ctx.Request.Destination);
+			if (dist < 1.5f && fb.SpeedKmh > 5f)
+			{
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] Arrival crawl: dist={dist:F2}m speed={fb.SpeedKmh:F1} — forcing slow");
 				return m_Motion.BrakeToStop(_hard: false);
 			}
 

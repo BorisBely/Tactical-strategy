@@ -157,6 +157,13 @@ namespace VehicleNavigation
 			if (_ctx == null || _ctx.CurrentManeuver == null)
 				return DrivingPhase.Cruise;
 
+			// Distance-based precision: close to target → parking phase
+			if (_ctx.RemainingDistance < 3f &&
+			    (_ctx.CurrentManeuver.IsArrivalManeuver ||
+			     _ctx.CurrentManeuver.Type == VehicleManeuverType.Parking ||
+			     _ctx.CurrentManeuver.Type == VehicleManeuverType.ApproachWithHeading))
+				return DrivingPhase.Parking;
+
 			switch (_ctx.CurrentManeuver.Type)
 			{
 				case VehicleManeuverType.Parking:

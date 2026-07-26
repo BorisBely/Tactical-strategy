@@ -4,11 +4,12 @@ namespace VehicleNavigation
 {
 	public static class ArrivalCostEvaluator
 	{
-		private const float Weight_Distance = 1.2f;
-		private const float Weight_Reverse = 8f;
+		private const float Weight_Distance = 1.0f;
+		private const float Weight_Lateral = 3.0f;
+		private const float Weight_Reverse = 12f;
 		private const float Weight_Heading = 0.3f;
-		private const float Weight_Maneuvers = 5f;
-		private const float Weight_Precision = 2f;
+		private const float Weight_Maneuvers = 6f;
+		private const float Weight_Precision = 3f;
 
 		public static float Evaluate(ArrivalPlan _plan, ArrivalAnalysis _analysis, ArrivalPlanningSettings _settings)
 		{
@@ -18,6 +19,7 @@ namespace VehicleNavigation
 			float cost = 0f;
 
 			cost += _analysis.Distance * Weight_Distance;
+			cost += _analysis.LateralOffset * Weight_Lateral;
 			cost += Mathf.Abs(_analysis.HeadingError) * Weight_Heading;
 			cost += _plan.Maneuvers.Count * Weight_Maneuvers;
 

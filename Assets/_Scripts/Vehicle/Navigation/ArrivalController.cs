@@ -25,8 +25,13 @@ namespace VehicleNavigation
 			Vector3 _destination,
 			float? _targetHeading)
 		{
-			if (FlatDistance(_position, _destination) > m_PositionTolerance)
+			float d = FlatDistance(_position, _destination);
+			if (d > m_PositionTolerance)
+			{
+				if (d < 1.5f)
+					Debug.Log($"[Arrival] close but not there: dist={d:F2}m > tol={m_PositionTolerance}m");
 				return false;
+			}
 
 			if (!_targetHeading.HasValue)
 				return true;

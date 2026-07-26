@@ -156,7 +156,7 @@ namespace VehicleNavigation
 			     command.BrakeMode != m_LastLoggedCommand.BrakeMode))
 			{
 				Debug.Log(
-					$"[VehicleNav:{name}] state={m_FSM.CurrentState} cmd=thr{command.Throttle:F2}/ste{command.Steer:F2}/brk{command.BrakeMode} " +
+					$"[VehicleNav:{name}] state={m_FSM.CurrentState} cmd=thr{command.Throttle:F2}/ste{command.Steer:F2}/brk{command.BrakeMode} phase={command.Phase} " +
 					$"rev={IsReversing} plan={m_Ctx.Plan.Reason} dist={m_Ctx.RemainingDistance:F1}m curv={m_Ctx.CurrentCurvature:F3}",
 					this);
 				m_LastLoggedState = m_FSM.CurrentState;

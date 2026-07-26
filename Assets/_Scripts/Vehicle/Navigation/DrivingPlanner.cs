@@ -65,31 +65,25 @@ namespace VehicleNavigation
 					_feedback.Geometry, _feedback.Memory)
 				: proposedMode;
 
-			// Build candidates
+			// Build candidates — Reverse and TurnAround are always created, feasibility handles quality
 			var candidates = new List<DrivingCandidate>(3);
 			candidates.Add(BuildForwardCandidate(_request, _path, _feedback, _ctx));
 
-			if (m_Feasibility != null)
+			bool revOk = _request.AllowReverse;
+			bool turnOk = _request.AllowTurnAround && VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry);
+
+			if (DebugLog)
 			{
-				bool canReverse = _request.AllowReverse
-					&& VehicleLocalGeometry.HasSafeBackingSpace(_feedback.Geometry, 1.8f);
-				bool canTurn = _request.AllowTurnAround
-					&& VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry);
-
-				if (DebugLog)
-				{
-					string revWhy = !_request.AllowReverse ? "disabled" :
-						!VehicleLocalGeometry.HasSafeBackingSpace(_feedback.Geometry, 1.8f) ? "no space" : "ok";
-					string turnWhy = !_request.AllowTurnAround ? "disabled" :
-						!VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry) ? "no space" : "ok";
-					Debug.Log($"[DrivingPlanner] candidates: Forward (always), Reverse={canReverse} ({revWhy}), TurnAround={canTurn} ({turnWhy}), proposed={proposedMode} safe={safeMode}");
-				}
-
-				if (canReverse)
-					candidates.Add(BuildReverseCandidate(_request, _path, _feedback, _turnRadius, _ctx));
-				if (canTurn)
-					candidates.Add(BuildTurnAroundCandidate(_request, _path, _feedback, _turnRadius, _ctx));
+				string revWhy = !_request.AllowReverse ? "disabled" : "available";
+				string turnWhy = !_request.AllowTurnAround ? "disabled" :
+					!VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry) ? "no space" : "ok";
+				Debug.Log($"[DrivingPlanner] candidates: Forward (always), Reverse={revOk} ({revWhy}), TurnAround={turnOk} ({turnWhy}), angle={firstAngle:F0}° dist={flatToDest:F1}m proposed={proposedMode}");
 			}
+
+			if (revOk)
+				candidates.Add(BuildReverseCandidate(_request, _path, _feedback, _turnRadius, _ctx));
+			if (turnOk)
+				candidates.Add(BuildTurnAroundCandidate(_request, _path, _feedback, _turnRadius, _ctx));
 
 			// Evaluate: check feasibility + score
 			FeasibilityResult bestFeasibility = FeasibilityResult.Valid;
@@ -103,7 +97,7 @@ namespace VehicleNavigation
 				if (c.Feasibility != null && c.Feasibility.IsValid)
 					bestFeasibility = c.Feasibility;
 				if (DebugLog)
-					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} valid={c.Feasibility?.IsValid} risk={c.Feasibility?.RiskScore:F2} {(c.Feasibility != null && !c.Feasibility.IsValid ? c.Feasibility.FailureReason : "")}");
+					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} severity={c.Feasibility?.Severity} {(c.Feasibility != null && c.Feasibility.Severity != FeasibilitySeverity.Valid ? c.Feasibility.FailureReason : "")}");
 			}
 
 			// Pick best by score (severity penalty is baked into Cost)
