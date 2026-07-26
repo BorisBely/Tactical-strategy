@@ -28,6 +28,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		[SerializeField] private bool m_DrawDiagonalProbes = true;
 		[SerializeField] private bool m_DrawFeasibilityInfo = true;
 		[SerializeField] private bool m_DrawQueuePreview = true;
+		[SerializeField] private bool m_DrawArrivalDebug = true;
 
 	[Header("Логирование")]
 	[SerializeField] private bool m_LogPlanRebuild = true;
@@ -262,6 +263,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 			DrawDiagonalProbes();
 			DrawFeasibilityInfo();
 			DrawQueuePreview();
+			DrawArrivalDebug();
 	}
 
 	private void DrawNavMeshPath()
@@ -607,6 +609,23 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 			sb.AppendLine($"  [{i}] {o.Type} → {o.Destination:F0} st={o.State}");
 		}
 		Handles.Label(labelPos, sb.ToString(), EditorStyles.miniLabel);
+	}
+
+	private void DrawArrivalDebug()
+	{
+		if (!m_DrawArrivalDebug) return;
+		Vector3 dest = m_Nav.Destination;
+		if (dest == Vector3.zero) return;
+		Vector3 pos = transform.position;
+		float r = m_Nav.Context?.Params.MinTurningRadius ?? 6f;
+		float planningDist = Mathf.Max(4f * r, 6f);
+		Vector3 flatD = new Vector3(dest.x, pos.y, dest.z);
+		Handles.color = new Color(0f, 1f, 0f, 0.25f);
+		Handles.DrawWireDisc(flatD, Vector3.up, 0.5f);
+		Handles.color = new Color(1f, 1f, 0f, 0.15f);
+		Handles.DrawWireDisc(flatD, Vector3.up, planningDist);
+		float d = Vector3.Distance(new Vector3(pos.x, 0, pos.z), new Vector3(dest.x, 0, dest.z));
+		if (d < r) { Handles.color = new Color(1f, 0.2f, 0.2f, 0.3f); Handles.DrawWireDisc(flatD, Vector3.up, r); }
 	}
 #endif
 	#endregion

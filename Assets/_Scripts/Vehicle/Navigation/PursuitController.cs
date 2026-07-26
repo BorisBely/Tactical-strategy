@@ -237,6 +237,14 @@ namespace VehicleNavigation
 			// Arrival: scale by remaining distance.
 			float arrivalScale = Mathf.Clamp01(distanceToEnd / 15f);
 
+			// Precision arrival: tight control when very close
+			if (distanceToEnd < 2f)
+			{
+				lookAhead = Mathf.Min(lookAhead, 1.2f);
+				arrivalScale = Mathf.Clamp01(distanceToEnd / 3f);
+				curvature = Mathf.Clamp(curvature, -0.25f, 0.25f);
+			}
+
 			float targetKmh = capKmh * Mathf.Min(curvatureFraction, arrivalScale);
 			float speedBeforeReverse = targetKmh;
 

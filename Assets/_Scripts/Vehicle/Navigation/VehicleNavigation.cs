@@ -37,6 +37,7 @@ namespace VehicleNavigation
 
 		private VehicleOrderQueue m_OrderQueue;
 		private VehicleSafetyController m_Safety;
+		private ArrivalPlanner m_ArrivalPlanner;
 		private bool m_QueueAutoAdvance = true;
 		private bool m_HasDestination;
 		private bool m_IsStopped;
@@ -340,6 +341,9 @@ namespace VehicleNavigation
 			VehicleParameters parameters = m_Brain != null && m_Brain.Tuning != null
 				? VehicleParameters.FromTuning(m_Brain.Tuning)
 				: VehicleParameters.Default;
+
+			m_ArrivalPlanner = new ArrivalPlanner(parameters.MinTurningRadius);
+			m_DrivingPlanner.SetArrivalPlanner(m_ArrivalPlanner);
 
 			m_Ctx = new NavigationContext(parameters, new VehicleDriverMemory());
 			m_OrderQueue = new VehicleOrderQueue();

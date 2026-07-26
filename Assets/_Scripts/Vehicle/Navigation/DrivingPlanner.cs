@@ -12,6 +12,7 @@ namespace VehicleNavigation
 
 		private readonly DecisionEvaluator m_DecisionEvaluator;
 		private ManeuverFeasibilityChecker m_Feasibility;
+		private ArrivalPlanner m_ArrivalPlanner;
 
 		public DrivingPlanner(DecisionEvaluator _decisionEvaluator)
 		{
@@ -21,6 +22,11 @@ namespace VehicleNavigation
 		public void SetFeasibility(ManeuverFeasibilityChecker _feasibility)
 		{
 			m_Feasibility = _feasibility;
+		}
+
+		public void SetArrivalPlanner(ArrivalPlanner _planner)
+		{
+			m_ArrivalPlanner = _planner;
 		}
 
 		public DrivingPlan BuildPlan(
@@ -267,7 +273,7 @@ namespace VehicleNavigation
 			return sign;
 		}
 
-		private static void AppendArrivalManeuver(
+		private void AppendArrivalManeuver(
 			NavigationRequest _request,
 			PathResult _path,
 			FeedbackState _feedback,
@@ -275,6 +281,19 @@ namespace VehicleNavigation
 		{
 			Vector3 forward = FlatDir(_feedback.Forward);
 			float currentYaw = Quaternion.LookRotation(forward, Vector3.up).eulerAngles.y;
+
+			// Try precision arrival planner first
+			if (m_ArrivalPlanner != null)
+			{
+				float? heading = _request.HasHeading ? _request.HeadingYaw : (float?)null;
+				var arrivalManeuvers = m_ArrivalPlanner.PlanArrival(
+					_feedback.Position, currentYaw, _request.Destination, heading);
+				if (arrivalManeuvers != null && arrivalManeuvers.Count > 0)
+				{
+					_maneuvers.AddRange(arrivalManeuvers);
+					return;
+				}
+			}
 
 			switch (_request.FacingMode)
 			{
