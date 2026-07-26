@@ -146,6 +146,40 @@ namespace VehicleNavigation
 			return arc;
 		}
 
+		public Vector3[] GenerateApproachWithHeadingArc(
+			Vector3 _from,
+			float _fromYaw,
+			Vector3 _to,
+			float _targetYaw,
+			float _turnRadius)
+		{
+			float approachDistance = Mathf.Max(3f, _turnRadius);
+			Vector3 targetForward = Quaternion.Euler(0f, _targetYaw, 0f) * Vector3.forward;
+			Vector3 entryPoint = _to - targetForward * approachDistance;
+
+			var points = new System.Collections.Generic.List<Vector3>();
+			points.Add(_from);
+
+			float distToEntry = Vector3.Distance(_from, entryPoint);
+			float distToDest = Vector3.Distance(_from, _to);
+
+			if (distToDest < approachDistance * 1.5f)
+			{
+				points.Add(Vector3.Lerp(_from, entryPoint, 0.4f));
+				points.Add(entryPoint);
+				points.Add(_to);
+				return points.ToArray();
+			}
+
+			Vector3 mid = _from + (entryPoint - _from).normalized * Mathf.Min(distToEntry * 0.55f, approachDistance * 1.6f);
+			mid.y = _from.y;
+			points.Add(Vector3.Lerp(_from, mid, 0.5f));
+			points.Add(mid);
+			points.Add(entryPoint);
+			points.Add(_to);
+			return points.ToArray();
+		}
+
 		public Vector3[] GenerateUnstuckWaypoints(
 			Vector3 _origin,
 			float _startYaw,

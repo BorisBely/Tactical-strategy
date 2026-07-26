@@ -80,10 +80,15 @@ namespace VehicleNavigation
 		private ReverseDriver m_ReverseDriver;
 		private DriverContext m_DriverCtx;
 		private TrajectoryPrediction m_Prediction;
+		private ManeuverFeasibilityChecker m_Feasibility;
 
-		public void SetPrediction(TrajectoryPrediction _pred)
+		public FeasibilityResult LastFeasibility { get; private set; }
+
+		public void SetPrediction(TrajectoryPrediction _pred, ManeuverFeasibilityChecker _feasibility)
 		{
 			m_Prediction = _pred;
+			m_Feasibility = _feasibility;
+			m_DrivingPlanner.SetFeasibility(_feasibility);
 		}
 
 		// -- Events --
@@ -202,29 +207,57 @@ namespace VehicleNavigation
 			if (CurrentState == State.Idle)
 				return m_Motion.Idle();
 
-			// Recovery check
-			UnstuckManeuver unstuck = m_Recovery.TryStartRecovery(fb, m_Ctx.Memory);
-			if (unstuck != null)
+		// Recovery check
+		var (recAction, recManeuver) = m_Recovery.EvaluateAndGetManeuver(fb, m_Ctx.Memory);
+		if (recAction != RecoveryAction.None)
+		{
+			switch (recAction)
 			{
-				CurrentState = State.Recovery;
-				ReplanTriggered?.Invoke("stuck detected");
+				case RecoveryAction.RebuildPath:
+					m_Recovery.Reset();
+					m_PlanDirty = true;
+					ReplanTriggered?.Invoke("recovery replan");
+					return m_Motion.BrakeToStop(false);
+
+				case RecoveryAction.AbortAndStop:
+					CurrentState = State.Idle;
+					m_Ctx.ActiveStopReason = StopReason.Stuck;
+					m_Ctx.Memory.ResetRecoveryCounters();
+					ReplanTriggered?.Invoke("recovery abort");
+					return m_Motion.BrakeToStop(true);
+
+				case RecoveryAction.ReverseOut:
+					m_Recovery.Reset();
+					m_PlanDirty = true;
+					ReplanTriggered?.Invoke("recovery reverse");
+					return m_Motion.BrakeToStop(false);
+
+				default:
+					if (recManeuver != null)
+					{
+						CurrentState = State.Recovery;
+						ReplanTriggered?.Invoke("stuck detected");
+					}
+					break;
 			}
+		}
 
-			m_Recovery.Update(Time.fixedDeltaTime);
+		m_Recovery.Update(Time.fixedDeltaTime);
 
-			if (CurrentState == State.Recovery)
+		if (CurrentState == State.Recovery)
+		{
+			if (m_Recovery.CheckRecoveryComplete(fb))
 			{
-				if (m_Recovery.CheckRecoveryComplete(fb))
-				{
-					CurrentState = State.Driving;
-					RebuildPlan();
-					ReplanTriggered?.Invoke("recovery complete");
-				}
-				else
-				{
-					return ExecuteManeuver(unstuck);
-				}
+				m_Ctx.Memory.ResetRecoveryCounters();
+				CurrentState = State.Driving;
+				RebuildPlan();
+				ReplanTriggered?.Invoke("recovery complete");
 			}
+			else if (recManeuver != null)
+			{
+				return ExecuteManeuver(recManeuver);
+			}
+		}
 
 			// Completion check
 			if (CurrentState == State.Driving)
@@ -287,10 +320,24 @@ namespace VehicleNavigation
 				m_Settings.TurnRadius,
 				m_DriverCtx);
 
-			m_ManeuverPlanner.BuildWaypoints(
-				m_Ctx.Plan, m_Ctx.Request, m_Ctx.Path, fb,
-				m_Ctx.Params.MinTurningRadius,
-				m_Ctx.Params.WheelBase);
+		m_ManeuverPlanner.BuildWaypoints(
+			m_Ctx.Plan, m_Ctx.Request, m_Ctx.Path, fb,
+			m_Ctx.Params.MinTurningRadius,
+			m_Ctx.Params.WheelBase);
+
+			LastFeasibility = m_Ctx.Plan.Feasibility;
+			if (!LastFeasibility.IsValid)
+			{
+				m_Ctx.Memory.RecordFeasibilityFailure();
+				ReplanTriggered?.Invoke($"plan rejected: {LastFeasibility.FailureReason}");
+				m_Ctx.Plan = new DrivingPlan(
+					new Maneuver[] { new ForwardManeuver() },
+					$"fallback — {LastFeasibility.FailureReason}");
+				m_ManeuverPlanner.BuildWaypoints(
+					m_Ctx.Plan, m_Ctx.Request, m_Ctx.Path, fb,
+					m_Ctx.Params.MinTurningRadius,
+					m_Ctx.Params.WheelBase);
+			}
 
 			m_Ctx.CurrentManeuverIndex = 0;
 
@@ -368,6 +415,7 @@ namespace VehicleNavigation
 		private VehicleCommand TickArrival()
 		{
 			FeedbackState fb = m_Ctx.State;
+			ArrivalCriteria criteria = ArrivalCriteria.FromRequest(m_Ctx.Request);
 			float? heading = m_Ctx.Request.HasHeading ? m_Ctx.Request.HeadingYaw : (float?)null;
 
 			if (m_Arrival.HasArrived(fb.Position, fb.Yaw, m_Ctx.Request.Destination, heading))
@@ -378,7 +426,6 @@ namespace VehicleNavigation
 			}
 
 			Maneuver arrivalManeuver = m_Ctx.CurrentManeuver;
-			// If no dedicated arrival maneuver, fall back to the last maneuver in the plan.
 			if (arrivalManeuver == null)
 			{
 				if (m_Ctx.Plan.Maneuvers != null && m_Ctx.Plan.Maneuvers.Count > 0)
@@ -418,13 +465,14 @@ namespace VehicleNavigation
 			m_Ctx.ActiveLimit = m_SpeedPlanner.ActiveLimit;
 
 			float distance = FlatDistance(fb.Position, m_Ctx.Request.Destination);
-			if (heading.HasValue && distance < 6f)
+			if (criteria.HasTargetForward && heading.HasValue &&
+			    distance < criteria.HeadingBlendStartDistance)
 			{
 				float headingError = Mathf.DeltaAngle(fb.Yaw, heading.Value);
 				float headingCurv = headingError * Mathf.Deg2Rad / 5f;
-				float blend = 1f - Mathf.Clamp01(distance / 6f);
+				float blend = 1f - Mathf.Clamp01(distance / criteria.HeadingBlendStartDistance);
 				float blendedCurv = Mathf.Lerp(cmd.DesiredCurvature, headingCurv, blend);
-				float blendedSpeed = Mathf.Min(finalSpeed, 5f);
+				float blendedSpeed = Mathf.Min(finalSpeed, criteria.HeadingBlendMaxSpeedKmh);
 				cmd = new MotionCommand(blendedSpeed, blendedCurv, cmd.Reverse);
 			}
 			else
@@ -437,23 +485,8 @@ namespace VehicleNavigation
 
 		private VehicleCommand TickHolding()
 		{
-			FeedbackState fb = m_Ctx.State;
 			m_Ctx.ActiveStopReason = StopReason.Goal;
-
-			if (fb.SpeedKmh < 0.1f)
-			{
-				return new VehicleCommand
-				{
-					Steer = 0f,
-					Throttle = 0f,
-					BrakeMode = VehicleBrakeMode.Soft,
-					FireHeld = false,
-					AimWorldPoint = Vector3.zero,
-					HasAimPoint = false
-				};
-			}
-
-			return m_Motion.BrakeToStop(_hard: false);
+			return m_Motion.HoldInPlace();
 		}
 
 		private bool AdvanceManeuverIfComplete(FeedbackState _fb)

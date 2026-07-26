@@ -34,6 +34,14 @@ namespace VehicleNavigation
 				}
 			}
 
+			// Account for feasibility-based speed recommendation
+			if (_ctx.Plan?.Feasibility != null &&
+			    _ctx.Plan.Feasibility.RecommendedMaxSpeedKmh > 0f &&
+			    _ctx.Plan.Feasibility.RecommendedMaxSpeedKmh < target)
+			{
+				target = _ctx.Plan.Feasibility.RecommendedMaxSpeedKmh;
+			}
+
 			ActiveLimit = active;
 			return target;
 		}

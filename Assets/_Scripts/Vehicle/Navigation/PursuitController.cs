@@ -142,6 +142,11 @@ namespace VehicleNavigation
 		private readonly AnimationCurve m_CurvatureSpeedCurve;
 		private readonly AnimationCurve m_SteeringLimitCurve;
 
+		private float m_PrevCurvatureSign;
+		private int m_CurvatureFlipCount;
+		private float m_AdaptiveLookAheadMult = 1f;
+		private const float c_AdaptiveDecayRate = 0.3f;
+
 		public PursuitController(AnimationCurve _curvatureSpeedCurve = null)
 		{
 			m_CurvatureSpeedCurve = _curvatureSpeedCurve ?? new AnimationCurve(
@@ -176,8 +181,7 @@ namespace VehicleNavigation
 			}
 
 			bool isReversing = _maneuver.AllowReverse && _maneuver.Type != VehicleManeuverType.Forward;
-			float lookAhead = ComputeLookAhead(
-				fb.SpeedKmh,
+			float lookAhead = ComputeLookAhead(fb.SpeedKmh,
 				_lookAheadOverride ?? _defaultLookAhead);
 
 			int nearest = FindNearestWaypointIndex(waypoints, fb.Position);
@@ -219,7 +223,10 @@ namespace VehicleNavigation
 				curvature = -curvature;
 		}
 
-		// --- desired speed from curvature ---
+			// Adaptive lookahead: detect oscillation
+			UpdateOscillation(rawCurvature);
+
+			// --- desired speed from curvature ---
 			float capKmh = Mathf.Max(1f, _topSpeedKmh) * Mathf.Clamp01(_speedCapFraction);
 
 			// Preview: look ahead for tight turns and brake early.
@@ -262,10 +269,29 @@ namespace VehicleNavigation
 			return result;
 		}
 
-		private static float ComputeLookAhead(float _speedKmh, float _base)
+		private float ComputeLookAhead(float _speedKmh, float _base)
 		{
 			float speed = Mathf.Max(0f, _speedKmh);
-			return Mathf.Clamp(_base + speed * 0.35f, 3f, 16f);
+			float baseLA = Mathf.Clamp(_base + speed * 0.35f, 3f, 16f);
+			return baseLA * m_AdaptiveLookAheadMult;
+		}
+
+		private void UpdateOscillation(float _rawCurvature)
+		{
+			float sign = _rawCurvature < -0.002f ? -1f : _rawCurvature > 0.002f ? 1f : 0f;
+			if (sign != 0f && m_PrevCurvatureSign != 0f && sign != m_PrevCurvatureSign)
+			{
+				m_CurvatureFlipCount++;
+				if (m_CurvatureFlipCount >= 3)
+					m_AdaptiveLookAheadMult = 1.5f;
+			}
+			else if (m_CurvatureFlipCount > 0)
+			{
+				m_CurvatureFlipCount = System.Math.Max(0, m_CurvatureFlipCount - 1);
+			}
+			if (m_CurvatureFlipCount == 0)
+				m_AdaptiveLookAheadMult = Mathf.Lerp(m_AdaptiveLookAheadMult, 1f, c_AdaptiveDecayRate);
+			m_PrevCurvatureSign = sign;
 		}
 
 		private static int FindNearestWaypointIndex(Vector3[] _waypoints, Vector3 _position)

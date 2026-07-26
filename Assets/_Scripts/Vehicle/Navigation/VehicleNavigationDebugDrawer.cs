@@ -23,8 +23,11 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 	[SerializeField] private bool m_DrawCurvatureArc = true;
 	[SerializeField] private bool m_DrawGeometryProbes = true;
 	[SerializeField] private bool m_DrawVehicleInfo = true;
-	[SerializeField] private bool m_DrawDestination = true;
-	[SerializeField] private bool m_DrawLookAheadRing = true;
+		[SerializeField] private bool m_DrawDestination = true;
+		[SerializeField] private bool m_DrawLookAheadRing = true;
+		[SerializeField] private bool m_DrawDiagonalProbes = true;
+		[SerializeField] private bool m_DrawFeasibilityInfo = true;
+		[SerializeField] private bool m_DrawQueuePreview = true;
 
 	[Header("Логирование")]
 	[SerializeField] private bool m_LogPlanRebuild = true;
@@ -254,8 +257,11 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		DrawCurvatureArc();
 		DrawGeometryProbes();
 		DrawVehicleInfo();
-		DrawDestination();
-		DrawLookAheadRing();
+			DrawDestination();
+			DrawLookAheadRing();
+			DrawDiagonalProbes();
+			DrawFeasibilityInfo();
+			DrawQueuePreview();
 	}
 
 	private void DrawNavMeshPath()
@@ -523,6 +529,84 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		Handles.color = ringColor;
 		Handles.DrawWireDisc(pos, Vector3.up, debug.LookAheadDistance * 0.5f);
 		Handles.DrawWireDisc(pos, Vector3.up, debug.LookAheadDistance);
+	}
+
+	private void DrawDiagonalProbes()
+	{
+		if (!m_DrawDiagonalProbes)
+			return;
+
+		var geo = m_Nav.Geometry;
+		Vector3 pos = transform.position + Vector3.up * 0.6f;
+
+		Vector3 diagFL = Quaternion.Euler(0f, -30f, 0f) * transform.forward;
+		Vector3 diagFR = Quaternion.Euler(0f,  30f, 0f) * transform.forward;
+		Vector3 diagRL = Quaternion.Euler(0f, -150f, 0f) * transform.forward;
+		Vector3 diagRR = Quaternion.Euler(0f,  150f, 0f) * transform.forward;
+
+		DrawProbeRay(pos, diagFL, geo.FrontDiagonalLeftClearance,  "L-F");
+		DrawProbeRay(pos, diagFR, geo.FrontDiagonalRightClearance, "R-F");
+		DrawProbeRay(pos, diagRL, geo.RearDiagonalLeftClearance,   "L-R");
+		DrawProbeRay(pos, diagRR, geo.RearDiagonalRightClearance,  "R-R");
+	}
+
+	private void DrawFeasibilityInfo()
+	{
+		if (!m_DrawFeasibilityInfo)
+			return;
+
+		var feas = m_Nav.LastFeasibility;
+		if (feas == null)
+			return;
+
+		Vector3 pos = transform.position;
+
+		string label;
+		Color col;
+		if (!feas.IsValid)
+		{
+			label = $"F:INVALID ({feas.FailureReason})";
+			col = Color.red;
+		}
+		else if (!feas.IsFullySafe)
+		{
+			label = $"F:RISK {feas.RiskScore:F1} clr={feas.MinClearance:F1}m";
+			col = Color.yellow;
+		}
+		else
+		{
+			label = "F:SAFE";
+			col = Color.green;
+		}
+
+		Handles.Label(pos + Vector3.up * 3.2f, label,
+			new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = col } });
+	}
+
+	private void DrawQueuePreview()
+	{
+		if (!m_DrawQueuePreview)
+			return;
+
+		var queue = m_Nav.OrderQueue;
+		if (queue == null)
+			return;
+
+		var orders = queue.QueuedOrders;
+		if (orders == null || orders.Count == 0)
+			return;
+
+		Vector3 pos = transform.position;
+		Vector3 labelPos = pos + Vector3.up * 3.7f;
+
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"Очередь ({orders.Count}):");
+		for (int i = 0; i < orders.Count; i++)
+		{
+			var o = orders[i];
+			sb.AppendLine($"  [{i}] {o.Type} → {o.Destination:F0} st={o.State}");
+		}
+		Handles.Label(labelPos, sb.ToString(), EditorStyles.miniLabel);
 	}
 #endif
 	#endregion

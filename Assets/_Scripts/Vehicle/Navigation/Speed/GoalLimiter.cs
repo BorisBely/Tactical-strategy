@@ -15,6 +15,17 @@ namespace VehicleNavigation
 
 		public SpeedLimitResult GetLimit(NavigationContext _ctx)
 		{
+			// Precision maneuvers: force creep speed regardless of distance
+			if (_ctx.CurrentManeuver != null)
+			{
+				var mType = _ctx.CurrentManeuver.Type;
+				if (mType == VehicleManeuverType.ApproachWithHeading ||
+				    mType == VehicleManeuverType.Parking)
+				{
+					return new SpeedLimitResult(m_CreepSpeedKmh, StopReason.Goal, 50, false);
+				}
+			}
+
 			float distanceToEnd = _ctx.RemainingDistance;
 			if (distanceToEnd <= 0f)
 				return new SpeedLimitResult(0f, StopReason.Goal, 60, true);

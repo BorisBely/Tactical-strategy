@@ -8,21 +8,30 @@ namespace VehicleNavigation
 		public readonly bool IsSafe;
 		public readonly float MinClearance;
 		public readonly float TimeToCollision;
+		public readonly float RiskScore;
+		public readonly Vector3 CollisionPoint;
+		public readonly int CollisionStepIndex;
 
-		public PredictionResult(bool _safe, float _clearance, float _ttc)
+		public PredictionResult(
+			bool _safe,
+			float _clearance,
+			float _ttc,
+			float _riskScore,
+			Vector3 _collisionPoint,
+			int _collisionStep)
 		{
 			IsSafe = _safe;
 			MinClearance = _clearance;
 			TimeToCollision = _ttc;
+			RiskScore = _riskScore;
+			CollisionPoint = _collisionPoint;
+			CollisionStepIndex = _collisionStep;
 		}
 
-		public static PredictionResult Safe => new PredictionResult(true, float.MaxValue, float.MaxValue);
+		public static PredictionResult Safe => new PredictionResult(
+			true, float.MaxValue, float.MaxValue, 0f, Vector3.zero, -1);
 	}
 
-	/// <summary>
-	/// Shared trajectory prediction for ALL driver intents (Forward, Reverse, Parking, Column).
-	/// Uses bicycle model to project future arc and checks for collisions.
-	/// </summary>
 	public sealed class TrajectoryPrediction
 	{
 		private readonly LayerMask m_ObstacleMask;
@@ -61,25 +70,99 @@ namespace VehicleNavigation
 			if (_arc == null || _arc.Count == 0)
 				return PredictionResult.Safe;
 
-			float minClearance = float.MaxValue;
 			float ttc = float.MaxValue;
+			Vector3 collisionPoint = Vector3.zero;
+			int collisionStep = -1;
 
 			for (int i = 0; i < _arc.Count; i++)
 			{
 				float t = i / (float)(_arc.Count - 1) * c_MaxTime;
 				if (Physics.CheckSphere(_arc[i], c_SafeRadius, m_ObstacleMask, QueryTriggerInteraction.Ignore))
 				{
-					if (t < ttc) ttc = t;
+					if (t < ttc)
+					{
+						ttc = t;
+						collisionPoint = _arc[i];
+						collisionStep = i;
+					}
 				}
 			}
 
 			if (ttc < c_MaxTime)
 			{
 				bool safe = ttc > 0.5f;
-				return new PredictionResult(safe, 0f, ttc);
+				float risk = 1f - Mathf.Clamp01(ttc / 0.5f);
+				return new PredictionResult(safe, 0f, ttc, risk, collisionPoint, collisionStep);
 			}
 
 			return PredictionResult.Safe;
+		}
+
+		public PredictionResult PredictForManeuver(
+			Maneuver _maneuver,
+			DriverContext _ctx,
+			VehicleParameters _params)
+		{
+			if (_maneuver == null)
+				return PredictionResult.Safe;
+
+			switch (_maneuver.Type)
+			{
+				case VehicleManeuverType.Forward:
+				case VehicleManeuverType.Parking:
+				case VehicleManeuverType.ApproachWithHeading:
+					return PredictForward(_ctx, _params);
+
+				case VehicleManeuverType.Reverse:
+					return PredictReverse(_ctx, _params);
+
+				case VehicleManeuverType.TurnAround:
+				{
+					var turn = _maneuver as TurnAroundManeuver;
+					float sign = turn != null ? turn.TurnSign : 1f;
+					return PredictTurnAround(_ctx, _params, sign);
+				}
+
+				default:
+					return PredictionResult.Safe;
+			}
+		}
+
+		public PredictionResult PredictForward(DriverContext _ctx, VehicleParameters _params)
+		{
+			float speed = Mathf.Max(1f, Mathf.Min(_ctx.SpeedKmh, _params.MaxForwardSpeedKmh * 0.5f));
+			var arc = PredictArc(_ctx, 0f, speed, c_MaxTime);
+			return Evaluate(_ctx, arc);
+		}
+
+		public PredictionResult PredictReverse(DriverContext _ctx, VehicleParameters _params)
+		{
+			float speed = Mathf.Max(1f, Mathf.Min(_ctx.SpeedKmh, _params.MaxReverseSpeedKmh * 0.5f));
+
+			var revCtx = new DriverContext();
+			revCtx.UpdateFrom(new FeedbackState(), _params, default, default);
+			revCtx.Position = _ctx.Position;
+			revCtx.Forward = -_ctx.Forward;
+			revCtx.Right = -_ctx.Right;
+			revCtx.Yaw = _ctx.Yaw + 180f;
+			if (revCtx.Yaw > 180f) revCtx.Yaw -= 360f;
+			revCtx.WheelBase = _ctx.WheelBase;
+
+			var arc = PredictArc(revCtx, 0f, speed, c_MaxTime);
+			return Evaluate(revCtx, arc);
+		}
+
+		public PredictionResult PredictTurnAround(
+			DriverContext _ctx,
+			VehicleParameters _params,
+			float _turnSign)
+		{
+			float turnRadius = _params.MinTurningRadius;
+			float steerAngleDeg = Mathf.Atan(_params.WheelBase / turnRadius) * Mathf.Rad2Deg * _turnSign;
+			float speed = Mathf.Min(_ctx.SpeedKmh, 6f);
+
+			var arc = PredictArc(_ctx, steerAngleDeg, speed, c_MaxTime);
+			return Evaluate(_ctx, arc);
 		}
 	}
 }

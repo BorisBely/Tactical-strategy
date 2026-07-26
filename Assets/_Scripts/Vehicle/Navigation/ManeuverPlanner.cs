@@ -67,15 +67,25 @@ namespace VehicleNavigation
 							_feedback.Geometry));
 						break;
 
-					case VehicleManeuverType.Parking:
-						ParkingManeuver park = (ParkingManeuver)m;
-						m.SetWaypoints(m_Smoother.GenerateParkingWaypoints(
-							_feedback.Position,
-							_feedback.Yaw,
-							_request.Destination,
-							park.TargetHeadingYaw,
-							_minRadius));
-						break;
+				case VehicleManeuverType.Parking:
+					ParkingManeuver park = (ParkingManeuver)m;
+					m.SetWaypoints(m_Smoother.GenerateParkingWaypoints(
+						_feedback.Position,
+						_feedback.Yaw,
+						_request.Destination,
+						park.TargetHeadingYaw,
+						_minRadius));
+					break;
+
+				case VehicleManeuverType.ApproachWithHeading:
+					ApproachWithHeadingManeuver approach = (ApproachWithHeadingManeuver)m;
+					m.SetWaypoints(m_Smoother.GenerateApproachWithHeadingArc(
+						_feedback.Position,
+						_feedback.Yaw,
+						approach.Destination,
+						approach.TargetHeadingYaw,
+						_minRadius));
+					break;
 
 					case VehicleManeuverType.Unstuck:
 						UnstuckManeuver unstuck = (UnstuckManeuver)m;

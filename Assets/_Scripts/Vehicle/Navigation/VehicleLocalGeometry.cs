@@ -16,6 +16,16 @@ namespace VehicleNavigation
 			public float RightClearance;
 			public float RearClearance;
 			public float FrontClearance;
+
+			public float FrontDiagonalLeftClearance;
+			public float FrontDiagonalRightClearance;
+			public float RearDiagonalLeftClearance;
+			public float RearDiagonalRightClearance;
+
+			public bool HasDropAhead;
+			public bool HasDropBehind;
+			public bool HasNarrowPassage;
+
 			/// <summary>-1 = prefer left turn, +1 = prefer right, 0 = either.</summary>
 			public float PreferredTurnSign;
 		}
@@ -28,12 +38,9 @@ namespace VehicleNavigation
 			Vector3 origin = _vehicle.position + Vector3.up * c_ProbeHeight;
 			float halfWidth = Mathf.Max(0.5f, _vehicleWidth * 0.5f);
 
-			// Ignore every collider that belongs to this vehicle so clearance is real world-space.
 			Collider[] selfColliders = _vehicle.GetComponentsInChildren<Collider>(true);
 			HashSet<Collider> selfSet = new HashSet<Collider>(selfColliders);
 
-			// The kinematic UnitBlocker is a separate GameObject (not a child) but sits at the
-			// same position; without ignoring it all side/rear clearances read as zero.
 			if (_vehicle.TryGetComponent(out VehicleController vehicleCtrl) &&
 			    vehicleCtrl.UnitBlocker != null &&
 			    vehicleCtrl.UnitBlocker.BlockCollider != null)
@@ -51,6 +58,36 @@ namespace VehicleNavigation
 			rear = Mathf.Max(0f, rear);
 			front = Mathf.Max(0f, front);
 
+			// Diagonal probes
+			Vector3 diagFrontLeft  = Quaternion.Euler(0f, -30f, 0f) * _vehicle.forward;
+			Vector3 diagFrontRight = Quaternion.Euler(0f,  30f, 0f) * _vehicle.forward;
+			Vector3 diagRearLeft   = Quaternion.Euler(0f, -150f, 0f) * _vehicle.forward;
+			Vector3 diagRearRight  = Quaternion.Euler(0f,  150f, 0f) * _vehicle.forward;
+
+			float fal = RayClearance(origin, diagFrontLeft,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
+			float far = RayClearance(origin, diagFrontRight, c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
+			float ral = RayClearance(origin, diagRearLeft,   c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
+			float rar = RayClearance(origin, diagRearRight,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
+
+			fal = Mathf.Max(0f, fal);
+			far = Mathf.Max(0f, far);
+			ral = Mathf.Max(0f, ral);
+			rar = Mathf.Max(0f, rar);
+
+			// Drop check: cast down ahead and behind
+			Vector3 dropForwardOrigin = origin + _vehicle.forward * (halfWidth + 0.5f);
+			dropForwardOrigin.y += 0.5f;
+			bool dropAhead = !Physics.Raycast(
+				dropForwardOrigin, Vector3.down, 3f, _mask, QueryTriggerInteraction.Ignore);
+
+			Vector3 dropBackOrigin = origin - _vehicle.forward * (halfWidth + 0.5f);
+			dropBackOrigin.y += 0.5f;
+			bool dropBehind = !Physics.Raycast(
+				dropBackOrigin, Vector3.down, 3f, _mask, QueryTriggerInteraction.Ignore);
+
+			// Narrow passage: both left and right clearances are tight
+			bool narrowPassage = left < 2f && right < 2f;
+
 			float prefer = 0f;
 			if (left > right + 0.75f)
 				prefer = -1f;
@@ -63,8 +100,40 @@ namespace VehicleNavigation
 				RightClearance = right,
 				RearClearance = rear,
 				FrontClearance = front,
+				FrontDiagonalLeftClearance = fal,
+				FrontDiagonalRightClearance = far,
+				RearDiagonalLeftClearance = ral,
+				RearDiagonalRightClearance = rar,
+				HasDropAhead = dropAhead,
+				HasDropBehind = dropBehind,
+				HasNarrowPassage = narrowPassage,
 				PreferredTurnSign = prefer
 			};
+		}
+
+		public static bool CanFitTurnRadius(float _radius, Sample _geometry)
+		{
+			float needed = _radius * 0.7f;
+			return _geometry.FrontDiagonalLeftClearance >= needed * 0.8f
+			    || _geometry.FrontDiagonalRightClearance >= needed * 0.8f;
+		}
+
+		public static bool HasSafeBackingSpace(Sample _geometry, float _minDistance)
+		{
+			if (_geometry.HasDropBehind)
+				return false;
+			return _geometry.RearClearance >= _minDistance
+			    && _geometry.RearDiagonalLeftClearance >= _minDistance * 0.6f
+			    && _geometry.RearDiagonalRightClearance >= _minDistance * 0.6f;
+		}
+
+		public static bool HasSafeForwardSpace(Sample _geometry, float _minDistance)
+		{
+			if (_geometry.HasDropAhead)
+				return false;
+			return _geometry.FrontClearance >= _minDistance
+			    && _geometry.FrontDiagonalLeftClearance >= _minDistance * 0.6f
+			    && _geometry.FrontDiagonalRightClearance >= _minDistance * 0.6f;
 		}
 
 		private static float RayClearance(

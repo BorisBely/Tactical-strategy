@@ -20,6 +20,8 @@ namespace VehicleNavigation
 		private float m_AvoidReverseUntil;
 		private int m_UnstuckAttempts;
 		private float m_UnstuckSteerSign = 1f;
+		private int m_FeasibilityFailures;
+		private int m_RecoveryCycles;
 		private string m_LastDecisionReason = string.Empty;
 		#endregion
 
@@ -29,6 +31,8 @@ namespace VehicleNavigation
 		public float ReverseSeconds => m_ReverseSeconds;
 		public int UnstuckAttempts => m_UnstuckAttempts;
 		public float UnstuckSteerSign => m_UnstuckSteerSign;
+		public int FeasibilityFailures => m_FeasibilityFailures;
+		public int RecoveryCycles => m_RecoveryCycles;
 		public string LastDecisionReason => m_LastDecisionReason;
 		#endregion
 
@@ -39,6 +43,8 @@ namespace VehicleNavigation
 			m_ForwardReverseFlips = 0;
 			m_AvoidReverseUntil = 0f;
 			m_UnstuckAttempts = 0;
+			m_FeasibilityFailures = 0;
+			m_RecoveryCycles = 0;
 			m_LastDecisionReason = string.Empty;
 		}
 
@@ -86,6 +92,22 @@ namespace VehicleNavigation
 			else if (Mathf.Abs(m_UnstuckSteerSign) < 0.1f)
 				m_UnstuckSteerSign = 1f;
 			return m_UnstuckSteerSign;
+		}
+
+		public void RecordFeasibilityFailure()
+		{
+			m_FeasibilityFailures++;
+		}
+
+		public void RecordRecoveryCycle()
+		{
+			m_RecoveryCycles++;
+		}
+
+		public void ResetRecoveryCounters()
+		{
+			m_UnstuckAttempts = 0;
+			m_RecoveryCycles = 0;
 		}
 
 		public bool HasToggledGearRecently(int _pairs, float _windowSeconds)

@@ -43,8 +43,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	[SerializeField] private TextMeshProUGUI m_SelectionNameText;
 	[SerializeField, Min(0.1f)] private float m_SelectionLabelHeight = 2.8f;
 	[Header("Drive Sink Debug")]
-	[SerializeField] private bool m_LogDriveSink = true;
-	[SerializeField] private bool m_LogVehicleBounce = true;
+	[SerializeField] private bool m_LogDriveSink;
+	[SerializeField] private bool m_LogVehicleBounce;
 	[SerializeField, Min(1f)] private float m_BounceMonitorSeconds = 5f;
 	[Header("Temp Debug")]
 	[Tooltip("TEMP: select + move without a seated driver (and allow Neutral team).")]
@@ -1219,6 +1219,59 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	public void HardStop()
 	{
 		m_Navigation?.StopHard();
+		m_PathLine?.ClearPreview();
+		m_PathLine?.RefreshCommitted();
+	}
+
+	public void EnqueueMoveOrder(VehicleNavigation.VehicleMoveOrder _order)
+	{
+		if (!m_TempAllowDriverlessControl && Team != UnitTeamId.Player)
+			return;
+		if (!m_TempAllowDriverlessControl && (m_Seats == null || !m_Seats.HasDriver))
+			return;
+
+		m_Board?.CancelAllJobsAndCloseDoors("vehicle-order-enqueue");
+		EnsureDriveReadyForMove();
+		if (m_Brain == null || !m_Brain.ControlActive || !m_Brain.EngineRunning)
+			return;
+
+		VehicleSpeedMode capped = VehicleSpeedModeUtil.Cap(_order.SpeedMode, m_SpeedCeiling);
+		_order.SpeedMode = capped;
+		m_LastIssuedSpeedMode = capped;
+
+		m_Navigation?.EnqueueOrder(_order);
+		m_PathLine?.ClearPreview();
+		m_PathLine?.RefreshCommitted();
+	}
+
+	public void AppendMoveToQueue(Vector3 _worldPosition, VehicleSpeedMode _speedMode)
+	{
+		AppendMoveToQueue(_worldPosition, 0f, false, _speedMode);
+	}
+
+	public void AppendMoveToQueue(Vector3 _worldPosition, float _headingYaw, VehicleSpeedMode _speedMode)
+	{
+		AppendMoveToQueue(_worldPosition, _headingYaw, true, _speedMode);
+	}
+
+	private void AppendMoveToQueue(Vector3 _worldPosition, float _headingYaw, bool _hasHeading, VehicleSpeedMode _speedMode)
+	{
+		VehicleNavigation.VehicleMoveOrder order = _hasHeading
+			? VehicleNavigation.VehicleMoveOrder.CreateMove(_worldPosition, _headingYaw, _speedMode)
+			: VehicleNavigation.VehicleMoveOrder.CreateMove(_worldPosition, _speedMode);
+		EnqueueMoveOrder(order);
+	}
+
+	public void StopCurrentOrder()
+	{
+		m_Navigation?.CancelCurrentOrder("user-cancel");
+		m_PathLine?.ClearPreview();
+		m_PathLine?.RefreshCommitted();
+	}
+
+	public void ClearOrders()
+	{
+		m_Navigation?.CancelAllOrders("user-clear");
 		m_PathLine?.ClearPreview();
 		m_PathLine?.RefreshCommitted();
 	}

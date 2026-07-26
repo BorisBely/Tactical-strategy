@@ -12,28 +12,46 @@ namespace VehicleNavigation
 
 		public PathResult BuildPath(Vector3 _from, Vector3 _to)
 		{
-			bool fromOnNav = NavMesh.SamplePosition(_from, out NavMeshHit fromHit, 3f, NavMesh.AllAreas);
-			bool toOnNav = NavMesh.SamplePosition(_to, out NavMeshHit toHit, 4f, NavMesh.AllAreas);
+			return BuildPath(_from, _to, PathBuildOptions.Default);
+		}
+
+		public PathResult BuildPath(Vector3 _from, Vector3 _to, PathBuildOptions _options)
+		{
+			if (_options == null)
+				_options = PathBuildOptions.Default;
+
+			bool fromOnNav = NavMesh.SamplePosition(_from,
+				out NavMeshHit fromHit, _options.SampleRadiusFrom, NavMesh.AllAreas);
+			bool toOnNav = NavMesh.SamplePosition(_to,
+				out NavMeshHit toHit, _options.SampleRadiusTo, NavMesh.AllAreas);
 
 			if (fromOnNav && toOnNav)
 			{
-				if (NavMesh.CalculatePath(fromHit.position, toHit.position, NavMesh.AllAreas, m_Path) &&
-				    m_Path.status != NavMeshPathStatus.PathInvalid &&
-				    m_Path.corners != null &&
-				    m_Path.corners.Length > 0)
+				if (NavMesh.CalculatePath(fromHit.position, toHit.position,
+					NavMesh.AllAreas, m_Path) &&
+					m_Path.status != NavMeshPathStatus.PathInvalid &&
+					m_Path.corners != null &&
+					m_Path.corners.Length > 0)
 				{
+					bool isPartial = m_Path.status == NavMeshPathStatus.PathPartial;
+					if (isPartial && !_options.AllowPartialPath)
+						return PathResult.Invalid;
+
 					float length = EstimateLength(m_Path.corners);
 					return new PathResult(
 						m_Path.corners,
 						length,
 						true,
-						m_Path.status == NavMeshPathStatus.PathPartial);
+						isPartial);
 				}
 			}
 
-			// Fallback: drive straight to the destination when NavMesh is missing or can't find a path.
+			if (!_options.AllowDirectFallback)
+				return PathResult.Invalid;
+
 			Vector3[] direct = new[] { _from, _to };
-			return new PathResult(direct, EstimateLength(direct), true, false);
+			return new PathResult(direct, EstimateLength(direct), true, false,
+				_usedDirectFallback: true);
 		}
 
 		private static float EstimateLength(Vector3[] _corners)

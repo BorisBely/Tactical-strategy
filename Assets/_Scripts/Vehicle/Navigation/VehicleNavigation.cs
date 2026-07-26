@@ -35,12 +35,13 @@ namespace VehicleNavigation
 		private DriverFSM m_FSM;
 		private Rigidbody m_Body;
 
+		private VehicleOrderQueue m_OrderQueue;
+		private VehicleSafetyController m_Safety;
+		private bool m_QueueAutoAdvance = true;
 		private bool m_HasDestination;
 		private bool m_IsStopped;
 		private DriverFSM.State m_LastLoggedState;
 		private VehicleCommand m_LastLoggedCommand;
-		private float m_LastNavThr;
-		private VehicleBrakeMode m_LastNavBrk;
 		#endregion
 
 		#region Public Properties
@@ -76,6 +77,8 @@ namespace VehicleNavigation
 		public bool IsStuck => m_Ctx?.State.IsStuck ?? false;
 		public float StuckTimer => m_FeedbackSystem?.StuckTimerValue ?? 0f;
 		public VehicleLocalGeometry.Sample Geometry => m_Ctx?.State.Geometry ?? default;
+		public FeasibilityResult LastFeasibility => m_FSM?.LastFeasibility;
+		public VehicleOrderQueue OrderQueue => m_OrderQueue;
 		#endregion
 
 		#region Events
@@ -113,13 +116,28 @@ namespace VehicleNavigation
 
 			float dt = Time.fixedDeltaTime;
 			m_Ctx.State = m_FeedbackSystem.Update(dt, IsReversing);
+
+			TryPromoteNextOrder(Time.time);
+
 			VehicleCommand command = m_FSM.Tick();
 
-			// Trace who writes throttle: log frame + FSM state
-			if (Mathf.Abs(command.Throttle - m_LastNavThr) > 0.02f || command.BrakeMode != m_LastNavBrk)
-				Debug.Log($"[NavTrace] f={Time.frameCount} st={m_FSM.CurrentState} thr={command.Throttle:F2} brk={command.BrakeMode}");
-			m_LastNavThr = command.Throttle;
-			m_LastNavBrk = command.BrakeMode;
+			bool isRecovering = m_FSM.CurrentState == DriverFSM.State.Recovery;
+			if (m_Safety != null)
+			{
+				var safetyResult = m_Safety.Apply(
+					m_Ctx.State, m_Ctx.Params, command, dt,
+					transform.eulerAngles, isRecovering);
+				command = safetyResult.Command;
+
+				if (safetyResult.ShouldAbortRecovery && isRecovering)
+				{
+					m_FSM.Stop();
+					m_OrderQueue?.CancelAll("safety-abort-recovery");
+					m_QueueAutoAdvance = false;
+					if (m_LogNavigation)
+						Debug.LogWarning($"[VehicleNav:{name}] Recovery aborted by safety: {safetyResult.Warning}", this);
+				}
+			}
 
 			m_IsStopped = m_FSM.CurrentState == DriverFSM.State.Idle ||
 			              m_FSM.CurrentState == DriverFSM.State.Holding;
@@ -144,7 +162,10 @@ namespace VehicleNavigation
 				m_LastLoggedCommand = command;
 			}
 
-			if (m_FSM.CurrentState == DriverFSM.State.Idle && m_Ctx.HasRequest)
+			bool fsmIdle = m_FSM.CurrentState == DriverFSM.State.Idle ||
+			               m_FSM.CurrentState == DriverFSM.State.Holding;
+
+			if (fsmIdle && !m_OrderQueue.HasCurrent)
 			{
 				m_HasDestination = false;
 				DestinationReached?.Invoke();
@@ -163,6 +184,13 @@ namespace VehicleNavigation
 		}
 
 		public void SetDestination(VehicleMoveGoal _goal)
+		{
+			m_OrderQueue?.Clear();
+			m_QueueAutoAdvance = true;
+			SetDestinationFromGoal(_goal);
+		}
+
+		private void SetDestinationFromGoal(VehicleMoveGoal _goal)
 		{
 			EnsureSettings();
 			NavigationRequest request = _goal.HasHeading
@@ -189,6 +217,8 @@ namespace VehicleNavigation
 
 		public void Stop()
 		{
+			m_OrderQueue?.MarkCurrentOrderAborted();
+			m_QueueAutoAdvance = false;
 			m_FSM?.Stop();
 			ApplyCommand(VehicleCommand.SoftPark);
 			m_HasDestination = false;
@@ -197,6 +227,8 @@ namespace VehicleNavigation
 
 		public void StopHard()
 		{
+			m_OrderQueue?.CancelAll("hard-stop");
+			m_QueueAutoAdvance = false;
 			m_FSM?.EmergencyStop(StopReason.Player);
 			m_HasDestination = false;
 			m_IsStopped = false;
@@ -204,6 +236,8 @@ namespace VehicleNavigation
 
 		public void StopSoft()
 		{
+			m_OrderQueue?.MarkCurrentOrderAborted();
+			m_QueueAutoAdvance = false;
 			m_FSM?.Stop();
 			ApplyCommand(VehicleCommand.SoftPark);
 			m_HasDestination = false;
@@ -213,6 +247,62 @@ namespace VehicleNavigation
 		public void RebuildLimiters()
 		{
 			m_FSM?.BuildLimiters(m_Brain != null ? m_Brain.Tuning : null);
+		}
+
+		public void EnqueueOrder(VehicleMoveOrder _order)
+		{
+			if (_order == null)
+				return;
+
+			m_OrderQueue.Enqueue(_order);
+
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] EnqueueOrder: {_order}", this);
+
+			TryPromoteNextOrder(Time.time);
+		}
+
+		public void CancelAllOrders(string _reason)
+		{
+			m_OrderQueue?.CancelAll(_reason);
+			m_FSM?.Stop();
+			m_HasDestination = false;
+			m_IsStopped = true;
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] CancelAllOrders: {_reason}", this);
+		}
+
+		public void CancelCurrentOrder(string _reason)
+		{
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] CancelCurrentOrder: {_reason}", this);
+
+			if (m_OrderQueue.HasCurrent)
+				m_OrderQueue.MarkCurrentOrderAborted();
+
+			m_OrderQueue.CancelCurrent(_reason);
+			m_FSM?.Stop();
+			m_HasDestination = false;
+			m_IsStopped = true;
+
+			TryPromoteNextOrder(Time.time);
+		}
+
+		public void SetDestinationFromOrder(VehicleMoveOrder _order)
+		{
+			if (_order == null)
+				return;
+
+			EnsureSettings();
+			NavigationRequest request = NavigationRequest.FromOrder(_order);
+
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] Order → Request: pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")}", this);
+
+			m_FeedbackSystem.ResetStuckTimer();
+			m_FSM.SetDestination(request);
+			m_HasDestination = true;
+			m_IsStopped = false;
 		}
 		#endregion
 
@@ -252,10 +342,14 @@ namespace VehicleNavigation
 				: VehicleParameters.Default;
 
 			m_Ctx = new NavigationContext(parameters, new VehicleDriverMemory());
+			m_OrderQueue = new VehicleOrderQueue();
 			m_Pursuit = new PursuitController(
 				parameters.CurvatureSpeedCurve);
 			m_Prediction = new TrajectoryPrediction(m_Settings.GeometryLayers);
+			ManeuverFeasibilityChecker feasibility = new ManeuverFeasibilityChecker(m_Prediction);
+			m_DrivingPlanner.SetFeasibility(feasibility);
 			m_Motion = new MotionController(m_WheeledMotor, m_Brain);
+			m_Safety = new VehicleSafetyController(parameters, m_WheeledMotor);
 			m_Arrival = new ArrivalController(
 				m_Settings.ArrivalPositionTolerance,
 				m_Settings.ArrivalHeadingTolerance);
@@ -270,7 +364,7 @@ namespace VehicleNavigation
 				m_Arrival,
 				m_Recovery,
 				m_Settings);
-			m_FSM.SetPrediction(m_Prediction);
+			m_FSM.SetPrediction(m_Prediction, feasibility);
 			m_FSM.PathChanged += OnFsmPathChanged;
 
 			m_FSM.BuildLimiters(m_Brain != null ? m_Brain.Tuning : null);
@@ -288,6 +382,61 @@ namespace VehicleNavigation
 				return Destination;
 
 			return maneuver.Waypoints[Mathf.Min(maneuver.Waypoints.Count - 1, 1)];
+		}
+
+		private void TryPromoteNextOrder(float _timeNow)
+		{
+			if (m_OrderQueue == null)
+				return;
+
+			m_OrderQueue.RemoveExpiredOrders(_timeNow);
+
+			if (m_OrderQueue.HasPendingInterrupt)
+			{
+				if (m_OrderQueue.TryPromoteInterrupt(_timeNow))
+				{
+					VehicleMoveOrder interrupt = m_OrderQueue.CurrentOrder;
+					if (interrupt != null && interrupt.Type == VehicleOrderType.EmergencyStop)
+					{
+						m_FSM.EmergencyStop(StopReason.Player);
+						m_QueueAutoAdvance = false;
+					}
+					else if (interrupt != null && interrupt.Type == VehicleOrderType.Stop)
+					{
+						m_FSM.Stop();
+						m_QueueAutoAdvance = false;
+					}
+				}
+				return;
+			}
+
+			bool fsmIdle = m_FSM.CurrentState == DriverFSM.State.Idle ||
+			               m_FSM.CurrentState == DriverFSM.State.Holding;
+
+			if (fsmIdle && m_OrderQueue.HasCurrent)
+			{
+				VehicleMoveOrder current = m_OrderQueue.CurrentOrder;
+				if (current.State == OrderState.Executing)
+					m_OrderQueue.MarkCurrentOrderCompleted();
+
+				if (m_QueueAutoAdvance)
+				{
+					VehicleMoveOrder next = m_OrderQueue.PromoteNext(_timeNow);
+					if (next != null)
+					{
+						SetDestinationFromOrder(next);
+						return;
+					}
+				}
+				return;
+			}
+
+			if (!m_OrderQueue.HasCurrent && m_QueueAutoAdvance)
+			{
+				VehicleMoveOrder next = m_OrderQueue.PromoteNext(_timeNow);
+				if (next != null)
+					SetDestinationFromOrder(next);
+			}
 		}
 
 		private void EnsureSettings()

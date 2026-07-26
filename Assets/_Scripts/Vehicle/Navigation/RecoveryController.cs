@@ -30,6 +30,37 @@ namespace VehicleNavigation
 			m_ActiveUnstuck = null;
 		}
 
+		public (RecoveryAction Action, Maneuver Maneuver) EvaluateAndGetManeuver(
+			FeedbackState _feedback,
+			VehicleDriverMemory _memory)
+		{
+			if (IsRecovering)
+				return (RecoveryAction.UnstuckRock, m_ActiveUnstuck);
+
+			var decision = RecoveryStrategyRegistry.Evaluate(_feedback, _feedback.Geometry, _memory);
+			if (decision.Action == RecoveryAction.None)
+				return (RecoveryAction.None, null);
+
+			_memory.RecordRecoveryCycle();
+
+			Maneuver maneuver = null;
+			switch (decision.Action)
+			{
+				case RecoveryAction.UnstuckRock:
+					m_ActiveUnstuck = new UnstuckManeuver(decision.SuggestedSteerSign);
+					m_RecoveryTimer = 0f;
+					IsRecovering = true;
+					maneuver = m_ActiveUnstuck;
+					break;
+
+				default:
+					IsRecovering = true;
+					break;
+			}
+
+			return (decision.Action, maneuver);
+		}
+
 		public void Update(float _dt)
 		{
 			m_CooldownLeft = Mathf.Max(0f, m_CooldownLeft - _dt);

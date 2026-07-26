@@ -12,21 +12,48 @@ namespace VehicleNavigation
 		private const float c_Weight_Turns = 2f;
 		private const float c_Weight_Time = 0.5f;
 
-		public static DriverIntent Evaluate(DriverContext _ctx)
+		public static float ScoreCandidate(
+			DriverIntent _intent,
+			float _pathLength,
+			int _turnCount,
+			FeasibilityResult _feasibility)
 		{
-			float bestScore = float.MaxValue;
-			DriverIntent best = DriverIntent.DriveForward;
+			if (_feasibility != null && !_feasibility.IsValid)
+				return float.MaxValue;
 
-			float forwardScore = ScoreForward(_ctx);
-			if (forwardScore < bestScore) { bestScore = forwardScore; best = DriverIntent.DriveForward; }
+			float baseScore = _pathLength * c_Weight_Distance
+			                  + _turnCount * c_Weight_Turns
+			                  + _pathLength / 10f * c_Weight_Time;
 
-			float reverseScore = ScoreReverse(_ctx);
-			if (reverseScore < bestScore) { bestScore = reverseScore; best = DriverIntent.Reverse; }
+			switch (_intent)
+			{
+				case DriverIntent.Reverse:
+					baseScore += 10f;
+					break;
+				case DriverIntent.TurnAround:
+					baseScore += 15f;
+					break;
+			}
 
-			float turnScore = ScoreTurnAround(_ctx);
-			if (turnScore < bestScore) { bestScore = turnScore; best = DriverIntent.TurnAround; }
+			return ApplyRiskPenalty(baseScore, _feasibility);
+		}
 
-			return best;
+		public static float ApplyRiskPenalty(float _baseScore, FeasibilityResult _feasibility)
+		{
+			if (_feasibility == null || _feasibility.IsFullySafe)
+				return _baseScore;
+
+			if (!_feasibility.IsValid)
+				return float.MaxValue;
+
+			float penalty = _feasibility.RiskScore * 25f;
+
+			if (_feasibility.HasFrontCollision) penalty += 10f;
+			if (_feasibility.HasRearCollision) penalty += 10f;
+			if (_feasibility.HasCliffRisk) penalty += 30f;
+			if (_feasibility.HasNarrowPassage) penalty += 5f;
+
+			return _baseScore + penalty;
 		}
 
 		private static float ScoreForward(DriverContext _ctx)

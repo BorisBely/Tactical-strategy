@@ -8,6 +8,7 @@ namespace VehicleNavigation
 		TurnAround,
 		ThreePointTurn,
 		Parking,
+		ApproachWithHeading,
 		Arrival,
 		Unstuck,
 		Stop

@@ -18,7 +18,12 @@ namespace VehicleNavigation
 		StopAndReplan,
 		TurnAround,
 		ThreePointTurn,
-		Abort
+		Abort,
+		UnstuckRock,
+		ReverseOut,
+		CreepAside,
+		RebuildPath,
+		AbortAndStop
 	}
 
 	/// <summary>
