@@ -3,7 +3,6 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Cinemachine;
 
 /// <summary>
 /// Builds the vehicle navigation test track and positions camera + car.
