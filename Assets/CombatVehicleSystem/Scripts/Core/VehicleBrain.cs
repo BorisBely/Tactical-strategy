@@ -21,7 +21,7 @@ namespace CombatVehicleSystem
 
 		#region Private Fields
 		private Rigidbody m_Body;
-		private VehicleController m_Vehicle;
+		private IVehicleDriveGating m_Vehicle;
 		private VehicleCommand m_Command = VehicleCommand.Idle;
 		private bool m_ControlActive;
 		private bool m_EngineRunning;
@@ -73,8 +73,16 @@ namespace CombatVehicleSystem
 				return;
 
 			if (!CanDrive)
+			{
 				m_Command = ResolveParkCommand();
+			}
 
+			VehicleCommand driveCommand = ResolveActiveDriveCommand();
+
+			if (m_WheeledMotor != null)
+				m_WheeledMotor.TickDrive(driveCommand);
+			if (m_TrackedMotor != null)
+				m_TrackedMotor.TickDrive(driveCommand);
 			if (m_WeaponMount != null && CanDrive)
 				m_WeaponMount.TickFire(m_Command);
 
@@ -83,35 +91,14 @@ namespace CombatVehicleSystem
 
 		private void FixedUpdate()
 		{
-			if (!m_ControlActive)
-			{
-				if (m_WheeledMotor != null)
-					m_WheeledMotor.TickPhysics(false, VehicleCommand.Idle);
-				if (m_TrackedMotor != null)
-					m_TrackedMotor.TickPhysics(false, VehicleCommand.Idle);
-				return;
-			}
-
-			if (!CanDrive)
-				m_Command = ResolveParkCommand();
-
-			// Motor/brake torque must run on the physics step — Update-rate torque
-			// against FixedUpdate WheelCollider integration causes drive chatter.
 			VehicleCommand physicsCommand = ResolveActiveDriveCommand();
 
 			if (m_WheeledMotor != null)
-			{
-				m_WheeledMotor.TickDrive(physicsCommand);
 				m_WheeledMotor.TickPhysics(m_ControlActive, physicsCommand);
-			}
-
 			if (m_TrackedMotor != null)
-			{
-				m_TrackedMotor.TickDrive(physicsCommand);
 				m_TrackedMotor.TickPhysics(m_ControlActive, physicsCommand);
-			}
 
-			if (!CanDrive)
+			if (!m_ControlActive || !CanDrive)
 				return;
 
 			if (m_TurretAim != null)
@@ -269,10 +256,8 @@ namespace CombatVehicleSystem
 		// A wheeled vehicle with COM below the wheel hubs becomes a pendulum and
 		// jumps/rocks violently. Force a sane minimum height until the tuning asset
 		// is updated and re-imported.
-		if (com.y < 0.25f)
-			com.y = 0.40f;
-		if (Mathf.Abs(com.z) > 0.05f)
-			com.z = 0f;
+		if (com.y < 0.3f)
+			com.y = 0.55f;
 		m_Body.centerOfMass = com;
 	}
 
