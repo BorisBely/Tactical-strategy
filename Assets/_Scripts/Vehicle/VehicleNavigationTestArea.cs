@@ -43,84 +43,84 @@ public static class VehicleNavigationTestArea
 		float z = 0f;
 
 		// === START ===
-		Marker(root, "START", x, z, Color.green, 3f);
-		Label(root, "L_Start", x, 2f, z, "СТАРТ");
+		Marker(root.transform, "START", x, z, Color.green, 3f);
+		Label(root.transform, "L_Start", x, 2f, z, "СТАРТ");
 		z += 6f;
 
 		// === 1. Slalom ===
-		Label(root, "L_S1", x, 2f, z, "1. Змейка");
+		Label(root.transform, "L_S1", x, 2f, z, "1. Змейка");
 		float[] sl = { 0f, 3.5f, -3.5f, 3.5f, -3.5f, 3.5f };
 		for (int i = 0; i < sl.Length; i++)
-			Cone(root, $"S1_C{i}", x + sl[i], z + 3f + i * 4f);
+			Cone(root.transform, $"S1_C{i}", x + sl[i], z + 3f + i * 4f);
 		z += 3f + sl.Length * 4f + 2f;
 
 		// === 2. Narrow passage (3m gap) ===
-		Label(root, "L_S2", x, 2f, z, "2. Узкий проезд (3м)");
-		Wall(root, "S2_WL", x - 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
-		Wall(root, "S2_WR", x + 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
+		Label(root.transform, "L_S2", x, 2f, z, "2. Узкий проезд (3м)");
+		Wall(root.transform, "S2_WL", x - 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
+		Wall(root.transform, "S2_WR", x + 1.5f, z + 7f, 0.4f, c_BarrierH, 14f, Color.yellow);
 		z += 16f;
 
 		// === 3. Sharp 90° turn right ===
-		Label(root, "L_S3", x, 2f, z, "3. Поворот 90°");
-		Wall(root, "S3_Block", x, z + 6f, 8f, c_BarrierH, 0.4f, Color.red);
+		Label(root.transform, "L_S3", x, 2f, z, "3. Поворот 90°");
+		Wall(root.transform, "S3_Block", x, z + 6f, 8f, c_BarrierH, 0.4f, Color.red);
 		// Opening to the right
 		x += 7f;
 		z += 10f;
 
 		// === 4. Obstacle — wall blocks path, detour right ===
-		Label(root, "L_S4", x, 2f, z, "4. Препятствие");
-		Wall(root, "S4_Block", x - 3f, z + 4f, 6f, c_BarrierH, 0.5f, Color.red);
-		Wall(root, "S4_WR", x + 4f, z + 4f, 0.4f, c_BarrierH, 10f, Color.yellow);
+		Label(root.transform, "L_S4", x, 2f, z, "4. Препятствие");
+		Wall(root.transform, "S4_Block", x - 3f, z + 4f, 6f, c_BarrierH, 0.5f, Color.red);
+		Wall(root.transform, "S4_WR", x + 4f, z + 4f, 0.4f, c_BarrierH, 10f, Color.yellow);
 		x += 5f;
 		z += 12f;
 
 		// === 5. Ramp up + plateau + ramp down ===
-		Label(root, "L_S5", x, 2f, z, "5. Подъём 10°");
-		Ramp(root, "S5_Up", x, z, 12f, 2f, c_Lane);
+		Label(root.transform, "L_S5", x, 2f, z, "5. Подъём 10°");
+		Ramp(root.transform, "S5_Up", x, z, 12f, 2f, c_Lane);
 		z += 12f;
-		Box(root, "S5_Plateau", x, 1f, z + 3.5f, c_Lane, 2f, 7f, new Color(0.4f, 0.5f, 0.35f), c_LayerGround);
+		Box(root.transform, "S5_Plateau", x, 1f, z + 3.5f, c_Lane, 2f, 7f, new Color(0.4f, 0.5f, 0.35f), c_LayerGround);
 		z += 7f;
-		Ramp(root, "S5_Dn", x, z + 2f, 8f, -2f, c_Lane);
+		Ramp(root.transform, "S5_Dn", x, z + 2f, 8f, -2f, c_Lane);
 		z += 10f;
 
 		// === 6. Side slope ===
-		Label(root, "L_S6", x, 2f, z, "6. Боковой уклон");
-		SideBank(root, "S6_Bank", x, z, 12f, 0.6f, c_Lane);
+		Label(root.transform, "L_S6", x, 2f, z, "6. Боковой уклон");
+		SideBank(root.transform, "S6_Bank", x, z, 12f, 0.6f, c_Lane);
 		z += 14f;
 
 		// === 7. Dead end / drop edge ===
-		Label(root, "L_S7", x, 2f, z, "7. Тупик / обрыв");
-		Box(root, "S7_Platform", x, 0.5f, z + 3f, c_Lane, 1f, 6f, new Color(0.5f, 0.4f, 0.3f), c_LayerGround);
-		Wall(root, "S7_Stop", x, z + 6.5f, c_Lane, 0.1f, 0.3f, Color.red);
+		Label(root.transform, "L_S7", x, 2f, z, "7. Тупик / обрыв");
+		Box(root.transform, "S7_Platform", x, 0.5f, z + 3f, c_Lane, 1f, 6f, new Color(0.5f, 0.4f, 0.3f), c_LayerGround);
+		Wall(root.transform, "S7_Stop", x, z + 6.5f, c_Lane, 0.1f, 0.3f, Color.red);
 		z += 8f;
 
 		// === 8. Reverse target ===
-		Label(root, "L_S8", x, 2f, z, "8. Цель сзади (задний ход)");
-		Marker(root, "S8_Target", x, z + 2f, Color.magenta, 1.2f);
-		Label(root, "S8_Lbl", x, 1.5f, z + 2f, "Reverse");
-		Wall(root, "S8_WL", x - 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
-		Wall(root, "S8_WR", x + 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
+		Label(root.transform, "L_S8", x, 2f, z, "8. Цель сзади (задний ход)");
+		Marker(root.transform, "S8_Target", x, z + 2f, Color.magenta, 1.2f);
+		Label(root.transform, "S8_Lbl", x, 1.5f, z + 2f, "Reverse");
+		Wall(root.transform, "S8_WL", x - 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
+		Wall(root.transform, "S8_WR", x + 3f, z + 1.5f, 0.4f, c_BarrierH, 4f, Color.yellow);
 		z += 6f;
 
 		// === 9. Heading arrival ===
-		Label(root, "L_S9", x, 2f, z, "9. Прибытие с курсом");
-		Marker(root, "S9_Target", x, z + 2f, Color.cyan, 1.5f);
-		Arrow(root, "S9_Arrow", x, 0.1f, z + 2f, Vector3.forward, 2.5f, Color.cyan);
+		Label(root.transform, "L_S9", x, 2f, z, "9. Прибытие с курсом");
+		Marker(root.transform, "S9_Target", x, z + 2f, Color.cyan, 1.5f);
+		Arrow(root.transform, "S9_Arrow", x, 0.1f, z + 2f, Vector3.forward, 2.5f, Color.cyan);
 		z += 6f;
 
 		// === 10. Queue / waypoints ===
-		Label(root, "L_S10", x, 2f, z, "10. Очередь (Shift+клик)");
+		Label(root.transform, "L_S10", x, 2f, z, "10. Очередь (Shift+клик)");
 		for (int i = 0; i < 4; i++)
 		{
 			float ox = (i % 2 == 0) ? -3.5f : 3.5f;
-			Marker(root, $"S10_Q{i}", x + ox, z + 3f + i * 5f, new Color(1f, 0.7f, 0.2f), 0.9f);
-			Label(root, $"S10_L{i}", x + ox, 1f, z + 3f + i * 5f, $"{i + 1}");
+			Marker(root.transform, $"S10_Q{i}", x + ox, z + 3f + i * 5f, new Color(1f, 0.7f, 0.2f), 0.9f);
+			Label(root.transform, $"S10_L{i}", x + ox, 1f, z + 3f + i * 5f, $"{i + 1}");
 		}
 		z += 3f + 4 * 5f + 2f;
 
 		// === FINISH ===
-		Marker(root, "FINISH", x, z, Color.red, 3f);
-		Label(root, "L_Finish", x, 2f, z, "ФИНИШ");
+		Marker(root.transform, "FINISH", x, z, Color.red, 3f);
+		Label(root.transform, "L_Finish", x, 2f, z, "ФИНИШ");
 
 		return root;
 	}
