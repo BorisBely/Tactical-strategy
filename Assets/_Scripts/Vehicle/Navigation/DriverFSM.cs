@@ -550,6 +550,16 @@ namespace VehicleNavigation
 
 			if (isComplete)
 			{
+				// Reverse failed — rebuild plan from current position instead of advancing
+				if (current is ReverseIntentManeuver && m_ReverseDriver != null && m_ReverseDriver.CurrentState == ReverseState.Failed)
+				{
+					m_ReverseDriver = null;
+					m_PlanDirty = true;
+					ReplanTriggered?.Invoke("reverse failed — replan");
+					if (DebugLog) Debug.LogWarning("[DriverFSM] Reverse FAILED — triggering full replan");
+					return false;
+				}
+
 				ManeuverFinished?.Invoke(current);
 				m_Ctx.CurrentManeuverIndex++;
 				Maneuver next = m_Ctx.CurrentManeuver;
