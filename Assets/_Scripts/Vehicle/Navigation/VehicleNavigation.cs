@@ -453,7 +453,7 @@ namespace VehicleNavigation
 				return;
 
 			m_Settings = ScriptableObject.CreateInstance<VehicleNavigationSettings>();
-			m_Settings.GeometryLayers = LayerMask.GetMask("Default", "Obstacle", "Vehicle");
+			m_Settings.GeometryLayers = LayerMask.GetMask("Default", "Obstacle", "Vehicle", "Ground");
 		}
 
 		private void ApplyCommand(VehicleCommand _command)
