@@ -328,13 +328,6 @@ public sealed class VehicleController : MonoBehaviour
 					sb.Append($" [W{i} g={w.HasContact} f={(w.HasContact?w.SuspensionForce:0):F0} rpm={w.Rpm:F0} sF={w.SlipRatio:F2} sS={w.SidewaysSlip:F2} cmp={w.SuspensionCompression:F2}]");
 				}
 				LogVehicle(sb.ToString());
-
-				// Separate diagnostic: avg slip, pitch, torque summary
-				float avgSlip = 0f; int cnt = 0;
-				for (int i = 0; i < st.Length; i++)
-					if (st[i].HasContact) { avgSlip += Mathf.Abs(st[i].SlipRatio); cnt++; }
-				if (cnt > 0) avgSlip /= cnt;
-				LogVehicle($"DIAG aThr={m_VehicleEngine.AppliedThrottle:F3} mt={m_VehicleEngine.MotorTorque:F0} avgSlip={avgSlip:F3} pitch={pitch:F2}° mode={m_VehicleEngine.Mode}");
 			}
 		}
 	}
@@ -412,21 +405,16 @@ public sealed class VehicleController : MonoBehaviour
 			m_VehicleData = Resources.Load<VehicleData>("VehicleData_Humvee");
 		if (m_VehicleData != null)
 		{
-			// Kill ALL legacy drive — WheeledMotor writes motorTorque in FixedUpdate
 			m_WheeledMotor.enabled = false;
-			m_BodyTilt.enabled = false;
+			m_Brain.enabled = false; // new arch handles drive, old must not overwrite torque
+		}
+		m_Navigation.RebuildLimiters();
 
-			// Destroy OLD wheel colliders — they still have ForwardStiffness=2.5!
-			foreach (var wc in GetComponentsInChildren<WheelCollider>())
-			{
-				if (wc.name.StartsWith("WheelCollider_"))
-					UnityEngine.Object.Destroy(wc);
-			}
-			WheelAntiStuck wasComp = GetComponent<WheelAntiStuck>();
-			if (wasComp != null) wasComp.enabled = false;
-
-			if (TryGetComponent(out UnityEngine.AI.NavMeshAgent agent))
-				agent.enabled = false;
+		// New architecture — creates wheels via VehicleSuspension
+		if (m_VehicleData == null)
+			m_VehicleData = Resources.Load<VehicleData>("VehicleData_Humvee");
+		if (m_VehicleData != null)
+		{
 			body.mass = m_VehicleData.Mass;
 			body.centerOfMass = m_VehicleData.CenterOfMass;
 			body.angularDamping = m_VehicleData.AngularDamping;
@@ -434,22 +422,21 @@ public sealed class VehicleController : MonoBehaviour
 			body.isKinematic = false;
 			body.linearVelocity = Vector3.zero;
 			body.angularVelocity = Vector3.zero;
-			body.interpolation = RigidbodyInterpolation.Interpolate;
-			body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
 			m_VehicleEngine = new VehicleEngine(m_VehicleData);
 			m_VehicleSuspension = new VehicleSuspension(m_VehicleData);
 			m_VehicleSuspension.CreateWheels(transform);
 			m_VehicleMovement = new VehicleMovement(body);
 
+			// FIX: NavMeshAgent conflicts with Rigidbody, causes micro-jitter
+			if (TryGetComponent(out UnityEngine.AI.NavMeshAgent agent))
+				agent.enabled = false;
+
 			LogVehicle($"NEW_ARCH: {m_VehicleSuspension.Wheels.Length} wheels created, spring={m_VehicleData.SpringRate} damper={m_VehicleData.DamperRate}");
 			foreach (var wc in m_VehicleSuspension.Wheels)
 				LogVehicle($"  WC: {wc.name} lY={wc.transform.localPosition.y:F2} r={wc.radius} sd={wc.suspensionDistance} sp={wc.suspensionSpring.spring} tp={wc.suspensionSpring.targetPosition}");
-
-			LogVehicle($"LEGACY_KILL: WM={m_WheeledMotor.enabled} Br={m_Brain.enabled} BT={m_BodyTilt.enabled} VM={GetComponent<VehicleMotor>()?.enabled} WV={GetComponent<VehicleWheelVisuals>()?.enabled} AS={GetComponent<WheelAntiStuck>()?.enabled}");
 		}
 
-		body.isKinematic = false;
 		LogVehicle($"EnsurePhysicsDrive mass={body.mass:F0} com={body.centerOfMass} y={transform.position.y:F3}");
 	}
 	#endregion

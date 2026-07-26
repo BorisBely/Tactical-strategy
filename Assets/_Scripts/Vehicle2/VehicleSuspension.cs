@@ -86,53 +86,18 @@ public class VehicleSuspension
 	/// </summary>
 	public void Update(VehicleEngine engine, float currentSpeedMs, Rigidbody body)
 	{
-		bool test = DrivePhysics.ConstTorqueTest;
-		TestAxle axle = DrivePhysics.ConstTorqueAxle;
-		float fwdStiff = DrivePhysics.ForwardStiffnessOverride;
-		float sideStiff = DrivePhysics.SidewaysStiffnessOverride;
-		bool directForce = DrivePhysics.UseDirectForce;
-
 		for (int i = 0; i < 4; i++)
 		{
 			WheelCollider wc = m_Wheels[i];
 			if (wc == null) continue;
-
-			if (fwdStiff >= 0f)
-			{
-				WheelFrictionCurve fwd = wc.forwardFriction;
-				fwd.stiffness = fwdStiff;
-				wc.forwardFriction = fwd;
-			}
-			if (sideStiff >= 0f)
-			{
-				WheelFrictionCurve side = wc.sidewaysFriction;
-				side.stiffness = sideStiff;
-				wc.sidewaysFriction = side;
-			}
 
 			if (m_Data.SteerAxles[i])
 				wc.steerAngle = engine.SteerAngle;
 
 			if (wc.GetGroundHit(out _))
 			{
-				if (directForce && body != null)
-				{
-					wc.motorTorque = 0f;
-					wc.brakeTorque = 0f;
-					body.linearVelocity = body.transform.forward * 10f;
-					body.angularVelocity = Vector3.zero;
-					if (i == 0 && Time.frameCount % 100 == 0)
-						Debug.Log($"[DirectForce] W{i} vel={body.linearVelocity.magnitude*3.6f:F0}km/h");
-				}
-				else if (test)
-				{
-					wc.motorTorque = TestWheelInAxle(i, axle) ? engine.MotorTorque : 0f;
-				}
-				else
-				{
-					wc.motorTorque = engine.MotorTorque;
-				}
-				if (!directForce) wc.brakeTorque = engine.BrakeTorque;
+				wc.motorTorque = engine.MotorTorque;
+				wc.brakeTorque = engine.BrakeTorque;
 			}
 			else
 			{
@@ -140,7 +105,7 @@ public class VehicleSuspension
 				wc.brakeTorque = 0f;
 			}
 
-			if (m_Data.AntiStuckEnabled && !DrivePhysics.AntiStuckDisabled)
+			if (m_Data.AntiStuckEnabled)
 				UpdateAntiStuck(wc, i, currentSpeedMs);
 
 			m_States[i] = ReadWheelState(wc);

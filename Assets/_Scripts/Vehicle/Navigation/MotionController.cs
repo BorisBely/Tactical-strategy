@@ -10,14 +10,8 @@ namespace VehicleNavigation
 		private NavigationContext m_Ctx;
 
 		private float m_SmoothedSteer;
-		private float m_SmoothedTargetMs = -1f;
-		private float m_LastThrottle;
 		private float m_LastLoggedThr;
 		private float m_LastLoggedTarget;
-
-		private const float CoastThreshold = -2f;
-		private const float SoftBrakeThreshold = -8f;
-		private const float HardBrakeThreshold = -20f;
 
 		public MotionController(
 			WheeledMotor _wheeledMotor,
@@ -41,34 +35,17 @@ namespace VehicleNavigation
 			float currentSpeedMs = m_Ctx.State.SpeedKmh / 3.6f;
 			float desiredMs = _cmd.DesiredSpeedKmh / 3.6f;
 			float signedCurrent = _cmd.Reverse ? -currentSpeedMs : currentSpeedMs;
-
-			// Smooth target speed to avoid jerk from planner steps
-			if (m_SmoothedTargetMs < 0f) m_SmoothedTargetMs = desiredMs;
-			m_SmoothedTargetMs = Mathf.MoveTowards(m_SmoothedTargetMs, desiredMs, 2f * Time.fixedDeltaTime);
-
-			float speedError = m_SmoothedTargetMs - signedCurrent;
-
-			DrivePhysics.DesiredSpeedMs = m_SmoothedTargetMs;
+			float speedError = desiredMs - signedCurrent;
 
 			const float maxAccel = 3.0f;
 			const float pGain = 1.5f;
-			const float deadZoneMs = 0.15f;     // ~0.54 km/h — below this, hold throttle
-			const float hysteresisMs = 0.10f;   // must exceed deadZone by this to change
+			float throttle = 0f;
 
-			float throttle = m_LastThrottle;
-
-			if (speedError > deadZoneMs + hysteresisMs)
+			if (speedError > 0.1f)
 			{
-				float targetAccel = Mathf.Clamp(speedError * pGain, 0f, maxAccel);
+				float targetAccel = Mathf.Min(speedError * pGain, maxAccel);
 				throttle = targetAccel / maxAccel;
 			}
-			else if (speedError < -deadZoneMs)
-			{
-				throttle = 0f;
-			}
-			// else: within [−deadZone, deadZone+hysteresis] — hold m_LastThrottle
-
-			m_LastThrottle = throttle;
 
 			float kmh = m_Ctx.State.SpeedKmh;
 			if (Mathf.Abs(throttle - m_LastLoggedThr) > 0.03f || Mathf.Abs(_cmd.DesiredSpeedKmh - m_LastLoggedTarget) > 1f)
@@ -97,8 +74,6 @@ namespace VehicleNavigation
 			if (m_Ctx != null)
 				steerRate = m_Ctx.Params.SteeringRateDegPerSec / 90f * Time.fixedDeltaTime;
 			m_SmoothedSteer = Mathf.MoveTowards(m_SmoothedSteer, 0f, steerRate);
-			m_LastThrottle = 0f;
-			m_SmoothedTargetMs = -1f;
 
 			return new VehicleCommand
 			{
