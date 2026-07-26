@@ -59,6 +59,21 @@ namespace VehicleNavigation
 				}
 
 				float cost = ArrivalCostEvaluator.Evaluate(plan, analysis, m_Settings);
+
+				// Side-based cost adjustment: boost correct strategy, penalize wrong
+				if (analysis.Side == TargetSide.Rear && strategy is ReverseArrivalStrategy)
+					cost *= 0.7f;
+				if (analysis.Side != TargetSide.Rear && strategy is ReverseArrivalStrategy)
+					cost *= 1.5f;
+				if (analysis.Side == TargetSide.Front && strategy is DirectArrivalStrategy)
+					cost *= 0.85f;
+				if ((analysis.Side == TargetSide.Left || analysis.Side == TargetSide.Right)
+				    && strategy is DirectArrivalStrategy)
+					cost *= 1.3f;
+				if ((analysis.Side == TargetSide.Left || analysis.Side == TargetSide.Right)
+				    && (strategy is ArcArrivalStrategy || strategy is RepositionArrivalStrategy))
+					cost *= 0.8f;
+
 				plan.Cost = cost;
 				if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: cost={cost:F1} maneuvers={plan.Maneuvers.Count}");
 

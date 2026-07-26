@@ -78,6 +78,7 @@ namespace VehicleNavigation
 
 		private float m_DefaultLookAhead;
 		private bool m_PlanDirty;
+		private bool m_GoalLocked;
 		private ReverseDriver m_ReverseDriver;
 		private DriverContext m_DriverCtx;
 		private TrajectoryPrediction m_Prediction;
@@ -157,6 +158,7 @@ namespace VehicleNavigation
 			m_Recovery.Reset();
 			m_Ctx.CurrentManeuverIndex = 0;
 			m_PlanDirty = true;
+			m_GoalLocked = false;
 			m_EmergencyStop.Deactivate();
 			m_Ctx.ActiveStopReason = StopReason.None;
 			CurrentState = State.Driving;
@@ -168,6 +170,7 @@ namespace VehicleNavigation
 			m_Ctx.Path = PathResult.Invalid;
 			m_Ctx.Plan = DrivingPlan.Empty;
 			m_Ctx.CurrentManeuverIndex = 0;
+			m_GoalLocked = false;
 			m_Recovery.Reset();
 			m_EmergencyStop.Deactivate();
 			m_Ctx.ActiveStopReason = StopReason.None;
@@ -294,6 +297,7 @@ namespace VehicleNavigation
 		private void RebuildPlan()
 		{
 			m_PlanDirty = false;
+			m_GoalLocked = false;
 			FeedbackState fb = m_Ctx.State;
 
 			if (!m_Ctx.HasRequest)
@@ -429,13 +433,18 @@ namespace VehicleNavigation
 			ArrivalCriteria criteria = ArrivalCriteria.FromRequest(m_Ctx.Request);
 			float? heading = m_Ctx.Request.HasHeading ? m_Ctx.Request.HeadingYaw : (float?)null;
 
+			// Latch: already arrived — hold position, don't replan
+			if (m_GoalLocked)
+				return m_Motion.HoldInPlace();
+
 			if (m_Arrival.HasArrived(fb.Position, fb.Yaw, m_Ctx.Request.Destination, heading))
 			{
+				m_GoalLocked = true;
 				CurrentState = State.Holding;
 				m_Ctx.ActiveStopReason = StopReason.Goal;
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] ARRIVED at {m_Ctx.Request.Destination}, dist={FlatDistance(fb.Position, m_Ctx.Request.Destination):F2}m, speed={fb.SpeedKmh:F1}");
-				return m_Motion.BrakeToStop(_hard: true);
+					Debug.Log($"[DriverFSM] GOAL LOCKED at dist={FlatDistance(fb.Position, m_Ctx.Request.Destination):F2}m speed={fb.SpeedKmh:F1}");
+				return m_Motion.Park();
 			}
 
 			// Guard: if very close but not yet arrived, force crawl
@@ -445,6 +454,14 @@ namespace VehicleNavigation
 				if (DebugLog)
 					Debug.Log($"[DriverFSM] Arrival crawl: dist={dist:F2}m speed={fb.SpeedKmh:F1} — forcing slow");
 				return m_Motion.BrakeToStop(_hard: false);
+			}
+
+			// Final latch: very close + slow → park
+			if (dist < 0.3f && fb.SpeedKmh < 1f)
+			{
+				m_GoalLocked = true;
+				CurrentState = State.Holding;
+				return m_Motion.Park();
 			}
 
 			Maneuver arrivalManeuver = m_Ctx.CurrentManeuver;

@@ -124,6 +124,17 @@ namespace VehicleNavigation
 			if (DebugLog)
 				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} (of {candidates.Count} candidates), firstAngle={firstAngle:F0}° dist={flatToDest:F1}m");
 
+			// Guard: if ALL candidates are Impossible — don't return a Forward plan
+			if (bestCost > 500000f)
+			{
+				if (DebugLog)
+					Debug.LogWarning($"[DrivingPlanner] ALL candidates Impossible — aborting, returning StopManeuver");
+				var abort = new DrivingPlan(new Maneuver[] { new StopManeuver() },
+					"all impossible — abort", VehicleDrivingMode.Forward, bestCost, bestFeasibility);
+				abort.BuildSegments();
+				return abort;
+			}
+
 			string reason = $"mode={best.Mode} cost={best.Cost:F1} candidates={candidates.Count} safe={safeMode}";
 			var plan = new DrivingPlan(best.Maneuvers, reason, best.Mode, best.Cost, bestFeasibility);
 			plan.BuildSegments();
@@ -303,7 +314,14 @@ namespace VehicleNavigation
 					_maneuvers.AddRange(arrivalManeuvers);
 					return;
 				}
+				// ArrivalPlanner returned null — fall through to old logic only for simple cases
 			}
+
+			// Old fallback — only for simple frontal arrivals. Side/rear handled by ArrivalPlanner above.
+			float distToTarget = FlatDistance(_feedback.Position, _request.Destination);
+			float angleToTarget = Vector3.Angle(forward, (_request.Destination - _feedback.Position).normalized);
+			if (angleToTarget > 90f && distToTarget < 10f)
+				return; // complex arrival — don't add Parking blindly, ArrivalPlanner should handle it
 
 			switch (_request.FacingMode)
 			{

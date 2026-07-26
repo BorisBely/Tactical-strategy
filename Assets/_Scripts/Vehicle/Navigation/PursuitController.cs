@@ -245,6 +245,18 @@ namespace VehicleNavigation
 				curvature = Mathf.Clamp(curvature, -0.25f, 0.25f);
 			}
 
+			// Final approach speed clamp + lookahead reduction
+			if (distanceToEnd < 1.5f)
+			{
+				capKmh = Mathf.Min(capKmh, 3f);
+				lookAhead = Mathf.Min(lookAhead, 0.8f);
+			}
+			if (distanceToEnd < 0.6f)
+			{
+				capKmh = Mathf.Min(capKmh, 1f);
+				lookAhead = Mathf.Min(lookAhead, 0.4f);
+			}
+
 			float targetKmh = capKmh * Mathf.Min(curvatureFraction, arrivalScale);
 			float speedBeforeReverse = targetKmh;
 

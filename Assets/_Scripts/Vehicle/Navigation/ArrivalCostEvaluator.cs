@@ -36,6 +36,11 @@ namespace VehicleNavigation
 			if (_analysis.Distance < _settings.PrecisionActivationDistance)
 				cost += Weight_Precision;
 
+			// Dead zone penalty — scaled by turn radius and lateral offset
+			// Larger vehicles / sharper laterals = higher penalty
+			if (_analysis.TargetInsideTurningCircle)
+				cost += 30f + _analysis.LateralOffset * 8f + _settings.TurnRadius * 2f;
+
 			return cost;
 		}
 	}

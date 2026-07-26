@@ -10,8 +10,13 @@ namespace VehicleNavigation
 		public ArrivalPlan Generate(ArrivalAnalysis _a, ArrivalPlanningSettings _s,
 			Vector3 _pos, float _yaw, Vector3 _target, float? _heading)
 		{
-			if (!_a.CanReachReverse)
-				return ArrivalPlan.Invalid("cannot reach by reverse");
+			float absAngle = Mathf.Abs(_a.HeadingError);
+
+			// Only for rear hemisphere
+			if (_a.Side == TargetSide.Front)
+				return ArrivalPlan.Invalid("target is in front");
+			if (_a.Side == TargetSide.Left || _a.Side == TargetSide.Right)
+				return ArrivalPlan.Invalid("side target — use Arc/Reposition");
 
 			var maneuvers = new List<Maneuver>();
 			if (_a.TargetInsideRearTurningCircle)
