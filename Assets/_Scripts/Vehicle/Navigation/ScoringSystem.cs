@@ -44,9 +44,6 @@ namespace VehicleNavigation
 			return ApplyRiskPenalty(baseScore, _feasibility);
 		}
 
-			return ApplyRiskPenalty(baseScore, _feasibility);
-		}
-
 		public static float ApplyRiskPenalty(float _baseScore, FeasibilityResult _feasibility)
 		{
 			if (_feasibility == null)
