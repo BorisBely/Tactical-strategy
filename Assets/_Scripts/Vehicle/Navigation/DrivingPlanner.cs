@@ -160,15 +160,39 @@ namespace VehicleNavigation
 			DriverContext _ctx)
 		{
 			var maneuvers = new List<Maneuver>();
-			if (_ctx != null)
+
+			// Always build a proper reverse path — never create empty ReverseManeuver
+			if (_ctx != null && _ctx.Path.Corners != null && _ctx.Path.Corners.Length > 0)
 			{
 				var reversePath = ReversePathBuilder.Build(_ctx.Path, _ctx);
 				maneuvers.Add(new ReverseIntentManeuver(reversePath));
 			}
+			else if (_path.Corners != null && _path.Corners.Length > 0)
+			{
+				// Build minimal context for reverse path
+				var tmpCtx = new DriverContext();
+				tmpCtx.Position = _feedback.Position;
+				tmpCtx.Forward = _feedback.Forward;
+				tmpCtx.Right = _feedback.Right;
+				tmpCtx.Yaw = _feedback.Yaw;
+				tmpCtx.Path = _path;
+				var reversePath = ReversePathBuilder.Build(_path, tmpCtx);
+				maneuvers.Add(new ReverseIntentManeuver(reversePath));
+			}
 			else
 			{
-				maneuvers.Add(new ReverseManeuver());
+				// Last resort: build reverse path from scratch using positions only
+				var directPath = new Vector3[] { _feedback.Position, _request.Destination };
+				var tmpCtx = new DriverContext();
+				tmpCtx.Position = _feedback.Position;
+				tmpCtx.Forward = _feedback.Forward;
+				tmpCtx.Right = _feedback.Right;
+				tmpCtx.Yaw = _feedback.Yaw;
+				tmpCtx.Path = new PathResult(directPath, Vector3.Distance(_feedback.Position, _request.Destination), true, false);
+				var reversePath = ReversePathBuilder.Build(tmpCtx.Path, tmpCtx);
+				maneuvers.Add(new ReverseIntentManeuver(reversePath));
 			}
+
 			AppendArrivalManeuver(_request, _path, _feedback, maneuvers);
 			if (maneuvers.Count == 0)
 				maneuvers.Add(new ForwardManeuver());
@@ -311,8 +335,19 @@ namespace VehicleNavigation
 					_feedback.Position, currentYaw, _request.Destination, heading);
 				if (arrivalManeuvers != null && arrivalManeuvers.Count > 0)
 				{
-					_maneuvers.AddRange(arrivalManeuvers);
-					return;
+					// Don't append redundant reverse if candidate is already reverse
+					bool firstIsReverse = arrivalManeuvers[0] != null &&
+						(arrivalManeuvers[0] is ReverseManeuver || arrivalManeuvers[0] is ReverseIntentManeuver);
+					bool candidateHasReverse = _maneuvers.Count > 0 &&
+						(_maneuvers[_maneuvers.Count - 1] is ReverseIntentManeuver ||
+						 _maneuvers[_maneuvers.Count - 1] is ReverseManeuver);
+					if (firstIsReverse && candidateHasReverse)
+						arrivalManeuvers.RemoveAt(0);
+					if (arrivalManeuvers.Count > 0)
+					{
+						_maneuvers.AddRange(arrivalManeuvers);
+						return;
+					}
 				}
 				// ArrivalPlanner returned null — fall through to old logic only for simple cases
 			}
