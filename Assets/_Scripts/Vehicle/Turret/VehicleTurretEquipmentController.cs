@@ -205,16 +205,10 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			}
 		}
 
-		EnsureIkDummy(pitch, "LeftHandIkTarget",
+		TryFindIkDummy(pitch, "LeftHandIkTarget",
 			new Vector3(-0.116f, 0.044f, -0.617f),
 			Quaternion.Euler(-24.635f, 0.305f, 86.518f));
-		EnsureIkDummy(pitch, "RightHandIkTarget",
-			new Vector3(0.116f, 0.044f, -0.617f),
-			Quaternion.Euler(-24.635f, -0.305f, -86.518f));
-		EnsureIkDummy(pitch, "LeftHandIkTarget_NotReady",
-			new Vector3(-0.116f, 0.044f, -0.617f),
-			Quaternion.Euler(-24.635f, 0.305f, 86.518f));
-		EnsureIkDummy(pitch, "RightHandIkTarget_NotReady",
+		TryFindIkDummy(pitch, "RightHandIkTarget",
 			new Vector3(0.116f, 0.044f, -0.617f),
 			Quaternion.Euler(-24.635f, -0.305f, -86.518f));
 
@@ -238,19 +232,22 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 		return go.transform;
 	}
 
-	private static void EnsureIkDummy(Transform _parent, string _name, Vector3 _localPos, Quaternion _localRot)
+	private static void TryFindIkDummy(Transform _parent, string _name, Vector3 _expectedLocalPos, Quaternion _expectedLocalRot)
 	{
-		Transform t = CreateOrFindChild(_parent, _name);
-		if (t.localPosition.sqrMagnitude < 0.0001f)
-			t.localPosition = _localPos;
-		if (ApproxIdentity(t.localRotation))
-			t.localRotation = _localRot;
-	}
+		Transform t = _parent.Find(_name);
+		if (t != null)
+			return;
+		Transform[] all = _parent.GetComponentsInChildren<Transform>(true);
+		for (int i = 0; i < all.Length; i++)
+		{
+			if (all[i] != null && all[i].name == _name && all[i].IsChildOf(_parent))
+				return;
+		}
 
-	private static bool ApproxIdentity(Quaternion q)
-	{
-		return Mathf.Abs(q.x) < 0.0001f && Mathf.Abs(q.y) < 0.0001f
-		    && Mathf.Abs(q.z) < 0.0001f && Mathf.Abs(q.w - 1f) < 0.0001f;
+		Debug.LogWarning(
+			$"[{nameof(VehicleTurretEquipmentController)}] IK dummy '{_name}' not found as child of '{_parent.name}' on vehicle '{_parent.root.name}'. "
+			+ $"Expected localPos={_expectedLocalPos:F3}, localRot={_expectedLocalRot.eulerAngles}. "
+			+ "Place it in the prefab or scene.", _parent);
 	}
 	#endregion
 }

@@ -370,7 +370,7 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_RuntimeTuner != null && m_RuntimeTuner.ForcesRightHandIk)
 			return 1f;
 
-		if (m_EquippedWeaponPose == null)
+		if (m_EquippedWeaponPose == null && (m_UnitEquipment == null || !m_UnitEquipment.IsOperatingVehicleTurret))
 			return 0f;
 
 		float readyBlend = GetEffectiveReadyBlend01();
@@ -409,11 +409,21 @@ public class AnimatorHandIk : MonoBehaviour
 		bool useRocketLauncher = m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldDriveWeaponPose;
 		Transform weaponRoot = useRocketLauncher
 			? m_RocketLauncherOrder.HandLauncherRoot
-			: m_UnitEquipment != null ? m_UnitEquipment.MainWeaponRoot : null;
+			: m_UnitEquipment != null ? m_UnitEquipment.EffectiveWeaponRoot : null;
 		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
 		{
 			ClearRightHandIk();
 			return;
+		}
+
+		if (!useRocketLauncher && m_UnitEquipment != null && m_UnitEquipment.IsOperatingVehicleTurret)
+		{
+			Transform turretIk = m_UnitEquipment.RightHandIkTargetTransform;
+			if (turretIk != null)
+			{
+				ApplyRightHandIkDirect(turretIk.position, turretIk.rotation);
+				return;
+			}
 		}
 
 		float readyBlend = GetEffectiveReadyBlend01();
@@ -437,6 +447,11 @@ public class AnimatorHandIk : MonoBehaviour
 		Vector3 worldPos = weaponRoot.TransformPoint(localPos);
 		Quaternion worldRot = weaponRoot.rotation * localRot;
 
+		ApplyRightHandIkDirect(worldPos, worldRot);
+	}
+
+	private void ApplyRightHandIkDirect(Vector3 worldPos, Quaternion worldRot)
+	{
 		float ikBlend = GetRightHandIkWeightMultiplier();
 		if (ikBlend <= 0f)
 		{
@@ -464,7 +479,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 		Transform weaponRoot = useRocketLauncher
 			? m_RocketLauncherOrder.HandLauncherRoot
-			: m_UnitEquipment.MainWeaponRoot;
+			: m_UnitEquipment.EffectiveWeaponRoot;
 		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
 			return false;
 
@@ -586,7 +601,7 @@ public class AnimatorHandIk : MonoBehaviour
 
 		Transform weaponRoot = useRocketLauncher
 			? m_RocketLauncherOrder.HandLauncherRoot
-			: m_UnitEquipment.MainWeaponRoot;
+			: m_UnitEquipment.EffectiveWeaponRoot;
 		if (weaponRoot == null || !weaponRoot.gameObject.activeInHierarchy)
 			return false;
 

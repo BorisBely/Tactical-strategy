@@ -67,6 +67,16 @@ public class UnitEquipment : MonoBehaviour
 	/// <summary>Корень инстанса визуала в руке. Null если нет префаба или слот пуст.</summary>
 	public Transform MainWeaponRoot => m_MainWeaponInstance != null ? m_MainWeaponInstance.transform : null;
 
+	public Transform EffectiveWeaponRoot
+	{
+		get
+		{
+			if (m_TurretWeaponOverride != null)
+				return m_TurretWeaponOverride.transform;
+			return m_MainWeaponInstance != null ? m_MainWeaponInstance.transform : null;
+		}
+	}
+
 	/// <summary>Оружие отцеплено от руки, но остаётся экипированным в инвентаре.</summary>
 	public bool HasDetachedWeaponVisual => m_DetachedWeaponInstance != null;
 
@@ -213,15 +223,22 @@ public class UnitEquipment : MonoBehaviour
 		}
 
 		ItemDefinition def = m_TurretWeaponDefinitionOverride;
-		string leftReady = def != null ? def.LeftHandIkTargetChildName : "LeftHandIkTarget";
-		string leftNotReady = def != null ? def.LeftHandIkTargetNotReadyChildName : "LeftHandIkTarget_NotReady";
-		string rightReady = def != null ? def.RightHandIkTargetChildName : "RightHandIkTarget";
-		string rightNotReady = def != null ? def.RightHandIkTargetNotReadyChildName : "RightHandIkTarget_NotReady";
+		string leftReady = GetChildNameOr(def, def != null ? def.LeftHandIkTargetChildName : null, "LeftHandIkTarget");
+		string leftNotReady = GetChildNameOr(def, def != null ? def.LeftHandIkTargetNotReadyChildName : null, "LeftHandIkTarget_NotReady");
+		string rightReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetChildName : null, "RightHandIkTarget");
+		string rightNotReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetNotReadyChildName : null, "RightHandIkTarget_NotReady");
 
 		m_LeftHandIkTarget = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftReady);
 		m_LeftHandIkTargetNotReady = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftNotReady);
 		m_RightHandIkTarget = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightReady);
 		m_RightHandIkTargetNotReady = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightNotReady);
+	}
+
+	private static string GetChildNameOr(ItemDefinition def, string fromDef, string fallback)
+	{
+		if (!string.IsNullOrWhiteSpace(fromDef))
+			return fromDef;
+		return fallback;
 	}
 
 	public void ClearMainWeapon()
