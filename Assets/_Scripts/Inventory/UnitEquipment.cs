@@ -259,6 +259,7 @@ public class UnitEquipment : MonoBehaviour
 		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 
 		RefreshHandIkTargets();
+		SyncForeGripIkTargetsFromAsset();
 
 		NotifyEquipmentChanged();
 		return true;
@@ -522,6 +523,42 @@ public class UnitEquipment : MonoBehaviour
 		box.center = _root.transform.InverseTransformPoint(bounds.center);
 		Vector3 size = bounds.size;
 		box.size = new Vector3(Mathf.Max(size.x, 0.05f), Mathf.Max(size.y, 0.05f), Mathf.Max(size.z, 0.05f));
+	}
+
+	public void SyncForeGripIkTargetsFromAsset()
+	{
+		if (m_EquippedWeapon == null || m_EquippedDefinition == null)
+			return;
+
+		Transform fgRoot = m_EquippedWeapon.UnderBarrelForegripVisualRoot;
+		if (fgRoot == null)
+			return;
+
+		int fgIndex = 0;
+		string name = fgRoot.name;
+		for (int i = 5; i >= 1; i--)
+		{
+			if (name.Contains("ForeGrip" + i))
+			{
+				fgIndex = i;
+				break;
+			}
+		}
+
+		if (fgIndex < 1 || !m_EquippedDefinition.HasForeGripIkConfigured(fgIndex))
+			return;
+
+		if (m_LeftHandIkTarget != null && m_LeftHandIkTarget.IsChildOf(fgRoot))
+		{
+			m_LeftHandIkTarget.localPosition = m_EquippedDefinition.GetForeGripLeftHandIkReadyLocalPosition(fgIndex);
+			m_LeftHandIkTarget.localRotation = m_EquippedDefinition.GetForeGripLeftHandIkReadyLocalRotation(fgIndex);
+		}
+
+		if (m_LeftHandIkTargetNotReady != null && m_LeftHandIkTargetNotReady.IsChildOf(fgRoot))
+		{
+			m_LeftHandIkTargetNotReady.localPosition = m_EquippedDefinition.GetForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
+			m_LeftHandIkTargetNotReady.localRotation = m_EquippedDefinition.GetForeGripLeftHandIkNotReadyLocalRotation(fgIndex);
+		}
 	}
 
 	private static Transform FindChildRecursive(Transform _root, string _name)

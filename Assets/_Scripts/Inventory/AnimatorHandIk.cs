@@ -608,13 +608,62 @@ public class AnimatorHandIk : MonoBehaviour
 
 		// When foregrip provides IK targets, snap directly to world-space transforms —
 		// no weapon-local roundtrip, no authored data interpolation.
-		if (foregripRoot != null
-		    && notReadyChild != null && IsUnderOrSame(foregripRoot, notReadyChild)
-		    && readyChild != null && IsUnderOrSame(foregripRoot, readyChild))
+		bool tuning = m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive;
+		bool foregripHasTargets = foregripRoot != null
+		                         && notReadyChild != null && IsUnderOrSame(foregripRoot, notReadyChild)
+		                         && readyChild != null && IsUnderOrSame(foregripRoot, readyChild);
+
+		if (foregripHasTargets && tuning)
 		{
 			_position = Vector3.Lerp(notReadyChild.position, readyChild.position, readyBlend);
 			_rotation = Quaternion.Slerp(notReadyChild.rotation, readyChild.rotation, readyBlend);
 			return true;
+		}
+
+		int fgIndex = GetForegripIndex(equippedWeapon);
+		LocomotionStance stance = GetCurrentStance();
+		bool inVehicleIk = IsInVehiclePassengerIkContext();
+
+		if (fgIndex >= 1 && fgIndex <= 5 && foregripRoot != null)
+		{
+			bool useFg = false;
+			Vector3 notReadyLocal = Vector3.zero, readyLocal = Vector3.zero;
+			Quaternion notReadyLocalRot = Quaternion.identity, readyLocalRot = Quaternion.identity;
+
+			if (inVehicleIk && equipped.HasVehicleForeGripIkConfigured(fgIndex))
+			{
+				notReadyLocal = equipped.GetVehicleForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
+				notReadyLocalRot = equipped.GetVehicleForeGripLeftHandIkNotReadyLocalRotation(fgIndex);
+				readyLocal = equipped.GetVehicleForeGripLeftHandIkReadyLocalPosition(fgIndex);
+				readyLocalRot = equipped.GetVehicleForeGripLeftHandIkReadyLocalRotation(fgIndex);
+				useFg = true;
+			}
+			else if (stance == LocomotionStance.Crouch && equipped.HasCrouchForeGripIkConfigured(fgIndex))
+			{
+				notReadyLocal = equipped.GetCrouchForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
+				notReadyLocalRot = equipped.GetCrouchForeGripLeftHandIkNotReadyLocalRotation(fgIndex);
+				readyLocal = equipped.GetCrouchForeGripLeftHandIkReadyLocalPosition(fgIndex);
+				readyLocalRot = equipped.GetCrouchForeGripLeftHandIkReadyLocalRotation(fgIndex);
+				useFg = true;
+			}
+			else if (equipped.HasForeGripIkConfigured(fgIndex))
+			{
+				notReadyLocal = equipped.GetForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
+				notReadyLocalRot = equipped.GetForeGripLeftHandIkNotReadyLocalRotation(fgIndex);
+				readyLocal = equipped.GetForeGripLeftHandIkReadyLocalPosition(fgIndex);
+				readyLocalRot = equipped.GetForeGripLeftHandIkReadyLocalRotation(fgIndex);
+				useFg = true;
+			}
+
+			if (useFg)
+			{
+				Vector3 localPos = Vector3.Lerp(notReadyLocal, readyLocal, readyBlend);
+				Quaternion localRot = Quaternion.Slerp(notReadyLocalRot, readyLocalRot, readyBlend);
+				Transform fgRoot = foregripRoot;
+				_position = fgRoot.TransformPoint(localPos);
+				_rotation = fgRoot.rotation * localRot;
+				return true;
+			}
 		}
 
 		if (!TryResolveLeftHandIkLocalPose(equipped, weaponRoot, readyBlend, GetCurrentStance(), out Vector3 localPosition, out Quaternion localRotation))
@@ -763,6 +812,19 @@ public class AnimatorHandIk : MonoBehaviour
 	private static bool IsUnderOrSame(Transform _root, Transform _child)
 	{
 		return _root != null && _child != null && (_child == _root || _child.IsChildOf(_root));
+	}
+
+	private static int GetForegripIndex(EquippedWeapon _equippedWeapon)
+	{
+		Transform root = _equippedWeapon != null ? _equippedWeapon.UnderBarrelForegripVisualRoot : null;
+		if (root == null)
+			return 0;
+
+		string name = root.name;
+		for (int i = 5; i >= 1; i--)
+			if (name.Contains("ForeGrip" + i))
+				return i;
+		return 0;
 	}
 
 	private LocomotionStance GetCurrentStance()

@@ -172,8 +172,8 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 
 			using (new EditorGUI.DisabledScope(!tuner.IsLeftHandIkDrivenByForegrip))
 			{
-				if (GUILayout.Button("Save Left IK To Foregrip Prefab"))
-					SaveLeftHandIkToForegripPrefab(tuner);
+				if (GUILayout.Button("Save ForeGrip Left IK To Item Asset"))
+					SaveForeGripLeftHandIkToAsset(tuner, equipped);
 			}
 
 			if (GUILayout.Button("Copy YAML"))
@@ -192,9 +192,9 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			if (tuner.IsLeftHandIkDrivenByForegrip)
 			{
 				EditorGUILayout.HelpBox(
-					"Foregrip installed: left IK lives on the grip prefab for standing.\n" +
-					"Crouch / Vehicle left IK save to ItemDefinition (Save Crouch / Save Vehicle).\n" +
-					"Gameplay prefers authored crouch/vehicle left IK over standing foregrip empties.",
+					"Foregrip installed: left IK saves to Item_Weapon_*.asset ForeGrip IK fields.\n" +
+					"Save Standing writes left IK to m_ForeGrip{N}LeftHandIk... on the weapon asset.\n" +
+					"Crouch / Vehicle left IK always save to ItemDefinition crouch/vehicle fields.",
 					MessageType.Info);
 			}
 
@@ -218,7 +218,7 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		EditorGUILayout.Space(3f);
 		var helpTuner = (UnitEquippedWeaponPoseRuntimeTuner)target;
 		string leftSaveNote = helpTuner.IsLeftHandIkDrivenByForegrip
-			? "• left hand IK: Save Left IK To Foregrip Prefab\n"
+			? "• left hand IK: Save ForeGrip Left IK To Item Asset\n"
 			: "• left hand IK ready + not ready\n";
 
 		EditorGUILayout.HelpBox(
@@ -316,6 +316,22 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 				so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.StandingLeftNotReadyIkLocalEulerAngles;
 			}
 		}
+		else
+		{
+			int fgIndex = _tuner.GetForegripIndex();
+			if (fgIndex >= 1 && fgIndex <= 5)
+			{
+				string prefix = $"m_ForeGrip{fgIndex}LeftHandIk";
+				so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = _tuner.StandingLeftReadyIkLocalPosition;
+				so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = _tuner.StandingLeftReadyIkLocalEulerAngles;
+
+				if (!_tuner.UsesRocketLauncherContext)
+				{
+					so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = _tuner.StandingLeftNotReadyIkLocalPosition;
+					so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = _tuner.StandingLeftNotReadyIkLocalEulerAngles;
+				}
+			}
+		}
 
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(_definition);
@@ -342,10 +358,23 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		so.FindProperty("m_CrouchRightHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.CrouchNotReadyIkLocalEulerAngles;
 		so.FindProperty("m_CrouchRightHandIkReadyLocalPosition").vector3Value = _tuner.CrouchReadyIkLocalPosition;
 		so.FindProperty("m_CrouchRightHandIkReadyLocalEulerAngles").vector3Value = _tuner.CrouchReadyIkLocalEulerAngles;
-		so.FindProperty("m_CrouchLeftHandIkNotReadyLocalPosition").vector3Value = _tuner.CrouchLeftNotReadyIkLocalPosition;
-		so.FindProperty("m_CrouchLeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftNotReadyIkLocalEulerAngles;
-		so.FindProperty("m_CrouchLeftHandIkReadyLocalPosition").vector3Value = _tuner.CrouchLeftReadyIkLocalPosition;
-		so.FindProperty("m_CrouchLeftHandIkReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftReadyIkLocalEulerAngles;
+
+		int fgIdx = _tuner.GetForegripIndex();
+		if (_tuner.IsLeftHandIkDrivenByForegrip && fgIdx >= 1 && fgIdx <= 5)
+		{
+			string prefix = $"m_CrouchForeGrip{fgIdx}LeftHandIk";
+			so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = _tuner.CrouchLeftNotReadyIkLocalPosition;
+			so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftNotReadyIkLocalEulerAngles;
+			so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = _tuner.CrouchLeftReadyIkLocalPosition;
+			so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftReadyIkLocalEulerAngles;
+		}
+		else
+		{
+			so.FindProperty("m_CrouchLeftHandIkNotReadyLocalPosition").vector3Value = _tuner.CrouchLeftNotReadyIkLocalPosition;
+			so.FindProperty("m_CrouchLeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftNotReadyIkLocalEulerAngles;
+			so.FindProperty("m_CrouchLeftHandIkReadyLocalPosition").vector3Value = _tuner.CrouchLeftReadyIkLocalPosition;
+			so.FindProperty("m_CrouchLeftHandIkReadyLocalEulerAngles").vector3Value = _tuner.CrouchLeftReadyIkLocalEulerAngles;
+		}
 
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(_definition);
@@ -377,10 +406,23 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		so.FindProperty("m_VehicleRightHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.VehicleNotReadyIkLocalEulerAngles;
 		so.FindProperty("m_VehicleRightHandIkReadyLocalPosition").vector3Value = _tuner.VehicleReadyIkLocalPosition;
 		so.FindProperty("m_VehicleRightHandIkReadyLocalEulerAngles").vector3Value = _tuner.VehicleReadyIkLocalEulerAngles;
-		so.FindProperty("m_VehicleLeftHandIkNotReadyLocalPosition").vector3Value = _tuner.VehicleLeftNotReadyIkLocalPosition;
-		so.FindProperty("m_VehicleLeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftNotReadyIkLocalEulerAngles;
-		so.FindProperty("m_VehicleLeftHandIkReadyLocalPosition").vector3Value = _tuner.VehicleLeftReadyIkLocalPosition;
-		so.FindProperty("m_VehicleLeftHandIkReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftReadyIkLocalEulerAngles;
+
+		int fgIdx = _tuner.GetForegripIndex();
+		if (_tuner.IsLeftHandIkDrivenByForegrip && fgIdx >= 1 && fgIdx <= 5)
+		{
+			string prefix = $"m_VehicleForeGrip{fgIdx}LeftHandIk";
+			so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = _tuner.VehicleLeftNotReadyIkLocalPosition;
+			so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftNotReadyIkLocalEulerAngles;
+			so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = _tuner.VehicleLeftReadyIkLocalPosition;
+			so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftReadyIkLocalEulerAngles;
+		}
+		else
+		{
+			so.FindProperty("m_VehicleLeftHandIkNotReadyLocalPosition").vector3Value = _tuner.VehicleLeftNotReadyIkLocalPosition;
+			so.FindProperty("m_VehicleLeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftNotReadyIkLocalEulerAngles;
+			so.FindProperty("m_VehicleLeftHandIkReadyLocalPosition").vector3Value = _tuner.VehicleLeftReadyIkLocalPosition;
+			so.FindProperty("m_VehicleLeftHandIkReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftReadyIkLocalEulerAngles;
+		}
 
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(_definition);
@@ -388,119 +430,39 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		Debug.Log($"[WeaponPoseTuner] Saved VEHICLE hand pose to '{_definition.name}'.", _definition);
 	}
 
-	private static void SaveLeftHandIkToForegripPrefab(UnitEquippedWeaponPoseRuntimeTuner _tuner)
+	private static void SaveForeGripLeftHandIkToAsset(UnitEquippedWeaponPoseRuntimeTuner _tuner, ItemDefinition _definition)
 	{
-		if (_tuner == null)
+		if (_definition == null || _tuner == null)
 			return;
+
+		int fgIndex = _tuner.GetForegripIndex();
+		if (fgIndex < 1 || fgIndex > 5)
+		{
+			Debug.LogWarning("[WeaponPoseTuner] Cannot determine foregrip index — make sure a foregrip is attached.", _tuner);
+			return;
+		}
 
 		_tuner.EnsureAllHandIkTargetsExist();
 		_tuner.CaptureLiveIkFromScene();
 
-		Transform foregripRoot = _tuner.GetForegripVisualRoot();
-		if (foregripRoot == null)
-		{
-			Debug.LogWarning("[WeaponPoseTuner] No foregrip installed — cannot save left IK to grip prefab.", _tuner);
-			return;
-		}
+		Undo.RecordObject(_definition, $"Save ForeGrip{fgIndex} Left IK To ItemDefinition");
 
-		GameObject instanceRoot = PrefabUtility.GetNearestPrefabInstanceRoot(foregripRoot.gameObject);
-		if (instanceRoot == null)
-			instanceRoot = foregripRoot.gameObject;
+		SerializedObject so = new SerializedObject(_definition);
+		string prefix = $"m_ForeGrip{fgIndex}LeftHandIk";
+		so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = _tuner.LeftReadyIkLocalPosition;
+		so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = _tuner.LeftReadyIkLocalEulerAngles;
+		so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = _tuner.LeftNotReadyIkLocalPosition;
+		so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = _tuner.LeftNotReadyIkLocalEulerAngles;
 
-		string prefabPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(instanceRoot);
-		if (string.IsNullOrEmpty(prefabPath))
-		{
-			Debug.LogWarning(
-				$"[WeaponPoseTuner] Foregrip '{instanceRoot.name}' is not a prefab instance — cannot save.",
-				instanceRoot);
-			return;
-		}
+		so.ApplyModifiedPropertiesWithoutUndo();
+		EditorUtility.SetDirty(_definition);
+		AssetDatabase.SaveAssets();
 
-		Transform liveReady = _tuner.UnitEquipment != null ? _tuner.UnitEquipment.LeftHandIkTargetTransform : null;
-		Transform liveNotReady = _tuner.UnitEquipment != null ? _tuner.UnitEquipment.LeftHandIkTargetNotReadyTransform : null;
-
-		GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
-		try
-		{
-			Transform ready = FindChildRecursive(contents.transform, "LeftHandIkTarget");
-			if (ready == null)
-			{
-				GameObject go = new GameObject("LeftHandIkTarget");
-				ready = go.transform;
-				ready.SetParent(contents.transform, false);
-			}
-
-			Transform notReady = FindChildRecursive(contents.transform, "LeftHandIkTarget_NotReady");
-			if (notReady == null)
-			{
-				GameObject go = new GameObject("LeftHandIkTarget_NotReady");
-				notReady = go.transform;
-				notReady.SetParent(contents.transform, false);
-			}
-
-			if (liveReady != null && IsUnderOrSame(foregripRoot, liveReady))
-			{
-				ready.localPosition = liveReady.localPosition;
-				ready.localRotation = liveReady.localRotation;
-				ready.localScale = Vector3.one;
-			}
-			else
-			{
-				ready.localPosition = _tuner.LeftReadyIkLocalPosition;
-				ready.localRotation = Quaternion.Euler(_tuner.LeftReadyIkLocalEulerAngles);
-				ready.localScale = Vector3.one;
-			}
-
-			if (liveNotReady != null && IsUnderOrSame(foregripRoot, liveNotReady) && liveNotReady != liveReady)
-			{
-				notReady.localPosition = liveNotReady.localPosition;
-				notReady.localRotation = liveNotReady.localRotation;
-				notReady.localScale = Vector3.one;
-			}
-			else
-			{
-				notReady.localPosition = _tuner.LeftNotReadyIkLocalPosition;
-				notReady.localRotation = Quaternion.Euler(_tuner.LeftNotReadyIkLocalEulerAngles);
-				notReady.localScale = Vector3.one;
-			}
-
-			PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
-			AssetDatabase.SaveAssets();
-
-			Debug.Log(
-				$"[WeaponPoseTuner] Saved left IK to foregrip prefab '{prefabPath}':\n" +
-				$"  Ready    {ready.localPosition} / {ready.localEulerAngles}\n" +
-				$"  NotReady {notReady.localPosition} / {notReady.localEulerAngles}",
-				_tuner);
-		}
-		finally
-		{
-			PrefabUtility.UnloadPrefabContents(contents);
-		}
-	}
-
-	private static bool IsUnderOrSame(Transform _root, Transform _child)
-	{
-		return _root != null && _child != null && (_child == _root || _child.IsChildOf(_root));
-	}
-
-	private static Transform FindChildRecursive(Transform _root, string _name)
-	{
-		if (_root == null || string.IsNullOrWhiteSpace(_name))
-			return null;
-
-		Transform direct = _root.Find(_name);
-		if (direct != null)
-			return direct;
-
-		for (int i = 0; i < _root.childCount; i++)
-		{
-			Transform found = FindChildRecursive(_root.GetChild(i), _name);
-			if (found != null)
-				return found;
-		}
-
-		return null;
+		Debug.Log(
+			$"[WeaponPoseTuner] Saved ForeGrip{fgIndex} left IK to '{_definition.name}':\n" +
+			$"  Ready    {_tuner.LeftReadyIkLocalPosition} / {_tuner.LeftReadyIkLocalEulerAngles}\n" +
+			$"  NotReady {_tuner.LeftNotReadyIkLocalPosition} / {_tuner.LeftNotReadyIkLocalEulerAngles}",
+			_definition);
 	}
 
 	private void CollapseOtherComponents()

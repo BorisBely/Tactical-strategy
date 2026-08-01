@@ -237,6 +237,20 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 		}
 	}
 
+	/// <summary>1‑based foregrip index (1–5) from the instantiated name, or 0 if unknown / no grip.</summary>
+	public int GetForegripIndex()
+	{
+		Transform root = GetForegripVisualRoot();
+		if (root == null)
+			return 0;
+
+		string name = root.name;
+		for (int i = 5; i >= 1; i--)
+			if (name.Contains("ForeGrip" + i))
+				return i;
+		return 0;
+	}
+
 	/// <summary>Installed under-barrel foregrip visual root, if any.</summary>
 	public Transform GetForegripVisualRoot()
 	{
@@ -416,7 +430,15 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 		m_ReadyIkLocalPosition = _def.RightHandIkReadyLocalPosition;
 		m_ReadyIkLocalEulerAngles = _def.RightHandIkReadyLocalEulerAngles;
 
-		if (!IsLeftHandIkDrivenByForegrip)
+		int fgIndex = GetForegripIndex();
+		if (fgIndex >= 1 && fgIndex <= 5 && _def.HasForeGripIkConfigured(fgIndex))
+		{
+			m_LeftNotReadyIkLocalPosition = _def.GetForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
+			m_LeftNotReadyIkLocalEulerAngles = _def.GetForeGripLeftHandIkNotReadyLocalEulerAngles(fgIndex);
+			m_LeftReadyIkLocalPosition = _def.GetForeGripLeftHandIkReadyLocalPosition(fgIndex);
+			m_LeftReadyIkLocalEulerAngles = _def.GetForeGripLeftHandIkReadyLocalEulerAngles(fgIndex);
+		}
+		else
 		{
 			m_LeftNotReadyIkLocalPosition = _def.LeftHandIkNotReadyLocalPosition;
 			m_LeftNotReadyIkLocalEulerAngles = _def.LeftHandIkNotReadyLocalEulerAngles;
@@ -457,6 +479,17 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 			m_CrouchLeftReadyIkLocalPosition = _def.CrouchLeftHandIkReadyLocalPosition;
 			m_CrouchLeftReadyIkLocalEulerAngles = _def.CrouchLeftHandIkReadyLocalEulerAngles;
 		}
+		else
+		{
+			int fgIdx = GetForegripIndex();
+			if (fgIdx >= 1 && fgIdx <= 5 && _def.HasCrouchForeGripIkConfigured(fgIdx))
+			{
+				m_CrouchLeftNotReadyIkLocalPosition = _def.GetCrouchForeGripLeftHandIkNotReadyLocalPosition(fgIdx);
+				m_CrouchLeftNotReadyIkLocalEulerAngles = _def.GetCrouchForeGripLeftHandIkNotReadyLocalEulerAngles(fgIdx);
+				m_CrouchLeftReadyIkLocalPosition = _def.GetCrouchForeGripLeftHandIkReadyLocalPosition(fgIdx);
+				m_CrouchLeftReadyIkLocalEulerAngles = _def.GetCrouchForeGripLeftHandIkReadyLocalEulerAngles(fgIdx);
+			}
+		}
 	}
 
 	public void LoadVehicleFromDefinition(ItemDefinition _def)
@@ -490,6 +523,17 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 			m_VehicleLeftNotReadyIkLocalEulerAngles = _def.VehicleLeftHandIkNotReadyLocalEulerAngles;
 			m_VehicleLeftReadyIkLocalPosition = _def.VehicleLeftHandIkReadyLocalPosition;
 			m_VehicleLeftReadyIkLocalEulerAngles = _def.VehicleLeftHandIkReadyLocalEulerAngles;
+		}
+		else
+		{
+			int fgIdx = GetForegripIndex();
+			if (fgIdx >= 1 && fgIdx <= 5 && _def.HasVehicleForeGripIkConfigured(fgIdx))
+			{
+				m_VehicleLeftNotReadyIkLocalPosition = _def.GetVehicleForeGripLeftHandIkNotReadyLocalPosition(fgIdx);
+				m_VehicleLeftNotReadyIkLocalEulerAngles = _def.GetVehicleForeGripLeftHandIkNotReadyLocalEulerAngles(fgIdx);
+				m_VehicleLeftReadyIkLocalPosition = _def.GetVehicleForeGripLeftHandIkReadyLocalPosition(fgIdx);
+				m_VehicleLeftReadyIkLocalEulerAngles = _def.GetVehicleForeGripLeftHandIkReadyLocalEulerAngles(fgIdx);
+			}
 		}
 	}
 
@@ -582,9 +626,6 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 			}
 		}
 
-		if (IsLeftHandIkDrivenByForegrip && m_ActivePosture == TuningPosture.Standing)
-			return;
-
 		if (captureNotReady)
 		{
 			Transform leftNotReady = GetLeftHandIkTargetNotReadyTransform();
@@ -654,11 +695,6 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 				ready.localRotation = Quaternion.Euler(ReadyIkLocalEulerAngles);
 			}
 		}
-
-		// Never overwrite foregrip LeftHandIkTarget* from weapon-asset coords while tuning standing
-		// and foregrip owns left IK — unless editing crouch left IK from ItemDefinition buffers.
-		if (IsLeftHandIkDrivenByForegrip && m_ActivePosture == TuningPosture.Standing)
-			return;
 
 		Transform leftNotReady = GetLeftHandIkTargetNotReadyTransform();
 		if (writeNotReadyLeft && leftNotReady != null)

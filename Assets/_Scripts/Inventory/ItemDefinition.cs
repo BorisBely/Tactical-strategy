@@ -106,6 +106,77 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private Vector3 m_VehicleLeftHandIkReadyLocalPosition;
 	[SerializeField] private Vector3 m_VehicleLeftHandIkReadyLocalEulerAngles;
 
+	[Header("ForeGrip Left Hand IK (weapon local)")]
+	[Tooltip("Override weapon left IK when ForeGrip1 is attached.")]
+	[SerializeField] private Vector3 m_ForeGrip1LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip1LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_ForeGrip1LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Override weapon left IK when ForeGrip2 is attached.")]
+	[SerializeField] private Vector3 m_ForeGrip2LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip2LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_ForeGrip2LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Override weapon left IK when ForeGrip3 is attached.")]
+	[SerializeField] private Vector3 m_ForeGrip3LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip3LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_ForeGrip3LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Override weapon left IK when ForeGrip4 is attached.")]
+	[SerializeField] private Vector3 m_ForeGrip4LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip4LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_ForeGrip4LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	[Tooltip("Override weapon left IK when ForeGrip5 is attached.")]
+	[SerializeField] private Vector3 m_ForeGrip5LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip5LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_ForeGrip5LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+
+	[Header("Crouch — ForeGrip Left Hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_CrouchForeGrip1LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip2LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip3LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip4LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip5LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+
+	[Header("Vehicle — ForeGrip Left Hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_VehicleForeGrip1LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip1LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip2LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip2LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip3LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip3LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip4LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip4LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip5LeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleForeGrip5LeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+
 	[Header("Снаряжение (Equipment)")]
 	[Tooltip("Подтип снаряжения: оружие, шлем или другой экипируемый предмет.")]
 	[SerializeField] private EquipmentKind m_EquipmentKind = EquipmentKind.Weapon;
@@ -281,6 +352,112 @@ public class ItemDefinition : ScriptableObject
 	public Vector3 VehicleLeftHandIkReadyLocalPosition => m_VehicleLeftHandIkReadyLocalPosition;
 	public Vector3 VehicleLeftHandIkReadyLocalEulerAngles => m_VehicleLeftHandIkReadyLocalEulerAngles;
 	public Quaternion VehicleLeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleLeftHandIkReadyLocalEulerAngles);
+
+	public Vector3 ForeGrip1LeftHandIkReadyLocalPosition => m_ForeGrip1LeftHandIkReadyLocalPosition;
+	public Vector3 ForeGrip1LeftHandIkReadyLocalEulerAngles => m_ForeGrip1LeftHandIkReadyLocalEulerAngles;
+	public Quaternion ForeGrip1LeftHandIkReadyLocalRotation => Quaternion.Euler(m_ForeGrip1LeftHandIkReadyLocalEulerAngles);
+	public Vector3 ForeGrip1LeftHandIkNotReadyLocalPosition => m_ForeGrip1LeftHandIkNotReadyLocalPosition;
+	public Vector3 ForeGrip1LeftHandIkNotReadyLocalEulerAngles => m_ForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion ForeGrip1LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_ForeGrip1LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 ForeGrip2LeftHandIkReadyLocalPosition => m_ForeGrip2LeftHandIkReadyLocalPosition;
+	public Vector3 ForeGrip2LeftHandIkReadyLocalEulerAngles => m_ForeGrip2LeftHandIkReadyLocalEulerAngles;
+	public Quaternion ForeGrip2LeftHandIkReadyLocalRotation => Quaternion.Euler(m_ForeGrip2LeftHandIkReadyLocalEulerAngles);
+	public Vector3 ForeGrip2LeftHandIkNotReadyLocalPosition => m_ForeGrip2LeftHandIkNotReadyLocalPosition;
+	public Vector3 ForeGrip2LeftHandIkNotReadyLocalEulerAngles => m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion ForeGrip2LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 ForeGrip3LeftHandIkReadyLocalPosition => m_ForeGrip3LeftHandIkReadyLocalPosition;
+	public Vector3 ForeGrip3LeftHandIkReadyLocalEulerAngles => m_ForeGrip3LeftHandIkReadyLocalEulerAngles;
+	public Quaternion ForeGrip3LeftHandIkReadyLocalRotation => Quaternion.Euler(m_ForeGrip3LeftHandIkReadyLocalEulerAngles);
+	public Vector3 ForeGrip3LeftHandIkNotReadyLocalPosition => m_ForeGrip3LeftHandIkNotReadyLocalPosition;
+	public Vector3 ForeGrip3LeftHandIkNotReadyLocalEulerAngles => m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion ForeGrip3LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 ForeGrip4LeftHandIkReadyLocalPosition => m_ForeGrip4LeftHandIkReadyLocalPosition;
+	public Vector3 ForeGrip4LeftHandIkReadyLocalEulerAngles => m_ForeGrip4LeftHandIkReadyLocalEulerAngles;
+	public Quaternion ForeGrip4LeftHandIkReadyLocalRotation => Quaternion.Euler(m_ForeGrip4LeftHandIkReadyLocalEulerAngles);
+	public Vector3 ForeGrip4LeftHandIkNotReadyLocalPosition => m_ForeGrip4LeftHandIkNotReadyLocalPosition;
+	public Vector3 ForeGrip4LeftHandIkNotReadyLocalEulerAngles => m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion ForeGrip4LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 ForeGrip5LeftHandIkReadyLocalPosition => m_ForeGrip5LeftHandIkReadyLocalPosition;
+	public Vector3 ForeGrip5LeftHandIkReadyLocalEulerAngles => m_ForeGrip5LeftHandIkReadyLocalEulerAngles;
+	public Quaternion ForeGrip5LeftHandIkReadyLocalRotation => Quaternion.Euler(m_ForeGrip5LeftHandIkReadyLocalEulerAngles);
+	public Vector3 ForeGrip5LeftHandIkNotReadyLocalPosition => m_ForeGrip5LeftHandIkNotReadyLocalPosition;
+	public Vector3 ForeGrip5LeftHandIkNotReadyLocalEulerAngles => m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion ForeGrip5LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 CrouchForeGrip1LeftHandIkReadyLocalPosition => m_CrouchForeGrip1LeftHandIkReadyLocalPosition;
+	public Vector3 CrouchForeGrip1LeftHandIkReadyLocalEulerAngles => m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip1LeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles);
+	public Vector3 CrouchForeGrip1LeftHandIkNotReadyLocalPosition => m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition;
+	public Vector3 CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles => m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip1LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 CrouchForeGrip2LeftHandIkReadyLocalPosition => m_CrouchForeGrip2LeftHandIkReadyLocalPosition;
+	public Vector3 CrouchForeGrip2LeftHandIkReadyLocalEulerAngles => m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip2LeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles);
+	public Vector3 CrouchForeGrip2LeftHandIkNotReadyLocalPosition => m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition;
+	public Vector3 CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles => m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip2LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 CrouchForeGrip3LeftHandIkReadyLocalPosition => m_CrouchForeGrip3LeftHandIkReadyLocalPosition;
+	public Vector3 CrouchForeGrip3LeftHandIkReadyLocalEulerAngles => m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip3LeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles);
+	public Vector3 CrouchForeGrip3LeftHandIkNotReadyLocalPosition => m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition;
+	public Vector3 CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles => m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip3LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 CrouchForeGrip4LeftHandIkReadyLocalPosition => m_CrouchForeGrip4LeftHandIkReadyLocalPosition;
+	public Vector3 CrouchForeGrip4LeftHandIkReadyLocalEulerAngles => m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip4LeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles);
+	public Vector3 CrouchForeGrip4LeftHandIkNotReadyLocalPosition => m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition;
+	public Vector3 CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles => m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip4LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 CrouchForeGrip5LeftHandIkReadyLocalPosition => m_CrouchForeGrip5LeftHandIkReadyLocalPosition;
+	public Vector3 CrouchForeGrip5LeftHandIkReadyLocalEulerAngles => m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip5LeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles);
+	public Vector3 CrouchForeGrip5LeftHandIkNotReadyLocalPosition => m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition;
+	public Vector3 CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles => m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion CrouchForeGrip5LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 VehicleForeGrip1LeftHandIkReadyLocalPosition => m_VehicleForeGrip1LeftHandIkReadyLocalPosition;
+	public Vector3 VehicleForeGrip1LeftHandIkReadyLocalEulerAngles => m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip1LeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles);
+	public Vector3 VehicleForeGrip1LeftHandIkNotReadyLocalPosition => m_VehicleForeGrip1LeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles => m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip1LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 VehicleForeGrip2LeftHandIkReadyLocalPosition => m_VehicleForeGrip2LeftHandIkReadyLocalPosition;
+	public Vector3 VehicleForeGrip2LeftHandIkReadyLocalEulerAngles => m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip2LeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles);
+	public Vector3 VehicleForeGrip2LeftHandIkNotReadyLocalPosition => m_VehicleForeGrip2LeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles => m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip2LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 VehicleForeGrip3LeftHandIkReadyLocalPosition => m_VehicleForeGrip3LeftHandIkReadyLocalPosition;
+	public Vector3 VehicleForeGrip3LeftHandIkReadyLocalEulerAngles => m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip3LeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles);
+	public Vector3 VehicleForeGrip3LeftHandIkNotReadyLocalPosition => m_VehicleForeGrip3LeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles => m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip3LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 VehicleForeGrip4LeftHandIkReadyLocalPosition => m_VehicleForeGrip4LeftHandIkReadyLocalPosition;
+	public Vector3 VehicleForeGrip4LeftHandIkReadyLocalEulerAngles => m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip4LeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles);
+	public Vector3 VehicleForeGrip4LeftHandIkNotReadyLocalPosition => m_VehicleForeGrip4LeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles => m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip4LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles);
+
+	public Vector3 VehicleForeGrip5LeftHandIkReadyLocalPosition => m_VehicleForeGrip5LeftHandIkReadyLocalPosition;
+	public Vector3 VehicleForeGrip5LeftHandIkReadyLocalEulerAngles => m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip5LeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles);
+	public Vector3 VehicleForeGrip5LeftHandIkNotReadyLocalPosition => m_VehicleForeGrip5LeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles => m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleForeGrip5LeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles);
+
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
 	/// <summary>Подтип снаряжения (для Equipment).</summary>
@@ -723,6 +900,206 @@ public class ItemDefinition : ScriptableObject
 		m_CrouchLeftHandIkReadyLocalPosition = m_LeftHandIkReadyLocalPosition;
 		m_CrouchLeftHandIkReadyLocalEulerAngles = m_LeftHandIkReadyLocalEulerAngles;
 	}
+
+	public bool HasForeGripIkConfigured(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => HasAnyLocalPoseData(m_ForeGrip1LeftHandIkNotReadyLocalPosition,
+				m_ForeGrip1LeftHandIkNotReadyLocalEulerAngles,
+				m_ForeGrip1LeftHandIkReadyLocalPosition,
+				m_ForeGrip1LeftHandIkReadyLocalEulerAngles),
+			2 => HasAnyLocalPoseData(m_ForeGrip2LeftHandIkNotReadyLocalPosition,
+				m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+				m_ForeGrip2LeftHandIkReadyLocalPosition,
+				m_ForeGrip2LeftHandIkReadyLocalEulerAngles),
+			3 => HasAnyLocalPoseData(m_ForeGrip3LeftHandIkNotReadyLocalPosition,
+				m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles,
+				m_ForeGrip3LeftHandIkReadyLocalPosition,
+				m_ForeGrip3LeftHandIkReadyLocalEulerAngles),
+			4 => HasAnyLocalPoseData(m_ForeGrip4LeftHandIkNotReadyLocalPosition,
+				m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+				m_ForeGrip4LeftHandIkReadyLocalPosition,
+				m_ForeGrip4LeftHandIkReadyLocalEulerAngles),
+			5 => HasAnyLocalPoseData(m_ForeGrip5LeftHandIkNotReadyLocalPosition,
+				m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles,
+				m_ForeGrip5LeftHandIkReadyLocalPosition,
+				m_ForeGrip5LeftHandIkReadyLocalEulerAngles),
+			_ => false
+		};
+	}
+
+	public Vector3 GetForeGripLeftHandIkReadyLocalPosition(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => m_ForeGrip1LeftHandIkReadyLocalPosition,
+			2 => m_ForeGrip2LeftHandIkReadyLocalPosition,
+			3 => m_ForeGrip3LeftHandIkReadyLocalPosition,
+			4 => m_ForeGrip4LeftHandIkReadyLocalPosition,
+			5 => m_ForeGrip5LeftHandIkReadyLocalPosition,
+			_ => Vector3.zero
+		};
+	}
+
+	public Vector3 GetForeGripLeftHandIkReadyLocalEulerAngles(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => m_ForeGrip1LeftHandIkReadyLocalEulerAngles,
+			2 => m_ForeGrip2LeftHandIkReadyLocalEulerAngles,
+			3 => m_ForeGrip3LeftHandIkReadyLocalEulerAngles,
+			4 => m_ForeGrip4LeftHandIkReadyLocalEulerAngles,
+			5 => m_ForeGrip5LeftHandIkReadyLocalEulerAngles,
+			_ => Vector3.zero
+		};
+	}
+
+	public Quaternion GetForeGripLeftHandIkReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetForeGripLeftHandIkReadyLocalEulerAngles(_gripIndex));
+
+	public Quaternion GetForeGripLeftHandIkNotReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetForeGripLeftHandIkNotReadyLocalEulerAngles(_gripIndex));
+
+	public Vector3 GetForeGripLeftHandIkNotReadyLocalPosition(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => m_ForeGrip1LeftHandIkNotReadyLocalPosition,
+			2 => m_ForeGrip2LeftHandIkNotReadyLocalPosition,
+			3 => m_ForeGrip3LeftHandIkNotReadyLocalPosition,
+			4 => m_ForeGrip4LeftHandIkNotReadyLocalPosition,
+			5 => m_ForeGrip5LeftHandIkNotReadyLocalPosition,
+			_ => Vector3.zero
+		};
+	}
+
+	public Vector3 GetForeGripLeftHandIkNotReadyLocalEulerAngles(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => m_ForeGrip1LeftHandIkNotReadyLocalEulerAngles,
+			2 => m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+			3 => m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles,
+			4 => m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+			5 => m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles,
+			_ => Vector3.zero
+		};
+	}
+
+	public bool HasCrouchForeGripIkConfigured(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => HasAnyLocalPoseData(m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition,
+				m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles,
+				m_CrouchForeGrip1LeftHandIkReadyLocalPosition, m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles),
+			2 => HasAnyLocalPoseData(m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition,
+				m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+				m_CrouchForeGrip2LeftHandIkReadyLocalPosition, m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles),
+			3 => HasAnyLocalPoseData(m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition,
+				m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles,
+				m_CrouchForeGrip3LeftHandIkReadyLocalPosition, m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles),
+			4 => HasAnyLocalPoseData(m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition,
+				m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+				m_CrouchForeGrip4LeftHandIkReadyLocalPosition, m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles),
+			5 => HasAnyLocalPoseData(m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition,
+				m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles,
+				m_CrouchForeGrip5LeftHandIkReadyLocalPosition, m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles),
+			_ => false
+		};
+	}
+
+	public bool HasVehicleForeGripIkConfigured(int _gripIndex)
+	{
+		return _gripIndex switch
+		{
+			1 => HasAnyLocalPoseData(m_VehicleForeGrip1LeftHandIkNotReadyLocalPosition,
+				m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles,
+				m_VehicleForeGrip1LeftHandIkReadyLocalPosition, m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles),
+			2 => HasAnyLocalPoseData(m_VehicleForeGrip2LeftHandIkNotReadyLocalPosition,
+				m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+				m_VehicleForeGrip2LeftHandIkReadyLocalPosition, m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles),
+			3 => HasAnyLocalPoseData(m_VehicleForeGrip3LeftHandIkNotReadyLocalPosition,
+				m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles,
+				m_VehicleForeGrip3LeftHandIkReadyLocalPosition, m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles),
+			4 => HasAnyLocalPoseData(m_VehicleForeGrip4LeftHandIkNotReadyLocalPosition,
+				m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+				m_VehicleForeGrip4LeftHandIkReadyLocalPosition, m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles),
+			5 => HasAnyLocalPoseData(m_VehicleForeGrip5LeftHandIkNotReadyLocalPosition,
+				m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles,
+				m_VehicleForeGrip5LeftHandIkReadyLocalPosition, m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles),
+			_ => false
+		};
+	}
+
+	public Vector3 GetCrouchForeGripLeftHandIkReadyLocalPosition(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_CrouchForeGrip1LeftHandIkReadyLocalPosition, 2 => m_CrouchForeGrip2LeftHandIkReadyLocalPosition,
+		3 => m_CrouchForeGrip3LeftHandIkReadyLocalPosition, 4 => m_CrouchForeGrip4LeftHandIkReadyLocalPosition,
+		5 => m_CrouchForeGrip5LeftHandIkReadyLocalPosition, _ => Vector3.zero
+	};
+
+	public Vector3 GetCrouchForeGripLeftHandIkReadyLocalEulerAngles(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles, 2 => m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles,
+		3 => m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles, 4 => m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles,
+		5 => m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles, _ => Vector3.zero
+	};
+
+	public Quaternion GetCrouchForeGripLeftHandIkReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetCrouchForeGripLeftHandIkReadyLocalEulerAngles(_gripIndex));
+
+	public Vector3 GetCrouchForeGripLeftHandIkNotReadyLocalPosition(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition, 2 => m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition,
+		3 => m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition, 4 => m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition,
+		5 => m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition, _ => Vector3.zero
+	};
+
+	public Vector3 GetCrouchForeGripLeftHandIkNotReadyLocalEulerAngles(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles, 2 => m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+		3 => m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles, 4 => m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+		5 => m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles, _ => Vector3.zero
+	};
+
+	public Quaternion GetCrouchForeGripLeftHandIkNotReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetCrouchForeGripLeftHandIkNotReadyLocalEulerAngles(_gripIndex));
+
+	public Vector3 GetVehicleForeGripLeftHandIkReadyLocalPosition(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_VehicleForeGrip1LeftHandIkReadyLocalPosition, 2 => m_VehicleForeGrip2LeftHandIkReadyLocalPosition,
+		3 => m_VehicleForeGrip3LeftHandIkReadyLocalPosition, 4 => m_VehicleForeGrip4LeftHandIkReadyLocalPosition,
+		5 => m_VehicleForeGrip5LeftHandIkReadyLocalPosition, _ => Vector3.zero
+	};
+
+	public Vector3 GetVehicleForeGripLeftHandIkReadyLocalEulerAngles(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles, 2 => m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles,
+		3 => m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles, 4 => m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles,
+		5 => m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles, _ => Vector3.zero
+	};
+
+	public Quaternion GetVehicleForeGripLeftHandIkReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetVehicleForeGripLeftHandIkReadyLocalEulerAngles(_gripIndex));
+
+	public Vector3 GetVehicleForeGripLeftHandIkNotReadyLocalPosition(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_VehicleForeGrip1LeftHandIkNotReadyLocalPosition, 2 => m_VehicleForeGrip2LeftHandIkNotReadyLocalPosition,
+		3 => m_VehicleForeGrip3LeftHandIkNotReadyLocalPosition, 4 => m_VehicleForeGrip4LeftHandIkNotReadyLocalPosition,
+		5 => m_VehicleForeGrip5LeftHandIkNotReadyLocalPosition, _ => Vector3.zero
+	};
+
+	public Vector3 GetVehicleForeGripLeftHandIkNotReadyLocalEulerAngles(int _gripIndex) => _gripIndex switch
+	{
+		1 => m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles, 2 => m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles,
+		3 => m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles, 4 => m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles,
+		5 => m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles, _ => Vector3.zero
+	};
+
+	public Quaternion GetVehicleForeGripLeftHandIkNotReadyLocalRotation(int _gripIndex)
+		=> Quaternion.Euler(GetVehicleForeGripLeftHandIkNotReadyLocalEulerAngles(_gripIndex));
 
 	private static bool HasAnyLocalPoseData(
 		Vector3 _relaxedPosition,
