@@ -17323,6 +17323,12 @@ MonoBehaviour:
     m_AmmoBoxItems: []
     m_ExtraBagItems: []
   m_GrenadeThrowData: {fileID: 11400000, guid: 38a5d38522c3e4543a4af33d01d4e616, type: 2}
+  m_AlwaysIncludeBagItems:
+  - {fileID: 11400000, guid: 83329dc1f9d0bde4b9177dffb8ff5b25, type: 2}
+  - {fileID: 11400000, guid: 10cdd1aef8cd3ad428a991e5139abd6f, type: 2}
+  - {fileID: 11400000, guid: ce7e23221d0b06d408dbbd478c2eeaab, type: 2}
+  - {fileID: 11400000, guid: 7f46c9b7ce58db04a9bc7ec6f5a65b78, type: 2}
+  - {fileID: 11400000, guid: d1cf15f59b583df4ca3223c95f4c08be, type: 2}
 --- !u!1 &1285133463
 GameObject:
   m_ObjectHideFlags: 0

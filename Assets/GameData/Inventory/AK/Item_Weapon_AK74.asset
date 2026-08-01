@@ -70,56 +70,56 @@ MonoBehaviour:
   m_ForeGrip2LeftHandIkNotReadyLocalEulerAngles: {x: 21.019, y: 34.452, z: 130.436}
   m_ForeGrip3LeftHandIkReadyLocalPosition: {x: -0.082, y: 0.046, z: -0.098}
   m_ForeGrip3LeftHandIkReadyLocalEulerAngles: {x: 38.348, y: 10.379, z: 122.65}
-  m_ForeGrip3LeftHandIkNotReadyLocalPosition: {x: -0.0257, y: 0.0178, z: -0.0739}
-  m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles: {x: 46.045, y: 22.023, z: 116.463}
+  m_ForeGrip3LeftHandIkNotReadyLocalPosition: {x: -0.0233, y: -0.0245, z: -0.0822}
+  m_ForeGrip3LeftHandIkNotReadyLocalEulerAngles: {x: 35.677082, y: 29.296587, z: 126.49631}
   m_ForeGrip4LeftHandIkReadyLocalPosition: {x: -0.0852, y: -0.0352, z: -0.0961}
   m_ForeGrip4LeftHandIkReadyLocalEulerAngles: {x: -0.51, y: 10.447, z: 108.024}
-  m_ForeGrip4LeftHandIkNotReadyLocalPosition: {x: -0.0181, y: -0.0471, z: -0.0937}
-  m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles: {x: 15.003, y: 18.705, z: 118.157}
+  m_ForeGrip4LeftHandIkNotReadyLocalPosition: {x: -0.0339, y: -0.0494, z: -0.0922}
+  m_ForeGrip4LeftHandIkNotReadyLocalEulerAngles: {x: 15.74287, y: 26.20352, z: 108.43219}
   m_ForeGrip5LeftHandIkReadyLocalPosition: {x: -0.0838, y: -0.0203, z: -0.0748}
   m_ForeGrip5LeftHandIkReadyLocalEulerAngles: {x: 5.477, y: 7.243, z: 107.07}
-  m_ForeGrip5LeftHandIkNotReadyLocalPosition: {x: -0.01, y: -0.0128, z: -0.0586}
-  m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 36.368, y: 17.623, z: 113.425}
-  m_CrouchForeGrip1LeftHandIkReadyLocalPosition: {x: -0.07, y: -0.049, z: -0.101}
-  m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles: {x: 0.788, y: -0.227, z: 104.086}
-  m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition: {x: -0.0366, y: -0.0576, z: -0.083}
-  m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles: {x: 6.693, y: 27.627, z: 109.787}
+  m_ForeGrip5LeftHandIkNotReadyLocalPosition: {x: -0.0244, y: -0.0403, z: -0.0723}
+  m_ForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 21.175795, y: 13.23715, z: 108.54389}
+  m_CrouchForeGrip1LeftHandIkReadyLocalPosition: {x: -0.06, y: -0.0414, z: -0.1003}
+  m_CrouchForeGrip1LeftHandIkReadyLocalEulerAngles: {x: 357.0074, y: 4.3000154, z: 79.05429}
+  m_CrouchForeGrip1LeftHandIkNotReadyLocalPosition: {x: -0.1902, y: 0.0469, z: -0.03}
+  m_CrouchForeGrip1LeftHandIkNotReadyLocalEulerAngles: {x: 6.6926923, y: 27.627068, z: 109.78686}
   m_CrouchForeGrip2LeftHandIkReadyLocalPosition: {x: -0.075, y: -0.056, z: -0.084}
   m_CrouchForeGrip2LeftHandIkReadyLocalEulerAngles: {x: 17.072, y: 28.181, z: 158.455}
-  m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition: {x: -0.0307, y: -0.0765, z: -0.1066}
-  m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles: {x: 21.019, y: 34.452, z: 130.436}
+  m_CrouchForeGrip2LeftHandIkNotReadyLocalPosition: {x: -0.182, y: 0.0556, z: -0.0396}
+  m_CrouchForeGrip2LeftHandIkNotReadyLocalEulerAngles: {x: 21.019001, y: 34.452, z: 130.436}
   m_CrouchForeGrip3LeftHandIkReadyLocalPosition: {x: -0.082, y: 0.046, z: -0.098}
   m_CrouchForeGrip3LeftHandIkReadyLocalEulerAngles: {x: 38.348, y: 10.379, z: 122.65}
-  m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition: {x: -0.0257, y: 0.0178, z: -0.0739}
-  m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles: {x: 46.045, y: 22.023, z: 116.463}
+  m_CrouchForeGrip3LeftHandIkNotReadyLocalPosition: {x: -0.152, y: 0.117, z: -0.069}
+  m_CrouchForeGrip3LeftHandIkNotReadyLocalEulerAngles: {x: 37.349075, y: 14.049993, z: 115.25973}
   m_CrouchForeGrip4LeftHandIkReadyLocalPosition: {x: -0.0852, y: -0.0352, z: -0.0961}
   m_CrouchForeGrip4LeftHandIkReadyLocalEulerAngles: {x: -0.51, y: 10.447, z: 108.024}
-  m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition: {x: -0.0181, y: -0.0471, z: -0.0937}
-  m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles: {x: 15.003, y: 18.705, z: 118.157}
+  m_CrouchForeGrip4LeftHandIkNotReadyLocalPosition: {x: -0.1831, y: 0.0546, z: -0.0428}
+  m_CrouchForeGrip4LeftHandIkNotReadyLocalEulerAngles: {x: 15.239153, y: 24.558645, z: 115.2294}
   m_CrouchForeGrip5LeftHandIkReadyLocalPosition: {x: -0.0838, y: -0.0203, z: -0.0748}
   m_CrouchForeGrip5LeftHandIkReadyLocalEulerAngles: {x: 5.477, y: 7.243, z: 107.07}
-  m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition: {x: -0.01, y: -0.0128, z: -0.0586}
-  m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 36.368, y: 17.623, z: 113.425}
-  m_VehicleForeGrip1LeftHandIkReadyLocalPosition: {x: -0.07, y: -0.049, z: -0.101}
-  m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles: {x: 0.788, y: -0.227, z: 104.086}
+  m_CrouchForeGrip5LeftHandIkNotReadyLocalPosition: {x: -0.1618, y: 0.0853, z: -0.0391}
+  m_CrouchForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 21.175795, y: 13.237151, z: 108.5439}
+  m_VehicleForeGrip1LeftHandIkReadyLocalPosition: {x: -0.0584, y: -0.0855, z: -0.1122}
+  m_VehicleForeGrip1LeftHandIkReadyLocalEulerAngles: {x: 349.6994, y: 19.3528, z: 81.92695}
   m_VehicleForeGrip1LeftHandIkNotReadyLocalPosition: {x: -0.0366, y: -0.0576, z: -0.083}
   m_VehicleForeGrip1LeftHandIkNotReadyLocalEulerAngles: {x: 6.693, y: 27.627, z: 109.787}
-  m_VehicleForeGrip2LeftHandIkReadyLocalPosition: {x: -0.075, y: -0.056, z: -0.084}
-  m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles: {x: 17.072, y: 28.181, z: 158.455}
+  m_VehicleForeGrip2LeftHandIkReadyLocalPosition: {x: -0.0625, y: -0.068, z: -0.0937}
+  m_VehicleForeGrip2LeftHandIkReadyLocalEulerAngles: {x: 6.1689396, y: 40.98312, z: 148.80475}
   m_VehicleForeGrip2LeftHandIkNotReadyLocalPosition: {x: -0.0307, y: -0.0765, z: -0.1066}
   m_VehicleForeGrip2LeftHandIkNotReadyLocalEulerAngles: {x: 21.019, y: 34.452, z: 130.436}
-  m_VehicleForeGrip3LeftHandIkReadyLocalPosition: {x: -0.082, y: 0.046, z: -0.098}
-  m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles: {x: 38.348, y: 10.379, z: 122.65}
+  m_VehicleForeGrip3LeftHandIkReadyLocalPosition: {x: -0.0413, y: -0.0381, z: -0.0773}
+  m_VehicleForeGrip3LeftHandIkReadyLocalEulerAngles: {x: 11.262117, y: 35.022156, z: 164.80302}
   m_VehicleForeGrip3LeftHandIkNotReadyLocalPosition: {x: -0.0257, y: 0.0178, z: -0.0739}
   m_VehicleForeGrip3LeftHandIkNotReadyLocalEulerAngles: {x: 46.045, y: 22.023, z: 116.463}
-  m_VehicleForeGrip4LeftHandIkReadyLocalPosition: {x: -0.0852, y: -0.0352, z: -0.0961}
-  m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles: {x: -0.51, y: 10.447, z: 108.024}
+  m_VehicleForeGrip4LeftHandIkReadyLocalPosition: {x: -0.0789, y: -0.0518, z: -0.0937}
+  m_VehicleForeGrip4LeftHandIkReadyLocalEulerAngles: {x: 359.2651, y: 19.197369, z: 107.973236}
   m_VehicleForeGrip4LeftHandIkNotReadyLocalPosition: {x: -0.0181, y: -0.0471, z: -0.0937}
   m_VehicleForeGrip4LeftHandIkNotReadyLocalEulerAngles: {x: 15.003, y: 18.705, z: 118.157}
-  m_VehicleForeGrip5LeftHandIkReadyLocalPosition: {x: -0.0838, y: -0.0203, z: -0.0748}
-  m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles: {x: 5.477, y: 7.243, z: 107.07}
+  m_VehicleForeGrip5LeftHandIkReadyLocalPosition: {x: -0.0546, y: -0.0251, z: -0.1064}
+  m_VehicleForeGrip5LeftHandIkReadyLocalEulerAngles: {x: 5.477001, y: 7.242999, z: 107.07001}
   m_VehicleForeGrip5LeftHandIkNotReadyLocalPosition: {x: -0.01, y: -0.0128, z: -0.0586}
-  m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 36.368, y: 17.623, z: 113.425}
+  m_VehicleForeGrip5LeftHandIkNotReadyLocalEulerAngles: {x: 36.368, y: 17.623, z: 113.42501}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

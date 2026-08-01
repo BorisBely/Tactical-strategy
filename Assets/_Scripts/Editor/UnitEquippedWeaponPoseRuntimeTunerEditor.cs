@@ -172,8 +172,16 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 
 			using (new EditorGUI.DisabledScope(!tuner.IsLeftHandIkDrivenByForegrip))
 			{
-				if (GUILayout.Button("Save ForeGrip Left IK To Item Asset"))
-					SaveForeGripLeftHandIkToAsset(tuner, equipped);
+				EditorGUILayout.LabelField("Save ForeGrip Left IK:", EditorStyles.boldLabel);
+				using (new EditorGUILayout.HorizontalScope())
+				{
+					if (GUILayout.Button("Stand"))
+						SaveForeGripLeftHandIkToAsset(tuner, equipped, UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Standing);
+					if (GUILayout.Button("Crouch"))
+						SaveForeGripLeftHandIkToAsset(tuner, equipped, UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Crouch);
+					if (GUILayout.Button("Vehicle"))
+						SaveForeGripLeftHandIkToAsset(tuner, equipped, UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Vehicle);
+				}
 			}
 
 			if (GUILayout.Button("Copy YAML"))
@@ -192,9 +200,8 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			if (tuner.IsLeftHandIkDrivenByForegrip)
 			{
 				EditorGUILayout.HelpBox(
-					"Foregrip installed: left IK saves to Item_Weapon_*.asset ForeGrip IK fields.\n" +
-					"Save Standing writes left IK to m_ForeGrip{N}LeftHandIk... on the weapon asset.\n" +
-					"Crouch / Vehicle left IK always save to ItemDefinition crouch/vehicle fields.",
+					"Foregrip installed: left IK saves to ForeGrip IK fields on the weapon asset.\n" +
+					"Save Standing / Crouch / Vehicle + Save ForeGrip Left IK buttons each target their own posture fields.",
 					MessageType.Info);
 			}
 
@@ -218,7 +225,7 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		EditorGUILayout.Space(3f);
 		var helpTuner = (UnitEquippedWeaponPoseRuntimeTuner)target;
 		string leftSaveNote = helpTuner.IsLeftHandIkDrivenByForegrip
-			? "• left hand IK: Save ForeGrip Left IK To Item Asset\n"
+			? "• left hand IK: Save ForeGrip Left IK Stand / Crouch / Vehicle\n"
 			: "• left hand IK ready + not ready\n";
 
 		EditorGUILayout.HelpBox(
@@ -430,7 +437,10 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		Debug.Log($"[WeaponPoseTuner] Saved VEHICLE hand pose to '{_definition.name}'.", _definition);
 	}
 
-	private static void SaveForeGripLeftHandIkToAsset(UnitEquippedWeaponPoseRuntimeTuner _tuner, ItemDefinition _definition)
+	private static void SaveForeGripLeftHandIkToAsset(
+		UnitEquippedWeaponPoseRuntimeTuner _tuner,
+		ItemDefinition _definition,
+		UnitEquippedWeaponPoseRuntimeTuner.TuningPosture _posture)
 	{
 		if (_definition == null || _tuner == null)
 			return;
@@ -442,26 +452,60 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			return;
 		}
 
-		_tuner.EnsureAllHandIkTargetsExist();
-		_tuner.CaptureLiveIkFromScene();
+		if (_tuner.ActivePosture == _posture)
+		{
+			_tuner.EnsureAllHandIkTargetsExist();
+			_tuner.CaptureLiveIkFromScene();
+		}
 
-		Undo.RecordObject(_definition, $"Save ForeGrip{fgIndex} Left IK To ItemDefinition");
+		string postureLabel;
+		string prefix;
+		Vector3 readyPosition, readyEuler, notReadyPosition, notReadyEuler;
+
+		switch (_posture)
+		{
+			case UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Crouch:
+				postureLabel = "Crouch";
+				prefix = $"m_CrouchForeGrip{fgIndex}LeftHandIk";
+				readyPosition = _tuner.CrouchLeftReadyIkLocalPosition;
+				readyEuler = _tuner.CrouchLeftReadyIkLocalEulerAngles;
+				notReadyPosition = _tuner.CrouchLeftNotReadyIkLocalPosition;
+				notReadyEuler = _tuner.CrouchLeftNotReadyIkLocalEulerAngles;
+				break;
+			case UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Vehicle:
+				postureLabel = "Vehicle";
+				prefix = $"m_VehicleForeGrip{fgIndex}LeftHandIk";
+				readyPosition = _tuner.VehicleLeftReadyIkLocalPosition;
+				readyEuler = _tuner.VehicleLeftReadyIkLocalEulerAngles;
+				notReadyPosition = _tuner.VehicleLeftNotReadyIkLocalPosition;
+				notReadyEuler = _tuner.VehicleLeftNotReadyIkLocalEulerAngles;
+				break;
+			default:
+				postureLabel = "Standing";
+				prefix = $"m_ForeGrip{fgIndex}LeftHandIk";
+				readyPosition = _tuner.StandingLeftReadyIkLocalPosition;
+				readyEuler = _tuner.StandingLeftReadyIkLocalEulerAngles;
+				notReadyPosition = _tuner.StandingLeftNotReadyIkLocalPosition;
+				notReadyEuler = _tuner.StandingLeftNotReadyIkLocalEulerAngles;
+				break;
+		}
+
+		Undo.RecordObject(_definition, $"Save {postureLabel} ForeGrip{fgIndex} Left IK To ItemDefinition");
 
 		SerializedObject so = new SerializedObject(_definition);
-		string prefix = $"m_ForeGrip{fgIndex}LeftHandIk";
-		so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = _tuner.LeftReadyIkLocalPosition;
-		so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = _tuner.LeftReadyIkLocalEulerAngles;
-		so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = _tuner.LeftNotReadyIkLocalPosition;
-		so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = _tuner.LeftNotReadyIkLocalEulerAngles;
+		so.FindProperty($"{prefix}ReadyLocalPosition").vector3Value = readyPosition;
+		so.FindProperty($"{prefix}ReadyLocalEulerAngles").vector3Value = readyEuler;
+		so.FindProperty($"{prefix}NotReadyLocalPosition").vector3Value = notReadyPosition;
+		so.FindProperty($"{prefix}NotReadyLocalEulerAngles").vector3Value = notReadyEuler;
 
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(_definition);
 		AssetDatabase.SaveAssets();
 
 		Debug.Log(
-			$"[WeaponPoseTuner] Saved ForeGrip{fgIndex} left IK to '{_definition.name}':\n" +
-			$"  Ready    {_tuner.LeftReadyIkLocalPosition} / {_tuner.LeftReadyIkLocalEulerAngles}\n" +
-			$"  NotReady {_tuner.LeftNotReadyIkLocalPosition} / {_tuner.LeftNotReadyIkLocalEulerAngles}",
+			$"[WeaponPoseTuner] Saved ForeGrip{fgIndex} left IK ({postureLabel}) to '{_definition.name}':\n" +
+			$"  Ready    {readyPosition} / {readyEuler}\n" +
+			$"  NotReady {notReadyPosition} / {notReadyEuler}",
 			_definition);
 	}
 

@@ -6,7 +6,8 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 	public static void ApplyToSnapshot(
 		MissionPrepPresetSnapshot _snapshot,
 		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
-		GrenadeThrowData _grenadeThrowData = null)
+		GrenadeThrowData _grenadeThrowData = null,
+		ItemDefinition[] _alwaysIncludeItems = null)
 	{
 		if (_snapshot == null || _entry == null)
 			return;
@@ -62,6 +63,18 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 					continue;
 
 				bagItems.Add(InventorySlotRuntimeData.FromDefinition(extraItem));
+			}
+		}
+
+		if (_alwaysIncludeItems != null)
+		{
+			for (int i = 0; i < _alwaysIncludeItems.Length; i++)
+			{
+				ItemDefinition item = _alwaysIncludeItems[i];
+				if (item == null)
+					continue;
+
+				bagItems.Add(InventorySlotRuntimeData.FromDefinition(item));
 			}
 		}
 
@@ -144,19 +157,21 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 	public static void ApplyPresetEntryToInventory(
 		CharacterInventory _inventory,
 		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
-		GrenadeThrowData _grenadeThrowData = null)
+		GrenadeThrowData _grenadeThrowData = null,
+		ItemDefinition[] _alwaysIncludeItems = null)
 	{
 		if (_inventory == null || _entry == null)
 			return;
 
 		var snapshot = new MissionPrepPresetSnapshot();
-		ApplyToSnapshot(snapshot, _entry, _grenadeThrowData);
+		ApplyToSnapshot(snapshot, _entry, _grenadeThrowData, _alwaysIncludeItems);
 		snapshot.ApplyToInventory(_inventory);
 	}
 
 	public static bool EntryDefinesInventory(
 		MissionPrepEquipmentPresetCatalog.PresetEntry _entry,
-		GrenadeThrowData _grenadeThrowData = null)
+		GrenadeThrowData _grenadeThrowData = null,
+		ItemDefinition[] _alwaysIncludeItems = null)
 	{
 		if (_entry == null)
 			return false;
@@ -196,6 +211,15 @@ public static class MissionPrepPresetDefaultLoadoutUtility
 			for (int i = 0; i < _entry.ExtraBagItems.Length; i++)
 			{
 				if (_entry.ExtraBagItems[i] != null)
+					return true;
+			}
+		}
+
+		if (_alwaysIncludeItems != null)
+		{
+			for (int i = 0; i < _alwaysIncludeItems.Length; i++)
+			{
+				if (_alwaysIncludeItems[i] != null)
 					return true;
 			}
 		}

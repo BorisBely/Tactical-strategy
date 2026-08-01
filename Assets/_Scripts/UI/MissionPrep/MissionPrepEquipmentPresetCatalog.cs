@@ -95,6 +95,8 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 
 	[Header("Ссылки на данные")]
 	[SerializeField] private GrenadeThrowData m_GrenadeThrowData;
+	[Tooltip("Предметы, которые всегда добавляются в сумку каждого пресета (например, все подствольные рукоятки).")]
+	[SerializeField] private ItemDefinition[] m_AlwaysIncludeBagItems = System.Array.Empty<ItemDefinition>();
 	#endregion
 
 	#region Public Properties
@@ -102,6 +104,7 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 	public int ArmorOptionCount => m_ArmorOptions != null ? m_ArmorOptions.Length : 0;
 	public int CamouflageOptionCount => m_CamouflageOptions != null ? m_CamouflageOptions.Length : 0;
 	public GrenadeThrowData GrenadeThrowData => m_GrenadeThrowData;
+	public ItemDefinition[] AlwaysIncludeBagItems => m_AlwaysIncludeBagItems;
 	#endregion
 
 	#region Public Methods
@@ -167,12 +170,12 @@ public sealed class MissionPrepEquipmentPresetCatalog : MonoBehaviour
 		if (entry == null || _snapshot == null)
 			return;
 
-		MissionPrepPresetDefaultLoadoutUtility.ApplyToSnapshot(_snapshot, entry, m_GrenadeThrowData);
+		MissionPrepPresetDefaultLoadoutUtility.ApplyToSnapshot(_snapshot, entry, m_GrenadeThrowData, m_AlwaysIncludeBagItems);
 	}
 
 	public bool PresetDefinesDefaultInventory(int _presetIndex)
 	{
-		return MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(GetPresetEntry(_presetIndex), m_GrenadeThrowData);
+		return MissionPrepPresetDefaultLoadoutUtility.EntryDefinesInventory(GetPresetEntry(_presetIndex), m_GrenadeThrowData, m_AlwaysIncludeBagItems);
 	}
 	#endregion
 }
