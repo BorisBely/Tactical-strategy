@@ -11,6 +11,7 @@ namespace VehicleNavigation
 		ApproachWithHeading,
 		Arrival,
 		Unstuck,
-		Stop
+		Stop,
+		PostTurnAlignment
 	}
 }

@@ -97,6 +97,8 @@ public static class VehicleHierarchyBinder
 		Transform plug = FindDeep(root, c_Plug);
 		_vehicle.GunnerHatch.Configure(_vehicle.Seats, plug != null ? plug.gameObject : null);
 
+		_vehicle.GlassController?.Configure(root);
+
 		if (!root.TryGetComponent(out BoxCollider box) && root.GetComponent<Collider>() == null)
 		{
 			box = root.gameObject.AddComponent<BoxCollider>();
@@ -141,13 +143,7 @@ public static class VehicleHierarchyBinder
 		if (_vehicle == null)
 			return;
 
-		// New architecture: VehicleData present → wheels handled by VehicleSuspension.
-		if (_vehicle.UseNewArchitecture)
-		{
-			Debug.Log($"[Binder] Skipped wheel bind — new architecture for {_vehicle.name}");
-			return;
-		}
-
+		_vehicle.EnsurePhysicsDrive();
 		if (!_vehicle.TryGetComponent(out WheeledMotor wheeledMotor))
 			return;
 
@@ -155,29 +151,11 @@ public static class VehicleHierarchyBinder
 		if (_vehicle.Brain != null && _vehicle.Brain.Tuning != null)
 			steerAngle = _vehicle.Brain.Tuning.DefaultSteerAngle;
 
-		VehicleTuning tuning = _vehicle.Brain != null ? _vehicle.Brain.Tuning : null;
-
-		// Log WC state BEFORE bind.
-		var preLog = new System.Text.StringBuilder(256);
-		preLog.Append("WC_GEO pre-bind: ");
-		var existingWCs = _vehicle.GetComponentsInChildren<WheelCollider>(true);
-		foreach (var wc in existingWCs)
-		{
-			wc.GetWorldPose(out Vector3 wp, out _);
-			JointSpring s = wc.suspensionSpring;
-			preLog.Append(
-				$"[{wc.name} en={wc.enabled} r={wc.radius:F2} sd={wc.suspensionDistance:F2}" +
-				$" sp={s.spring:F0} dp={s.damper:F0} tp={s.targetPosition:F2}" +
-				$" fap={wc.forceAppPointDistance:F2}" +
-				$" trY={wc.transform.position.y:F2} wcPoseY={wp.y:F2}] ");
-		}
-		Debug.Log(preLog.ToString(), _vehicle);
-
 		var axles = new List<WheelAxle>(4);
-		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelFl, "WheelCollider_FL", true, true, steerAngle, tuning);
-		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelFr, "WheelCollider_FR", true, true, steerAngle, tuning);
-		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelRl, "WheelCollider_RL", true, false, steerAngle, tuning);
-		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelRr, "WheelCollider_RR", true, false, steerAngle, tuning);
+		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelFl, "WheelCollider_FL", true, true, steerAngle);
+		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelFr, "WheelCollider_FR", true, true, steerAngle);
+		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelRl, "WheelCollider_RL", true, false, steerAngle);
+		TryAddPhysicsAxle(axles, _vehicle.transform, _wheelRr, "WheelCollider_RR", true, false, steerAngle);
 
 		if (axles.Count > 0)
 			wheeledMotor.SetAxles(axles.ToArray());
@@ -188,27 +166,7 @@ public static class VehicleHierarchyBinder
 		// WheelColliders are created after the unit blocker, so the blocker must be told
 		// to ignore non-wheel drive colliders (WC skipped — Unity 6 ground desync).
 		_vehicle.UnitBlocker?.RefreshIgnoredDriveColliders();
-		// Reset sprung masses BEFORE snap so WC internal state is consistent when body moves.
-		wheeledMotor.ResetSprungMassesSafe();
-		_vehicle.SnapChassisToGround(_force: true);
-		Physics.SyncTransforms();
-
-		// Diagnostic: log actual WC geometry right after binding.
-		var geoLog = new System.Text.StringBuilder(256);
-		geoLog.Append("WC_GEO post-bind: ");
-		for (int i = 0; i < wheeledMotor.Axles.Length; i++)
-		{
-			WheelCollider wc = wheeledMotor.Axles[i]?.Collider;
-			if (wc == null) continue;
-			Vector3 localPos = wc.transform.localPosition;
-			Vector3 hubWorld = wc.transform.TransformPoint(wc.center);
-			wc.GetWorldPose(out Vector3 wcPos, out _);
-			geoLog.Append(
-				$"[{wc.name} local=({localPos.x:F2},{localPos.y:F2},{localPos.z:F2})" +
-				$" center={wc.center} hubW={hubWorld.y:F2} wcPoseY={wcPos.y:F2}" +
-				$" suspDist={wc.suspensionDistance:F2} radius={wc.radius:F2}] ");
-		}
-		Debug.Log(geoLog.ToString(), _vehicle);
+		_vehicle.BounceWheelCollidersAfterBind("bind-wheels");
 	}
 
 	private static void TryAddPhysicsAxle(
@@ -218,13 +176,12 @@ public static class VehicleHierarchyBinder
 		string _colliderName,
 		bool _motor,
 		bool _steer,
-		float _steerAngle,
-		VehicleTuning _tuning)
+		float _steerAngle)
 	{
 		if (_visual == null || _root == null)
 			return;
 
-		WheelCollider col = EnsureWheelCollider(_root, _visual, _colliderName, _tuning);
+		WheelCollider col = EnsureWheelCollider(_root, _visual, _colliderName);
 		if (col == null)
 			return;
 
@@ -238,7 +195,7 @@ public static class VehicleHierarchyBinder
 		});
 	}
 
-	private static WheelCollider EnsureWheelCollider(Transform _root, Transform _visual, string _name, VehicleTuning _tuning = null)
+	private static WheelCollider EnsureWheelCollider(Transform _root, Transform _visual, string _name)
 	{
 		Transform existing = _root.Find(_name);
 		GameObject colGo;
@@ -259,17 +216,22 @@ public static class VehicleHierarchyBinder
 		if (!colGo.TryGetComponent(out WheelCollider col))
 			col = colGo.AddComponent<WheelCollider>();
 
-		col.radius = _tuning != null ? _tuning.WheelRadius : 0.45f;
-		col.forceAppPointDistance = _tuning != null ? _tuning.ForceAppPointDistance : 0f;
+		// Match Low_Poly_Vehicles_Controller (project 000) BRDM2 wheel setup.
+		const float radius = 0.45f;
+		col.radius = radius;
+		col.forceAppPointDistance = -1f;
 		col.center = Vector3.zero;
-		col.mass = _tuning != null ? _tuning.WheelMass : 100f;
+		col.mass = 100f;
 		col.wheelDampingRate = 0.25f;
-		col.suspensionDistance = _tuning != null ? _tuning.SuspensionDistance : 0.30f;
+		// Unity 6000.4: keep the contact-proven travel. Mid targetPosition (0.55) + longer
+		// travel previously left WC grounded=0 and freefall without support box.
+		col.suspensionDistance = 0.18f;
 
 		JointSpring spring = col.suspensionSpring;
-		spring.spring = _tuning != null ? _tuning.SpringForce : 50000f;
-		spring.damper = _tuning != null ? _tuning.DamperForce : 4000f;
-		spring.targetPosition = _tuning != null ? _tuning.TargetPosition : 0.55f;
+		spring.spring = 35000f;
+		spring.damper = 4500f;
+		// 1 = rest at full compression → body sits lower; proven grounded=4/4 in this project.
+		spring.targetPosition = 1f;
 		col.suspensionSpring = spring;
 
 		WheelFrictionCurve forward = col.forwardFriction;
@@ -277,7 +239,7 @@ public static class VehicleHierarchyBinder
 		forward.extremumValue = 1f;
 		forward.asymptoteSlip = 0.8f;
 		forward.asymptoteValue = 0.5f;
-		forward.stiffness = _tuning != null ? _tuning.ForwardStiffness : 3f;
+		forward.stiffness = 3f;
 		col.forwardFriction = forward;
 
 		WheelFrictionCurve sideways = col.sidewaysFriction;
@@ -285,11 +247,8 @@ public static class VehicleHierarchyBinder
 		sideways.extremumValue = 1f;
 		sideways.asymptoteSlip = 0.5f;
 		sideways.asymptoteValue = 0.75f;
-		sideways.stiffness = _tuning != null ? _tuning.SidewaysStiffness : 2f;
+		sideways.stiffness = 2f;
 		col.sidewaysFriction = sideways;
-
-		// Smooth contact resolution: more substeps = less constraint impulse on first contact.
-		col.ConfigureVehicleSubsteps(10f, 30, 20);
 
 		return col;
 	}

@@ -10,14 +10,13 @@ namespace VehicleNavigation
 		public ArrivalPlan Generate(ArrivalAnalysis _a, ArrivalPlanningSettings _s,
 			Vector3 _pos, float _yaw, Vector3 _target, float? _heading)
 		{
-			float absAngle = Mathf.Abs(_a.HeadingError);
-
-			// Only for rear hemisphere
+			// Reverse is strictly for rear hemisphere targets
 			if (_a.Side == TargetSide.Front)
 				return ArrivalPlan.Invalid("target is in front");
 			if (_a.Side == TargetSide.Left || _a.Side == TargetSide.Right)
 				return ArrivalPlan.Invalid("side target — use Arc/Reposition");
 
+			// Short reverse reposition: rear target inside turning circle = precise reverse + park
 			var maneuvers = new List<Maneuver>();
 			if (_a.TargetInsideRearTurningCircle)
 			{
@@ -38,7 +37,7 @@ namespace VehicleNavigation
 				maneuvers.Add(new ParkingManeuver(_heading ?? _yaw));
 
 			float cost = _a.Distance * 1.3f + 8f;
-			return new ArrivalPlan(maneuvers, cost, Name);
+			return new ArrivalPlan(maneuvers, cost, Name) { PreferredSide = TargetSide.Rear };
 		}
 	}
 }

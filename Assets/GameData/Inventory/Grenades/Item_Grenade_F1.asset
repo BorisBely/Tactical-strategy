@@ -48,18 +48,38 @@ MonoBehaviour:
   m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_CrouchLeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
   m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleLeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleLeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleLeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleLeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
   m_BackpackCapacity: 0
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 1
-  m_AttachedBodyVisualPrefab: {fileID: 3890878363777852225, guid: 6fd661e03862a284aa8dc76b39a04339, type: 3}
+  m_AttachedBodyVisualPrefab: {fileID: 2412854448060403032, guid: 6fd661e03862a284aa8dc76b39a04339, type: 3}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips: []

@@ -10,13 +10,17 @@ namespace VehicleNavigation
 		public ArrivalPlan Generate(ArrivalAnalysis _a, ArrivalPlanningSettings _s,
 			Vector3 _pos, float _yaw, Vector3 _target, float? _heading)
 		{
-			// Already at target — terminal, not error
+			// Already at target — terminal, not error. Flag AtGoal to abort further planning.
 			if (_a.Distance < 0.2f)
-				return new ArrivalPlan(new List<Maneuver>(), 0f, "AlreadyThere");
+				return ArrivalPlan.AtGoalPlan();
 
-			// Only valid for front-hemisphere, small heading error, small lateral
-			if (!_a.TargetInFront || Mathf.Abs(_a.HeadingError) > 60f || _a.LateralOffset > 2f)
-				return ArrivalPlan.Invalid("target not in front / too far aside");
+			// Strictly front-hemisphere only, with tight heading/lateral bounds
+			if (_a.Side != TargetSide.Front)
+				return ArrivalPlan.Invalid("target not in front hemisphere");
+			if (Mathf.Abs(_a.HeadingError) > 45f)
+				return ArrivalPlan.Invalid("heading error too large for direct");
+			if (_a.LateralOffset > 1.5f)
+				return ArrivalPlan.Invalid("lateral offset too large for direct");
 
 			var maneuvers = new List<Maneuver>();
 			if (_heading.HasValue)
@@ -25,7 +29,7 @@ namespace VehicleNavigation
 				maneuvers.Add(new ParkingManeuver(_heading ?? _yaw));
 
 			float cost = _a.Distance * 1f + Mathf.Abs(_a.HeadingError) * 0.2f;
-			return new ArrivalPlan(maneuvers, cost, Name);
+			return new ArrivalPlan(maneuvers, cost, Name) { PreferredSide = TargetSide.Front };
 		}
 	}
 }

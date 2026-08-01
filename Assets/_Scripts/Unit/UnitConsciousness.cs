@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 
 [DisallowMultipleComponent]
+[RequireComponent(typeof(UnitStabilizedUnconsciousPoseController))]
 public sealed class UnitConsciousness : MonoBehaviour
 {
 	#region Events

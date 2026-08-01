@@ -12,7 +12,7 @@ public sealed class UnitFallenDragController : MonoBehaviour
 	public const string ParamIsDraggingFallen = "IsDraggingFallen";
 	public const string DragLeftHandLayerName = "Drag_LeftHand";
 
-	private const float c_ApproachArriveDistance = 1f;
+	private const float c_ApproachArriveDistance = UnitFallenApproachUtility.ArriveDistanceMeters;
 	private const float c_MaxApproachSeconds = 45f;
 	private const float c_StanceSettleTimeoutSeconds = 4f;
 
@@ -278,6 +278,16 @@ public sealed class UnitFallenDragController : MonoBehaviour
 			yield break;
 		}
 
+		float approachDistance = UnitFallenApproachUtility.HorizontalDistance(
+			m_RtsMember.transform.position,
+			UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform));
+		if (!UnitFallenApproachUtility.IsWithinInteractRange(approachDistance))
+		{
+			LogDragWarning($"CoBeginDragSession aborted: still too far ({approachDistance:F2}m).");
+			m_SessionCoroutine = null;
+			yield break;
+		}
+
 		if (!TryValidateDragTarget(_victim, _allowActiveSession: true, out string failureReason))
 		{
 			LogDragWarning($"CoBeginDragSession aborted after approach: {failureReason}");
@@ -298,16 +308,23 @@ public sealed class UnitFallenDragController : MonoBehaviour
 			yield break;
 		}
 
-		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-		LogDrag($"CoApproachVictim: initial distance={distance:F2}m (arrive<={c_ApproachArriveDistance:F2}m)");
-		if (distance > c_ApproachArriveDistance)
+		Vector3 victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(m_RtsMember.transform.position, victimFocus);
+		LogDrag($"CoApproachVictim: initial distance={distance:F2}m (arrive<={UnitFallenApproachUtility.ArriveDistanceMeters:F2}m)");
+		if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
 		{
-			Vector3 approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
+			Vector3 approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+				m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
 			LogDrag($"CoApproachVictim: issuing move order to {approachPoint}");
-			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
 
 			float elapsed = 0f;
-			float nextRetargetTime = 0.5f;
+			float nextRetargetTime = UnitFallenApproachUtility.RetargetIntervalSeconds;
+			float stuckSeconds = 0f;
+			float bestDistance = distance;
+			Vector3 lastPosition = m_RtsMember.transform.position;
+			Vector3 lastApproachPoint = approachPoint;
+
 			while (elapsed < c_MaxApproachSeconds)
 			{
 				if (_victim == null || m_RtsMember == null)
@@ -318,20 +335,37 @@ public sealed class UnitFallenDragController : MonoBehaviour
 
 				if (elapsed >= nextRetargetTime)
 				{
-					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
-					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
-					nextRetargetTime += 0.5f;
+					approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+						m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
+					if (UnitFallenApproachUtility.ShouldRetargetApproach(lastApproachPoint, approachPoint))
+					{
+						m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
+						lastApproachPoint = approachPoint;
+					}
+
+					nextRetargetTime += UnitFallenApproachUtility.RetargetIntervalSeconds;
 				}
 
-				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-				if (distance <= c_ApproachArriveDistance)
+				Vector3 currentPosition = m_RtsMember.transform.position;
+				victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+				distance = UnitFallenApproachUtility.HorizontalDistance(currentPosition, victimFocus);
+				float moved = UnitFallenApproachUtility.HorizontalDistance(currentPosition, lastPosition);
+				lastPosition = currentPosition;
+				stuckSeconds = UnitFallenApproachUtility.UpdateStuckSeconds(
+					stuckSeconds, distance, ref bestDistance, moved);
+
+				if (UnitFallenApproachUtility.HasArrivedOrStuckCloseEnough(distance, stuckSeconds) ||
+				    UnitFallenApproachUtility.ShouldAbortApproach(distance, stuckSeconds))
 					break;
 
 				elapsed += Time.deltaTime;
 				yield return null;
 			}
 
-			LogDrag($"CoApproachVictim finished waiting after {elapsed:F1}s, distance={distance:F2}m");
+			if (!UnitFallenApproachUtility.IsWithinInteractRange(distance))
+				LogDragWarning($"CoApproachVictim: too far after approach, distance={distance:F2}m");
+			else if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
+				LogDrag($"CoApproachVictim: accepted close-enough approach, distance={distance:F2}m");
 		}
 
 		m_ClickToMove?.HardStop();
@@ -365,6 +399,12 @@ public sealed class UnitFallenDragController : MonoBehaviour
 		m_VictimFollower = _victim.GetComponentInChildren<UnitFallenDragVictimFollower>(true);
 		if (m_VictimFollower == null)
 			m_VictimFollower = _victim.gameObject.AddComponent<UnitFallenDragVictimFollower>();
+
+		UnitStabilizedUnconsciousPoseController sleepPose =
+			_victim.GetComponent<UnitStabilizedUnconsciousPoseController>();
+		sleepPose?.NotifyExternalPoseOverride(true);
+		if (_victim.TryGetComponent(out UnitRagdollController victimRagdoll) && !victimRagdoll.IsRagdollActive)
+			victimRagdoll.SetRagdollActive(true);
 
 		m_BusyState?.SetReasonActive(UnitBusyState.BusyReason.DraggingFallen, true);
 		m_PresentationActive = true;
@@ -436,6 +476,8 @@ public sealed class UnitFallenDragController : MonoBehaviour
 		LogDrag("ReleaseDragImmediate");
 		UnsubscribeVictimEvents();
 
+		RtsUnitMember releasedVictim = m_DraggedVictim;
+
 		if (m_VictimFollower != null)
 		{
 			m_VictimFollower.EndFollow();
@@ -449,6 +491,13 @@ public sealed class UnitFallenDragController : MonoBehaviour
 
 		ApplyLayerWeightImmediate(0f);
 		SyncAnimatorState();
+
+		if (releasedVictim != null)
+		{
+			UnitStabilizedUnconsciousPoseController sleepPose =
+				releasedVictim.GetComponent<UnitStabilizedUnconsciousPoseController>();
+			sleepPose?.NotifyExternalPoseOverride(false);
+		}
 
 		if (!_skipLocomotionStop)
 		{

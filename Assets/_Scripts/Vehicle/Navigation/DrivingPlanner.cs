@@ -86,7 +86,6 @@ namespace VehicleNavigation
 				candidates.Add(BuildTurnAroundCandidate(_request, _path, _feedback, _turnRadius, _ctx));
 
 			// Evaluate: check feasibility + score
-			FeasibilityResult bestFeasibility = FeasibilityResult.Valid;
 			for (int i = 0; i < candidates.Count; i++)
 			{
 				var c = candidates[i];
@@ -94,8 +93,6 @@ namespace VehicleNavigation
 					? m_Feasibility.CheckPlan(c.Plan, _feedback.Geometry, _turnRadius)
 					: FeasibilityResult.Valid;
 				c.Cost = ScoreCandidate(c, flatToDest, firstAngle, _turnRadius, _ctx);
-				if (c.Feasibility != null && c.Feasibility.IsValid)
-					bestFeasibility = c.Feasibility;
 				if (DebugLog)
 					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} severity={c.Feasibility?.Severity} {(c.Feasibility != null && c.Feasibility.Severity != FeasibilitySeverity.Valid ? c.Feasibility.FailureReason : "")}");
 			}
@@ -113,13 +110,7 @@ namespace VehicleNavigation
 				}
 			}
 
-			if (DebugLog && candidates.Count > 1)
-			{
-				string sevInfo = "";
-				foreach (var c in candidates)
-					sevInfo += $" {c.Mode}={c.Feasibility?.Severity}";
-				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} severities=[{sevInfo.Trim()}]");
-			}
+			FeasibilityResult bestFeasibility = best?.Feasibility ?? FeasibilityResult.Valid;
 
 			if (DebugLog)
 				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} (of {candidates.Count} candidates), firstAngle={firstAngle:F0}° dist={flatToDest:F1}m");
@@ -131,6 +122,7 @@ namespace VehicleNavigation
 					Debug.LogWarning($"[DrivingPlanner] ALL candidates Impossible — aborting, returning StopManeuver");
 				var abort = new DrivingPlan(new Maneuver[] { new StopManeuver() },
 					"all impossible — abort", VehicleDrivingMode.Forward, bestCost, bestFeasibility);
+				abort.FallbackDecision = ArrivalFallbackDecision.RequestReplan;
 				abort.BuildSegments();
 				return abort;
 			}
@@ -207,13 +199,20 @@ namespace VehicleNavigation
 			DriverContext _ctx)
 		{
 			float sign = ChooseTurnSign(_feedback.Geometry);
+			float flatToDest = FlatDistance(_feedback.Position, _request.Destination);
 			var maneuvers = new List<Maneuver>
 			{
-				new TurnAroundManeuver(sign),
-				new ForwardManeuver()
+				new TurnAroundManeuver(sign)
 			};
+
+			// If already close to target — short post-turn alignment, no long forward drive
+			if (flatToDest < 6f)
+				maneuvers.Add(new PostTurnAlignmentManeuver());
+			else
+				maneuvers.Add(new ForwardManeuver());
+
 			// Don't call AppendArrivalManeuver for TurnAround — it would add Reverse based on pre-turn angle
-			// After TurnAround+Forward, the vehicle faces the target. Just add Parking/Approach as needed.
+			// After TurnAround+Forward/PostTurnAlignment, the vehicle faces the target.
 			if (_request.FacingMode == ArrivalFacingMode.FaceHeading && _request.HasHeading)
 				maneuvers.Add(new ApproachWithHeadingManeuver(_request.Destination, _request.HeadingYaw.Value));
 			else

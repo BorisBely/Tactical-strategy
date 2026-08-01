@@ -316,7 +316,8 @@ public static class InventorySlotUiUtility
 
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsWeaponEquipDragSource(runtimePayload.SourceKind) &&
-		    WeaponEquipUtility.CanEquipToMainHand(runtimePayload.Item))
+		    (WeaponEquipUtility.CanEquipToMainHand(runtimePayload.Item) ||
+		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretWeapon)))
 			return true;
 
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
@@ -331,7 +332,8 @@ public static class InventorySlotUiUtility
 
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsHelmetEquipDragSource(runtimePayload.SourceKind) &&
-		    HelmetEquipUtility.CanEquipToHead(runtimePayload.Item))
+		    (HelmetEquipUtility.CanEquipToHead(runtimePayload.Item) ||
+		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretFrontalShield)))
 			return true;
 
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
@@ -346,7 +348,8 @@ public static class InventorySlotUiUtility
 
 		RuntimeInventoryModificationDragPayload runtimePayload = RuntimeInventoryModificationDragContext.Current;
 		if (RuntimeInventoryModificationDragContext.IsBackpackEquipDragSource(runtimePayload.SourceKind) &&
-		    BackpackEquipUtility.CanEquipToBack(runtimePayload.Item))
+		    (BackpackEquipUtility.CanEquipToBack(runtimePayload.Item) ||
+		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretSurroundShield)))
 			return true;
 
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;

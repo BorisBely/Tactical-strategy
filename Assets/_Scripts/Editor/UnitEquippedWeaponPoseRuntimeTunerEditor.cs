@@ -143,6 +143,9 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			if (GUILayout.Button("Copy Standing Capture → Crouch Capture"))
 				tuner.CopyStandingCaptureToCrouchCapture();
 
+			if (GUILayout.Button("Copy Standing Capture → Vehicle Capture"))
+				tuner.CopyStandingCaptureToVehicleCapture();
+
 			using (new EditorGUILayout.HorizontalScope())
 			{
 				if (GUILayout.Button("Reload From Asset"))
@@ -150,11 +153,20 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 
 				using (new EditorGUI.DisabledScope(equipped == null))
 				{
-					if (GUILayout.Button("Save Standing To Asset"))
+					if (GUILayout.Button("Save Standing"))
 						SaveStandingToAsset(tuner, equipped);
 
-					if (GUILayout.Button("Save Crouch To Asset"))
+					if (GUILayout.Button("Save Crouch"))
 						SaveCrouchToAsset(tuner, equipped);
+				}
+			}
+
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				using (new EditorGUI.DisabledScope(equipped == null))
+				{
+					if (GUILayout.Button("Save Vehicle"))
+						SaveVehicleToAsset(tuner, equipped);
 				}
 			}
 
@@ -181,7 +193,8 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			{
 				EditorGUILayout.HelpBox(
 					"Foregrip installed: left IK lives on the grip prefab for standing.\n" +
-					"Crouch left IK saves to ItemDefinition via Save Crouch To Asset.",
+					"Crouch / Vehicle left IK save to ItemDefinition (Save Crouch / Save Vehicle).\n" +
+					"Gameplay prefers authored crouch/vehicle left IK over standing foregrip empties.",
 					MessageType.Info);
 			}
 
@@ -209,14 +222,15 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 			: "• left hand IK ready + not ready\n";
 
 		EditorGUILayout.HelpBox(
-			"Standing and Crouch are saved separately — tuning one will not overwrite the other in the asset.\n\n" +
+			"Standing / Crouch / Vehicle are saved separately — tuning one will not overwrite the others.\n\n" +
 			"ORDER\n" +
 			"1. Enable Runtime Tuning\n" +
-			"2. Active Posture = Standing or Crouch (put unit in that stance in Play Mode)\n" +
+			"2. Active Posture = Standing / Crouch / Vehicle\n" +
+			"   (Vehicle: mount a fire-capable seat, or tune buffers then Save Vehicle)\n" +
 			"3. Hands Frozen → move the held weapon root\n" +
 			"4. Not Ready → RightHandIkTarget_NotReady + LeftHandIkTarget_NotReady\n" +
 			"5. Ready → RightHandIkTarget + LeftHandIkTarget (base pose auto-copied from Frozen)\n" +
-			"6. Save Standing To Asset / Save Crouch To Asset\n" +
+			"6. Save Standing / Save Crouch / Save Vehicle\n" +
 			leftSaveNote,
 			MessageType.Info);
 	}
@@ -225,9 +239,21 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		UnitEquippedWeaponPoseRuntimeTuner.TuningTarget _target,
 		UnitEquippedWeaponPoseRuntimeTuner.TuningPosture _posture)
 	{
-		string postureNote = _posture == UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Crouch
-			? "Crouch: unit should be in crouch (Stance=1). Saves only crouch fields.\n"
-			: "Standing: saves only standing fields.\n";
+		string postureNote;
+		switch (_posture)
+		{
+			case UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Crouch:
+				postureNote = "Crouch: unit should be in crouch (Stance=1). Saves only crouch fields.\n";
+				break;
+			case UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Vehicle:
+				postureNote =
+					"Vehicle: edits vehicle capture buffers. Prefer a fire-capable seat in Play Mode. " +
+					"Save Vehicle writes only vehicle fields.\n";
+				break;
+			default:
+				postureNote = "Standing: saves only standing fields.\n";
+				break;
+		}
 
 		switch (_target)
 		{
@@ -325,6 +351,41 @@ public sealed class UnitEquippedWeaponPoseRuntimeTunerEditor : Editor
 		EditorUtility.SetDirty(_definition);
 		AssetDatabase.SaveAssets();
 		Debug.Log($"[WeaponPoseTuner] Saved CROUCH hand pose to '{_definition.name}'.", _definition);
+	}
+
+	private static void SaveVehicleToAsset(UnitEquippedWeaponPoseRuntimeTuner _tuner, ItemDefinition _definition)
+	{
+		if (_definition == null)
+			return;
+
+		if (_tuner.ActivePosture == UnitEquippedWeaponPoseRuntimeTuner.TuningPosture.Vehicle)
+			_tuner.CaptureAllForSave();
+		else
+			Debug.LogWarning(
+				"[WeaponPoseTuner] Active Posture is not Vehicle — saving previously captured vehicle buffers " +
+				"(may be stale). Set Active Posture = Vehicle, retune, then Save Vehicle.",
+				_tuner);
+
+		Undo.RecordObject(_definition, "Save Vehicle Weapon Pose To ItemDefinition");
+
+		SerializedObject so = new SerializedObject(_definition);
+		so.FindProperty("m_VehicleRightHandLocalPosition").vector3Value = _tuner.VehicleNotReadyLocalPosition;
+		so.FindProperty("m_VehicleRightHandLocalEulerAngles").vector3Value = _tuner.VehicleNotReadyLocalEulerAngles;
+		so.FindProperty("m_VehicleRightHandReadyLocalPosition").vector3Value = _tuner.VehicleReadyLocalPosition;
+		so.FindProperty("m_VehicleRightHandReadyLocalEulerAngles").vector3Value = _tuner.VehicleReadyLocalEulerAngles;
+		so.FindProperty("m_VehicleRightHandIkNotReadyLocalPosition").vector3Value = _tuner.VehicleNotReadyIkLocalPosition;
+		so.FindProperty("m_VehicleRightHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.VehicleNotReadyIkLocalEulerAngles;
+		so.FindProperty("m_VehicleRightHandIkReadyLocalPosition").vector3Value = _tuner.VehicleReadyIkLocalPosition;
+		so.FindProperty("m_VehicleRightHandIkReadyLocalEulerAngles").vector3Value = _tuner.VehicleReadyIkLocalEulerAngles;
+		so.FindProperty("m_VehicleLeftHandIkNotReadyLocalPosition").vector3Value = _tuner.VehicleLeftNotReadyIkLocalPosition;
+		so.FindProperty("m_VehicleLeftHandIkNotReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftNotReadyIkLocalEulerAngles;
+		so.FindProperty("m_VehicleLeftHandIkReadyLocalPosition").vector3Value = _tuner.VehicleLeftReadyIkLocalPosition;
+		so.FindProperty("m_VehicleLeftHandIkReadyLocalEulerAngles").vector3Value = _tuner.VehicleLeftReadyIkLocalEulerAngles;
+
+		so.ApplyModifiedPropertiesWithoutUndo();
+		EditorUtility.SetDirty(_definition);
+		AssetDatabase.SaveAssets();
+		Debug.Log($"[WeaponPoseTuner] Saved VEHICLE hand pose to '{_definition.name}'.", _definition);
 	}
 
 	private static void SaveLeftHandIkToForegripPrefab(UnitEquippedWeaponPoseRuntimeTuner _tuner)

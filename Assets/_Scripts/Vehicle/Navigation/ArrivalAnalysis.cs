@@ -7,6 +7,7 @@ namespace VehicleNavigation
 	/// Does NOT make decisions — only reports what is true.
 	/// </summary>
 	public enum TargetSide { Front, Rear, Left, Right }
+	public enum ArrivalStatus { TooFar, Approaching, AtGoal }
 
 	public sealed class ArrivalAnalysis
 	{
@@ -19,6 +20,7 @@ namespace VehicleNavigation
 		public bool CanReachForward;
 		public bool CanReachReverse;
 		public TargetSide Side;
+		public ArrivalStatus Status;
 
 		public static ArrivalAnalysis Compute(
 			Vector3 _position, float _yaw, float _turnRadius,
@@ -47,12 +49,16 @@ namespace VehicleNavigation
 			float signedAngleRear = Vector3.SignedAngle(rearForward, toTargetDir, Vector3.up);
 			r.TargetInsideRearTurningCircle = r.Distance < _turnRadius * 0.7f && Mathf.Abs(signedAngleRear) < 40f;
 
-			r.LateralOffset = Mathf.Abs(Mathf.Sin(signedAngle * Mathf.Deg2Rad)) * r.Distance;
+		r.LateralOffset = Mathf.Abs(Mathf.Sin(signedAngle * Mathf.Deg2Rad)) * r.Distance;
 
-			r.CanReachForward = r.TargetInFront && r.Distance >= _turnRadius * 0.5f;
-			r.CanReachReverse = !r.TargetInFront && r.Distance < _turnRadius * 2f && r.Distance >= _turnRadius * 0.3f;
+		r.CanReachForward = r.TargetInFront && r.Distance >= _turnRadius * 0.5f;
+		r.CanReachReverse = !r.TargetInFront && r.Distance < _turnRadius * 2f && r.Distance >= _turnRadius * 0.3f;
 
-			return r;
+		r.Status = r.Distance < 0.15f && absAngle < 3f
+			? ArrivalStatus.AtGoal
+			: ArrivalStatus.Approaching;
+
+		return r;
 		}
 	}
 }

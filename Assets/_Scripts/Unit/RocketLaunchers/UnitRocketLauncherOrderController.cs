@@ -221,6 +221,11 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		return TryFindBestLauncher(out _, out _);
 	}
 
+	public bool TryGetBestLauncherBagIndex(out int _bagIndex)
+	{
+		return TryFindBestLauncher(out _, out _bagIndex);
+	}
+
 	public bool ShouldShowReloadButtonLabel()
 	{
 		if (m_Inventory == null || m_RpgHandler == null)

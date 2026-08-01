@@ -23,6 +23,8 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	[SerializeField] private UnitRocketLauncherOrderController m_RocketLauncherOrder;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private Animator m_Animator;
+	[Tooltip("Состояние пассажира в машине. На fire-capable месте — Vehicle поля ItemDefinition; Ready blend от WantsReadyPose.")]
+	[SerializeField] private VehiclePassengerState m_VehiclePassengerState;
 
 	[Header("Переход Ready / Relaxed")]
 	[SerializeField, Min(0f)] private float m_ReadyPoseBlendDuration = 0.28f;
@@ -40,6 +42,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 	private Vector3 m_CurrentBaseWeaponLocalPosition;
 	private Quaternion m_CurrentBaseWeaponLocalRotation = Quaternion.identity;
+	private VehiclePassengerState m_SubscribedVehiclePassengerState;
 	#endregion
 
 	#region Public Properties
@@ -51,6 +54,12 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 	/// <summary>Локальный поворот оружия после бленда relaxed/ready (без aim-correction).</summary>
 	public Quaternion CurrentBaseWeaponLocalRotation => m_CurrentBaseWeaponLocalRotation;
+
+	/// <summary>Базовая локальная позиция оружия (relaxed↔ready blend), без визуальной отдачи. Источник истины для IK и VisualRecoil.</summary>
+	public Vector3 BaseWeaponLocalPosition => m_CurrentBaseWeaponLocalPosition;
+
+	/// <summary>Базовый локальный поворот оружия (relaxed↔ready blend), без визуальной отдачи. Источник истины для IK и VisualRecoil.</summary>
+	public Quaternion BaseWeaponLocalRotation => m_CurrentBaseWeaponLocalRotation;
 	#endregion
 
 	#region Unity Lifecycle
@@ -62,6 +71,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	private void OnEnable()
 	{
 		SubscribeEquipmentEvents();
+		SubscribeVehiclePassengerEvents();
 		SyncReadyTargetImmediate();
 		m_ReadyBlend01 = m_TargetReadyBlend01;
 		m_IsReadyBlendAnimating = false;
@@ -71,6 +81,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	private void OnDisable()
 	{
 		UnsubscribeEquipmentEvents();
+		UnsubscribeVehiclePassengerEvents();
 		StopReadyBlend();
 	}
 
@@ -79,30 +90,27 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		if (IsBlockedByRagdoll())
 			return;
 
+		// VehiclePassengerState is often added at mount time — keep subscription + target in sync.
+		EnsureVehiclePassengerSubscription();
+		float desiredTarget = ComputeReadyTarget01();
+		if (!Mathf.Approximately(desiredTarget, m_TargetReadyBlend01))
+		{
+			m_TargetReadyBlend01 = desiredTarget;
+			BeginReadyBlendTowardTarget();
+		}
+
 		AdvanceReadyBlend();
 		ApplyWeaponLocalPose();
 	}
 	#endregion
 
 	#region Public Methods
-	/// <summary>Вызывать при смене WeaponReady (E / ИИ).</summary>
+	/// <summary>Вызывать при смене WeaponReady (E / ИИ / vehicle passenger ready).</summary>
 	public void OnWeaponReadyStateChanged()
 	{
+		EnsureVehiclePassengerSubscription();
 		SyncReadyTargetImmediate();
-		m_BlendStartReady01 = m_ReadyBlend01;
-
-		if (m_ReadyPoseBlendDuration <= 0f)
-		{
-			m_ReadyBlend01 = m_TargetReadyBlend01;
-			StopReadyBlend();
-		}
-		else
-		{
-			m_IsReadyBlendAnimating = true;
-			m_ReadyBlendElapsed = 0f;
-			m_LastReadyBlendAdvanceFrame = -1;
-		}
-
+		BeginReadyBlendTowardTarget();
 		ApplyWeaponLocalPose();
 	}
 
@@ -158,6 +166,8 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
+
+		EnsureVehiclePassengerState();
 	}
 
 	private bool IsBlockedByRagdoll()
@@ -180,14 +190,73 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			m_UnitEquipment.EquipmentChanged -= HandleEquipmentChanged;
 	}
 
+	private void SubscribeVehiclePassengerEvents()
+	{
+		EnsureVehiclePassengerSubscription();
+	}
+
+	private void UnsubscribeVehiclePassengerEvents()
+	{
+		if (m_SubscribedVehiclePassengerState != null)
+		{
+			m_SubscribedVehiclePassengerState.ReadyIntentChanged -= HandleVehicleReadyIntentChanged;
+			m_SubscribedVehiclePassengerState = null;
+		}
+	}
+
+	private void EnsureVehiclePassengerSubscription()
+	{
+		VehiclePassengerState state = EnsureVehiclePassengerState();
+		if (state == m_SubscribedVehiclePassengerState)
+			return;
+
+		if (m_SubscribedVehiclePassengerState != null)
+			m_SubscribedVehiclePassengerState.ReadyIntentChanged -= HandleVehicleReadyIntentChanged;
+
+		m_SubscribedVehiclePassengerState = state;
+		if (m_SubscribedVehiclePassengerState != null)
+			m_SubscribedVehiclePassengerState.ReadyIntentChanged += HandleVehicleReadyIntentChanged;
+	}
+
 	private void HandleEquipmentChanged()
 	{
 		ApplyImmediateFromEquipment();
 	}
 
+	private void HandleVehicleReadyIntentChanged()
+	{
+		OnWeaponReadyStateChanged();
+	}
+
 	private void SyncReadyTargetImmediate()
 	{
-		m_TargetReadyBlend01 = m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady() ? 1f : 0f;
+		m_TargetReadyBlend01 = ComputeReadyTarget01();
+	}
+
+	private float ComputeReadyTarget01()
+	{
+		// In a fire-capable vehicle seat, ready blend is driven by VehiclePassengerState —
+		// foot high-ready keyboard input is disabled while mounted.
+		if (IsVehiclePassengerFireCapable())
+			return m_VehiclePassengerState.WantsReadyPose ? 1f : 0f;
+
+		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady() ? 1f : 0f;
+	}
+
+	private void BeginReadyBlendTowardTarget()
+	{
+		m_BlendStartReady01 = m_ReadyBlend01;
+
+		if (m_ReadyPoseBlendDuration <= 0f)
+		{
+			m_ReadyBlend01 = m_TargetReadyBlend01;
+			StopReadyBlend();
+			return;
+		}
+
+		m_IsReadyBlendAnimating = true;
+		m_ReadyBlendElapsed = 0f;
+		m_LastReadyBlendAdvanceFrame = -1;
 	}
 
 	private void StopReadyBlend()
@@ -242,10 +311,27 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			return;
 		}
 
-		Vector3 relaxedPosition = def.ResolveRightHandLocalPosition(GetCurrentStance());
-		Quaternion relaxedRotation = def.ResolveRightHandLocalRotation(GetCurrentStance());
-		Vector3 readyPosition = def.ResolveRightHandReadyLocalPosition(GetCurrentStance());
-		Quaternion readyRotation = def.ResolveRightHandReadyLocalRotation(GetCurrentStance());
+		bool inVehicle = IsVehiclePassengerFireCapable();
+		Vector3 relaxedPosition;
+		Quaternion relaxedRotation;
+		Vector3 readyPosition;
+		Quaternion readyRotation;
+
+		if (inVehicle)
+		{
+			relaxedPosition = def.ResolveVehicleRightHandLocalPosition();
+			relaxedRotation = def.ResolveVehicleRightHandLocalRotation();
+			readyPosition = def.ResolveVehicleRightHandReadyLocalPosition();
+			readyRotation = def.ResolveVehicleRightHandReadyLocalRotation();
+		}
+		else
+		{
+			relaxedPosition = def.ResolveRightHandLocalPosition(GetCurrentStance());
+			relaxedRotation = def.ResolveRightHandLocalRotation(GetCurrentStance());
+			readyPosition = def.ResolveRightHandReadyLocalPosition(GetCurrentStance());
+			readyRotation = def.ResolveRightHandReadyLocalRotation(GetCurrentStance());
+		}
+
 		float blend01 = m_ReadyBlend01;
 
 		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
@@ -257,7 +343,7 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 				out readyRotation,
 				out blend01);
 		}
-		else if (ShouldInheritReadyPoseFromNotReady(def, GetCurrentStance()))
+		else if (!inVehicle && ShouldInheritReadyPoseFromNotReady(def, GetCurrentStance()))
 		{
 			readyPosition = relaxedPosition;
 			readyRotation = relaxedRotation;
@@ -300,6 +386,21 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		}
 
 		return LocomotionStance.Standing;
+	}
+
+	private bool IsVehiclePassengerFireCapable()
+	{
+		EnsureVehiclePassengerState();
+		return m_VehiclePassengerState != null && m_VehiclePassengerState.IsFireCapable;
+	}
+
+	private VehiclePassengerState EnsureVehiclePassengerState()
+	{
+		if (m_VehiclePassengerState == null)
+			m_VehiclePassengerState = GetComponent<VehiclePassengerState>();
+		if (m_VehiclePassengerState == null)
+			m_VehiclePassengerState = GetComponentInParent<VehiclePassengerState>();
+		return m_VehiclePassengerState;
 	}
 
 	private static bool ShouldInheritReadyPoseFromNotReady(ItemDefinition _def, LocomotionStance _stance)

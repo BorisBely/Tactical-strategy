@@ -12,6 +12,7 @@ public sealed partial class RtsUnitSelectionManager
 	private VehicleController m_LastVehicleLeftClick;
 	private float m_LastDisembarkKeyTime = -1f;
 	private bool m_DisembarkDigitChord;
+	private bool m_VehicleEKeyConsumed;
 	private readonly List<RtsUnitMember> m_PendingBoardUnits = new List<RtsUnitMember>(16);
 	private Coroutine m_VehicleClickCommitCoroutine;
 	private float m_LastVehicleRmbTime = -1f;
@@ -60,6 +61,14 @@ public sealed partial class RtsUnitSelectionManager
 		if (m_SelectedVehicle == null)
 			return;
 		m_SelectedVehicle.CycleSpeedCeiling();
+		NotifySelectionUiRefresh();
+	}
+
+	public void CommandSelectedVehicleCycleGunnerStance()
+	{
+		if (m_SelectedVehicle == null)
+			return;
+		m_SelectedVehicle.CycleGunnerStance();
 		NotifySelectionUiRefresh();
 	}
 
@@ -119,6 +128,9 @@ public sealed partial class RtsUnitSelectionManager
 			return;
 		m_SelectedVehicle.SetSelected(false);
 		m_SelectedVehicle = null;
+		if (InventoryScreenBindings.Instance != null &&
+		    InventoryScreenBindings.Instance.IsVehicleInventoryActive)
+			SyncActiveInventoryToSelection();
 		SelectionChanged?.Invoke();
 	}
 
@@ -144,6 +156,13 @@ public sealed partial class RtsUnitSelectionManager
 		m_SelectedVehicle = _vehicle;
 		if (m_SelectedVehicle != null)
 			m_SelectedVehicle.SetSelected(true);
+
+		if (m_SelectedVehicle != null && m_SelectedUnits.Count == 0)
+		{
+			VehicleInventory vehicleInventory = m_SelectedVehicle.Inventory;
+			if (vehicleInventory != null)
+				InventoryScreenBindings.Instance?.SetActiveVehicleInventory(vehicleInventory);
+		}
 
 		SelectionChanged?.Invoke();
 	}
@@ -593,18 +612,29 @@ public sealed partial class RtsUnitSelectionManager
 		switch (_action)
 		{
 			case VehicleInteractionMenuController.MenuAction.Board:
-				_vehicle.BoardUnits(units, VehicleBoardSide.Any);
+				_vehicle.BoardUnits(units, VehicleBoardSide.Any, _forceRun: false);
 				break;
 			case VehicleInteractionMenuController.MenuAction.BoardOneSide:
-				_vehicle.BoardUnits(units, ResolveNearestBoardSide(_vehicle, units));
+				_vehicle.BoardUnits(units, ResolveNearestBoardSide(_vehicle, units), _forceRun: false);
 				break;
 			case VehicleInteractionMenuController.MenuAction.BoardGunner:
-				_vehicle.BoardUnitsAsGunner(units, VehicleBoardSide.Any);
+				_vehicle.BoardUnitsAsGunner(units, VehicleBoardSide.Any, _forceRun: false);
 				break;
 			case VehicleInteractionMenuController.MenuAction.LoadWounded:
 				if (TryGetCarryingSelectedUnit(out RtsUnitMember carrier))
-					_vehicle.LoadWoundedFromCarrier(carrier);
+					_vehicle.LoadWoundedFromCarrier(carrier, _forceRun: false);
 				break;
+			case VehicleInteractionMenuController.MenuAction.Exchange:
+			{
+				RtsUnitMember player = null;
+				if (units.Count == 1)
+					player = units[0];
+				else if (m_SelectedUnits.Count == 1)
+					player = m_SelectedUnits[0];
+				if (player != null)
+					TryBeginVehicleInventoryExchange(_vehicle, player);
+				break;
+			}
 		}
 	}
 
@@ -664,8 +694,16 @@ public sealed partial class RtsUnitSelectionManager
 		if (Keyboard.current == null)
 			return;
 
+		m_VehicleEKeyConsumed = false;
+
 		if (m_SelectedVehicle != null && Keyboard.current.fKey.wasPressedThisFrame)
 			m_SelectedVehicle.HardStop();
+
+		if (m_SelectedVehicle != null && Keyboard.current.eKey.wasPressedThisFrame)
+		{
+			m_SelectedVehicle.ToggleAllPassengersVehicleReady();
+			m_VehicleEKeyConsumed = true;
+		}
 
 		if (m_SelectedVehicle == null || !m_SelectedVehicle.HasPassengers)
 		{
@@ -762,6 +800,291 @@ public sealed partial class RtsUnitSelectionManager
 		}
 
 		return best;
+	}
+
+	private bool TryEquipFromVehicleInventoryDoubleClick(InventorySlotView _slot)
+	{
+		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
+		VehicleInventory inventory = bindings != null ? bindings.ActiveVehicleInventory : null;
+		if (inventory == null || m_CharacterInventoryPanel == null || _slot == null)
+			return false;
+		if (!inventory.CanModifyContents)
+			return true; // consume click, view-only
+
+		if (!TryResolveVehicleInventorySlot(_slot, inventory, out bool isWeapon, out bool isFrontal, out bool isSurround, out int bagIndex))
+			return false;
+
+		if (isWeapon)
+		{
+			InventorySlotRuntimeData removedData = inventory.TurretWeapon;
+			if (inventory.TryUnequipToBag(VehicleEquipmentSlotId.TurretWeapon))
+				PlayVehicleSlotAudio(removedData, VehicleEquipmentSlotId.TurretWeapon, _equip: false);
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return true;
+		}
+
+		if (isFrontal)
+		{
+			InventorySlotRuntimeData removedData = inventory.FrontalShield;
+			if (inventory.TryUnequipToBag(VehicleEquipmentSlotId.FrontalShield))
+				PlayVehicleSlotAudio(removedData, VehicleEquipmentSlotId.FrontalShield, _equip: false);
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return true;
+		}
+
+		if (isSurround)
+		{
+			InventorySlotRuntimeData removedData = inventory.SurroundShield;
+			if (inventory.TryUnequipToBag(VehicleEquipmentSlotId.SurroundShield))
+				PlayVehicleSlotAudio(removedData, VehicleEquipmentSlotId.SurroundShield, _equip: false);
+			inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+			return true;
+		}
+
+		InventorySlotRuntimeData data = _slot.Data;
+		if (data.Definition == null)
+			return true;
+
+		if (data.Definition.IsTurretWeapon)
+		{
+			if (inventory.TryEquipFromBag(bagIndex, VehicleEquipmentSlotId.TurretWeapon))
+				PlayVehicleSlotAudio(data, VehicleEquipmentSlotId.TurretWeapon, _equip: true);
+		}
+		else if (data.Definition.IsTurretFrontalShield)
+		{
+			if (inventory.TryEquipFromBag(bagIndex, VehicleEquipmentSlotId.FrontalShield))
+				PlayVehicleSlotAudio(data, VehicleEquipmentSlotId.FrontalShield, _equip: true);
+		}
+		else if (data.Definition.IsTurretSurroundShield)
+		{
+			if (inventory.TryEquipFromBag(bagIndex, VehicleEquipmentSlotId.SurroundShield))
+				PlayVehicleSlotAudio(data, VehicleEquipmentSlotId.SurroundShield, _equip: true);
+		}
+
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	private bool TryResolveVehicleInventorySlot(
+		InventorySlotView _slot,
+		VehicleInventory _inventory,
+		out bool _isWeapon,
+		out bool _isFrontal,
+		out bool _isSurround,
+		out int _bagIndex)
+	{
+		_isWeapon = false;
+		_isFrontal = false;
+		_isSurround = false;
+		_bagIndex = -1;
+		if (_slot == null || _inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = m_CharacterInventoryPanel.Slots;
+		int index = -1;
+		for (int i = 0; i < slots.Count; i++)
+		{
+			if (slots[i] == _slot)
+			{
+				index = i;
+				break;
+			}
+		}
+
+		if (index < 0)
+			return false;
+
+		int lead = Mathf.Max(0, m_CharacterInventoryPanel.LeadingEquipmentSlotCount);
+		if (index < lead)
+		{
+			_isWeapon = index == 0;
+			_isFrontal = index == 1;
+			_isSurround = index == 2;
+			return true;
+		}
+
+		_bagIndex = index - lead;
+		return _bagIndex >= 0 && _bagIndex < _inventory.BagCount;
+	}
+
+	public bool TryResolveVehicleInventorySlotForDrag(
+		InventorySlotView _slot,
+		out bool _isMainHand,
+		out bool _isHead,
+		out bool _isBack,
+		out int _bagIndex)
+	{
+		_isMainHand = false;
+		_isHead = false;
+		_isBack = false;
+		_bagIndex = -1;
+		if (_slot == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = m_CharacterInventoryPanel.Slots;
+		int index = -1;
+		for (int i = 0; i < slots.Count; i++)
+		{
+			if (slots[i] == _slot)
+			{
+				index = i;
+				break;
+			}
+		}
+
+		if (index < 0)
+			return false;
+
+		int lead = Mathf.Max(0, m_CharacterInventoryPanel.LeadingEquipmentSlotCount);
+		if (index < lead)
+		{
+			_isMainHand = index == 0;
+			_isHead = index == 1;
+			_isBack = index == 2;
+			return true;
+		}
+
+		VehicleInventory inventory = InventoryScreenBindings.Instance?.ActiveVehicleInventory;
+		if (inventory == null)
+			return false;
+
+		_bagIndex = index - lead;
+		return _bagIndex >= 0 && _bagIndex < inventory.BagCount;
+	}
+
+	public bool TryRouteVehicleDragOnCharacterPanel(
+		InventoryCharacterToGroundDrag _drag,
+		Vector2 _screenPosition,
+		Camera _eventCamera,
+		bool _requireActiveDrag = true)
+	{
+		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
+			return false;
+
+		VehicleInventory inventory = InventoryScreenBindings.Instance?.ActiveVehicleInventory;
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+		if (coordinator == null)
+			return false;
+
+		if (_drag.CapturedFromMainHandEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+			if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
+				return false;
+			return TryAcceptVehicleEquipmentDragToBag(_drag, VehicleEquipmentSlotId.TurretWeapon);
+		}
+
+		if (_drag.CapturedFromHeadEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+			if (coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera))
+				return false;
+			return TryAcceptVehicleEquipmentDragToBag(_drag, VehicleEquipmentSlotId.FrontalShield);
+		}
+
+		if (_drag.CapturedFromBackEquipmentSlot)
+		{
+			if (!coordinator.IsScreenPointOverCharacterPanel(_screenPosition, _eventCamera))
+				return false;
+			if (coordinator.IsScreenPointOverCharacterBackSlot(_screenPosition, _eventCamera))
+				return false;
+			return TryAcceptVehicleEquipmentDragToBag(_drag, VehicleEquipmentSlotId.SurroundShield);
+		}
+
+		if (_drag.CapturedBagIndex >= 0)
+		{
+			if (coordinator.IsScreenPointOverCharacterMainHandSlot(_screenPosition, _eventCamera))
+				return TryAcceptVehicleBagDragToEquipmentSlot(_drag, VehicleEquipmentSlotId.TurretWeapon);
+			if (coordinator.IsScreenPointOverCharacterHeadSlot(_screenPosition, _eventCamera))
+				return TryAcceptVehicleBagDragToEquipmentSlot(_drag, VehicleEquipmentSlotId.FrontalShield);
+			if (coordinator.IsScreenPointOverCharacterBackSlot(_screenPosition, _eventCamera))
+				return TryAcceptVehicleBagDragToEquipmentSlot(_drag, VehicleEquipmentSlotId.SurroundShield);
+			return false;
+		}
+
+		return false;
+	}
+
+	private bool TryAcceptVehicleEquipmentDragToBag(InventoryCharacterToGroundDrag _drag, VehicleEquipmentSlotId _slotId)
+	{
+		VehicleInventory inventory = InventoryScreenBindings.Instance?.ActiveVehicleInventory;
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		InventorySlotRuntimeData removedData = inventory.GetEquipmentSlot(_slotId);
+		if (!inventory.TryUnequipToBag(_slotId))
+			return false;
+
+		PlayVehicleSlotAudio(removedData, _slotId, _equip: false);
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	private bool TryAcceptVehicleBagDragToEquipmentSlot(InventoryCharacterToGroundDrag _drag, VehicleEquipmentSlotId _slotId)
+	{
+		if (_drag.CapturedBagIndex < 0)
+			return false;
+
+		VehicleInventory inventory = InventoryScreenBindings.Instance?.ActiveVehicleInventory;
+		if (inventory == null || m_CharacterInventoryPanel == null)
+			return false;
+
+		InventorySlotRuntimeData equippedData = default;
+		if (_drag.CapturedBagIndex < inventory.BagCount)
+			equippedData = inventory.BagItems[_drag.CapturedBagIndex];
+
+		if (!inventory.TryEquipFromBag(_drag.CapturedBagIndex, _slotId))
+			return false;
+
+		PlayVehicleSlotAudio(equippedData, _slotId, _equip: true);
+		DestroyDetachedDragSlotIfNeeded(_drag.SlotView, m_CharacterInventoryPanel);
+		inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
+		return true;
+	}
+
+	private static void PlayVehicleSlotAudio(InventorySlotRuntimeData _data, VehicleEquipmentSlotId _slotId, bool _equip)
+	{
+		switch (_slotId)
+		{
+			case VehicleEquipmentSlotId.TurretWeapon:
+				if (_data.IsEmpty || _data.Definition == null)
+					return;
+				if (_equip)
+				{
+					if (_data.Definition.TryPickEquipmentAddSound(out _))
+						InventoryWindowAudioUtility.TryPlayEquipmentAddSoundFromSlot(null, _data, _useMainHandPosition: false);
+					else
+						InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(null, _data, _useMainHandPosition: false);
+				}
+				else
+				{
+					if (_data.Definition.TryPickEquipmentRemoveSound(out _))
+						InventoryWindowAudioUtility.TryPlayEquipmentRemoveSoundFromSlot(
+							_data, null, _useMainHandPosition: false);
+					else
+						InventoryWindowAudioUtility.TryPlayInventoryRemoveSoundFromSlot(_data, null);
+				}
+				break;
+
+			case VehicleEquipmentSlotId.FrontalShield:
+			case VehicleEquipmentSlotId.SurroundShield:
+				if (_equip)
+					InventoryWindowAudioUtility.TryPlayAttachmentAttachSound(null, false);
+				else
+					InventoryWindowAudioUtility.TryPlayAttachmentDetachSound(null, false);
+				break;
+		}
+	}
+
+	public bool TryBeginVehicleInventoryExchange(VehicleController _vehicle, RtsUnitMember _playerUnit)
+	{
+		return InventoryExchangeController.Instance.TryBeginVehicleExchange(_vehicle, _playerUnit, out _);
 	}
 	#endregion
 }

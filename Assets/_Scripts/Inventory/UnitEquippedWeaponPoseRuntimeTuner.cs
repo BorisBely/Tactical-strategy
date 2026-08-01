@@ -12,10 +12,10 @@ using UnityEngine;
 /// 2. Play Mode → Enable Runtime Tuning
 /// 3. Hands Frozen → place Equipped_*
 /// 4. Not Ready / Ready → move RightHandIkTarget* and LeftHandIkTarget*
-/// 5. Save Standing To Asset / Save Crouch To Asset (separate — won't overwrite the other posture)
-/// 6. If foregrip: Save Left IK To Foregrip Prefab
+/// 5. Save Standing / Save Crouch / Save Vehicle (separate — won't overwrite other postures)
+/// 6. If foregrip: Save Left IK To Foregrip Prefab (standing left IK)
 ///
-/// Modes: Hands Frozen (no IK) → Not Ready → Ready.
+/// Modes: Hands Frozen (no IK) → Not Ready → Ready. Postures: Standing / Crouch / Vehicle.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(44)]
@@ -36,7 +36,8 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 	public enum TuningPosture
 	{
 		Standing = 0,
-		Crouch = 1
+		Crouch = 1,
+		Vehicle = 2
 	}
 	#endregion
 
@@ -50,7 +51,7 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 	[SerializeField] private bool m_EnableRuntimeTuning;
 	[Tooltip("Hands Frozen = place weapon with IK off (base coords). Then Not Ready / Ready for poses + hand IK.")]
 	[SerializeField] private TuningTarget m_ActiveTarget = TuningTarget.HandsFrozen;
-	[Tooltip("Standing or Crouch — separate captured values and separate Save buttons in the inspector.")]
+	[Tooltip("Standing / Crouch / Vehicle — separate captured values and separate Save buttons in the inspector.")]
 	[SerializeField] private TuningPosture m_ActivePosture = TuningPosture.Standing;
 
 	[Header("Captured — standing weapon pose (Hand_R local)")]
@@ -88,6 +89,24 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 	[SerializeField] private Vector3 m_CrouchLeftNotReadyIkLocalEulerAngles;
 	[SerializeField] private Vector3 m_CrouchLeftReadyIkLocalPosition;
 	[SerializeField] private Vector3 m_CrouchLeftReadyIkLocalEulerAngles;
+
+	[Header("Captured — vehicle weapon pose (Hand_R local)")]
+	[SerializeField] private Vector3 m_VehicleNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleReadyLocalEulerAngles;
+
+	[Header("Captured — vehicle right hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_VehicleNotReadyIkLocalPosition;
+	[SerializeField] private Vector3 m_VehicleNotReadyIkLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleReadyIkLocalPosition;
+	[SerializeField] private Vector3 m_VehicleReadyIkLocalEulerAngles;
+
+	[Header("Captured — vehicle left hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_VehicleLeftNotReadyIkLocalPosition;
+	[SerializeField] private Vector3 m_VehicleLeftNotReadyIkLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleLeftReadyIkLocalPosition;
+	[SerializeField] private Vector3 m_VehicleLeftReadyIkLocalEulerAngles;
 	#endregion
 
 	#region Private Fields
@@ -152,18 +171,43 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 	public Vector3 CrouchLeftReadyIkLocalPosition => m_CrouchLeftReadyIkLocalPosition;
 	public Vector3 CrouchLeftReadyIkLocalEulerAngles => m_CrouchLeftReadyIkLocalEulerAngles;
 
-	public Vector3 NotReadyLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchNotReadyLocalPosition : m_NotReadyLocalPosition;
-	public Vector3 NotReadyLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchNotReadyLocalEulerAngles : m_NotReadyLocalEulerAngles;
-	public Vector3 ReadyLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchReadyLocalPosition : m_ReadyLocalPosition;
-	public Vector3 ReadyLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchReadyLocalEulerAngles : m_ReadyLocalEulerAngles;
-	public Vector3 NotReadyIkLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchNotReadyIkLocalPosition : m_NotReadyIkLocalPosition;
-	public Vector3 NotReadyIkLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchNotReadyIkLocalEulerAngles : m_NotReadyIkLocalEulerAngles;
-	public Vector3 ReadyIkLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchReadyIkLocalPosition : m_ReadyIkLocalPosition;
-	public Vector3 ReadyIkLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchReadyIkLocalEulerAngles : m_ReadyIkLocalEulerAngles;
-	public Vector3 LeftNotReadyIkLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchLeftNotReadyIkLocalPosition : m_LeftNotReadyIkLocalPosition;
-	public Vector3 LeftNotReadyIkLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchLeftNotReadyIkLocalEulerAngles : m_LeftNotReadyIkLocalEulerAngles;
-	public Vector3 LeftReadyIkLocalPosition => m_ActivePosture == TuningPosture.Crouch ? m_CrouchLeftReadyIkLocalPosition : m_LeftReadyIkLocalPosition;
-	public Vector3 LeftReadyIkLocalEulerAngles => m_ActivePosture == TuningPosture.Crouch ? m_CrouchLeftReadyIkLocalEulerAngles : m_LeftReadyIkLocalEulerAngles;
+	public Vector3 VehicleNotReadyLocalPosition => m_VehicleNotReadyLocalPosition;
+	public Vector3 VehicleNotReadyLocalEulerAngles => m_VehicleNotReadyLocalEulerAngles;
+	public Vector3 VehicleReadyLocalPosition => m_VehicleReadyLocalPosition;
+	public Vector3 VehicleReadyLocalEulerAngles => m_VehicleReadyLocalEulerAngles;
+	public Vector3 VehicleNotReadyIkLocalPosition => m_VehicleNotReadyIkLocalPosition;
+	public Vector3 VehicleNotReadyIkLocalEulerAngles => m_VehicleNotReadyIkLocalEulerAngles;
+	public Vector3 VehicleReadyIkLocalPosition => m_VehicleReadyIkLocalPosition;
+	public Vector3 VehicleReadyIkLocalEulerAngles => m_VehicleReadyIkLocalEulerAngles;
+	public Vector3 VehicleLeftNotReadyIkLocalPosition => m_VehicleLeftNotReadyIkLocalPosition;
+	public Vector3 VehicleLeftNotReadyIkLocalEulerAngles => m_VehicleLeftNotReadyIkLocalEulerAngles;
+	public Vector3 VehicleLeftReadyIkLocalPosition => m_VehicleLeftReadyIkLocalPosition;
+	public Vector3 VehicleLeftReadyIkLocalEulerAngles => m_VehicleLeftReadyIkLocalEulerAngles;
+
+	public Vector3 NotReadyLocalPosition => ResolveByPosture(
+		m_NotReadyLocalPosition, m_CrouchNotReadyLocalPosition, m_VehicleNotReadyLocalPosition);
+	public Vector3 NotReadyLocalEulerAngles => ResolveByPosture(
+		m_NotReadyLocalEulerAngles, m_CrouchNotReadyLocalEulerAngles, m_VehicleNotReadyLocalEulerAngles);
+	public Vector3 ReadyLocalPosition => ResolveByPosture(
+		m_ReadyLocalPosition, m_CrouchReadyLocalPosition, m_VehicleReadyLocalPosition);
+	public Vector3 ReadyLocalEulerAngles => ResolveByPosture(
+		m_ReadyLocalEulerAngles, m_CrouchReadyLocalEulerAngles, m_VehicleReadyLocalEulerAngles);
+	public Vector3 NotReadyIkLocalPosition => ResolveByPosture(
+		m_NotReadyIkLocalPosition, m_CrouchNotReadyIkLocalPosition, m_VehicleNotReadyIkLocalPosition);
+	public Vector3 NotReadyIkLocalEulerAngles => ResolveByPosture(
+		m_NotReadyIkLocalEulerAngles, m_CrouchNotReadyIkLocalEulerAngles, m_VehicleNotReadyIkLocalEulerAngles);
+	public Vector3 ReadyIkLocalPosition => ResolveByPosture(
+		m_ReadyIkLocalPosition, m_CrouchReadyIkLocalPosition, m_VehicleReadyIkLocalPosition);
+	public Vector3 ReadyIkLocalEulerAngles => ResolveByPosture(
+		m_ReadyIkLocalEulerAngles, m_CrouchReadyIkLocalEulerAngles, m_VehicleReadyIkLocalEulerAngles);
+	public Vector3 LeftNotReadyIkLocalPosition => ResolveByPosture(
+		m_LeftNotReadyIkLocalPosition, m_CrouchLeftNotReadyIkLocalPosition, m_VehicleLeftNotReadyIkLocalPosition);
+	public Vector3 LeftNotReadyIkLocalEulerAngles => ResolveByPosture(
+		m_LeftNotReadyIkLocalEulerAngles, m_CrouchLeftNotReadyIkLocalEulerAngles, m_VehicleLeftNotReadyIkLocalEulerAngles);
+	public Vector3 LeftReadyIkLocalPosition => ResolveByPosture(
+		m_LeftReadyIkLocalPosition, m_CrouchLeftReadyIkLocalPosition, m_VehicleLeftReadyIkLocalPosition);
+	public Vector3 LeftReadyIkLocalEulerAngles => ResolveByPosture(
+		m_LeftReadyIkLocalEulerAngles, m_CrouchLeftReadyIkLocalEulerAngles, m_VehicleLeftReadyIkLocalEulerAngles);
 	public UnitEquipment UnitEquipment => m_UnitEquipment;
 	public bool UsesRocketLauncherContext =>
 		m_RocketLauncherOrder != null &&
@@ -338,6 +382,7 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 
 		LoadStandingFromDefinition(def);
 		LoadCrouchFromDefinition(def);
+		LoadVehicleFromDefinition(def);
 
 		CaptureIkFromTargetsIfUnset();
 		ApplyActiveTargetPoseToWeapon();
@@ -414,7 +459,62 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 		}
 	}
 
-	/// <summary>Copy standing captured buffers into crouch buffers (tuner only — does not touch asset).</summary>
+	public void LoadVehicleFromDefinition(ItemDefinition _def)
+	{
+		if (_def == null)
+			return;
+
+		m_VehicleNotReadyLocalPosition = _def.VehicleRightHandLocalPosition;
+		m_VehicleNotReadyLocalEulerAngles = _def.VehicleRightHandLocalEulerAngles;
+
+		m_VehicleReadyLocalPosition = _def.VehicleRightHandReadyLocalPosition;
+		m_VehicleReadyLocalEulerAngles = _def.VehicleRightHandReadyLocalEulerAngles;
+		if (ShouldSeedReadyWeaponPoseFromNotReady(
+			    m_VehicleNotReadyLocalPosition,
+			    m_VehicleNotReadyLocalEulerAngles,
+			    m_VehicleReadyLocalPosition,
+			    m_VehicleReadyLocalEulerAngles))
+		{
+			m_VehicleReadyLocalPosition = m_VehicleNotReadyLocalPosition;
+			m_VehicleReadyLocalEulerAngles = m_VehicleNotReadyLocalEulerAngles;
+		}
+
+		m_VehicleNotReadyIkLocalPosition = _def.VehicleRightHandIkNotReadyLocalPosition;
+		m_VehicleNotReadyIkLocalEulerAngles = _def.VehicleRightHandIkNotReadyLocalEulerAngles;
+		m_VehicleReadyIkLocalPosition = _def.VehicleRightHandIkReadyLocalPosition;
+		m_VehicleReadyIkLocalEulerAngles = _def.VehicleRightHandIkReadyLocalEulerAngles;
+
+		if (!IsLeftHandIkDrivenByForegrip)
+		{
+			m_VehicleLeftNotReadyIkLocalPosition = _def.VehicleLeftHandIkNotReadyLocalPosition;
+			m_VehicleLeftNotReadyIkLocalEulerAngles = _def.VehicleLeftHandIkNotReadyLocalEulerAngles;
+			m_VehicleLeftReadyIkLocalPosition = _def.VehicleLeftHandIkReadyLocalPosition;
+			m_VehicleLeftReadyIkLocalEulerAngles = _def.VehicleLeftHandIkReadyLocalEulerAngles;
+		}
+	}
+
+	/// <summary>Copy standing captured buffers into vehicle buffers (tuner only).</summary>
+	public void CopyStandingCaptureToVehicleCapture()
+	{
+		m_VehicleNotReadyLocalPosition = m_NotReadyLocalPosition;
+		m_VehicleNotReadyLocalEulerAngles = m_NotReadyLocalEulerAngles;
+		m_VehicleReadyLocalPosition = m_ReadyLocalPosition;
+		m_VehicleReadyLocalEulerAngles = m_ReadyLocalEulerAngles;
+		m_VehicleNotReadyIkLocalPosition = m_NotReadyIkLocalPosition;
+		m_VehicleNotReadyIkLocalEulerAngles = m_NotReadyIkLocalEulerAngles;
+		m_VehicleReadyIkLocalPosition = m_ReadyIkLocalPosition;
+		m_VehicleReadyIkLocalEulerAngles = m_ReadyIkLocalEulerAngles;
+		m_VehicleLeftNotReadyIkLocalPosition = m_LeftNotReadyIkLocalPosition;
+		m_VehicleLeftNotReadyIkLocalEulerAngles = m_LeftNotReadyIkLocalEulerAngles;
+		m_VehicleLeftReadyIkLocalPosition = m_LeftReadyIkLocalPosition;
+		m_VehicleLeftReadyIkLocalEulerAngles = m_LeftReadyIkLocalEulerAngles;
+
+		if (m_ActivePosture == TuningPosture.Vehicle)
+		{
+			ApplyActiveTargetPoseToWeapon();
+			ApplyStoredIkToTargets();
+		}
+	}
 	public void CopyStandingCaptureToCrouchCapture()
 	{
 		m_CrouchNotReadyLocalPosition = m_NotReadyLocalPosition;
@@ -649,6 +749,23 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 				$"  m_CrouchLeftHandIkReadyLocalEulerAngles: {{x: {Format(m_CrouchLeftReadyIkLocalEulerAngles.x)}, y: {Format(m_CrouchLeftReadyIkLocalEulerAngles.y)}, z: {Format(m_CrouchLeftReadyIkLocalEulerAngles.z)}}}";
 		}
 
+		if (_posture == TuningPosture.Vehicle)
+		{
+			return
+				$"  m_VehicleRightHandLocalPosition: {{x: {Format(m_VehicleNotReadyLocalPosition.x)}, y: {Format(m_VehicleNotReadyLocalPosition.y)}, z: {Format(m_VehicleNotReadyLocalPosition.z)}}}\n" +
+				$"  m_VehicleRightHandLocalEulerAngles: {{x: {Format(m_VehicleNotReadyLocalEulerAngles.x)}, y: {Format(m_VehicleNotReadyLocalEulerAngles.y)}, z: {Format(m_VehicleNotReadyLocalEulerAngles.z)}}}\n" +
+				$"  m_VehicleRightHandReadyLocalPosition: {{x: {Format(m_VehicleReadyLocalPosition.x)}, y: {Format(m_VehicleReadyLocalPosition.y)}, z: {Format(m_VehicleReadyLocalPosition.z)}}}\n" +
+				$"  m_VehicleRightHandReadyLocalEulerAngles: {{x: {Format(m_VehicleReadyLocalEulerAngles.x)}, y: {Format(m_VehicleReadyLocalEulerAngles.y)}, z: {Format(m_VehicleReadyLocalEulerAngles.z)}}}\n" +
+				$"  m_VehicleRightHandIkNotReadyLocalPosition: {{x: {Format(m_VehicleNotReadyIkLocalPosition.x)}, y: {Format(m_VehicleNotReadyIkLocalPosition.y)}, z: {Format(m_VehicleNotReadyIkLocalPosition.z)}}}\n" +
+				$"  m_VehicleRightHandIkNotReadyLocalEulerAngles: {{x: {Format(m_VehicleNotReadyIkLocalEulerAngles.x)}, y: {Format(m_VehicleNotReadyIkLocalEulerAngles.y)}, z: {Format(m_VehicleNotReadyIkLocalEulerAngles.z)}}}\n" +
+				$"  m_VehicleRightHandIkReadyLocalPosition: {{x: {Format(m_VehicleReadyIkLocalPosition.x)}, y: {Format(m_VehicleReadyIkLocalPosition.y)}, z: {Format(m_VehicleReadyIkLocalPosition.z)}}}\n" +
+				$"  m_VehicleRightHandIkReadyLocalEulerAngles: {{x: {Format(m_VehicleReadyIkLocalEulerAngles.x)}, y: {Format(m_VehicleReadyIkLocalEulerAngles.y)}, z: {Format(m_VehicleReadyIkLocalEulerAngles.z)}}}\n" +
+				$"  m_VehicleLeftHandIkNotReadyLocalPosition: {{x: {Format(m_VehicleLeftNotReadyIkLocalPosition.x)}, y: {Format(m_VehicleLeftNotReadyIkLocalPosition.y)}, z: {Format(m_VehicleLeftNotReadyIkLocalPosition.z)}}}\n" +
+				$"  m_VehicleLeftHandIkNotReadyLocalEulerAngles: {{x: {Format(m_VehicleLeftNotReadyIkLocalEulerAngles.x)}, y: {Format(m_VehicleLeftNotReadyIkLocalEulerAngles.y)}, z: {Format(m_VehicleLeftNotReadyIkLocalEulerAngles.z)}}}\n" +
+				$"  m_VehicleLeftHandIkReadyLocalPosition: {{x: {Format(m_VehicleLeftReadyIkLocalPosition.x)}, y: {Format(m_VehicleLeftReadyIkLocalPosition.y)}, z: {Format(m_VehicleLeftReadyIkLocalPosition.z)}}}\n" +
+				$"  m_VehicleLeftHandIkReadyLocalEulerAngles: {{x: {Format(m_VehicleLeftReadyIkLocalEulerAngles.x)}, y: {Format(m_VehicleLeftReadyIkLocalEulerAngles.y)}, z: {Format(m_VehicleLeftReadyIkLocalEulerAngles.z)}}}";
+		}
+
 		return
 			$"  m_RightHandLocalPosition: {{x: {Format(m_NotReadyLocalPosition.x)}, y: {Format(m_NotReadyLocalPosition.y)}, z: {Format(m_NotReadyLocalPosition.z)}}}\n" +
 			$"  m_RightHandLocalEulerAngles: {{x: {Format(m_NotReadyLocalEulerAngles.x)}, y: {Format(m_NotReadyLocalEulerAngles.y)}, z: {Format(m_NotReadyLocalEulerAngles.z)}}}\n" +
@@ -670,10 +787,12 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 	#region Private Methods
 	private void BeginTuningSession()
 	{
+		m_ActiveTarget = TuningTarget.HandsFrozen;
+		m_LastAppliedTarget = TuningTarget.HandsFrozen;
 		LoadFromEquippedDefinition();
 		Debug.Log(
-			"[WeaponPoseTuner] ON — pick Standing or Crouch posture, then Hands Frozen → Not Ready → Ready. " +
-			"Save Standing To Asset / Save Crouch To Asset separately.",
+			"[WeaponPoseTuner] ON — ActiveTarget reset to Hands Frozen. " +
+			"Set Active Posture (Standing/Crouch/Vehicle), then Hands Frozen → Not Ready → Ready.",
 			this);
 	}
 
@@ -685,103 +804,73 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 		Debug.Log("[WeaponPoseTuner] OFF — pose driven from ItemDefinition again.", this);
 	}
 
-	private void SetActiveNotReadyLocalPosition(Vector3 _value)
+	private Vector3 ResolveByPosture(Vector3 _standing, Vector3 _crouch, Vector3 _vehicle)
 	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchNotReadyLocalPosition = _value;
-		else
-			m_NotReadyLocalPosition = _value;
+		return m_ActivePosture == TuningPosture.Crouch ? _crouch
+			: m_ActivePosture == TuningPosture.Vehicle ? _vehicle
+			: _standing;
 	}
+
+	private T GetByPosture<T>(T _standing, T _crouch, T _vehicle)
+	{
+		return m_ActivePosture == TuningPosture.Crouch ? _crouch
+			: m_ActivePosture == TuningPosture.Vehicle ? _vehicle
+			: _standing;
+	}
+
+	private void SetByPosture(ref Vector3 _standing, ref Vector3 _crouch, ref Vector3 _vehicle, Vector3 _value)
+	{
+		switch (m_ActivePosture)
+		{
+			case TuningPosture.Crouch: _crouch = _value; break;
+			case TuningPosture.Vehicle: _vehicle = _value; break;
+			default: _standing = _value; break;
+		}
+	}
+
+	private void SetActiveNotReadyLocalPosition(Vector3 _value)
+		=> SetByPosture(ref m_NotReadyLocalPosition, ref m_CrouchNotReadyLocalPosition, ref m_VehicleNotReadyLocalPosition, _value);
 
 	private void SetActiveNotReadyLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchNotReadyLocalEulerAngles = _value;
-		else
-			m_NotReadyLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_NotReadyLocalEulerAngles, ref m_CrouchNotReadyLocalEulerAngles, ref m_VehicleNotReadyLocalEulerAngles, _value);
 
 	private void SetActiveReadyLocalPosition(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchReadyLocalPosition = _value;
-		else
-			m_ReadyLocalPosition = _value;
-	}
+		=> SetByPosture(ref m_ReadyLocalPosition, ref m_CrouchReadyLocalPosition, ref m_VehicleReadyLocalPosition, _value);
 
 	private void SetActiveReadyLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchReadyLocalEulerAngles = _value;
-		else
-			m_ReadyLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_ReadyLocalEulerAngles, ref m_CrouchReadyLocalEulerAngles, ref m_VehicleReadyLocalEulerAngles, _value);
 
 	private void SetActiveNotReadyIkLocalPosition(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchNotReadyIkLocalPosition = _value;
-		else
-			m_NotReadyIkLocalPosition = _value;
-	}
+		=> SetByPosture(ref m_NotReadyIkLocalPosition, ref m_CrouchNotReadyIkLocalPosition, ref m_VehicleNotReadyIkLocalPosition, _value);
 
 	private void SetActiveNotReadyIkLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchNotReadyIkLocalEulerAngles = _value;
-		else
-			m_NotReadyIkLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_NotReadyIkLocalEulerAngles, ref m_CrouchNotReadyIkLocalEulerAngles, ref m_VehicleNotReadyIkLocalEulerAngles, _value);
 
 	private void SetActiveReadyIkLocalPosition(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchReadyIkLocalPosition = _value;
-		else
-			m_ReadyIkLocalPosition = _value;
-	}
+		=> SetByPosture(ref m_ReadyIkLocalPosition, ref m_CrouchReadyIkLocalPosition, ref m_VehicleReadyIkLocalPosition, _value);
 
 	private void SetActiveReadyIkLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchReadyIkLocalEulerAngles = _value;
-		else
-			m_ReadyIkLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_ReadyIkLocalEulerAngles, ref m_CrouchReadyIkLocalEulerAngles, ref m_VehicleReadyIkLocalEulerAngles, _value);
 
 	private void SetActiveLeftNotReadyIkLocalPosition(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchLeftNotReadyIkLocalPosition = _value;
-		else
-			m_LeftNotReadyIkLocalPosition = _value;
-	}
+		=> SetByPosture(ref m_LeftNotReadyIkLocalPosition, ref m_CrouchLeftNotReadyIkLocalPosition, ref m_VehicleLeftNotReadyIkLocalPosition, _value);
 
 	private void SetActiveLeftNotReadyIkLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchLeftNotReadyIkLocalEulerAngles = _value;
-		else
-			m_LeftNotReadyIkLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_LeftNotReadyIkLocalEulerAngles, ref m_CrouchLeftNotReadyIkLocalEulerAngles, ref m_VehicleLeftNotReadyIkLocalEulerAngles, _value);
 
 	private void SetActiveLeftReadyIkLocalPosition(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchLeftReadyIkLocalPosition = _value;
-		else
-			m_LeftReadyIkLocalPosition = _value;
-	}
+		=> SetByPosture(ref m_LeftReadyIkLocalPosition, ref m_CrouchLeftReadyIkLocalPosition, ref m_VehicleLeftReadyIkLocalPosition, _value);
 
 	private void SetActiveLeftReadyIkLocalEulerAngles(Vector3 _value)
-	{
-		if (m_ActivePosture == TuningPosture.Crouch)
-			m_CrouchLeftReadyIkLocalEulerAngles = _value;
-		else
-			m_LeftReadyIkLocalEulerAngles = _value;
-	}
+		=> SetByPosture(ref m_LeftReadyIkLocalEulerAngles, ref m_CrouchLeftReadyIkLocalEulerAngles, ref m_VehicleLeftReadyIkLocalEulerAngles, _value);
 
 	private void CaptureIkFromTargetsIfUnset()
+	{
+		CaptureStandingIkFromTargetsIfUnset();
+		SeedUnsetPostureBuffersFromStanding();
+	}
+
+	private void CaptureStandingIkFromTargetsIfUnset()
 	{
 		if (m_NotReadyIkLocalPosition == Vector3.zero && m_NotReadyIkLocalEulerAngles == Vector3.zero)
 		{
@@ -824,6 +913,80 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 				m_LeftReadyIkLocalEulerAngles = t.localEulerAngles;
 			}
 		}
+	}
+
+	/// <summary>
+	/// When crouch/vehicle asset fields are empty, seed capture buffers from standing so
+	/// Save Crouch / Save Vehicle do not write zeros over a blank posture set.
+	/// </summary>
+	private void SeedUnsetPostureBuffersFromStanding()
+	{
+		if (IsPoseBufferEmpty(
+			    m_CrouchNotReadyLocalPosition,
+			    m_CrouchNotReadyLocalEulerAngles,
+			    m_CrouchReadyLocalPosition,
+			    m_CrouchReadyLocalEulerAngles)
+		    && IsPoseBufferEmpty(
+			    m_CrouchNotReadyIkLocalPosition,
+			    m_CrouchNotReadyIkLocalEulerAngles,
+			    m_CrouchReadyIkLocalPosition,
+			    m_CrouchReadyIkLocalEulerAngles)
+		    && IsPoseBufferEmpty(
+			    m_CrouchLeftNotReadyIkLocalPosition,
+			    m_CrouchLeftNotReadyIkLocalEulerAngles,
+			    m_CrouchLeftReadyIkLocalPosition,
+			    m_CrouchLeftReadyIkLocalEulerAngles))
+		{
+			m_CrouchNotReadyLocalPosition = m_NotReadyLocalPosition;
+			m_CrouchNotReadyLocalEulerAngles = m_NotReadyLocalEulerAngles;
+			m_CrouchReadyLocalPosition = m_ReadyLocalPosition;
+			m_CrouchReadyLocalEulerAngles = m_ReadyLocalEulerAngles;
+			m_CrouchNotReadyIkLocalPosition = m_NotReadyIkLocalPosition;
+			m_CrouchNotReadyIkLocalEulerAngles = m_NotReadyIkLocalEulerAngles;
+			m_CrouchReadyIkLocalPosition = m_ReadyIkLocalPosition;
+			m_CrouchReadyIkLocalEulerAngles = m_ReadyIkLocalEulerAngles;
+			m_CrouchLeftNotReadyIkLocalPosition = m_LeftNotReadyIkLocalPosition;
+			m_CrouchLeftNotReadyIkLocalEulerAngles = m_LeftNotReadyIkLocalEulerAngles;
+			m_CrouchLeftReadyIkLocalPosition = m_LeftReadyIkLocalPosition;
+			m_CrouchLeftReadyIkLocalEulerAngles = m_LeftReadyIkLocalEulerAngles;
+		}
+
+		if (IsPoseBufferEmpty(
+			    m_VehicleNotReadyLocalPosition,
+			    m_VehicleNotReadyLocalEulerAngles,
+			    m_VehicleReadyLocalPosition,
+			    m_VehicleReadyLocalEulerAngles)
+		    && IsPoseBufferEmpty(
+			    m_VehicleNotReadyIkLocalPosition,
+			    m_VehicleNotReadyIkLocalEulerAngles,
+			    m_VehicleReadyIkLocalPosition,
+			    m_VehicleReadyIkLocalEulerAngles)
+		    && IsPoseBufferEmpty(
+			    m_VehicleLeftNotReadyIkLocalPosition,
+			    m_VehicleLeftNotReadyIkLocalEulerAngles,
+			    m_VehicleLeftReadyIkLocalPosition,
+			    m_VehicleLeftReadyIkLocalEulerAngles))
+		{
+			m_VehicleNotReadyLocalPosition = m_NotReadyLocalPosition;
+			m_VehicleNotReadyLocalEulerAngles = m_NotReadyLocalEulerAngles;
+			m_VehicleReadyLocalPosition = m_ReadyLocalPosition;
+			m_VehicleReadyLocalEulerAngles = m_ReadyLocalEulerAngles;
+			m_VehicleNotReadyIkLocalPosition = m_NotReadyIkLocalPosition;
+			m_VehicleNotReadyIkLocalEulerAngles = m_NotReadyIkLocalEulerAngles;
+			m_VehicleReadyIkLocalPosition = m_ReadyIkLocalPosition;
+			m_VehicleReadyIkLocalEulerAngles = m_ReadyIkLocalEulerAngles;
+			m_VehicleLeftNotReadyIkLocalPosition = m_LeftNotReadyIkLocalPosition;
+			m_VehicleLeftNotReadyIkLocalEulerAngles = m_LeftNotReadyIkLocalEulerAngles;
+			m_VehicleLeftReadyIkLocalPosition = m_LeftReadyIkLocalPosition;
+			m_VehicleLeftReadyIkLocalEulerAngles = m_LeftReadyIkLocalEulerAngles;
+		}
+	}
+
+	private static bool IsPoseBufferEmpty(
+		Vector3 _aPos, Vector3 _aEuler, Vector3 _bPos, Vector3 _bEuler)
+	{
+		return _aPos == Vector3.zero && _aEuler == Vector3.zero
+		       && _bPos == Vector3.zero && _bEuler == Vector3.zero;
 	}
 
 	private static void EnsureChildEmpty(

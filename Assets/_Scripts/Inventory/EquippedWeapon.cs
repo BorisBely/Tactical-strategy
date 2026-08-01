@@ -70,7 +70,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	#region Serialized Fields — прочее
 	[Header("Визуал отдачи")]
-	[Tooltip("Необязательно: отдельный узел для kick. Если пусто — UnitWeaponVisualRecoilKick крутит корень оружия целиком (после позы аниматора накладывается отдача).")]
+	[Tooltip("Необязательно: отдельный узел для kick. Если пусто — UnitWeaponRecoil крутит корень оружия целиком.")]
 	[SerializeField] private Transform m_VisualRecoilKickPivot;
 
 	[Header("Визуал затвора / dust cover")]

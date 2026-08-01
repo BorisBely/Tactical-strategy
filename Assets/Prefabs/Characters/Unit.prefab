@@ -7903,6 +7903,7 @@ GameObject:
   - component: {fileID: 647898583761294423}
   - component: {fileID: 647898583761294424}
   - component: {fileID: 647898583761294505}
+  - component: {fileID: 7912499842099294816}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -8115,6 +8116,7 @@ MonoBehaviour:
   m_LogReadyMoveFacingMismatch: 0
   m_LogReadyMoveFacingIntervalSeconds: 0.25
   m_LogReadyMoveFacingMinDeltaDegrees: 2
+  m_EngageRootFacingWhenBarrelOffsetExceeds: 25
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
 --- !u!114 &3503617795371132269
@@ -8221,6 +8223,7 @@ MonoBehaviour:
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  m_EngageRootFacingWhenBarrelOffsetExceeds: 25
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
 --- !u!114 &3741241907743255212
@@ -8448,6 +8451,7 @@ MonoBehaviour:
   m_RocketLauncherOrder: {fileID: 0}
   m_Stance: {fileID: 0}
   m_Animator: {fileID: 0}
+  m_VehiclePassengerState: {fileID: 0}
   m_ReadyPoseBlendDuration: 0.28
   m_ReadyPoseBlendCurve:
     serializedVersion: 2
@@ -8499,6 +8503,10 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
+  m_EnterReadyClip: {fileID: 8300000, guid: 7ee343a066bc66646bde96cf283f3633, type: 3}
+  m_EnterNotReadyClip: {fileID: 8300000, guid: a6ddd658e53ff1046bcc3d4d9b3d202a, type: 3}
+  m_ReadyTransitionVolume: 0.55
+  m_ReadyTransitionSpatialMaxDistance: 18
 --- !u!114 &3806570450536705422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8836,7 +8844,7 @@ MonoBehaviour:
   m_AimProgressController: {fileID: 0}
   m_FireDisciplineController: {fileID: 4829173650182746501}
   m_RecoilController: {fileID: 0}
-  m_VisualRecoilKick: {fileID: 0}
+  m_WeaponRecoil: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_Stance: {fileID: 3741241907743255212}
   m_Team: {fileID: 0}
@@ -8982,6 +8990,10 @@ MonoBehaviour:
   m_CombatCondition: {fileID: 0}
   m_StanceCombatModifiers: {fileID: 0}
   m_MaxRecoilPenalty: 30
+  m_RecoilSpreadScale: 0.15
+  m_VisualPitchPerPenalty: 0.65
+  m_VisualBackPerPenalty: 0.0035
+  m_VisualUpPerPenalty: 0.0015
   m_RecoveryWhileFiringMultiplier: 0.7
   m_RecoveryWhenNotReadyMultiplier: 1.2
   m_DebugLastRecoilAdded: 0
@@ -9003,35 +9015,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponVisualRecoilKick
   m_Equipment: {fileID: 5322687323565292150}
-  m_WeaponRuntime: {fileID: 1512094426153763378}
-  m_FireController: {fileID: 8854059317223957988}
   m_RecoilController: {fileID: 2745828861811900171}
   m_RagdollController: {fileID: 0}
   m_RuntimeTuner: {fileID: 0}
   m_KickTransformOverride: {fileID: 0}
-  m_PitchDegreesPerPenaltyUnit: 1.55
-  m_YawJitterFraction: 0.55
-  m_ShoulderRecoilBackMetersPerPenaltyUnit: 0.012
-  m_ShoulderRecoilUpMetersPerPenaltyUnit: 0.004
-  m_SingleShotVisualKickMultiplier: 1.35
-  m_FullAutoRecoilControlStartShot: 5
-  m_FullAutoRecoilControlEndShot: 10
-  m_FullAutoControlledPitchScale: 0.38
-  m_FullAutoControlledYawReferenceScale: 1
-  m_FullAutoControlledYawBoost: 1.2
-  m_FullAutoControlledYawFraction: 1.05
-  m_FullAutoYawChaosFraction: 0.22
-  m_FullAutoRecoilControlSkillInfluence: 0.65
-  m_CombatStats: {fileID: 3408199974750778793}
-  m_VisualRecoveryPerSecond: 1.05
-  m_VisualRecoveryWhileFiringPerSecond: 3.6
-  m_SingleShotRecoveryDelaySeconds: 0.14
-  m_VisualRecoveryFromWeaponScale: 0.25
-  m_RecoveryWhileFiringMultiplier: 0.7
-  m_FallbackVisualRecovery: 1.05
-  m_AnimatorReplaceAngleSlopDegrees: 0.35
-  m_AnimatorReplacePositionSlopMeters: 0.0015
-  m_LogVisualKick: 0
+  m_EquippedWeaponPose: {fileID: 0}
+  m_MaxVisualPitch: 12
+  m_YawNoiseScale: 0.25
+  m_YawNoiseSpeed: 0.7
+  m_ImpulsePitchScale: 0.1
+  m_ImpulseBackScale: 0.0005
+  m_ImpulseUpScale: 0.0002
+  m_ImpulseSmoothTime: 0.04
+  m_HandPitch: 0.45
+  m_HandYaw: 0.35
+  m_HandBack: 0.5
+  m_HandUp: 0.4
 --- !u!114 &8082661923994252123
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9179,7 +9178,11 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_GrenadeThrow: {fileID: 0}
   m_RocketLauncherOrder: {fileID: 0}
+  m_WeaponRecoil: {fileID: 0}
+  m_ClickToMove: {fileID: 0}
+  m_LocomotionDriver: {fileID: 0}
   m_Stance: {fileID: 0}
+  m_VehiclePassengerState: {fileID: 0}
   m_LeftHandPositionWeight: 1
   m_LeftHandRotationWeight: 1
   m_RightHandPositionWeight: 1
@@ -10179,6 +10182,10 @@ MonoBehaviour:
   m_RuntimeTuner: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 0}
   m_Stance: {fileID: 0}
+  m_FireController: {fileID: 0}
+  m_FireDisciplineController: {fileID: 0}
+  m_WeaponAiming: {fileID: 0}
+  m_AnimatorWeaponMode: {fileID: 0}
   m_DrawAimTrajectoryGizmo: 1
   m_AimTrajectoryColor: {r: 1, g: 0.55, b: 0.1, a: 0.95}
   m_AimImpactColor: {r: 1, g: 0.2, b: 0.15, a: 0.9}
@@ -10200,6 +10207,39 @@ MonoBehaviour:
   m_HideDistanceMeters: 45
   m_LodCheckIntervalSeconds: 0.2
   m_ForceVisibleInEditor: 0
+--- !u!114 &7912499842099294816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3e8f1a24b9d4e6a8f0c1d2e3a4b5c6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitStabilizedUnconsciousPoseController
+  m_Health: {fileID: 0}
+  m_Consciousness: {fileID: 7912499842099294812}
+  m_RagdollController: {fileID: 0}
+  m_Animator: {fileID: 0}
+  m_ReadyHands: {fileID: 0}
+  m_NavMeshAgent: {fileID: 1240021153989011070}
+  m_LayerWeightFadeInSeconds: 0.2
+  m_LayerWeightFadeOutSeconds: 0.75
+  m_DeathLimbImpulse: 0.55
+  m_DeathLimbTorque: 0.35
+  m_GroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_GroundSkinMeters: 0.03
+  m_HipsClearanceMeters: 0.07
+  m_GroundProbeUpMeters: 2
+  m_GroundProbeDownMeters: 4
+  m_GroundSnapMaxStepMeters: 0.45
+  m_IsSleepPoseActive: 0
+  m_ExternalPoseOverride: 0
+  m_DebugLayerWeight: 0
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

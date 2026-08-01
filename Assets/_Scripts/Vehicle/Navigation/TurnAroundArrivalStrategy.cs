@@ -16,7 +16,10 @@ namespace VehicleNavigation
 			var maneuvers = new List<Maneuver>();
 			float sign = _a.HeadingError > 0f ? 1f : -1f;
 			maneuvers.Add(new TurnAroundManeuver(sign));
-			maneuvers.Add(new ForwardManeuver());
+
+			// Short alignment only if there's distance to cover after turn
+			if (_a.Distance > 4f)
+				maneuvers.Add(new PostTurnAlignmentManeuver());
 
 			if (_heading.HasValue)
 				maneuvers.Add(new ApproachWithHeadingManeuver(_target, _heading.Value));

@@ -236,7 +236,7 @@ MonoBehaviour:
   m_ExplosionPrefab: {fileID: 1273314581925930, guid: c73519d76f0a4eb409d0fcdc54d48d83, type: 3}
   m_ExplosionVfxScale: 2.15
   m_ExplosionVfxDurationSeconds: 5.5
-  m_ExplosionMaxDistanceMeters: 95
+  m_ExplosionMaxDistanceMeters: 600
   m_ExplosionVfxYawOffsetDegrees: 0
   m_EnableFireMuzzleVfx: 1
   m_FireMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}

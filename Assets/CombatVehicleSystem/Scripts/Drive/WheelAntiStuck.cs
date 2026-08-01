@@ -2,6 +2,10 @@ using UnityEngine;
 
 namespace CombatVehicleSystem
 {
+	/// <summary>
+	/// Soft LPVC-style radius inflate against obstacles (not ground) to reduce curb stuck.
+	/// Caps offset so it cannot launch the chassis like the old unrestricted wake inflate.
+	/// </summary>
 	[RequireComponent(typeof(WheelCollider))]
 	public class WheelAntiStuck : MonoBehaviour
 	{
@@ -13,10 +17,7 @@ namespace CombatVehicleSystem
 		[SerializeField] private float m_WheelWidth = 0.3f;
 		[SerializeField] private float m_CorrectionSpeed = 6f;
 		[SerializeField, Min(0f)] private float m_MaxRadiusOffset = 0.08f;
-		[SerializeField, Min(0f)] private float m_MaxSpeedKmh = 5f;
-		[SerializeField, Min(0f)] private float m_StuckHoldSeconds = 0.5f;
-		[SerializeField, Min(0f)] private float m_StuckSpeedKmh = 0.3f;
-		[SerializeField] private float m_ReturnSpeed = 1.5f;
+		[SerializeField, Min(0f)] private float m_MaxSpeedKmh = 25f;
 		#endregion
 
 		#region Private Fields
@@ -25,9 +26,6 @@ namespace CombatVehicleSystem
 		private Transform m_Root;
 		private Rigidbody m_Body;
 		private int m_ObstacleMask;
-		private float m_StuckTimer;
-		private bool m_IsStuck;
-		private float m_InflateTarget;
 		#endregion
 
 		#region Public Properties
@@ -54,48 +52,47 @@ namespace CombatVehicleSystem
 			if (!m_Enabled || m_WheelVisual == null || m_Collider == null)
 				return;
 
-			if (m_Body == null)
-				return;
-
-			float speedKmh = m_Body.linearVelocity.magnitude * 3.6f;
 			float dt = Time.fixedDeltaTime;
 
-			if (speedKmh > m_MaxSpeedKmh)
+			if (m_Body != null)
 			{
-				m_StuckTimer = 0f;
-				m_IsStuck = false;
-				ReturnToBaseRadius(dt);
-				return;
-			}
-
-			bool obstacleAhead = HasObstacle(out float neededOffset);
-			bool motorActive = Mathf.Abs(m_Collider.motorTorque) > 0.01f;
-			bool speedDead = speedKmh < m_StuckSpeedKmh;
-
-			if (obstacleAhead && motorActive && speedDead)
-			{
-				m_StuckTimer += dt;
-				if (m_StuckTimer >= m_StuckHoldSeconds)
+				float speedKmh = m_Body.linearVelocity.magnitude * 3.6f;
+				if (speedKmh > m_MaxSpeedKmh)
 				{
-					m_IsStuck = true;
-					m_InflateTarget = m_BaseRadius + Mathf.Min(neededOffset, m_MaxRadiusOffset);
+					m_Collider.radius = Mathf.Lerp(
+						m_Collider.radius,
+						m_BaseRadius,
+						dt * m_CorrectionSpeed);
+					return;
 				}
 			}
-			else
+
+			float radiusOffset = 0f;
+			for (int i = 0; i <= m_RayCount; i++)
 			{
-				m_StuckTimer = Mathf.Max(0f, m_StuckTimer - dt * 0.5f);
-				if (m_StuckTimer <= 0f)
-					m_IsStuck = false;
+				Vector3 rayDirection =
+					Quaternion.AngleAxis(m_Collider.steerAngle, transform.up) *
+					Quaternion.AngleAxis(
+						i * (m_RayArcDegrees / m_RayCount) + ((180f - m_RayArcDegrees) * 0.5f),
+						transform.right) *
+					transform.up;
+
+				SampleRay(m_WheelVisual.position, rayDirection, ref radiusOffset);
+				SampleRay(
+					m_WheelVisual.position + m_WheelVisual.right * m_WheelWidth * 0.5f,
+					rayDirection,
+					ref radiusOffset);
+				SampleRay(
+					m_WheelVisual.position - m_WheelVisual.right * m_WheelWidth * 0.5f,
+					rayDirection,
+					ref radiusOffset);
 			}
 
-			if (m_IsStuck)
-			{
-				m_Collider.radius = m_InflateTarget;
-			}
-			else
-			{
-				ReturnToBaseRadius(dt);
-			}
+			radiusOffset = Mathf.Min(radiusOffset, m_MaxRadiusOffset);
+			m_Collider.radius = Mathf.Lerp(
+				m_Collider.radius,
+				m_BaseRadius + radiusOffset,
+				dt * m_CorrectionSpeed);
 		}
 		#endregion
 
@@ -116,40 +113,9 @@ namespace CombatVehicleSystem
 		#endregion
 
 		#region Private Methods
-		private void ReturnToBaseRadius(float _dt)
-		{
-			float current = m_Collider.radius;
-			if (Mathf.Abs(current - m_BaseRadius) < 0.0005f)
-			{
-				m_Collider.radius = m_BaseRadius;
-				return;
-			}
-
-			m_Collider.radius = Mathf.MoveTowards(current, m_BaseRadius, m_ReturnSpeed * _dt);
-		}
-
-		private bool HasObstacle(out float _neededOffset)
-		{
-			_neededOffset = 0f;
-			for (int i = 0; i <= m_RayCount; i++)
-			{
-				float angle = i * (m_RayArcDegrees / m_RayCount) + ((180f - m_RayArcDegrees) * 0.5f);
-				Vector3 rayDirection =
-					Quaternion.AngleAxis(m_Collider.steerAngle, transform.up) *
-					Quaternion.AngleAxis(angle, transform.right) *
-					transform.up;
-
-				Vector3 origin = m_WheelVisual.position;
-				SampleRay(origin, rayDirection, ref _neededOffset);
-				SampleRay(origin + m_WheelVisual.right * m_WheelWidth * 0.5f, rayDirection, ref _neededOffset);
-				SampleRay(origin - m_WheelVisual.right * m_WheelWidth * 0.5f, rayDirection, ref _neededOffset);
-			}
-
-			return _neededOffset > 0.0005f;
-		}
-
 		private static int BuildObstacleMask()
 		{
+			// Inflate only against props / default geometry — not ground planes (that launches).
 			int mask = ~0;
 			int ground = LayerMask.NameToLayer("Ground");
 			int vehicle = LayerMask.NameToLayer("Vehicle");
@@ -168,15 +134,18 @@ namespace CombatVehicleSystem
 
 		private void SampleRay(Vector3 _origin, Vector3 _direction, ref float _radiusOffset)
 		{
-			float maxDist = m_BaseRadius + m_MaxRadiusOffset;
-			if (!Physics.Raycast(_origin, _direction, out RaycastHit hit, maxDist, m_ObstacleMask, QueryTriggerInteraction.Ignore))
+			if (!Physics.Raycast(
+				    _origin,
+				    _direction,
+				    out RaycastHit hit,
+				    m_BaseRadius + m_MaxRadiusOffset,
+				    m_ObstacleMask,
+				    QueryTriggerInteraction.Ignore))
 				return;
 			if (m_Root != null && hit.transform.IsChildOf(m_Root))
 				return;
 
-			float needed = m_BaseRadius - hit.distance;
-			if (needed > _radiusOffset)
-				_radiusOffset = needed;
+			_radiusOffset = Mathf.Max(_radiusOffset, m_BaseRadius - hit.distance);
 		}
 		#endregion
 	}

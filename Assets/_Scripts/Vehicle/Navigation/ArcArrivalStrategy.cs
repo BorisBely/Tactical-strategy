@@ -19,6 +19,8 @@ namespace VehicleNavigation
 				return ArrivalPlan.Invalid("angle out of arc range");
 			if (_a.LateralOffset < _s.SideOffsetThreshold * 0.5f)
 				return ArrivalPlan.Invalid("too straight for arc");
+			if (_a.Distance < _s.ArcMinDistance)
+				return ArrivalPlan.Invalid($"too close for arc (min {_s.ArcMinDistance:F1}m)");
 
 			var maneuvers = new List<Maneuver>();
 			float sign = _a.HeadingError > 0f ? 1f : -1f;

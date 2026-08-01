@@ -7,12 +7,9 @@ public static class UnitFallenStateUtility
 {
 	public static bool IsRtsControllable(RtsUnitMember _unit)
 	{
-		if (_unit == null || !_unit.isActiveAndEnabled || !_unit.IsPlayerSelectable)
+		if (_unit == null)
 			return false;
-		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit))
-			return false;
-
-		return !IsFallenOrDead(_unit);
+		return _unit.isActiveAndEnabled && _unit.IsPlayerSelectable && !MissionPrepSquadSpawner.IsMissionPrepPresentationMember(_unit) && !UnitVehicleMountState.IsUnitMounted(_unit) && !IsFallenOrDead(_unit);
 	}
 
 	public static bool IsFallenOrDead(RtsUnitMember _unit)

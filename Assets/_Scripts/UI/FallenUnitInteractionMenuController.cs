@@ -100,9 +100,22 @@ public sealed class FallenUnitInteractionMenuController : MonoBehaviour
 	#endregion
 
 	#region Public Methods
-	public void ShowForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)
+	public void ShowForUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition, bool _canStabilize = true)
 	{
-		ShowMenu(_targetUnit, _screenPosition, s_FallenMenuItems);
+		if (_canStabilize)
+		{
+			ShowMenu(_targetUnit, _screenPosition, s_FallenMenuItems);
+			return;
+		}
+
+		ShowMenu(
+			_targetUnit,
+			_screenPosition,
+			new[]
+			{
+				("Обмен", FallenUnitInteractionMenuAction.Exchange),
+				("Поднять", FallenUnitInteractionMenuAction.Lift)
+			});
 	}
 
 	public void ShowReleaseForCarryingUnit(RtsUnitMember _targetUnit, Vector2 _screenPosition)

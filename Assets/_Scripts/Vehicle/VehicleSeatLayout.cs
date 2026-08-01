@@ -71,6 +71,11 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 		new Dictionary<VehicleSeatId, RtsUnitMember>(8);
 	private readonly Dictionary<RtsUnitMember, VehicleSeatId> m_UnitToSeat =
 		new Dictionary<RtsUnitMember, VehicleSeatId>(8);
+
+	private readonly Dictionary<RtsUnitMember, VehicleSeatId> m_Reservations =
+		new Dictionary<RtsUnitMember, VehicleSeatId>(8);
+	private readonly HashSet<VehicleSeatId> m_ReservedSeats =
+		new HashSet<VehicleSeatId>();
 	#endregion
 
 	#region Events
@@ -318,6 +323,42 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 
 	public bool HasAnyFreeSeatForWounded() => TryAssignUnconscious(out _);
 
+	public void ReserveForBoarder(RtsUnitMember _unit, VehicleSeatId _seatId)
+	{
+		if (_unit == null)
+			return;
+		if (m_Reservations.TryGetValue(_unit, out VehicleSeatId old))
+			m_ReservedSeats.Remove(old);
+		m_Reservations[_unit] = _seatId;
+		m_ReservedSeats.Add(_seatId);
+	}
+
+	public void UnreserveForBoarder(RtsUnitMember _unit)
+	{
+		if (_unit == null)
+			return;
+		if (m_Reservations.TryGetValue(_unit, out VehicleSeatId seat))
+		{
+			m_ReservedSeats.Remove(seat);
+			m_Reservations.Remove(_unit);
+		}
+	}
+
+	public bool IsSeatReservedForOther(VehicleSeatId _seatId, RtsUnitMember _unit)
+	{
+		if (!m_ReservedSeats.Contains(_seatId))
+			return false;
+		if (_unit != null && m_Reservations.TryGetValue(_unit, out VehicleSeatId seat) && seat == _seatId)
+			return false;
+		return true;
+	}
+
+	public void ClearAllReservations()
+	{
+		m_Reservations.Clear();
+		m_ReservedSeats.Clear();
+	}
+
 	public bool HasAnyFreeLitter() => TryAssignLitter(out _);
 
 	public bool TryFindGunnerPromoteCandidate(out RtsUnitMember _unit)
@@ -373,6 +414,7 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 
 		m_Occupants[_seatId] = _unit;
 		m_UnitToSeat[_unit] = _seatId;
+		UnreserveForBoarder(_unit);
 		OccupancyChanged?.Invoke();
 	}
 
@@ -384,6 +426,7 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 		m_UnitToSeat.Remove(_unit);
 		if (m_Occupants.TryGetValue(seatId, out RtsUnitMember current) && current == _unit)
 			m_Occupants.Remove(seatId);
+		UnreserveForBoarder(_unit);
 		OccupancyChanged?.Invoke();
 	}
 
@@ -436,6 +479,9 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 		VehicleSeatId _seatId,
 		IReadOnlyCollection<VehicleSeatId> _alsoReserved)
 	{
+		if (m_ReservedSeats.Contains(_seatId))
+			return true;
+
 		if (_alsoReserved == null)
 			return false;
 
@@ -455,6 +501,8 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 		for (int i = 0; i < s_LivingBoardOrder.Length; i++)
 		{
 			VehicleSeatId seat = s_LivingBoardOrder[i];
+			if (m_ReservedSeats.Contains(seat))
+				continue;
 			if (!IsOccupied(seat))
 			{
 				_seatId = seat;

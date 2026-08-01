@@ -190,6 +190,17 @@ public sealed class UnitMagazineLoadingController : MonoBehaviour
 		StopLoadingInternal(false, false);
 	}
 
+	/// <summary>
+	/// Stops single-magazine and load-all sequences. Callers that listen to
+	/// <see cref="AllMagazinesLoadingCompleted"/> should unsubscribe first if they must not resume.
+	/// </summary>
+	public void StopAllLoading()
+	{
+		StopLoadAllMagazinesInternal(false);
+		if (m_IsLoadingMagazine)
+			StopLoadingInternal(false, false);
+	}
+
 	public bool TryStartLoadingAllMagazines()
 	{
 		if (m_IsLoadingAllMagazines)

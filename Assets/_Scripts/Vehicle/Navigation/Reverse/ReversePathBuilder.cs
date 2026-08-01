@@ -3,9 +3,6 @@ using UnityEngine;
 
 namespace VehicleNavigation
 {
-	/// <summary>
-	/// Builds a ReversePath from NavMesh corners with Catmull-Rom smoothing.
-	/// </summary>
 	public static class ReversePathBuilder
 	{
 		private const int c_SubdivisionsPerSegment = 4;
@@ -17,41 +14,87 @@ namespace VehicleNavigation
 				return path;
 
 			var corners = _navMeshPath.Corners;
-			var rawPoints = new List<Vector3>();
 
-			for (int i = 0; i < corners.Length; i++)
-				rawPoints.Add(corners[i]);
-
-			var smoothed = CatmullRomSmooth(rawPoints, c_SubdivisionsPerSegment);
-
-			float dist = 0f;
-			for (int i = 0; i < smoothed.Count; i++)
+			// Smoothing decision — by max corner angle, NOT by distance
+			float maxAngle = 0f;
+			for (int i = 0; i < corners.Length - 2; i++)
 			{
-				var pp = new PathPoint(smoothed[i]);
+				Vector3 ab = (corners[i + 1] - corners[i]).normalized;
+				Vector3 bc = (corners[i + 2] - corners[i + 1]).normalized;
+				maxAngle = Mathf.Max(maxAngle, Vector3.Angle(ab, bc));
+			}
+			bool needsSmooth = maxAngle > 10f;
+
+			List<Vector3> finalPoints;
+			if (needsSmooth)
+			{
+				var rawPoints = new List<Vector3>();
+				for (int i = 0; i < corners.Length; i++)
+					rawPoints.Add(corners[i]);
+				finalPoints = CatmullRomSmooth(rawPoints, c_SubdivisionsPerSegment);
+
+				// Destination MUST NOT be moved. Fix PRE-LAST point if heading changed.
+				int last = finalPoints.Count - 1;
+				if (last >= 2)
+				{
+					Vector3 origDir = (corners[corners.Length - 1] - corners[corners.Length - 2]).normalized;
+					Vector3 smoothDir = (finalPoints[last] - finalPoints[last - 1]).normalized;
+					if (Vector3.Angle(origDir, smoothDir) > 5f)
+					{
+						float segLen = Vector3.Distance(finalPoints[last - 1], finalPoints[last]);
+						finalPoints[last - 1] = finalPoints[last] - origDir * segLen;
+					}
+				}
+			}
+			else
+			{
+				finalPoints = new List<Vector3>(corners);
+			}
+
+			// Build PathPoints
+			float dist = 0f;
+			for (int i = 0; i < finalPoints.Count; i++)
+			{
+				var pp = new PathPoint(finalPoints[i]);
 				if (i == 0)
 				{
-					pp.Tangent = (smoothed[1] - smoothed[0]).normalized;
+					pp.Tangent = (finalPoints[1] - finalPoints[0]).normalized;
 				}
-				else if (i == smoothed.Count - 1)
+				else if (i == finalPoints.Count - 1)
 				{
-					pp.Tangent = (smoothed[i] - smoothed[i - 1]).normalized;
+					pp.Tangent = (finalPoints[i] - finalPoints[i - 1]).normalized;
 					pp.DistanceFromStart = dist;
 				}
 				else
 				{
-					pp.Tangent = (smoothed[i + 1] - smoothed[i - 1]).normalized;
+					pp.Tangent = (finalPoints[i + 1] - finalPoints[i - 1]).normalized;
 					pp.DistanceFromStart = dist;
 				}
 
-				pp.Curvature = ComputeCurvature(smoothed, i);
+				pp.Curvature = ComputeCurvature(finalPoints, i);
 				path.Points.Add(pp);
 
-				if (i < smoothed.Count - 1)
-					dist += Vector3.Distance(smoothed[i], smoothed[i + 1]);
+				if (i < finalPoints.Count - 1)
+					dist += Vector3.Distance(finalPoints[i], finalPoints[i + 1]);
 			}
 
 			path.TotalLength = dist;
 			path.CurrentSegment = 0;
+
+			// Diagnostic: visualize raw vs smoothed
+			for (int i = 0; i < corners.Length - 1; i++)
+				Debug.DrawLine(corners[i], corners[i + 1], Color.red, 5f);
+			for (int i = 0; i < finalPoints.Count - 1; i++)
+				Debug.DrawLine(finalPoints[i], finalPoints[i + 1], Color.cyan, 5f);
+
+			if (corners.Length >= 2)
+			{
+				Vector3 first = corners[0];
+				Vector3 last = corners[corners.Length - 1];
+				Debug.Log($"[RevPathBuilder] maxAngle={maxAngle:F1}° smoothed={needsSmooth} corners={corners.Length} pts={path.Points.Count} " +
+					$"length={path.TotalLength:F1}m start=({first.x:F2},{first.z:F2}) end=({last.x:F2},{last.z:F2})");
+			}
+
 			return path;
 		}
 

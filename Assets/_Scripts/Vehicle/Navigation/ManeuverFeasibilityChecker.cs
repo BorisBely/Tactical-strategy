@@ -124,6 +124,7 @@ namespace VehicleNavigation
 
 				case VehicleManeuverType.Parking:
 				case VehicleManeuverType.ApproachWithHeading:
+				case VehicleManeuverType.PostTurnAlignment:
 					return CheckForwardPath(_geo);
 
 				case VehicleManeuverType.Unstuck:

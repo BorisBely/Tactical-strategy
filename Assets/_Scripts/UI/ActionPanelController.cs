@@ -52,6 +52,14 @@ public sealed class ActionPanelController : MonoBehaviour
 	private const int c_RocketLauncherButtonIndex = 1;
 	private const int c_FormationButtonIndex = 9;
 	private const int c_InventoryButtonIndex = 10;
+	private const int c_GunnerButtonIndex = 11;
+	private const int c_GunnerStanceButtonIndex = 12;
+	private const int c_VehicleReadyButtonIndex = 13;
+	private const int c_DisembarkButtonIndex = 14;
+	private const int c_LoadWoundedButtonIndex = 15;
+	private const int c_EngineButtonIndex = 16;
+	private const int c_SpeedButtonIndex = 17;
+	private const int c_LastUnitButtonIndex = 10;
 	#endregion
 
 	#region Entries
@@ -120,7 +128,7 @@ public sealed class ActionPanelController : MonoBehaviour
 
 		m_IsHovered = IsMouseOverPanel();
 
-		float desired = m_IsHovered ? 1f : 0f;
+		float desired = m_IsHovered && CountVisibleButtons() > 0 ? 1f : 0f;
 		if (!Mathf.Approximately(m_TargetAlpha, desired))
 		{
 			m_TargetAlpha = desired;
@@ -133,10 +141,12 @@ public sealed class ActionPanelController : MonoBehaviour
 		if (m_IsHovered &&
 		    m_PanelCanvasGroup != null &&
 		    m_PanelCanvasGroup.blocksRaycasts &&
-		    Mouse.current != null &&
-		    Mouse.current.leftButton.wasReleasedThisFrame)
+		    Mouse.current != null)
 		{
-			TryClickButtonUnderCursor();
+			if (Mouse.current.leftButton.wasReleasedThisFrame)
+				TryClickButtonUnderCursor();
+			if (Mouse.current.rightButton.wasReleasedThisFrame)
+				TryRightClickButtonUnderCursor();
 		}
 	}
 
@@ -348,6 +358,13 @@ public sealed class ActionPanelController : MonoBehaviour
 			new Entry { Label = "Наведение",  KeyDisplay = "Q", OnClick = OnClickRotate },
 			new Entry { Label = "Построение", KeyDisplay = "X", OnClick = OnClickFormation },
 			new Entry { Label = "Инвентарь",  KeyDisplay = "I", OnClick = OnClickInventory },
+			new Entry { Label = "На турель", KeyDisplay = "P", OnClick = OnClickGunner },
+			new Entry { Label = "За щитом", KeyDisplay = "", OnClick = OnClickGunnerStance },
+			new Entry { Label = "Готов в машине", KeyDisplay = "E", OnClick = OnClickVehicleReady },
+			new Entry { Label = "Высадка",    KeyDisplay = "U", OnClick = OnClickDisembark },
+			new Entry { Label = "Погр.раненого", KeyDisplay = "", OnClick = OnClickLoadWounded },
+			new Entry { Label = "Завести", KeyDisplay = "", OnClick = OnClickEngine },
+			new Entry { Label = "Скорость", KeyDisplay = "", OnClick = OnClickVehicleSpeed },
 		};
 	}
 
@@ -429,17 +446,21 @@ public sealed class ActionPanelController : MonoBehaviour
 
 		RtsUnitSelectionManager mgr = RtsUnitSelectionManager.Instance;
 		int count = mgr != null ? mgr.SelectedUnitCount : 0;
+		bool hasVehicle = mgr != null && mgr.HasSelectedVehicle;
+		VehicleController vehicle = mgr != null ? mgr.SelectedVehicle : null;
+		bool showUnitActions = count > 0 && !hasVehicle;
 
 		bool hasLauncher = false;
 		bool showReloadLabel = false;
-		if (mgr != null && count > 0 && mgr.TryGetPrimarySelectedRocketLauncherController(out UnitRocketLauncherOrderController launcher))
+		if (showUnitActions && mgr != null &&
+		    mgr.TryGetPrimarySelectedRocketLauncherController(out UnitRocketLauncherOrderController launcher))
 		{
 			hasLauncher = launcher.HasAnyRocketLauncher();
 			showReloadLabel = launcher.ShouldShowReloadButtonLabel();
 		}
 
 		if (m_ButtonObjects.Length > c_RocketLauncherButtonIndex && m_ButtonObjects[c_RocketLauncherButtonIndex] != null)
-			m_ButtonObjects[c_RocketLauncherButtonIndex].SetActive(hasLauncher);
+			m_ButtonObjects[c_RocketLauncherButtonIndex].SetActive(showUnitActions && hasLauncher);
 
 		if (m_ButtonLabels != null &&
 		    m_ButtonLabels.Length > c_RocketLauncherButtonIndex &&
@@ -451,18 +472,100 @@ public sealed class ActionPanelController : MonoBehaviour
 		}
 
 		if (m_ButtonObjects.Length > c_FormationButtonIndex && m_ButtonObjects[c_FormationButtonIndex] != null)
-			m_ButtonObjects[c_FormationButtonIndex].SetActive(count > 1);
+			m_ButtonObjects[c_FormationButtonIndex].SetActive(showUnitActions && count > 1);
 
 		if (m_ButtonObjects.Length > c_InventoryButtonIndex && m_ButtonObjects[c_InventoryButtonIndex] != null)
-			m_ButtonObjects[c_InventoryButtonIndex].SetActive(count == 1);
+			m_ButtonObjects[c_InventoryButtonIndex].SetActive(showUnitActions && count == 1);
+
+		bool showGunner = hasVehicle && vehicle != null && vehicle.CanToggleGunnerTurret();
+		bool showGunnerStance = vehicle != null && vehicle.CanCycleGunnerStance;
+		bool showVehicleReady = hasVehicle && vehicle != null && vehicle.CanTogglePassengerVehicleReady();
+		bool showDisembark = hasVehicle && vehicle != null && vehicle.HasPassengers;
+		bool showLoadWounded = showUnitActions && mgr != null && mgr.TryGetCarryingSelectedUnit(out _);
+		bool showEngine = hasVehicle && vehicle != null && vehicle.CanToggleEngine;
+		bool showSpeed = hasVehicle && vehicle != null && vehicle.HasDriver && vehicle.Team == UnitTeamId.Player;
+
+		for (int i = 0; i <= c_LastUnitButtonIndex; i++)
+		{
+			if (i == c_RocketLauncherButtonIndex ||
+			    i == c_FormationButtonIndex ||
+			    i == c_InventoryButtonIndex)
+				continue;
+
+			if (m_ButtonObjects.Length > i && m_ButtonObjects[i] != null)
+				m_ButtonObjects[i].SetActive(showUnitActions);
+		}
+
+		if (m_ButtonObjects.Length > c_GunnerButtonIndex && m_ButtonObjects[c_GunnerButtonIndex] != null)
+			m_ButtonObjects[c_GunnerButtonIndex].SetActive(showGunner);
+
+		if (m_ButtonObjects.Length > c_GunnerStanceButtonIndex && m_ButtonObjects[c_GunnerStanceButtonIndex] != null)
+			m_ButtonObjects[c_GunnerStanceButtonIndex].SetActive(showGunnerStance);
+
+		if (m_ButtonObjects.Length > c_VehicleReadyButtonIndex && m_ButtonObjects[c_VehicleReadyButtonIndex] != null)
+			m_ButtonObjects[c_VehicleReadyButtonIndex].SetActive(showVehicleReady);
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_GunnerButtonIndex &&
+		    m_ButtonLabels[c_GunnerButtonIndex] != null &&
+		    vehicle != null)
+		{
+			m_ButtonLabels[c_GunnerButtonIndex].text = vehicle.IsGunnerOnTurret ? "С турели" : "На турель";
+		}
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_GunnerStanceButtonIndex &&
+		    m_ButtonLabels[c_GunnerStanceButtonIndex] != null &&
+		    vehicle != null)
+		{
+			m_ButtonLabels[c_GunnerStanceButtonIndex].text = vehicle.IsGunnerCover ? "Поверх щита" : "За щитом";
+		}
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_VehicleReadyButtonIndex &&
+		    m_ButtonLabels[c_VehicleReadyButtonIndex] != null &&
+		    vehicle != null)
+		{
+			m_ButtonLabels[c_VehicleReadyButtonIndex].text = vehicle.AnyPassengerWantsVehicleReady
+				? "Не готов в машине"
+				: "Готов в машине";
+		}
+
+		if (m_ButtonObjects.Length > c_DisembarkButtonIndex && m_ButtonObjects[c_DisembarkButtonIndex] != null)
+			m_ButtonObjects[c_DisembarkButtonIndex].SetActive(showDisembark);
+
+		if (m_ButtonObjects.Length > c_LoadWoundedButtonIndex && m_ButtonObjects[c_LoadWoundedButtonIndex] != null)
+			m_ButtonObjects[c_LoadWoundedButtonIndex].SetActive(showLoadWounded);
+
+		if (m_ButtonObjects.Length > c_EngineButtonIndex && m_ButtonObjects[c_EngineButtonIndex] != null)
+			m_ButtonObjects[c_EngineButtonIndex].SetActive(showEngine);
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_EngineButtonIndex &&
+		    m_ButtonLabels[c_EngineButtonIndex] != null &&
+		    vehicle != null)
+		{
+			m_ButtonLabels[c_EngineButtonIndex].text = vehicle.IsEngineRunning ? "Заглушить" : "Завести";
+		}
+
+		if (m_ButtonObjects.Length > c_SpeedButtonIndex && m_ButtonObjects[c_SpeedButtonIndex] != null)
+			m_ButtonObjects[c_SpeedButtonIndex].SetActive(showSpeed);
+
+		if (m_ButtonLabels != null &&
+		    m_ButtonLabels.Length > c_SpeedButtonIndex &&
+		    m_ButtonLabels[c_SpeedButtonIndex] != null &&
+		    vehicle != null)
+		{
+			m_ButtonLabels[c_SpeedButtonIndex].text = "Скор: " + VehicleSpeedModeUtil.LabelRu(vehicle.SpeedCeiling);
+		}
 
 		UpdatePanelWidth();
 	}
 
-	private void UpdatePanelWidth()
+	private int CountVisibleButtons()
 	{
-		if (m_PanelRect == null || m_ButtonObjects == null)
-			return;
+		if (m_ButtonObjects == null)
+			return 0;
 
 		int visibleCount = 0;
 		for (int i = 0; i < m_ButtonObjects.Length; i++)
@@ -471,9 +574,18 @@ public sealed class ActionPanelController : MonoBehaviour
 				visibleCount++;
 		}
 
+		return visibleCount;
+	}
+
+	private void UpdatePanelWidth()
+	{
+		if (m_PanelRect == null || m_ButtonObjects == null)
+			return;
+
+		int visibleCount = CountVisibleButtons();
 		float totalWidth = visibleCount > 0
 			? visibleCount * c_ButtonWidth + (visibleCount - 1) * c_ButtonSpacing + 16f
-			: m_Entries.Length * c_ButtonWidth + (m_Entries.Length - 1) * c_ButtonSpacing + 16f;
+			: 0f;
 
 		m_PanelRect.sizeDelta = new Vector2(totalWidth, c_PanelHeight);
 	}
@@ -501,6 +613,57 @@ public sealed class ActionPanelController : MonoBehaviour
 
 			HandleButtonClick(i);
 			return;
+		}
+	}
+
+	private void TryRightClickButtonUnderCursor()
+	{
+		if (m_ButtonObjects == null || Mouse.current == null)
+			return;
+
+		Vector2 mousePosition = Mouse.current.position.ReadValue();
+
+		if (m_ButtonObjects.Length > c_DisembarkButtonIndex)
+		{
+			GameObject disembarkObject = m_ButtonObjects[c_DisembarkButtonIndex];
+			if (disembarkObject != null && disembarkObject.activeInHierarchy)
+			{
+				RectTransform btnRect = disembarkObject.transform as RectTransform;
+				if (btnRect != null &&
+				    RectTransformUtility.RectangleContainsScreenPoint(btnRect, mousePosition, null))
+				{
+					if (!PauseMenuController.IsPaused && !GameInputGate.ShouldBlockGameplayInput())
+					{
+						RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+						if (manager != null && manager.SelectedVehicle != null)
+							VehicleDisembarkMenuController.Instance.ShowForVehicle(
+								manager.SelectedVehicle, mousePosition);
+					}
+
+					return;
+				}
+			}
+		}
+
+		if (m_ButtonObjects.Length > c_VehicleReadyButtonIndex)
+		{
+			GameObject vehicleReadyObject = m_ButtonObjects[c_VehicleReadyButtonIndex];
+			if (vehicleReadyObject != null && vehicleReadyObject.activeInHierarchy)
+			{
+				RectTransform btnRect = vehicleReadyObject.transform as RectTransform;
+				if (btnRect != null &&
+				    RectTransformUtility.RectangleContainsScreenPoint(btnRect, mousePosition, null))
+				{
+					if (!PauseMenuController.IsPaused && !GameInputGate.ShouldBlockGameplayInput())
+					{
+						RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+						if (manager != null && manager.SelectedVehicle != null)
+							OnClickVehicleReady();
+					}
+
+					return;
+				}
+			}
 		}
 	}
 
@@ -604,6 +767,52 @@ public sealed class ActionPanelController : MonoBehaviour
 		if (bindings == null)
 			return;
 		bindings.ToggleInventoryWindow();
+	}
+
+	private static void OnClickGunner()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandSelectedVehicleToggleGunner();
+	}
+
+	private static void OnClickGunnerStance()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandSelectedVehicleCycleGunnerStance();
+	}
+
+	private static void OnClickVehicleReady()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		if (manager == null)
+			return;
+		VehicleController vehicle = manager.SelectedVehicle;
+		if (vehicle != null)
+			vehicle.ToggleAllPassengersVehicleReady();
+	}
+
+	private static void OnClickDisembark()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandSelectedVehicleDisembarkExceptDriver();
+	}
+
+	private static void OnClickEngine()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandSelectedVehicleToggleEngine();
+	}
+
+	private static void OnClickVehicleSpeed()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandSelectedVehicleCycleSpeedCeiling();
+	}
+
+	private static void OnClickLoadWounded()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CommandLoadWoundedIntoSelectedOrTargetVehicle();
 	}
 	#endregion
 }

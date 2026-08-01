@@ -323,6 +323,9 @@ public sealed class ShootingRangeManager : MonoBehaviour
 			case PlayerDebugInjuryType.LungDamage:
 				health.AddDebugInjuryLungDamage();
 				break;
+			case PlayerDebugInjuryType.RandomWound:
+				health.AddDebugRandomWoundAndKnockout();
+				break;
 			default:
 				return false;
 		}

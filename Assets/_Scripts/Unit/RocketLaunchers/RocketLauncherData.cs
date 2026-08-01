@@ -58,7 +58,7 @@ public sealed class RocketLauncherData : ScriptableObject
 	[Tooltip("Масштаб VFX. У гранат frag ~1.25; для ракеты заметно мощнее.")]
 	[SerializeField, Min(0.01f)] private float m_ExplosionVfxScale = 2.15f;
 	[SerializeField, Min(0.05f)] private float m_ExplosionVfxDurationSeconds = 5.5f;
-	[SerializeField, Min(0f)] private float m_ExplosionMaxDistanceMeters = 95f;
+	[SerializeField, Min(0f)] private float m_ExplosionMaxDistanceMeters = 600f;
 	[SerializeField, Range(-180f, 180f)] private float m_ExplosionVfxYawOffsetDegrees;
 
 	[Header("Fire Muzzle / Backblast VFX")]

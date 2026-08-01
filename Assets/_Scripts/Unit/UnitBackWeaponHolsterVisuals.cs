@@ -44,6 +44,7 @@ public sealed class UnitBackWeaponHolsterVisuals : MonoBehaviour
 	private readonly bool[] m_AppliedLoaded = new bool[c_SlotCount];
 	private float m_NextLodCheckTime;
 	private bool m_LodVisible = true;
+	private bool m_ForcedHidden;
 	private static readonly List<HolsterCandidate> s_Candidates = new List<HolsterCandidate>(16);
 	#endregion
 
@@ -102,6 +103,19 @@ public sealed class UnitBackWeaponHolsterVisuals : MonoBehaviour
 		ResolveSlotAssignments(s_Candidates, out HolsterCandidate left, out HolsterCandidate right);
 		ApplySlot(0, m_LeftCell, left);
 		ApplySlot(1, m_RightCell, right);
+		ApplyLodToInstances();
+	}
+
+	/// <summary>
+	/// Принудительно скрыть декор оружия за спиной (посадка в машину и т.п.).
+	/// Не уничтожает инстансы — только SetActive; Refresh/LOD учитывают флаг.
+	/// </summary>
+	public void SetForcedHidden(bool _hidden)
+	{
+		if (m_ForcedHidden == _hidden)
+			return;
+
+		m_ForcedHidden = _hidden;
 		ApplyLodToInstances();
 	}
 	#endregion
@@ -344,10 +358,11 @@ public sealed class UnitBackWeaponHolsterVisuals : MonoBehaviour
 
 	private void ApplyLodToInstances()
 	{
+		bool visible = m_LodVisible && !m_ForcedHidden;
 		for (int i = 0; i < c_SlotCount; i++)
 		{
 			if (m_SlotInstances[i] != null)
-				m_SlotInstances[i].SetActive(m_LodVisible);
+				m_SlotInstances[i].SetActive(visible);
 		}
 	}
 	#endregion

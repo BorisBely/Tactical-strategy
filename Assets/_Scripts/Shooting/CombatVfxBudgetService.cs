@@ -189,7 +189,7 @@ public static class CombatVfxBudgetService
 			_position,
 			_maxDistanceMeters,
 			_maxDistanceMeters * 0.5f,
-			_maxDistanceMeters * 0.85f);
+			_maxDistanceMeters);
 		if (tier == WeaponVfxQualityTier.Skip)
 			return false;
 

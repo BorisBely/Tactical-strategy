@@ -3,21 +3,29 @@ using UnityEngine;
 
 namespace VehicleNavigation
 {
+	public enum ArrivalFallbackDecision { None, UseSimpleFallback, TriggerRecovery, RequestReplan, ForceHolding }
+
 	public sealed class ArrivalPlan
 	{
 		public IReadOnlyList<Maneuver> Maneuvers;
 		public float Cost;
 		public string DebugName;
 		public bool Valid => Maneuvers != null && Maneuvers.Count > 0;
+		public bool AtGoal;
+		public TargetSide PreferredSide;
+		public ArrivalFallbackDecision Fallback;
 
 		public ArrivalPlan(List<Maneuver> _maneuvers, float _cost, string _name)
 		{
 			Maneuvers = _maneuvers ?? new List<Maneuver>();
 			Cost = _cost;
 			DebugName = _name;
+			Fallback = ArrivalFallbackDecision.None;
 		}
 
 		public static ArrivalPlan Invalid(string _reason) => new ArrivalPlan(null, float.MaxValue, _reason);
+
+		public static ArrivalPlan AtGoalPlan() => new ArrivalPlan(new List<Maneuver>(), 0f, "AtGoal") { AtGoal = true };
 	}
 
 	public interface IArrivalStrategy

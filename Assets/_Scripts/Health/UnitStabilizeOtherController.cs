@@ -28,7 +28,7 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 
 
-	private const float c_ApproachArriveDistance = 1f;
+	private const float c_ApproachArriveDistance = UnitFallenApproachUtility.ArriveDistanceMeters;
 
 	private const float c_MaxApproachSeconds = 45f;
 
@@ -143,6 +143,9 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 	public bool IsStabilizingOther => m_IsStabilizingOther;
 
 	public bool IsHealPresentationActive => m_HealPresentationActive;
+
+	public bool HasActiveSession =>
+		m_IsStabilizingOther || m_HealPresentationActive || m_StabilizeOtherCoroutine != null;
 
 	public RtsUnitMember CurrentVictim => m_CurrentVictim;
 
@@ -684,96 +687,181 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 	#region Private Methods — Approach
 
-	private IEnumerator CoApproachVictim(RtsUnitMember _victim)
-
+	private void IssueStabilizeApproachMove(Vector3 _approachPoint, bool _continuous)
 	{
-
-		if (m_RtsMember == null || _victim == null)
-
+		// Прямой nav-приказ без отмены сессии (иначе подход сам себя сбросит).
+		if (m_ClickToMove != null)
 		{
-
-			Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim aborted: RTS member or victim is null.");
-
-			yield break;
-
-		}
-
-
-
-		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-
-		if (distance > c_ApproachArriveDistance)
-
-		{
-
-			Vector3 approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
-
-			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
-
-
-
-			float elapsed = 0f;
-
-			float nextRetargetTime = 0.5f;
-
-			while (elapsed < c_MaxApproachSeconds)
-
+			if (_continuous)
 			{
-
-				if (_victim == null || m_RtsMember == null)
-
-				{
-
-					yield break;
-
-				}
-
-
-
-				if (elapsed >= nextRetargetTime)
-
-				{
-
-					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
-
-					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
-
-					nextRetargetTime += 0.5f;
-
-				}
-
-
-
-				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-
-				if (distance <= c_ApproachArriveDistance)
-
-					break;
-
-
-
-				elapsed += Time.deltaTime;
-
-				yield return null;
-
+				m_ClickToMove.IssueNavOrderContinuous(
+					_approachPoint, UnitClickToMove.MoveTier.Run, _cancelStabilizeOther: false);
+			}
+			else
+			{
+				m_ClickToMove.IssueNavOrder(
+					_approachPoint, UnitClickToMove.MoveTier.Run, _cancelStabilizeOther: false);
 			}
 
-
-
-			if (distance > c_ApproachArriveDistance)
-
-				Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
-
+			return;
 		}
 
+		if (m_RtsMember != null)
+			m_RtsMember.IssueMoveOrder(_approachPoint, UnitClickToMove.MoveTier.Run);
+	}
 
+	private IEnumerator CoFaceVictim(RtsUnitMember _victim)
+	{
+		if (_victim == null)
+			yield break;
+
+		if (!TryGetVictimFocusWorldPoint(_victim, out Vector3 focusPoint))
+			yield break;
+
+		Vector3 toVictim = focusPoint - transform.position;
+		toVictim.y = 0f;
+		if (toVictim.sqrMagnitude < 0.0001f)
+			yield break;
+
+		float targetYaw = Mathf.Atan2(toVictim.x, toVictim.z) * Mathf.Rad2Deg;
+		SetStabilizeFacingOverride(targetYaw);
+
+		float timeout = Time.time + 1.25f;
+		while (Time.time < timeout && !m_StopRequested)
+		{
+			float delta = Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, targetYaw));
+			if (delta <= 10f)
+				break;
+			yield return null;
+		}
+	}
+
+	private static bool TryGetVictimFocusWorldPoint(RtsUnitMember _victim, out Vector3 _focusPoint)
+	{
+		_focusPoint = _victim.transform.position;
+
+		Animator animator = _victim.GetComponentInChildren<Animator>(true);
+		if (animator != null && animator.isHuman)
+		{
+			Transform hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+			if (hips != null)
+			{
+				_focusPoint = hips.position;
+				return true;
+			}
+
+			Transform chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+			if (chest != null)
+			{
+				_focusPoint = chest.position;
+				return true;
+			}
+
+			Transform spine = animator.GetBoneTransform(HumanBodyBones.Spine);
+			if (spine != null)
+			{
+				_focusPoint = spine.position;
+				return true;
+			}
+		}
+
+		if (_victim.TryGetComponent(out CapsuleCollider capsule) && capsule != null)
+		{
+			_focusPoint = _victim.transform.TransformPoint(capsule.center);
+			return true;
+		}
+
+		Collider[] colliders = _victim.GetComponentsInChildren<Collider>(true);
+		if (colliders != null && colliders.Length > 0)
+		{
+			Bounds bounds = colliders[0].bounds;
+			for (int i = 1; i < colliders.Length; i++)
+			{
+				if (colliders[i] != null)
+					bounds.Encapsulate(colliders[i].bounds);
+			}
+
+			_focusPoint = bounds.center;
+			return true;
+		}
+
+		return true;
+	}
+
+	private void SetStabilizeFacingOverride(float? _yawDegrees)
+	{
+		if (m_ClickToMove != null)
+			m_ClickToMove.OverrideFacingAngle = _yawDegrees;
+		if (m_LocomotionDriver != null)
+			m_LocomotionDriver.OverrideFacingAngle = _yawDegrees;
+	}
+
+	private IEnumerator CoApproachVictim(RtsUnitMember _victim)
+	{
+		if (m_RtsMember == null || _victim == null)
+		{
+			Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim aborted: RTS member or victim is null.");
+			yield break;
+		}
+
+		Vector3 victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(m_RtsMember.transform.position, victimFocus);
+		if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
+		{
+			Vector3 approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+				m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
+			IssueStabilizeApproachMove(approachPoint, _continuous: false);
+
+			float elapsed = 0f;
+			float nextRetargetTime = UnitFallenApproachUtility.RetargetIntervalSeconds;
+			float stuckSeconds = 0f;
+			float bestDistance = distance;
+			Vector3 lastPosition = m_RtsMember.transform.position;
+			Vector3 lastApproachPoint = approachPoint;
+
+			while (elapsed < c_MaxApproachSeconds)
+			{
+				if (_victim == null || m_RtsMember == null)
+					yield break;
+
+				if (elapsed >= nextRetargetTime)
+				{
+					approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+						m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
+					if (UnitFallenApproachUtility.ShouldRetargetApproach(lastApproachPoint, approachPoint))
+					{
+						IssueStabilizeApproachMove(approachPoint, _continuous: true);
+						lastApproachPoint = approachPoint;
+					}
+
+					nextRetargetTime += UnitFallenApproachUtility.RetargetIntervalSeconds;
+				}
+
+				Vector3 currentPosition = m_RtsMember.transform.position;
+				victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+				distance = UnitFallenApproachUtility.HorizontalDistance(currentPosition, victimFocus);
+				float moved = UnitFallenApproachUtility.HorizontalDistance(currentPosition, lastPosition);
+				lastPosition = currentPosition;
+				stuckSeconds = UnitFallenApproachUtility.UpdateStuckSeconds(
+					stuckSeconds, distance, ref bestDistance, moved);
+
+				if (UnitFallenApproachUtility.HasArrivedOrStuckCloseEnough(distance, stuckSeconds) ||
+				    UnitFallenApproachUtility.ShouldAbortApproach(distance, stuckSeconds))
+					break;
+
+				elapsed += Time.deltaTime;
+				yield return null;
+			}
+
+			if (!UnitFallenApproachUtility.IsWithinInteractRange(distance))
+				Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim: too far after approach, distance={distance:F2}m");
+			else if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
+				Debug.LogWarning($"[UnitStabilizeOther:{name}] CoApproachVictim: accepted close-enough approach, distance={distance:F2}m");
+		}
 
 		m_ClickToMove?.HardStop();
-
 		m_LocomotionDriver?.HardStop();
-
 		yield return null;
-
 	}
 
 
@@ -840,28 +928,29 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 
 		yield return CoApproachVictim(_victim);
 
-
-
 		if (_victim == null)
-
 		{
-
 			Debug.LogWarning($"[UnitStabilizeOther:{name}] CoStabilizeOtherSession aborted after approach: victim destroyed.");
-
 			m_StabilizeOtherCoroutine = null;
-
 			yield break;
-
 		}
 
-
-
-		if (!TryValidateTarget(_victim, _allowActiveSession: true, out UnitHealth victimHealth, out CharacterInventory victimInventory, out UnitConsciousness victimConsciousness, out string failureReason))
-
+		float approachDistance = UnitFallenApproachUtility.HorizontalDistance(
+			m_RtsMember.transform.position,
+			UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform));
+		if (!UnitFallenApproachUtility.IsWithinInteractRange(approachDistance))
 		{
+			Debug.LogWarning(
+				$"[UnitStabilizeOther:{name}] CoStabilizeOtherSession aborted: still too far ({approachDistance:F2}m).");
+			m_StabilizeOtherCoroutine = null;
+			yield break;
+		}
 
+		yield return CoFaceVictim(_victim);
+
+	if (!TryValidateTarget(_victim, _allowActiveSession: true, out UnitHealth victimHealth, out CharacterInventory victimInventory, out UnitConsciousness victimConsciousness, out string failureReason))
+		{
 			Debug.LogWarning($"[UnitStabilizeOther:{name}] CoStabilizeOtherSession aborted after approach: {failureReason}");
-
 			m_StabilizeOtherCoroutine = null;
 
 			yield break;
@@ -1274,6 +1363,8 @@ public sealed class UnitStabilizeOtherController : MonoBehaviour
 		ClearLeftHandMedkitVisual();
 
 		m_UnitEquipment?.SetMainWeaponVisualActive(true);
+
+		SetStabilizeFacingOverride(null);
 
 
 

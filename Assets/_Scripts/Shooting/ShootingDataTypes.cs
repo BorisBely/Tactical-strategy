@@ -13,7 +13,11 @@ public enum CaliberType
 	TwelveGauge = 4,
 	Seven62By39 = 5,
 	Seven62By51 = 6,
-	Seven62By54R = 7
+	Seven62By54R = 7,
+	/// <summary>12.7×99 NATO (.50 BMG) — M2 Browning.</summary>
+	TwelvePointSevenByNinetyNine = 8,
+	/// <summary>40×53mm — MK19.</summary>
+	FortyByFiftyThree = 9
 }
 
 /// <summary>
@@ -388,7 +392,11 @@ public enum WeaponClassType
 	Rifle = 2,
 	Shotgun = 3,
 	SubmachineGun = 4,
-	LightMachineGun = 5
+	LightMachineGun = 5,
+	/// <summary>Крупнокалиберный пулемёт / орудие турели.</summary>
+	HeavyMachineGun = 6,
+	/// <summary>Автоматический гранатомёт (MK19 и аналоги).</summary>
+	AutomaticGrenadeLauncher = 7
 }
 
 /// <summary>
@@ -409,7 +417,11 @@ public enum MagazineType
 	/// <summary>Короба M249 5.56x45 — отдельный тип, чтобы не смешивать с барабанами/коробами других платформ.</summary>
 	M249Box = 8,
 	/// <summary>Короба PKM 7.62x54R — отдельный тип, чтобы не смешивать с барабанами/коробами других платформ.</summary>
-	PkmBox = 9
+	PkmBox = 9,
+	/// <summary>Короб ленты M2 Browning 12.7×99.</summary>
+	M2Box = 10,
+	/// <summary>Короб гранат MK19 40×53.</summary>
+	Mk19Box = 11
 }
 
 /// <summary>

@@ -270,6 +270,41 @@ public class InventoryPanelView : MonoBehaviour
 		RebuildContentLayout();
 	}
 
+	/// <summary>Перерисовать панель из инвентаря машины (3 слота турели + багаж).</summary>
+	public void RepaintFromVehicleInventory(VehicleInventory _inventory)
+	{
+		if (_inventory == null || m_SlotPrefab == null || m_SlotsContainer == null)
+			return;
+
+		ClearAllSlots();
+
+		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
+		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
+		InventorySlotRuntimeData head = _inventory.HeadEquipment;
+		InventorySlotRuntimeData back = _inventory.BackEquipment;
+		IReadOnlyList<InventorySlotRuntimeData> bag = _inventory.BagItems;
+
+		for (int i = 0; i < lead; i++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			if (i == 0 && !main.IsEmpty)
+				cell.SetItem(main);
+			else if (i == 1 && !head.IsEmpty)
+				cell.SetItem(head);
+			else if (i == 2 && !back.IsEmpty)
+				cell.SetItem(back);
+		}
+
+		for (int b = 0; b < bag.Count; b++)
+		{
+			InventorySlotView cell = SpawnNewSlotFromPrefab();
+			cell.SetItem(bag[b]);
+		}
+
+		RefreshSlotsFromHierarchy();
+		RebuildContentLayout();
+	}
+
 	/// <summary>Перерисовать панель из снимка пресета (слот оружия + сумка).</summary>
 	public void RepaintFromPresetSnapshot(MissionPrepPresetSnapshot _snapshot)
 	{

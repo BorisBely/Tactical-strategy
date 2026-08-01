@@ -8,7 +8,8 @@ public enum PlayerDebugInjuryType
 {
 	ArmBleeding,
 	LegFracture,
-	LungDamage
+	LungDamage,
+	RandomWound
 }
 
 /// <summary>
@@ -633,8 +634,8 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		rowGo.transform.SetParent(_parent, false);
 
 		LayoutElement rowElement = rowGo.GetComponent<LayoutElement>();
-		rowElement.minHeight = 64f;
-		rowElement.preferredHeight = 64f;
+		rowElement.minHeight = 96f;
+		rowElement.preferredHeight = 96f;
 
 		GridLayoutGroup grid = rowGo.GetComponent<GridLayoutGroup>();
 		grid.cellSize = new Vector2(150f, 28f);
@@ -646,6 +647,7 @@ public sealed class ShootingRangeUiController : MonoBehaviour
 		AddInjuryDebugButton(rowGo.transform, "Arm Bleeding", PlayerDebugInjuryType.ArmBleeding);
 		AddInjuryDebugButton(rowGo.transform, "Leg Fracture", PlayerDebugInjuryType.LegFracture);
 		AddInjuryDebugButton(rowGo.transform, "Lung Damage", PlayerDebugInjuryType.LungDamage);
+		AddInjuryDebugButton(rowGo.transform, "Wounded", PlayerDebugInjuryType.RandomWound);
 		AddInjuryDebugButton(rowGo.transform, "Clear Injuries", null);
 	}
 

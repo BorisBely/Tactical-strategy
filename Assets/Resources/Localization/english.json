@@ -1228,6 +1228,54 @@
     {
       "key": "item.backpack.2",
       "value": "Small Backpack"
+    },
+    {
+      "key": "item.weapon.m2browning",
+      "value": "M2 Browning"
+    },
+    {
+      "key": "item.weapon.m2browning.desc",
+      "value": "M2HB Browning 12.7mm vehicle turret machine gun."
+    },
+    {
+      "key": "item.weapon.mk19",
+      "value": "Mk 19"
+    },
+    {
+      "key": "item.weapon.mk19.desc",
+      "value": "MK19 automatic grenade launcher for vehicle turret."
+    },
+    {
+      "key": "item.shield.turret.frontal",
+      "value": "Frontal Turret Shield"
+    },
+    {
+      "key": "item.shield.turret.frontal.desc",
+      "value": "Frontal gun shield for light armored car turret."
+    },
+    {
+      "key": "item.shield.turret.surround",
+      "value": "Surround Turret Shield"
+    },
+    {
+      "key": "item.shield.turret.surround.desc",
+      "value": "Surround armor shield for turret gunner."
+    },
+    {
+      "key": "item.magazine.m2box",
+      "value": "M2 .50 cal Ammo Box"
+    },
+    {
+      "key": "item.magazine.m2box.desc",
+      "value": "M2 Browning 12.7mm ammo box (100 rounds)."
+    },
+    {
+      "key": "item.magazine.mk19box",
+      "value": "Mk 19 40mm Grenade Box"
+    },
+    {
+      "key": "item.magazine.mk19box.desc",
+      "value": "MK19 40mm grenade box (48 rounds)."
     }
   ]
 }

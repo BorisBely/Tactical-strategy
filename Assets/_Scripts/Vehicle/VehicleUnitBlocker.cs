@@ -14,10 +14,21 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 	private const string c_HolderName = "VehicleUnitBlockers";
 	#endregion
 
+	#region Static Cache
+	private static Transform s_HolderCache;
+	#endregion
+
 	#region Serialized Fields
 	[SerializeField] private VehicleController m_Vehicle;
 	[SerializeField] private BoxCollider m_BlockCollider;
 	[SerializeField] private Rigidbody m_BlockBody;
+	#endregion
+
+	#region Sync State
+	private Vector3 m_LastPosition;
+	private Quaternion m_LastRotation;
+	private Vector3 m_LastScale;
+	private bool m_ScaleInitialized;
 	#endregion
 
 	#region Public Properties
@@ -57,7 +68,7 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 		if (legacy != null)
 			Object.Destroy(legacy.gameObject);
 
-		Transform holder = EnsureHolder();
+		Transform holder = GetHolder();
 		string goName = c_ObjectName + "_" + _vehicle.GetInstanceID();
 		Transform existing = holder.Find(goName);
 		GameObject go = existing != null ? existing.gameObject : new GameObject(goName);
@@ -134,12 +145,16 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 	#endregion
 
 	#region Private Methods
-	private static Transform EnsureHolder()
+	private static Transform GetHolder()
 	{
+		if (s_HolderCache != null)
+			return s_HolderCache;
+
 		GameObject holderGo = GameObject.Find(c_HolderName);
 		if (holderGo == null)
 			holderGo = new GameObject(c_HolderName);
-		return holderGo.transform;
+		s_HolderCache = holderGo.transform;
+		return s_HolderCache;
 	}
 
 	private static void EnsureLayerCollisionMatrix()
@@ -181,8 +196,25 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 		if (m_Vehicle == null)
 			return;
 		Transform t = m_Vehicle.transform;
-		transform.SetPositionAndRotation(t.position, t.rotation);
-		transform.localScale = t.lossyScale;
+
+		Vector3 pos = t.position;
+		Quaternion rot = t.rotation;
+		bool moved = pos != m_LastPosition || rot != m_LastRotation;
+
+		if (moved)
+		{
+			transform.SetPositionAndRotation(pos, rot);
+			m_LastPosition = pos;
+			m_LastRotation = rot;
+		}
+
+		Vector3 scale = t.lossyScale;
+		if (!m_ScaleInitialized || scale != m_LastScale)
+		{
+			transform.localScale = scale;
+			m_LastScale = scale;
+			m_ScaleInitialized = true;
+		}
 	}
 
 	private void IgnoreDriveColliders()

@@ -36,14 +36,21 @@ public class UnitEquipment : MonoBehaviour
 	private Quaternion m_BoltCycleOriginalLocalRotation = Quaternion.identity;
 	private Vector3 m_BoltCycleOriginalLocalScale = Vector3.one;
 	private Transform m_BoltCycleWeaponHoldAnchor;
+	private EquippedWeapon m_TurretWeaponOverride;
+	private ItemDefinition m_TurretWeaponDefinitionOverride;
+	private bool m_PersonalWeaponHiddenForTurret;
 	#endregion
 
 	#region Public Properties
 	/// <summary>Текущее экипированное оружие (тип). Null если слот пуст.</summary>
-	public ItemDefinition EquippedDefinition => m_EquippedDefinition;
+	public ItemDefinition EquippedDefinition =>
+		m_TurretWeaponDefinitionOverride != null ? m_TurretWeaponDefinitionOverride : m_EquippedDefinition;
 
 	/// <summary>Скрипт на инстансе экипированного оружия (ствол, позже патроны и т.д.). Null если на префабе нет компонента.</summary>
-	public EquippedWeapon EquippedWeapon => m_EquippedWeapon;
+	public EquippedWeapon EquippedWeapon =>
+		m_TurretWeaponOverride != null ? m_TurretWeaponOverride : m_EquippedWeapon;
+
+	public bool IsOperatingVehicleTurret => m_TurretWeaponOverride != null;
 
 	/// <summary>Left-hand IK target (high ready) on the weapon instance or foregrip.</summary>
 	public Transform LeftHandIkTargetTransform => m_LeftHandIkTarget;
@@ -169,6 +176,54 @@ public class UnitEquipment : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	/// <summary>
+	/// Временно подменить источник огня/IK на орудие турели без изменения инвентаря юнита.
+	/// </summary>
+	public void SetTurretWeaponOverride(EquippedWeapon _weapon, ItemDefinition _definition)
+	{
+		m_TurretWeaponOverride = _weapon;
+		m_TurretWeaponDefinitionOverride = _definition;
+		if (m_MainWeaponInstance != null && m_MainWeaponInstance.activeSelf)
+		{
+			m_MainWeaponInstance.SetActive(false);
+			m_PersonalWeaponHiddenForTurret = true;
+		}
+
+		RefreshHandIkTargetsFromOverride();
+		NotifyEquipmentChanged();
+	}
+
+	public void ClearTurretWeaponOverride()
+	{
+		m_TurretWeaponOverride = null;
+		m_TurretWeaponDefinitionOverride = null;
+		if (m_PersonalWeaponHiddenForTurret && m_MainWeaponInstance != null)
+			m_MainWeaponInstance.SetActive(true);
+		m_PersonalWeaponHiddenForTurret = false;
+		RefreshHandIkTargets();
+		NotifyEquipmentChanged();
+	}
+
+	private void RefreshHandIkTargetsFromOverride()
+	{
+		if (m_TurretWeaponOverride == null)
+		{
+			RefreshHandIkTargets();
+			return;
+		}
+
+		ItemDefinition def = m_TurretWeaponDefinitionOverride;
+		string leftReady = def != null ? def.LeftHandIkTargetChildName : "LeftHandIkTarget";
+		string leftNotReady = def != null ? def.LeftHandIkTargetNotReadyChildName : "LeftHandIkTarget_NotReady";
+		string rightReady = def != null ? def.RightHandIkTargetChildName : "RightHandIkTarget";
+		string rightNotReady = def != null ? def.RightHandIkTargetNotReadyChildName : "RightHandIkTarget_NotReady";
+
+		m_LeftHandIkTarget = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftReady);
+		m_LeftHandIkTargetNotReady = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftNotReady);
+		m_RightHandIkTarget = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightReady);
+		m_RightHandIkTargetNotReady = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightNotReady);
+	}
+
 	public void ClearMainWeapon()
 	{
 		ClearMainWeaponInternal(true);
@@ -236,6 +291,12 @@ public class UnitEquipment : MonoBehaviour
 	/// </summary>
 	public void RefreshLeftHandIkTarget()
 	{
+		if (m_TurretWeaponOverride != null)
+		{
+			RefreshHandIkTargetsFromOverride();
+			return;
+		}
+
 		if (m_MainWeaponInstance == null)
 		{
 			m_LeftHandIkTarget = null;
@@ -263,6 +324,12 @@ public class UnitEquipment : MonoBehaviour
 	/// <summary>Refresh right‑hand IK targets (high ready / low ready).</summary>
 	public void RefreshRightHandIkTarget()
 	{
+		if (m_TurretWeaponOverride != null)
+		{
+			RefreshHandIkTargetsFromOverride();
+			return;
+		}
+
 		if (m_MainWeaponInstance == null)
 		{
 			m_RightHandIkTarget = null;

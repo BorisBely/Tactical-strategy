@@ -263,6 +263,19 @@ public sealed class UnitHealth : MonoBehaviour
 		AddInjury(CreateDebugLungDamageInjury());
 	}
 
+	/// <summary>
+	/// Debug полигона: случайная рана + мгновенная потеря сознания для теста стабилизации.
+	/// </summary>
+	public void AddDebugRandomWoundAndKnockout()
+	{
+		BodyPartType bodyPart = (BodyPartType)UnityEngine.Random.Range((int)BodyPartType.Head, (int)BodyPartType.RightLeg + 1);
+		InjuryUiEntry injury = InjuryRollTable.Roll(bodyPart, DamageSourceType.Bullet);
+		AddInjury(injury);
+
+		if (TryGetComponent(out UnitConsciousness consciousness) && consciousness.IsConscious)
+			consciousness.EnterUnconscious();
+	}
+
 #if UNITY_EDITOR
 	[ContextMenu("Add Test Injury: Arm Bleeding")]
 	private void AddTestArmBleedingInjury()
@@ -280,6 +293,12 @@ public sealed class UnitHealth : MonoBehaviour
 	private void AddTestLungDamageInjury()
 	{
 		AddDebugInjuryLungDamage();
+	}
+
+	[ContextMenu("Add Test Injury: Random Wound + Knockout")]
+	private void AddTestRandomWoundAndKnockout()
+	{
+		AddDebugRandomWoundAndKnockout();
 	}
 
 	[ContextMenu("Clear All Injuries")]

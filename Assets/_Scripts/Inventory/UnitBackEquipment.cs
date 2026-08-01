@@ -19,6 +19,7 @@ public sealed class UnitBackEquipment : MonoBehaviour
 	#region Private Fields
 	private GameObject m_BackpackInstance;
 	private ItemDefinition m_EquippedDefinition;
+	private bool m_ForcedHidden;
 	#endregion
 
 	#region Public Properties
@@ -65,9 +66,23 @@ public sealed class UnitBackEquipment : MonoBehaviour
 		m_BackpackInstance.transform.localRotation = prefab.transform.localRotation;
 		m_BackpackInstance.transform.localScale = prefab.transform.localScale;
 		DisablePhysicsOnEquippedVisual(m_BackpackInstance);
+		ApplyVisibility();
 
 		BackEquipmentChanged?.Invoke();
 		return true;
+	}
+
+	/// <summary>
+	/// Принудительно скрыть визуал рюкзака (посадка в машину и т.п.).
+	/// Не снимает экипировку — только SetActive.
+	/// </summary>
+	public void SetForcedHidden(bool _hidden)
+	{
+		if (m_ForcedHidden == _hidden)
+			return;
+
+		m_ForcedHidden = _hidden;
+		ApplyVisibility();
 	}
 	#endregion
 
@@ -104,6 +119,12 @@ public sealed class UnitBackEquipment : MonoBehaviour
 		WorldPickupItem[] pickups = _root.GetComponentsInChildren<WorldPickupItem>(true);
 		for (int i = 0; i < pickups.Length; i++)
 			pickups[i].enabled = false;
+	}
+
+	private void ApplyVisibility()
+	{
+		if (m_BackpackInstance != null)
+			m_BackpackInstance.SetActive(!m_ForcedHidden);
 	}
 	#endregion
 }

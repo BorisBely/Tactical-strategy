@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0971c6fc20ff8ea479b75dff61314b35, type: 3}
+  m_Name: Item_Weapon_MK19
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  m_LocalizationKey: item.weapon.mk19
+  m_Description: MK19 automatic grenade launcher for vehicle turret.
+  m_Icon: {fileID: 0}
+  m_BasePrice: 15000
+  m_WeightKg: 35
+  m_Category: 1
+  m_DropWorldPrefab: {fileID: 2832235534043291648, guid: 6a493ad0cef540b6addeeb223d783f7f, type: 3}
+  m_EquippedVisualPrefab: {fileID: 0}
+  m_EquipmentKind: 4
+  m_WeaponType: 0
+  m_TurretWeaponVariant: 2
+  m_WeaponDefinition: {fileID: 11400000, guid: 8b46937778f841268913af430a539f6e, type: 2}
+  m_AmmoDefinition: {fileID: 0}
+  m_InitialAmmoCount: 0
+  m_MagazineDefinition: {fileID: 0}
+  m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_RocketLauncherType: 0
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
+  m_MedkitDefinition: {fileID: 0}
+  m_BagAddSounds:
+    m_Clips: []
+  m_BagAddSoundVolume: 0.9
+  m_BagRemoveSounds:
+    m_Clips: []
+  m_BagRemoveSoundVolume: 0.85
+  m_EquipmentAddSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: 628214ff5a54b414693cb0e7199eb3a3, type: 3}
+    - {fileID: 8300000, guid: 184ae5805f2ab574b97ffda43e4394bf, type: 3}
+  m_EquipmentAddSoundVolume: 0.9
+  m_EquipmentRemoveSounds:
+    m_Clips:
+    - {fileID: 8300000, guid: ec92864f8a37e8143bbf4126159e5e9b, type: 3}
+  m_EquipmentRemoveSoundVolume: 0.85

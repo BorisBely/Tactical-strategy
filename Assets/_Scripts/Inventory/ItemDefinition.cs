@@ -87,6 +87,25 @@ public class ItemDefinition : ScriptableObject
 	[SerializeField] private Vector3 m_CrouchLeftHandIkReadyLocalPosition;
 	[SerializeField] private Vector3 m_CrouchLeftHandIkReadyLocalEulerAngles;
 
+	[Header("Vehicle — weapon pose (Hand_R local)")]
+	[Tooltip("Local position of the weapon in vehicle (not ready / relax). Zeros — copy from standing.")]
+	[SerializeField] private Vector3 m_VehicleRightHandLocalPosition;
+	[SerializeField] private Vector3 m_VehicleRightHandLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleRightHandReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleRightHandReadyLocalEulerAngles;
+
+	[Header("Vehicle — right hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_VehicleRightHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleRightHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleRightHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleRightHandIkReadyLocalEulerAngles;
+
+	[Header("Vehicle — left hand IK (weapon local)")]
+	[SerializeField] private Vector3 m_VehicleLeftHandIkNotReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleLeftHandIkNotReadyLocalEulerAngles;
+	[SerializeField] private Vector3 m_VehicleLeftHandIkReadyLocalPosition;
+	[SerializeField] private Vector3 m_VehicleLeftHandIkReadyLocalEulerAngles;
+
 	[Header("Снаряжение (Equipment)")]
 	[Tooltip("Подтип снаряжения: оружие, шлем или другой экипируемый предмет.")]
 	[SerializeField] private EquipmentKind m_EquipmentKind = EquipmentKind.Weapon;
@@ -104,6 +123,10 @@ public class ItemDefinition : ScriptableObject
 	[Header("Оружие (Equipment, Kind = Weapon)")]
 	[Tooltip("Тип оружия: основное (винтовка) или второстепенное (пистолет).")]
 	[SerializeField] private WeaponType m_WeaponType = WeaponType.Primary;
+
+	[Header("Турель машины (Equipment, Kind = Turret*)")]
+	[Tooltip("Вариант визуала орудия на Light Armored Car. None — не орудие турели.")]
+	[SerializeField] private TurretWeaponVariant m_TurretWeaponVariant = TurretWeaponVariant.None;
 
 	[Header("Shooting Data")]
 	[Tooltip("Ссылка на базовые данные оружейной платформы для этого предмета.")]
@@ -237,6 +260,27 @@ public class ItemDefinition : ScriptableObject
 	public Vector3 CrouchLeftHandIkReadyLocalPosition => m_CrouchLeftHandIkReadyLocalPosition;
 	public Vector3 CrouchLeftHandIkReadyLocalEulerAngles => m_CrouchLeftHandIkReadyLocalEulerAngles;
 	public Quaternion CrouchLeftHandIkReadyLocalRotation => Quaternion.Euler(m_CrouchLeftHandIkReadyLocalEulerAngles);
+
+	public Vector3 VehicleRightHandLocalPosition => m_VehicleRightHandLocalPosition;
+	public Vector3 VehicleRightHandLocalEulerAngles => m_VehicleRightHandLocalEulerAngles;
+	public Quaternion VehicleRightHandLocalRotation => Quaternion.Euler(m_VehicleRightHandLocalEulerAngles);
+	public Vector3 VehicleRightHandReadyLocalPosition => m_VehicleRightHandReadyLocalPosition;
+	public Vector3 VehicleRightHandReadyLocalEulerAngles => m_VehicleRightHandReadyLocalEulerAngles;
+	public Quaternion VehicleRightHandReadyLocalRotation => Quaternion.Euler(m_VehicleRightHandReadyLocalEulerAngles);
+
+	public Vector3 VehicleRightHandIkNotReadyLocalPosition => m_VehicleRightHandIkNotReadyLocalPosition;
+	public Vector3 VehicleRightHandIkNotReadyLocalEulerAngles => m_VehicleRightHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleRightHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleRightHandIkNotReadyLocalEulerAngles);
+	public Vector3 VehicleRightHandIkReadyLocalPosition => m_VehicleRightHandIkReadyLocalPosition;
+	public Vector3 VehicleRightHandIkReadyLocalEulerAngles => m_VehicleRightHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleRightHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleRightHandIkReadyLocalEulerAngles);
+
+	public Vector3 VehicleLeftHandIkNotReadyLocalPosition => m_VehicleLeftHandIkNotReadyLocalPosition;
+	public Vector3 VehicleLeftHandIkNotReadyLocalEulerAngles => m_VehicleLeftHandIkNotReadyLocalEulerAngles;
+	public Quaternion VehicleLeftHandIkNotReadyLocalRotation => Quaternion.Euler(m_VehicleLeftHandIkNotReadyLocalEulerAngles);
+	public Vector3 VehicleLeftHandIkReadyLocalPosition => m_VehicleLeftHandIkReadyLocalPosition;
+	public Vector3 VehicleLeftHandIkReadyLocalEulerAngles => m_VehicleLeftHandIkReadyLocalEulerAngles;
+	public Quaternion VehicleLeftHandIkReadyLocalRotation => Quaternion.Euler(m_VehicleLeftHandIkReadyLocalEulerAngles);
 	public bool IsEquipment => m_Category == ItemCategory.Equipment;
 	public GameObject DropWorldPrefab => m_DropWorldPrefab;
 	/// <summary>Подтип снаряжения (для Equipment).</summary>
@@ -244,6 +288,15 @@ public class ItemDefinition : ScriptableObject
 	public EquipmentVisualProfileDefinition VisualProfile => m_VisualProfile;
 	/// <summary>Тип оружия (для Equipment).</summary>
 	public WeaponType WeaponType => m_WeaponType;
+	public TurretWeaponVariant TurretWeaponVariant => m_TurretWeaponVariant;
+	public bool IsTurretWeapon =>
+		m_Category == ItemCategory.Equipment && m_EquipmentKind == EquipmentKind.TurretWeapon;
+	public bool IsTurretFrontalShield =>
+		m_Category == ItemCategory.Equipment && m_EquipmentKind == EquipmentKind.TurretFrontalShield;
+	public bool IsTurretSurroundShield =>
+		m_Category == ItemCategory.Equipment && m_EquipmentKind == EquipmentKind.TurretSurroundShield;
+	public bool IsVehicleTurretEquipment =>
+		IsTurretWeapon || IsTurretFrontalShield || IsTurretSurroundShield;
 	public WeaponDefinition WeaponDefinition => m_WeaponDefinition;
 	public AmmoDefinition AmmoDefinition => m_AmmoDefinition;
 	public int InitialAmmoCount => m_InitialAmmoCount;
@@ -345,6 +398,33 @@ public class ItemDefinition : ScriptableObject
 			m_CrouchLeftHandIkNotReadyLocalEulerAngles,
 			m_CrouchLeftHandIkReadyLocalPosition,
 			m_CrouchLeftHandIkReadyLocalEulerAngles);
+	}
+
+	public bool HasVehicleWeaponPoseConfigured()
+	{
+		return HasAnyLocalPoseData(
+			m_VehicleRightHandLocalPosition,
+			m_VehicleRightHandLocalEulerAngles,
+			m_VehicleRightHandReadyLocalPosition,
+			m_VehicleRightHandReadyLocalEulerAngles);
+	}
+
+	public bool HasVehicleRightHandIkConfigured()
+	{
+		return HasAnyLocalPoseData(
+			m_VehicleRightHandIkNotReadyLocalPosition,
+			m_VehicleRightHandIkNotReadyLocalEulerAngles,
+			m_VehicleRightHandIkReadyLocalPosition,
+			m_VehicleRightHandIkReadyLocalEulerAngles);
+	}
+
+	public bool HasVehicleLeftHandIkConfigured()
+	{
+		return HasAnyLocalPoseData(
+			m_VehicleLeftHandIkNotReadyLocalPosition,
+			m_VehicleLeftHandIkNotReadyLocalEulerAngles,
+			m_VehicleLeftHandIkReadyLocalPosition,
+			m_VehicleLeftHandIkReadyLocalEulerAngles);
 	}
 
 	public static bool UsesCrouchHandPose(LocomotionStance _stance) => _stance == LocomotionStance.Crouch;
@@ -467,6 +547,157 @@ public class ItemDefinition : ScriptableObject
 		return UsesCrouchHandPose(_stance) && HasCrouchLeftHandIkConfigured()
 			? m_CrouchLeftHandIkReadyLocalEulerAngles
 			: m_LeftHandIkReadyLocalEulerAngles;
+	}
+
+	public static bool UsesVehicleHandPose(bool _isVehiclePassengerReady) => _isVehiclePassengerReady;
+
+	/// <summary>Vehicle NotReady weapon local position; falls back to standing NotReady when unset.</summary>
+	public Vector3 ResolveVehicleRightHandLocalPosition()
+	{
+		return HasVehicleWeaponPoseConfigured()
+			? m_VehicleRightHandLocalPosition
+			: m_RightHandLocalPosition;
+	}
+
+	/// <summary>Vehicle NotReady weapon local rotation; falls back to standing NotReady when unset.</summary>
+	public Quaternion ResolveVehicleRightHandLocalRotation()
+	{
+		return HasVehicleWeaponPoseConfigured()
+			? VehicleRightHandLocalRotation
+			: RightHandLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleRightHandReadyLocalPosition()
+	{
+		if (!HasVehicleWeaponPoseConfigured())
+			return m_RightHandReadyLocalPosition;
+
+		if (m_VehicleRightHandReadyLocalPosition == Vector3.zero
+		    && m_VehicleRightHandReadyLocalEulerAngles == Vector3.zero)
+			return m_VehicleRightHandLocalPosition;
+
+		return m_VehicleRightHandReadyLocalPosition;
+	}
+
+	public Quaternion ResolveVehicleRightHandReadyLocalRotation()
+	{
+		if (!HasVehicleWeaponPoseConfigured())
+			return RightHandReadyLocalRotation;
+
+		if (m_VehicleRightHandReadyLocalPosition == Vector3.zero
+		    && m_VehicleRightHandReadyLocalEulerAngles == Vector3.zero)
+			return VehicleRightHandLocalRotation;
+
+		return VehicleRightHandReadyLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleRightHandIkNotReadyLocalPosition()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? m_VehicleRightHandIkNotReadyLocalPosition
+			: m_RightHandIkNotReadyLocalPosition;
+	}
+
+	public Quaternion ResolveVehicleRightHandIkNotReadyLocalRotation()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? VehicleRightHandIkNotReadyLocalRotation
+			: RightHandIkNotReadyLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleRightHandIkReadyLocalPosition()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? m_VehicleRightHandIkReadyLocalPosition
+			: m_RightHandIkReadyLocalPosition;
+	}
+
+	public Quaternion ResolveVehicleRightHandIkReadyLocalRotation()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? VehicleRightHandIkReadyLocalRotation
+			: RightHandIkReadyLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleLeftHandIkNotReadyLocalPosition()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? m_VehicleLeftHandIkNotReadyLocalPosition
+			: m_LeftHandIkNotReadyLocalPosition;
+	}
+
+	public Quaternion ResolveVehicleLeftHandIkNotReadyLocalRotation()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? VehicleLeftHandIkNotReadyLocalRotation
+			: LeftHandIkNotReadyLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleLeftHandIkReadyLocalPosition()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? m_VehicleLeftHandIkReadyLocalPosition
+			: m_LeftHandIkReadyLocalPosition;
+	}
+
+	public Quaternion ResolveVehicleLeftHandIkReadyLocalRotation()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? VehicleLeftHandIkReadyLocalRotation
+			: LeftHandIkReadyLocalRotation;
+	}
+
+	public Vector3 ResolveVehicleRightHandIkNotReadyLocalEulerAngles()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? m_VehicleRightHandIkNotReadyLocalEulerAngles
+			: m_RightHandIkNotReadyLocalEulerAngles;
+	}
+
+	public Vector3 ResolveVehicleRightHandIkReadyLocalEulerAngles()
+	{
+		return HasVehicleRightHandIkConfigured()
+			? m_VehicleRightHandIkReadyLocalEulerAngles
+			: m_RightHandIkReadyLocalEulerAngles;
+	}
+
+	public Vector3 ResolveVehicleLeftHandIkNotReadyLocalEulerAngles()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? m_VehicleLeftHandIkNotReadyLocalEulerAngles
+			: m_LeftHandIkNotReadyLocalEulerAngles;
+	}
+
+	public Vector3 ResolveVehicleLeftHandIkReadyLocalEulerAngles()
+	{
+		return HasVehicleLeftHandIkConfigured()
+			? m_VehicleLeftHandIkReadyLocalEulerAngles
+			: m_LeftHandIkReadyLocalEulerAngles;
+	}
+
+	/// <summary>Copies standing weapon pose + hand IK into vehicle fields (editor bootstrap).</summary>
+	public void CopyStandingHandPoseToVehicle()
+	{
+		m_VehicleRightHandLocalPosition = m_RightHandLocalPosition;
+		m_VehicleRightHandLocalEulerAngles = m_RightHandLocalEulerAngles;
+		m_VehicleRightHandReadyLocalPosition = m_RightHandReadyLocalPosition;
+		m_VehicleRightHandReadyLocalEulerAngles = m_RightHandReadyLocalEulerAngles;
+
+		if (m_VehicleRightHandReadyLocalPosition == Vector3.zero
+		    && m_VehicleRightHandReadyLocalEulerAngles == Vector3.zero)
+		{
+			m_VehicleRightHandReadyLocalPosition = m_VehicleRightHandLocalPosition;
+			m_VehicleRightHandReadyLocalEulerAngles = m_VehicleRightHandLocalEulerAngles;
+		}
+
+		m_VehicleRightHandIkNotReadyLocalPosition = m_RightHandIkNotReadyLocalPosition;
+		m_VehicleRightHandIkNotReadyLocalEulerAngles = m_RightHandIkNotReadyLocalEulerAngles;
+		m_VehicleRightHandIkReadyLocalPosition = m_RightHandIkReadyLocalPosition;
+		m_VehicleRightHandIkReadyLocalEulerAngles = m_RightHandIkReadyLocalEulerAngles;
+		m_VehicleLeftHandIkNotReadyLocalPosition = m_LeftHandIkNotReadyLocalPosition;
+		m_VehicleLeftHandIkNotReadyLocalEulerAngles = m_LeftHandIkNotReadyLocalEulerAngles;
+		m_VehicleLeftHandIkReadyLocalPosition = m_LeftHandIkReadyLocalPosition;
+		m_VehicleLeftHandIkReadyLocalEulerAngles = m_LeftHandIkReadyLocalEulerAngles;
 	}
 
 	/// <summary>Copies standing weapon pose + hand IK into crouch fields (editor bootstrap).</summary>

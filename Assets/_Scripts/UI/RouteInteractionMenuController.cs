@@ -331,7 +331,7 @@ public sealed class RouteInteractionMenuController : MonoBehaviour
 
 	private void CreateMenuItem(RectTransform _parent, RouteMenuItemDefinition _item, bool _isSubmenuItem)
 	{
-		string label = _item.HasSubmenu && !_isSubmenuItem ? _item.Label + " ▸" : _item.Label;
+		string label = _item.HasSubmenu && !_isSubmenuItem ? _item.Label + " >" : _item.Label;
 		GameObject itemObject = CreateRectObject(label, _parent);
 		RectTransform itemRect = itemObject.transform as RectTransform;
 		itemRect.sizeDelta = new Vector2(c_MenuMinWidth, c_ItemHeight);

@@ -25,6 +25,7 @@ public sealed class VehicleInteractionMenuController : MonoBehaviour
 		BoardOneSide,
 		BoardGunner,
 		LoadWounded,
+		Exchange,
 		NoSpace
 	}
 
@@ -163,6 +164,9 @@ public sealed class VehicleInteractionMenuController : MonoBehaviour
 			else
 				AddItem("Нет места для раненого", MenuAction.NoSpace, _disabled: true);
 		}
+
+		if (_canBoard)
+			AddItem("Обмен", MenuAction.Exchange);
 
 		if (m_Items.Count == 0)
 		{

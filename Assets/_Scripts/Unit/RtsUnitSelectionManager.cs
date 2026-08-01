@@ -12,7 +12,7 @@ using UnityEngine.InputSystem;
 /// На RTS-юнитах прямой клавиатурный ввод readiness layer отключён — см. <see cref="RtsUnitMember.ApplyDirectInputState"/>.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class RtsUnitSelectionManager : MonoBehaviour
+public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private Camera m_SelectionCamera;
@@ -212,7 +212,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool m_IsRotateToPointMode;
 	private bool m_RotateToPointExitAfterCommand;
 	private readonly List<GameObject> m_RotateToPointMarkers = new List<GameObject>();
-	private GameObject m_RotateToPointCursorSphere;
+	private Vector3? m_PendingRotateToPointMarkerWorld;
+	private bool m_RotateToPointMarkerArmed;
 	[SerializeField, Min(0.5f)] private float m_RotateToPointMarkerLifetime = 2f;
 
 	private Transform m_PriorityTargetTransform;
@@ -333,6 +334,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (RouteInteractionMenuController.Instance != null)
 			RouteInteractionMenuController.Instance.ActionClicked -= HandleRouteInteractionMenuAction;
 
+		UnsubscribeVehicleMenus();
+
 		if (m_RouteEditHandle != null)
 			Destroy(m_RouteEditHandle);
 
@@ -349,6 +352,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		FallenUnitInteractionMenuController.Instance.ActionClicked += HandleFallenUnitMenuAction;
 		RouteInteractionMenuController.Instance.ActionClicked += HandleRouteInteractionMenuAction;
+		SubscribeVehicleMenus();
 
 		if (m_SelectFirstPlayerUnitOnStart)
 		{
@@ -422,6 +426,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	public void ClearSelection()
 	{
 		ClearAllPathInteractions();
+		ClearSelectedVehicle();
 		SetSelection(new List<RtsUnitMember>(0));
 	}
 
@@ -697,6 +702,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_drag == null || (_requireActiveDrag && !_drag.WasDraggingThisFrame))
 			return false;
 
+		if (InventoryScreenBindings.Instance != null && InventoryScreenBindings.Instance.IsVehicleInventoryActive)
+			return TryRouteVehicleDragOnCharacterPanel(_drag, _screenPosition, _eventCamera, _requireActiveDrag);
+
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
 		if (coordinator == null)
 			return false;
@@ -899,6 +907,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (_drag == null)
 			return false;
 
+		if (InventoryScreenBindings.Instance != null &&
+		    InventoryScreenBindings.Instance.IsVehicleInventoryActive)
+			return false;
+
 		CharacterInventory inventory = GetActiveInventory();
 		InventorySlotView slot = _drag.SlotView;
 		if (inventory == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
@@ -970,6 +982,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			Debug.Log($"{nameof(RtsUnitSelectionManager)}.{nameof(TryEquipFromCharacterBagDoubleClick)}: слот null или пустой.");
 			return false;
 		}
+
+		if (TryEquipFromVehicleInventoryDoubleClick(_slot))
+			return true;
 
 		CharacterInventory inventory = GetActiveInventory();
 		if (inventory == null || m_CharacterInventoryPanel == null)
@@ -1699,6 +1714,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
 			return;
 
+		if (TryQueueRouteOrderFromKeyboardHover(RouteInteractionMenuAction.RocketLauncher))
+			return;
+
 		for (int i = 0; i < m_SelectedUnits.Count; i++)
 		{
 			RtsUnitMember unit = m_SelectedUnits[i];
@@ -1937,7 +1955,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			return new RouteInteractionMenuController.RouteMenuItemDefinition
 			{
-				Label = "Гранатомёт",
+				Label = ResolveRocketLauncherRouteMenuLabel(rocketController, launchers[0].Slot, null),
 				Action = RouteInteractionMenuAction.RocketLauncher,
 				Payload = launchers[0].BagIndex
 			};
@@ -1955,24 +1973,43 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			InventorySlotRuntimeData slot = launchers[i].Slot;
 			string name = slot.Definition != null ? slot.Definition.GetLocalizedDisplayName() : "Гранатомёт";
-			bool loaded = false;
-			if (slot.InstanceState != null && slot.Definition != null)
-			{
-				slot.InstanceState.EnsureRocketLauncherState(slot.Definition);
-				loaded = slot.InstanceState.RocketLauncherState != null &&
-				         slot.InstanceState.RocketLauncherState.IsLoaded;
-			}
-
-			string status = loaded ? "заряжен" : "пустой";
+			string suffix = $" #{launchers[i].BagIndex + 1}";
 			item.Children.Add(new RouteInteractionMenuController.RouteMenuItemDefinition
 			{
-				Label = $"{name} #{launchers[i].BagIndex + 1} ({status})",
+				Label = ResolveRocketLauncherRouteMenuLabel(rocketController, slot, name + suffix),
 				Action = RouteInteractionMenuAction.RocketLauncher,
 				Payload = launchers[i].BagIndex
 			});
 		}
 
 		return item;
+	}
+
+	/// <summary>
+	/// Same wording as the action panel: reload vs fire.
+	/// </summary>
+	private static string ResolveRocketLauncherRouteMenuLabel(
+		UnitRocketLauncherOrderController _controller,
+		InventorySlotRuntimeData _slot,
+		string _namedLauncherLabel)
+	{
+		bool needsReload = false;
+		if (_controller != null && _namedLauncherLabel == null)
+		{
+			needsReload = _controller.ShouldShowReloadButtonLabel();
+		}
+		else if (_slot.InstanceState != null && _slot.Definition != null)
+		{
+			_slot.InstanceState.EnsureRocketLauncherState(_slot.Definition);
+			bool loaded = _slot.InstanceState.RocketLauncherState != null &&
+			              _slot.InstanceState.RocketLauncherState.IsLoaded;
+			needsReload = !loaded && _slot.Definition.RocketLauncherType == RocketLauncherType.Rpg7;
+		}
+
+		if (_namedLauncherLabel == null)
+			return needsReload ? "Зарядить гранатомёт" : "Гранатомёт";
+
+		return needsReload ? $"Зарядить {_namedLauncherLabel}" : _namedLauncherLabel;
 	}
 
 	private static RouteInteractionMenuController.RouteMenuItemDefinition BuildLocomotionMenuItem()
@@ -2058,6 +2095,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		if (_unit == null)
 			return;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		RouteMovementDebug.LogManager(
+			$"MENU_ACTION action={_action} unit={_unit.name} seg={_segmentIndex} " +
+			$"point=({_worldPoint.x:F1},{_worldPoint.z:F1}) payload={_payload}");
+#endif
 
 		int unitIndex = m_SelectedUnits.IndexOf(_unit);
 		if (unitIndex < 0)
@@ -2291,7 +2334,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (distance > c_ArriveDistance)
 		{
 			Vector3 approachPoint = ComputeExchangeApproachPoint(_playerUnit, _partnerUnit, c_ArriveDistance * 0.85f);
-			_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
+			_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
 
 			float elapsed = 0f;
 			while (elapsed < c_MaxApproachSeconds)
@@ -2374,6 +2417,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private CharacterInventory GetPartnerInventory()
 	{
 		return InventoryExchangeController.Instance.PartnerInventory;
+	}
+
+	private VehicleInventory GetPartnerVehicleInventory()
+	{
+		return InventoryExchangeController.Instance.PartnerVehicleInventory;
 	}
 
 	private void RepaintExchangePanels()
@@ -2873,6 +2921,13 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (!Mouse.current.leftButton.wasReleasedThisFrame)
 			return;
 
+		if (VehicleInteractionMenuController.DidConsumeLeftClickThisFrame)
+		{
+			m_IsDraggingSelection = false;
+			m_LeftMouseStartedOverUi = false;
+			return;
+		}
+
 		if (IsPointerOverWaitPointIcon(out _, out _))
 		{
 			m_IsDraggingSelection = false;
@@ -2911,10 +2966,37 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (menu != null && menu.IsVisible && menu.IsScreenPointOverMenu(mousePosition))
 			return;
 
+		if (VehicleInteractionMenuController.Instance != null &&
+		    VehicleInteractionMenuController.Instance.IsVisible &&
+		    VehicleInteractionMenuController.Instance.IsScreenPointOverMenu(mousePosition))
+			return;
+
 		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
+
+		// Машина важнее земли: RaycastAll, иначе луч часто бьёт terrain раньше коллайдера.
+		if (TryRaycastVehicle(ray, out VehicleController hitVehicle, out _))
+		{
+			FallenUnitInteractionMenuController.Instance?.HideImmediate();
+			VehicleInteractionMenuController.Instance?.HideImmediate();
+			HandleVehicleLeftClick(hitVehicle, _ctrlPressed);
+			return;
+		}
+
 		if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, m_SelectionRaycastMask, QueryTriggerInteraction.Collide))
 		{
 			FallenUnitInteractionMenuController.Instance?.HideImmediate();
+			VehicleInteractionMenuController.Instance?.HideImmediate();
+
+			// Промах во время ожидания двойного клика посадки — не сбрасываем выделенных юнитов.
+			if (m_VehicleClickCommitCoroutine != null || m_PendingBoardUnits.Count > 0)
+			{
+				StopVehicleClickCommit();
+				m_PendingBoardUnits.Clear();
+				m_LastVehicleLeftClick = null;
+				m_LastVehicleLeftClickTime = -1f;
+				return;
+			}
+
 			if (!_ctrlPressed)
 				ClearSelection();
 			return;
@@ -2928,12 +3010,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 				return;
 
 			FallenUnitInteractionMenuController.Instance?.HideImmediate();
+			VehicleInteractionMenuController.Instance?.HideImmediate();
 			if (!_ctrlPressed)
 				ClearSelection();
 			return;
 		}
 
+		// Второй клик часто попадает в коллайдер выделенного юнита у машины — не срываем посадку.
+		if (TryConsumePendingVehicleBoardDoubleClick(_ctrlPressed))
+		{
+			FallenUnitInteractionMenuController.Instance?.HideImmediate();
+			VehicleInteractionMenuController.Instance?.HideImmediate();
+			return;
+		}
+
 		FallenUnitInteractionMenuController.Instance?.HideImmediate();
+		VehicleInteractionMenuController.Instance?.HideImmediate();
+		StopVehicleClickCommit();
+		m_PendingBoardUnits.Clear();
+		ClearSelectedVehicle();
 
 		if (_ctrlPressed)
 			ToggleUnitSelection(unit);
@@ -2976,7 +3071,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (MissionPrepSquadSpawner.IsMissionPrepPresentationMember(targetUnit))
 			return false;
 
-		FallenUnitInteractionMenuController.Instance.ShowForUnit(targetUnit, _screenPosition);
+		bool canStabilize = false;
+		UnitStabilizeOtherController stabilizeController = controllerUnit.GetComponent<UnitStabilizeOtherController>();
+		if (stabilizeController != null)
+			canStabilize = stabilizeController.CanStabilizeOther(targetUnit);
+
+		FallenUnitInteractionMenuController.Instance.ShowForUnit(targetUnit, _screenPosition, canStabilize);
 		return true;
 	}
 
@@ -4432,8 +4532,7 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private void ContinueSelectedRouteWaitGroup(int _waitGroup)
 	{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-		if (RouteMovementDebug.LoggingEnabled)
-			Debug.Log($"[RouteDbg:Manager] Continue wait group {_waitGroup} for all player units");
+		RouteMovementDebug.LogManager($"WAIT_CONTINUE_ALL group={_waitGroup}");
 #endif
 		IReadOnlyList<RtsUnitMember> instances = RtsUnitMember.Instances;
 		for (int i = 0; i < instances.Count; i++)
@@ -4542,6 +4641,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		{
 			if (m_IsPreviewingMove || m_PreviewPending || m_IsAwaitingDoubleClick)
 				CancelMovePreview();
+
+			if (m_SelectedVehicle != null)
+				HandleSelectedVehicleRightMouse();
 			return;
 		}
 
@@ -4552,6 +4654,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			if (routeMenu.IsScreenPointOverMenu(menuMouse))
 				return;
 		}
+
+		if (VehicleInteractionMenuController.Instance != null &&
+		    VehicleInteractionMenuController.Instance.IsVisible &&
+		    VehicleInteractionMenuController.Instance.IsScreenPointOverMenu(Mouse.current.position.ReadValue()))
+			return;
 
 		if (IsPointerOverUi())
 			return;
@@ -4654,6 +4761,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (routeMenu != null && routeMenu.IsVisible && routeMenu.IsScreenPointOverMenu(mousePosition))
 			return;
 
+		if (VehicleInteractionMenuController.Instance != null &&
+		    VehicleInteractionMenuController.Instance.IsScreenPointOverMenu(mousePosition))
+			return;
+
 		if (IsPointerOverWaitPointIcon(out int waitUnitIndex, out int waitWaypointIndex))
 		{
 			RemoveWaitPointIcon(waitUnitIndex, waitWaypointIndex);
@@ -4673,6 +4784,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
+
+		if (TryHandleVehicleContextMenu(ray, mousePosition))
+			return;
+
 		bool hasUnitHit = TryRaycastAnyUnit(ray, out RaycastHit unitHit);
 		RtsUnitMember clickedUnit = hasUnitHit
 			? unitHit.collider.GetComponentInParent<RtsUnitMember>()
@@ -6174,7 +6289,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			RtsUnitMember unit = validUnits[i];
 			if (unit == null)
 				continue;
-			if (!unit.HasActiveDestination && !unit.HasQueuedCommands && !unit.HasWantedFacing)
+			// Не трогаем юнита с отложенной командой (in-place facing и т.п.):
+			// ClearWaypoints → CancelPendingCommand отменял поворот на месте сразу после commit.
+			if (!unit.HasActiveDestination &&
+			    !unit.HasQueuedCommands &&
+			    !unit.HasWantedFacing &&
+			    !unit.HasPendingRtsCommand)
 				unit.ClearWaypoints();
 			if (_clearFormationFacing)
 				unit.ClearFormationFacing();
@@ -6269,6 +6389,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
+		HandleVehicleKeyboardCommands();
+
 		if (m_SelectedUnits.Count == 0)
 			return;
 
@@ -6310,7 +6432,9 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		if (Keyboard.current.eKey.wasPressedThisFrame)
 		{
-			ToggleSelectedReady();
+			if (!m_VehicleEKeyConsumed)
+				ToggleSelectedReady();
+			m_VehicleEKeyConsumed = false;
 			if (m_IsPreviewingMove)
 				UpdateMovePreviewVisuals();
 			return;
@@ -6398,15 +6522,24 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			unit.HardStop();
 		}
+
+		if (m_SelectedVehicle != null)
+			m_SelectedVehicle.HardStop();
 	}
 
 	private void CommandSelectedManualMagazineLoadingInternal()
 	{
+		if (TryQueueRouteOrderFromKeyboardHover(RouteInteractionMenuAction.MagazineRefill))
+			return;
+
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartManualMagazineLoading(_stagger));
 	}
 
 	private void CommandSelectedWeaponReloadInternal()
 	{
+		if (TryQueueRouteOrderFromKeyboardHover(RouteInteractionMenuAction.Reload))
+			return;
+
 		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.StartWeaponReload(_stagger));
 	}
 
@@ -6834,6 +6967,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		ClearAllPathInteractions();
 		ClearSelectionVisualsOnly();
+		if (_units != null && _units.Count > 0)
+			ClearSelectedVehicle();
 		m_SelectedUnits.Clear();
 
 		for (int i = 0; i < _units.Count; i++)
@@ -7007,7 +7142,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			return;
 
 		CharacterInventory inventory = TryGetActiveCharacterInventoryForUi();
-		m_InventoryBindings.SetActiveCharacterInventory(inventory);
+		if (inventory != null)
+		{
+			m_InventoryBindings.SetActiveCharacterInventory(inventory);
+			return;
+		}
+
+		if (m_SelectedVehicle != null && m_SelectedVehicle.Inventory != null)
+		{
+			m_InventoryBindings.SetActiveVehicleInventory(m_SelectedVehicle.Inventory);
+			return;
+		}
+
+		m_InventoryBindings.SetActiveCharacterInventory(null);
 	}
 
 	/// <summary>Синхронизировать <see cref="InventoryScreenBindings.ActiveCharacterInventory"/> с текущим выделением RTS.</summary>
@@ -7067,6 +7214,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	{
 		if (IsExchangeActive)
 		{
+			VehicleInventory vehiclePartner = GetPartnerVehicleInventory();
+			if (vehiclePartner != null)
+				return TryQuickTransferVehicleToCharacter(_inventory, _slot, vehiclePartner);
+
 			CharacterInventory partner = GetPartnerInventory();
 			if (partner == null)
 				return false;
@@ -7119,6 +7270,100 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		return true;
 	}
 
+	private bool TryQuickTransferVehicleToCharacter(
+		CharacterInventory _player,
+		InventorySlotView _slot,
+		VehicleInventory _vehicle)
+	{
+		if (!TryResolveVehicleInventorySlot(_slot, _vehicle, out bool isWeapon, out bool isFrontal, out bool isSurround, out int bagIndex))
+			return false;
+
+		InventorySlotRuntimeData data;
+		if (isWeapon)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.TurretWeapon, out data))
+				return false;
+		}
+		else if (isFrontal)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.FrontalShield, out data))
+				return false;
+		}
+		else if (isSurround)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.SurroundShield, out data))
+				return false;
+		}
+		else if (!_vehicle.TryRemoveBagAt(bagIndex, out data))
+			return false;
+
+		data.WorldSource = null;
+		if (!_player.TryAdd(data))
+		{
+			if (isWeapon)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.TurretWeapon);
+			else if (isFrontal)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.FrontalShield);
+			else if (isSurround)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.SurroundShield);
+			else
+				_vehicle.TryAdd(data);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		RepaintExchangePanels();
+		return true;
+	}
+
+	private bool TryQuickTransferCharacterToVehicle(
+		CharacterInventory _player,
+		InventorySlotRuntimeData _data,
+		bool _wasMainHand,
+		bool _wasHead)
+	{
+		VehicleInventory vehicle = GetPartnerVehicleInventory();
+		if (vehicle == null)
+			return false;
+
+		_data.WorldSource = null;
+		if (_data.Definition != null && _data.Definition.IsTurretWeapon && !vehicle.HasTurretWeapon)
+		{
+			if (vehicle.TryEquipExternal(_data, VehicleEquipmentSlotId.TurretWeapon))
+			{
+				RepaintExchangePanels();
+				return true;
+			}
+		}
+		else if (_data.Definition != null && _data.Definition.IsTurretFrontalShield && vehicle.HasTurretWeapon &&
+		         !vehicle.HasFrontalShield)
+		{
+			if (vehicle.TryEquipExternal(_data, VehicleEquipmentSlotId.FrontalShield))
+			{
+				RepaintExchangePanels();
+				return true;
+			}
+		}
+		else if (_data.Definition != null && _data.Definition.IsTurretSurroundShield && !vehicle.HasSurroundShield)
+		{
+			if (vehicle.TryEquipExternal(_data, VehicleEquipmentSlotId.SurroundShield))
+			{
+				RepaintExchangePanels();
+				return true;
+			}
+		}
+
+		if (vehicle.TryAdd(_data))
+		{
+			RepaintExchangePanels();
+			return true;
+		}
+
+		_player.RestoreAfterFailedDrop(_wasMainHand, _wasHead, false, _data);
+		RepaintExchangePanels();
+		return false;
+	}
+
 	private bool TryQuickTransferCharacterToGroundInternal(CharacterInventory _inventory, InventorySlotView _slot)
 	{
 		if (!TryResolveCharacterInventorySlot(_slot, _inventory, out bool isMainHand, out bool isHead, out int bagIndex))
@@ -7142,7 +7387,11 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		if (IsExchangeActive)
+		{
+			if (GetPartnerVehicleInventory() != null)
+				return TryQuickTransferCharacterToVehicle(_inventory, data, isMainHand, isHead);
 			return TryCompleteCharacterToPartnerTransfer(_inventory, data, null, isMainHand, isHead);
+		}
 
 		return TryCompleteCharacterToGroundTransfer(_inventory, data, null, isMainHand, isHead);
 	}
@@ -7553,6 +7802,33 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (m_SelectedUnits.Count == 0)
 			return;
 
+		if (TryGetHoveredRoutePlacement(
+			    out RtsUnitMember hoverUnit,
+			    out int hoverUnitIndex,
+			    out int hoverSegmentIndex,
+			    out Vector3 hoverWorldPoint))
+		{
+			UnitGrenadeThrowController hoverController = hoverUnit.GetComponent<UnitGrenadeThrowController>();
+			if (hoverController == null || !hoverController.CanStartThrow())
+				return;
+
+			GrenadeType hoverType = hoverController.SelectedType;
+			if (!hoverController.SetSelectedType(hoverType))
+			{
+				if (!hoverController.CycleSelectedType())
+					return;
+				hoverType = hoverController.SelectedType;
+			}
+
+			BeginRouteGrenadePlanningFromMenu(
+				hoverUnit,
+				hoverUnitIndex,
+				hoverSegmentIndex,
+				hoverWorldPoint,
+				hoverType);
+			return;
+		}
+
 		UnitGrenadeThrowController controller = GetPrimaryThrowController();
 		if (controller == null || !controller.CanStartThrow())
 			return;
@@ -7573,19 +7849,10 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			m_SelectedGrenadeType = controller.SelectedType;
 		}
 
-		m_IsRouteGrenadePlanning = IsTacticalPauseActive() && m_IsHoveringPathSegment;
-		if (m_IsRouteGrenadePlanning)
-		{
-			m_RouteGrenadePlanningOrigin = m_HoveredSegmentWorldPoint;
-			m_RouteGrenadePlanningUnitIndex = m_HoveredUnitIndex;
-			m_RouteGrenadePlanningSegmentIndex = m_HoveredSegmentIndex;
-		}
-		else
-		{
-			m_RouteGrenadePlanningOrigin = controller.transform.position;
-			m_RouteGrenadePlanningUnitIndex = -1;
-			m_RouteGrenadePlanningSegmentIndex = -1;
-		}
+		m_IsRouteGrenadePlanning = false;
+		m_RouteGrenadePlanningOrigin = controller.transform.position;
+		m_RouteGrenadePlanningUnitIndex = -1;
+		m_RouteGrenadePlanningSegmentIndex = -1;
 
 		controller.BeginAiming();
 		EnsureGrenadeAimMarker();
@@ -7619,7 +7886,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			RtsUnitMember unit = m_SelectedUnits[m_RouteGrenadePlanningUnitIndex];
 			if (unit != null)
 			{
-				Vector3 targetPos = m_GrenadeAimMarker != null ? m_GrenadeAimMarker.MarkerWorldPosition : m_RouteGrenadePlanningOrigin;
+				if (!TryResolveGrenadeAimTarget(out Vector3 targetPos))
+				{
+					CancelGrenadeThrow();
+					return;
+				}
+
 				float segmentT = 1f;
 				unit.TryComputeRouteSegmentT(m_RouteGrenadePlanningSegmentIndex, m_RouteGrenadePlanningOrigin, out segmentT);
 				GrenadeRouteOrder order = new GrenadeRouteOrder
@@ -7644,6 +7916,48 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_IsGrenadeThrowMode = false;
 		m_IsRouteGrenadePlanning = false;
 		m_ActiveThrowController = null;
+	}
+
+	private bool TryResolveGrenadeAimTarget(out Vector3 _targetWorld)
+	{
+		_targetWorld = Vector3.zero;
+
+		if (m_GrenadeAimMarker != null && m_GrenadeAimMarker.HasValidAimTarget)
+		{
+			_targetWorld = m_GrenadeAimMarker.LastAimWorldPosition;
+			return true;
+		}
+
+		if (m_GrenadeAimMarker != null)
+		{
+			Vector3 markerPos = m_GrenadeAimMarker.MarkerWorldPosition;
+			if (markerPos.sqrMagnitude > 0.0001f)
+			{
+				_targetWorld = markerPos;
+				return true;
+			}
+		}
+
+		// Last resort: sample cursor now so a click without a prior aim frame still works.
+		Camera cam = m_SelectionCamera != null ? m_SelectionCamera : Camera.main;
+		if (cam == null || Mouse.current == null)
+			return false;
+
+		Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
+		if (Physics.Raycast(ray, out RaycastHit hit, 500f))
+		{
+			_targetWorld = hit.point;
+			return true;
+		}
+
+		Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+		if (groundPlane.Raycast(ray, out float enter))
+		{
+			_targetWorld = ray.GetPoint(enter);
+			return true;
+		}
+
+		return false;
 	}
 
 	private void CancelGrenadeThrow()
@@ -7680,14 +7994,17 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 			CancelMovePreview();
 
 		m_IsRotateToPointMode = true;
-		CreateRotateToPointCursor();
 	}
 
-	private void ExitRotateToPointMode()
+	private void ExitRotateToPointMode(bool _clearConfirmedMarkers = true)
 	{
 		m_IsRotateToPointMode = false;
-		ClearRotateToPointMarkers();
-		DestroyRotateToPointCursor();
+		if (_clearConfirmedMarkers)
+		{
+			ClearRotateToPointMarkers();
+			m_PendingRotateToPointMarkerWorld = null;
+			m_RotateToPointMarkerArmed = false;
+		}
 	}
 
 	private void HandleRotateToPointInput()
@@ -7698,9 +8015,6 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		Vector2 mousePosition = Mouse.current.position.ReadValue();
 		Ray ray = m_SelectionCamera.ScreenPointToRay(mousePosition);
 		bool hitGround = Physics.Raycast(ray, out RaycastHit hit, 2000f, m_CommandGroundMask, QueryTriggerInteraction.Ignore);
-
-		if (hitGround)
-			UpdateRotateToPointCursor(hit.point);
 
 		if (Keyboard.current != null &&
 		    (Keyboard.current.fKey.wasPressedThisFrame ||
@@ -7713,15 +8027,12 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		if (Mouse.current.leftButton.wasPressedThisFrame && !IsPointerOverUi() && hitGround)
 		{
 			Vector3 point = hit.point;
-			SpawnRotateToPointMarker(point);
 			CommandSelectedRotateToPoint(point);
 			m_LeftMouseDownScreen = Mouse.current.position.ReadValue();
 			m_LeftMouseStartedOverUi = true;
 
 			if (m_RotateToPointExitAfterCommand)
-			{
-				ExitRotateToPointMode();
-			}
+				ExitRotateToPointMode(_clearConfirmedMarkers: false);
 		}
 	}
 
@@ -7733,7 +8044,8 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 		marker.transform.position = _worldPoint + Vector3.up * 0.05f;
 		m_RotateToPointMarkers.Add(marker);
-		StartCoroutine(DestroyRotateToPointMarkerAfter(marker, m_RotateToPointMarkerLifetime));
+		float lifetime = Mathf.Max(0.1f, RtsUnitMember.FacingIndicatorDurationSeconds);
+		StartCoroutine(DestroyRotateToPointMarkerAfter(marker, lifetime));
 	}
 
 	private GameObject CreateRotateToPointMarkerInternal()
@@ -7782,43 +8094,25 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 		m_RotateToPointMarkers.Clear();
 	}
 
-	private void CreateRotateToPointCursor()
+	private void HandleRotateToPointFacingReached()
 	{
-		DestroyRotateToPointCursor();
-		m_RotateToPointCursorSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-		m_RotateToPointCursorSphere.name = "RotateToPointCursor";
-		m_RotateToPointCursorSphere.transform.localScale = Vector3.one * 0.35f;
-		Renderer renderer = m_RotateToPointCursorSphere.GetComponent<Renderer>();
-		if (renderer != null)
-		{
-			renderer.material = new Material(Shader.Find("Sprites/Default"));
-			renderer.material.color = new Color(1f, 0.85f, 0.1f, 0.9f);
-		}
-		Collider col = m_RotateToPointCursorSphere.GetComponent<Collider>();
-		if (col != null)
-			Destroy(col);
-	}
-
-	private void UpdateRotateToPointCursor(Vector3 _groundPoint)
-	{
-		if (m_RotateToPointCursorSphere == null)
+		if (!m_RotateToPointMarkerArmed || !m_PendingRotateToPointMarkerWorld.HasValue)
 			return;
-		m_RotateToPointCursorSphere.transform.position = _groundPoint + Vector3.up * 0.08f;
-	}
 
-	private void DestroyRotateToPointCursor()
-	{
-		if (m_RotateToPointCursorSphere != null)
-		{
-			Destroy(m_RotateToPointCursorSphere);
-			m_RotateToPointCursorSphere = null;
-		}
+		m_RotateToPointMarkerArmed = false;
+		Vector3 point = m_PendingRotateToPointMarkerWorld.Value;
+		m_PendingRotateToPointMarkerWorld = null;
+		SpawnRotateToPointMarker(point);
 	}
 
 	private void CommandSelectedRotateToPoint(Vector3 _worldPoint)
 	{
 		List<RtsUnitMember> validUnits = GetValidSelectedUnits();
 		bool isGroup = validUnits.Count >= 2;
+
+		m_PendingRotateToPointMarkerWorld = _worldPoint;
+		m_RotateToPointMarkerArmed = true;
+		bool anyIssued = false;
 
 		for (int i = 0; i < validUnits.Count; i++)
 		{
@@ -7833,8 +8127,19 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 
 			float angle = Mathf.Atan2(toPoint.x, toPoint.z) * Mathf.Rad2Deg;
 			float stagger = isGroup ? ResolveUnitGroupCommandStaggerDelay(unit) : 0f;
-			// Тот же сценарий, что у жёлтой стрелки: доворот → скан → sector/return/hold.
-			unit.IssueYellowFacingCheckOrder(angle, stagger, _showFacingIndicator: true);
+			// Стрелка под юнитом и маркер в точке — после доворота (см. NotifyFacingTurnReachedIfPending).
+			unit.IssueYellowFacingCheckOrder(
+				angle,
+				stagger,
+				_showFacingIndicator: true,
+				_onFacingTurnReached: HandleRotateToPointFacingReached);
+			anyIssued = true;
+		}
+
+		if (!anyIssued)
+		{
+			m_PendingRotateToPointMarkerWorld = null;
+			m_RotateToPointMarkerArmed = false;
 		}
 	}
 
@@ -8083,6 +8388,79 @@ public sealed class RtsUnitSelectionManager : MonoBehaviour
 	private bool IsCursorOverRouteSegment()
 	{
 		return m_IsHoveringPathSegment;
+	}
+
+	/// <summary>
+	/// True when the route edit marker is visible under the cursor (after hover delay).
+	/// Keyboard hotkeys can queue the same route orders as the RMB menu at this point.
+	/// </summary>
+	private bool TryGetHoveredRoutePlacement(
+		out RtsUnitMember _unit,
+		out int _unitIndex,
+		out int _segmentIndex,
+		out Vector3 _worldPoint)
+	{
+		_unit = null;
+		_unitIndex = -1;
+		_segmentIndex = -1;
+		_worldPoint = default;
+
+		if (!m_IsHoveringPathSegment)
+			return false;
+		if (m_HoveredUnitIndex < 0 || m_HoveredUnitIndex >= m_SelectedUnits.Count)
+			return false;
+		if (m_HoveredSegmentIndex < 0)
+			return false;
+
+		_unit = m_SelectedUnits[m_HoveredUnitIndex];
+		if (_unit == null)
+			return false;
+
+		_unitIndex = m_HoveredUnitIndex;
+		_segmentIndex = m_HoveredSegmentIndex;
+		_worldPoint = m_HoveredSegmentWorldPoint;
+		return true;
+	}
+
+	/// <summary>
+	/// Places a route-menu order at the hovered marker without opening the menu.
+	/// Returns false when the cursor is not on a route marker (caller should run the immediate command).
+	/// </summary>
+	private bool TryQueueRouteOrderFromKeyboardHover(RouteInteractionMenuAction _action)
+	{
+		if (!TryGetHoveredRoutePlacement(
+			    out RtsUnitMember unit,
+			    out _,
+			    out int segmentIndex,
+			    out Vector3 worldPoint))
+			return false;
+
+		object payload = null;
+		switch (_action)
+		{
+			case RouteInteractionMenuAction.RocketLauncher:
+			{
+				UnitRocketLauncherOrderController rocketController =
+					unit.GetComponent<UnitRocketLauncherOrderController>();
+				if (rocketController == null)
+					rocketController = unit.GetComponentInChildren<UnitRocketLauncherOrderController>();
+				if (rocketController == null ||
+				    !rocketController.TryGetBestLauncherBagIndex(out int bagIndex))
+					return true; // hover consumed, nothing to queue
+				payload = bagIndex;
+				break;
+			}
+
+			case RouteInteractionMenuAction.Reload:
+			case RouteInteractionMenuAction.MagazineRefill:
+				break;
+
+			default:
+				return false;
+		}
+
+		HandleRouteInteractionMenuAction(_action, unit, segmentIndex, worldPoint, payload);
+		return true;
 	}
 
 	private void UpdateGrenadeOrderHover()

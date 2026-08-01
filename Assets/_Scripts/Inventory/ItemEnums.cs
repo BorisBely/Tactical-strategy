@@ -42,7 +42,13 @@ public enum EquipmentKind
 	Weapon = 0,
 	Other = 1,
 	Helmet = 2,
-	Backpack = 3
+	Backpack = 3,
+	/// <summary>Орудие турели машины (не экипируется в руки юнита).</summary>
+	TurretWeapon = 4,
+	/// <summary>Фронтальный щит турели.</summary>
+	TurretFrontalShield = 5,
+	/// <summary>Окружной щит турели / стрелка.</summary>
+	TurretSurroundShield = 6
 }
 
 /// <summary>

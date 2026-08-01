@@ -32,7 +32,7 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 	private const string c_MedkitLayerName = UnitSelfStabilizationController.MedkitHandsLayerName;
 
-	private const float c_ApproachArriveDistance = 1f;
+	private const float c_ApproachArriveDistance = UnitFallenApproachUtility.ArriveDistanceMeters;
 
 	private const float c_MaxApproachSeconds = 45f;
 
@@ -87,6 +87,9 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 	[Tooltip("Поворот жертвы относительно Spine несущего (localEulerAngles).")]
 
 	[SerializeField] private Vector3 m_CarryGripRotationOffset = new Vector3(60.6f, -89.1f, 3.86f);
+
+	[Tooltip("Куда положить жертву перед носителем при отпускании (метры вперёд по горизонтали).")]
+	[SerializeField, Min(0.2f)] private float m_ReleaseForwardDistanceMeters = 0.9f;
 
 
 
@@ -455,103 +458,74 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 	#region Private Methods — Approach
 
 	private IEnumerator CoApproachVictim(RtsUnitMember _victim)
-
 	{
-
 		if (m_RtsMember == null || _victim == null)
-
 		{
-
 			LogWarning("CoApproachVictim aborted: RTS member or victim is null.");
-
 			yield break;
-
 		}
 
-
-
-		float distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-
-		if (distance > c_ApproachArriveDistance)
-
+		Vector3 victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(m_RtsMember.transform.position, victimFocus);
+		if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
 		{
-
-			Vector3 approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
-
-			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
-
-
+			Vector3 approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+				m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
+			m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
 
 			float elapsed = 0f;
-
-			float nextRetargetTime = 0.5f;
+			float nextRetargetTime = UnitFallenApproachUtility.RetargetIntervalSeconds;
+			float stuckSeconds = 0f;
+			float bestDistance = distance;
+			Vector3 lastPosition = m_RtsMember.transform.position;
+			Vector3 lastApproachPoint = approachPoint;
 
 			while (elapsed < c_MaxApproachSeconds)
-
 			{
-
 				if (_victim == null || m_RtsMember == null)
-
 				{
-
 					LogWarning("CoApproachVictim interrupted: victim or carrier destroyed during approach.");
-
 					yield break;
-
 				}
-
-
 
 				if (elapsed >= nextRetargetTime)
-
 				{
+					approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+						m_RtsMember.transform, _victim.transform, UnitFallenApproachUtility.StandoffMeters);
+					if (UnitFallenApproachUtility.ShouldRetargetApproach(lastApproachPoint, approachPoint))
+					{
+						m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
+						lastApproachPoint = approachPoint;
+					}
 
-					approachPoint = ComputeApproachPoint(m_RtsMember.transform, _victim.transform, c_ApproachArriveDistance * 0.85f);
-
-					m_RtsMember.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Walk);
-
-					nextRetargetTime += 0.5f;
-
+					nextRetargetTime += UnitFallenApproachUtility.RetargetIntervalSeconds;
 				}
 
+				Vector3 currentPosition = m_RtsMember.transform.position;
+				victimFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform);
+				distance = UnitFallenApproachUtility.HorizontalDistance(currentPosition, victimFocus);
+				float moved = UnitFallenApproachUtility.HorizontalDistance(currentPosition, lastPosition);
+				lastPosition = currentPosition;
+				stuckSeconds = UnitFallenApproachUtility.UpdateStuckSeconds(
+					stuckSeconds, distance, ref bestDistance, moved);
 
-
-				distance = HorizontalDistance(m_RtsMember.transform.position, _victim.transform.position);
-
-				if (distance <= c_ApproachArriveDistance)
-
+				if (UnitFallenApproachUtility.HasArrivedOrStuckCloseEnough(distance, stuckSeconds) ||
+				    UnitFallenApproachUtility.ShouldAbortApproach(distance, stuckSeconds))
 					break;
 
-
-
 				elapsed += Time.deltaTime;
-
 				yield return null;
-
 			}
 
-
-
-			if (distance > c_ApproachArriveDistance)
-
-				LogWarning($"CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
-
-
-
-			if (distance > c_ApproachArriveDistance)
-
-				LogWarning($"CoApproachVictim: timed out after {elapsed:F1}s, distance={distance:F2}m");
-
+			if (!UnitFallenApproachUtility.IsWithinInteractRange(distance))
+				LogWarning($"CoApproachVictim: too far after approach, distance={distance:F2}m");
+			else if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
+				LogWarning($"CoApproachVictim: accepted close-enough approach, distance={distance:F2}m");
 		}
 
-
-
 		m_ClickToMove?.HardStop();
-
 		m_LocomotionDriver?.HardStop();
-
 		yield return null;
-
 	}
 
 
@@ -632,6 +606,18 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 			yield break;
 
+		}
+
+
+
+		float approachDistance = UnitFallenApproachUtility.HorizontalDistance(
+			m_RtsMember.transform.position,
+			UnitFallenApproachUtility.ResolveApproachFocusPosition(_victim.transform));
+		if (!UnitFallenApproachUtility.IsWithinInteractRange(approachDistance))
+		{
+			LogWarning($"CoFiremanCarrySession aborted: still too far ({approachDistance:F2}m).");
+			m_SessionCoroutine = null;
+			yield break;
 		}
 
 
@@ -750,6 +736,10 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 
 
+		UnitStabilizedUnconsciousPoseController victimSleepPose =
+			_victim.GetComponent<UnitStabilizedUnconsciousPoseController>();
+		victimSleepPose?.NotifyExternalPoseOverride(true);
+
 		m_VictimRagdoll?.SetRagdollActive(false);
 
 
@@ -822,6 +812,10 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		}
 
+
+
+		RtsUnitMember victim = m_CarriedVictim;
+
 		if (m_VictimAnimator != null)
 
 		{
@@ -840,9 +834,24 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		m_VictimOriginalParent = null;
 
+		PlaceReleasedVictimInFront(victim);
 
 
-		m_VictimRagdoll?.SetRagdollActive(true);
+
+		UnitStabilizedUnconsciousPoseController victimSleepPose =
+			victim != null ? victim.GetComponent<UnitStabilizedUnconsciousPoseController>() : null;
+		bool sleepPoseWillTakeOver = victimSleepPose != null &&
+		                             victim.TryGetComponent(out UnitHealth victimHealth) &&
+		                             victim.TryGetComponent(out UnitConsciousness victimConsciousness) &&
+		                             !victimHealth.IsDead &&
+		                             !victimConsciousness.IsConscious &&
+		                             victimHealth.HasInjuries &&
+		                             !victimHealth.HasUnstabilizedInjuries;
+
+		if (!sleepPoseWillTakeOver)
+			m_VictimRagdoll?.SetRagdollActive(true);
+
+		victimSleepPose?.NotifyExternalPoseOverride(false);
 
 		m_VictimRagdoll = null;
 
@@ -850,6 +859,32 @@ public sealed class UnitFiremanCarryController : MonoBehaviour
 
 		m_CarriedPoseLayerIndex = -1;
 
+	}
+
+	private void PlaceReleasedVictimInFront(RtsUnitMember _victim)
+	{
+		if (_victim == null)
+			return;
+
+		Vector3 forward = transform.forward;
+		forward.y = 0f;
+		if (forward.sqrMagnitude < 0.0001f)
+			forward = Vector3.forward;
+		forward.Normalize();
+
+		Vector3 dropPosition = transform.position + forward * m_ReleaseForwardDistanceMeters;
+		dropPosition.y = _victim.transform.position.y;
+
+		if (UnityEngine.AI.NavMesh.SamplePosition(
+			    dropPosition,
+			    out UnityEngine.AI.NavMeshHit hit,
+			    1.5f,
+			    UnityEngine.AI.NavMesh.AllAreas))
+		{
+			dropPosition = hit.position;
+		}
+
+		_victim.transform.position = dropPosition;
 	}
 
 

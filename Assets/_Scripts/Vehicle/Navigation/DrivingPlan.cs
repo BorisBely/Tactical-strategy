@@ -21,6 +21,7 @@ namespace VehicleNavigation
 		public float ReverseDistance { get; private set; }
 		public int TurnCount { get; private set; }
 		public float Risk { get; private set; }
+		public ArrivalFallbackDecision FallbackDecision { get; set; }
 
 		public DrivingPlan(
 			IReadOnlyList<Maneuver> _maneuvers,

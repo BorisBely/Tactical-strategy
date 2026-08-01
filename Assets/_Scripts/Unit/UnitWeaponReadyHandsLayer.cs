@@ -31,6 +31,14 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	[SerializeField] private bool m_EnableKeyboardInput = true;
 	[SerializeField] private Key m_ToggleReadyKey = Key.E;
 
+	[Header("Звук перехода ready")]
+	[Tooltip("Старт перехода в готов (high ready).")]
+	[SerializeField] private AudioClip m_EnterReadyClip;
+	[Tooltip("Старт перехода в не готов (low ready).")]
+	[SerializeField] private AudioClip m_EnterNotReadyClip;
+	[SerializeField, Range(0f, 1f)] private float m_ReadyTransitionVolume = 0.55f;
+	[SerializeField, Min(0.1f)] private float m_ReadyTransitionSpatialMaxDistance = 18f;
+
 	private static readonly int s_Stance = Animator.StringToHash(UnitAnimatorWeaponMode.ParamStance);
 	private static readonly int s_LocomotionTier = Animator.StringToHash(UnitClickToMove.ParamLocomotionTier);
 	private static readonly int s_WeaponReady = Animator.StringToHash(UnitAnimatorWeaponMode.ParamWeaponReady);
@@ -43,6 +51,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private bool m_RestoreReadyAfterTurn;
 	private bool m_ProximityBlocksReady;
 	private bool m_RocketLauncherFireReadyOverride;
+	private bool m_ReadyTransitionAudioArmed;
+	private bool m_HasStarted;
+	private bool m_LastPushedWeaponReady;
+	private bool m_PendingNotReady;
 	#endregion
 
 	#region Public Methods
@@ -95,6 +107,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	/// Needed by AI / behaviour scripts to control the mode without emulating the E key.
 	/// </summary>
 	public bool WantsReady => m_UserWantsReady;
+
+	public bool IsKeyboardInputEnabled => m_EnableKeyboardInput;
 
 	/// <summary>Whether a deferred high‑ready restore is pending after sprint/run/turn.</summary>
 	public bool HasPendingReadyRestore =>
@@ -339,7 +353,19 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_LastEquipped = null;
 		m_RestoreReadyAfterSprint = false;
 		m_RestoreReadyAfterRun = false;
+		m_ReadyTransitionAudioArmed = false;
 		PushWeaponReadyParameter();
+
+		// После первого Start() — сразу выставляем baseline без клика на re-enable.
+		if (m_HasStarted)
+			ArmReadyTransitionAudioBaseline();
+	}
+
+	private void Start()
+	{
+		m_HasStarted = true;
+		// Базовая линия после спавна/конфига: звук только на последующих переходах.
+		ArmReadyTransitionAudioBaseline();
 	}
 
 	private void Update()
@@ -357,6 +383,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 			PushWeaponReadyParameter();
 		}
+
+		TryApplyPendingNotReady();
 
 		if (!CanUseDirectKeyboardInput() || !IsWeaponEquipped())
 			return;
@@ -376,10 +404,42 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (!nextReady && m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return;
 
+		if (nextReady)
+			m_PendingNotReady = false;
+
+		if (!nextReady && IsWeaponActionBusy())
+		{
+			m_PendingNotReady = true;
+			return;
+		}
+
 		if (!nextReady)
 			CancelDeferredReadyRestores();
 
 		ApplyReadyWanted(nextReady, nextReady, true);
+	}
+
+	private void TryApplyPendingNotReady()
+	{
+		if (!m_PendingNotReady)
+			return;
+
+		if (IsWeaponActionBusy())
+			return;
+
+		m_PendingNotReady = false;
+		CancelDeferredReadyRestores();
+		ApplyReadyWanted(false, false, true);
+	}
+
+	private bool IsWeaponActionBusy()
+	{
+		if (m_MagazineLoadingController != null &&
+		    (m_MagazineLoadingController.IsLoadingMagazine || m_MagazineLoadingController.IsLoadingAllMagazines))
+			return true;
+		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
+			return true;
+		return false;
 	}
 	#endregion
 
@@ -397,7 +457,13 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_Team == null)
 			return true;
 
-		return m_Team.Team == UnitTeamId.Player;
+		if (m_Team.Team != UnitTeamId.Player)
+			return false;
+
+		if (TryGetComponent(out UnitVehicleMountState mount) && mount.IsMounted)
+			return false;
+
+		return true;
 	}
 
 	private static bool WasKeyPressedThisFrame(Key _key)
@@ -529,11 +595,42 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private void PushWeaponReadyParameter()
 	{
+		bool nextReady = ResolveWeaponReadyParameter();
+
+		if (m_ReadyTransitionAudioArmed && nextReady != m_LastPushedWeaponReady)
+			PlayReadyTransitionSound(nextReady);
+
+		m_LastPushedWeaponReady = nextReady;
+
 		if (m_Animator == null)
 			return;
 
+		m_Animator.SetBool(s_WeaponReady, nextReady);
+	}
+
+	private bool ResolveWeaponReadyParameter()
+	{
 		bool allowReadyParameter = IsWeaponEquipped() || m_RocketLauncherFireReadyOverride;
-		m_Animator.SetBool(s_WeaponReady, GetEffectiveIsReady() && allowReadyParameter);
+		return GetEffectiveIsReady() && allowReadyParameter;
+	}
+
+	private void ArmReadyTransitionAudioBaseline()
+	{
+		m_LastPushedWeaponReady = ResolveWeaponReadyParameter();
+		m_ReadyTransitionAudioArmed = true;
+	}
+
+	private void PlayReadyTransitionSound(bool _enteringReady)
+	{
+		AudioClip clip = _enteringReady ? m_EnterReadyClip : m_EnterNotReadyClip;
+		if (clip == null || m_ReadyTransitionVolume <= 0f)
+			return;
+
+		UnitNonFireAudioUtility.PlayAtPoint(
+			clip,
+			transform.position,
+			m_ReadyTransitionVolume,
+			m_ReadyTransitionSpatialMaxDistance);
 	}
 	#endregion
 }

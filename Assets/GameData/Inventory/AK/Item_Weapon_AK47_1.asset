@@ -20,18 +20,18 @@ MonoBehaviour:
   m_Category: 1
   m_DropWorldPrefab: {fileID: 8294804475516198008, guid: 7b1964c5bee4dbb4684a79e96ff5ec64, type: 3}
   m_EquippedVisualPrefab: {fileID: 6059082158046521582, guid: 2f778a214ee63e5459fef9c233640b8d, type: 3}
-  m_RightHandLocalPosition: {x: 0.354, y: 0.136, z: -0.328}
-  m_RightHandLocalEulerAngles: {x: 349.17145, y: 90.85657, z: 277.48578}
+  m_RightHandLocalPosition: {x: 0.3538, y: 0.0486, z: -0.3313}
+  m_RightHandLocalEulerAngles: {x: 0.079884216, y: 91.61631, z: 273.91656}
   m_RightHandReadyLocalPosition: {x: 0.386, y: -0.086, z: -0.288}
-  m_RightHandReadyLocalEulerAngles: {x: 29.532007, y: 81.49898, z: 272.659}
-  m_RightHandIkNotReadyLocalPosition: {x: -0.002, y: -0.338, z: -0.452}
-  m_RightHandIkNotReadyLocalEulerAngles: {x: 1.090626, y: 17.285048, z: 268.78522}
-  m_RightHandIkReadyLocalPosition: {x: 0.059, y: -0.33, z: -0.349}
-  m_RightHandIkReadyLocalEulerAngles: {x: 348.525, y: 326.564, z: 265.585}
-  m_LeftHandIkNotReadyLocalPosition: {x: -0.027, y: -0.298, z: 0.027}
-  m_LeftHandIkNotReadyLocalEulerAngles: {x: 25.515797, y: 18.750767, z: 122.98773}
-  m_LeftHandIkReadyLocalPosition: {x: -0.101, y: -0.317, z: 0.021}
-  m_LeftHandIkReadyLocalEulerAngles: {x: 354.03494, y: 2.1816788, z: 107.65469}
+  m_RightHandReadyLocalEulerAngles: {x: 29.532011, y: 81.49897, z: 272.659}
+  m_RightHandIkNotReadyLocalPosition: {x: 0.03, y: -0.316, z: -0.392}
+  m_RightHandIkNotReadyLocalEulerAngles: {x: 1.1962647, y: 3.63866, z: 265.96533}
+  m_RightHandIkReadyLocalPosition: {x: 0.069, y: -0.327, z: -0.335}
+  m_RightHandIkReadyLocalEulerAngles: {x: 347.7769, y: 328.60794, z: 265.94165}
+  m_LeftHandIkNotReadyLocalPosition: {x: -0.0147, y: -0.3329, z: 0.0358}
+  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0.9497515, y: 21.453712, z: 110.56147}
+  m_LeftHandIkReadyLocalPosition: {x: -0.092, y: -0.281, z: 0.053}
+  m_LeftHandIkReadyLocalEulerAngles: {x: 1.9449049, y: 12.945461, z: 107.55187}
   m_LeftHandIkTargetChildName: LeftHandIkTarget
   m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
   m_RightHandIkTargetChildName: RightHandIkTarget
@@ -39,20 +39,33 @@ MonoBehaviour:
   m_CrouchRightHandLocalPosition: {x: 0.383, y: 0.13, z: -0.335}
   m_CrouchRightHandLocalEulerAngles: {x: 349.17145, y: 90.85657, z: 277.48578}
   m_CrouchRightHandReadyLocalPosition: {x: 0.386, y: -0.086, z: -0.288}
-  m_CrouchRightHandReadyLocalEulerAngles: {x: 29.532011, y: 81.49897, z: 272.659}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 29.532013, y: 81.49898, z: 272.659}
   m_CrouchRightHandIkNotReadyLocalPosition: {x: 0.0103, y: -0.3177, z: -0.3741}
   m_CrouchRightHandIkNotReadyLocalEulerAngles: {x: 355.0428, y: 359.94086, z: 251.62717}
-  m_CrouchRightHandIkReadyLocalPosition: {x: 0.062, y: -0.342, z: -0.326}
-  m_CrouchRightHandIkReadyLocalEulerAngles: {x: 344.57214, y: 327.0128, z: 268.5317}
-  m_CrouchLeftHandIkNotReadyLocalPosition: {x: -0.17, y: -0.221, z: 0.094}
-  m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 357.71533, y: 16.683857, z: 110.62875}
-  m_CrouchLeftHandIkReadyLocalPosition: {x: -0.09, y: -0.288, z: 0.043}
-  m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 354.03494, y: 2.1816788, z: 107.65469}
+  m_CrouchRightHandIkReadyLocalPosition: {x: 0.072, y: -0.34, z: -0.334}
+  m_CrouchRightHandIkReadyLocalEulerAngles: {x: 345.09412, y: 328.35495, z: 268.27145}
+  m_CrouchLeftHandIkNotReadyLocalPosition: {x: -0.17, y: -0.187, z: 0.097}
+  m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 6.613877, y: 24.89772, z: 100.176056}
+  m_CrouchLeftHandIkReadyLocalPosition: {x: -0.100999765, y: -0.23591803, z: 0.076817274}
+  m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 8.486155, y: 19.971304, z: 103.8106}
+  m_VehicleRightHandLocalPosition: {x: 0.3608824, y: 0.08985167, z: -0.34790578}
+  m_VehicleRightHandLocalEulerAngles: {x: 334.3938, y: 95.13216, z: 258.231}
+  m_VehicleRightHandReadyLocalPosition: {x: 0.4599, y: -0.1371, z: -0.1956}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 28.222403, y: 62.605946, z: 260.87036}
+  m_VehicleRightHandIkNotReadyLocalPosition: {x: -0.0229, y: -0.3148, z: -0.3907}
+  m_VehicleRightHandIkNotReadyLocalEulerAngles: {x: 358.50534, y: 30.742594, z: 294.16174}
+  m_VehicleRightHandIkReadyLocalPosition: {x: 0.095, y: -0.384, z: -0.384}
+  m_VehicleRightHandIkReadyLocalEulerAngles: {x: 333.10892, y: 327.29297, z: 278.7496}
+  m_VehicleLeftHandIkNotReadyLocalPosition: {x: -0.046367638, y: -0.3156572, z: 0.088537246}
+  m_VehicleLeftHandIkNotReadyLocalEulerAngles: {x: 13.955335, y: 40.716415, z: 130.98082}
+  m_VehicleLeftHandIkReadyLocalPosition: {x: -0.0487, y: -0.292, z: 0.0051}
+  m_VehicleLeftHandIkReadyLocalEulerAngles: {x: 1.8847182, y: 7.0252843, z: 108.78146}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
   m_BackpackCapacity: 0
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 11400000, guid: fb2021287ba8449e81969a7c4e21fe00, type: 2}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
@@ -60,6 +73,13 @@ MonoBehaviour:
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:

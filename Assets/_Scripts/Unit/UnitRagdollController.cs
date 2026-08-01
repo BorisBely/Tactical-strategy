@@ -115,20 +115,21 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private float m_TransitionBlendStartedAt = -1f;
 	private float m_SoftSettleStartedAt = -1f;
 	private UnitWeaponAiming m_WeaponAiming;
-	private UnitWeaponVisualRecoilKick m_WeaponVisualRecoilKick;
+	private UnitWeaponRecoil m_WeaponRecoil;
 	private AnimatorHandIk m_HandIk;
 	private bool m_WeaponAimingWasEnabled;
-	private bool m_WeaponVisualRecoilKickWasEnabled;
+	private bool m_WeaponRecoilWasEnabled;
 	private bool m_HandIkWasEnabled;
 	private bool m_WeaponDetachedOnKnockout;
 	private Vector3[] m_BonePositionsPrevious;
 	private bool m_HasBonePreviousPositions;
+	private bool m_KeepWeaponDetachedForAnimatedPose;
 	#endregion
 
 	#region Public Properties
 	public bool IsRagdollActive => m_IsRagdollActive;
 	public bool IsRagdollSettled => m_IsRagdollSettled;
-	public bool ShouldBlockWeaponPoseScripts => m_IsRagdollActive;
+	public bool ShouldBlockWeaponPoseScripts => m_IsRagdollActive || m_KeepWeaponDetachedForAnimatedPose;
 	public Transform RootBone => m_RootBone != null ? m_RootBone : transform;
 	#endregion
 
@@ -170,7 +171,21 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 	public void SetRagdollActive(bool _active, Vector3 _impulse)
 	{
-		SetRagdollActive(_active, _impulse, _applyImpulseOnActivate: _active);
+		SetRagdollActive(_active, _impulse, _applyImpulseOnActivate: _active, _preserveCurrentPose: false, _restoreWeaponControl: true);
+	}
+
+	public void SetRagdollActive(bool _active, bool _preserveCurrentPose)
+	{
+		SetRagdollActive(_active, Vector3.zero, _applyImpulseOnActivate: false, _preserveCurrentPose, _restoreWeaponControl: true);
+	}
+
+	/// <summary>
+	/// Выключает ragdoll, сохраняя позу. Если _restoreWeaponControl == false —
+	/// оружие остаётся сброшенным и Hand IK выключен (для Laying Sleeping / animated pose).
+	/// </summary>
+	public void SetRagdollActive(bool _active, bool _preserveCurrentPose, bool _restoreWeaponControl)
+	{
+		SetRagdollActive(_active, Vector3.zero, _applyImpulseOnActivate: false, _preserveCurrentPose, _restoreWeaponControl);
 	}
 
 	public void SetRagdollActive(bool _active, DamageHitInfo _hitInfo, RagdollFallProfile _fallProfile)
@@ -178,13 +193,59 @@ public sealed class UnitRagdollController : MonoBehaviour
 		CacheReferences();
 
 		bool wasActive = m_IsRagdollActive;
-		SetRagdollActive(_active, Vector3.zero, _applyImpulseOnActivate: false);
+		SetRagdollActive(_active, Vector3.zero, _applyImpulseOnActivate: false, _preserveCurrentPose: false, _restoreWeaponControl: true);
 
 		if (_active && !wasActive)
 			ApplyHitImpulse(_hitInfo, _fallProfile);
 	}
 
-	private void SetRagdollActive(bool _active, Vector3 _impulse, bool _applyImpulseOnActivate)
+	/// <summary>
+	/// Держит оружие сброшенным и блокирует weapon-pose/IK при animated-позе без ragdoll
+	/// (например Laying Sleeping после стабилизации).
+	/// </summary>
+	public void SetWeaponControlFrozenForAnimatedPose(bool _frozen)
+	{
+		CacheReferences();
+
+		if (_frozen)
+		{
+			m_KeepWeaponDetachedForAnimatedPose = true;
+			FreezeWeaponControl();
+			return;
+		}
+
+		if (!m_KeepWeaponDetachedForAnimatedPose)
+			return;
+
+		m_KeepWeaponDetachedForAnimatedPose = false;
+		if (!m_IsRagdollActive)
+		{
+			RestoreWeaponToHand();
+			m_WeaponDetachedOnKnockout = false;
+		}
+	}
+
+	/// <summary>
+	/// Включает ragdoll без рывка и даёт конечностям лёгкий импульс/крутящий момент,
+	/// чтобы поза смерти отличалась от «руки на животе».
+	/// </summary>
+	public void ReactivateRagdollWithSoftLimbSettle(float _limbImpulse, float _limbTorque)
+	{
+		CacheReferences();
+
+		bool wasActive = m_IsRagdollActive;
+		if (!wasActive)
+			SetRagdollActive(true, Vector3.zero, _applyImpulseOnActivate: false, _preserveCurrentPose: true, _restoreWeaponControl: true);
+
+		ApplySoftLimbSettleImpulse(_limbImpulse, _limbTorque);
+	}
+
+	private void SetRagdollActive(
+		bool _active,
+		Vector3 _impulse,
+		bool _applyImpulseOnActivate,
+		bool _preserveCurrentPose,
+		bool _restoreWeaponControl = true)
 	{
 		CacheReferences();
 
@@ -282,19 +343,97 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 		if (_active)
 		{
+			m_KeepWeaponDetachedForAnimatedPose = false;
 			FreezeWeaponControl();
 			if (_applyImpulseOnActivate)
 				ApplyImpulse(_impulse);
 		}
 		else
 		{
-			RestoreWeaponToHand();
-			m_WeaponDetachedOnKnockout = false;
-			AlignRootToRagdollPose();
-			RestoreInitialPose();
+			if (_restoreWeaponControl)
+			{
+				m_KeepWeaponDetachedForAnimatedPose = false;
+				RestoreWeaponToHand();
+				m_WeaponDetachedOnKnockout = false;
+			}
+			else
+			{
+				m_KeepWeaponDetachedForAnimatedPose = true;
+				FreezeWeaponControl();
+			}
+
+			if (_preserveCurrentPose)
+			{
+				AlignRootToRagdollPosePreservingCurrentPose();
+			}
+			else
+			{
+				AlignRootToRagdollPose();
+				RestoreInitialPose();
+			}
 		}
 
 		RefreshVisionHitZones();
+	}
+
+	private void ApplySoftLimbSettleImpulse(float _limbImpulse, float _limbTorque)
+	{
+		if (!m_IsRagdollActive || m_Animator == null || !m_Animator.isHuman)
+			return;
+
+		HumanBodyBones[] limbBones =
+		{
+			HumanBodyBones.LeftLowerArm,
+			HumanBodyBones.RightLowerArm,
+			HumanBodyBones.LeftHand,
+			HumanBodyBones.RightHand,
+			HumanBodyBones.LeftLowerLeg,
+			HumanBodyBones.RightLowerLeg,
+			HumanBodyBones.LeftFoot,
+			HumanBodyBones.RightFoot
+		};
+
+		float impulse = Mathf.Max(0f, _limbImpulse);
+		float torque = Mathf.Max(0f, _limbTorque);
+		if (impulse <= 0f && torque <= 0f)
+			return;
+
+		m_IsRagdollSettled = false;
+		m_SettleCandidateStartedAt = -1f;
+		m_SoftSettleStartedAt = -1f;
+		m_RagdollActivatedAt = Time.time;
+
+		for (int i = 0; i < limbBones.Length; i++)
+		{
+			Transform bone = m_Animator.GetBoneTransform(limbBones[i]);
+			if (bone == null)
+				continue;
+
+			Rigidbody body = bone.GetComponent<Rigidbody>();
+			if (body == null || body.isKinematic)
+				continue;
+
+			Vector3 randomDir = UnityEngine.Random.onUnitSphere;
+			randomDir.y = Mathf.Clamp(randomDir.y, -0.15f, 0.35f);
+			if (randomDir.sqrMagnitude < 0.0001f)
+				randomDir = transform.right;
+			randomDir.Normalize();
+
+			body.linearDamping = Mathf.Max(body.linearDamping, m_RagdollLinearDamping * 2.5f);
+			body.angularDamping = Mathf.Max(body.angularDamping, m_RagdollAngularDamping * 3f);
+			body.WakeUp();
+
+			if (impulse > 0f)
+				body.AddForce(randomDir * impulse, ForceMode.Impulse);
+
+			if (torque > 0f)
+			{
+				Vector3 torqueAxis = Vector3.Cross(randomDir, Vector3.up);
+				if (torqueAxis.sqrMagnitude < 0.0001f)
+					torqueAxis = transform.forward;
+				body.AddTorque(torqueAxis.normalized * torque, ForceMode.Impulse);
+			}
+		}
 	}
 
 	public void SetCombatCollidersEnabled(bool _enabled)
@@ -1029,10 +1168,10 @@ public sealed class UnitRagdollController : MonoBehaviour
 			m_WeaponAiming.enabled = false;
 		}
 
-		if (m_WeaponVisualRecoilKick != null)
+		if (m_WeaponRecoil != null)
 		{
-			m_WeaponVisualRecoilKickWasEnabled = m_WeaponVisualRecoilKick.enabled;
-			m_WeaponVisualRecoilKick.enabled = false;
+			m_WeaponRecoilWasEnabled = m_WeaponRecoil.enabled;
+			m_WeaponRecoil.enabled = false;
 		}
 
 		if (m_HandIk != null)
@@ -1088,8 +1227,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 			m_UnitEquipment = GetComponent<UnitEquipment>();
 		if (m_WeaponAiming == null)
 			m_WeaponAiming = GetComponent<UnitWeaponAiming>();
-		if (m_WeaponVisualRecoilKick == null)
-			m_WeaponVisualRecoilKick = GetComponent<UnitWeaponVisualRecoilKick>();
+		if (m_WeaponRecoil == null)
+			m_WeaponRecoil = GetComponent<UnitWeaponRecoil>();
 		if (m_HandIk == null)
 			m_HandIk = GetComponentInChildren<AnimatorHandIk>(true);
 	}
@@ -1099,8 +1238,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		if (m_WeaponAiming != null)
 			m_WeaponAiming.enabled = m_WeaponAimingWasEnabled;
 
-		if (m_WeaponVisualRecoilKick != null)
-			m_WeaponVisualRecoilKick.enabled = m_WeaponVisualRecoilKickWasEnabled;
+		if (m_WeaponRecoil != null)
+			m_WeaponRecoil.enabled = m_WeaponRecoilWasEnabled;
 
 		if (m_HandIk != null)
 			m_HandIk.enabled = m_HandIkWasEnabled;

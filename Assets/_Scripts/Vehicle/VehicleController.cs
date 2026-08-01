@@ -32,6 +32,14 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	[SerializeField] private VehicleDoorController m_Doors;
 	[SerializeField] private VehicleBoardController m_Board;
 	[SerializeField] private VehicleGunnerHatch m_GunnerHatch;
+	[SerializeField] private VehicleTurretHierarchyBinder m_TurretHierarchy;
+	[SerializeField] private VehicleTurretAimController m_TurretAim;
+	[SerializeField] private VehicleTurretVisualMount m_TurretVisual;
+	[SerializeField] private VehicleInventory m_VehicleInventory;
+	[SerializeField] private VehicleTurretEquipmentController m_TurretEquipment;
+	[SerializeField] private VehicleTurretGunnerBridge m_TurretGunnerBridge;
+	[SerializeField] private VehiclePassengerFireValidator m_FireValidator;
+	[SerializeField] private VehicleGlassController m_GlassController;
 	[SerializeField] private UnitTeam m_Team;
 	[SerializeField] private Collider m_SelectionCollider;
 	[SerializeField] private bool m_IsSelected;
@@ -65,6 +73,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	private float m_ChassisStatusLogCooldown;
 	private string m_LastStatusPhase = string.Empty;
 	private VehicleNavigation.DriverFSM.State m_LastStatusState = VehicleNavigation.DriverFSM.State.Idle;
+	private bool m_GunnerCover;
 	#endregion
 
 	#region Bounce Diagnostics Constants
@@ -93,6 +102,13 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	public VehicleDoorController Doors => m_Doors;
 	public VehicleBoardController Board => m_Board;
 	public VehicleGunnerHatch GunnerHatch => m_GunnerHatch;
+	public VehicleTurretHierarchyBinder TurretHierarchy => m_TurretHierarchy;
+	public VehicleTurretAimController TurretAim => m_TurretAim;
+	public VehicleTurretVisualMount TurretVisual => m_TurretVisual;
+	public VehicleInventory Inventory => m_VehicleInventory;
+	public VehicleTurretEquipmentController TurretEquipment => m_TurretEquipment;
+	public VehicleTurretGunnerBridge TurretGunnerBridge => m_TurretGunnerBridge;
+	public VehicleGlassController GlassController => m_GlassController;
 	public UnitTeam TeamComponent => m_Team;
 	public UnitTeamId Team => m_Team != null ? m_Team.Team : UnitTeamId.Neutral;
 	/// <summary>Always-dynamic RB — no kinematic wake cycle.</summary>
@@ -152,6 +168,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		// Runtime auto-setup may bind wheels after first EnsurePhysicsDrive — snap once more.
 		if (HasBoundWheelAxles())
 			SnapChassisAboveGroundIfNeeded(_force: true);
+		ValidateCrew();
 	}
 
 	private void OnEnable()
@@ -160,6 +177,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			s_Instances.Add(this);
 		if (m_Brain != null)
 			m_Brain.EngineStateChanged += OnBrainEngineStateChanged;
+		if (m_VehicleInventory != null)
+			m_VehicleInventory.InventoryChanged += OnInventoryChanged;
 	}
 
 	private void OnDisable()
@@ -167,6 +186,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		s_Instances.Remove(this);
 		if (m_Brain != null)
 			m_Brain.EngineStateChanged -= OnBrainEngineStateChanged;
+		if (m_VehicleInventory != null)
+			m_VehicleInventory.InventoryChanged -= OnInventoryChanged;
 		if (m_IsSelected)
 			SetSelected(false);
 	}
@@ -174,6 +195,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	private void LateUpdate()
 	{
 		UpdateSelectionLabelBillboard();
+		SyncGlassOpenState();
 	}
 
 	private void FixedUpdate()
@@ -203,6 +225,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			m_Board = gameObject.AddComponent<VehicleBoardController>();
 		if (m_GunnerHatch == null && !TryGetComponent(out m_GunnerHatch))
 			m_GunnerHatch = gameObject.AddComponent<VehicleGunnerHatch>();
+		EnsureTurretComponents();
+		EnsureGlassController();
 		if (m_Team == null && !TryGetComponent(out m_Team))
 		{
 			m_Team = gameObject.AddComponent<UnitTeam>();
@@ -238,6 +262,37 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		agent.updateRotation = false;
 
 		EnsureSelectionCollider();
+	}
+
+	private void EnsureTurretComponents()
+	{
+		if (m_TurretHierarchy == null && !TryGetComponent(out m_TurretHierarchy))
+			m_TurretHierarchy = gameObject.AddComponent<VehicleTurretHierarchyBinder>();
+		m_TurretHierarchy.EnsureBound();
+
+		if (m_TurretVisual == null && !TryGetComponent(out m_TurretVisual))
+			m_TurretVisual = gameObject.AddComponent<VehicleTurretVisualMount>();
+		m_TurretVisual.Configure(m_TurretHierarchy);
+
+		if (m_TurretAim == null && !TryGetComponent(out m_TurretAim))
+			m_TurretAim = gameObject.AddComponent<VehicleTurretAimController>();
+		m_TurretAim.Configure(m_TurretHierarchy);
+
+		if (m_VehicleInventory == null && !TryGetComponent(out m_VehicleInventory))
+			m_VehicleInventory = gameObject.AddComponent<VehicleInventory>();
+		m_VehicleInventory.Configure(this);
+
+		if (m_TurretEquipment == null && !TryGetComponent(out m_TurretEquipment))
+			m_TurretEquipment = gameObject.AddComponent<VehicleTurretEquipmentController>();
+		m_TurretEquipment.Configure(this);
+
+		if (m_TurretGunnerBridge == null && !TryGetComponent(out m_TurretGunnerBridge))
+			m_TurretGunnerBridge = gameObject.AddComponent<VehicleTurretGunnerBridge>();
+		m_TurretGunnerBridge.Configure(this);
+
+		// TEMP: тестовый лоад-аут турели — удали компонент после проверки.
+		if (!TryGetComponent(out VehicleTurretTempDebugLoadout _))
+			gameObject.AddComponent<VehicleTurretTempDebugLoadout>();
 	}
 
 	public void EnsurePhysicsDrive()
@@ -1308,22 +1363,22 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		return StartEngine();
 	}
 
-	public void BoardUnits(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side)
+	public void BoardUnits(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
 	{
 		SyncChassisDriveHold();
-		m_Board?.EnqueueBoard(_units, _side);
+		m_Board?.EnqueueBoard(_units, _side, _forceRun);
 	}
 
-	public void BoardUnitsAsGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side)
+	public void BoardUnitsAsGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
 	{
 		SyncChassisDriveHold();
-		m_Board?.EnqueueBoardGunner(_units, _side);
+		m_Board?.EnqueueBoardGunner(_units, _side, _forceRun);
 	}
 
-	public void LoadWoundedFromCarrier(RtsUnitMember _carrier)
+	public void LoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = true)
 	{
 		SyncChassisDriveHold();
-		m_Board?.EnqueueLoadWoundedFromCarrier(_carrier);
+		m_Board?.EnqueueLoadWoundedFromCarrier(_carrier, _forceRun);
 	}
 
 	public void DisembarkAllExceptDriver()
@@ -1369,9 +1424,40 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 
 	public bool IsGunnerOnTurret => m_Seats != null && m_Seats.HasGunner;
 
+	public bool IsGunnerCover
+	{
+		get => m_GunnerCover;
+		set
+		{
+			if (m_GunnerCover == value)
+				return;
+			m_GunnerCover = value;
+			ApplyGunnerCoverToCurrentGunner();
+		}
+	}
+
+	public bool CanCycleGunnerStance => IsGunnerOnTurret;
+
+	public void CycleGunnerStance()
+	{
+		if (!CanCycleGunnerStance)
+			return;
+		IsGunnerCover = !IsGunnerCover;
+	}
+
+	private void ApplyGunnerCoverToCurrentGunner()
+	{
+		if (m_Seats == null || !m_Seats.TryGetOccupant(VehicleSeatId.Gunner, out RtsUnitMember gunner) || gunner == null)
+			return;
+		UnitVehicleSeatPoseController pose = UnitVehicleSeatPoseController.GetOrAdd(gunner.gameObject);
+		pose?.SetGunnerCover(m_GunnerCover);
+	}
+
 	public bool TryPromoteToGunner()
 	{
 		if (m_Seats == null || !m_Seats.TryFindGunnerPromoteCandidate(out RtsUnitMember unit))
+			return false;
+		if (m_VehicleInventory != null && !m_VehicleInventory.CanUseGunnerSeat)
 			return false;
 		if (!m_Seats.TryGetSeat(VehicleSeatId.Gunner, out VehicleSeatLayout.SeatBinding gunnerSeat) ||
 		    gunnerSeat.Anchor == null)
@@ -1381,6 +1467,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		m_Seats.Occupy(VehicleSeatId.Gunner, unit);
 		mount.TransferToSeat(VehicleSeatId.Gunner, gunnerSeat.Anchor, _isLitter: false);
 		m_GunnerHatch?.SetGunnerRaised(true);
+		ApplyGunnerCoverToCurrentGunner();
 		NotifyOccupancyChanged();
 		return true;
 	}
@@ -1412,6 +1499,26 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		OccupancyChanged?.Invoke();
 		if (m_IsSelected)
 			RtsUnitSelectionManager.Instance?.NotifySelectionUiRefresh();
+	}
+
+	private void OnInventoryChanged(VehicleInventory _)
+	{
+		ValidateCrew();
+	}
+
+	public void ValidateCrew()
+	{
+		if (m_VehicleInventory == null || m_Seats == null)
+			return;
+
+		if (!m_VehicleInventory.CanUseGunnerSeat && m_Seats.HasGunner)
+		{
+			if (!TryDemoteGunner())
+			{
+				if (m_Seats.TryGetOccupant(VehicleSeatId.Gunner, out RtsUnitMember gunner) && gunner != null)
+					DisembarkUnit(gunner);
+			}
+		}
 	}
 
 	public static VehicleController FindUnderCollider(Collider _collider)
@@ -1665,6 +1772,122 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		Transform labelTransform = m_SelectionNameLabelRoot.transform;
 		labelTransform.position = transform.position + Vector3.up * m_SelectionLabelHeight;
 		labelTransform.rotation = m_CachedCameraTransform.rotation;
+	}
+
+	private void EnsureGlassController()
+	{
+		if (m_GlassController == null)
+		{
+			if (!TryGetComponent(out m_GlassController))
+				m_GlassController = gameObject.AddComponent<VehicleGlassController>();
+		}
+	}
+
+	private void SyncGlassOpenState()
+	{
+		if (m_GlassController == null)
+			return;
+
+		bool anyReady = false;
+		if (m_Seats != null)
+		{
+			for (int i = 0; i < s_FireCapableSeats.Length; i++)
+			{
+				if (m_Seats.TryGetOccupant(s_FireCapableSeats[i], out RtsUnitMember unit)
+				    && unit != null
+				    && unit.TryGetComponent(out VehiclePassengerState state)
+				    && (state.IsVehicleReady || state.IsPreparing))
+				{
+					anyReady = true;
+					break;
+				}
+			}
+		}
+
+		m_GlassController.NeedOpenWindows = anyReady;
+	}
+
+	private static readonly VehicleSeatId[] s_FireCapableSeats =
+	{
+		VehicleSeatId.Commander,
+		VehicleSeatId.RearLeft,
+		VehicleSeatId.RearRight
+	};
+
+	public bool HasFireCapablePassengers
+	{
+		get
+		{
+			if (m_Seats == null)
+				return false;
+			for (int i = 0; i < s_FireCapableSeats.Length; i++)
+			{
+				if (m_Seats.IsOccupied(s_FireCapableSeats[i]))
+					return true;
+			}
+			return false;
+		}
+	}
+
+	public bool AnyPassengerWantsVehicleReady
+	{
+		get
+		{
+			if (m_Seats == null)
+				return false;
+			for (int i = 0; i < s_FireCapableSeats.Length; i++)
+			{
+				if (m_Seats.TryGetOccupant(s_FireCapableSeats[i], out RtsUnitMember unit)
+				    && unit != null
+				    && unit.TryGetComponent(out VehiclePassengerState state)
+				    && state.WantsVehicleReady)
+					return true;
+			}
+			return false;
+		}
+	}
+
+	public void ToggleAllPassengersVehicleReady()
+	{
+		if (m_Seats == null)
+			return;
+
+		bool anyWants = AnyPassengerWantsVehicleReady;
+
+		int toggled = 0;
+		for (int i = 0; i < s_FireCapableSeats.Length; i++)
+		{
+			VehicleSeatId seat = s_FireCapableSeats[i];
+			bool hasOccupant = m_Seats.TryGetOccupant(seat, out RtsUnitMember unit);
+			if (!hasOccupant || unit == null)
+			{
+				Debug.Log($"[VehPassReady] VEHICLE ToggleAll: seat={seat} SKIP — {(hasOccupant ? "unit=null" : "no occupant")}");
+				continue;
+			}
+
+			VehiclePassengerState state = VehiclePassengerState.GetOrAdd(unit.gameObject);
+			state.SetWantsReady(!anyWants);
+			toggled++;
+		}
+
+		Debug.Log($"[VehPassReady] VEHICLE ToggleAll: toggled {toggled}/{s_FireCapableSeats.Length} passengers (target={(anyWants ? "OFF" : "ON")})");
+	}
+
+	public void TogglePassengerVehicleReady(VehicleSeatId _seat)
+	{
+		if (m_Seats == null || !m_Seats.TryGetOccupant(_seat, out RtsUnitMember unit) || unit == null)
+			return;
+
+		VehiclePassengerState state = VehiclePassengerState.GetOrAdd(unit.gameObject);
+		if (!state.IsFireCapable)
+			return;
+
+		state.SetWantsReady(!state.WantsVehicleReady);
+	}
+
+	public bool CanTogglePassengerVehicleReady()
+	{
+		return HasFireCapablePassengers;
 	}
 	#endregion
 }

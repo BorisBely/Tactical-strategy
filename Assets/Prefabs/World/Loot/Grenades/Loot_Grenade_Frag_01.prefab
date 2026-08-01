@@ -94,7 +94,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0e59d6b1afb8ee44894407941d71ffa8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorldPickupItem
+  m_EditorClassIdentifier: _Scripts::WorldPickupItem
   m_Definition: {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
   m_InstanceState:
     m_WeaponState:
@@ -104,6 +104,13 @@ MonoBehaviour:
       m_CurrentMagazineDisplayName: 
       m_CurrentMagazineLocalizationKey: 
       m_CurrentMagazineRuntimeState:
+        m_Definition: {fileID: 0}
+        m_LoadedAmmoDefinition: {fileID: 0}
+        m_CurrentAmmoCount: 0
+      m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+      m_CurrentSecondaryMagazineDisplayName: 
+      m_CurrentSecondaryMagazineLocalizationKey: 
+      m_CurrentSecondaryMagazineRuntimeState:
         m_Definition: {fileID: 0}
         m_LoadedAmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
@@ -124,6 +131,11 @@ MonoBehaviour:
     m_MedkitState:
       m_Definition: {fileID: 0}
       m_CurrentResourcePoints: 0
+    m_RocketLauncherState:
+      m_IsLoaded: 0
+      m_LoadedRocketDefinition: {fileID: 0}
+      m_LoadedRocketDisplayName: 
+      m_LoadedRocketLocalizationKey: 
   m_EquippedAttachments: []
 --- !u!1001 &5966247919629782112
 PrefabInstance:

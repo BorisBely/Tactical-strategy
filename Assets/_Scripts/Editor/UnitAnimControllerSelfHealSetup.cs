@@ -26,10 +26,13 @@ public static class UnitAnimControllerSelfHealSetup
 	private const string c_ClipFiremanCarry2 = "Assets/Animations/heal/Fireman'sCarry2.anim";
 
 	private const string c_ParamIsBeingCarried = UnitFiremanCarryController.ParamIsBeingCarried;
+	private const string c_ParamIsStabilizedSleeping = UnitStabilizedUnconsciousPoseController.ParamIsStabilizedSleeping;
 	private const string c_CarriedPoseLayerName = UnitFiremanCarryController.CarriedPoseLayerName;
-	private const string c_ClipFiremanCarry1 = "Assets/Fireman'sCarry1.anim";
+	private const string c_ClipFiremanCarry1 = "Assets/Animations/heal/Fireman'sCarry1.anim";
+	private const string c_ClipLayingSleeping = "Assets/Animations/heal/Laying Sleeping.anim";
 	private const string c_StateCarriedEmpty = "Carried_Empty";
 	private const string c_StateCarriedPose = "Fireman'sCarry1";
+	private const string c_StateLayingSleeping = "LayingSleeping";
 
 	private const string c_StateEmpty = "SelfHeal_Empty";
 	private const string c_StateStart = "healStart";
@@ -175,36 +178,196 @@ public static class UnitAnimControllerSelfHealSetup
 		Undo.RecordObject(controller, "Setup Carried Pose Layer");
 
 		EnsureParameter(controller, c_ParamIsBeingCarried, AnimatorControllerParameterType.Bool);
+		EnsureParameter(controller, c_ParamIsStabilizedSleeping, AnimatorControllerParameterType.Bool);
 
+		AnimationClip layingSleeping = LoadClip(c_ClipLayingSleeping);
+		if (layingSleeping == null)
+			return;
+
+		SetLoopTime(layingSleeping, true);
+
+		int layerIndex = EnsureCarriedPoseLayer(controller);
+		AnimatorControllerLayer layer = controller.layers[layerIndex];
+		AnimatorStateMachine stateMachine = layer.stateMachine;
+
+		AnimatorState empty = FindState(stateMachine, c_StateCarriedEmpty);
+		AnimatorState pose = FindState(stateMachine, c_StateCarriedPose);
+		if (empty == null || pose == null)
+		{
+			// Старый слой ещё не создан — полная первичная настройка carry + sleep.
+			SetupCarriedPoseLayerFull(controller, stateMachine, layingSleeping);
+			return;
+		}
+
+		AnimatorState sleeping = EnsureMotionState(stateMachine, c_StateLayingSleeping, layingSleeping);
+		EnsureSleepTransitions(empty, pose, sleeping);
+
+		EditorUtility.SetDirty(controller);
+		AssetDatabase.SaveAssets();
+		AssetDatabase.Refresh();
+		Debug.Log("[UnitAnimControllerSelfHealSetup] Carried_Pose: добавлен LayingSleeping (carry не изменён).");
+	}
+
+	private static void SetupCarriedPoseLayerFull(
+		AnimatorController _controller,
+		AnimatorStateMachine _stateMachine,
+		AnimationClip _layingSleeping)
+	{
 		AnimationClip firemanCarry1 = LoadClip(c_ClipFiremanCarry1);
 		if (firemanCarry1 == null)
 			return;
 
 		SetLoopTime(firemanCarry1, true);
 
-		int layerIndex = EnsureCarriedPoseLayer(controller);
-		AnimatorControllerLayer layer = controller.layers[layerIndex];
-		AnimatorStateMachine stateMachine = layer.stateMachine;
-		AnimatorState empty = EnsureMotionState(stateMachine, c_StateCarriedEmpty, null);
-		AnimatorState pose = EnsureMotionState(stateMachine, c_StateCarriedPose, firemanCarry1);
+		AnimatorState empty = EnsureMotionState(_stateMachine, c_StateCarriedEmpty, null);
+		AnimatorState pose = EnsureMotionState(_stateMachine, c_StateCarriedPose, firemanCarry1);
+		AnimatorState sleeping = EnsureMotionState(_stateMachine, c_StateLayingSleeping, _layingSleeping);
 
-		stateMachine.defaultState = empty;
-		RemoveTransitions(stateMachine);
+		_stateMachine.defaultState = empty;
+		RemoveTransitions(_stateMachine);
 		RemoveTransitions(empty);
 		RemoveTransitions(pose);
+		RemoveTransitions(sleeping);
 
-		AnimatorStateTransition enter = empty.AddTransition(pose);
-		ConfigureTransition(enter, 0.08f, false, 0f);
-		enter.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsBeingCarried);
+		AnimatorStateTransition enterCarry = empty.AddTransition(pose);
+		ConfigureTransition(enterCarry, 0.05f, false, 0f);
+		enterCarry.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsBeingCarried);
 
-		AnimatorStateTransition exit = pose.AddTransition(empty);
-		ConfigureTransition(exit, 0.08f, false, 0f);
-		exit.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsBeingCarried);
+		EnsureSleepTransitions(empty, pose, sleeping);
 
-		EditorUtility.SetDirty(controller);
+		EditorUtility.SetDirty(_controller);
 		AssetDatabase.SaveAssets();
 		AssetDatabase.Refresh();
-		Debug.Log("[UnitAnimControllerSelfHealSetup] Carried_Pose layer configured.");
+		Debug.Log("[UnitAnimControllerSelfHealSetup] Carried_Pose layer configured (carry + laying sleeping).");
+	}
+
+	private static void EnsureSleepTransitions(AnimatorState _empty, AnimatorState _pose, AnimatorState _sleeping)
+	{
+		if (_empty == null || _pose == null || _sleeping == null)
+			return;
+
+		// Empty → Laying Sleeping
+		if (!HasTransition(_empty, _sleeping, c_ParamIsStabilizedSleeping, _requireIfNotBeingCarried: true))
+		{
+			AnimatorStateTransition enterSleep = _empty.AddTransition(_sleeping);
+			ConfigureTransition(enterSleep, 0.05f, false, 0f);
+			enterSleep.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsStabilizedSleeping);
+			enterSleep.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsBeingCarried);
+		}
+
+		// Carry → Sleeping (если уже есть Carry → Empty, оставляем оба)
+		if (!HasTransition(_pose, _sleeping, c_ParamIsStabilizedSleeping, _requireIfNotBeingCarried: true))
+		{
+			AnimatorStateTransition carryToSleep = _pose.AddTransition(_sleeping);
+			ConfigureTransition(carryToSleep, 0.05f, false, 0f);
+			carryToSleep.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsBeingCarried);
+			carryToSleep.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsStabilizedSleeping);
+		}
+
+		// Sleeping → Carry
+		if (!HasTransition(_sleeping, _pose, c_ParamIsBeingCarried, _requireIfNotBeingCarried: false))
+		{
+			AnimatorStateTransition sleepToCarry = _sleeping.AddTransition(_pose);
+			ConfigureTransition(sleepToCarry, 0.05f, false, 0f);
+			sleepToCarry.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsBeingCarried);
+		}
+
+		// Sleeping → Empty
+		if (!HasTransition(_sleeping, _empty, c_ParamIsStabilizedSleeping, _requireIfNotBeingCarried: true, _stabilizedMustBeIfNot: true))
+		{
+			AnimatorStateTransition sleepToEmpty = _sleeping.AddTransition(_empty);
+			ConfigureTransition(sleepToEmpty, 0.05f, false, 0f);
+			sleepToEmpty.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsStabilizedSleeping);
+			sleepToEmpty.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsBeingCarried);
+		}
+
+		// Старый Carry → Empty должен учитывать !IsStabilizedSleeping, иначе sleep не перехватит.
+		EnsureCarryExitIgnoresSleep(_pose, _empty);
+	}
+
+	private static void EnsureCarryExitIgnoresSleep(AnimatorState _pose, AnimatorState _empty)
+	{
+		AnimatorStateTransition[] transitions = _pose.transitions;
+		for (int i = 0; i < transitions.Length; i++)
+		{
+			AnimatorStateTransition transition = transitions[i];
+			if (transition == null || transition.destinationState != _empty)
+				continue;
+
+			bool hasNotBeingCarried = false;
+			bool hasNotStabilizedSleeping = false;
+			AnimatorCondition[] conditions = transition.conditions;
+			for (int c = 0; c < conditions.Length; c++)
+			{
+				if (conditions[c].parameter == c_ParamIsBeingCarried &&
+				    conditions[c].mode == AnimatorConditionMode.IfNot)
+					hasNotBeingCarried = true;
+				if (conditions[c].parameter == c_ParamIsStabilizedSleeping &&
+				    conditions[c].mode == AnimatorConditionMode.IfNot)
+					hasNotStabilizedSleeping = true;
+			}
+
+			if (hasNotBeingCarried && !hasNotStabilizedSleeping)
+				transition.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsStabilizedSleeping);
+		}
+	}
+
+	private static bool HasTransition(
+		AnimatorState _from,
+		AnimatorState _to,
+		string _primaryParam,
+		bool _requireIfNotBeingCarried,
+		bool _stabilizedMustBeIfNot = false)
+	{
+		AnimatorStateTransition[] transitions = _from.transitions;
+		for (int i = 0; i < transitions.Length; i++)
+		{
+			AnimatorStateTransition transition = transitions[i];
+			if (transition == null || transition.destinationState != _to)
+				continue;
+
+			bool hasPrimary = false;
+			bool hasNotBeingCarried = !_requireIfNotBeingCarried;
+			AnimatorCondition[] conditions = transition.conditions;
+			for (int c = 0; c < conditions.Length; c++)
+			{
+				AnimatorCondition condition = conditions[c];
+				if (condition.parameter == _primaryParam)
+				{
+					if (_stabilizedMustBeIfNot)
+					{
+						if (condition.mode == AnimatorConditionMode.IfNot)
+							hasPrimary = true;
+					}
+					else if (condition.mode == AnimatorConditionMode.If || condition.mode == AnimatorConditionMode.IfNot)
+					{
+						hasPrimary = true;
+					}
+				}
+
+				if (_requireIfNotBeingCarried &&
+				    condition.parameter == c_ParamIsBeingCarried &&
+				    condition.mode == AnimatorConditionMode.IfNot)
+					hasNotBeingCarried = true;
+			}
+
+			if (hasPrimary && hasNotBeingCarried)
+				return true;
+		}
+
+		return false;
+	}
+
+	private static AnimatorState FindState(AnimatorStateMachine _stateMachine, string _stateName)
+	{
+		ChildAnimatorState[] states = _stateMachine.states;
+		for (int i = 0; i < states.Length; i++)
+		{
+			if (states[i].state != null && states[i].state.name == _stateName)
+				return states[i].state;
+		}
+
+		return null;
 	}
 	#endregion
 
@@ -263,17 +426,29 @@ public static class UnitAnimControllerSelfHealSetup
 		if (FindLayerIndex(_controller, c_CarriedPoseLayerName) < 0)
 			return true;
 
-		bool hasParam = false;
+		bool hasBeingCarried = false;
+		bool hasStabilizedSleeping = false;
 		for (int i = 0; i < _controller.parameters.Length; i++)
 		{
 			if (_controller.parameters[i].name == c_ParamIsBeingCarried)
-			{
-				hasParam = true;
-				break;
-			}
+				hasBeingCarried = true;
+			if (_controller.parameters[i].name == c_ParamIsStabilizedSleeping)
+				hasStabilizedSleeping = true;
 		}
 
-		return !hasParam;
+		if (!hasBeingCarried || !hasStabilizedSleeping)
+			return true;
+
+		int layerIndex = FindLayerIndex(_controller, c_CarriedPoseLayerName);
+		AnimatorStateMachine stateMachine = _controller.layers[layerIndex].stateMachine;
+		ChildAnimatorState[] states = stateMachine.states;
+		for (int i = 0; i < states.Length; i++)
+		{
+			if (states[i].state != null && states[i].state.name == c_StateLayingSleeping)
+				return false;
+		}
+
+		return true;
 	}
 
 	private static bool UsesLegacyAnyStateSelfHealEntry(AnimatorController _controller)

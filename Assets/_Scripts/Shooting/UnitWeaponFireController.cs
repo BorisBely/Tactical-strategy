@@ -30,7 +30,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
 	[SerializeField] private UnitWeaponFireDisciplineController m_FireDisciplineController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
-	[SerializeField] private UnitWeaponVisualRecoilKick m_VisualRecoilKick;
+	[SerializeField] private UnitWeaponRecoil m_WeaponRecoil;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitTeam m_Team;
@@ -102,6 +102,17 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	#region Public Properties
 	public bool IsFiringCommandActive => m_IsFiringCommandActive;
 	public WeaponShotAttemptResult LastShotAttemptResult => m_LastShotAttemptResult;
+	public bool RequireReady
+	{
+		get => m_RequireReady;
+		set => m_RequireReady = value;
+	}
+
+	public bool TryReloadWhenOutOfAmmo
+	{
+		get => m_TryReloadWhenOutOfAmmo;
+		set => m_TryReloadWhenOutOfAmmo = value;
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -127,8 +138,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
-		if (m_VisualRecoilKick == null)
-			m_VisualRecoilKick = GetComponent<UnitWeaponVisualRecoilKick>();
+		if (m_WeaponRecoil == null)
+			m_WeaponRecoil = GetComponent<UnitWeaponRecoil>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_Stance == null)
@@ -357,7 +368,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			RegisterBurstSpreadShotIfNeeded();
 			ShotFired?.Invoke(firedAmmoDefinition);
 
-			if (m_WeaponRuntime != null && !m_WeaponRuntime.HasAmmoInMagazine && !m_WeaponRuntime.HasRoundInChamber)
+			if (m_TryReloadWhenOutOfAmmo &&
+			    m_WeaponRuntime != null &&
+			    !m_WeaponRuntime.HasAmmoInMagazine &&
+			    !m_WeaponRuntime.HasRoundInChamber)
 				m_ReloadController?.TryStartReload();
 		}
 		else if (m_TryReloadWhenOutOfAmmo &&
@@ -423,7 +437,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private void ResetRecoilAfterStopFiring()
 	{
 		m_RecoilController?.ResetRecoilPenalty();
-		m_VisualRecoilKick?.ResetVisualKick();
+		m_WeaponRecoil?.ResetVisualKick();
 	}
 
 	/// <summary>
@@ -457,6 +471,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.StabilizeOther) ||
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.ProximityRelax);
+	}
+
+	public bool RequireBarrelAlignedToFire
+	{
+		get => m_RequireBarrelAlignedToFire;
+		set => m_RequireBarrelAlignedToFire = value;
 	}
 
 	private bool IsAimedEnoughToFire()

@@ -111,6 +111,7 @@ namespace VehicleNavigation
 				case VehicleManeuverType.Forward:
 				case VehicleManeuverType.Parking:
 				case VehicleManeuverType.ApproachWithHeading:
+				case VehicleManeuverType.PostTurnAlignment:
 					return PredictForward(_ctx, _params);
 
 				case VehicleManeuverType.Reverse:

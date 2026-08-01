@@ -22,6 +22,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	private ItemInstanceState m_BoundItemState;
 	private WeaponRuntimeState m_BoundWeaponState;
 	private UnitWeaponMalfunctionController m_MalfunctionController;
+	private bool m_ExternalWeaponBound;
 	#endregion
 
 	#region Public Properties
@@ -40,6 +41,7 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	public bool HasLoadedMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasMagazine;
 	public bool HasAmmoInMagazine => m_BoundWeaponState != null && m_BoundWeaponState.HasAmmoInMagazine;
 	public bool HasRoundInChamber => m_BoundWeaponState != null && m_BoundWeaponState.HasRoundInChamber;
+	public bool IsExternalWeaponBound => m_ExternalWeaponBound;
 	#endregion
 
 	#region Unity Lifecycle
@@ -69,8 +71,39 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	/// <summary>
+	/// Привязать runtime оружия турели (инвентарь юнита не меняется).
+	/// </summary>
+	public void BindExternalWeaponState(ItemInstanceState _itemState)
+	{
+		WeaponRuntimeState weaponState = _itemState != null ? _itemState.WeaponState : null;
+		if (weaponState == null)
+		{
+			ClearExternalWeaponBind();
+			return;
+		}
+
+		m_ExternalWeaponBound = true;
+		m_BoundItemState = _itemState;
+		m_BoundWeaponState = weaponState;
+		weaponState.EnsureValidSelectedFireMode();
+		m_TransientState.Clear();
+	}
+
+	public void ClearExternalWeaponBind()
+	{
+		if (!m_ExternalWeaponBound)
+			return;
+
+		m_ExternalWeaponBound = false;
+		RefreshFromEquipment();
+	}
+
 	public void RefreshFromEquipment()
 	{
+		if (m_ExternalWeaponBound)
+			return;
+
 		InventorySlotRuntimeData equippedSlot =
 			m_CharacterInventory != null ? m_CharacterInventory.MainHandEquipment : default;
 		ItemDefinition equippedItem = equippedSlot.Definition;

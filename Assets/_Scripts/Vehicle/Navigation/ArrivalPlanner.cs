@@ -4,8 +4,8 @@ using UnityEngine;
 namespace VehicleNavigation
 {
 	/// <summary>
-	/// Precision arrival planner: generates 5 candidate arrival plans,
-	/// evaluates cost, returns the best. Only activates close to target.
+	/// Precision arrival planner: uses priority groups by target side
+	/// instead of flat cost comparison across all strategies.
 	/// </summary>
 	public sealed class ArrivalPlanner
 	{
@@ -18,17 +18,14 @@ namespace VehicleNavigation
 			m_Settings = new ArrivalPlanningSettings(_turnRadius);
 			m_Strategies = new List<IArrivalStrategy>
 			{
-				new DirectArrivalStrategy(),
-				new ArcArrivalStrategy(),
-				new ReverseArrivalStrategy(),
-				new RepositionArrivalStrategy(),
-				new TurnAroundArrivalStrategy()
+				new DirectArrivalStrategy(),      // [0] Direct
+				new ArcArrivalStrategy(),         // [1] Arc
+				new ReverseArrivalStrategy(),     // [2] Reverse
+				new RepositionArrivalStrategy(),  // [3] Reposition
+				new TurnAroundArrivalStrategy()   // [4] TurnAround
 			};
 		}
 
-		/// <summary>
-		/// Returns replacement maneuvers for the final approach, or null if too far.
-		/// </summary>
 		public List<Maneuver> PlanArrival(
 			Vector3 _position, float _yaw,
 			Vector3 _target, float? _targetHeading)
@@ -44,38 +41,40 @@ namespace VehicleNavigation
 			var analysis = ArrivalAnalysis.Compute(_position, _yaw, m_Settings.TurnRadius, _target, _targetHeading);
 
 			if (DebugLog)
-				Debug.Log($"[ArrivalPlanner] dist={dist:F1}m angle={analysis.HeadingError:F0}° lateral={analysis.LateralOffset:F1}m front={analysis.TargetInFront} deadZone={analysis.TargetInsideTurningCircle} turnR={m_Settings.TurnRadius:F1}");
+				Debug.Log($"[ArrivalPlanner] dist={dist:F1}m angle={analysis.HeadingError:F0} lateral={analysis.LateralOffset:F1}m side={analysis.Side} status={analysis.Status} turnR={m_Settings.TurnRadius:F1}");
+
+			if (analysis.Status == ArrivalStatus.AtGoal)
+			{
+				if (DebugLog) Debug.Log($"[ArrivalPlanner] => AtGoal — terminal, no arrival plan needed");
+				return null;
+			}
+
+		var group1 = GetPriorityGroup(analysis);
+		var group2 = GetFallbackGroup(analysis);
 
 			ArrivalPlan best = null;
 			float bestCost = float.MaxValue;
 
-			foreach (var strategy in m_Strategies)
+			foreach (var strategy in group1)
 			{
 				var plan = strategy.Generate(analysis, m_Settings, _position, _yaw, _target, _targetHeading);
-				if (plan == null || !plan.Valid)
+				if (plan == null) continue;
+
+				if (plan.AtGoal)
+				{
+					if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: AtGoal — terminal");
+					return null;
+				}
+
+				if (!plan.Valid)
 				{
 					if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: SKIP (not valid)");
 					continue;
 				}
 
 				float cost = ArrivalCostEvaluator.Evaluate(plan, analysis, m_Settings);
-
-				// Side-based cost adjustment: boost correct strategy, penalize wrong
-				if (analysis.Side == TargetSide.Rear && strategy is ReverseArrivalStrategy)
-					cost *= 0.7f;
-				if (analysis.Side != TargetSide.Rear && strategy is ReverseArrivalStrategy)
-					cost *= 1.5f;
-				if (analysis.Side == TargetSide.Front && strategy is DirectArrivalStrategy)
-					cost *= 0.85f;
-				if ((analysis.Side == TargetSide.Left || analysis.Side == TargetSide.Right)
-				    && strategy is DirectArrivalStrategy)
-					cost *= 1.3f;
-				if ((analysis.Side == TargetSide.Left || analysis.Side == TargetSide.Right)
-				    && (strategy is ArcArrivalStrategy || strategy is RepositionArrivalStrategy))
-					cost *= 0.8f;
-
 				plan.Cost = cost;
-				if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: cost={cost:F1} maneuvers={plan.Maneuvers.Count}");
+				if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: cost={cost:F1} [GROUP1]");
 
 				if (cost < bestCost)
 				{
@@ -86,12 +85,71 @@ namespace VehicleNavigation
 
 			if (best != null && best.Valid)
 			{
-				if (DebugLog) Debug.Log($"[ArrivalPlanner] => CHOSE {best.DebugName} cost={best.Cost:F1}");
+				if (DebugLog) Debug.Log($"[ArrivalPlanner] => CHOSE {best.DebugName} cost={best.Cost:F1} [GROUP1]");
 				return new List<Maneuver>(best.Maneuvers);
 			}
 
-			if (DebugLog) Debug.LogWarning($"[ArrivalPlanner] => NO valid arrival strategy found");
+			if (DebugLog) Debug.Log($"[ArrivalPlanner]   --- GROUP1 empty, trying fallback ---");
+
+			foreach (var strategy in group2)
+			{
+				var plan = strategy.Generate(analysis, m_Settings, _position, _yaw, _target, _targetHeading);
+				if (plan == null || !plan.Valid)
+				{
+					if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: SKIP (not valid)");
+					continue;
+				}
+
+				float cost = ArrivalCostEvaluator.Evaluate(plan, analysis, m_Settings);
+				cost *= 1.4f;
+				plan.Cost = cost;
+				if (DebugLog) Debug.Log($"[ArrivalPlanner]   {strategy.Name}: cost={cost:F1} [GROUP2]");
+
+				if (cost < bestCost)
+				{
+					bestCost = cost;
+					best = plan;
+				}
+			}
+
+			if (best != null && best.Valid)
+			{
+				if (DebugLog) Debug.Log($"[ArrivalPlanner] => CHOSE {best.DebugName} cost={best.Cost:F1} [GROUP2]");
+				return new List<Maneuver>(best.Maneuvers);
+			}
+
+			if (DebugLog) Debug.LogWarning($"[ArrivalPlanner] => NO valid arrival strategy for side={analysis.Side}");
 			return null;
+		}
+
+		private List<IArrivalStrategy> GetPriorityGroup(ArrivalAnalysis _a)
+		{
+			switch (_a.Side)
+			{
+				case TargetSide.Front: return new List<IArrivalStrategy> { m_Strategies[0] };
+				case TargetSide.Rear: return new List<IArrivalStrategy> { m_Strategies[2] };
+				case TargetSide.Left:
+				case TargetSide.Right:
+					// Close → Reposition, far → Arc. Same threshold as ArcMinDistance.
+					if (_a.Distance < m_Settings.ArcMinDistance)
+						return new List<IArrivalStrategy> { m_Strategies[3] }; // Reposition
+					else
+						return new List<IArrivalStrategy> { m_Strategies[1] }; // Arc
+			}
+			return new List<IArrivalStrategy>();
+		}
+
+		private List<IArrivalStrategy> GetFallbackGroup(ArrivalAnalysis _a)
+		{
+			switch (_a.Side)
+			{
+				case TargetSide.Front: return new List<IArrivalStrategy> { m_Strategies[1] };
+				case TargetSide.Rear: return new List<IArrivalStrategy> { m_Strategies[4] };
+				case TargetSide.Left:
+				case TargetSide.Right:
+					return new List<IArrivalStrategy> { m_Strategies[1], m_Strategies[3], m_Strategies[4] }; // Arc, Reposition, TurnAround
+			}
+			return new List<IArrivalStrategy>();
 		}
 
 		private static float FlatDistance(Vector3 _a, Vector3 _b)

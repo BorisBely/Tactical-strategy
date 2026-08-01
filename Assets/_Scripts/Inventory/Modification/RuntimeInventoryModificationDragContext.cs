@@ -14,7 +14,13 @@ public enum RuntimeInventoryModificationDragSourceKind
 	CharacterHeadHelmet = 9,
 	CharacterBagBackpack = 10,
 	GroundBackpack = 11,
-	CharacterBackBackpack = 12
+	CharacterBackBackpack = 12,
+	VehicleBagTurretWeapon = 13,
+	VehicleTurretWeaponSlot = 14,
+	VehicleBagTurretFrontalShield = 15,
+	VehicleTurretFrontalShieldSlot = 16,
+	VehicleBagTurretSurroundShield = 17,
+	VehicleTurretSurroundShieldSlot = 18
 }
 
 public readonly struct RuntimeInventoryModificationDragPayload
@@ -75,21 +81,27 @@ public static class RuntimeInventoryModificationDragContext
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagWeapon ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterMainHand ||
-		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundWeapon;
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundWeapon ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleBagTurretWeapon ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleTurretWeaponSlot;
 	}
 
 	public static bool IsHelmetEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagHelmet ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet ||
-		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundHelmet;
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundHelmet ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleBagTurretFrontalShield ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleTurretFrontalShieldSlot;
 	}
 
 	public static bool IsBackpackEquipDragSource(RuntimeInventoryModificationDragSourceKind _sourceKind)
 	{
 		return _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack ||
 		       _sourceKind == RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack ||
-		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundBackpack;
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.GroundBackpack ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleBagTurretSurroundShield ||
+		       _sourceKind == RuntimeInventoryModificationDragSourceKind.VehicleTurretSurroundShieldSlot;
 	}
 
 	public static void BeginCharacter(
@@ -180,19 +192,31 @@ public static class RuntimeInventoryModificationDragContext
 		bool _isBack)
 	{
 		if (_isMainHand)
-			return WeaponEquipUtility.CanEquipToMainHand(_item)
-				? RuntimeInventoryModificationDragSourceKind.CharacterMainHand
-				: RuntimeInventoryModificationDragSourceKind.None;
+		{
+			if (WeaponEquipUtility.CanEquipToMainHand(_item))
+				return RuntimeInventoryModificationDragSourceKind.CharacterMainHand;
+			if (_item.Definition != null && _item.Definition.IsTurretWeapon)
+				return RuntimeInventoryModificationDragSourceKind.VehicleTurretWeaponSlot;
+			return RuntimeInventoryModificationDragSourceKind.None;
+		}
 
 		if (_isHead)
-			return HelmetEquipUtility.CanEquipToHead(_item)
-				? RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet
-				: RuntimeInventoryModificationDragSourceKind.None;
+		{
+			if (HelmetEquipUtility.CanEquipToHead(_item))
+				return RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet;
+			if (_item.Definition != null && _item.Definition.IsTurretFrontalShield)
+				return RuntimeInventoryModificationDragSourceKind.VehicleTurretFrontalShieldSlot;
+			return RuntimeInventoryModificationDragSourceKind.None;
+		}
 
 		if (_isBack)
-			return BackpackEquipUtility.CanEquipToBack(_item)
-				? RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack
-				: RuntimeInventoryModificationDragSourceKind.None;
+		{
+			if (BackpackEquipUtility.CanEquipToBack(_item))
+				return RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack;
+			if (_item.Definition != null && _item.Definition.IsTurretSurroundShield)
+				return RuntimeInventoryModificationDragSourceKind.VehicleTurretSurroundShieldSlot;
+			return RuntimeInventoryModificationDragSourceKind.None;
+		}
 
 		if (ItemModificationUtility.IsModificationItem(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBag;
@@ -205,6 +229,15 @@ public static class RuntimeInventoryModificationDragContext
 
 		if (BackpackEquipUtility.CanEquipToBack(_item))
 			return RuntimeInventoryModificationDragSourceKind.CharacterBagBackpack;
+
+		if (_item.Definition != null && _item.Definition.IsTurretWeapon)
+			return RuntimeInventoryModificationDragSourceKind.VehicleBagTurretWeapon;
+
+		if (_item.Definition != null && _item.Definition.IsTurretFrontalShield)
+			return RuntimeInventoryModificationDragSourceKind.VehicleBagTurretFrontalShield;
+
+		if (_item.Definition != null && _item.Definition.IsTurretSurroundShield)
+			return RuntimeInventoryModificationDragSourceKind.VehicleBagTurretSurroundShield;
 
 		return RuntimeInventoryModificationDragSourceKind.None;
 	}
@@ -237,6 +270,12 @@ public static class RuntimeInventoryModificationDragContext
 			case RuntimeInventoryModificationDragSourceKind.CharacterMainHand:
 			case RuntimeInventoryModificationDragSourceKind.CharacterHeadHelmet:
 			case RuntimeInventoryModificationDragSourceKind.CharacterBackBackpack:
+			case RuntimeInventoryModificationDragSourceKind.VehicleTurretWeaponSlot:
+			case RuntimeInventoryModificationDragSourceKind.VehicleTurretFrontalShieldSlot:
+			case RuntimeInventoryModificationDragSourceKind.VehicleTurretSurroundShieldSlot:
+			case RuntimeInventoryModificationDragSourceKind.VehicleBagTurretWeapon:
+			case RuntimeInventoryModificationDragSourceKind.VehicleBagTurretFrontalShield:
+			case RuntimeInventoryModificationDragSourceKind.VehicleBagTurretSurroundShield:
 				return true;
 			case RuntimeInventoryModificationDragSourceKind.CharacterBag:
 			case RuntimeInventoryModificationDragSourceKind.GroundPanel:

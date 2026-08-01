@@ -151,7 +151,7 @@ public static class RocketLauncherContentBuilder
 
 		SetFloat(dataSo, "m_ExplosionVfxScale", 2.15f);
 		SetFloat(dataSo, "m_ExplosionVfxDurationSeconds", 5.5f);
-		SetFloat(dataSo, "m_ExplosionMaxDistanceMeters", 95f);
+		SetFloat(dataSo, "m_ExplosionMaxDistanceMeters", 600f);
 
 		GameObject muzzleFlash = AssetDatabase.LoadAssetAtPath<GameObject>(
 			"Assets/Prefabs/FX/Shooting/Muzzle/FX_MuzzleFlash_Smoke.prefab");

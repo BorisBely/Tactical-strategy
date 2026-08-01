@@ -1372,6 +1372,54 @@
     {
       "key": "item.backpack.2",
       "value": "Небольшой рюкзак"
+    },
+    {
+      "key": "item.weapon.m2browning",
+      "value": "M2 Browning"
+    },
+    {
+      "key": "item.weapon.m2browning.desc",
+      "value": "Крупнокалиберный пулемёт M2HB Browning 12.7 мм для турели машины."
+    },
+    {
+      "key": "item.weapon.mk19",
+      "value": "Mk 19"
+    },
+    {
+      "key": "item.weapon.mk19.desc",
+      "value": "Автоматический гранатомёт MK19 для турели машины."
+    },
+    {
+      "key": "item.shield.turret.frontal",
+      "value": "Лобовой щит турели"
+    },
+    {
+      "key": "item.shield.turret.frontal.desc",
+      "value": "Лобовой пулемётный щит для турели лёгкого бронеавтомобиля."
+    },
+    {
+      "key": "item.shield.turret.surround",
+      "value": "Круговой щит турели"
+    },
+    {
+      "key": "item.shield.turret.surround.desc",
+      "value": "Броневой круговой щит для стрелка турели."
+    },
+    {
+      "key": "item.magazine.m2box",
+      "value": "Патронный короб M2 .50 cal"
+    },
+    {
+      "key": "item.magazine.m2box.desc",
+      "value": "Патронный короб M2 Browning 12.7 мм (100 патронов)."
+    },
+    {
+      "key": "item.magazine.mk19box",
+      "value": "Гранатный короб Mk 19 40 мм"
+    },
+    {
+      "key": "item.magazine.mk19box.desc",
+      "value": "Гранатный короб MK19 40 мм (48 гранат)."
     }
   ]
 }

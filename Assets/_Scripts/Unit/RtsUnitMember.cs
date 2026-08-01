@@ -135,6 +135,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private readonly List<RocketLauncherRouteOrder> m_RocketLauncherOrders = new List<RocketLauncherRouteOrder>();
 	private bool m_IsExecutingGrenadeOrder;
 	private bool m_IsExecutingRouteOrder;
+	private Coroutine m_RouteReloadWaitCoroutine;
 	private GrenadeRouteOrder m_PendingGrenadeOrder;
 	private UnitGrenadeThrowController m_GrenadeThrowController;
 	private UnitRocketLauncherOrderController m_RocketLauncherOrderController;
@@ -292,9 +293,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private FacingArrow? m_PersistentFacingIndicator;
 	private Color m_PersistentFacingIndicatorColor;
 	private Coroutine m_FacingIndicatorClearCoroutine;
+	private bool m_PendingShowFacingIndicatorAfterTurn;
+	private float m_PendingFacingIndicatorAngle;
+	private System.Action m_OnFacingTurnReached;
 	#endregion
 
 	#region Public Properties
+	public const float FacingIndicatorDurationSeconds = 2f;
 	public static IReadOnlyList<RtsUnitMember> Instances => s_Instances;
 	public CharacterInventory CharacterInventory => m_CharacterInventory;
 	public bool IsSelected => m_IsSelected;
@@ -303,6 +308,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public bool HasQueuedCommands => m_CommandQueue.Count > 0;
 	public bool HasActiveDestination => m_HasActiveDestination;
 	public bool HasWantedFacing => m_HasWantedFacing;
+	/// <summary>Отложенная RTS-команда (reaction delay / group stagger) ещё не выполнена.</summary>
+	public bool HasPendingRtsCommand => m_PendingCommandCoroutine != null;
 	public bool IsRotatingToRouteFacing => m_IsRotatingToFacing;
 	public bool IsWaitingAtRouteGate => m_IsWaitingAtRouteGate;
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
@@ -595,6 +602,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_RouteEditDragWaypointIndex = -1;
 		RebuildPathLine();
 
+		// While held on a route wait (e.g. segment-start), keep the unit stopped.
+		// Re-issuing nav here used to walk them to the edited destination and leave the wait at the end.
+		if (m_IsWaitingAtRouteGate)
+			return;
+
 		if (m_HasActiveDestination && m_Waypoints.Count > 0)
 		{
 			ClearSmoothingArcState();
@@ -774,7 +786,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		SyncFacingArrows();
 		UpdateFacingArrows();
 		UpdateRouteMarchEngaged();
-		TryTriggerActiveDestinationSegmentStartWait();
+		TryTriggerActiveDestinationWaitBinding();
 		TryRemoveArrivedDestination();
 		TryAdvanceWaypointEarly();
 		UpdateFacingRotation();
@@ -1124,81 +1136,84 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		ScheduleRtsCommand(() =>
+		ScheduleRtsCommand(
+			() => IssueRouteMoveOrderImmediate(_worldPosition, _moveTier, _continuous),
+			_groupStaggerDelaySeconds);
+	}
+
+	private void IssueRouteMoveOrderImmediate(
+		Vector3 _worldPosition,
+		UnitClickToMove.MoveTier _moveTier,
+		bool _continuous)
+	{
+		VehicleBoardController.NotifyUnitMoveOrderIssued(this, _worldPosition);
+
+		UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
+		if (selfStabilization != null &&
+		    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
 		{
-			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
-			if (selfStabilization != null &&
-			    (selfStabilization.IsSelfHealing || selfStabilization.IsHealPresentationActive))
-			{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-				LogRouteDebugEvent("NAV_BLOCKED selfHeal");
+			LogRouteDebugEvent("NAV_BLOCKED selfHeal");
 #endif
-				return;
-			}
+			return;
+		}
 
-			UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
-			if (stabilizeOther != null &&
-			    (stabilizeOther.IsStabilizingOther || stabilizeOther.IsHealPresentationActive))
-			{
+		UnitStabilizeOtherController stabilizeOther = ResolveStabilizeOtherController();
+		if (stabilizeOther != null && stabilizeOther.HasActiveSession)
+			stabilizeOther.StopStabilizeOther();
+
+		if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
+		{
+			m_MagazineLoadingController?.StopLoading();
+			m_WeaponReloadController?.StopReload();
+		}
+
+		bool isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+		if (isRunOrSprint && TryGetComponent(out UnitStamina stamina) && stamina.IsExhausted)
+			_moveTier = UnitClickToMove.MoveTier.Walk;
+
+		isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
+		SyncActiveLegMoveTierForNavOrder(_worldPosition, _moveTier);
+
+		bool preserveFacingOverride = ShouldPreserveFacingOverrideForNavOrder();
+		if (isRunOrSprint && !preserveFacingOverride)
+			ClearFacingOverride();
+
+		if (!WantsReady && !preserveFacingOverride)
+			ClearFacingOverride();
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-				LogRouteDebugEvent("NAV_BLOCKED stabilizeOther");
+		LogRouteDebugEvent(
+			$"NAV_ORDER mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
 #endif
-				return;
-			}
 
-			if (_moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint)
+		bool issued = false;
+		if (m_ClickToMove != null)
+		{
+			issued = _continuous
+				? m_ClickToMove.IssueNavOrderContinuous(_worldPosition, _moveTier)
+				: m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
+		}
+		else if (m_LocomotionDriver != null)
+		{
+			UnitNavLocomotionDriver.MoveTier navTier = _moveTier switch
 			{
-				m_MagazineLoadingController?.StopLoading();
-				m_WeaponReloadController?.StopReload();
-			}
-
-			bool isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
-			if (isRunOrSprint && TryGetComponent(out UnitStamina stamina) && stamina.IsExhausted)
-				_moveTier = UnitClickToMove.MoveTier.Walk;
-
-			isRunOrSprint = _moveTier == UnitClickToMove.MoveTier.Run || _moveTier == UnitClickToMove.MoveTier.Sprint;
-			SyncActiveLegMoveTierForNavOrder(_worldPosition, _moveTier);
-
-			bool preserveFacingOverride = ShouldPreserveFacingOverrideForNavOrder();
-			if (isRunOrSprint && !preserveFacingOverride)
-				ClearFacingOverride();
-
-			if (!WantsReady && !preserveFacingOverride)
-				ClearFacingOverride();
+				UnitClickToMove.MoveTier.Run => UnitNavLocomotionDriver.MoveTier.Run,
+				UnitClickToMove.MoveTier.Sprint => UnitNavLocomotionDriver.MoveTier.Sprint,
+				_ => UnitNavLocomotionDriver.MoveTier.Walk
+			};
+			issued = _continuous
+				? m_LocomotionDriver.IssueNavOrderContinuous(_worldPosition, navTier)
+				: m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
+		}
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (!issued)
+		{
 			LogRouteDebugEvent(
-				$"NAV_ORDER mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
+				$"NAV_ORDER_FAILED mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
+		}
 #endif
-
-			bool issued = false;
-			if (m_ClickToMove != null)
-			{
-				issued = _continuous
-					? m_ClickToMove.IssueNavOrderContinuous(_worldPosition, _moveTier)
-					: m_ClickToMove.IssueNavOrder(_worldPosition, _moveTier);
-			}
-			else if (m_LocomotionDriver != null)
-			{
-				UnitNavLocomotionDriver.MoveTier navTier = _moveTier switch
-				{
-					UnitClickToMove.MoveTier.Run => UnitNavLocomotionDriver.MoveTier.Run,
-					UnitClickToMove.MoveTier.Sprint => UnitNavLocomotionDriver.MoveTier.Sprint,
-					_ => UnitNavLocomotionDriver.MoveTier.Walk
-				};
-				issued = _continuous
-					? m_LocomotionDriver.IssueNavOrderContinuous(_worldPosition, navTier)
-					: m_LocomotionDriver.IssueNavOrder(_worldPosition, navTier);
-			}
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-			if (!issued)
-			{
-				LogRouteDebugEvent(
-					$"NAV_ORDER_FAILED mode={(_continuous ? "continuous" : "reset")} tier={_moveTier} dest={FormatRoutePoint(_worldPosition)} {BuildRouteDebugSnapshot()}");
-			}
-#endif
-		}, _groupStaggerDelaySeconds);
 	}
 
 	public void BeginMovePreviewVisual()
@@ -1255,11 +1270,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ResetActiveArrowFacingHold();
 		ClearSmoothingArcState();
-		ClearRouteWaitState();
-		m_Waypoints.Clear();
-		m_Waypoints.Add(_dest);
-		RebuildPathLine();
-		m_HasActiveDestination = true;
+		ClearRouteWaitState("SetDestinationDirect");
 		m_ActiveMoveTier = _moveTier;
 		m_ActiveRouteStance = ResolveDefaultRouteStance(_moveTier);
 		m_ActiveRouteSegmentStart = transform.position;
@@ -2303,12 +2314,53 @@ public sealed class RtsUnitMember : MonoBehaviour
 	public void AddGrenadeOrder(GrenadeRouteOrder _order)
 	{
 		m_GrenadeOrders.Add(_order);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_QUEUED grenade type={_order.Type} seg={_order.RouteWaypointIndex} t={_order.RouteSegmentT:F3} " +
+			$"anchor={FormatRoutePoint(_order.WaypointPosition)} target={FormatRoutePoint(_order.TargetPosition)}");
+#endif
 	}
 
-	public void AddReloadOrder(ReloadRouteOrder _order) => m_ReloadOrders.Add(_order);
-	public void AddLocomotionOrder(LocomotionRouteOrder _order) => m_LocomotionOrders.Add(_order);
-	public void AddRefillOrder(MagazineRefillRouteOrder _order) => m_RefillOrders.Add(_order);
-	public void AddRocketLauncherOrder(RocketLauncherRouteOrder _order) => m_RocketLauncherOrders.Add(_order);
+	public void AddReloadOrder(ReloadRouteOrder _order)
+	{
+		m_ReloadOrders.Add(_order);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_QUEUED reload seg={_order.RouteSegmentIndex} t={_order.RouteSegmentT:F3} " +
+			$"anchor={FormatRoutePoint(_order.WaypointPosition)}");
+#endif
+	}
+
+	public void AddLocomotionOrder(LocomotionRouteOrder _order)
+	{
+		m_LocomotionOrders.Add(_order);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_QUEUED locomotion tier={_order.MoveTier} stance={_order.Stance} " +
+			$"seg={_order.RouteSegmentIndex} t={_order.RouteSegmentT:F3} " +
+			$"anchor={FormatRoutePoint(_order.WaypointPosition)}");
+#endif
+	}
+
+	public void AddRefillOrder(MagazineRefillRouteOrder _order)
+	{
+		m_RefillOrders.Add(_order);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_QUEUED refill seg={_order.RouteSegmentIndex} t={_order.RouteSegmentT:F3} " +
+			$"anchor={FormatRoutePoint(_order.WaypointPosition)}");
+#endif
+	}
+
+	public void AddRocketLauncherOrder(RocketLauncherRouteOrder _order)
+	{
+		m_RocketLauncherOrders.Add(_order);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_QUEUED rocket bag={_order.BagIndex} seg={_order.RouteSegmentIndex} t={_order.RouteSegmentT:F3} " +
+			$"anchor={FormatRoutePoint(_order.WaypointPosition)}");
+#endif
+	}
 
 	public bool TryRemoveGrenadeOrder(int _index)
 	{
@@ -2452,6 +2504,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void ClearAllRouteOrders()
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (m_GrenadeOrders.Count > 0 || m_ReloadOrders.Count > 0 || m_LocomotionOrders.Count > 0 ||
+		    m_RefillOrders.Count > 0 || m_RocketLauncherOrders.Count > 0 ||
+		    m_IsExecutingGrenadeOrder || m_IsExecutingRouteOrder)
+		{
+			LogRouteOrderEvent("ORDER_CLEAR_ALL");
+		}
+#endif
 		m_GrenadeOrders.Clear();
 		m_ReloadOrders.Clear();
 		m_LocomotionOrders.Clear();
@@ -2519,8 +2579,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return dx * dx + dz * dz <= c_FacingArrowActivationReachRadius * c_FacingArrowActivationReachRadius;
 	}
 
-	private void StopAgentForRouteOrder()
+	private void StopAgentForRouteOrder(string _reason)
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteMoveEvent($"STOP reason={_reason}");
+#endif
 		NavMeshAgent agent = GetComponent<NavMeshAgent>();
 		if (agent != null && agent.isOnNavMesh)
 		{
@@ -2529,16 +2592,34 @@ public sealed class RtsUnitMember : MonoBehaviour
 		}
 	}
 
-	private void ResumeRouteAfterOrder()
+	private void ResumeRouteAfterOrder(string _reason)
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent($"ORDER_DONE reason={_reason}");
+#endif
 		m_IsExecutingRouteOrder = false;
 		m_IsExecutingGrenadeOrder = false;
-		ResumeAgentAfterRouteGate();
+		ResumeAgentAfterRouteGate("orderDone:" + _reason);
 
 		if (m_HasActiveDestination && m_Waypoints.Count > 0)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteMoveEvent($"MOVE_RESUME afterOrder={_reason} dest={FormatRoutePointSafe(m_Waypoints[0])}");
+#endif
 			IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], m_ActiveMoveTier);
+		}
 		else
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteMoveEvent($"MOVE_RESUME_ADVANCE afterOrder={_reason}");
+#endif
 			TryAdvanceRouteQueue();
+		}
+	}
+
+	private static string FormatRoutePointSafe(Vector3 _point)
+	{
+		return $"({_point.x:F1},{_point.z:F1})";
 	}
 
 	private bool TryActivateReachedGrenadeOrder(Vector3 _unitPos)
@@ -2568,10 +2649,17 @@ public sealed class RtsUnitMember : MonoBehaviour
 				continue;
 
 			m_ReloadOrders.RemoveAt(i);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_EXEC reload anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+			EndRouteRunForBlockingOrder("reloadOrder");
 			m_IsExecutingRouteOrder = true;
-			StopAgentForRouteOrder();
+			StopAgentForRouteOrder("reloadOrder");
 			StartWeaponReload();
-			StartCoroutine(CoWaitReloadThenResume());
+			if (m_RouteReloadWaitCoroutine != null)
+				StopCoroutine(m_RouteReloadWaitCoroutine);
+			m_RouteReloadWaitCoroutine = StartCoroutine(CoWaitReloadThenResume());
 			return true;
 		}
 
@@ -2592,14 +2680,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_MagazineLoadingController == null)
 				m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
 
+			EndRouteRunForBlockingOrder("refillOrder");
 			m_IsExecutingRouteOrder = true;
-			StopAgentForRouteOrder();
+			StopAgentForRouteOrder("refillOrder");
 			if (m_MagazineLoadingController == null || !m_MagazineLoadingController.TryStartLoadingAllMagazines())
 			{
-				ResumeRouteAfterOrder();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteOrderEvent(
+					$"ORDER_SKIP refill reason=cannotStartLoadAll anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+				ResumeRouteAfterOrder("refillSkipped");
 				return true;
 			}
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_EXEC refill anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 			m_MagazineLoadingController.AllMagazinesLoadingCompleted += OnRefillRouteOrderCompleted;
 			return true;
 		}
@@ -2615,7 +2712,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsExecutingRouteOrder)
 			return;
 
-		ResumeRouteAfterOrder();
+		ResumeRouteAfterOrder("refillCompleted");
 	}
 
 	private bool TryActivateReachedLocomotionOrder(Vector3 _unitPos)
@@ -2625,10 +2722,15 @@ public sealed class RtsUnitMember : MonoBehaviour
 			LocomotionRouteOrder order = m_LocomotionOrders[i];
 			if (order.RouteSegmentIndex != 0)
 				continue;
-			if (!HasReachedRouteOrderAnchor(_unitPos, order.WaypointPosition))
+			if (!HasReachedOrPassedRouteOrder(_unitPos, order.RouteSegmentIndex, order.RouteSegmentT, order.WaypointPosition))
 				continue;
 
 			m_LocomotionOrders.RemoveAt(i);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_EXEC locomotion tier={order.MoveTier} stance={order.Stance} " +
+				$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 			ApplyLocomotionRouteOrder(order);
 			return true;
 		}
@@ -2636,17 +2738,105 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return false;
 	}
 
+	/// <summary>
+	/// Reach by planar radius OR by having marched past the order's segment T
+	/// (nav path / green-arrow strafe often miss the visual polyline anchor).
+	/// </summary>
+	private bool HasReachedOrPassedRouteOrder(
+		Vector3 _unitPos,
+		int _segmentIndex,
+		float _orderSegmentT,
+		Vector3 _anchorWorld)
+	{
+		if (HasReachedRouteOrderAnchor(_unitPos, _anchorWorld))
+			return true;
+
+		if (_segmentIndex != 0 || !m_HasActiveDestination)
+			return false;
+
+		if (!TryGetRouteSegmentProgressForUnit(0, _unitPos, out float unitT))
+			return false;
+
+		const float passedSlack = 0.02f;
+		return unitT + passedSlack >= _orderSegmentT;
+	}
+
 	private void ApplyLocomotionRouteOrder(in LocomotionRouteOrder _order)
 	{
 		m_ActiveMoveTier = _order.MoveTier;
 		m_ActiveRouteStance = _order.Stance;
-		RequestStance(_order.Stance);
+		// Stance must be immediate: ScheduleRtsCommand cancels any prior pending command,
+		// so RequestStance() + IssueMoveOrder() used to drop crouch every time.
+		ApplyStanceImmediate(_order.Stance);
+		PropagateLocomotionToRemainingRoute(_order.MoveTier, _order.Stance);
+		RebuildPathLine();
 
 		if (m_HasActiveDestination && m_Waypoints.Count > 0)
-		{
 			IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], m_ActiveMoveTier);
-			RebuildPathLine();
+	}
+
+	/// <summary>
+	/// Route-menu Run is sticky until the next blocking route order. Orders that cannot run
+	/// (grenade/rocket/reload/refill/wait/facing) must still execute — permanently switch the
+	/// rest of the route to Walk instead of skipping them or only pausing run.
+	/// </summary>
+	private void EndRouteRunForBlockingOrder(string _reason)
+	{
+		if (!IsRunOrSprintMoveTier(m_ActiveMoveTier) && !IsActiveRunOrSprintMovement)
+			return;
+
+		bool hasRemainingRoute = m_HasActiveDestination || m_Waypoints.Count > 0 || m_CommandQueue.Count > 0;
+
+		m_ActiveMoveTier = UnitClickToMove.MoveTier.Walk;
+		if (m_IsExecutingSmoothingArc)
+			m_SmoothingMoveTier = UnitClickToMove.MoveTier.Walk;
+
+		if (m_ActiveRouteStance != LocomotionStance.Crouch)
+			m_ActiveRouteStance = LocomotionStance.Standing;
+
+		if (hasRemainingRoute)
+			PropagateLocomotionToRemainingRoute(UnitClickToMove.MoveTier.Walk, m_ActiveRouteStance);
+
+		if (m_ClickToMove != null)
+			m_ClickToMove.ForceWalkMoveMode();
+		else if (m_LocomotionDriver != null)
+			m_LocomotionDriver.ForceWalkMoveMode();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"RUN_END reason={_reason} sticky=false remainingRoute={hasRemainingRoute}");
+#endif
+		RebuildPathLine();
+	}
+
+	/// <summary>
+	/// Route locomotion is sticky from the trigger point onward until another loco order
+	/// or <see cref="EndRouteRunForBlockingOrder"/>. Without propagation, the next DEQUEUE
+	/// resets tier/stance from the original waypoint command.
+	/// </summary>
+	private void PropagateLocomotionToRemainingRoute(
+		UnitClickToMove.MoveTier _moveTier,
+		LocomotionStance _stance)
+	{
+		for (int i = 0; i < m_CommandQueue.Count; i++)
+		{
+			QueuedCommand cmd = m_CommandQueue[i];
+			cmd.MoveTier = _moveTier;
+			cmd.RouteStance = _stance;
+			m_CommandQueue[i] = cmd;
 		}
+	}
+
+	private void ApplyStanceImmediate(LocomotionStance _stance)
+	{
+		if (_stance == LocomotionStance.Prone && !LocomotionProneFeature.Enabled)
+			return;
+
+		if (_stance == LocomotionStance.Prone)
+			m_MagazineLoadingController?.StopLoading();
+
+		if (m_Stance != null)
+			m_Stance.RequestStance(_stance);
 	}
 
 	private bool TryActivateReachedRocketLauncherOrder(Vector3 _unitPos)
@@ -2663,17 +2853,27 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_RocketLauncherOrderController == null)
 				m_RocketLauncherOrderController = GetComponent<UnitRocketLauncherOrderController>();
 
+			EndRouteRunForBlockingOrder("rocketOrder");
 			m_IsExecutingRouteOrder = true;
-			StopAgentForRouteOrder();
+			StopAgentForRouteOrder("rocketOrder");
 
 			int bagIndex = ResolveRocketLauncherBagIndex(order);
 			if (m_RocketLauncherOrderController == null || bagIndex < 0 ||
 			    !m_RocketLauncherOrderController.TryStartOrder(bagIndex))
 			{
-				ResumeRouteAfterOrder();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteOrderEvent(
+					$"ORDER_SKIP rocket reason=cannotStart bagResolved={bagIndex} " +
+					$"orderedBag={order.BagIndex} anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+				ResumeRouteAfterOrder("rocketSkipped");
 				return true;
 			}
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_EXEC rocket bag={bagIndex} anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 			m_RocketLauncherOrderController.OrderStateChanged += OnRocketLauncherRouteOrderStateChanged;
 			return true;
 		}
@@ -2719,7 +2919,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsExecutingRouteOrder)
 			return;
 
-		ResumeRouteAfterOrder();
+		ResumeRouteAfterOrder("rocketCompleted");
 	}
 
 	private IEnumerator CoWaitReloadThenResume()
@@ -2737,7 +2937,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			yield return null;
 		}
 
-		ResumeRouteAfterOrder();
+		m_RouteReloadWaitCoroutine = null;
+		ResumeRouteAfterOrder(elapsed >= timeout ? "reloadTimeout" : "reloadCompleted");
 	}
 
 	public bool TryStartGrenadeOrderAtWaypoint()
@@ -2765,12 +2966,22 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
 		if (m_GrenadeThrowController == null || !m_GrenadeThrowController.CanStartThrow())
 		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_SKIP grenade reason=cannotStartThrow type={order.Type} " +
+				$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 			m_GrenadeOrders.RemoveAt(_index);
 			return false;
 		}
 
 		if (!m_GrenadeThrowController.SetSelectedType(order.Type))
 		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_SKIP grenade reason=typeUnavailable type={order.Type} " +
+				$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 			m_GrenadeOrders.RemoveAt(_index);
 			return false;
 		}
@@ -2779,7 +2990,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_PendingGrenadeOrder = order;
 		m_GrenadeOrders.RemoveAt(_index);
 
-		StopAgentForRouteOrder();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteOrderEvent(
+			$"ORDER_EXEC grenade type={order.Type} target={FormatRoutePointSafe(order.TargetPosition)} " +
+			$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+		EndRouteRunForBlockingOrder("grenadeOrder");
+		StopAgentForRouteOrder("grenadeOrder");
 
 		m_GrenadeThrowController.BeginAiming();
 		m_GrenadeThrowController.SetTargetPosition(order.TargetPosition);
@@ -2798,7 +3015,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 
 		m_IsExecutingGrenadeOrder = false;
-		ResumeRouteAfterOrder();
+		ResumeRouteAfterOrder("grenadeCompleted");
 	}
 
 	private void ShiftRouteOrdersAfterWaypointRemoved(int _removedWaypointIndex)
@@ -2836,9 +3053,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 			ReloadRouteOrder order = _orders[i];
 			if (_removedWaypointIndex == 0)
 			{
+				int prevSeg = order.RouteSegmentIndex;
 				order.RouteSegmentIndex--;
 				if (order.RouteSegmentIndex < 0)
 				{
+					int salvageIndex = order.RouteSegmentIndex;
+					if (TrySalvageOrderOntoNextLeg(order.WaypointPosition, ref salvageIndex))
+					{
+						order.RouteSegmentIndex = salvageIndex;
+						_orders[i] = order;
+						continue;
+					}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					LogRouteOrderEvent(
+						$"ORDER_DROPPED reload reason=segmentAdvanceMissed prevSeg={prevSeg} " +
+						$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 					_orders.RemoveAt(i);
 					continue;
 				}
@@ -2869,9 +3100,28 @@ public sealed class RtsUnitMember : MonoBehaviour
 			LocomotionRouteOrder order = _orders[i];
 			if (_removedWaypointIndex == 0)
 			{
+				int prevSeg = order.RouteSegmentIndex;
 				order.RouteSegmentIndex--;
 				if (order.RouteSegmentIndex < 0)
 				{
+					int salvageIndex = order.RouteSegmentIndex;
+					if (TrySalvageOrderOntoNextLeg(order.WaypointPosition, ref salvageIndex))
+					{
+						order.RouteSegmentIndex = salvageIndex;
+						_orders[i] = order;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+						LogRouteOrderEvent(
+							$"ORDER_SALVAGE locomotion reason=nextLegAnchor prevSeg={prevSeg} " +
+							$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+						continue;
+					}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					LogRouteOrderEvent(
+						$"ORDER_DROPPED locomotion reason=segmentAdvanceMissed prevSeg={prevSeg} " +
+						$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 					_orders.RemoveAt(i);
 					continue;
 				}
@@ -2902,9 +3152,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 			MagazineRefillRouteOrder order = _orders[i];
 			if (_removedWaypointIndex == 0)
 			{
+				int prevSeg = order.RouteSegmentIndex;
 				order.RouteSegmentIndex--;
 				if (order.RouteSegmentIndex < 0)
 				{
+					int salvageIndex = order.RouteSegmentIndex;
+					if (TrySalvageOrderOntoNextLeg(order.WaypointPosition, ref salvageIndex))
+					{
+						order.RouteSegmentIndex = salvageIndex;
+						_orders[i] = order;
+						continue;
+					}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					LogRouteOrderEvent(
+						$"ORDER_DROPPED refill reason=segmentAdvanceMissed prevSeg={prevSeg} " +
+						$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 					_orders.RemoveAt(i);
 					continue;
 				}
@@ -2935,9 +3199,23 @@ public sealed class RtsUnitMember : MonoBehaviour
 			RocketLauncherRouteOrder order = _orders[i];
 			if (_removedWaypointIndex == 0)
 			{
+				int prevSeg = order.RouteSegmentIndex;
 				order.RouteSegmentIndex--;
 				if (order.RouteSegmentIndex < 0)
 				{
+					int salvageIndex = order.RouteSegmentIndex;
+					if (TrySalvageOrderOntoNextLeg(order.WaypointPosition, ref salvageIndex))
+					{
+						order.RouteSegmentIndex = salvageIndex;
+						_orders[i] = order;
+						continue;
+					}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					LogRouteOrderEvent(
+						$"ORDER_DROPPED rocket reason=segmentAdvanceMissed prevSeg={prevSeg} " +
+						$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 					_orders.RemoveAt(i);
 					continue;
 				}
@@ -3029,15 +3307,25 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_IsWaitingAtRouteGate && m_ActiveWaitGroup == normalizedGroup)
 		{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-			LogRouteDebugEvent($"WAIT_CONTINUE group={normalizedGroup} {BuildRouteDebugSnapshot()}");
+			LogRouteWaitEvent($"WAIT_CONTINUE group={normalizedGroup} reason=TryContinueRouteWaitGroup");
 #endif
 			m_IsWaitingAtRouteGate = false;
 			m_ActiveWaitGroup = 0;
-			ResumeAgentAfterRouteGate();
+			ResumeAgentAfterRouteGate("waitContinue:" + normalizedGroup);
 			if (m_HasActiveDestination && m_Waypoints.Count > 0)
+			{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteMoveEvent($"MOVE_START reason=waitContinue group={normalizedGroup}");
+#endif
 				IssueMoveOrderForCurrentWaypoint(m_Waypoints[0], m_ActiveMoveTier);
+			}
 			else
+			{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteMoveEvent($"MOVE_START reason=waitContinueDequeue group={normalizedGroup}");
+#endif
 				TryStartNextQueuedCommand();
+			}
 			changed = true;
 		}
 
@@ -3080,6 +3368,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		_segmentIndex = Mathf.Clamp(_segmentIndex, 0, m_Waypoints.Count - 1);
 		_segmentT = Mathf.Clamp01(_segmentT);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteWaitEvent(
+			$"WAIT_PLACE seg={_segmentIndex} t={_segmentT:F3} group={normalizedWait}");
+#endif
 
 		if (_segmentIndex == 0 && _segmentT <= 0.001f)
 			return InsertWaitHoldAtRouteStart(normalizedWait);
@@ -3301,7 +3594,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 		RebuildPathLine();
 		MarkFacingArrowsDirty();
 
-		if (m_HasActiveDestination && _waypointIndex == 0 && !m_SuppressLiveAgentRoutePathVisual)
+		if (m_HasActiveDestination &&
+		    _waypointIndex == 0 &&
+		    !m_SuppressLiveAgentRoutePathVisual &&
+		    !m_IsWaitingAtRouteGate)
 		{
 			ClearSmoothingArcState();
 			IssueMoveOrderForCurrentWaypoint(sampledPoint, m_ActiveMoveTier);
@@ -3439,10 +3735,20 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	public void ClearWaypoints()
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (m_Waypoints.Count > 0 || m_CommandQueue.Count > 0 || m_IsWaitingAtRouteGate ||
+		    m_GrenadeOrders.Count > 0 || m_ReloadOrders.Count > 0 || m_LocomotionOrders.Count > 0 ||
+		    m_RefillOrders.Count > 0 || m_RocketLauncherOrders.Count > 0)
+		{
+			LogRouteMoveEvent(
+				$"ROUTE_CLEAR reason=ClearWaypoints gate={m_IsWaitingAtRouteGate} " +
+				$"wp={m_Waypoints.Count} q={m_CommandQueue.Count} {BuildRouteOrderQueueSnapshot()}");
+		}
+#endif
 		CancelPendingCommand();
 		ResetActiveArrowFacingHold();
 		ClearSmoothingArcState();
-		ClearRouteWaitState();
+		ClearRouteWaitState("ClearWaypoints");
 		ResetContinuousRouteLocomotionFlags();
 		m_CommandQueue.Clear();
 		m_Waypoints.Clear();
@@ -3520,7 +3826,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		m_HasWantedFacing = true;
 		m_WantedFacingAngle = _angle;
-		m_IsRotatingToFacing = false;
+		// Как TurnOnArrival / formation slot: крутим на месте через UpdateFacingRotation,
+		// а не только OverrideFacingAngle (его глушит engage / idle-ветка locomotion).
+		m_IsRotatingToFacing = true;
+		m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
+		m_FacingRotateVelocity = 0f;
 
 		if (ShouldDeferRouteFacingOverride())
 		{
@@ -3528,10 +3838,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		if (m_ClickToMove != null || m_LocomotionDriver != null)
-			ApplyLocomotionFacingOverride(_angle, "IssueInPlaceFacingOrder");
-		else
-			m_IsRotatingToFacing = true;
+		ApplyLocomotionFacingOverride(_angle, "IssueInPlaceFacingOrder");
 	}
 
 
@@ -3541,11 +3848,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 		float _groupStaggerDelaySeconds = 0f,
 		bool _showFacingIndicator = false)
 	{
+		// Латчим intent сразу: иначе ClearPreviewMarkers → ClearWaypoints → CancelPendingCommand
+		// успевает отменить отложенную команду до reaction delay.
+		m_HasWantedFacing = true;
+		m_WantedFacingAngle = _angle;
+
 		ScheduleRtsCommand(() =>
 		{
 			ResetActiveArrowFacingHold();
 			ClearSmoothingArcState();
-			ClearRouteWaitState();
+			ClearRouteWaitState("IssueInPlaceFacingOrder");
 			ResetContinuousRouteLocomotionFlags();
 			m_CommandQueue.Clear();
 			m_Waypoints.Clear();
@@ -3567,11 +3879,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 	/// <summary>
 	/// Q / rotate-to-point: тот же сценарий, что у жёлтой стрелки на маршруте
 	/// (доворот → скан → sector/return/hold). Маршрут и движение не сбрасываются.
+	/// Индикатор-стрелка и callback — после фактического доворота, не в момент клика.
 	/// </summary>
 	public void IssueYellowFacingCheckOrder(
 		float _angle,
 		float _groupStaggerDelaySeconds = 0f,
-		bool _showFacingIndicator = false)
+		bool _showFacingIndicator = false,
+		System.Action _onFacingTurnReached = null)
 	{
 		ScheduleRtsCommand(() =>
 		{
@@ -3581,8 +3895,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 				Mode = FacingArrowMode.TurnOverDistance,
 			};
 			StartFacingTurn(arrow, transform.position, _isActiveSegment: true);
-			if (_showFacingIndicator)
-				SetFacingIndicator(_angle, s_FacingArrowColor);
+
+			m_PendingShowFacingIndicatorAfterTurn = _showFacingIndicator;
+			m_PendingFacingIndicatorAngle = _angle;
+			m_OnFacingTurnReached = _onFacingTurnReached;
 		}, _groupStaggerDelaySeconds);
 	}
 
@@ -3638,7 +3954,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		};
 		m_PersistentFacingIndicatorColor = _color;
 		MarkFacingArrowsDirty();
-		m_FacingIndicatorClearCoroutine = StartCoroutine(ClearFacingIndicatorAfter(2f));
+		m_FacingIndicatorClearCoroutine = StartCoroutine(ClearFacingIndicatorAfter(FacingIndicatorDurationSeconds));
 	}
 
 	public void ClearFacingIndicator()
@@ -3692,6 +4008,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (_ready && firemanCarry != null && firemanCarry.IsCarryingFallen)
 				return;
 
+			if (TryGetComponent(out UnitVehicleMountState mount) && mount.IsMounted)
+			{
+				VehiclePassengerState passengerState = VehiclePassengerState.GetOrAdd(gameObject);
+				if (passengerState.IsFireCapable)
+					passengerState.SetWantsReady(_ready);
+				return;
+			}
+
 			if (m_ReadyHands != null)
 				m_ReadyHands.SetReadyWanted(_ready);
 
@@ -3739,6 +4063,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			// Layered F while a route is active: first cancel grenade/reload/refill/rocket, keep the route.
+			if (TryCancelActiveRouteSideActionAndResume())
+				return;
+
 			UnitSelfStabilizationController selfStabilization = ResolveSelfStabilizationController();
 			selfStabilization?.StopSelfStabilization();
 
@@ -3748,7 +4076,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			UnitFiremanCarryController firemanCarry = ResolveFiremanCarryController();
 			firemanCarry?.RequestRelease();
 
-			m_MagazineLoadingController?.StopLoading();
+			AbortActiveRouteSideActionsWithoutResume();
+			m_MagazineLoadingController?.StopAllLoading();
 			m_WeaponReloadController?.StopReload();
 			m_FireController?.StopFiring();
 
@@ -3763,6 +4092,141 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_LocomotionDriver != null)
 				m_LocomotionDriver.HardStop();
 		}, _immediate: true);
+	}
+
+	private bool HasActiveRoutePlan =>
+		m_HasActiveDestination ||
+		m_Waypoints.Count > 0 ||
+		m_CommandQueue.Count > 0 ||
+		m_IsWaitingAtRouteGate;
+
+	/// <summary>
+	/// First F layer: stop a non-movement route action (reload, refill, grenade, rocket) and resume the route.
+	/// Returns false when there is no such action (caller should hard-stop the whole route).
+	/// </summary>
+	private bool TryCancelActiveRouteSideActionAndResume()
+	{
+		if (!HasActiveRoutePlan)
+			return false;
+
+		if (m_RocketLauncherOrderController == null)
+			m_RocketLauncherOrderController = GetComponent<UnitRocketLauncherOrderController>();
+		if (m_WeaponReloadController == null)
+			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_MagazineLoadingController == null)
+			m_MagazineLoadingController = GetComponent<UnitMagazineLoadingController>();
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+
+		bool rocketBusy = m_IsExecutingRouteOrder &&
+		                  m_RocketLauncherOrderController != null &&
+		                  m_RocketLauncherOrderController.IsBusy;
+		if (rocketBusy)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent("ORDER_CANCEL reason=hardStopLayer rocket");
+#endif
+			// FinishOrder → OrderStateChanged → ResumeRouteAfterOrder.
+			m_RocketLauncherOrderController.CancelOrder(true);
+			return true;
+		}
+
+		bool cancelledBlockingOrder = false;
+
+		if (m_IsExecutingGrenadeOrder)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent("ORDER_CANCEL reason=hardStopLayer grenade");
+#endif
+			if (m_GrenadeThrowController != null)
+			{
+				m_GrenadeThrowController.ThrowCompleted -= OnGrenadeThrowCompleted;
+				m_GrenadeThrowController.CancelThrow();
+			}
+
+			m_IsExecutingGrenadeOrder = false;
+			cancelledBlockingOrder = true;
+		}
+
+		bool magazineBusy = m_MagazineLoadingController != null &&
+		                    (m_MagazineLoadingController.IsLoadingMagazine ||
+		                     m_MagazineLoadingController.IsLoadingAllMagazines);
+		if (magazineBusy)
+		{
+			bool routeOwnedRefill = m_IsExecutingRouteOrder;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent("ORDER_CANCEL reason=hardStopLayer refill");
+#endif
+			m_MagazineLoadingController.AllMagazinesLoadingCompleted -= OnRefillRouteOrderCompleted;
+			m_MagazineLoadingController.StopAllLoading();
+			if (routeOwnedRefill)
+				cancelledBlockingOrder = true;
+			else if (!cancelledBlockingOrder)
+				return true;
+		}
+
+		bool reloadBusy = m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;
+		if (reloadBusy)
+		{
+			bool routeOwnedReload = m_IsExecutingRouteOrder;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent("ORDER_CANCEL reason=hardStopLayer reload");
+#endif
+			if (m_RouteReloadWaitCoroutine != null)
+			{
+				StopCoroutine(m_RouteReloadWaitCoroutine);
+				m_RouteReloadWaitCoroutine = null;
+			}
+
+			m_WeaponReloadController.StopReload();
+			if (routeOwnedReload)
+				cancelledBlockingOrder = true;
+			else if (!cancelledBlockingOrder)
+				return true;
+		}
+
+		if (!cancelledBlockingOrder)
+			return false;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteMoveEvent("MOVE_RESUME afterOrder=hardStopCancelSideAction");
+#endif
+		ResumeRouteAfterOrder("hardStopCancelSideAction");
+		return true;
+	}
+
+	private void AbortActiveRouteSideActionsWithoutResume()
+	{
+		if (m_RouteReloadWaitCoroutine != null)
+		{
+			StopCoroutine(m_RouteReloadWaitCoroutine);
+			m_RouteReloadWaitCoroutine = null;
+		}
+
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_IsExecutingGrenadeOrder && m_GrenadeThrowController != null)
+		{
+			m_GrenadeThrowController.ThrowCompleted -= OnGrenadeThrowCompleted;
+			m_GrenadeThrowController.CancelThrow();
+		}
+
+		m_IsExecutingGrenadeOrder = false;
+
+		if (m_RocketLauncherOrderController == null)
+			m_RocketLauncherOrderController = GetComponent<UnitRocketLauncherOrderController>();
+		if (m_RocketLauncherOrderController != null && m_RocketLauncherOrderController.IsBusy)
+		{
+			// Prevent ResumeRouteAfterOrder from re-issuing move after ClearWaypoints.
+			m_IsExecutingRouteOrder = false;
+			m_RocketLauncherOrderController.OrderStateChanged -= OnRocketLauncherRouteOrderStateChanged;
+			m_RocketLauncherOrderController.CancelOrder(true);
+		}
+
+		if (m_MagazineLoadingController != null)
+			m_MagazineLoadingController.AllMagazinesLoadingCompleted -= OnRefillRouteOrderCompleted;
+
+		m_IsExecutingRouteOrder = false;
 	}
 
 	public void StartFiring()
@@ -3953,7 +4417,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_HasActiveDestination && m_Waypoints.Count > 0)
 			m_Waypoints.RemoveRange(1, m_Waypoints.Count - 1);
 		if (m_IsWaitingAtRouteGate)
-			ClearRouteWaitState();
+			ClearRouteWaitState("ClearCommandQueue");
 		MarkFacingArrowsDirty();
 	}
 
@@ -4115,12 +4579,25 @@ public sealed class RtsUnitMember : MonoBehaviour
 		UnitClickToMove.MoveTier _moveTier,
 		float _groupStaggerDelaySeconds = 0f)
 	{
+		// Safety net: wait-gate must only resume via TryContinueRouteWaitGroup (clears gate first).
+		if (m_IsWaitingAtRouteGate)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteMoveEvent(
+				$"MOVE_BLOCKED reason=waitGate dest={FormatRoutePoint(_logicalDestination)}");
+#endif
+			return;
+		}
+
 		if (TryBeginSmoothingArcMovement(_moveTier))
 			return;
 
 		bool continuous = m_PreferContinuousNextMoveOrder || ShouldUseContinuousRouteMovement();
 		m_PreferContinuousNextMoveOrder = false;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteMoveEvent(
+			$"MOVE_START tier={_moveTier} continuous={continuous} dest={FormatRoutePoint(_logicalDestination)} " +
+			$"gate={m_IsWaitingAtRouteGate} execO={m_IsExecutingRouteOrder}");
 		if (!continuous && HasRouteAfterCurrentSegment())
 		{
 			NavMeshAgent agent = GetComponent<NavMeshAgent>();
@@ -4278,13 +4755,16 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!IsNearDestination(_worldPosition, m_Waypoints[0], 0.75f))
 			return;
 
-		LocomotionStance routeStance = ResolveDefaultRouteStance(_moveTier);
-		if (m_ActiveMoveTier == _moveTier && m_ActiveRouteStance == routeStance)
-			return;
-
+		bool tierChanged = m_ActiveMoveTier != _moveTier;
 		m_ActiveMoveTier = _moveTier;
-		m_ActiveRouteStance = routeStance;
-		RebuildPathLine();
+
+		// Run/Sprint always stand. Do not overwrite Crouch with ResolveDefaultRouteStance —
+		// that wiped route locomotion crouch orders on every re-issue.
+		if (IsRunOrSprintMoveTier(_moveTier))
+			m_ActiveRouteStance = LocomotionStance.Standing;
+
+		if (tierChanged)
+			RebuildPathLine();
 	}
 
 	private bool ShouldPreserveFacingOverrideForNavOrder()
@@ -4364,7 +4844,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private void PrepareLocomotionForArrowFacing()
 	{
-		DowngradeMovementToWalkForArrowFacing();
+		// Keep intentional route Run/Sprint under green/blue hold (strafe + facing override).
+		if (!IsRunOrSprintMoveTier(m_ActiveMoveTier) && !IsActiveRunOrSprintMovement)
+			DowngradeMovementToWalkForArrowFacing();
 		ApplyReadyForArrowActivation();
 	}
 
@@ -4372,6 +4854,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (m_ArrowPriorityPhase == ArrowPriorityPhase.None)
 			return;
+
+		// Route locomotion Run/Sprint must not be force-walked every frame while GreenHold/BlueHold
+		// is active — that made mid-route "Бег" appear ignored under a green arrow.
+		if (IsRunOrSprintMoveTier(m_ActiveMoveTier) || IsActiveRunOrSprintMovement)
+		{
+			ApplyReadyForArrowActivation();
+			return;
+		}
 
 		PrepareLocomotionForArrowFacing();
 	}
@@ -4594,6 +5084,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		bool preserveYellowTargetMemory = _arrow.Mode == FacingArrowMode.TurnOverDistance;
 		ResetActiveArrowFacingHold(_clearYellowTargetMemory: !preserveYellowTargetMemory);
+
+		// Facing (incl. green LookAt) cannot stay in route-menu Run — permanent Walk for remaining route.
+		if (_arrow.Mode != FacingArrowMode.TurnOnArrival)
+			EndRouteRunForBlockingOrder("facingArrow:" + _arrow.Mode);
 
 		if (_arrow.Mode != FacingArrowMode.TurnOnArrival)
 			PrepareLocomotionForArrowFacing();
@@ -4890,6 +5384,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!IsFacingAngleReached(centerAngle))
 			return;
 
+		NotifyFacingTurnReachedIfPending();
+
 		if (!m_ArrowTurnScanRequested)
 		{
 			ResolveCachedVision();
@@ -4919,6 +5415,26 @@ public sealed class RtsUnitMember : MonoBehaviour
 				m_ArrowPriorityPhase = ArrowPriorityPhase.GreenHold;
 				break;
 		}
+	}
+
+	private void NotifyFacingTurnReachedIfPending()
+	{
+		if (m_PendingShowFacingIndicatorAfterTurn)
+		{
+			m_PendingShowFacingIndicatorAfterTurn = false;
+			SetFacingIndicator(m_PendingFacingIndicatorAngle, s_FacingArrowColor);
+		}
+
+		System.Action callback = m_OnFacingTurnReached;
+		m_OnFacingTurnReached = null;
+		callback?.Invoke();
+	}
+
+	private void ClearPendingFacingTurnReached()
+	{
+		m_PendingShowFacingIndicatorAfterTurn = false;
+		m_PendingFacingIndicatorAngle = 0f;
+		m_OnFacingTurnReached = null;
 	}
 
 	private void CompleteYellowArrowPostScan()
@@ -5019,6 +5535,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void BeginYellowDeferredTurn()
 	{
 		ClearOldTargetAngle("deferred.rescan");
+		EndRouteRunForBlockingOrder("facingArrow:YellowDeferred");
 		PrepareLocomotionForArrowFacing();
 		m_ActiveArrowPriorityMode = FacingArrowMode.TurnOverDistance;
 		m_FacingTurnMode = FacingArrowMode.TurnOverDistance;
@@ -5106,6 +5623,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_FacingSuppressedReady = false;
 		m_FacingAutoRestoreReady = false;
 		m_HasWantedFacing = false;
+		ClearPendingFacingTurnReached();
 		ClearFacingIndicator();
 		ClearFacingOverride();
 	}
@@ -5942,13 +6460,25 @@ public sealed class RtsUnitMember : MonoBehaviour
 			_command.WaitIconAtWaypoint = _iconAtWaypoint;
 	}
 
-	private void ClearRouteWaitState()
+	private void ClearRouteWaitState(string _reason = "unspecified")
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		if (m_IsWaitingAtRouteGate || m_ActiveWaitGroup >= 1 || m_ActiveDestinationWaitGroup >= 1)
+		{
+			LogRouteWaitEvent(
+				$"WAIT_CLEAR reason={_reason} wasGate={m_IsWaitingAtRouteGate} " +
+				$"wg={m_ActiveWaitGroup} arriveWait={m_ActiveDestinationWaitGroup}");
+		}
+#endif
+		bool wasWaiting = m_IsWaitingAtRouteGate;
 		m_ActiveWaitGroup = 0;
 		m_IsWaitingAtRouteGate = false;
 		m_ActiveDestinationWaitGroup = 0;
 		m_ActiveDestinationWaitHasRouteBinding = false;
-		ResumeAgentAfterRouteGate();
+		if (wasWaiting)
+			ResumeAgentAfterRouteGate("waitCleared:" + _reason);
+		else
+			ResumeAgentAfterRouteGate(_reason);
 	}
 
 	private bool TryGetWaitGroupForWaypoint(int _waypointIndex, out int _waitGroup)
@@ -6023,6 +6553,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		LogRouteDebugEvent($"ADVANCE_QUEUE {BuildRouteDebugSnapshot()}");
 #endif
+		// Early-advance can skip the last meters of a leg — flush orders already passed on seg 0.
+		FlushPassedRouteOrdersBeforeSegmentAdvance();
 		// Reach-gate handles mid-segment orders; on segment advance only remap bindings.
 		ShiftRouteOrdersAfterWaypointRemoved(0);
 
@@ -6057,14 +6589,113 @@ public sealed class RtsUnitMember : MonoBehaviour
 		TryStartNextQueuedCommand();
 	}
 
+	/// <summary>
+	/// Applies route orders on the completed active leg that the unit has already marched past
+	/// (common with early-advance look-ahead skipping the final reach radius).
+	/// </summary>
+	private void FlushPassedRouteOrdersBeforeSegmentAdvance()
+	{
+		if (!m_HasActiveDestination || m_Waypoints.Count == 0)
+			return;
+
+		Vector3 unitPos = transform.position;
+		if (!TryGetRouteSegmentProgressForUnit(0, unitPos, out float unitT))
+			unitT = 1f;
+
+		const float passedSlack = 0.02f;
+
+		for (int i = m_LocomotionOrders.Count - 1; i >= 0; i--)
+		{
+			LocomotionRouteOrder order = m_LocomotionOrders[i];
+			if (order.RouteSegmentIndex != 0)
+				continue;
+			if (unitT + passedSlack < order.RouteSegmentT &&
+			    !HasReachedRouteOrderAnchor(unitPos, order.WaypointPosition))
+				continue;
+
+			m_LocomotionOrders.RemoveAt(i);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			LogRouteOrderEvent(
+				$"ORDER_EXEC locomotion reason=flushPassedAdvance tier={order.MoveTier} stance={order.Stance} " +
+				$"anchor={FormatRoutePointSafe(order.WaypointPosition)} unitT={unitT:F3} orderT={order.RouteSegmentT:F3}");
+#endif
+			ApplyLocomotionRouteOrder(order);
+		}
+	}
+
+	/// <summary>
+	/// When an order would fall off the completed leg, keep it if its anchor clearly belongs
+	/// to the next remaining leg (mis-indexed / early-advance edge), otherwise drop.
+	/// </summary>
+	private bool TrySalvageOrderOntoNextLeg(Vector3 _anchorWorld, ref int _segmentIndex)
+	{
+		if (_segmentIndex >= 0)
+			return false;
+		if (m_Waypoints.Count < 2)
+			return false;
+
+		Vector3 completedDest = m_Waypoints[0];
+		Vector3 nextDest = m_Waypoints[1];
+		float tOnNext = ComputeRouteSegmentT(_anchorWorld, completedDest, nextDest);
+		if (tOnNext < -0.05f || tOnNext > 1.05f)
+			return false;
+
+		float distToNextSeg = DistancePointToSegmentXZ(_anchorWorld, completedDest, nextDest);
+		Vector3 legStart = ResolveRouteSegmentStartForPolyline(_useCurrentUnitPositionForActiveLeg: true);
+		float distToCompletedSeg = DistancePointToSegmentXZ(_anchorWorld, legStart, completedDest);
+
+		// Anchor is on / nearer the upcoming leg — keep as new active segment 0.
+		if (distToNextSeg > distToCompletedSeg + 0.35f)
+			return false;
+
+		_segmentIndex = 0;
+		return true;
+	}
+
+	private static float DistancePointToSegmentXZ(Vector3 _point, Vector3 _segA, Vector3 _segB)
+	{
+		Vector2 p = new Vector2(_point.x, _point.z);
+		Vector2 a = new Vector2(_segA.x, _segA.z);
+		Vector2 b = new Vector2(_segB.x, _segB.z);
+		Vector2 ab = b - a;
+		float abSqr = ab.sqrMagnitude;
+		if (abSqr < 0.0001f)
+			return Vector2.Distance(p, a);
+
+		float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / abSqr);
+		Vector2 closest = a + ab * t;
+		return Vector2.Distance(p, closest);
+	}
+
 	private void ShiftGrenadeOrdersAfterWaypointRemoved()
 	{
 		for (int i = m_GrenadeOrders.Count - 1; i >= 0; i--)
 		{
 			GrenadeRouteOrder order = m_GrenadeOrders[i];
+			int prevSeg = order.RouteWaypointIndex;
 			order.RouteWaypointIndex--;
 			if (order.RouteWaypointIndex < 0)
+			{
+				int salvageIndex = order.RouteWaypointIndex;
+				if (TrySalvageOrderOntoNextLeg(order.WaypointPosition, ref salvageIndex))
+				{
+					order.RouteWaypointIndex = salvageIndex;
+					m_GrenadeOrders[i] = order;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+					LogRouteOrderEvent(
+						$"ORDER_SALVAGE grenade reason=nextLegAnchor prevSeg={prevSeg} " +
+						$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
+					continue;
+				}
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteOrderEvent(
+					$"ORDER_DROPPED grenade reason=segmentAdvanceMissed prevSeg={prevSeg} " +
+					$"anchor={FormatRoutePointSafe(order.WaypointPosition)}");
+#endif
 				m_GrenadeOrders.RemoveAt(i);
+			}
 			else
 				m_GrenadeOrders[i] = order;
 		}
@@ -6305,8 +6936,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void EnterWaitAfterArrival(int _waitGroup, Vector3 _iconWorldPosition)
 	{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-		LogRouteDebugEvent($"WAIT_GATE_ARRIVAL group={_waitGroup} {BuildRouteDebugSnapshot()}");
+		LogRouteWaitEvent(
+			$"WAIT_ENTER mode=afterArrival group={_waitGroup} icon={FormatRoutePointSafe(_iconWorldPosition)}");
 #endif
+		EndRouteRunForBlockingOrder("waitAfterArrival");
 		m_IsWaitingAtRouteGate = true;
 		m_ActiveWaitGroup = NormalizeWaitGroup(_waitGroup);
 		m_WaitGateWorldPosition = _iconWorldPosition;
@@ -6323,12 +6956,21 @@ public sealed class RtsUnitMember : MonoBehaviour
 			agent.ResetPath();
 		}
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteMoveEvent($"STOP reason=waitAfterArrival group={_waitGroup}");
+#endif
 		MarkFacingArrowsDirty();
 	}
 
 	/// <summary>Pause on a wait binding without completing the active leg (segment-start waits).</summary>
 	private void EnterWaitAtRouteBinding(int _waitGroup, Vector3 _worldPosition)
 	{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteWaitEvent(
+			$"WAIT_ENTER mode=routeBinding group={_waitGroup} pos={FormatRoutePointSafe(_worldPosition)} " +
+			$"seg={m_ActiveDestinationWaitSegmentIndex} t={m_ActiveDestinationWaitSegmentT:F3}");
+#endif
+		EndRouteRunForBlockingOrder("waitRouteBinding");
 		m_IsWaitingAtRouteGate = true;
 		m_ActiveWaitGroup = NormalizeWaitGroup(_waitGroup);
 		m_WaitGateWorldPosition = _worldPosition;
@@ -6344,6 +6986,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 			agent.ResetPath();
 		}
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+		LogRouteMoveEvent($"STOP reason=waitRouteBinding group={_waitGroup}");
+#endif
 		MarkFacingArrowsDirty();
 	}
 
@@ -6372,7 +7017,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return true;
 	}
 
-	private void TryTriggerActiveDestinationSegmentStartWait()
+	/// <summary>
+	/// Fires wait on segment-start OR mid-segment bindings. End-of-leg waits still enter via
+	/// <see cref="TryAdvanceRouteQueue"/> / arrival so we do not double-stop at the destination.
+	/// </summary>
+	private void TryTriggerActiveDestinationWaitBinding()
 	{
 		if (ShouldSuppressRouteArrivalDuringEdit())
 			return;
@@ -6382,35 +7031,56 @@ public sealed class RtsUnitMember : MonoBehaviour
 		    m_IsExecutingRouteOrder ||
 		    m_IsExecutingSmoothingArc ||
 		    m_ActiveDestinationWaitGroup < 1 ||
-		    !m_ActiveDestinationWaitHasRouteBinding ||
-		    !IsWaitBindingAtSegmentStart(m_ActiveDestinationWaitSegmentT))
+		    !m_ActiveDestinationWaitHasRouteBinding)
+			return;
+
+		// Segment-end waits: handled on full arrival / advance (TryAdvanceRouteQueue).
+		if (IsWaitBindingAtSegmentEnd(m_ActiveDestinationWaitSegmentT))
 			return;
 
 		if (m_DestinationSetTime >= 0f && Time.time - m_DestinationSetTime < 0.05f)
 			return;
 
+		Vector3 unitPos = transform.position;
 		Vector3 waitPos = ResolveActiveDestinationWaitIconWorldPosition();
-		if (!IsNearDestination(transform.position, waitPos, c_WaitBindingReachRadius))
+		bool reached = IsNearDestination(unitPos, waitPos, c_WaitBindingReachRadius);
+		if (!reached &&
+		    TryGetRouteSegmentProgressForUnit(0, unitPos, out float unitT))
+		{
+			const float passedSlack = 0.02f;
+			reached = unitT + passedSlack >= m_ActiveDestinationWaitSegmentT;
+		}
+
+		if (!reached)
 			return;
 
 		EnterWaitAtRouteBinding(m_ActiveDestinationWaitGroup, waitPos);
 	}
 
-	private void ResumeAgentAfterRouteGate()
+	private void ResumeAgentAfterRouteGate(string _reason = "unspecified")
 	{
 		NavMeshAgent agent = GetComponent<NavMeshAgent>();
 		if (agent != null && agent.isOnNavMesh)
+		{
+			if (agent.isStopped)
+			{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+				LogRouteMoveEvent($"AGENT_UNSTOP reason={_reason}");
+#endif
+			}
+
 			agent.isStopped = false;
+		}
 	}
 
 	private void ResumeAfterWaitGroupRemoved()
 	{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-		LogRouteDebugEvent($"WAIT_RESUME_REMOVED {BuildRouteDebugSnapshot()}");
+		LogRouteWaitEvent($"WAIT_RESUME_REMOVED {BuildRouteDebugSnapshot()}");
 #endif
 		m_IsWaitingAtRouteGate = false;
 		m_ActiveWaitGroup = 0;
-		ResumeAgentAfterRouteGate();
+		ResumeAgentAfterRouteGate("waitGroupRemoved");
 		TryStartNextQueuedCommand();
 	}
 
@@ -6915,6 +7585,29 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[Header("Route Movement Debug")]
 	[SerializeField] private bool m_DrawRouteMovementDebug;
 
+	private void LogRouteOrderEvent(string _message)
+	{
+		RouteMovementDebug.LogOrder(this, $"{_message} {BuildRouteOrderQueueSnapshot()} {BuildRouteDebugSnapshot()}");
+	}
+
+	private void LogRouteWaitEvent(string _message)
+	{
+		RouteMovementDebug.LogWait(this, $"{_message} {BuildRouteDebugSnapshot()}");
+	}
+
+	private void LogRouteMoveEvent(string _message)
+	{
+		RouteMovementDebug.LogMove(this, $"{_message} {BuildRouteDebugSnapshot()}");
+	}
+
+	private string BuildRouteOrderQueueSnapshot()
+	{
+		return
+			$"orders[g={m_GrenadeOrders.Count} r={m_ReloadOrders.Count} m={m_LocomotionOrders.Count} " +
+			$"a={m_RefillOrders.Count} h={m_RocketLauncherOrders.Count} " +
+			$"execG={m_IsExecutingGrenadeOrder} execO={m_IsExecutingRouteOrder}]";
+	}
+
 	internal void NotifyRouteDebugEarlyStop(float _remainingDistance)
 	{
 		LogRouteDebugEvent($"EARLY_STOP rem={_remainingDistance:F2} {BuildRouteDebugSnapshot()}");
@@ -6962,7 +7655,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		bool hasPath = false;
 		bool isStopped = false;
 		bool pathPending = false;
-		if (agent != null)
+		if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
 		{
 			hasPath = agent.hasPath;
 			isStopped = agent.isStopped;
@@ -6989,6 +7682,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 		return
 			$"wp={m_Waypoints.Count} q={m_CommandQueue.Count} active={m_HasActiveDestination} " +
 			$"gate={m_IsWaitingAtRouteGate} wg={m_ActiveWaitGroup} arriveWait={m_ActiveDestinationWaitGroup} " +
+			$"{BuildRouteOrderQueueSnapshot()} " +
 			$"intermediate={IsIntermediateRouteSegment()} suppressEarly={suppressEarly} " +
 			$"{syncInfo}{arrowInfo} rem={remaining:F2} spd={speed:F2} hasPath={hasPath} stopped={isStopped} pending={pathPending} " +
 			$"arc={m_IsExecutingSmoothingArc} rotate={m_IsRotatingToFacing} wp0={wp0} wp1={wp1}";

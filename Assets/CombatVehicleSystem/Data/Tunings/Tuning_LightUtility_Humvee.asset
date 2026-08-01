@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Tuning_LightUtility_Humvee
   m_EditorClassIdentifier: CombatVehicleSystem::CombatVehicleSystem.VehicleTuning
   m_DriveClass: 1
-  m_CenterOfMass: {x: 0, y: 0.4, z: 0}
+  m_CenterOfMass: {x: 0, y: 0.55, z: 0.15}
   m_MotorForce: 1500
   m_AccelerationForce: 1650
   m_ReverseForce: 900

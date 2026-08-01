@@ -73,21 +73,39 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
 		RtsUnitSelectionManager selectionManager = bindings != null ? bindings.SelectionManager : null;
 		CharacterInventory inv = bindings != null ? bindings.GetActiveCharacterInventoryForUi() : null;
+		VehicleInventory vehicleInv = (inv == null && bindings != null) ? bindings.ActiveVehicleInventory : null;
 
-		if (selectionManager == null || inv == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
+		if (selectionManager == null || m_Slot == null || !m_Slot.HasItem || m_Rect == null)
 			return;
 
 		m_CharacterPanel = GetComponentInParent<InventoryPanelView>();
 		if (m_CharacterPanel == null || m_CharacterPanel != selectionManager.CharacterInventoryPanel)
 			return;
 
-		if (!selectionManager.TryResolveCharacterInventorySlot(
-			    m_Slot,
-			    inv,
-			    out m_CapturedFromMainHandEquipmentSlot,
-			    out m_CapturedFromHeadEquipmentSlot,
-			    out m_CapturedFromBackEquipmentSlot,
-			    out m_CapturedBagIndex))
+		if (inv != null)
+		{
+			if (!selectionManager.TryResolveCharacterInventorySlot(
+				    m_Slot,
+				    inv,
+				    out m_CapturedFromMainHandEquipmentSlot,
+				    out m_CapturedFromHeadEquipmentSlot,
+				    out m_CapturedFromBackEquipmentSlot,
+				    out m_CapturedBagIndex))
+				return;
+		}
+		else if (vehicleInv != null)
+		{
+			if (!vehicleInv.CanModifyContents)
+				return;
+			if (!selectionManager.TryResolveVehicleInventorySlotForDrag(
+				    m_Slot,
+				    out m_CapturedFromMainHandEquipmentSlot,
+				    out m_CapturedFromHeadEquipmentSlot,
+				    out m_CapturedFromBackEquipmentSlot,
+				    out m_CapturedBagIndex))
+				return;
+		}
+		else
 			return;
 
 		m_RootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
@@ -146,6 +164,27 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 				_sourceSlot: m_Slot);
 			if (InventoryExchangeController.Instance.IsActive && selectionManager.GroundPanel != null)
 				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(selectionManager.GroundPanel);
+		}
+		else if (vehicleInv != null && m_Slot.Data.Definition != null)
+		{
+			if (m_Slot.Data.Definition.IsTurretWeapon && !m_CapturedFromMainHandEquipmentSlot)
+			{
+				RuntimeInventoryModificationDragContext.BeginCharacter(
+					m_Slot.Data, _isMainHand: false, _bagIndex: m_CapturedBagIndex, _sourceSlot: m_Slot);
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_CharacterPanel);
+			}
+			else if (m_Slot.Data.Definition.IsTurretFrontalShield && !m_CapturedFromHeadEquipmentSlot)
+			{
+				RuntimeInventoryModificationDragContext.BeginCharacter(
+					m_Slot.Data, _isMainHand: false, _bagIndex: m_CapturedBagIndex, _sourceSlot: m_Slot);
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_CharacterPanel);
+			}
+			else if (m_Slot.Data.Definition.IsTurretSurroundShield && !m_CapturedFromBackEquipmentSlot)
+			{
+				RuntimeInventoryModificationDragContext.BeginCharacter(
+					m_Slot.Data, _isMainHand: false, _bagIndex: m_CapturedBagIndex, _sourceSlot: m_Slot);
+				InventorySlotUiUtility.RefreshEquipmentSlotHighlights(m_CharacterPanel);
+			}
 		}
 
 		m_CharacterContentParent = transform.parent;

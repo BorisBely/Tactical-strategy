@@ -43,20 +43,6 @@ namespace CombatVehicleSystem
 		[SerializeField] private float m_RigidbodyMass = 2200f;
 		#endregion
 
-		#region Suspension
-		[Header("Suspension")]
-		[SerializeField] private float m_SuspensionDistance = 0.30f;
-		[SerializeField] private float m_SpringForce = 50000f;
-		[SerializeField] private float m_DamperForce = 4000f;
-		[SerializeField, Range(0f, 1f)] private float m_TargetPosition = 0.55f;
-		[SerializeField] private float m_WheelRadius = 0.45f;
-		[SerializeField] private float m_WheelMass = 100f;
-		[SerializeField] private float m_ForceAppPointDistance = 0f;
-		[Header("Friction")]
-		[SerializeField] private float m_ForwardStiffness = 3f;
-		[SerializeField] private float m_SidewaysStiffness = 2f;
-		#endregion
-
 		#region Turret
 		[Header("Turret")]
 		[SerializeField] private float m_TurnRate = 120f;
@@ -116,15 +102,6 @@ namespace CombatVehicleSystem
 		public float EngineStartDelay => m_EngineStartDelay;
 		public float TrackScrollScale => m_TrackScrollScale;
 		public float RigidbodyMass => m_RigidbodyMass > 1f ? m_RigidbodyMass : 2200f;
-		public float SuspensionDistance => m_SuspensionDistance > 0.01f ? m_SuspensionDistance : 0.30f;
-		public float SpringForce => m_SpringForce > 1f ? m_SpringForce : 50000f;
-		public float DamperForce => m_DamperForce >= 0f ? m_DamperForce : 0f;
-		public float TargetPosition => m_TargetPosition;
-		public float WheelRadius => m_WheelRadius > 0.01f ? m_WheelRadius : 0.45f;
-		public float WheelMass => m_WheelMass > 1f ? m_WheelMass : 100f;
-		public float ForceAppPointDistance => m_ForceAppPointDistance;
-		public float ForwardStiffness => m_ForwardStiffness > 0.1f ? m_ForwardStiffness : 3f;
-		public float SidewaysStiffness => m_SidewaysStiffness > 0.1f ? m_SidewaysStiffness : 2f;
 		public float TurnRate => m_TurnRate;
 		public bool LimitYaw => m_LimitYaw;
 		public float LeftYawLimit => m_LeftYawLimit;
@@ -154,7 +131,7 @@ namespace CombatVehicleSystem
 		public void ConfigureAsLightUtilityHumvee()
 		{
 			m_DriveClass = VehicleDriveClass.LightUtility;
-			m_CenterOfMass = new Vector3(0f, 0.40f, 0f);
+			m_CenterOfMass = new Vector3(0f, 0.55f, 0.15f);
 			m_MotorForce = 1500f;
 			m_AccelerationForce = 1650f;
 			m_ReverseForce = 900f;

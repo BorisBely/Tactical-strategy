@@ -27,6 +27,8 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 	private Renderer m_MarkerRenderer;
 	private Color m_CurrentColor;
 	private bool m_IsVisible;
+	private bool m_HasValidAimTarget;
+	private Vector3 m_LastAimWorldPosition;
 	private Camera m_SelectionCamera;
 	private UnitGrenadeThrowController m_ThrowController;
 	private static readonly int s_Color = Shader.PropertyToID("_Color");
@@ -35,7 +37,12 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 
 	#region Public Properties
 	public bool IsVisible => m_IsVisible;
-	public Vector3 MarkerWorldPosition => m_MarkerInstance != null ? m_MarkerInstance.transform.position : Vector3.zero;
+	public bool HasValidAimTarget => m_HasValidAimTarget;
+	public Vector3 LastAimWorldPosition => m_LastAimWorldPosition;
+	public Vector3 MarkerWorldPosition =>
+		m_HasValidAimTarget
+			? m_LastAimWorldPosition
+			: (m_MarkerInstance != null ? m_MarkerInstance.transform.position : Vector3.zero);
 	#endregion
 
 	#region Unity Lifecycle
@@ -71,19 +78,8 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 			return;
 
 		m_IsVisible = true;
-
-		if (m_MarkerInstance == null && m_MarkerPrefab != null)
-		{
-			m_MarkerInstance = Instantiate(m_MarkerPrefab);
-			m_MarkerInstance.name = "GrenadeAimMarker";
-			m_MarkerInstance.transform.localScale = Vector3.one * m_MarkerScale;
-
-			Collider col = m_MarkerInstance.GetComponent<Collider>();
-			if (col != null)
-				col.enabled = false;
-
-			m_MarkerRenderer = m_MarkerInstance.GetComponentInChildren<Renderer>();
-		}
+		m_HasValidAimTarget = false;
+		EnsureMarkerInstance();
 
 		if (m_MarkerInstance != null)
 			m_MarkerInstance.SetActive(true);
@@ -98,6 +94,7 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 			return;
 
 		m_IsVisible = false;
+		m_HasValidAimTarget = false;
 
 		if (m_MarkerInstance != null)
 			m_MarkerInstance.SetActive(false);
@@ -142,6 +139,9 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 
 		if (dist > _maxRange)
 			target = origin + (target - origin).normalized * _maxRange;
+
+		m_LastAimWorldPosition = target;
+		m_HasValidAimTarget = true;
 
 		if (m_MarkerInstance != null)
 		{
@@ -290,6 +290,37 @@ public sealed class GrenadeAimMarkerController : MonoBehaviour
 		{
 			SetColor(m_CurrentColor);
 		}
+	}
+
+	private void EnsureMarkerInstance()
+	{
+		if (m_MarkerInstance != null)
+			return;
+
+		if (m_MarkerPrefab != null)
+		{
+			m_MarkerInstance = Instantiate(m_MarkerPrefab);
+			m_MarkerInstance.name = "GrenadeAimMarker";
+			m_MarkerInstance.transform.localScale = Vector3.one * m_MarkerScale;
+
+			Collider col = m_MarkerInstance.GetComponent<Collider>();
+			if (col != null)
+				col.enabled = false;
+
+			m_MarkerRenderer = m_MarkerInstance.GetComponentInChildren<Renderer>();
+			return;
+		}
+
+		// Prefab may be unset on the selection manager — still need a world aim point.
+		m_MarkerInstance = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+		m_MarkerInstance.name = "GrenadeAimMarkerFallback";
+		m_MarkerInstance.transform.localScale = Vector3.one * m_MarkerScale;
+
+		Collider fallbackCol = m_MarkerInstance.GetComponent<Collider>();
+		if (fallbackCol != null)
+			Destroy(fallbackCol);
+
+		m_MarkerRenderer = m_MarkerInstance.GetComponent<Renderer>();
 	}
 
 	private void EnsureTrajectoryLine()

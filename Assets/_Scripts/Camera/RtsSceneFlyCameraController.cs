@@ -37,11 +37,7 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 		if (m_Camera == null)
 			TryGetComponent(out m_Camera);
 
-		Vector3 euler = transform.eulerAngles;
-		m_Yaw = euler.y;
-		m_Pitch = euler.x;
-		if (m_Pitch > 180f)
-			m_Pitch -= 360f;
+		SyncAnglesFromTransform();
 	}
 
 	private void Update()
@@ -59,6 +55,18 @@ public sealed class RtsSceneFlyCameraController : MonoBehaviour
 		UpdateMousePan();
 		UpdateMove();
 		UpdateSpeedFromScroll();
+	}
+	#endregion
+
+	#region Public Methods
+	/// <summary>Re-read yaw/pitch from current transform (after external camera pose restore).</summary>
+	public void SyncAnglesFromTransform()
+	{
+		Vector3 euler = transform.eulerAngles;
+		m_Yaw = euler.y;
+		m_Pitch = euler.x;
+		if (m_Pitch > 180f)
+			m_Pitch -= 360f;
 	}
 	#endregion
 

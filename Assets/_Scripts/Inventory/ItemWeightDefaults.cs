@@ -136,6 +136,7 @@ public static class ItemWeightDefaults
 	};
 
 	public const float DefaultBagWeightLimitKg = 12f;
+	public const float VehicleCargoWeightLimitKg = 150f;
 
 	public static float GetBackpackWeightLimit(string _localizationKey)
 	{

@@ -45,6 +45,7 @@ public sealed class UnitVehicleMountState : MonoBehaviour
 			m_RtsMember.HardStop();
 			m_HadRtsEnabled = m_RtsMember.enabled;
 			m_RtsMember.SetSelected(false);
+			RtsUnitSelectionManager.Instance?.NotifyUnitBecameNonControllable(m_RtsMember);
 			m_RtsMember.enabled = false;
 		}
 
@@ -74,7 +75,9 @@ public sealed class UnitVehicleMountState : MonoBehaviour
 		m_IsMounted = true;
 
 		m_SeatPose = UnitVehicleSeatPoseController.GetOrAdd(gameObject);
-		m_SeatPose.ApplySeatPose(_seatId);
+		m_SeatPose.ApplySeatPose(_seatId, _vehicle);
+
+
 	}
 
 	public void TransferToSeat(VehicleSeatId _seatId, Transform _seatAnchor, bool _isLitter)
@@ -89,7 +92,7 @@ public sealed class UnitVehicleMountState : MonoBehaviour
 
 		if (m_SeatPose == null)
 			m_SeatPose = UnitVehicleSeatPoseController.GetOrAdd(gameObject);
-		m_SeatPose.ApplySeatPose(_seatId);
+		m_SeatPose.ApplySeatPose(_seatId, m_Vehicle);
 	}
 
 	public void DismountWorldPosition(Vector3 _worldPosition, Quaternion _worldRotation)

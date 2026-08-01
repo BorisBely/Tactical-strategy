@@ -105,8 +105,7 @@ namespace CombatVehicleSystem
 			}
 
 			m_CurrentSpeedKmh = m_Body.linearVelocity.magnitude * 3.6f;
-			// Called from VehicleBrain.FixedUpdate — use physics dt for throttle smoothing.
-			float dt = Time.fixedDeltaTime;
+			float dt = Time.deltaTime;
 			float throttleTarget = _command.Throttle;
 			m_SmoothedThrottle = Mathf.MoveTowards(
 				m_SmoothedThrottle,
@@ -314,10 +313,10 @@ namespace CombatVehicleSystem
 				if (axle.Visual != null)
 					axle.AntiStuck.BindVisual(axle.Visual);
 
-				// Soft radius inflate only when actually stuck (motor on, speed dead, obstacle ahead).
+				// Soft LPVC-like: small radius inflate, speed-gated, ignores Ground layer.
 				axle.AntiStuck.ConfigureSoft(
 					_maxOffset: 0.08f,
-					_maxSpeedKmh: 5f,
+					_maxSpeedKmh: 22f,
 					_correctionSpeed: 6f);
 			}
 		}

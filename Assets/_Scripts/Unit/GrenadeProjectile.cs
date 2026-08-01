@@ -296,9 +296,9 @@ public sealed class GrenadeProjectile : MonoBehaviour
 		if (m_Rigidbody == null)
 			return;
 
+		m_Rigidbody.isKinematic = true;
 		m_Rigidbody.linearVelocity = Vector3.zero;
 		m_Rigidbody.angularVelocity = Vector3.zero;
-		m_Rigidbody.isKinematic = true;
 	}
 
 	private IEnumerator SmokeBodyKeepAliveRoutine()

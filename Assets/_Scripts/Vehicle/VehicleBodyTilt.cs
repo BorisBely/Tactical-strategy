@@ -9,26 +9,28 @@ using UnityEngine;
 [DefaultExecutionOrder(100)]
 public sealed class VehicleBodyTilt : MonoBehaviour
 {
- 	#region Constants
- 	private const string c_VisualRootName = "BodyVisualRoot";
- 	private const string c_HullMeshName = "BodyHullMesh";
- 	private const float c_MaxTiltDeg = 20f;
- 	private const float c_Smooth = 8f;
- 	#endregion
+	#region Constants
+	private const string c_VisualRootName = "BodyVisualRoot";
+	private const string c_HullMeshName = "BodyHullMesh";
+	private const float c_MaxPitch = 16f;
+	private const float c_MaxRoll = 14f;
+	private const float c_Smooth = 8f;
+	private const float c_RayHeight = 1.2f;
+	private const float c_RayLength = 3.5f;
+	#endregion
 
- 	#region Serialized Fields
- 	[SerializeField] private WheeledMotor m_Motor;
- 	[SerializeField] private VehicleController m_Vehicle;
- 	[SerializeField] private Transform m_VisualRoot;
- 	#endregion
+	#region Serialized Fields
+	[SerializeField] private WheeledMotor m_Motor;
+	[SerializeField] private VehicleController m_Vehicle;
+	[SerializeField] private Transform m_VisualRoot;
+	[SerializeField] private LayerMask m_GroundMask = ~0;
+	#endregion
 
 	#region Private Fields
 	private Quaternion m_BaseLocalRotation = Quaternion.identity;
 	private float m_Pitch;
 	private float m_Roll;
 	private bool m_HierarchyReady;
-	private readonly Vector3[] m_LastContactPoints = new Vector3[4];
-	private readonly bool[] m_HasLastContact = new bool[4];
 	#endregion
 
 	#region Unity Lifecycle
@@ -52,15 +54,15 @@ public sealed class VehicleBodyTilt : MonoBehaviour
 		{
 			m_Pitch = Mathf.LerpAngle(m_Pitch, 0f, 1f - Mathf.Exp(-c_Smooth * dt));
 			m_Roll = Mathf.LerpAngle(m_Roll, 0f, 1f - Mathf.Exp(-c_Smooth * dt));
-			m_VisualRoot.localRotation = Quaternion.Euler(m_Pitch, 0f, m_Roll);
+			m_VisualRoot.localRotation = m_BaseLocalRotation * Quaternion.Euler(m_Pitch, 0f, m_Roll);
 			return;
 		}
 
-		ComputeTiltFromWheelContacts(out float targetPitch, out float targetRoll);
+		SampleResidualTilt(out float targetPitch, out float targetRoll);
 		m_Pitch = Mathf.LerpAngle(m_Pitch, targetPitch, 1f - Mathf.Exp(-c_Smooth * dt));
 		m_Roll = Mathf.LerpAngle(m_Roll, targetRoll, 1f - Mathf.Exp(-c_Smooth * dt));
 
-		m_VisualRoot.localRotation = Quaternion.Euler(m_Pitch, 0f, m_Roll);
+		m_VisualRoot.localRotation = m_BaseLocalRotation * Quaternion.Euler(m_Pitch, 0f, m_Roll);
 	}
 	#endregion
 
@@ -78,6 +80,7 @@ public sealed class VehicleBodyTilt : MonoBehaviour
 		EnsureVisualRoot();
 		RelocateRootHullMesh();
 		ReparentBodyPieces();
+		m_BaseLocalRotation = m_VisualRoot != null ? m_VisualRoot.localRotation : Quaternion.identity;
 		m_HierarchyReady = m_VisualRoot != null;
 	}
 	#endregion
@@ -188,132 +191,133 @@ public sealed class VehicleBodyTilt : MonoBehaviour
 		return _child.GetComponentInChildren<MeshRenderer>(true) != null;
 	}
 
-	/// <summary>
-	/// Compute visual pitch/roll from the plane formed by the four wheel contact points.
-	/// No raycasts — uses live WheelHit.point directly. The visual root tilts to match
-	/// the ground plane, clamped to ±c_MaxTiltDeg.
-	/// </summary>
-	private void ComputeTiltFromWheelContacts(out float _pitch, out float _roll)
+	private void SampleResidualTilt(out float _pitch, out float _roll)
 	{
 		_pitch = 0f;
 		_roll = 0f;
 
-		WheelCollider[] wcs = null;
-		if (m_Motor != null && m_Motor.Axles != null)
-		{
-			wcs = new WheelCollider[m_Motor.Axles.Length];
-			for (int i = 0; i < m_Motor.Axles.Length; i++)
-				wcs[i] = m_Motor.Axles[i]?.Collider;
-		}
-		else
-		{
-			wcs = GetComponentsInChildren<WheelCollider>();
-		}
-
-		if (wcs == null || wcs.Length == 0)
+		if (!TrySampleGroundNormal(out Vector3 avgNormal))
 			return;
 
-		// Update per-wheel contact cache
-		for (int i = 0; i < wcs.Length && i < m_LastContactPoints.Length; i++)
+		if (!TryGetYawBasis(out Quaternion yawOnly))
+			return;
+
+		Vector3 groundLocal = Quaternion.Inverse(yawOnly) * avgNormal.normalized;
+		if (groundLocal.sqrMagnitude < 0.0001f)
+			return;
+
+		float groundPitch = Mathf.Atan2(groundLocal.z, groundLocal.y) * Mathf.Rad2Deg;
+		float groundRoll = -Mathf.Atan2(groundLocal.x, groundLocal.y) * Mathf.Rad2Deg;
+
+		Vector3 upLocal = Quaternion.Inverse(yawOnly) * transform.up;
+		if (upLocal.sqrMagnitude < 0.0001f)
+			return;
+
+		float chassisPitch = Mathf.Atan2(upLocal.z, upLocal.y) * Mathf.Rad2Deg;
+		float chassisRoll = -Mathf.Atan2(upLocal.x, upLocal.y) * Mathf.Rad2Deg;
+
+		_pitch = Mathf.Clamp(Mathf.DeltaAngle(chassisPitch, groundPitch), -c_MaxPitch, c_MaxPitch);
+		_roll = Mathf.Clamp(Mathf.DeltaAngle(chassisRoll, groundRoll), -c_MaxRoll, c_MaxRoll);
+	}
+
+	private bool TrySampleGroundNormal(out Vector3 _avgNormal)
+	{
+		_avgNormal = Vector3.zero;
+		int hits = 0;
+
+		if (m_Motor != null && m_Motor.Axles != null)
 		{
-			WheelCollider wc = wcs[i];
-			if (wc == null) continue;
-			if (wc.GetGroundHit(out WheelHit hit))
+			for (int i = 0; i < m_Motor.Axles.Length; i++)
 			{
-				m_LastContactPoints[i] = hit.point;
-				m_HasLastContact[i] = true;
-			}
-		}
+				WheelAxle axle = m_Motor.Axles[i];
+				if (axle == null)
+					continue;
 
-		// Assign by name or index
-		Vector3 fl = Vector3.zero, fr = Vector3.zero, rl = Vector3.zero, rr = Vector3.zero;
-		int validCount = 0;
-		for (int i = 0; i < wcs.Length && i < m_HasLastContact.Length; i++)
-		{
-			if (!m_HasLastContact[i])
-				continue;
-
-			WheelCollider wc = wcs[i];
-			string name = wc != null ? wc.name : "";
-			Vector3 pt = m_LastContactPoints[i];
-
-			if (name.IndexOf("_FL", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-			    name.IndexOf("FrontLeft", System.StringComparison.OrdinalIgnoreCase) >= 0)
-			{
-				fl = pt;
-				validCount++;
-			}
-			else if (name.IndexOf("_FR", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-			         name.IndexOf("FrontRight", System.StringComparison.OrdinalIgnoreCase) >= 0)
-			{
-				fr = pt;
-				validCount++;
-			}
-			else if (name.IndexOf("_RL", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-			         name.IndexOf("RearLeft", System.StringComparison.OrdinalIgnoreCase) >= 0)
-			{
-				rl = pt;
-				validCount++;
-			}
-			else if (name.IndexOf("_RR", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-			         name.IndexOf("RearRight", System.StringComparison.OrdinalIgnoreCase) >= 0)
-			{
-				rr = pt;
-				validCount++;
-			}
-			else
-			{
-				// Fallback: assign by index order (0=FL, 1=FR, 2=RL, 3=RR)
-				switch (i)
+				Vector3 samplePos;
+				if (axle.Collider != null)
 				{
-					case 0: fl = pt; validCount++; break;
-					case 1: fr = pt; validCount++; break;
-					case 2: rl = pt; validCount++; break;
-					case 3: rr = pt; validCount++; break;
+					if (axle.Collider.GetGroundHit(out WheelHit wheelHit))
+					{
+						_avgNormal += wheelHit.normal;
+						hits++;
+						continue;
+					}
+
+					samplePos = axle.Collider.transform.position;
+				}
+				else if (axle.Visual != null)
+				{
+					samplePos = axle.Visual.position;
+				}
+				else
+				{
+					continue;
+				}
+
+				if (RaycastDown(samplePos, out RaycastHit hit))
+				{
+					_avgNormal += hit.normal;
+					hits++;
 				}
 			}
 		}
 
-		if (validCount < 3)
-			return;
+		if (hits == 0)
+		{
+			Vector3 origin = transform.position + Vector3.up * c_RayHeight;
+			Vector3 right = transform.right;
+			Vector3 forward = transform.forward;
+			right.y = 0f;
+			forward.y = 0f;
+			if (right.sqrMagnitude > 0.001f) right.Normalize();
+			if (forward.sqrMagnitude > 0.001f) forward.Normalize();
 
-		Vector3 avgFront = (fl + fr) * 0.5f;
-		Vector3 avgRear = (rl + rr) * 0.5f;
-		Vector3 avgLeft = (fl + rl) * 0.5f;
-		Vector3 avgRight = (fr + rr) * 0.5f;
+			TryAddRay(origin + right * 1.1f + forward * 1.4f, ref _avgNormal, ref hits);
+			TryAddRay(origin - right * 1.1f + forward * 1.4f, ref _avgNormal, ref hits);
+			TryAddRay(origin + right * 1.1f - forward * 1.4f, ref _avgNormal, ref hits);
+			TryAddRay(origin - right * 1.1f - forward * 1.4f, ref _avgNormal, ref hits);
+		}
 
-		Vector3 forward = avgFront - avgRear;
-		Vector3 right = avgRight - avgLeft;
+		if (hits == 0)
+			return false;
 
-		if (forward.sqrMagnitude < 0.0001f || right.sqrMagnitude < 0.0001f)
-			return;
-
-		Vector3 normal = Vector3.Cross(right, forward).normalized;
-		if (normal.y < 0f)
-			normal = -normal;
-
-		Vector3 forwardProjected = Vector3.ProjectOnPlane(forward, normal);
-		if (forwardProjected.sqrMagnitude < 0.0001f)
-			return;
-
-		Quaternion groundRotation = Quaternion.LookRotation(forwardProjected.normalized, normal);
-		Quaternion inverted = Quaternion.Inverse(transform.rotation) * groundRotation;
-
-		Vector3 euler = inverted.eulerAngles;
-		_pitch = NormalizeAngle(euler.x);
-		_roll = NormalizeAngle(euler.z);
-
-		_pitch = Mathf.Clamp(_pitch, -c_MaxTiltDeg, c_MaxTiltDeg);
-		_roll = Mathf.Clamp(_roll, -c_MaxTiltDeg, c_MaxTiltDeg);
+		_avgNormal /= hits;
+		return _avgNormal.sqrMagnitude > 0.0001f;
 	}
 
-	private static float NormalizeAngle(float _angle)
+	private void TryAddRay(Vector3 _origin, ref Vector3 _avgNormal, ref int _hits)
 	{
-		while (_angle > 180f)
-			_angle -= 360f;
-		while (_angle < -180f)
-			_angle += 360f;
-		return _angle;
+		if (!RaycastDown(_origin, out RaycastHit hit))
+			return;
+		_avgNormal += hit.normal;
+		_hits++;
+	}
+
+	private bool RaycastDown(Vector3 _nearPoint, out RaycastHit _hit)
+	{
+		Vector3 origin = _nearPoint;
+		origin.y = transform.position.y + c_RayHeight;
+		if (!Physics.Raycast(origin, Vector3.down, out _hit, c_RayLength, m_GroundMask,
+			    QueryTriggerInteraction.Ignore))
+			return false;
+		if (_hit.collider != null && _hit.collider.transform.IsChildOf(transform))
+			return false;
+		return true;
+	}
+
+	private bool TryGetYawBasis(out Quaternion _yawOnly)
+	{
+		Vector3 flatForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+		if (flatForward.sqrMagnitude < 0.0001f)
+			flatForward = Vector3.ProjectOnPlane(transform.right, Vector3.up);
+		if (flatForward.sqrMagnitude < 0.0001f)
+		{
+			_yawOnly = Quaternion.identity;
+			return false;
+		}
+
+		_yawOnly = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+		return true;
 	}
 	#endregion
 }

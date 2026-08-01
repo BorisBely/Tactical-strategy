@@ -83,6 +83,7 @@ namespace VehicleNavigation
 		private DriverContext m_DriverCtx;
 		private TrajectoryPrediction m_Prediction;
 		private ManeuverFeasibilityChecker m_Feasibility;
+		private PrecisionArrivalController m_PrecisionArrival;
 
 		public FeasibilityResult LastFeasibility { get; private set; }
 
@@ -122,6 +123,7 @@ namespace VehicleNavigation
 			m_DefaultLookAhead = _settings != null ? _settings.LookAheadBase : 6f;
 			m_SpeedPlanner = new SpeedPlanner();
 			m_EmergencyStop = new EmergencyStopController();
+			m_PrecisionArrival = new PrecisionArrivalController();
 		}
 
 		public void BuildLimiters(CombatVehicleSystem.VehicleTuning _tuning)
@@ -299,6 +301,7 @@ namespace VehicleNavigation
 			m_PlanDirty = false;
 			m_GoalLocked = false;
 			m_ReverseDriver = null;
+			m_PrecisionArrival.Deactivate();
 			FeedbackState fb = m_Ctx.State;
 
 			if (!m_Ctx.HasRequest)
@@ -374,6 +377,15 @@ namespace VehicleNavigation
 			if (_maneuver is ReverseIntentManeuver revMvr)
 				return ExecuteReverseManeuver(revMvr);
 
+			// Precision arrival: when close to goal, replace PursuitController with local error controller
+			if (_maneuver.IsArrivalManeuver && ShouldUsePrecisionArrival())
+			{
+				m_PrecisionArrival.Activate();
+				return TickPrecisionArrival();
+			}
+
+			m_PrecisionArrival.Deactivate();
+
 			float speedFraction = VehicleSpeedModeUtil.Fraction(m_Ctx.Request.SpeedMode) *
 			                      _maneuver.SpeedScale;
 
@@ -414,19 +426,61 @@ namespace VehicleNavigation
 					m_DriverCtx?.ReverseSteeringLimitCurve,
 					m_Prediction ?? new TrajectoryPrediction(m_Settings.GeometryLayers));
 
+				float speedFraction = VehicleSpeedModeUtil.Fraction(m_Ctx.Request.SpeedMode);
+				speedFraction = Mathf.Max(speedFraction, 0.6f);
+
 				if (m_DriverCtx != null)
 				{
 					m_DriverCtx.UpdateFrom(m_Ctx.State, m_Ctx.Params, m_Ctx.Request, m_Ctx.Path);
-					float speedFraction = VehicleSpeedModeUtil.Fraction(m_Ctx.Request.SpeedMode);
-					speedFraction = Mathf.Max(speedFraction, 0.6f); // minimum reverse speed
 					m_ReverseDriver.TryStart(m_DriverCtx, speedFraction);
 				}
+
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] Reverse START — pos=({m_Ctx.State.Position.x:F2},{m_Ctx.State.Position.z:F2}) " +
+						$"fwd=({m_Ctx.State.Forward.x:F2},{m_Ctx.State.Forward.z:F2}) " +
+						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
+						$"speedFrac={speedFraction:F2}");
 			}
 
 			if (m_DriverCtx != null)
 				m_DriverCtx.UpdateFrom(m_Ctx.State, m_Ctx.Params, m_Ctx.Request, m_Ctx.Path);
 
 			return m_ReverseDriver.Tick(Time.fixedDeltaTime);
+		}
+
+		private bool ShouldUsePrecisionArrival()
+		{
+			if (!m_Ctx.HasRequest) return false;
+			float dist = FlatDistance(m_Ctx.State.Position, m_Ctx.Request.Destination);
+			return dist < m_PrecisionArrival.ActivationDistance && !m_GoalLocked;
+		}
+
+		private VehicleCommand TickPrecisionArrival()
+		{
+			FeedbackState fb = m_Ctx.State;
+			float? heading = m_Ctx.Request.HasHeading ? m_Ctx.Request.HeadingYaw : (float?)null;
+
+			var output = m_PrecisionArrival.Tick(
+				fb.Position, fb.Forward, fb.Yaw, fb.SpeedKmh,
+				m_Ctx.Request.Destination, heading,
+				m_Ctx.Params, Time.fixedDeltaTime);
+
+			m_Ctx.RemainingDistance = output.DistanceToGoal;
+			m_Ctx.CurrentCurvature = output.Command.DesiredCurvature;
+			m_Ctx.DesiredSpeedKmh = Mathf.Abs(output.Command.DesiredSpeedKmh);
+
+			if (output.IsComplete)
+			{
+				m_PrecisionArrival.Deactivate();
+				m_GoalLocked = true;
+				CurrentState = State.Holding;
+				m_Ctx.ActiveStopReason = StopReason.Goal;
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m speed={fb.SpeedKmh:F1}");
+				return m_Motion.Park();
+			}
+
+			return m_Motion.Convert(m_Ctx, output.Command);
 		}
 
 		private VehicleCommand TickArrival()
@@ -439,22 +493,31 @@ namespace VehicleNavigation
 			if (m_GoalLocked)
 				return m_Motion.HoldInPlace();
 
+			float dist = FlatDistance(fb.Position, m_Ctx.Request.Destination);
+
 			if (m_Arrival.HasArrived(fb.Position, fb.Yaw, m_Ctx.Request.Destination, heading))
 			{
 				m_GoalLocked = true;
 				CurrentState = State.Holding;
 				m_Ctx.ActiveStopReason = StopReason.Goal;
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] GOAL LOCKED at dist={FlatDistance(fb.Position, m_Ctx.Request.Destination):F2}m speed={fb.SpeedKmh:F1}");
+					Debug.Log($"[DriverFSM] GOAL LOCKED at dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return m_Motion.Park();
 			}
 
-			// Guard: if very close but not yet arrived, force crawl
-			float dist = FlatDistance(fb.Position, m_Ctx.Request.Destination);
+			// Guard: very close but too fast — force crawl
 			if (dist < 1.5f && fb.SpeedKmh > 5f)
 			{
 				if (DebugLog)
 					Debug.Log($"[DriverFSM] Arrival crawl: dist={dist:F2}m speed={fb.SpeedKmh:F1} — forcing slow");
+				return m_Motion.BrakeToStop(_hard: false);
+			}
+
+			// Intermediate: close but not stopped — cap speed aggressively
+			if (dist < 0.6f && fb.SpeedKmh > 2f)
+			{
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] Arrival slow-cap: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return m_Motion.BrakeToStop(_hard: false);
 			}
 
@@ -463,7 +526,36 @@ namespace VehicleNavigation
 			{
 				m_GoalLocked = true;
 				CurrentState = State.Holding;
+				if (DebugLog)
+					Debug.Log($"[DriverFSM] Final latch → Holding: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return m_Motion.Park();
+			}
+
+			// Precision arrival: within activation range, use local error controller
+			if (dist < m_PrecisionArrival.ActivationDistance)
+			{
+				m_PrecisionArrival.Activate();
+				var output = m_PrecisionArrival.Tick(
+					fb.Position, fb.Forward, fb.Yaw, fb.SpeedKmh,
+					m_Ctx.Request.Destination, heading,
+					m_Ctx.Params, Time.fixedDeltaTime);
+
+				m_Ctx.RemainingDistance = output.DistanceToGoal;
+				m_Ctx.CurrentCurvature = output.Command.DesiredCurvature;
+				m_Ctx.DesiredSpeedKmh = Mathf.Abs(output.Command.DesiredSpeedKmh);
+
+				if (output.IsComplete)
+				{
+					m_PrecisionArrival.Deactivate();
+					m_GoalLocked = true;
+					CurrentState = State.Holding;
+					m_Ctx.ActiveStopReason = StopReason.Goal;
+					if (DebugLog)
+						Debug.Log($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m");
+					return m_Motion.Park();
+				}
+
+				return m_Motion.Convert(m_Ctx, output.Command);
 			}
 
 			Maneuver arrivalManeuver = m_Ctx.CurrentManeuver;
@@ -558,9 +650,16 @@ namespace VehicleNavigation
 					m_ReverseDriver = null;
 					m_PlanDirty = true;
 					ReplanTriggered?.Invoke("reverse failed — replan");
-					if (DebugLog) Debug.LogWarning("[DriverFSM] Reverse FAILED — triggering full replan");
+					if (DebugLog) Debug.LogWarning($"[DriverFSM] Reverse FAILED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) " +
+						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
+						$"dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m — triggering replan");
 					return false;
 				}
+
+				if (current is ReverseIntentManeuver && DebugLog)
+					Debug.Log($"[DriverFSM] Reverse COMPLETED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) " +
+						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
+						$"dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m");
 
 				ManeuverFinished?.Invoke(current);
 				m_Ctx.CurrentManeuverIndex++;

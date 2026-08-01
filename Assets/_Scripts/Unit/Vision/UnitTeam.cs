@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Сторона юнита. Используется <see cref="UnitVision"/> и <see cref="UnitVisionRegistry"/>.
+/// Сторона юнита или машины. Одна сущность на объект; меняется в рантайме через <see cref="SetTeam"/>.
+/// Слой (Unit/Vehicle) — только физика и raycast; сторона живёт здесь, не в Layer.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class UnitTeam : MonoBehaviour
@@ -17,6 +18,8 @@ public sealed class UnitTeam : MonoBehaviour
 	#region Public Methods
 	public void SetTeam(UnitTeamId _team)
 	{
+		if (m_Team == _team)
+			return;
 		m_Team = _team;
 	}
 	#endregion

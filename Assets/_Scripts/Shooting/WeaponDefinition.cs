@@ -75,7 +75,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_AutoRecoilMultiplier = 1.25f;
 	[Tooltip("Сколько единиц накопленной отдачи оружие восстанавливает за секунду.")]
 	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
-	[Tooltip("Множитель только визуального kick ствола (UnitWeaponVisualRecoilKick). Не влияет на gameplay RecoilPenalty / разброс.")]
+	[Tooltip("Множитель только визуального kick ствола (UnitWeaponRecoil). Не влияет на gameplay RecoilPenalty / разброс.")]
 	[SerializeField, Min(0f)] private float m_VisualRecoilKickScale = 1f;
 	[Tooltip("Длина очереди в режиме Burst.")]
 	[SerializeField, Min(2)] private int m_BurstRounds = 3;

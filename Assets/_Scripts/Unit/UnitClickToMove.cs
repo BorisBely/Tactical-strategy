@@ -306,7 +306,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return true;
 	}
 
-	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _mode)
+	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _mode, bool _cancelStabilizeOther = true)
 	{
 		if (m_Agent == null)
 		{
@@ -322,6 +322,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 #endif
 			return false;
 		}
+
+		if (_cancelStabilizeOther)
+			TryCancelStabilizeOtherForNewMove();
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 		{
@@ -355,7 +358,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 		return true;
 	}
 
-	public bool IssueNavOrderContinuous(Vector3 _worldPosition, MoveTier _mode)
+	public bool IssueNavOrderContinuous(Vector3 _worldPosition, MoveTier _mode, bool _cancelStabilizeOther = true)
 	{
 		if (m_Agent == null)
 		{
@@ -371,6 +374,9 @@ public sealed class UnitClickToMove : MonoBehaviour
 #endif
 			return false;
 		}
+
+		if (_cancelStabilizeOther)
+			TryCancelStabilizeOtherForNewMove();
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
 		{
@@ -534,6 +540,15 @@ public sealed class UnitClickToMove : MonoBehaviour
 			if (TryGetComponent(out UnitFiremanCarryController firemanCarry))
 				firemanCarry.RequestRelease();
 
+			if (TryGetComponent(out UnitMagazineLoadingController magazineLoading))
+				magazineLoading.StopAllLoading();
+
+			if (m_ReloadController != null)
+				m_ReloadController.StopReload();
+
+			m_FireController?.StopFiring();
+			m_ReadyHands?.SetReadyWanted(false, false);
+
 			HardStop();
 		}
 
@@ -640,6 +655,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_HasPendingRightClick = false;
 		m_PendingRightClickTime = -1f;
+		TryCancelStabilizeOtherForNewMove();
 		IssueNavOrderInternal(m_PendingRightClickDestination, MoveTier.Walk);
 	}
 
@@ -1308,10 +1324,19 @@ public sealed class UnitClickToMove : MonoBehaviour
 		if (m_SelfStabilization != null &&
 		    (m_SelfStabilization.IsSelfHealing || m_SelfStabilization.IsHealPresentationActive))
 			return true;
-		if (m_StabilizeOther != null &&
-		    (m_StabilizeOther.IsStabilizingOther || m_StabilizeOther.IsHealPresentationActive))
-			return true;
+
+		// Stabilize-other больше не блокирует ход: новый маршрут отменяет сессию через TryCancelStabilizeOtherForNewMove.
 		return false;
+	}
+
+	private void TryCancelStabilizeOtherForNewMove()
+	{
+		if (m_StabilizeOther == null)
+			m_StabilizeOther = GetComponent<UnitStabilizeOtherController>();
+		if (m_StabilizeOther == null || !m_StabilizeOther.HasActiveSession)
+			return;
+
+		m_StabilizeOther.StopStabilizeOther();
 	}
 
 	/// <summary>

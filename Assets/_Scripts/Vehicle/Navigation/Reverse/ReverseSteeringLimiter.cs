@@ -28,7 +28,11 @@ namespace VehicleNavigation
 		public float ClampSteer(float _steer, float _speedKmh)
 		{
 			float limit = GetAllowedFraction(_speedKmh);
-			return Mathf.Clamp(_steer, -limit, limit);
+			float before = _steer;
+			float clamped = Mathf.Clamp(_steer, -limit, limit);
+			if (Mathf.Abs(before) > 0.01f && Mathf.Abs(clamped) < Mathf.Abs(before) * 0.8f)
+				Debug.Log($"[RevSteerLimit] limiting steer: {before:F3}→{clamped:F3} (limit={limit:F2} at speed={_speedKmh:F1}km/h)");
+			return clamped;
 		}
 	}
 }

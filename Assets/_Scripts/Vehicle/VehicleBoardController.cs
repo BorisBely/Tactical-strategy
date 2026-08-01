@@ -27,6 +27,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 		public bool HasSeatHint;
 		public VehicleBoardSide Side;
 		public bool DisembarkIncludeDriver;
+		public UnitClickToMove.MoveTier BoardMoveTier;
 	}
 	#endregion
 
@@ -52,6 +53,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 	private readonly HashSet<RtsUnitMember> m_ActiveBoardUnits = new HashSet<RtsUnitMember>();
 	private readonly Dictionary<RtsUnitMember, Vector3> m_ExpectedApproachTarget =
 		new Dictionary<RtsUnitMember, Vector3>(8);
+	private readonly Dictionary<RtsUnitMember, UnitClickToMove.MoveTier> m_BoardMoveTiers =
+		new Dictionary<RtsUnitMember, UnitClickToMove.MoveTier>(8);
 	private bool m_IsBusy;
 	#endregion
 
@@ -150,6 +153,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 
 		ClearActiveBoardUnits();
 		m_ExpectedApproachTarget.Clear();
+		m_BoardMoveTiers.Clear();
+		m_Seats?.ClearAllReservations();
 		m_IsBusy = false;
 		m_Doors?.CloseAllDoorsForcedImmediate();
 	}
@@ -162,6 +167,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 		LogBoard($"CANCEL unit {UnitLabel(_unit)} — {_reason}");
 		UntrackActiveBoardUnit(_unit);
 		m_ExpectedApproachTarget.Remove(_unit);
+		m_BoardMoveTiers.Remove(_unit);
+		m_Seats?.UnreserveForBoarder(_unit);
 
 		for (int i = 0; i < c_DoorCount; i++)
 		{
@@ -193,12 +200,12 @@ public sealed class VehicleBoardController : MonoBehaviour
 		return m_DoorQueues[index].Count > 0;
 	}
 
-	public void EnqueueBoard(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side)
+	public void EnqueueBoard(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
 	{
 		if (_units == null || m_Seats == null || m_Vehicle == null)
 			return;
 
-		LogBoard($"REQUEST board side={SideLabel(_side)} units={_units.Count}");
+		LogBoard($"REQUEST board side={SideLabel(_side)} units={_units.Count} forceRun={_forceRun}");
 
 		var pendingSeats = new HashSet<VehicleSeatId>();
 
@@ -207,6 +214,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 			RtsUnitMember unit = _units[i];
 			if (unit == null || UnitVehicleMountState.IsUnitMounted(unit))
 				continue;
+
+			UnitClickToMove.MoveTier tier = ResolveBoardMoveTier(unit, _forceRun);
 
 			if (unit.TryGetComponent(out UnitFiremanCarryController carry) &&
 			    carry.IsCarryingFallen &&
@@ -225,6 +234,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 					    pendingSeats))
 				{
 					pendingSeats.Add(woundedSeat);
+					m_Seats.ReserveForBoarder(victim, woundedSeat);
 					EnqueueJob(woundedDoor, new Job
 					{
 						Kind = JobKind.BoardWoundedFromCarry,
@@ -232,7 +242,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 						Carrier = unit,
 						Side = _side,
 						SeatHint = woundedSeat,
-						HasSeatHint = true
+						HasSeatHint = true,
+						BoardMoveTier = tier
 					});
 				}
 
@@ -245,13 +256,15 @@ public sealed class VehicleBoardController : MonoBehaviour
 					    pendingSeats))
 				{
 					pendingSeats.Add(carrierSeat);
+					m_Seats.ReserveForBoarder(unit, carrierSeat);
 					EnqueueJob(carrierDoor, new Job
 					{
 						Kind = JobKind.Board,
 						Unit = unit,
 						Side = _side,
 						SeatHint = carrierSeat,
-						HasSeatHint = true
+						HasSeatHint = true,
+						BoardMoveTier = tier
 					});
 				}
 
@@ -274,6 +287,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 			}
 
 			pendingSeats.Add(seatHint);
+			m_Seats.ReserveForBoarder(unit, seatHint);
 
 			LogBoard(
 				$"PLAN board {UnitLabel(unit)} from {PosLabel(unit.transform.position)} " +
@@ -285,23 +299,28 @@ public sealed class VehicleBoardController : MonoBehaviour
 				Unit = unit,
 				Side = _side,
 				SeatHint = seatHint,
-				HasSeatHint = true
+				HasSeatHint = true,
+				BoardMoveTier = tier
 			});
 		}
 	}
 
-	public void EnqueueBoardGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side)
+	public void EnqueueBoardGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
 	{
 		if (_units == null || m_Seats == null || m_Vehicle == null || !m_Seats.HasFreeGunnerSeat)
 			return;
+		if (m_Vehicle.Inventory != null && !m_Vehicle.Inventory.CanUseGunnerSeat)
+			return;
 
-		LogBoard($"REQUEST board-gunner side={SideLabel(_side)} units={_units.Count}");
+		LogBoard($"REQUEST board-gunner side={SideLabel(_side)} units={_units.Count} forceRun={_forceRun}");
 
 		for (int i = 0; i < _units.Count; i++)
 		{
 			RtsUnitMember unit = _units[i];
 			if (unit == null || UnitVehicleMountState.IsUnitMounted(unit))
 				continue;
+
+			UnitClickToMove.MoveTier tier = ResolveBoardMoveTier(unit, _forceRun);
 			if (!m_Vehicle.CanAcceptBoarder(unit))
 				continue;
 			if (unit.TryGetComponent(out UnitFiremanCarryController carry) && carry.IsCarryingFallen)
@@ -324,19 +343,22 @@ public sealed class VehicleBoardController : MonoBehaviour
 				$"PLAN board-gunner {UnitLabel(unit)} from {PosLabel(unit.transform.position)} " +
 				$"→ door={DoorLabel(doorId)} seat=Gunner side={SideLabel(_side)}");
 
+			m_Seats.ReserveForBoarder(unit, VehicleSeatId.Gunner);
+
 			EnqueueJob(doorId, new Job
 			{
 				Kind = JobKind.Board,
 				Unit = unit,
 				Side = _side,
 				SeatHint = VehicleSeatId.Gunner,
-				HasSeatHint = true
+				HasSeatHint = true,
+				BoardMoveTier = tier
 			});
 			break;
 		}
 	}
 
-	public void EnqueueLoadWoundedFromCarrier(RtsUnitMember _carrier)
+	public void EnqueueLoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = true)
 	{
 		if (_carrier == null ||
 		    m_Vehicle == null ||
@@ -361,6 +383,10 @@ public sealed class VehicleBoardController : MonoBehaviour
 			$"PLAN wounded-load carrier={UnitLabel(_carrier)} victim={UnitLabel(carry.CarriedVictim)} " +
 			$"→ door={DoorLabel(doorId)}");
 
+		m_Seats.ReserveForBoarder(carry.CarriedVictim, seatHint);
+
+		UnitClickToMove.MoveTier tier = ResolveBoardMoveTier(_carrier, _forceRun);
+
 		EnqueueJob(doorId, new Job
 		{
 			Kind = JobKind.BoardWoundedFromCarry,
@@ -368,7 +394,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 			Carrier = _carrier,
 			Side = VehicleBoardSide.Any,
 			SeatHint = seatHint,
-			HasSeatHint = true
+			HasSeatHint = true,
+			BoardMoveTier = tier
 		});
 	}
 
@@ -462,17 +489,34 @@ public sealed class VehicleBoardController : MonoBehaviour
 		Vector3 waitPoint = ComputeDoorQueueWaitPoint(door, waitIndex);
 		waitPoint = SampleApproachOnNavMesh(waitPoint, door.ApproachPoint);
 		m_ExpectedApproachTarget[mover] = waitPoint;
+		m_BoardMoveTiers[mover] = _job.BoardMoveTier;
 
 		LogBoard(
 			$"APPROACH {UnitLabel(mover)} door={DoorLabel(_doorId)} queueSlot={waitIndex} " +
 			$"from {PosLabel(mover.transform.position)} → wait {PosLabel(waitPoint)}");
 
-		IssueBoardMoveOrder(mover, waitPoint);
+		IssueBoardMoveOrder(mover, waitPoint, _job.BoardMoveTier);
 	}
 
-	private void IssueBoardMoveOrder(RtsUnitMember _unit, Vector3 _destination)
+	private static void IssueBoardMoveOrder(RtsUnitMember _unit, Vector3 _destination, UnitClickToMove.MoveTier _tier)
 	{
-		_unit.IssueMoveOrder(_destination, UnitClickToMove.MoveTier.Run);
+		_unit.IssueMoveOrder(_destination, _tier);
+	}
+
+	private static UnitClickToMove.MoveTier ResolveBoardMoveTier(RtsUnitMember _unit, bool _forceRun)
+	{
+		if (_forceRun)
+			return UnitClickToMove.MoveTier.Run;
+		if (_unit != null && _unit.TryGetComponent<UnitClickToMove>(out var ctm) && ctm.IsRunMoveMode)
+			return UnitClickToMove.MoveTier.Run;
+		return UnitClickToMove.MoveTier.Walk;
+	}
+
+	private UnitClickToMove.MoveTier GetBoardMoveTier(RtsUnitMember _unit)
+	{
+		if (_unit != null && m_BoardMoveTiers.TryGetValue(_unit, out UnitClickToMove.MoveTier tier))
+			return tier;
+		return ResolveBoardMoveTier(_unit, false);
 	}
 
 	private void EnsureDoorWorker(VehicleDoorId _doorId)
@@ -596,6 +640,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 		if (_forcedSeat == VehicleSeatId.Gunner)
 		{
 			if (!m_Seats.HasFreeGunnerSeat)
+				return false;
+			if (m_Seats.IsSeatReservedForOther(VehicleSeatId.Gunner, _unit))
 				return false;
 			_seatId = VehicleSeatId.Gunner;
 		}
@@ -899,6 +945,8 @@ public sealed class VehicleBoardController : MonoBehaviour
 		var displaceMoves = new List<(RtsUnitMember Unit, VehicleSeatId From, VehicleSeatId To)>(2);
 		VehicleSeatId seatId;
 
+		m_Seats.UnreserveForBoarder(_unit);
+
 		if (_forcedSeat == VehicleSeatId.Gunner)
 		{
 			if (isUnconscious || !m_Seats.HasFreeGunnerSeat)
@@ -970,6 +1018,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 
 		UntrackActiveBoardUnit(_unit);
 		m_ExpectedApproachTarget.Remove(_unit);
+		m_BoardMoveTiers.Remove(_unit);
 		yield return CloseDoorAfterJob(_doorId);
 	}
 
@@ -1254,7 +1303,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 			$"→ door {PosLabel(navTarget)} dist={already:F2}m");
 
 		m_ExpectedApproachTarget[_unit] = navTarget;
-		IssueBoardMoveOrder(_unit, navTarget);
+		IssueBoardMoveOrder(_unit, navTarget, GetBoardMoveTier(_unit));
 		float elapsed = 0f;
 		while (elapsed < c_ApproachTimeoutSeconds)
 		{

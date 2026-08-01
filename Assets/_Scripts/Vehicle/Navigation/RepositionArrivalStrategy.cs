@@ -15,17 +15,22 @@ namespace VehicleNavigation
 
 			float step = Mathf.Max(_s.RepositionStep, _a.LateralOffset + 0.5f);
 			Vector3 backDir = Quaternion.Euler(0f, _yaw + 180f, 0f) * Vector3.forward;
-			Vector3 prePos = _pos + backDir * step;
+			Vector3 rightDir = Quaternion.Euler(0f, _yaw, 0f) * Vector3.right;
+
+			// Side shift: target left → staging right, target right → staging left
+			float sideShift = (_a.Side == TargetSide.Left) ? _s.RepositionSideFactor * step
+			                : (_a.Side == TargetSide.Right) ? -_s.RepositionSideFactor * step : 0f;
+			Vector3 prePos = _pos + backDir * step + rightDir * sideShift;
 
 			var maneuvers = new List<Maneuver>();
 			var rev = new ReverseManeuver();
 			rev.SetWaypoints(new[] { _pos, prePos });
 			maneuvers.Add(rev);
 
-			var arrival = _heading.HasValue
-				? (Maneuver)new ApproachWithHeadingManeuver(_target, _heading.Value)
-				: new ParkingManeuver(_heading ?? _yaw);
-			maneuvers.Add(arrival);
+			// Heading: user-specified overrides auto-computed from staging point
+			float approachHeading = _heading
+				?? Quaternion.LookRotation((_target - prePos).normalized, Vector3.up).eulerAngles.y;
+			maneuvers.Add(new ApproachWithHeadingManeuver(_target, approachHeading));
 
 			float cost = _a.Distance * 1.5f + 12f;
 			return new ArrivalPlan(maneuvers, cost, Name);

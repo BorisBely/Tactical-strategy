@@ -1,12 +1,38 @@
+using System;
 using UnityEngine;
 
 /// <summary>
 /// Накопление и восстановление штрафа отдачи для экипированного оружия.
+/// Единственный источник истины для Hitscan и визуала.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(58)]
 public sealed class UnitWeaponRecoilController : MonoBehaviour
 {
+	#region RecoilVisualState
+	public readonly struct RecoilVisualState
+	{
+		public readonly float VisualPitch;
+		public readonly float VisualYaw;
+		public readonly float VisualBack;
+		public readonly float VisualUp;
+		public readonly float SpreadHalfAngle;
+		public readonly float Stability01;
+
+		public RecoilVisualState(
+			float _visualPitch, float _visualYaw, float _visualBack, float _visualUp,
+			float _spreadHalfAngle, float _stability01)
+		{
+			VisualPitch = _visualPitch;
+			VisualYaw = _visualYaw;
+			VisualBack = _visualBack;
+			VisualUp = _visualUp;
+			SpreadHalfAngle = _spreadHalfAngle;
+			Stability01 = _stability01;
+		}
+	}
+	#endregion
+
 	#region Serialized Fields
 	[Tooltip("Runtime оружия, где хранится transient recoil penalty.")]
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
@@ -20,8 +46,17 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
 
 	[Header("Recovery")]
-	[Tooltip("Максимальный накопленный штраф отдачи. Ограничивает подъём паттерна и рост разброса при длинной очереди.")]
+	[Tooltip("Максимальный накопленный штраф отдачи.")]
 	[SerializeField, Min(0.1f)] private float m_MaxRecoilPenalty = 30f;
+	[Tooltip("Множитель penalty → угол разброса. Должен совпадать с UnitWeaponHitscanShooting.RecoilSpreadScale.")]
+	[SerializeField, Min(0f)] private float m_RecoilSpreadScale = 0.15f;
+	[Header("Visual Recoil (отдельно от разброса)")]
+	[Tooltip("Визуальный подъём ствола на единицу penalty (градусы).")]
+	[SerializeField, Min(0f)] private float m_VisualPitchPerPenalty = 0.65f;
+	[Tooltip("Визуальный сдвиг назад на единицу penalty (метры).")]
+	[SerializeField, Min(0f)] private float m_VisualBackPerPenalty = 0.0035f;
+	[Tooltip("Визуальный сдвиг вверх на единицу penalty (метры).")]
+	[SerializeField, Min(0f)] private float m_VisualUpPerPenalty = 0.0015f;
 	[Tooltip("Множитель восстановления отдачи, пока удерживается огонь.")]
 	[SerializeField, Min(0f)] private float m_RecoveryWhileFiringMultiplier = 0.7f;
 	[Tooltip("Множитель восстановления отдачи, если оружие сейчас не на ready.")]
@@ -37,10 +72,16 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	#endregion
 
 	#region Public Properties
+	public event Action<float> PenaltyDelta;
 	public float MaxRecoilPenalty => m_MaxRecoilPenalty;
+	public float RecoilPenalty =>
+		m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
+			? m_WeaponRuntime.TransientState.RecoilPenalty
+			: 0f;
 	public float RecoveryWhileFiringMultiplier => m_RecoveryWhileFiringMultiplier;
 	public bool IsRecoveringWhileFiring =>
 		m_FireController != null && m_FireController.IsFiringCommandActive;
+	public RecoilVisualState CurrentVisualState { get; private set; }
 	#endregion
 
 	#region Unity Lifecycle
@@ -66,6 +107,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	{
 		if (m_FireController != null)
 			m_FireController.ShotFired += HandleShotFired;
+		CurrentVisualState = default;
 	}
 
 	private void OnDisable()
@@ -80,16 +122,35 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			return;
 
 		float currentPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
-		if (currentPenalty <= 0f)
-		{
-			m_DebugLastRecoveryPerSecond = 0f;
-			return;
-		}
 
 		float recoveryPerSecond = CalculateCurrentRecoveryPerSecond();
-		float nextPenalty = ClampRecoilPenalty(Mathf.MoveTowards(currentPenalty, 0f, recoveryPerSecond * Time.deltaTime));
-		m_WeaponRuntime.SetRecoilPenalty(nextPenalty);
-		m_DebugLastRecoveryPerSecond = recoveryPerSecond;
+		float nextPenalty;
+		if (currentPenalty <= 0f)
+		{
+			nextPenalty = 0f;
+			m_DebugLastRecoveryPerSecond = 0f;
+		}
+		else
+		{
+			nextPenalty = ClampRecoilPenalty(Mathf.MoveTowards(currentPenalty, 0f, recoveryPerSecond * Time.deltaTime));
+			m_DebugLastRecoveryPerSecond = recoveryPerSecond;
+		}
+
+		if (!Mathf.Approximately(nextPenalty, currentPenalty))
+		{
+			m_WeaponRuntime.SetRecoilPenalty(nextPenalty);
+			float delta = nextPenalty - currentPenalty;
+			if (Mathf.Abs(delta) > 0.0001f)
+				PenaltyDelta?.Invoke(delta);
+		}
+
+		CurrentVisualState = new RecoilVisualState(
+			RecoilPenalty * m_VisualPitchPerPenalty,
+			0f,
+			RecoilPenalty * m_VisualBackPerPenalty,
+			RecoilPenalty * m_VisualUpPerPenalty,
+			RecoilPenalty * m_RecoilSpreadScale,
+			1f - Mathf.Clamp01(RecoilPenalty / m_MaxRecoilPenalty));
 	}
 	#endregion
 
@@ -100,9 +161,11 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			return;
 
 		float recoilAdded = CalculateRecoilAddedPerShot(_ammoDefinition);
-		float currentPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
-		m_WeaponRuntime.SetRecoilPenalty(ClampRecoilPenalty(currentPenalty + recoilAdded));
+		float oldPenalty = m_WeaponRuntime.TransientState.RecoilPenalty;
+		float newPenalty = ClampRecoilPenalty(oldPenalty + recoilAdded);
+		m_WeaponRuntime.SetRecoilPenalty(newPenalty);
 		m_DebugLastRecoilAdded = recoilAdded;
+		PenaltyDelta?.Invoke(recoilAdded);
 	}
 
 	public float GetCurrentRecoveryPerSecond() => CalculateCurrentRecoveryPerSecond();
@@ -118,6 +181,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		m_WeaponRuntime.SetRecoilPenalty(0f);
 		m_DebugLastRecoilAdded = 0f;
 		m_DebugLastRecoveryPerSecond = 0f;
+		CurrentVisualState = default;
 	}
 
 	private float CalculateRecoilAddedPerShot(AmmoDefinition _ammoDefinition)

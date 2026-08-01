@@ -16,6 +16,7 @@ public class InventoryScreenBindings : MonoBehaviour
 	[SerializeField] private RtsUnitSelectionManager m_SelectionManager;
 	[Tooltip("Инвентарь юнита по умолчанию при старте сцены (можно сменить через SetActiveCharacterInventory).")]
 	[SerializeField] private CharacterInventory m_ActiveCharacterInventory;
+	[SerializeField] private VehicleInventory m_ActiveVehicleInventory;
 	[Header("Открытие / закрытие")]
 	[Tooltip("Корневой объект панели инвентаря на Canvas (весь блок, который показывается по I).")]
 	[SerializeField] private GameObject m_InventoryCanvasRoot;
@@ -54,9 +55,12 @@ public class InventoryScreenBindings : MonoBehaviour
 	public InventoryPanelView CharacterInventoryPanel =>
 		SelectionManager != null ? SelectionManager.CharacterInventoryPanel : null;
 	public CharacterInventory ActiveCharacterInventory => m_ActiveCharacterInventory;
+	public VehicleInventory ActiveVehicleInventory => m_ActiveVehicleInventory;
+	public bool IsVehicleInventoryActive => m_ActiveVehicleInventory != null;
 
 	/// <summary>Кэшированный или выбранный инвентарь для UI (drag, repaint).</summary>
 	public CharacterInventory GetActiveCharacterInventoryForUi() => ResolveActiveCharacterInventoryForUi();
+	public VehicleInventory GetActiveVehicleInventoryForUi() => m_ActiveVehicleInventory;
 	public bool IsInventoryOpen =>
 		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
 	#endregion
@@ -136,6 +140,7 @@ public class InventoryScreenBindings : MonoBehaviour
 		UnsubscribeFromActiveUnitArmor();
 		UnsubscribeFromPartnerUnitHealth();
 		UnsubscribeFromPartnerUnitArmor();
+		ClearActiveVehicleInventoryInternal();
 		if (s_Instance == this)
 			s_Instance = null;
 	}
@@ -154,6 +159,8 @@ public class InventoryScreenBindings : MonoBehaviour
 	/// <summary>При смене выбранного юнита: подставить его инвентарь и перерисовать UI.</summary>
 	public void SetActiveCharacterInventory(CharacterInventory _inventory)
 	{
+		ClearActiveVehicleInventoryInternal();
+
 		if (_inventory == null)
 		{
 			CharacterInventory pinnedInventory = ResolvePinnedCharacterInventory();
@@ -187,6 +194,61 @@ public class InventoryScreenBindings : MonoBehaviour
 			RefreshExchangePartnerUi();
 	}
 
+	/// <summary>При выделении машины: показать её инвентарь (3 слота турели + багаж).</summary>
+	public void SetActiveVehicleInventory(VehicleInventory _inventory)
+	{
+		UnsubscribeFromActiveInventory();
+		UnsubscribeFromActiveUnitStamina();
+		UnsubscribeFromActiveUnitHealth();
+		UnsubscribeFromActiveUnitArmor();
+		m_ActiveCharacterInventory = null;
+		m_ActiveVehicleInventory = _inventory;
+
+		if (_inventory == null)
+		{
+			if (IsInventoryOpen)
+			{
+				SetInventoryWindowOpen(false);
+				RefreshActiveCharacterPanel();
+			}
+
+			return;
+		}
+
+		SubscribeToActiveVehicleInventory();
+		RefreshActiveCharacterPanel();
+		if (IsInventoryOpen)
+		{
+			RefreshGroundPanelForActiveCharacter();
+			RefreshInventoryUnitList();
+		}
+
+		if (m_HealthStatusPanel != null)
+			m_HealthStatusPanel.gameObject.SetActive(false);
+	}
+
+	private void ClearActiveVehicleInventoryInternal()
+	{
+		if (m_ActiveVehicleInventory == null)
+			return;
+		m_ActiveVehicleInventory.InventoryChanged -= HandleVehicleInventoryChanged;
+		m_ActiveVehicleInventory = null;
+	}
+
+	private void SubscribeToActiveVehicleInventory()
+	{
+		if (m_ActiveVehicleInventory == null)
+			return;
+		m_ActiveVehicleInventory.InventoryChanged -= HandleVehicleInventoryChanged;
+		m_ActiveVehicleInventory.InventoryChanged += HandleVehicleInventoryChanged;
+	}
+
+	private void HandleVehicleInventoryChanged(VehicleInventory _)
+	{
+		if (IsInventoryOpen)
+			RefreshActiveCharacterPanel();
+	}
+
 	public void RefreshActiveCharacterPanel()
 	{
 		m_PendingActiveCharacterPanelRefresh = true;
@@ -197,6 +259,14 @@ public class InventoryScreenBindings : MonoBehaviour
 		InventoryPanelView panel = CharacterInventoryPanel;
 		if (panel == null)
 			return;
+
+		if (m_ActiveVehicleInventory != null)
+		{
+			panel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
+			m_ActiveVehicleInventory.RepaintInventoryPanel(panel);
+			RefreshInventoryWeightTitle();
+			return;
+		}
 
 		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
 		if (inventory != null)
@@ -561,6 +631,14 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		if (m_InventoryTitleText == null)
 			return;
+
+		if (m_ActiveVehicleInventory != null)
+		{
+			float total = m_ActiveVehicleInventory.CargoWeightKg;
+			float max = m_ActiveVehicleInventory.MaxCargoWeightKg;
+			m_InventoryTitleText.text = $"Машина ({total:F1}/{max:F1} кг)";
+			return;
+		}
 
 		CharacterInventory inventory = ResolveActiveCharacterInventoryForUi();
 		if (inventory != null)

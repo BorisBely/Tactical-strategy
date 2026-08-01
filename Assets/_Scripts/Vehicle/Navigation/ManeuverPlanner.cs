@@ -99,6 +99,10 @@ namespace VehicleNavigation
 					case VehicleManeuverType.Stop:
 						m.SetWaypoints(new[] { _feedback.Position });
 						break;
+
+					case VehicleManeuverType.PostTurnAlignment:
+						m.SetWaypoints(new[] { _feedback.Position, _request.Destination });
+						break;
 				}
 			}
 		}

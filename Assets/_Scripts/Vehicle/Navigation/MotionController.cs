@@ -168,6 +168,7 @@ namespace VehicleNavigation
 			{
 				case VehicleManeuverType.Parking:
 				case VehicleManeuverType.ApproachWithHeading:
+				case VehicleManeuverType.PostTurnAlignment:
 					return DrivingPhase.Parking;
 
 				case VehicleManeuverType.Unstuck:

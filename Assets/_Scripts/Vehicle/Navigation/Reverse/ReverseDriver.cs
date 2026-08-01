@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace VehicleNavigation
 {
-	/// <summary>
-	/// Reverse virtual driver orchestrator.
-	/// Owns: ReversePath, ReversePursuit, ReverseStateMachine, SteeringLimiter.
-	/// Uses: DriverContext, TrajectoryPrediction, DriverRecovery.
-	/// </summary>
 	public sealed class ReverseDriver
 	{
 		private ReversePath m_Path;
@@ -20,6 +15,7 @@ namespace VehicleNavigation
 		private DriverContext m_Ctx;
 		private float m_SpeedFraction;
 		private ReverseDecisionResult m_LastDecision;
+		private float m_SteeringSaturatedTime;
 
 		public bool IsActive => m_State != null && m_State.Current != ReverseState.Finished
 			&& m_State.Current != ReverseState.Failed;
@@ -35,7 +31,7 @@ namespace VehicleNavigation
 
 		public void Configure(AnimationCurve _speedCurve, AnimationCurve _steerLimit, TrajectoryPrediction _prediction)
 		{
-			m_Pursuit = new ReversePursuit(_speedCurve, _steerLimit);
+			m_Pursuit = new ReversePursuit(_steerLimit);
 			m_Prediction = _prediction;
 			m_Recovery.BindPrediction(_prediction);
 		}
@@ -48,6 +44,7 @@ namespace VehicleNavigation
 			m_Path = ReversePathBuilder.Build(_ctx.Path, _ctx);
 			m_State.Reset();
 			m_Pursuit?.Reset();
+			m_SteeringSaturatedTime = 0f;
 
 			Debug.Log($"[RevDriver] TryStart path.valid={m_Path?.IsValid} points={m_Path?.Points?.Count} length={m_Path?.TotalLength:F1}m ctx={m_Ctx!=null}");
 			return new ReverseDecisionResult(true, "started");
@@ -61,22 +58,45 @@ namespace VehicleNavigation
 				return VehicleCommandIdle();
 			}
 
-			m_Path.Advance(m_Ctx.RearAxlePosition);
+			m_Path.Advance(m_Ctx.GetControlPoint(DriverIntent.Reverse));
 
 			var state = m_State.Tick(_dt, m_Ctx, m_Path);
 
 			if (state == ReverseState.Failed || state == ReverseState.Finished)
 			{
-				Debug.Log($"[RevDriver] TICK state={state} → FinalCommand");
+				Debug.Log($"[RevDriver] TICK state={state} -> FinalCommand");
 				return FinalCommand(state);
 			}
 
 			var (reason, action) = m_Recovery.Evaluate(m_Ctx, DriverIntent.Reverse, _dt, m_Path);
 			if (reason != RecoveryReason.None && action != RecoveryAction.None)
 			{
-				Debug.Log($"[RevDriver] RECOVERY reason={reason} action={action} → FAIL");
-				m_State.ForceFail();
-				return VehicleCommandIdle();
+				bool suppress = false;
+
+				if (reason == RecoveryReason.SteeringSaturated)
+				{
+					m_SteeringSaturatedTime += _dt;
+					bool inActive = state == ReverseState.Align || state == ReverseState.Reverse;
+					bool moving = m_Ctx.SpeedKmh > 0.5f;
+					bool pathOk = m_Path.IsValid && !m_Path.IsComplete;
+					bool shortDuration = m_SteeringSaturatedTime < 0.5f;
+					suppress = inActive && moving && pathOk && shortDuration;
+				}
+				else
+				{
+					m_SteeringSaturatedTime = 0f;
+				}
+
+				if (!suppress)
+				{
+					Debug.Log($"[RevDriver] RECOVERY reason={reason} action={action} -> FAIL");
+					m_State.ForceFail();
+					return VehicleCommandIdle();
+				}
+			}
+			else
+			{
+				m_SteeringSaturatedTime = 0f;
 			}
 
 			VehicleCommand cmd;
@@ -85,15 +105,30 @@ namespace VehicleNavigation
 			else if (state == ReverseState.SlowDown || state == ReverseState.Stop)
 				cmd = SlowStopCommand(_dt);
 			else
-				cmd = DrivingCommand();
+				cmd = DrivingCommand(_dt);
 
 			if (Time.frameCount % 30 == 0)
-				Debug.Log($"[RevDriver] state={state} seg={m_Path.CurrentSegment}/{m_Path.Points.Count} remaining={m_Path.RemainingDistance:F1}m thr={cmd.Throttle:F2} steer={cmd.Steer:F2} brk={cmd.BrakeMode} speed={m_Ctx.SpeedKmh:F1}km/h");
+			{
+				Vector3 dest = m_Path.IsValid && m_Path.Points.Count > 0
+					? m_Path.Points[m_Path.Points.Count - 1].Position
+					: m_Ctx.Position;
+				Vector3 rearAxle = m_Ctx.GetControlPoint(DriverIntent.Reverse);
+				Vector3 toDest = dest - rearAxle;
+				toDest.y = 0f;
+				float latErr = toDest.magnitude > 0.01f
+					? Vector3.Cross((-m_Ctx.Forward).normalized, toDest.normalized).y * toDest.magnitude
+					: 0f;
+				Debug.Log($"[RevDriver] state={state} seg={m_Path.CurrentSegment}/{m_Path.Points.Count} remaining={m_Path.RemainingDistance:F1}m " +
+					$"pos=({m_Ctx.Position.x:F2},{m_Ctx.Position.z:F2}) fwd=({m_Ctx.Forward.x:F2},{m_Ctx.Forward.z:F2}) " +
+					$"rearAxle=({rearAxle.x:F2},{rearAxle.z:F2}) dest=({dest.x:F2},{dest.z:F2}) " +
+					$"latErr={latErr:F2}m thr={cmd.Throttle:F2} steer={cmd.Steer:F2} brk={cmd.BrakeMode} speed={m_Ctx.SpeedKmh:F1}km/h " +
+					$"steerSatDur={m_SteeringSaturatedTime:F2}s");
+			}
 
 			return cmd;
 		}
 
-		private VehicleCommand DrivingCommand()
+		private VehicleCommand DrivingCommand(float _dt)
 		{
 			if (m_Pursuit == null)
 				return VehicleCommandIdle();
@@ -105,7 +140,7 @@ namespace VehicleNavigation
 
 			float rawSteerRad = Mathf.Atan(m_Ctx.WheelBase * output.DesiredCurvature);
 			float steerTarget = Mathf.Clamp(rawSteerRad / m_Ctx.MaxSteeringAngleRad, -1f, 1f);
-			float steerRate = m_Ctx.SteeringRateDegPerSec / 90f * Time.fixedDeltaTime;
+			float steerRate = m_Ctx.SteeringRateDegPerSec / 90f * _dt;
 
 			m_Ctx.CurrentSteerAngle = Mathf.MoveTowards(m_Ctx.CurrentSteerAngle,
 				steerTarget * m_Ctx.MaxSteeringAngleDeg, steerRate * m_Ctx.MaxSteeringAngleDeg);
@@ -113,9 +148,21 @@ namespace VehicleNavigation
 			float clampedSteer = m_SteeringLimiter.ClampSteer(
 				m_Ctx.CurrentSteerAngle / m_Ctx.MaxSteeringAngleDeg, m_Ctx.SpeedKmh);
 
+			// Speed: distance-based + speedFraction * maxReverseSpeed
+			float desiredSpeed = m_SpeedFraction * m_Ctx.MaxReverseSpeedKmh;
+			float distToEnd = output.DistanceToEnd;
+
+			// Final approach speed cap (mirrors ApplyFinalSpeedCap from plan)
+			if (distToEnd < 2.0f) desiredSpeed = Mathf.Min(desiredSpeed, 3f);
+			if (distToEnd < 0.8f) desiredSpeed = Mathf.Min(desiredSpeed, 1.5f);
+			if (distToEnd < 0.3f) desiredSpeed = Mathf.Min(desiredSpeed, 0.5f);
+
+			float absCurv = Mathf.Abs(output.DesiredCurvature);
+			if (absCurv > 0.15f && distToEnd < 2f)
+				desiredSpeed *= Mathf.Clamp01(1f - (absCurv - 0.15f) * 3f);
+
 			float currentMag = m_Ctx.SpeedKmh;
-			float desiredMag = Mathf.Abs(output.DesiredSpeedKmh);
-			float speedError = desiredMag - currentMag;
+			float speedError = desiredSpeed - currentMag;
 
 			float throttle;
 			VehicleBrakeMode brake;
@@ -134,6 +181,14 @@ namespace VehicleNavigation
 			{
 				throttle = Mathf.Clamp01(speedError * 0.02f + 0.02f);
 				brake = Mathf.Abs(speedError) < 0.3f ? VehicleBrakeMode.None : VehicleBrakeMode.Soft;
+			}
+
+			// Kinematic chain log every 30 frames
+			if (Time.frameCount % 30 == 0)
+			{
+				float steerTargetDeg = steerTarget * m_Ctx.MaxSteeringAngleDeg;
+				float steerLimitedDeg = clampedSteer * m_Ctx.MaxSteeringAngleDeg;
+				Debug.Log($"[RevChain] desiredCurv={output.DesiredCurvature:F4} -> steerTarget={steerTargetDeg:F1}deg -> steerLimited={steerLimitedDeg:F1}deg -> actualSteer={m_Ctx.CurrentSteerAngle:F1}deg   desiredSpeed={desiredSpeed:F1}km/h");
 			}
 
 			return new VehicleCommand
@@ -183,7 +238,7 @@ namespace VehicleNavigation
 					HasAimPoint = false
 				};
 			}
-			return DrivingCommand();
+			return DrivingCommand(_dt);
 		}
 
 		private VehicleCommand FinalCommand(ReverseState _state)

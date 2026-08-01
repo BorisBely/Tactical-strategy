@@ -48,6 +48,7 @@ namespace VehicleNavigation
 		public float CurrentSteerAngle;
 		public float CurrentThrottle;
 		public GearDirection CurrentGear;
+		public float YawRate;
 
 		public float RemainingDistance;
 		public int CurrentPathSegment;
@@ -69,6 +70,7 @@ namespace VehicleNavigation
 
 		public NavigationRequest Request;
 		public PathResult Path;
+		public float? RequestedHeading;
 
 		public DriverContext()
 		{
@@ -105,6 +107,7 @@ namespace VehicleNavigation
 
 			Request = _req;
 			Path = _path;
+			RequestedHeading = _req.HasHeading ? _req.HeadingYaw : (float?)null;
 
 			if (ReverseSteeringLimitCurve == null)
 				ReverseSteeringLimitCurve = CreateDefaultSteeringLimitCurve();
@@ -113,6 +116,11 @@ namespace VehicleNavigation
 		public void SetSpeedCap(float _capKmh)
 		{
 			WheelMotorSpeedCapKmh = _capKmh;
+		}
+
+		public Vector3 GetControlPoint(DriverIntent _intent)
+		{
+			return _intent == DriverIntent.Reverse ? RearAxlePosition : Position;
 		}
 
 		private static AnimationCurve CreateDefaultSteeringLimitCurve()
