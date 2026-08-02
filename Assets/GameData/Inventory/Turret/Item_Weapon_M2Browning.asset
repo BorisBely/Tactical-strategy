@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: M2HB Browning 12.7mm vehicle turret machine gun.
   m_Icon: {fileID: 0}
   m_BasePrice: 12000
-  m_WeightKg: 38
+  m_WeightKg: 8
   m_Category: 1
   m_DropWorldPrefab: {fileID: 3748589623735919616, guid: f52d00ab23f34fa9b36c00a404fdee38, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

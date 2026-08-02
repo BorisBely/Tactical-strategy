@@ -72,6 +72,21 @@ public sealed partial class RtsUnitSelectionManager
 		NotifySelectionUiRefresh();
 	}
 
+	public void CommandSelectedVehicleCycleTurretFireMode()
+	{
+		m_SelectedVehicle?.CycleTurretFireMode();
+	}
+
+	public void CommandSelectedVehicleCycleTurretFireDiscipline()
+	{
+		m_SelectedVehicle?.CycleTurretFireDiscipline();
+	}
+
+	public void CommandSelectedVehicleCycleTurretAimMode()
+	{
+		m_SelectedVehicle?.CycleTurretAimMode();
+	}
+
 	public void CommandLoadWoundedIntoSelectedOrTargetVehicle()
 	{
 		if (!TryGetCarryingSelectedUnit(out RtsUnitMember carrier))
@@ -432,12 +447,7 @@ public sealed partial class RtsUnitSelectionManager
 		return true;
 	}
 
-	private static void LogVehicleClick(string _message)
-	{
-		if (!c_VehicleClickDebugLogs)
-			return;
-		Debug.Log($"[VehicleClick] {_message}");
-	}
+	private static void LogVehicleClick(string _message) { }
 
 	private void HandleSelectedVehicleRightMouse()
 	{
@@ -877,10 +887,17 @@ public sealed partial class RtsUnitSelectionManager
 		_isFrontal = false;
 		_isSurround = false;
 		_bagIndex = -1;
-		if (_slot == null || _inventory == null || m_CharacterInventoryPanel == null)
+		if (_slot == null || _inventory == null)
 			return false;
 
-		IReadOnlyList<InventorySlotView> slots = m_CharacterInventoryPanel.Slots;
+		bool vehicleOnGroundPanel = InventoryExchangeController.Instance.IsActive &&
+		                            InventoryExchangeController.Instance.PartnerVehicleInventory == _inventory;
+
+		InventoryPanelView vehiclePanel = vehicleOnGroundPanel ? m_GroundPanel : m_CharacterInventoryPanel;
+		if (vehiclePanel == null)
+			return false;
+
+		IReadOnlyList<InventorySlotView> slots = vehiclePanel.Slots;
 		int index = -1;
 		for (int i = 0; i < slots.Count; i++)
 		{
@@ -892,18 +909,23 @@ public sealed partial class RtsUnitSelectionManager
 		}
 
 		if (index < 0)
+		{
+			Debug.Log($"[VehicleInv] TryResolveVehicleInventorySlot: слот не найден на панели {(vehicleOnGroundPanel ? "ground" : "character")}, slots={slots.Count}, vehicleOnGroundPanel={vehicleOnGroundPanel}");
 			return false;
+		}
 
-		int lead = Mathf.Max(0, m_CharacterInventoryPanel.LeadingEquipmentSlotCount);
+		int lead = Mathf.Max(0, vehiclePanel.LeadingEquipmentSlotCount);
 		if (index < lead)
 		{
 			_isWeapon = index == 0;
 			_isFrontal = index == 1;
 			_isSurround = index == 2;
+			Debug.Log($"[VehicleInv] Resolve slot index={index} -> isWeapon={_isWeapon} isFrontal={_isFrontal} isSurround={_isSurround}");
 			return true;
 		}
 
 		_bagIndex = index - lead;
+		Debug.Log($"[VehicleInv] Resolve slot index={index} lead={lead} -> bagIndex={_bagIndex} bagCount={_inventory.BagCount}");
 		return _bagIndex >= 0 && _bagIndex < _inventory.BagCount;
 	}
 

@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: M2 Browning 12.7mm ammo box (100 rounds).
   m_Icon: {fileID: 0}
   m_BasePrice: 800
-  m_WeightKg: 12
+  m_WeightKg: 3
   m_Category: 0
   m_DropWorldPrefab: {fileID: 6945114220414601216, guid: 3424272fb84d4dcc8a6941b1d4e69cdb, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

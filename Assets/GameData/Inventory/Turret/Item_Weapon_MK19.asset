@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: MK19 automatic grenade launcher for vehicle turret.
   m_Icon: {fileID: 0}
   m_BasePrice: 15000
-  m_WeightKg: 35
+  m_WeightKg: 7
   m_Category: 1
   m_DropWorldPrefab: {fileID: 2832235534043291648, guid: 6a493ad0cef540b6addeeb223d783f7f, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

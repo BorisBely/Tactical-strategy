@@ -1,9 +1,15 @@
 using System;
+#pragma warning disable CS0414
 using System.Collections;
+#pragma warning disable CS0414
 using System.Collections.Generic;
+#pragma warning disable CS0414
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.EventSystems;
+#pragma warning disable CS0414
 using UnityEngine.InputSystem;
+#pragma warning disable CS0414
 
 /// <summary>
 /// RTS-выбор юнитов: одиночный ЛКМ, ctrl-toggle, box selection и групповые команды.
@@ -546,10 +552,14 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		if (inventory == null || m_GroundPanel == null || m_CharacterInventoryPanel == null)
 			return false;
 
-		if (IsSlotOnPanel(_slot, m_GroundPanel))
+		bool fromGround = IsSlotOnPanel(_slot, m_GroundPanel);
+		bool fromChar = IsSlotOnPanel(_slot, m_CharacterInventoryPanel);
+		Debug.Log($"[VehicleInv] Ctrl+click fromGround={fromGround} fromChar={fromChar} exchangeActive={IsExchangeActive} hasVehiclePartner={GetPartnerVehicleInventory() != null} item={_slot.Data.Definition?.name ?? "??"}");
+
+		if (fromGround)
 			return TryQuickTransferGroundToCharacterInternal(inventory, _slot);
 
-		if (IsSlotOnPanel(_slot, m_CharacterInventoryPanel))
+		if (fromChar)
 			return TryQuickTransferCharacterToGroundInternal(inventory, _slot);
 
 		return false;
@@ -2533,12 +2543,20 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 
 		CharacterInventory player = GetActiveInventory();
-		CharacterInventory partner = GetPartnerInventory();
 		InventorySlotView slot = _drag.SlotView;
-		if (player == null || partner == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
+		if (player == null || m_CharacterInventoryPanel == null || slot == null || !slot.HasItem)
 			return false;
 
 		int groundSlotIndex = _drag.CapturedGroundSlotIndex;
+
+		VehicleInventory vehicle = GetPartnerVehicleInventory();
+		if (vehicle != null)
+			return TryAcceptVehicleDragToPlayerBag(_drag, player, vehicle, slot, groundSlotIndex);
+
+		CharacterInventory partner = GetPartnerInventory();
+		if (partner == null)
+			return false;
+
 		if (!TryRemovePartnerItemByGroundSlotIndex(
 			    groundSlotIndex,
 			    slot,
@@ -2562,6 +2580,79 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		InventoryWindowAudioUtility.TryPlayInventoryAddSoundFromSlot(player, forInventory);
 
 		DestroyDetachedDragSlotIfNeeded(slot, m_GroundPanel);
+		RepaintExchangePanels();
+		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
+		return true;
+	}
+
+	private bool TryAcceptVehicleDragToPlayerBag(
+		InventoryGroundToCharacterDrag _drag,
+		CharacterInventory _player,
+		VehicleInventory _vehicle,
+		InventorySlotView _slot,
+		int _groundSlotIndex)
+	{
+		if (_slot == null || !_slot.HasItem)
+			return false;
+
+		InventorySlotRuntimeData data = _slot.Data;
+		int lead = m_GroundPanel != null ? Mathf.Max(0, m_GroundPanel.LeadingEquipmentSlotCount) : VehicleInventory.LeadingEquipmentSlotCount;
+
+		bool isWeaponSlot = _groundSlotIndex == 0 && _groundSlotIndex < lead;
+		bool isFrontalSlot = _groundSlotIndex == 1 && _groundSlotIndex < lead;
+		bool isSurroundSlot = _groundSlotIndex == 2 && _groundSlotIndex < lead;
+		int bagIndex = _groundSlotIndex >= lead ? _groundSlotIndex - lead : -1;
+
+		Debug.Log($"[VehicleInv] Drag to player: groundSlotIndex={_groundSlotIndex} lead={lead} isWeapon={isWeaponSlot} isFrontal={isFrontalSlot} isSurround={isSurroundSlot} bagIndex={bagIndex} item={data.Definition?.name} weight={data.Definition?.WeightKg} playerBagW={_player.BagWeightKg:F1} playerMax={_player.MaxBagWeightKg:F1}");
+
+		if (isWeaponSlot)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.TurretWeapon, out data))
+			{
+				Debug.Log("[VehicleInv] Drag: TryRemoveEquipment TurretWeapon failed");
+				return false;
+			}
+		}
+		else if (isFrontalSlot)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.FrontalShield, out data))
+			{
+				Debug.Log("[VehicleInv] Drag: TryRemoveEquipment FrontalShield failed");
+				return false;
+			}
+		}
+		else if (isSurroundSlot)
+		{
+			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.SurroundShield, out data))
+			{
+				Debug.Log("[VehicleInv] Drag: TryRemoveEquipment SurroundShield failed");
+				return false;
+			}
+		}
+		else if (!_vehicle.TryRemoveBagAt(bagIndex, out data))
+		{
+			Debug.Log($"[VehicleInv] Drag: TryRemoveBagAt {bagIndex} failed, bagCount={_vehicle.BagCount}");
+			return false;
+		}
+
+		data.WorldSource = null;
+		if (!_player.TryAdd(data))
+		{
+			Debug.Log($"[VehicleInv] Drag: player.TryAdd FAILED for {data.Definition?.name} (weight={data.Definition?.WeightKg}) — restoring to vehicle");
+			if (isWeaponSlot)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.TurretWeapon);
+			else if (isFrontalSlot)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.FrontalShield);
+			else if (isSurroundSlot)
+				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.SurroundShield);
+			else
+				_vehicle.TryAdd(data);
+			RepaintExchangePanels();
+			return false;
+		}
+
+		Debug.Log($"[VehicleInv] Drag SUCCESS: {data.Definition?.name} to player");
+		DestroyDetachedDragSlotIfNeeded(_slot, m_GroundPanel);
 		RepaintExchangePanels();
 		RuntimeInventoryModificationCoordinator.Instance?.ScheduleRefreshInlineModificationRowsAfterDrag();
 		return true;
@@ -7276,30 +7367,50 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		VehicleInventory _vehicle)
 	{
 		if (!TryResolveVehicleInventorySlot(_slot, _vehicle, out bool isWeapon, out bool isFrontal, out bool isSurround, out int bagIndex))
+		{
+			Debug.Log($"[VehicleInv] TryQuickTransferVehicleToCharacter: RESOLVE FAILED for slot with item={_slot.Data.Definition?.name}");
 			return false;
+		}
+
+		Debug.Log($"[VehicleInv] TryQuickTransferVehicleToCharacter: resolved isWeapon={isWeapon} isFrontal={isFrontal} isSurround={isSurround} bagIndex={bagIndex}");
 
 		InventorySlotRuntimeData data;
 		if (isWeapon)
 		{
 			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.TurretWeapon, out data))
+			{
+				Debug.Log($"[VehicleInv] TryRemoveEquipment TurretWeapon failed");
 				return false;
+			}
 		}
 		else if (isFrontal)
 		{
 			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.FrontalShield, out data))
+			{
+				Debug.Log($"[VehicleInv] TryRemoveEquipment FrontalShield failed");
 				return false;
+			}
 		}
 		else if (isSurround)
 		{
 			if (!_vehicle.TryRemoveEquipment(VehicleEquipmentSlotId.SurroundShield, out data))
+			{
+				Debug.Log($"[VehicleInv] TryRemoveEquipment SurroundShield failed");
 				return false;
+			}
 		}
 		else if (!_vehicle.TryRemoveBagAt(bagIndex, out data))
+		{
+			Debug.Log($"[VehicleInv] TryRemoveBagAt {bagIndex} failed, bagCount={_vehicle.BagCount}");
 			return false;
+		}
+
+		Debug.Log($"[VehicleInv] Transferring {data.Definition?.name} weight={data.Definition?.WeightKg} to player (bagWeight={_player.BagWeightKg:F1} max={_player.MaxBagWeightKg:F1})");
 
 		data.WorldSource = null;
 		if (!_player.TryAdd(data))
 		{
+			Debug.Log($"[VehicleInv] Player.TryAdd failed — restoring to vehicle");
 			if (isWeapon)
 				_vehicle.TryEquipExternal(data, VehicleEquipmentSlotId.TurretWeapon);
 			else if (isFrontal)
@@ -7312,6 +7423,7 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
+		Debug.Log($"[VehicleInv] Transfer SUCCESS: {data.Definition?.name} to player");
 		RepaintExchangePanels();
 		return true;
 	}

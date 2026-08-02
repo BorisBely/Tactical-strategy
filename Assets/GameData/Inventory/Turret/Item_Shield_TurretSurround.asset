@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Surround armor shield for turret gunner.
   m_Icon: {fileID: 0}
   m_BasePrice: 1400
-  m_WeightKg: 45
+  m_WeightKg: 8
   m_Category: 1
   m_DropWorldPrefab: {fileID: 1310429720889675776, guid: e80fce64e1ce41bf8a425970e279539e, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Frontal gun shield for light armored car turret.
   m_Icon: {fileID: 0}
   m_BasePrice: 900
-  m_WeightKg: 25
+  m_WeightKg: 5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 6968485604951443456, guid: c3b7e5a274f048b0ae57859e6bc94c4e, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}

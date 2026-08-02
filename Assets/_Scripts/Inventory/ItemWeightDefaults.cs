@@ -116,6 +116,13 @@ public static class ItemWeightDefaults
 
 		{ "item.backpack.1", 2.0f },
 		{ "item.backpack.2", 1.0f },
+
+		{ "item.weapon.m2browning", 8.0f },
+		{ "item.weapon.mk19", 7.0f },
+		{ "item.shield.turret.frontal", 5.0f },
+		{ "item.shield.turret.surround", 8.0f },
+		{ "item.magazine.m2box", 3.0f },
+		{ "item.magazine.mk19box", 4.0f },
 	};
 
 	public static float GetWeight(string _localizationKey)
