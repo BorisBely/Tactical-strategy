@@ -298,9 +298,12 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 		if (m_UnitEquipment == null && !useRocketLauncher)
 			return;
 
+		bool operatingTurret = !useRocketLauncher && m_UnitEquipment.IsOperatingVehicleTurret;
 		Transform weaponRoot = useRocketLauncher
 			? m_RocketLauncherOrder.HandLauncherRoot
-			: m_UnitEquipment.MainWeaponRoot;
+			: operatingTurret
+				? m_UnitEquipment.EffectiveWeaponRoot
+				: m_UnitEquipment.MainWeaponRoot;
 		ItemDefinition def = useRocketLauncher
 			? m_RocketLauncherOrder.ActiveLauncherDefinition
 			: m_UnitEquipment.EquippedDefinition;
@@ -310,6 +313,10 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 			m_CurrentBaseWeaponLocalRotation = Quaternion.identity;
 			return;
 		}
+
+		// Turret mesh lives on the vehicle; do not overwrite pitch local pose from infantry ItemDefinition.
+		if (operatingTurret)
+			return;
 
 		bool inVehicle = IsVehiclePassengerFireCapable();
 		Vector3 relaxedPosition;
@@ -390,6 +397,9 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 	private bool IsVehiclePassengerFireCapable()
 	{
+		if (m_UnitEquipment != null && m_UnitEquipment.IsOperatingVehicleTurret)
+			return false;
+
 		EnsureVehiclePassengerState();
 		return m_VehiclePassengerState != null && m_VehiclePassengerState.IsFireCapable;
 	}

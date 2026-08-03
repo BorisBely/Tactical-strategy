@@ -265,6 +265,8 @@ public class InventoryScreenBindings : MonoBehaviour
 			panel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
 			m_ActiveVehicleInventory.RepaintInventoryPanel(panel);
 			RefreshInventoryWeightTitle();
+			// Nested magazine/box row under turret weapon (same as infantry).
+			RuntimeInventoryModificationCoordinator.Instance?.RefreshInlineModificationRows();
 			return;
 		}
 

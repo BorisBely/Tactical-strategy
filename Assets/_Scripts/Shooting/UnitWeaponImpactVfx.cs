@@ -66,9 +66,6 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 			return;
 		}
 
-		if (!profile.IsImpactSurfaceLayer(_trace.HitCollider.gameObject.layer))
-			return;
-
 		if (!profile.TryResolveImpactSurface(_trace.HitCollider, out WeaponImpactSurfaceSet surface) || surface == null)
 			return;
 

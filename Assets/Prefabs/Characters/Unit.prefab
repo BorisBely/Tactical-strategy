@@ -6541,7 +6541,7 @@ AudioSource:
   Priority: 128
   DopplerLevel: 0
   MinDistance: 2.5
-  MaxDistance: 18
+  MaxDistance: 14
   Pan2D: 0
   rolloffMode: 2
   BypassEffects: 0
@@ -8840,6 +8840,7 @@ MonoBehaviour:
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
+  m_TurretReloadEvents: {fileID: 0}
   m_HitscanShooting: {fileID: 430373704858629585}
   m_AimProgressController: {fileID: 0}
   m_FireDisciplineController: {fileID: 4829173650182746501}
@@ -8991,9 +8992,6 @@ MonoBehaviour:
   m_StanceCombatModifiers: {fileID: 0}
   m_MaxRecoilPenalty: 30
   m_RecoilSpreadScale: 0.15
-  m_VisualPitchPerPenalty: 0.65
-  m_VisualBackPerPenalty: 0.0035
-  m_VisualUpPerPenalty: 0.0015
   m_RecoveryWhileFiringMultiplier: 0.7
   m_RecoveryWhenNotReadyMultiplier: 1.2
   m_DebugLastRecoilAdded: 0
@@ -9016,17 +9014,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponVisualRecoilKick
   m_Equipment: {fileID: 5322687323565292150}
   m_RecoilController: {fileID: 2745828861811900171}
+  m_FireController: {fileID: 0}
+  m_WeaponRuntime: {fileID: 0}
   m_RagdollController: {fileID: 0}
   m_RuntimeTuner: {fileID: 0}
   m_KickTransformOverride: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 0}
-  m_MaxVisualPitch: 12
-  m_YawNoiseScale: 0.25
-  m_YawNoiseSpeed: 0.7
-  m_ImpulsePitchScale: 0.1
-  m_ImpulseBackScale: 0.0005
-  m_ImpulseUpScale: 0.0002
-  m_ImpulseSmoothTime: 0.04
+  m_PitchCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 60
+      value: 5
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_BackScale: 0.006
+  m_UpScale: 0.002
+  m_VisualOffsetScale: 1
+  m_ShotPitch: 1
+  m_ShotYawScale: 0.3
+  m_ShotSmoothTime: 0.05
   m_HandPitch: 0.45
   m_HandYaw: 0.35
   m_HandBack: 0.5
@@ -9178,6 +9201,7 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_GrenadeThrow: {fileID: 0}
   m_RocketLauncherOrder: {fileID: 0}
+  m_TurretReloadEvents: {fileID: 0}
   m_WeaponRecoil: {fileID: 0}
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
@@ -9218,6 +9242,7 @@ MonoBehaviour:
   m_LeftElbowHintWeight: 1
   m_DrawIkTargetGizmo: 1
   m_LogProximityIk: 1
+  m_LogTurretReloadIk: 0
 --- !u!114 &9123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0

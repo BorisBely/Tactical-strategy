@@ -228,10 +228,40 @@ public class UnitEquipment : MonoBehaviour
 		string rightReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetChildName : null, "RightHandIkTarget");
 		string rightNotReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetNotReadyChildName : null, "RightHandIkTarget_NotReady");
 
-		m_LeftHandIkTarget = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftReady);
-		m_LeftHandIkTargetNotReady = m_TurretWeaponOverride.ResolveLeftHandIkTargetTransform(leftNotReady);
-		m_RightHandIkTarget = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightReady);
-		m_RightHandIkTargetNotReady = m_TurretWeaponOverride.ResolveRightHandIkTargetTransform(rightNotReady);
+		Transform pitch = m_TurretWeaponOverride.transform;
+		m_LeftHandIkTarget = ResolveTurretHandIkTarget(pitch, m_TurretWeaponOverride, leftReady, true);
+		m_LeftHandIkTargetNotReady = ResolveTurretHandIkTarget(pitch, m_TurretWeaponOverride, leftNotReady, true);
+		m_RightHandIkTarget = ResolveTurretHandIkTarget(pitch, m_TurretWeaponOverride, rightReady, false);
+		m_RightHandIkTargetNotReady = ResolveTurretHandIkTarget(pitch, m_TurretWeaponOverride, rightNotReady, false);
+	}
+
+	private static Transform ResolveTurretHandIkTarget(
+		Transform _pitch,
+		EquippedWeapon _weapon,
+		string _childName,
+		bool _leftHand)
+	{
+		if (_pitch == null || string.IsNullOrWhiteSpace(_childName))
+			return null;
+
+		Transform fromWeapon = _leftHand
+			? _weapon.ResolveLeftHandIkTargetTransform(_childName)
+			: _weapon.ResolveRightHandIkTargetTransform(_childName);
+		if (fromWeapon != null)
+			return fromWeapon;
+
+		Transform direct = _pitch.Find(_childName);
+		if (direct != null)
+			return direct;
+
+		Transform[] all = _pitch.GetComponentsInChildren<Transform>(true);
+		for (int i = 0; i < all.Length; i++)
+		{
+			if (all[i] != null && all[i].name == _childName)
+				return all[i];
+		}
+
+		return null;
 	}
 
 	private static string GetChildNameOr(ItemDefinition def, string fromDef, string fallback)

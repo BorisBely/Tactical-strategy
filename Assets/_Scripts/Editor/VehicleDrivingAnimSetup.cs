@@ -137,6 +137,7 @@ public static class VehicleDrivingAnimSetup
 			EnsureMutualExclusion(drivingState, sleep, c_ParamIsStabilizedSleeping);
 
 		controller.layers = layers;
+		EnsureCarriedPoseIkPass(controller);
 		EnsureGunnerInCarriedPose(controller, sm, empty);
 		EnsureGunnerCoverInCarriedPose(controller, sm);
 		EnsurePassengerHandsLayer(controller);
@@ -309,6 +310,20 @@ public static class VehicleDrivingAnimSetup
 	#endregion
 
 	#region Gunner
+	private static void EnsureCarriedPoseIkPass(AnimatorController _controller)
+	{
+		int layerIndex = FindLayerIndex(_controller, c_CarriedPoseLayerName);
+		if (layerIndex < 0)
+			return;
+
+		AnimatorControllerLayer[] layers = _controller.layers;
+		if (layers[layerIndex].iKPass)
+			return;
+
+		layers[layerIndex].iKPass = true;
+		_controller.layers = layers;
+	}
+
 	private static void EnsureGunnerInCarriedPose(
 		AnimatorController _controller,
 		AnimatorStateMachine _sm,

@@ -87,6 +87,12 @@ public static class WeaponFireDisciplinePlanner
 		float marksmanship = _combatStats != null ? _combatStats.Marksmanship : 50f;
 		float distance = Mathf.Max(0f, _distanceMeters);
 
+		if (_weaponClass == WeaponClassType.HeavyMachineGun ||
+		    _weaponClass == WeaponClassType.AutomaticGrenadeLauncher)
+		{
+			return WeaponFireDisciplineMode.Suppressive;
+		}
+
 		if (_weaponClass == WeaponClassType.LightMachineGun)
 		{
 			// Пулемёты по умолчанию давят огнём: Suppressive почти на всех рабочих дистанциях.
@@ -143,10 +149,22 @@ public static class WeaponFireDisciplinePlanner
 	{
 		float distance = Mathf.Max(0f, _distanceMeters);
 		bool isLmg = _weaponClass == WeaponClassType.LightMachineGun;
+		bool isHmg = _weaponClass == WeaponClassType.HeavyMachineGun;
+		bool isAgl = _weaponClass == WeaponClassType.AutomaticGrenadeLauncher;
 
 		switch (_discipline)
 		{
 			case WeaponFireDisciplineMode.Suppressive:
+				if (isHmg || isAgl)
+				{
+					if (distance <= 30f)
+						return Band(25, 40, 0.06f, 0.14f, 0.12f, 0.25f, WeaponFireMode.FullAuto);
+					if (distance <= 80f)
+						return Band(20, 35, 0.08f, 0.20f, 0.18f, 0.35f, WeaponFireMode.FullAuto);
+					if (distance <= 140f)
+						return Band(15, 30, 0.12f, 0.28f, 0.25f, 0.45f, WeaponFireMode.FullAuto);
+					return Band(10, 20, 0.20f, 0.40f, 0.35f, 0.60f, WeaponFireMode.FullAuto);
+				}
 				if (distance <= 30f)
 					return Band(isLmg ? 8 : 3, isLmg ? 16 : 7, isLmg ? 0.10f : 0.18f, isLmg ? 0.28f : 0.45f, 0.28f, 0.52f, WeaponFireMode.FullAuto);
 				if (distance <= 80f)
@@ -156,6 +174,16 @@ public static class WeaponFireDisciplinePlanner
 				return Band(isLmg ? 3 : 1, isLmg ? 8 : 2, isLmg ? 0.35f : 0.70f, isLmg ? 0.85f : 1.40f, 0.75f, 1.00f, isLmg ? WeaponFireMode.FullAuto : WeaponFireMode.SemiAuto);
 
 			case WeaponFireDisciplineMode.Economical:
+				if (isHmg || isAgl)
+				{
+					if (distance <= 30f)
+						return Band(3, 5, 0.35f, 0.70f, 0.30f, 0.55f, WeaponFireMode.FullAuto);
+					if (distance <= 80f)
+						return Band(2, 4, 0.50f, 1.00f, 0.45f, 0.70f, WeaponFireMode.FullAuto);
+					if (distance <= 140f)
+						return Band(2, 3, 0.70f, 1.40f, 0.60f, 0.85f, WeaponFireMode.FullAuto);
+					return Band(1, 2, 1.00f, 2.00f, 0.80f, 1.00f, WeaponFireMode.FullAuto);
+				}
 				if (distance <= 30f)
 					return Band(isLmg ? 2 : 1, isLmg ? 4 : 2, 0.45f, 0.90f, 0.70f, 0.95f, isLmg ? WeaponFireMode.Burst : WeaponFireMode.SemiAuto);
 				if (distance <= 80f)
@@ -165,6 +193,16 @@ public static class WeaponFireDisciplinePlanner
 				return Band(1, 1, 1.00f, 2.00f, 1.00f, 1.00f, WeaponFireMode.SemiAuto);
 
 			default:
+				if (isHmg || isAgl)
+				{
+					if (distance <= 30f)
+						return Band(6, 10, 0.14f, 0.28f, 0.20f, 0.38f, WeaponFireMode.FullAuto);
+					if (distance <= 80f)
+						return Band(5, 8, 0.20f, 0.40f, 0.28f, 0.50f, WeaponFireMode.FullAuto);
+					if (distance <= 140f)
+						return Band(4, 7, 0.28f, 0.55f, 0.40f, 0.65f, WeaponFireMode.FullAuto);
+					return Band(3, 5, 0.40f, 0.80f, 0.55f, 0.85f, WeaponFireMode.FullAuto);
+				}
 				if (distance <= 30f)
 					return Band(isLmg ? 5 : 2, isLmg ? 10 : 4, isLmg ? 0.18f : 0.28f, isLmg ? 0.42f : 0.60f, 0.38f, 0.65f, isLmg ? WeaponFireMode.FullAuto : WeaponFireMode.Burst);
 				if (distance <= 80f)

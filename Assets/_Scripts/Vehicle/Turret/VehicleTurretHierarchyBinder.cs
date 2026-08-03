@@ -12,6 +12,7 @@ public sealed class VehicleTurretHierarchyBinder : MonoBehaviour
 	private const string c_GunGroup = "Gun";
 	private const string c_GunBase127 = "SM_Veh_Pickup_Technical_01_Gun_Base";
 	private const string c_Gun127 = "GameObjectGun.12.7";
+	public const string Gun127ObjectName = c_Gun127;
 	private const string c_Mag127 = "SM_Veh_Pickup_Technical_01_Gun_Mag";
 	private const string c_Mk19Base = "MK19Base";
 	private const string c_Mk19 = "MK19";

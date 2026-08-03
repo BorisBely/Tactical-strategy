@@ -155,10 +155,14 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			return false;
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady()))
+		{
 			return false;
+		}
 
 		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.GetEngageableVisibleTarget() == null))
+		{
 			return false;
+		}
 
 		if (m_BlockDuringStanceTransition &&
 			m_BusyState != null &&

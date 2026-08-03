@@ -33,9 +33,6 @@ public static class WeaponVfxUtility
 		if (profile == null || !profile.EnableImpactAudio)
 			return false;
 
-		if (!profile.IsImpactSurfaceLayer(_hitCollider.gameObject.layer))
-			return false;
-
 		if (!profile.TryResolveImpactSurface(_hitCollider, out WeaponImpactSurfaceSet surface) || surface == null)
 			return false;
 

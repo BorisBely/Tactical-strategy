@@ -6628,6 +6628,12 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 
 	private void CommandSelectedWeaponReloadInternal()
 	{
+		if (HasSelectedVehicle && m_SelectedVehicle != null && m_SelectedVehicle.IsGunnerOnTurret)
+		{
+			CommandSelectedVehicleGunnerReload();
+			return;
+		}
+
 		if (TryQueueRouteOrderFromKeyboardHover(RouteInteractionMenuAction.Reload))
 			return;
 

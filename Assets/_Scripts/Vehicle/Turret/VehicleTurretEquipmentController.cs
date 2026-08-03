@@ -23,6 +23,8 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 
 	#region Private Fields
 	private EquippedWeapon m_ActiveEquippedWeapon;
+	private VehicleTurretGunnerBridge m_GunnerBridge;
+	private VehicleTurretReloadController m_ReloadController;
 	#endregion
 
 	#region Public Properties
@@ -115,6 +117,10 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			TryGetComponent(out m_Aim);
 		if (m_Hierarchy == null)
 			TryGetComponent(out m_Hierarchy);
+		if (m_GunnerBridge == null)
+			TryGetComponent(out m_GunnerBridge);
+		if (m_ReloadController == null)
+			TryGetComponent(out m_ReloadController);
 
 		if (m_DefaultM2MagazineItem == null)
 			m_DefaultM2MagazineItem = TurretContentCatalog.Get()?.M2MagazineBox;
@@ -145,6 +151,9 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 		if (weaponState.HasMagazine && weaponState.HasAmmoInMagazine && weaponState.HasRoundInChamber)
 			return;
 
+		if (ShouldDeferEmptyBoxToTurretReload(weaponState))
+			return;
+
 		TurretWeaponVariant variant = _weaponSlot.Definition.TurretWeaponVariant;
 		ItemDefinition magItem = variant == TurretWeaponVariant.Mk19
 			? m_DefaultMk19MagazineItem
@@ -173,6 +182,25 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			weaponState.TryChamberRoundFromMagazine();
 	}
 
+	private bool ShouldDeferEmptyBoxToTurretReload(WeaponRuntimeState _weaponState)
+	{
+		if (_weaponState == null)
+			return false;
+
+		if (_weaponState.HasAmmoInMagazine || _weaponState.HasRoundInChamber)
+			return false;
+
+		if (m_GunnerBridge == null || !m_GunnerBridge.HasBoundGunner)
+			return false;
+
+		if (m_ReloadController == null)
+			return false;
+
+		ItemDefinition activeWeapon = ActiveWeaponItem;
+		return activeWeapon != null &&
+		       activeWeapon.TurretWeaponVariant == TurretWeaponVariant.Browning127;
+	}
+
 	private static InventorySlotRuntimeData BuildFullMagazineSlot(ItemDefinition _magItem, AmmoDefinition _ammo)
 	{
 		InventorySlotRuntimeData slot = InventorySlotRuntimeData.FromDefinition(_magItem);
@@ -193,16 +221,15 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			return;
 
 		if (!pitch.TryGetComponent(out EquippedWeapon equipped))
-			equipped = pitch.gameObject.AddComponent<EquippedWeapon>();
-
-		if (equipped.BarrelTransform == null)
 		{
-			Transform muzzle = CreateOrFindChild(pitch, EquippedWeapon.MuzzleExitTransformName);
-			if (muzzle != null)
-			{
-				muzzle.localPosition = new Vector3(0f, 0f, 0.55f);
-				muzzle.localRotation = Quaternion.identity;
-			}
+			Debug.LogWarning(
+				$"[{nameof(VehicleTurretEquipmentController)}] EquippedWeapon not found on '{pitch.name}'. "
+				+ "Add it on the prefab pitch; runtime will not create one to avoid duplicate components.",
+				pitch);
+		}
+		else
+		{
+			VehicleTurretCombatSockets.PrepareM2PitchRuntime(pitch);
 		}
 
 		TryFindIkDummy(pitch, "LeftHandIkTarget",
@@ -213,23 +240,6 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			Quaternion.Euler(-24.635f, -0.305f, -86.518f));
 
 		m_ActiveEquippedWeapon = equipped;
-	}
-
-	private static Transform CreateOrFindChild(Transform _parent, string _name)
-	{
-		Transform existing = _parent.Find(_name);
-		if (existing != null)
-			return existing;
-		Transform[] all = _parent.GetComponentsInChildren<Transform>(true);
-		for (int i = 0; i < all.Length; i++)
-		{
-			if (all[i] != null && all[i].name == _name)
-				return all[i];
-		}
-
-		GameObject go = new GameObject(_name);
-		go.transform.SetParent(_parent, false);
-		return go.transform;
 	}
 
 	private static void TryFindIkDummy(Transform _parent, string _name, Vector3 _expectedLocalPos, Quaternion _expectedLocalRot)

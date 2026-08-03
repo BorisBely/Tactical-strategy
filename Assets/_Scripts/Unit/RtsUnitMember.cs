@@ -4274,6 +4274,10 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		ScheduleRtsCommand(() =>
 		{
+			if (TryGetComponent(out UnitVehicleTurretReloadEvents turretReload) &&
+			    turretReload.TryStartReloadFromGunner())
+				return;
+
 			if (m_WeaponReloadController == null)
 				return;
 
@@ -4823,6 +4827,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 	private bool IsWeaponReloadBusy()
 	{
+		if (TryGetComponent(out UnitVehicleTurretReloadEvents turretReload) && turretReload.IsReloadBusy)
+			return true;
+
 		if (m_WeaponReloadController == null)
 			m_WeaponReloadController = GetComponent<UnitWeaponReloadController>();
 		return m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy;

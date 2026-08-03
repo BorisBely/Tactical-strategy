@@ -18,6 +18,8 @@ public sealed class VehicleTurretTempDebugLoadout : MonoBehaviour
 	[SerializeField] private ItemDefinition m_SurroundShield;
 	[SerializeField] private ItemDefinition m_M2Box;
 	[SerializeField] private ItemDefinition m_Mk19Box;
+	[SerializeField, Min(0)] private int m_M2BoxCount = 3;
+	[SerializeField, Min(0)] private int m_Mk19BoxCount = 1;
 	#endregion
 
 	#region Unity Lifecycle
@@ -46,15 +48,11 @@ public sealed class VehicleTurretTempDebugLoadout : MonoBehaviour
 		TryEquip(m_M2Browning, VehicleEquipmentSlotId.TurretWeapon);
 		TryEquip(m_FrontalShield, VehicleEquipmentSlotId.FrontalShield);
 		TryEquip(m_SurroundShield, VehicleEquipmentSlotId.SurroundShield);
-		TryAddToBag(m_Mk19);
-		TryAddToBag(m_M2Box);
-		TryAddToBag(m_Mk19Box);
+		EnsureBagCount(m_Mk19, 1);
+		EnsureBagCount(m_M2Box, m_M2BoxCount);
+		EnsureBagCount(m_Mk19Box, m_Mk19BoxCount);
 
 		m_Inventory.SetExchangeModificationAllowed(false);
-		Debug.Log(
-			$"[TEMP Turret Loadout] {name}: добавлены M2 (экип), щиты (экип), MK19 + короба (багаж). " +
-			"Удали компонент VehicleTurretTempDebugLoadout после проверки.",
-			this);
 	}
 
 	[ContextMenu("TEMP/Clear Vehicle Inventory")]
@@ -126,21 +124,30 @@ public sealed class VehicleTurretTempDebugLoadout : MonoBehaviour
 			Debug.LogWarning($"[TEMP Turret Loadout] не удалось экипировать {_item.name} в {_slot}.", this);
 	}
 
-	private void TryAddToBag(ItemDefinition _item)
+	private void EnsureBagCount(ItemDefinition _item, int _count)
 	{
-		if (_item == null)
+		if (_item == null || _count <= 0)
 			return;
 
+		int existing = 0;
 		for (int i = 0; i < m_Inventory.BagCount; i++)
 		{
 			if (m_Inventory.BagItems[i].Definition == _item)
-				return;
+				existing++;
 		}
 
-		InventorySlotRuntimeData slot = InventorySlotRuntimeData.FromDefinition(_item);
-		TryFillMagazineSlot(ref slot);
-		if (!m_Inventory.TryAdd(slot))
-			Debug.LogWarning($"[TEMP Turret Loadout] не удалось добавить {_item.name} в багаж.", this);
+		for (int i = existing; i < _count; i++)
+		{
+			InventorySlotRuntimeData slot = InventorySlotRuntimeData.FromDefinition(_item);
+			TryFillMagazineSlot(ref slot);
+			if (!m_Inventory.TryAdd(slot))
+			{
+				Debug.LogWarning(
+					$"[TEMP Turret Loadout] не удалось добавить {_item.name} ({i + 1}/{_count}) — лимит веса багажа.",
+					this);
+				break;
+			}
+		}
 	}
 
 	private static void TryFillMagazineSlot(ref InventorySlotRuntimeData _slot)

@@ -1,5 +1,7 @@
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.AI;
+#pragma warning disable CS0414
 
 /// <summary>
 /// Звук шага: поверхность (<see cref="FootstepSurfaceRule"/>), воспроизведение.

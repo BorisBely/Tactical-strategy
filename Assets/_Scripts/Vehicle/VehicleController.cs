@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using CombatVehicleSystem;
 using TMPro;
@@ -38,6 +39,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	[SerializeField] private VehicleInventory m_VehicleInventory;
 	[SerializeField] private VehicleTurretEquipmentController m_TurretEquipment;
 	[SerializeField] private VehicleTurretGunnerBridge m_TurretGunnerBridge;
+	[SerializeField] private VehicleTurretWeaponRecoil m_TurretWeaponRecoil;
+	[SerializeField] private VehicleTurretShellEjection m_TurretShellEjection;
 	[SerializeField] private VehiclePassengerFireValidator m_FireValidator;
 	[SerializeField] private VehicleGlassController m_GlassController;
 	[SerializeField] private UnitTeam m_Team;
@@ -54,6 +57,10 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	[SerializeField] private bool m_LogDriveSink;
 	[SerializeField] private bool m_LogVehicleBounce;
 	[SerializeField, Min(1f)] private float m_BounceMonitorSeconds = 5f;
+	[Header("Gunner Positions")]
+	[SerializeField] private Vector3 m_GunnerAboveShieldLocalPos = new Vector3(0.005f, -1.05f, -1.19f);
+	[Header("Gunner Audio")]
+	[SerializeField, Range(0f, 1f)] private float m_GunnerSlotMoveVolume = 0.35f;
 	[Header("Temp Debug")]
 	[Tooltip("TEMP: select + move without a seated driver (and allow Neutral team).")]
 	[SerializeField] private bool m_TempAllowDriverlessControl = true;
@@ -74,6 +81,11 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	private string m_LastStatusPhase = string.Empty;
 	private VehicleNavigation.DriverFSM.State m_LastStatusState = VehicleNavigation.DriverFSM.State.Idle;
 	private bool m_GunnerCover;
+	private Vector3 m_GunnerBehindShieldLocalPos;
+	private Coroutine m_GunnerSlotMoveRoutine;
+	private bool m_PhysicsDriveCoreInitialized;
+	private bool m_UnitBlockingInitialized;
+	private const float c_GunnerSlotMoveDuration = 0.25f;
 	#endregion
 
 	#region Bounce Diagnostics Constants
@@ -166,6 +178,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	private void Start()
 	{
 		// Runtime auto-setup may bind wheels after first EnsurePhysicsDrive — snap once more.
+		CacheGunnerSeatPositions();
+
 		if (HasBoundWheelAxles())
 			SnapChassisAboveGroundIfNeeded(_force: true);
 		ValidateCrew();
@@ -286,9 +300,19 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			m_TurretEquipment = gameObject.AddComponent<VehicleTurretEquipmentController>();
 		m_TurretEquipment.Configure(this);
 
+		if (!TryGetComponent(out VehicleTurretReloadController reloadController))
+			reloadController = gameObject.AddComponent<VehicleTurretReloadController>();
+		reloadController.Configure(this);
+
 		if (m_TurretGunnerBridge == null && !TryGetComponent(out m_TurretGunnerBridge))
 			m_TurretGunnerBridge = gameObject.AddComponent<VehicleTurretGunnerBridge>();
 		m_TurretGunnerBridge.Configure(this);
+
+		if (m_TurretWeaponRecoil == null && !TryGetComponent(out m_TurretWeaponRecoil))
+			m_TurretWeaponRecoil = gameObject.AddComponent<VehicleTurretWeaponRecoil>();
+
+		if (m_TurretShellEjection == null && !TryGetComponent(out m_TurretShellEjection))
+			m_TurretShellEjection = gameObject.AddComponent<VehicleTurretShellEjection>();
 
 		// TEMP: тестовый лоад-аут турели — удали компонент после проверки.
 		if (!TryGetComponent(out VehicleTurretTempDebugLoadout _))
@@ -297,6 +321,48 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 
 	public void EnsurePhysicsDrive()
 	{
+		EnsurePhysicsDriveCore();
+		if (!TryGetComponent(out Rigidbody body))
+			return;
+
+		if (!m_UnitBlockingInitialized)
+		{
+			EnsureUnitBlockingSetup(body);
+			m_UnitBlockingInitialized = true;
+		}
+
+		if (HasBoundWheelAxles())
+			SnapChassisAboveGroundIfNeeded(_force: true);
+	}
+
+	/// <summary>После привязки WheelCollider в <see cref="VehicleHierarchyBinder"/>.</summary>
+	public void NotifyPhysicsWheelsBound()
+	{
+		EnsurePhysicsDriveCore();
+		if (!TryGetComponent(out Rigidbody body))
+			return;
+
+		if (!m_UnitBlockingInitialized)
+		{
+			EnsureUnitBlockingSetup(body);
+			m_UnitBlockingInitialized = true;
+		}
+		else
+		{
+			m_UnitBlocker?.RefreshIgnoredDriveColliders();
+		}
+
+		SnapChassisAboveGroundIfNeeded(_force: true);
+		BounceWheelCollidersAfterBind("bind-wheels");
+		if (m_WheeledMotor != null)
+			m_WheeledMotor.ResetSprungMassesSafe();
+	}
+
+	private void EnsurePhysicsDriveCore()
+	{
+		if (m_PhysicsDriveCoreInitialized)
+			return;
+
 		if (!TryGetComponent(out Rigidbody body))
 		{
 			body = gameObject.AddComponent<Rigidbody>();
@@ -377,11 +443,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		if (TryGetComponent(out NavMeshAgent driveAgent))
 			driveAgent.enabled = false;
 
-		// Units must be blocked by the hull, but must not shove the drive body.
-		EnsureUnitBlockingSetup(body);
-		if (HasBoundWheelAxles())
-			SnapChassisAboveGroundIfNeeded(_force: true);
-
+		m_PhysicsDriveCoreInitialized = true;
 		LogVehicle(
 			$"EnsurePhysicsDrive dynamic mass={body.mass:F0} com={body.centerOfMass} " +
 			$"y={transform.position.y:F3}");
@@ -468,10 +530,6 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		if (!TryGetComponent(out VehicleDriveUnitPushIgnore pushIgnore))
 			pushIgnore = gameObject.AddComponent<VehicleDriveUnitPushIgnore>();
 		pushIgnore.Configure(this);
-
-		BounceWheelCollidersAfterBind("unit-blocking-setup");
-		if (m_WheeledMotor != null)
-			m_WheeledMotor.ResetSprungMassesSafe();
 	}
 
 	/// <summary>
@@ -1447,10 +1505,98 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 
 	private void ApplyGunnerCoverToCurrentGunner()
 	{
+		if (m_Seats != null && m_Seats.TryGetSeat(VehicleSeatId.Gunner, out VehicleSeatLayout.SeatBinding gunnerSeat) && gunnerSeat.Anchor != null)
+		{
+			Vector3 targetPos = m_GunnerCover ? m_GunnerBehindShieldLocalPos : m_GunnerAboveShieldLocalPos;
+			if (m_GunnerSlotMoveRoutine != null)
+				StopCoroutine(m_GunnerSlotMoveRoutine);
+			m_GunnerSlotMoveRoutine = StartCoroutine(MoveGunnerSlotRoutine(gunnerSeat.Anchor, targetPos));
+		}
+
 		if (m_Seats == null || !m_Seats.TryGetOccupant(VehicleSeatId.Gunner, out RtsUnitMember gunner) || gunner == null)
 			return;
 		UnitVehicleSeatPoseController pose = UnitVehicleSeatPoseController.GetOrAdd(gunner.gameObject);
 		pose?.SetGunnerCover(m_GunnerCover);
+	}
+
+	private void CacheGunnerSeatPositions()
+	{
+		if (m_Seats == null || !m_Seats.TryGetSeat(VehicleSeatId.Gunner, out VehicleSeatLayout.SeatBinding gunnerSeat) || gunnerSeat.Anchor == null)
+			return;
+
+		m_GunnerBehindShieldLocalPos = gunnerSeat.Anchor.localPosition;
+		gunnerSeat.Anchor.localPosition = m_GunnerAboveShieldLocalPos;
+	}
+
+	private IEnumerator MoveGunnerSlotRoutine(Transform _anchor, Vector3 _targetLocalPos)
+	{
+		if (_anchor == null)
+			yield break;
+
+		PlayGunnerSlotMoveSound(_anchor.position);
+
+		Vector3 startPos = _anchor.localPosition;
+		float elapsed = 0f;
+
+		while (elapsed < c_GunnerSlotMoveDuration)
+		{
+			elapsed += Time.deltaTime;
+			float t = Mathf.Clamp01(elapsed / c_GunnerSlotMoveDuration);
+			t = t * t * (3f - 2f * t);
+			_anchor.localPosition = Vector3.Lerp(startPos, _targetLocalPos, t);
+			yield return null;
+		}
+
+		_anchor.localPosition = _targetLocalPos;
+		m_GunnerSlotMoveRoutine = null;
+	}
+
+	private void PlayGunnerSlotMoveSound(Vector3 _worldPos)
+	{
+		if (m_Seats == null || !m_Seats.TryGetOccupant(VehicleSeatId.Gunner, out RtsUnitMember gunner) || gunner == null)
+			return;
+
+		UnitGearRattleAudio gearRattle = gunner.GetComponent<UnitGearRattleAudio>();
+		if (gearRattle == null || !gearRattle.TryPickRandomLoopClip(out AudioClip clip))
+			return;
+
+		UnitNonFireAudioUtility.PlayAtPoint(clip, _worldPos, m_GunnerSlotMoveVolume);
+	}
+
+	private void PlayGunnerMountWeaponEquipSound(RtsUnitMember _gunner, Vector3 _worldPos)
+	{
+		if (_gunner == null)
+			return;
+
+		CharacterInventory inventory = _gunner.GetComponent<CharacterInventory>();
+		if (inventory == null || !inventory.HasMainHandEquipment)
+			return;
+
+		ItemInventoryAudioUtility.TryPlayEquipmentAddSound(
+			inventory.MainHandEquipment.Definition,
+			_worldPos,
+			false);
+	}
+
+	public void CycleTurretFireMode()
+	{
+		if (!IsGunnerOnTurret || m_TurretGunnerBridge == null || !m_TurretGunnerBridge.HasBoundGunner)
+			return;
+		m_TurretGunnerBridge.BoundGunner.CycleWeaponFireMode();
+	}
+
+	public void CycleTurretFireDiscipline()
+	{
+		if (!IsGunnerOnTurret || m_TurretGunnerBridge == null || !m_TurretGunnerBridge.HasBoundGunner)
+			return;
+		m_TurretGunnerBridge.BoundGunner.CycleWeaponFireDisciplineMode();
+	}
+
+	public void CycleTurretAimMode()
+	{
+		if (!IsGunnerOnTurret || m_TurretGunnerBridge == null || !m_TurretGunnerBridge.HasBoundGunner)
+			return;
+		m_TurretGunnerBridge.BoundGunner.CycleWeaponAimMode();
 	}
 
 	public bool TryPromoteToGunner()
@@ -1467,6 +1613,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		m_Seats.Occupy(VehicleSeatId.Gunner, unit);
 		mount.TransferToSeat(VehicleSeatId.Gunner, gunnerSeat.Anchor, _isLitter: false);
 		m_GunnerHatch?.SetGunnerRaised(true);
+		PlayGunnerMountWeaponEquipSound(unit, gunnerSeat.Anchor.position);
 		ApplyGunnerCoverToCurrentGunner();
 		NotifyOccupancyChanged();
 		return true;

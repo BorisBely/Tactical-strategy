@@ -7,6 +7,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
+[DefaultExecutionOrder(250)]
 public class AnimatorHandIk : MonoBehaviour
 {
 	#region Serialized Fields
@@ -30,6 +31,7 @@ public class AnimatorHandIk : MonoBehaviour
 	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrow;
 	[Tooltip("Пока идёт приказ гранатомёта, IK рук отключается.")]
 	[SerializeField] private UnitRocketLauncherOrderController m_RocketLauncherOrder;
+	[SerializeField] private UnitVehicleTurretReloadEvents m_TurretReloadEvents;
 	[Tooltip("Контроллер отдачи — ApplyHandKick к IK правой кисти.")]
 	[SerializeField] private UnitWeaponRecoil m_WeaponRecoil;
 	[Tooltip("Драйвер клика для движения. При беге IK правой руки отключается.")]
@@ -83,6 +85,40 @@ public class AnimatorHandIk : MonoBehaviour
 		StopEquipBlend();
 	}
 
+	private void LateUpdate()
+	{
+		if (m_TurretReloadEvents == null)
+			m_TurretReloadEvents = GetComponentInParent<UnitVehicleTurretReloadEvents>();
+
+		// OnAnimatorIK can be skipped/overwritten by higher animator layers.
+		// Turret gunner: snap hands to pitch/gun IK empties after animation.
+		if (!IsOperatingVehicleTurretIk() || m_Animator == null || !m_Animator.enabled)
+			return;
+		if (IsHandIkBlocked())
+			return;
+
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadAnimationActive)
+		{
+			bool reloadUseNotReady = m_TurretReloadEvents.UseNotReadyIkTargets;
+			if (m_TurretReloadEvents.UseLeftHandIk)
+				SnapHandBoneToTurretIk(HumanBodyBones.LeftHand, _leftHand: true, reloadUseNotReady);
+			if (m_TurretReloadEvents.UseRightHandIk && !m_TurretReloadEvents.UseHandleNotReadyIkTargets)
+				SnapHandBoneToTurretIk(HumanBodyBones.RightHand, _leftHand: false, reloadUseNotReady);
+			return;
+		}
+
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadBusy)
+		{
+			SnapHandBoneToTurretIk(HumanBodyBones.LeftHand, _leftHand: true, _useNotReady: false);
+			SnapHandBoneToTurretIk(HumanBodyBones.RightHand, _leftHand: false, _useNotReady: false);
+			return;
+		}
+
+		bool useNotReady = m_TurretReloadEvents != null && m_TurretReloadEvents.UseNotReadyIkTargets;
+		SnapHandBoneToTurretIk(HumanBodyBones.LeftHand, _leftHand: true, useNotReady);
+		SnapHandBoneToTurretIk(HumanBodyBones.RightHand, _leftHand: false, useNotReady);
+	}
+
 	private void OnDrawGizmosSelected()
 	{
 		if (!m_DrawIkTargetGizmo || !Application.isPlaying)
@@ -129,6 +165,9 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_Animator == null)
 			return;
 
+		if (m_TurretReloadEvents == null)
+			m_TurretReloadEvents = GetComponentInParent<UnitVehicleTurretReloadEvents>();
+
 		if (m_ClearHandIkOnNextAnimatorIkPass)
 		{
 			m_ClearHandIkOnNextAnimatorIkPass = false;
@@ -150,6 +189,34 @@ public class AnimatorHandIk : MonoBehaviour
 			StopEquipBlend();
 			ApplyLeftHandIkInternal();
 			ClearRightHandIk();
+			return;
+		}
+
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadAnimationActive)
+		{
+			bool useLeft = m_TurretReloadEvents.UseLeftHandIk;
+			bool useRight = m_TurretReloadEvents.UseRightHandIk;
+
+			if (useLeft)
+				ApplyLeftHandIkInternal();
+			else
+			{
+				StopEquipBlend();
+				ClearLeftHandIk();
+			}
+
+			if (useRight)
+				ApplyRightHandIkInternal();
+			else
+				ClearRightHandIk();
+
+			return;
+		}
+
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadBusy)
+		{
+			ApplyLeftHandIkInternal();
+			ApplyRightHandIkInternal();
 			return;
 		}
 
@@ -227,6 +294,8 @@ public class AnimatorHandIk : MonoBehaviour
 			m_GrenadeThrow = GetComponentInParent<UnitGrenadeThrowController>();
 		if (m_RocketLauncherOrder == null)
 			m_RocketLauncherOrder = GetComponentInParent<UnitRocketLauncherOrderController>();
+		if (m_TurretReloadEvents == null)
+			m_TurretReloadEvents = GetComponentInParent<UnitVehicleTurretReloadEvents>();
 		if (m_BusyState == null)
 			m_BusyState = GetComponentInParent<UnitBusyState>();
 		if (m_Stance == null)
@@ -351,6 +420,8 @@ public class AnimatorHandIk : MonoBehaviour
 		return Mathf.SmoothStep(0f, 1f, normalizedTime);
 	}
 
+	private float GetTurretHandIkBlendMultiplier() => 1f;
+
 	private float GetEffectiveReadyBlend01()
 	{
 		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
@@ -360,6 +431,10 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldDriveWeaponPose)
 			return 1f;
 
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadBusy &&
+		    (m_TurretReloadEvents.UseNotReadyIkTargets || m_TurretReloadEvents.UseHandleNotReadyIkTargets))
+			return 0f;
+
 		return m_EquippedWeaponPose != null
 			? Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01)
 			: 0f;
@@ -368,6 +443,9 @@ public class AnimatorHandIk : MonoBehaviour
 	private float GetRightHandIkWeightMultiplier()
 	{
 		if (m_RuntimeTuner != null && m_RuntimeTuner.ForcesRightHandIk)
+			return 1f;
+
+		if (IsOperatingVehicleTurretIk())
 			return 1f;
 
 		if (m_EquippedWeaponPose == null && (m_UnitEquipment == null || !m_UnitEquipment.IsOperatingVehicleTurret))
@@ -386,7 +464,7 @@ public class AnimatorHandIk : MonoBehaviour
 			return;
 		}
 
-		float blend = GetEquipBlendMultiplier();
+		float blend = IsOperatingVehicleTurretIk() ? GetTurretHandIkBlendMultiplier() : GetEquipBlendMultiplier();
 		float positionWeight = m_LeftHandPositionWeight * blend;
 		float rotationWeight = m_LeftHandRotationWeight * blend;
 
@@ -407,6 +485,18 @@ public class AnimatorHandIk : MonoBehaviour
 	private void ApplyRightHandIkInternal()
 	{
 		bool useRocketLauncher = m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldDriveWeaponPose;
+
+		if (!useRocketLauncher &&
+		    TryResolveTurretHandIkWorldPose(
+			    _leftHand: false,
+			    _useNotReadyTargets: m_TurretReloadEvents != null && m_TurretReloadEvents.UseNotReadyIkTargets,
+			    out Vector3 turretPos,
+			    out Quaternion turretRot))
+		{
+			ApplyRightHandIkDirect(turretPos, turretRot);
+			return;
+		}
+
 		Transform weaponRoot = useRocketLauncher
 			? m_RocketLauncherOrder.HandLauncherRoot
 			: m_UnitEquipment != null ? m_UnitEquipment.EffectiveWeaponRoot : null;
@@ -414,16 +504,6 @@ public class AnimatorHandIk : MonoBehaviour
 		{
 			ClearRightHandIk();
 			return;
-		}
-
-		if (!useRocketLauncher && m_UnitEquipment != null && m_UnitEquipment.IsOperatingVehicleTurret)
-		{
-			Transform turretIk = m_UnitEquipment.RightHandIkTargetTransform;
-			if (turretIk != null)
-			{
-				ApplyRightHandIkDirect(turretIk.position, turretIk.rotation);
-				return;
-			}
 		}
 
 		float readyBlend = GetEffectiveReadyBlend01();
@@ -459,8 +539,9 @@ public class AnimatorHandIk : MonoBehaviour
 			return;
 		}
 
-		float positionWeight = m_RightHandPositionWeight * ikBlend;
-		float rotationWeight = m_RightHandRotationWeight * ikBlend;
+		float turretBlend = IsOperatingVehicleTurretIk() ? GetTurretHandIkBlendMultiplier() : 1f;
+		float positionWeight = m_RightHandPositionWeight * ikBlend * turretBlend;
+		float rotationWeight = m_RightHandRotationWeight * ikBlend * turretBlend;
 
 		m_Animator.SetIKPositionWeight(AvatarIKGoal.RightHand, positionWeight);
 		m_Animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rotationWeight);
@@ -594,6 +675,13 @@ public class AnimatorHandIk : MonoBehaviour
 	{
 		_position = Vector3.zero;
 		_rotation = Quaternion.identity;
+
+		if (TryResolveTurretHandIkWorldPose(
+			    _leftHand: true,
+			    _useNotReadyTargets: m_TurretReloadEvents != null && m_TurretReloadEvents.UseNotReadyIkTargets,
+			    out _position,
+			    out _rotation))
+			return true;
 
 		bool useRocketLauncher = m_RocketLauncherOrder != null && m_RocketLauncherOrder.ShouldDriveWeaponPose;
 		if (!useRocketLauncher && m_UnitEquipment == null)
@@ -859,8 +947,157 @@ public class AnimatorHandIk : MonoBehaviour
 		return LocomotionStance.Standing;
 	}
 
+	private bool IsOperatingVehicleTurretIk()
+	{
+		if (m_UnitEquipment == null)
+			m_UnitEquipment = GetComponentInParent<UnitEquipment>();
+		return m_UnitEquipment != null && m_UnitEquipment.IsOperatingVehicleTurret;
+	}
+
+	private bool TryResolveTurretHandIkWorldPose(
+		bool _leftHand,
+		bool _useNotReadyTargets,
+		out Vector3 _position,
+		out Quaternion _rotation)
+	{
+		_position = Vector3.zero;
+		_rotation = Quaternion.identity;
+
+		if (!IsOperatingVehicleTurretIk())
+			return false;
+
+		Transform ikTarget = ResolveTurretIkTargetTransform(_leftHand, _useNotReadyTargets);
+		if (ikTarget == null)
+			return false;
+
+		_position = ikTarget.position;
+		_rotation = ikTarget.rotation;
+		return true;
+	}
+
+	private Transform ResolveTurretIkTargetTransform(bool _leftHand, bool _useNotReadyTargets)
+	{
+		if (m_TurretReloadEvents != null &&
+		    m_TurretReloadEvents.UseHandleNotReadyIkTargets &&
+		    !_leftHand)
+		{
+			Transform handleIk = m_TurretReloadEvents.RightHandHandleIkTarget;
+			if (handleIk != null)
+				return handleIk;
+		}
+
+		if (m_UnitEquipment == null)
+			return null;
+
+		Transform ikTarget = _leftHand
+			? (_useNotReadyTargets
+				? m_UnitEquipment.LeftHandIkTargetNotReadyTransform
+				: m_UnitEquipment.LeftHandIkTargetTransform)
+			: (_useNotReadyTargets
+				? m_UnitEquipment.RightHandIkTargetNotReadyTransform
+				: m_UnitEquipment.RightHandIkTargetTransform);
+		if (ikTarget == null && _useNotReadyTargets)
+		{
+			ikTarget = _leftHand
+				? m_UnitEquipment.LeftHandIkTargetTransform
+				: m_UnitEquipment.RightHandIkTargetTransform;
+		}
+
+		if (ikTarget != null)
+			return ikTarget;
+
+		// Live re-resolve if cache was empty (weapon shown after bind).
+		EquippedWeapon weapon = m_UnitEquipment.EquippedWeapon;
+		if (weapon == null)
+			return null;
+
+		string readyName = _leftHand ? "LeftHandIkTarget" : "RightHandIkTarget";
+		string notReadyName = _leftHand ? "LeftHandIkTarget_NotReady" : "RightHandIkTarget_NotReady";
+		string name = _useNotReadyTargets ? notReadyName : readyName;
+		Transform found = _leftHand
+			? weapon.ResolveLeftHandIkTargetTransform(name)
+			: weapon.ResolveRightHandIkTargetTransform(name);
+		if (found == null && _useNotReadyTargets)
+		{
+			found = _leftHand
+				? weapon.ResolveLeftHandIkTargetTransform(readyName)
+				: weapon.ResolveRightHandIkTargetTransform(readyName);
+		}
+
+		return found;
+	}
+
+	private void SnapHandBoneToTurretIk(HumanBodyBones _handBone, bool _leftHand, bool _useNotReady)
+	{
+		Transform ikTarget = ResolveTurretIkTargetTransform(_leftHand, _useNotReady);
+		if (ikTarget == null)
+			return;
+
+		HumanBodyBones upperBone = _leftHand ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm;
+		HumanBodyBones lowerBone = _leftHand ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm;
+		Transform upper = m_Animator.GetBoneTransform(upperBone);
+		Transform lower = m_Animator.GetBoneTransform(lowerBone);
+		Transform hand = m_Animator.GetBoneTransform(_handBone);
+		if (upper == null || lower == null || hand == null)
+			return;
+
+		ApplyTwoBoneIk(upper, lower, hand, ikTarget.position, ikTarget.rotation);
+	}
+
+	private static void ApplyTwoBoneIk(
+		Transform _upper,
+		Transform _lower,
+		Transform _hand,
+		Vector3 _targetPos,
+		Quaternion _targetRot)
+	{
+		Vector3 upperPos = _upper.position;
+		float lenUpper = Vector3.Distance(upperPos, _lower.position);
+		float lenLower = Vector3.Distance(_lower.position, _hand.position);
+		if (lenUpper < 1e-4f || lenLower < 1e-4f)
+		{
+			_hand.SetPositionAndRotation(_targetPos, _targetRot);
+			return;
+		}
+
+		float maxReach = lenUpper + lenLower;
+		Vector3 toTarget = _targetPos - upperPos;
+		float dist = Mathf.Clamp(toTarget.magnitude, 0.001f, maxReach - 0.001f);
+		Vector3 dir = toTarget / Mathf.Max(toTarget.magnitude, 0.001f);
+
+		// Bend plane from current elbow offset.
+		Vector3 pole = Vector3.Cross(dir, _lower.position - upperPos);
+		if (pole.sqrMagnitude < 1e-6f)
+			pole = Vector3.Cross(dir, _upper.up);
+		if (pole.sqrMagnitude < 1e-6f)
+			pole = Vector3.up;
+		pole.Normalize();
+
+		float cosAngle = (lenUpper * lenUpper + dist * dist - lenLower * lenLower) / (2f * lenUpper * dist);
+		cosAngle = Mathf.Clamp(cosAngle, -1f, 1f);
+		float angle = Mathf.Acos(cosAngle);
+
+		Vector3 elbowDir = Quaternion.AngleAxis(angle * Mathf.Rad2Deg, pole) * dir;
+		Vector3 elbowPos = upperPos + elbowDir * lenUpper;
+
+		Vector3 upperAxis = (_lower.position - upperPos).normalized;
+		Vector3 desiredUpper = (elbowPos - upperPos).normalized;
+		if (upperAxis.sqrMagnitude > 1e-6f && desiredUpper.sqrMagnitude > 1e-6f)
+			_upper.rotation = Quaternion.FromToRotation(upperAxis, desiredUpper) * _upper.rotation;
+
+		Vector3 lowerAxis = (_hand.position - _lower.position).normalized;
+		Vector3 desiredLower = (_targetPos - _lower.position).normalized;
+		if (lowerAxis.sqrMagnitude > 1e-6f && desiredLower.sqrMagnitude > 1e-6f)
+			_lower.rotation = Quaternion.FromToRotation(lowerAxis, desiredLower) * _lower.rotation;
+
+		_hand.SetPositionAndRotation(_targetPos, _targetRot);
+	}
+
 	private bool IsInVehiclePassengerIkContext()
 	{
+		if (IsOperatingVehicleTurretIk())
+			return true;
+
 		EnsureVehiclePassengerState();
 		if (m_VehiclePassengerState == null)
 			return false;

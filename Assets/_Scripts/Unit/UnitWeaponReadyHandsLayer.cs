@@ -91,6 +91,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_RocketLauncherFireReadyOverride && GetEffectiveIsReady())
 			return true;
 
+		if (m_Equipment != null && m_Equipment.IsOperatingVehicleTurret)
+			return true;
+
 		return IsWeaponEquipped() && GetEffectiveIsReady();
 	}
 
@@ -447,7 +450,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	public bool IsWeaponEquipped()
 	{
 		ItemDefinition current = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
-		return current != null && current.IsEquipment && current.EquipmentKind == EquipmentKind.Weapon;
+		return current != null && current.IsEquipment &&
+		       (current.EquipmentKind == EquipmentKind.Weapon || current.EquipmentKind == EquipmentKind.TurretWeapon);
 	}
 
 	private bool CanUseDirectKeyboardInput()

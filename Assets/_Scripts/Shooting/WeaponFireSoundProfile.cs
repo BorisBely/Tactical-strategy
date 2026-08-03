@@ -15,19 +15,28 @@ public sealed class WeaponFireSoundProfile
 	#region Private Fields
 	[Tooltip("Варианты звука выстрела. При каждом выстреле выбирается случайный валидный клип.")]
 	[FormerlySerializedAs("m_NearClips")]
-	[SerializeField] private AudioClip[] m_FireClips;
+		[SerializeField] private AudioClip[] m_FireClips;
 	[Tooltip("Максимальная дистанция слышимости (м) для 3D AudioSource. 0 = использовать дефолт UnitWeaponFireAudio.")]
 	[SerializeField, Min(0f)] private float m_MaxAudibleDistanceMeters;
+	[Tooltip("Звук конца очереди (tail/echo). Играется когда после выстрела прошло > TailThresholdSeconds без нового выстрела.")]
+	[SerializeField] private AudioClip[] m_TailClips;
+	[Tooltip("Пауза после последнего выстрела для срабатывания tail (сек).")]
+	[SerializeField, Min(0f)] private float m_TailThresholdSeconds = 0.3f;
 	#endregion
 
 	#region Public Properties
 	public AudioClip[] FireClips => m_FireClips;
+	public AudioClip[] TailClips => m_TailClips;
+	public float TailThresholdSeconds => m_TailThresholdSeconds;
 	public float MaxAudibleDistanceMeters => m_MaxAudibleDistanceMeters;
 	public bool HasAnyClips => HasValidClips(m_FireClips);
+	public bool HasAnyTailClips => HasValidClips(m_TailClips);
 	#endregion
 
 	#region Public Methods
 	public bool TryPickClip(out AudioClip _clip) => TryPickRandomClip(m_FireClips, out _clip);
+
+	public bool TryPickTailClip(out AudioClip _clip) => TryPickRandomClip(m_TailClips, out _clip);
 
 	public float ResolveMaxAudibleDistance(float _componentDefaultMaxDistance)
 	{

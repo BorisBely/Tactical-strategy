@@ -1,11 +1,18 @@
 using UnityEngine;
 
 /// <summary>
-/// Визуальная отдача оружия и правой кисти. Читает RecoilVisualState из UnitWeaponRecoilController
-/// (VisualPitch/Yaw/Back/Up — отдельно от SpreadHalfAngle) и добавляет короткий shot-импульс на PenaltyDelta.
+/// Визуальная отдача оружия и правой кисти.
+///
+/// Две независимые величины:
+///   1. VisualRecoil = PitchCurve(RecoilPenalty) — положение оружия, вычисляется каждый кадр заново.
+///   2. ShotImpulse  — резкий удар после выстрела, SmoothDamp → 0.
+///
+/// Всё остальное (Back, Up, Yaw) — производные от этих двух.
+/// Никаких recovery-интерполяций, отдельных режимов стрельбы, зависимости от SpreadAngle.
+/// Подписывается на FireController.ShotFired напрямую, без PenaltyDelta-посредника.
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(62)]
+[DefaultExecutionOrder(66)]
 public sealed class UnitWeaponRecoil : MonoBehaviour
 {
 	#region Cached Pose
@@ -19,8 +26,12 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	#region Serialized Fields
 	[Tooltip("Снаряжение: корень оружия в руке.")]
 	[SerializeField] private UnitEquipment m_Equipment;
-	[Tooltip("Геймплейный контроллер отдачи — источник RecoilVisualState.")]
+	[Tooltip("Геймплейный контроллер отдачи — источник RecoilPenalty.")]
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
+	[Tooltip("Контроллер стрельбы — источник ShotFired.")]
+	[SerializeField] private UnitWeaponFireController m_FireController;
+	[Tooltip("Runtime оружия — чтение VisualRecoilKickScale.")]
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitRagdollController m_RagdollController;
 	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
 	[Tooltip("Редко: явная цель kick.")]
@@ -28,23 +39,23 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	[Tooltip("Базовая поза оружия (relaxed↔ready).")]
 	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 
-	[Header("Gameplay Pose")]
-	[Tooltip("Максимальный визуальный pitch (градусы).")]
-	[SerializeField, Min(0f)] private float m_MaxVisualPitch = 12f;
-	[Tooltip("Амплитуда Perlin-шума бокового покачивания относительно pitch.")]
-	[SerializeField, Range(0f, 1f)] private float m_YawNoiseScale = 0.25f;
-	[Tooltip("Скорость Perlin-шума для бокового покачивания.")]
-	[SerializeField, Min(0f)] private float m_YawNoiseSpeed = 0.7f;
+	[Header("Offset — положение от накопленной отдачи")]
+	[Tooltip("Кривая: ось X = RecoilPenalty (абсолютный), ось Y = визуальный pitch (градусы).")]
+	[SerializeField] private AnimationCurve m_PitchCurve = AnimationCurve.EaseInOut(0f, 0f, 60f, 5f);
+		[Tooltip("Сдвиг назад (метры) на градус Pitch.")]
+	[SerializeField, Min(0f)] private float m_BackScale = 0.012f;
+	[Tooltip("Сдвиг вверх (метры) на градус Pitch.")]
+	[SerializeField, Min(0f)] private float m_UpScale = 0.004f;
+	[Tooltip("Множитель offset-смещения (не влияет на импульс).")]
+	[SerializeField, Min(0f)] private float m_VisualOffsetScale = 1f;
 
-	[Header("Shot Impulse")]
-	[Tooltip("Импульсный pitch на единицу delta penalty.")]
-	[SerializeField, Min(0f)] private float m_ImpulsePitchScale = 0.1f;
-	[Tooltip("Импульсный back на единицу delta penalty.")]
-	[SerializeField, Min(0f)] private float m_ImpulseBackScale = 0.0005f;
-	[Tooltip("Импульсный up на единицу delta penalty.")]
-	[SerializeField, Min(0f)] private float m_ImpulseUpScale = 0.0002f;
-	[Tooltip("SmoothDamp время импульса.")]
-	[SerializeField, Min(0.01f)] private float m_ImpulseSmoothTime = 0.04f;
+	[Header("Shot Impulse — резкий удар выстрела")]
+	[Tooltip("Базовый градус импульса на единицу RecoilPerShot. Умножается на VisualRecoilKickScale из WeaponDefinition.")]
+	[SerializeField, Min(0f)] private float m_ShotPitch = 2f;
+	[Tooltip("Доля pitch для амплитуды yaw-импульса.")]
+	[SerializeField, Range(0f, 1f)] private float m_ShotYawScale = 0.3f;
+	[Tooltip("SmoothDamp время импульса (сек).")]
+	[SerializeField, Min(0.01f)] private float m_ShotSmoothTime = 0.05f;
 
 	[Header("Hand Kick")]
 	[Tooltip("Множитель pitch-вращения кисти.")]
@@ -60,18 +71,16 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	#region Private Fields
 	private Transform m_KickTarget;
 	private CachedWeaponVisualPose m_CachedTotalPose;
-	private float m_RecoilTime;
-	private float m_YawSeed;
 
-	// Shot impulse
+	// Единственное состояние: импульс (2 float)
 	private float m_ShotImpulsePitch;
 	private float m_ShotImpulseYaw;
-	private float m_ShotImpulseBack;
-	private float m_ShotImpulseUp;
 	private float m_ShotImpulseVelocityPitch;
 	private float m_ShotImpulseVelocityYaw;
-	private float m_ShotImpulseVelocityBack;
-	private float m_ShotImpulseVelocityUp;
+
+	// Детерминированный шум yaw по номеру выстрела
+	private int m_ShotIndex;
+	private float m_YawSeed;
 	#endregion
 
 	#region Unity Lifecycle
@@ -81,6 +90,10 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
+		if (m_FireController == null)
+			m_FireController = GetComponent<UnitWeaponFireController>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_RagdollController == null)
 			m_RagdollController = GetComponent<UnitRagdollController>();
 		if (m_RuntimeTuner == null)
@@ -97,8 +110,8 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	{
 		if (m_Equipment != null)
 			m_Equipment.EquipmentChanged += HandleEquipmentChanged;
-		if (m_RecoilController != null)
-			m_RecoilController.PenaltyDelta += HandlePenaltyDelta;
+		if (m_FireController != null)
+			m_FireController.ShotFired += HandleShotFired;
 		RefreshKickTarget(true);
 	}
 
@@ -106,8 +119,8 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	{
 		if (m_Equipment != null)
 			m_Equipment.EquipmentChanged -= HandleEquipmentChanged;
-		if (m_RecoilController != null)
-			m_RecoilController.PenaltyDelta -= HandlePenaltyDelta;
+		if (m_FireController != null)
+			m_FireController.ShotFired -= HandleShotFired;
 		if (m_KickTarget != null)
 			ResetVisualKick();
 		m_KickTarget = null;
@@ -131,56 +144,42 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		if (m_KickTarget == null)
 			return;
 
-		if (!IsNearCameraForVisualDetail())
+		bool nearCam = IsNearCameraForVisualDetail();
+		if (!nearCam)
 		{
 			ResetVisualKick();
 			return;
 		}
 
-		bool hasWeapon = m_Equipment != null && m_Equipment.MainWeaponRoot != null;
-		if (hasWeapon)
-			m_RecoilTime += Time.deltaTime;
+		// 1) Decay impulse
+		m_ShotImpulsePitch = Mathf.SmoothDamp(m_ShotImpulsePitch, 0f, ref m_ShotImpulseVelocityPitch, m_ShotSmoothTime);
+		m_ShotImpulseYaw   = Mathf.SmoothDamp(m_ShotImpulseYaw,   0f, ref m_ShotImpulseVelocityYaw,   m_ShotSmoothTime);
 
-		// 1) Decay shot impulse
-		m_ShotImpulsePitch = Mathf.SmoothDamp(m_ShotImpulsePitch, 0f, ref m_ShotImpulseVelocityPitch, m_ImpulseSmoothTime);
-		m_ShotImpulseYaw = Mathf.SmoothDamp(m_ShotImpulseYaw, 0f, ref m_ShotImpulseVelocityYaw, m_ImpulseSmoothTime);
-		m_ShotImpulseBack = Mathf.SmoothDamp(m_ShotImpulseBack, 0f, ref m_ShotImpulseVelocityBack, m_ImpulseSmoothTime);
-		m_ShotImpulseUp = Mathf.SmoothDamp(m_ShotImpulseUp, 0f, ref m_ShotImpulseVelocityUp, m_ImpulseSmoothTime);
+		// 2) Offset — fresh every frame from penalty, no interpolation
+		float penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
+		float offsetPitch = m_PitchCurve.Evaluate(penalty);
 
-		// 2) Read current visual state from gameplay controller
-		UnitWeaponRecoilController.RecoilVisualState state =
-			m_RecoilController != null ? m_RecoilController.CurrentVisualState : default;
+		// 3) Combine — offset and impulse scaled independently
+		float kickScale = ResolveVisualRecoilKickScale();
+		float totalPitch = offsetPitch * m_VisualOffsetScale + m_ShotImpulsePitch * kickScale;
+		float totalYaw   = m_ShotImpulseYaw * kickScale;
+		float totalBack  = totalPitch * m_BackScale;
+		float totalUp    = totalPitch * m_UpScale;
 
-		// 3) GameplayPose — контроллер даёт готовые визуальные значения
-		float gameplayPitch = Mathf.Min(state.VisualPitch, m_MaxVisualPitch);
-		float gameplayYaw = state.VisualYaw + ComputePerlinYaw(gameplayPitch);
-		float gameplayBack = state.VisualBack;
-		float gameplayUp = state.VisualUp;
-
-		// 4) Total
-		float totalPitch = gameplayPitch + m_ShotImpulsePitch;
-		float totalYaw = gameplayYaw + m_ShotImpulseYaw;
-		float totalBack = gameplayBack + m_ShotImpulseBack;
-		float totalUp = gameplayUp + m_ShotImpulseUp;
-
-		Quaternion baseRot = ResolveBaseWeaponLocalRotation();
+		// 4) Apply — ONLY position (Aiming handles rotation)
 		Vector3 basePos = ResolveBaseWeaponLocalPosition();
 
-		if (!HasActiveVisual(totalPitch, totalYaw, totalBack, totalUp))
+		if (Mathf.Abs(totalPitch) < 0.001f && Mathf.Abs(totalYaw) < 0.001f)
 		{
-			m_KickTarget.localRotation = baseRot;
-			m_KickTarget.localPosition = basePos;
 			m_CachedTotalPose = default;
 			return;
 		}
 
-		Quaternion kickRot = Quaternion.Euler(-totalPitch, totalYaw, 0f);
 		Vector3 kickPos = new Vector3(0f, totalUp, -totalBack);
 
-		m_CachedTotalPose.Rotation = kickRot;
+		m_CachedTotalPose.Rotation = Quaternion.identity;
 		m_CachedTotalPose.Position = kickPos;
 
-		m_KickTarget.localRotation = baseRot * kickRot;
 		m_KickTarget.localPosition = basePos + kickPos;
 	}
 	#endregion
@@ -209,12 +208,6 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	{
 		ResetImpulseState();
 		m_CachedTotalPose = default;
-		if (m_KickTarget == null)
-			return;
-		Quaternion baseRot = ResolveBaseWeaponLocalRotation();
-		Vector3 basePos = ResolveBaseWeaponLocalPosition();
-		m_KickTarget.localRotation = baseRot;
-		m_KickTarget.localPosition = basePos;
 	}
 	#endregion
 
@@ -244,14 +237,6 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		return Vector3.zero;
 	}
 
-	private float ComputePerlinYaw(float _visualPitch)
-	{
-		if (_visualPitch <= 0.0001f || m_YawNoiseScale <= 0.0001f)
-			return 0f;
-		float noise = Mathf.PerlinNoise(m_YawSeed, m_RecoilTime * m_YawNoiseSpeed) * 2f - 1f;
-		return noise * _visualPitch * m_YawNoiseScale;
-	}
-
 	private static bool HasActiveVisual(float _pitch, float _yaw, float _back, float _up)
 	{
 		return Mathf.Abs(_pitch) > 0.001f
@@ -260,13 +245,16 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 			|| Mathf.Abs(_up) > 0.00001f;
 	}
 
-	private void HandlePenaltyDelta(float _delta)
+	private float ResolveVisualRecoilKickScale()
 	{
-		if (Mathf.Abs(_delta) <= 0.0001f)
-			return;
-		if (!IsNearCameraForVisualDetail())
-			return;
+		WeaponDefinition definition = m_WeaponRuntime != null
+			? m_WeaponRuntime.CurrentWeaponDefinition
+			: null;
+		return definition != null ? definition.VisualRecoilKickScale : 1f;
+	}
 
+	private void HandleShotFired(AmmoDefinition _ammoDefinition)
+	{
 		Transform kickTarget = ResolveKickTarget();
 		if (kickTarget == null)
 			return;
@@ -275,13 +263,17 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		if (m_KickTarget == null)
 			return;
 
-		float absDelta = Mathf.Abs(_delta);
-		float sign = _delta > 0f ? 1f : -1f;
+		float recoilPerShot = m_RecoilController != null
+			? m_RecoilController.ComputeRecoilAddedPerShot(_ammoDefinition)
+			: 1f;
+		float kickScale = ResolveVisualRecoilKickScale();
+		float shotPitchAmount = recoilPerShot * kickScale * m_ShotPitch;
 
-		m_ShotImpulsePitch += absDelta * m_ImpulsePitchScale * sign;
-		m_ShotImpulseBack += absDelta * m_ImpulseBackScale * sign;
-		m_ShotImpulseUp += absDelta * m_ImpulseUpScale * sign;
-		m_ShotImpulseYaw += Random.Range(-1f, 1f) * absDelta * m_ImpulsePitchScale * 0.3f;
+		m_ShotImpulsePitch += shotPitchAmount;
+
+		float yawNoise = Mathf.PerlinNoise(m_YawSeed, m_ShotIndex * 0.73f) * 2f - 1f;
+		m_ShotImpulseYaw += yawNoise * shotPitchAmount * m_ShotYawScale;
+		m_ShotIndex++;
 	}
 
 	private void HandleEquipmentChanged()
@@ -312,10 +304,7 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		}
 
 		if (_resetKick || targetChanged)
-		{
 			ResetImpulseState();
-			m_RecoilTime = 0f;
-		}
 	}
 
 	private bool IsNearCameraForVisualDetail()
@@ -338,12 +327,9 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	{
 		m_ShotImpulsePitch = 0f;
 		m_ShotImpulseYaw = 0f;
-		m_ShotImpulseBack = 0f;
-		m_ShotImpulseUp = 0f;
 		m_ShotImpulseVelocityPitch = 0f;
 		m_ShotImpulseVelocityYaw = 0f;
-		m_ShotImpulseVelocityBack = 0f;
-		m_ShotImpulseVelocityUp = 0f;
+		m_ShotIndex = 0;
 	}
 	#endregion
 }

@@ -38,7 +38,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 	private const float c_ApproachAlignSnapRadius = 1.25f;
 	private const float c_DoorQueueSpacingMeters = 0.85f;
 	private const float c_ApproachTimeoutSeconds = 45f;
-	private const bool c_BoardDebugLogs = true;
+	private const bool c_BoardDebugLogs = false;
 	#endregion
 
 	#region Serialized Fields
@@ -1387,11 +1387,6 @@ public sealed class VehicleBoardController : MonoBehaviour
 	#region Debug Logging
 	private void LogBoard(string _message)
 	{
-		if (!c_BoardDebugLogs)
-			return;
-
-		string vehicleName = m_Vehicle != null ? m_Vehicle.name : "?";
-		Debug.Log($"[VehicleBoard:{vehicleName}] {_message}");
 	}
 
 	private void LogBoardSkip(RtsUnitMember _unit, string _phase, string _reason)

@@ -50,6 +50,7 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	private int m_CarriedPoseLayerIndex = -1;
 	private int m_PassengerHandsLayerIndex = -1;
 	private int m_AimLayerIndex = -1;
+	private int m_MagazineLoadingLayerIndex = -1;
 	private float m_BaseLayerWeightBefore = 1f;
 	private bool m_PoseActive;
 	private bool m_IsDriverPose;
@@ -65,6 +66,9 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	private bool m_WasVehicleReady;
 	private bool m_WasPreparing;
 	private bool m_PassengerWeaponAimingWasEnabled;
+	private bool m_GunnerWeaponAimingWasEnabled;
+	private bool m_GunnerAimLayerWasZeroed;
+	private float m_GunnerAimLayerWeightBefore = 1f;
 	#endregion
 
 	#region Public Properties
@@ -87,7 +91,7 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 
 		if (_seatId == VehicleSeatId.Gunner)
 		{
-			ApplyGunnerPose();
+			ApplyGunnerPose(_vehicle);
 			return;
 		}
 
@@ -164,6 +168,13 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		if (m_IsPassengerHandsPose && m_WeaponAiming != null && m_PassengerWeaponAimingWasEnabled)
 			m_WeaponAiming.enabled = true;
 
+		if (m_GunnerAimLayerWasZeroed && m_Animator != null && m_AimLayerIndex >= 0)
+			m_Animator.SetLayerWeight(m_AimLayerIndex, m_GunnerAimLayerWeightBefore);
+		if (m_WeaponAiming != null && m_GunnerWeaponAimingWasEnabled)
+			m_WeaponAiming.enabled = true;
+		m_GunnerAimLayerWasZeroed = false;
+		m_GunnerWeaponAimingWasEnabled = false;
+
 		if (m_ProximityReady != null)
 			m_ProximityReady.enabled = true;
 
@@ -201,6 +212,9 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		m_WasVehicleReady = false;
 		m_WasPreparing = false;
 		m_PassengerWeaponAimingWasEnabled = false;
+		m_GunnerWeaponAimingWasEnabled = false;
+		m_GunnerAimLayerWasZeroed = false;
+		m_GunnerAimLayerWeightBefore = 1f;
 	}
 
 	public static UnitVehicleSeatPoseController GetOrAdd(GameObject _unitObject)
@@ -223,7 +237,16 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	#region Unity Lifecycle
 	private void LateUpdate()
 	{
-		if (!m_PoseActive || !m_IsPassengerHandsPose || m_Animator == null)
+		if (!m_PoseActive || m_Animator == null)
+			return;
+
+		if (m_Animator.GetBool(s_IsVehicleGunner))
+		{
+			MaintainGunnerIkLayers();
+			return;
+		}
+
+		if (!m_IsPassengerHandsPose)
 			return;
 
 		if (m_PassengerHandsLayerIndex < 0)
@@ -240,6 +263,28 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		SyncPassengerReadyState();
 	}
 
+	private void MaintainGunnerIkLayers()
+	{
+		if (m_CarriedPoseLayerIndex >= 0 && m_Animator.GetLayerWeight(m_CarriedPoseLayerIndex) < 0.99f)
+			m_Animator.SetLayerWeight(m_CarriedPoseLayerIndex, 1f);
+
+		if (m_AimLayerIndex < 0)
+			m_AimLayerIndex = m_Animator.GetLayerIndex("Aim_Point_U90-D90");
+		if (m_AimLayerIndex >= 0 && m_Animator.GetLayerWeight(m_AimLayerIndex) > 0f)
+			m_Animator.SetLayerWeight(m_AimLayerIndex, 0f);
+
+		if (m_MagazineLoadingLayerIndex < 0)
+			m_MagazineLoadingLayerIndex = m_Animator.GetLayerIndex(UnitMagazineLoadingController.MagazineLoadingHandsLayerName);
+		if (m_MagazineLoadingLayerIndex >= 0 && m_Animator.GetLayerWeight(m_MagazineLoadingLayerIndex) > 0f)
+			m_Animator.SetLayerWeight(m_MagazineLoadingLayerIndex, 0f);
+
+		if (m_HandIk != null && !m_HandIk.enabled)
+			m_HandIk.enabled = true;
+
+		if (m_WeaponAiming != null && m_WeaponAiming.enabled)
+			m_WeaponAiming.enabled = false;
+	}
+
 	private void OnDisable()
 	{
 		if (m_PoseActive)
@@ -248,7 +293,7 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	#endregion
 
 	#region Private Methods — Seat Apply
-	private void ApplyGunnerPose()
+	private void ApplyGunnerPose(VehicleController _vehicle)
 	{
 		CacheRefs();
 
@@ -274,10 +319,31 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		m_Animator.SetBool(s_IsVehicleGunner, true);
 		m_Animator.SetLayerWeight(m_CarriedPoseLayerIndex, 1f);
 
+		// Пехотный AimPitch/Aim_Point конфликтует с IK на турели; турель крутится на машине.
+		if (m_WeaponAiming != null)
+		{
+			m_GunnerWeaponAimingWasEnabled = m_WeaponAiming.enabled;
+			m_WeaponAiming.enabled = false;
+		}
+
+		m_AimLayerIndex = m_Animator.GetLayerIndex("Aim_Point_U90-D90");
+		if (m_AimLayerIndex >= 0)
+		{
+			m_GunnerAimLayerWeightBefore = m_Animator.GetLayerWeight(m_AimLayerIndex);
+			m_Animator.SetLayerWeight(m_AimLayerIndex, 0f);
+			m_GunnerAimLayerWasZeroed = true;
+		}
+
 		if (m_Equipment != null)
 		{
 			m_Equipment.SetMainWeaponVisualActive(false);
 			m_HidMainWeapon = true;
+		}
+
+		if (_vehicle != null)
+		{
+			m_ReadyHands?.SetReadyWanted(true);
+			m_ReadyHands?.SetKeyboardInputEnabled(false);
 		}
 	}
 

@@ -110,3 +110,17 @@ MonoBehaviour:
   m_DecalScale: 0.45
   m_DecalLifetimeSeconds: 20
   m_ImpactAudioMaxDistance: 45
+  m_MuzzleFlashMaxDistanceMeters: 50
+  m_ImpactFxMaxDistanceMeters: 30
+  m_BulletFlightMaxDistanceMeters: 40
+  m_DecalMaxDistanceMeters: 20
+  m_EffectNearQualityDistanceMeters: 15
+  m_EffectMidQualityDistanceMeters: 35
+  m_ReducedParticleScaleMultiplier: 0.6
+  m_ReducedMaxParticlesMultiplier: 0.35
+  m_ReducedMuzzleScaleMultiplier: 0.55
+  m_ReducedBulletFlightScaleMultiplier: 0.7
+  m_ReducedDecalLifetimeMultiplier: 0.5
+  m_SmokeIntensity: 1
+  m_FlashScale: 1
+  m_TracerEveryNShot: 1

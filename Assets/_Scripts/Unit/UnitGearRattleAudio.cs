@@ -274,6 +274,12 @@ public sealed class UnitGearRattleAudio : MonoBehaviour
 		return clip != null ? clip : null;
 	}
 
+	public bool TryPickRandomLoopClip(out AudioClip _clip)
+	{
+		_clip = PickRandomLoopClip();
+		return _clip != null;
+	}
+
 	private void PlayClip(AudioClip _clip, float _baseVolume)
 	{
 		if (_clip == null || m_AudioSource == null || _baseVolume <= 0f)

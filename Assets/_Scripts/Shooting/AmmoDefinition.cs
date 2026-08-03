@@ -51,6 +51,12 @@ public sealed class AmmoDefinition : ScriptableObject
 	[Tooltip("Если за это время не было удара — гильза возвращается в пул (застряла, улетела).")]
 	[SerializeField, Min(0.5f)] private float m_ShellMaxAirborneSeconds = 12f;
 
+	[Header("Звено ленты (пулемёты)")]
+	[Tooltip("Префаб звена ленты (BeltLink). Rigidbody + Collider. Только для ленточных пулемётов.")]
+	[SerializeField] private GameObject m_BeltLinkPrefab;
+	[SerializeField, Min(0.1f)] private float m_BeltLinkEjectSpeed = 1.5f;
+	[SerializeField, Min(0f)] private float m_BeltLinkAngularVelocity = 4f;
+
 	[Header("Shot Modifiers")]
 	[Tooltip("Как этот патрон меняет разброс текущего выстрела.")]
 	[SerializeField, Min(0f)] private float m_SpreadModifier = 1f;
@@ -109,6 +115,10 @@ public sealed class AmmoDefinition : ScriptableObject
 	public float ShellImpactVolume => m_ShellImpactVolume;
 	public float ShellLifetimeAfterImpactSeconds => m_ShellLifetimeAfterImpactSeconds;
 	public float ShellMaxAirborneSeconds => m_ShellMaxAirborneSeconds;
+	public bool HasBeltLinkPrefab => m_BeltLinkPrefab != null;
+	public GameObject BeltLinkPrefab => m_BeltLinkPrefab;
+	public float BeltLinkEjectSpeed => m_BeltLinkEjectSpeed;
+	public float BeltLinkAngularVelocity => m_BeltLinkAngularVelocity;
 	public float BaseDamage => m_BaseDamage;
 	public float Penetration => m_Penetration;
 	public float ArmorDamage => m_ArmorDamage;

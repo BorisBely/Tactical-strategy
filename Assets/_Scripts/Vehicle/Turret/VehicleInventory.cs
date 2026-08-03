@@ -81,6 +81,12 @@ public sealed class VehicleInventory : MonoBehaviour
 		m_ExchangeModificationAllowed = _allowed;
 	}
 
+	/// <summary>UI/reload: оповестить панели после мутации InstanceState без смены слота.</summary>
+	public void NotifyContentsChanged()
+	{
+		NotifyInventoryChanged();
+	}
+
 	public void BeginInventoryChangeBatch()
 	{
 		m_InventoryChangeBatchDepth++;
@@ -118,6 +124,20 @@ public sealed class VehicleInventory : MonoBehaviour
 
 		_removed = m_BagItems[_index];
 		m_BagItems.RemoveAt(_index);
+		NotifyInventoryChanged();
+		return true;
+	}
+
+	/// <summary>Добавить предмет в багаж, игнорируя лимит веса (пустой короб после перезарядки).</summary>
+	public bool ForceAddToBag(InventorySlotRuntimeData _data)
+	{
+		if (_data.IsEmpty)
+			return false;
+
+		InventorySlotRuntimeData copy = _data;
+		EnsureSlotHasInstanceState(ref copy);
+		copy.WorldSource = null;
+		m_BagItems.Add(copy);
 		NotifyInventoryChanged();
 		return true;
 	}

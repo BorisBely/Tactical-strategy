@@ -87,6 +87,16 @@ public sealed partial class RtsUnitSelectionManager
 		m_SelectedVehicle?.CycleTurretAimMode();
 	}
 
+	public void CommandSelectedVehicleGunnerReload()
+	{
+		if (m_SelectedVehicle == null || !m_SelectedVehicle.IsGunnerOnTurret)
+			return;
+
+		VehicleTurretGunnerBridge bridge = m_SelectedVehicle.TurretGunnerBridge;
+		if (bridge == null || !bridge.TryStartGunnerReload())
+			Debug.LogWarning("[Vehicle] Gunner reload failed (no spare M2 box or Mag/Handle missing).", m_SelectedVehicle);
+	}
+
 	public void CommandLoadWoundedIntoSelectedOrTargetVehicle()
 	{
 		if (!TryGetCarryingSelectedUnit(out RtsUnitMember carrier))
@@ -713,6 +723,13 @@ public sealed partial class RtsUnitSelectionManager
 		{
 			m_SelectedVehicle.ToggleAllPassengersVehicleReady();
 			m_VehicleEKeyConsumed = true;
+		}
+
+		if (m_SelectedVehicle != null &&
+		    m_SelectedVehicle.IsGunnerOnTurret &&
+		    Keyboard.current.rKey.wasPressedThisFrame)
+		{
+			CommandSelectedVehicleGunnerReload();
 		}
 
 		if (m_SelectedVehicle == null || !m_SelectedVehicle.HasPassengers)

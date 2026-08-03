@@ -83,6 +83,14 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Range(0.05f, 1f)] private float m_ReducedMuzzleScaleMultiplier = 0.55f;
 	[SerializeField, Range(0.05f, 1f)] private float m_ReducedBulletFlightScaleMultiplier = 0.7f;
 	[SerializeField, Range(0.05f, 1f)] private float m_ReducedDecalLifetimeMultiplier = 0.5f;
+
+	[Header("Turret / Heavy Weapon")]
+	[Tooltip("Интенсивность дыма (множитель startSize/emission).")]
+	[SerializeField, Min(0f)] private float m_SmokeIntensity = 1f;
+	[Tooltip("Дополнительный множитель scale для вспышки (поверх MuzzleScale).")]
+	[SerializeField, Min(0.01f)] private float m_FlashScale = 1f;
+	[Tooltip("Каждая N-я пуля — трассер. 1 = каждая, 5 = каждая 5-я.")]
+	[SerializeField, Min(1)] private int m_TracerEveryNShot = 1;
 	#endregion
 
 	#region Public Properties
@@ -144,6 +152,10 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public float ReducedMuzzleScaleMultiplier => m_ReducedMuzzleScaleMultiplier;
 	public float ReducedBulletFlightScaleMultiplier => m_ReducedBulletFlightScaleMultiplier;
 	public float ReducedDecalLifetimeMultiplier => m_ReducedDecalLifetimeMultiplier;
+
+	public float SmokeIntensity => m_SmokeIntensity;
+	public float FlashScale => m_FlashScale;
+	public int TracerEveryNShot => m_TracerEveryNShot;
 	#endregion
 
 	#region Public Methods

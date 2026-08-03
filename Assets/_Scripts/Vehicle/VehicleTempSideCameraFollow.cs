@@ -1,6 +1,9 @@
 using System.Collections.Generic;
+#pragma warning disable CS0414
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.InputSystem;
+#pragma warning disable CS0414
 
 /// <summary>
 /// TEMP debug: camera views for vehicle inspection.

@@ -199,6 +199,38 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 		return m_RailSockets[_index];
 	}
+
+	/// <summary>
+	/// Привязать MuzzleExit / ShellEject с дочерних пустышек (турель M2).
+	/// Уже заданные в инспекторе ссылки не перезаписывает.
+	/// </summary>
+	/// <returns>true если хотя бы одна ссылка была пустой и заполнена.</returns>
+	public bool BindTurretCombatSocketsFromHierarchy()
+	{
+		bool changed = false;
+
+		if (m_Barrel == null)
+		{
+			Transform muzzle = FindChildRecursive(transform, MuzzleExitTransformName);
+			if (muzzle != null)
+			{
+				m_Barrel = muzzle;
+				changed = true;
+			}
+		}
+
+		if (m_ShellEject == null)
+		{
+			Transform shell = FindChildRecursive(transform, "ShellEject");
+			if (shell != null)
+			{
+				m_ShellEject = shell;
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
 	#endregion
 
 	#region Private Fields
@@ -734,7 +766,12 @@ public sealed class EquippedWeapon : MonoBehaviour
 	private Transform ResolveFireOriginTransform()
 	{
 		Transform muzzleExit = ResolveMuzzleExitTransform();
-		return muzzleExit != null ? muzzleExit : BarrelTransform;
+		if (muzzleExit != null)
+			return muzzleExit;
+		Transform directMuzzle = transform.Find(MuzzleExitTransformName);
+		if (directMuzzle != null)
+			return directMuzzle;
+		return BarrelTransform;
 	}
 
 	private Transform ResolveMuzzleExitTransform()

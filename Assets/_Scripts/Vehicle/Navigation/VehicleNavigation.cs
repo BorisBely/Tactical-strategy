@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CombatVehicleSystem;
+#pragma warning disable CS0067, CS0414
 using UnityEngine;
 
 namespace VehicleNavigation

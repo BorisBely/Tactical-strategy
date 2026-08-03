@@ -28,7 +28,8 @@ public static class BulletImpactSurfaceContentBuilder
 	{
 		"Assets/GameData/Shooting/M4/WeaponVfxProfile_M4.asset",
 		"Assets/GameData/Shooting/AK/WeaponVfxProfile_AK47.asset",
-		"Assets/GameData/Shooting/Standalone/WeaponVfxProfile_BenelliM4.asset"
+		"Assets/GameData/Shooting/Standalone/WeaponVfxProfile_BenelliM4.asset",
+		"Assets/GameData/Shooting/Turret/WeaponVfxProfile_M2.asset"
 	};
 	#endregion
 

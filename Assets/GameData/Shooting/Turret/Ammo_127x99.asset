@@ -23,7 +23,7 @@ MonoBehaviour:
     m_FireClips: []
     m_MaxAudibleDistanceMeters: 0
   m_IsSubsonic: 0
-  m_ShellPrefab: {fileID: 0}
+  m_ShellPrefab: {fileID: 8877666600000001, guid: b750f36afae8a234182d67e55ca07c7d, type: 3}
   m_ShellEjectSpeed: 6
   m_ShellEjectSpeedVariance: 0.8
   m_ShellEjectUpSpeed: 1.4
@@ -36,6 +36,9 @@ MonoBehaviour:
   m_ShellImpactVolume: 0.55
   m_ShellLifetimeAfterImpactSeconds: 3
   m_ShellMaxAirborneSeconds: 12
+  m_BeltLinkPrefab: {fileID: 8877666700000001, guid: 09c1f3cca42dd9044ad642b2e89a548e, type: 3}
+  m_BeltLinkEjectSpeed: 1.5
+  m_BeltLinkAngularVelocity: 4
   m_SpreadModifier: 1
   m_RecoilModifier: 1
   m_WearPerShot: 1

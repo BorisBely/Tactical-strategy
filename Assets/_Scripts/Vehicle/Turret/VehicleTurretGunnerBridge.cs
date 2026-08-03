@@ -1,4 +1,5 @@
 using UnityEngine;
+#pragma warning disable CS0414
 
 /// <summary>
 /// Мост: юнит в слоте Gunner стреляет из орудия машины (пехотный стек), без ready/reload.
@@ -14,6 +15,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 	[SerializeField] private VehicleTurretAimController m_Aim;
 	[SerializeField] private VehicleTurretEquipmentController m_Equipment;
 	[SerializeField] private VehicleInventory m_Inventory;
+	[SerializeField] private VehicleTurretReloadController m_ReloadController;
 	[SerializeField, Range(1f, 30f)] private float m_BarrelAlignToleranceDegrees = 8f;
 	#endregion
 
@@ -24,6 +26,8 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 	private UnitEquipment m_BoundEquipment;
 	private UnitWeaponReadyHandsLayer m_BoundReady;
 	private UnitVision m_BoundVision;
+	private UnitWeaponShellEjection m_BoundShellEjection;
+	private UnitVehicleTurretReloadEvents m_BoundReloadEvents;
 	private bool m_SavedRequireReady = true;
 	private bool m_SavedTryReload = true;
 	#endregion
@@ -31,6 +35,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 	#region Public Properties
 	public RtsUnitMember BoundGunner => m_BoundGunner;
 	public bool HasBoundGunner => m_BoundGunner != null;
+	public bool IsGunnerReloadBusy => m_ReloadController != null && m_ReloadController.IsReloadBusy;
 	#endregion
 
 	#region Unity Lifecycle
@@ -98,6 +103,20 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		UnbindGunner();
 		BindGunner(gunner);
 	}
+
+	public bool TryStartGunnerReload()
+	{
+		if (m_BoundGunner == null || m_ReloadController == null)
+			return false;
+		return m_ReloadController.TryStartReload(m_BoundGunner);
+	}
+
+	public bool TryStartGunnerReloadWithReservedBox(InventorySlotRuntimeData _fullBox)
+	{
+		if (m_BoundGunner == null || m_ReloadController == null)
+			return false;
+		return m_ReloadController.TryStartReloadWithReservedBox(m_BoundGunner, _fullBox);
+	}
 	#endregion
 
 	#region Private Methods
@@ -113,6 +132,8 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 			TryGetComponent(out m_Equipment);
 		if (m_Inventory == null)
 			TryGetComponent(out m_Inventory);
+		if (m_ReloadController == null)
+			TryGetComponent(out m_ReloadController);
 	}
 
 	private void HandleOccupancyChanged()
@@ -142,11 +163,22 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 			m_SavedRequireReady = m_BoundFire.RequireReady;
 			m_SavedTryReload = m_BoundFire.TryReloadWhenOutOfAmmo;
 			m_BoundFire.RequireReady = false;
-			m_BoundFire.TryReloadWhenOutOfAmmo = false;
+			m_BoundFire.TryReloadWhenOutOfAmmo = true;
 		}
+
+		m_BoundReloadEvents = UnitVehicleTurretReloadEvents.GetOrAdd(_gunner.gameObject);
+		if (m_ReloadController != null)
+			m_BoundReloadEvents.Bind(m_ReloadController);
 
 		if (m_BoundReady != null)
 			m_BoundReady.SetReadyWanted(true);
+
+		m_BoundShellEjection = _gunner.GetComponent<UnitWeaponShellEjection>();
+		if (m_BoundShellEjection != null)
+			m_BoundShellEjection.enabled = false;
+		UnitWeaponParticleShellEjection particleEjection = _gunner.GetComponent<UnitWeaponParticleShellEjection>();
+		if (particleEjection != null)
+			particleEjection.enabled = false;
 
 		RefreshWeaponBind();
 	}
@@ -167,8 +199,12 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 			m_BoundFire.TryReloadWhenOutOfAmmo = m_SavedTryReload;
 		}
 
+		m_BoundReloadEvents?.Unbind(m_ReloadController);
 		m_BoundRuntime?.ClearExternalWeaponBind();
 		m_BoundEquipment?.ClearTurretWeaponOverride();
+
+		if (m_BoundShellEjection != null)
+			m_BoundShellEjection.enabled = true;
 
 		m_BoundGunner = null;
 		m_BoundFire = null;
@@ -176,6 +212,8 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		m_BoundEquipment = null;
 		m_BoundReady = null;
 		m_BoundVision = null;
+		m_BoundShellEjection = null;
+		m_BoundReloadEvents = null;
 
 		m_Aim?.SetActive(false);
 		m_Aim?.ClearAim();
@@ -196,9 +234,13 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		}
 
 		InventorySlotRuntimeData weaponSlot = m_Inventory.TurretWeapon;
+		EquippedWeapon equipped = m_Equipment.ActiveEquippedWeapon;
+		if (equipped != null)
+			VehicleTurretCombatSockets.PrepareM2PitchRuntime(equipped.transform);
+
 		m_BoundRuntime.BindExternalWeaponState(weaponSlot.InstanceState);
 		m_BoundEquipment.SetTurretWeaponOverride(
-			m_Equipment.ActiveEquippedWeapon,
+			equipped,
 			weaponSlot.Definition);
 
 		m_Aim?.SetActive(true);

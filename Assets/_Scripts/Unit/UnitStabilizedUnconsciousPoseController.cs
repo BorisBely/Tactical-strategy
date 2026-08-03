@@ -1,7 +1,11 @@
 using System.Collections;
+#pragma warning disable CS0414
 using System.Collections.Generic;
+#pragma warning disable CS0414
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.AI;
+#pragma warning disable CS0414
 
 /// <summary>
 /// После стабилизации бессознательного юнита включает Laying Sleeping на слое Carried_Pose.

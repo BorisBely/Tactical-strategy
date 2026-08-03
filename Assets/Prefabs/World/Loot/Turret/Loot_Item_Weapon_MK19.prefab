@@ -55,8 +55,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.35, y: 0.3, z: 0.9}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 0.2694689, y: 0.17149295, z: 1.112465}
+  m_Center: {x: -0.040265534, y: -0.0042835698, z: 0.2707215}
 --- !u!54 &2832235534043291650
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -165,6 +165,13 @@ MonoBehaviour:
         m_Definition: {fileID: 0}
         m_LoadedAmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
+      m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+      m_CurrentSecondaryMagazineDisplayName: 
+      m_CurrentSecondaryMagazineLocalizationKey: 
+      m_CurrentSecondaryMagazineRuntimeState:
+        m_Definition: {fileID: 0}
+        m_LoadedAmmoDefinition: {fileID: 0}
+        m_CurrentAmmoCount: 0
       m_Wear01: 0
       m_Fouling01: 0
       m_EquippedAttachments: []
@@ -179,4 +186,12 @@ MonoBehaviour:
     m_AmmoContainerState:
       m_AmmoDefinition: {fileID: 0}
       m_CurrentAmmoCount: 0
+    m_MedkitState:
+      m_Definition: {fileID: 0}
+      m_CurrentResourcePoints: 0
+    m_RocketLauncherState:
+      m_IsLoaded: 0
+      m_LoadedRocketDefinition: {fileID: 0}
+      m_LoadedRocketDisplayName: 
+      m_LoadedRocketLocalizationKey: 
   m_EquippedAttachments: []

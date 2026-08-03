@@ -317,7 +317,9 @@ public sealed class ActionPanelController : MonoBehaviour
 		label.alignment = TextAlignmentOptions.Center;
 		label.color = new Color(0.82f, 0.82f, 0.82f, 1f);
 		label.raycastTarget = false;
+#pragma warning disable CS0618
 		label.enableWordWrapping = true;
+#pragma warning restore CS0618
 		label.overflowMode = TextOverflowModes.Truncate;
 		if (m_ResolvedFont != null)
 			label.font = m_ResolvedFont;
@@ -494,6 +496,27 @@ public sealed class ActionPanelController : MonoBehaviour
 
 			if (m_ButtonObjects.Length > i && m_ButtonObjects[i] != null)
 				m_ButtonObjects[i].SetActive(showUnitActions);
+		}
+
+		bool showTurretGunnerFireButtons = hasVehicle && vehicle != null && vehicle.IsGunnerOnTurret;
+
+		if (m_ButtonObjects.Length > 7 && m_ButtonObjects[7] != null)
+		{
+			if (showTurretGunnerFireButtons)
+				m_ButtonObjects[7].SetActive(true);
+		}
+
+		if (m_ButtonObjects.Length > 6 && m_ButtonObjects[6] != null)
+		{
+			if (showTurretGunnerFireButtons)
+				m_ButtonObjects[6].SetActive(true);
+		}
+
+		// Reload (index 5) when gunner is on turret — same as R key.
+		if (m_ButtonObjects.Length > 5 && m_ButtonObjects[5] != null)
+		{
+			if (showTurretGunnerFireButtons)
+				m_ButtonObjects[5].SetActive(true);
 		}
 
 		if (m_ButtonObjects.Length > c_GunnerButtonIndex && m_ButtonObjects[c_GunnerButtonIndex] != null)
@@ -726,7 +749,10 @@ public sealed class ActionPanelController : MonoBehaviour
 		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
 		if (manager == null)
 			return;
-		manager.CommandSelectedWeaponReload();
+		if (manager.HasSelectedVehicle && manager.SelectedVehicle != null && manager.SelectedVehicle.IsGunnerOnTurret)
+			manager.CommandSelectedVehicleGunnerReload();
+		else
+			manager.CommandSelectedWeaponReload();
 	}
 
 	private static void OnClickAimMode()
@@ -734,7 +760,10 @@ public sealed class ActionPanelController : MonoBehaviour
 		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
 		if (manager == null)
 			return;
-		manager.CommandSelectedCycleWeaponAimMode();
+		if (manager.HasSelectedVehicle && manager.SelectedVehicle != null && manager.SelectedVehicle.IsGunnerOnTurret)
+			manager.CommandSelectedVehicleCycleTurretAimMode();
+		else
+			manager.CommandSelectedCycleWeaponAimMode();
 	}
 
 	private static void OnClickFireMode()
@@ -742,7 +771,10 @@ public sealed class ActionPanelController : MonoBehaviour
 		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
 		if (manager == null)
 			return;
-		manager.CommandSelectedCycleWeaponFireMode();
+		if (manager.HasSelectedVehicle && manager.SelectedVehicle != null && manager.SelectedVehicle.IsGunnerOnTurret)
+			manager.CommandSelectedVehicleCycleTurretFireMode();
+		else
+			manager.CommandSelectedCycleWeaponFireMode();
 	}
 
 	private static void OnClickFormation()

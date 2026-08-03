@@ -1,5 +1,7 @@
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.AI;
+#pragma warning disable CS0414
 
 /// <summary>
 /// Общий NavMesh/animator/facing-драйвер без пользовательского ввода.

@@ -190,9 +190,18 @@ public sealed class VehicleTurretVisualMount : MonoBehaviour
 	{
 		if (_t == null)
 			return;
+
+		bool wasActive = _t.gameObject.activeSelf;
 		if (_active)
-			_pose.ApplyTo(_t);
-		_t.gameObject.SetActive(_active);
+		{
+			// Only restore prefab pose when turning the mesh on — not on inventory refresh mid-reload.
+			if (!wasActive)
+				_pose.ApplyTo(_t);
+			_t.gameObject.SetActive(true);
+			return;
+		}
+
+		_t.gameObject.SetActive(false);
 	}
 	#endregion
 }

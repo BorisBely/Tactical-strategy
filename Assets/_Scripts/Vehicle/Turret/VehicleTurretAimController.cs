@@ -18,12 +18,16 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 	[SerializeField, Range(0f, 90f)] private float m_PitchDownLimitDegrees = 10f;
 
 	[Header("Pitch")]
-	[SerializeField, Min(1f)] private float m_PitchRate = 90f;
+	[SerializeField, Min(1f)] private float m_PitchRate = 150f;
+	[SerializeField, Min(1f)] private float m_ReloadPitchReturnMaxRate = 90f;
 
 	[Header("Drive Profiles")]
 	[SerializeField] private TurretDriveProfile m_MechanicalProfile = new TurretDriveProfile();
 	[SerializeField] private TurretDriveProfile m_ElectricProfile = new TurretDriveProfile();
 	[SerializeField] private TurretDriveType m_DriveType = TurretDriveType.Mechanical;
+
+	[Header("Debug")]
+	[SerializeField] private bool m_LogOscillation = true;
 
 	[Header("Rest local euler (captured on bind)")]
 	[SerializeField] private Vector3 m_TurretRestEuler;
@@ -39,6 +43,11 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 	private bool m_HasAimPoint;
 	private Vector3 m_AimPoint;
 	private TurretDriveProfile m_ActiveProfile;
+	private bool m_ReloadPitchOverrideActive;
+	private bool m_ReloadPitchReturning;
+	private float m_ReloadPitchTargetX;
+	private float m_SavedPitchBeforeReloadX;
+	private float m_ReloadPitchMoveRate;
 
 	private float m_TurretYawVelocity;
 	private float m_BaseYawVelocity;
@@ -48,6 +57,9 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 	private float m_BaseBacklashRefAngle;
 	private int m_TurretEngagedDir;
 	private int m_BaseEngagedDir;
+	private int m_TurretDirChangeCount;
+	private float m_TurretDirChangeElapsed;
+	private bool m_OscillationReported;
 	#endregion
 
 	#region Public Properties
@@ -57,6 +69,7 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 	public Vector3 AimPoint => m_AimPoint;
 	public Transform FireOrigin => ResolveFireOrigin();
 	public TurretDriveType DriveType => m_DriveType;
+	public bool IsReloadPitchOverrideActive => m_ReloadPitchOverrideActive;
 	#endregion
 
 	#region Unity Lifecycle
@@ -113,6 +126,33 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 	public void ClearAim()
 	{
 		m_HasAimPoint = false;
+	}
+
+	public void BeginReloadPitchOverride(float _pitchUpDegrees, float _durationSeconds)
+	{
+		Transform pitchPivot = m_Hierarchy != null ? m_Hierarchy.GetActiveWeaponPitch(m_ActiveVariant) : null;
+		Vector3 rest = m_ActiveVariant == TurretWeaponVariant.Mk19 ? m_Mk19RestEuler : m_Gun127RestEuler;
+		m_SavedPitchBeforeReloadX = pitchPivot != null ? pitchPivot.localEulerAngles.x : rest.x;
+		m_ReloadPitchTargetX = m_SavedPitchBeforeReloadX - _pitchUpDegrees;
+		m_ReloadPitchOverrideActive = true;
+		m_ReloadPitchReturning = false;
+
+		float currentX = pitchPivot != null ? pitchPivot.localEulerAngles.x : m_SavedPitchBeforeReloadX;
+		float delta = Mathf.Abs(Mathf.DeltaAngle(currentX, m_ReloadPitchTargetX));
+		float duration = Mathf.Max(0.05f, _durationSeconds);
+		m_ReloadPitchMoveRate = Mathf.Max(5f, delta / duration);
+	}
+
+	public void EndReloadPitchOverride(float _durationSeconds)
+	{
+		Transform pitchPivot = m_Hierarchy != null ? m_Hierarchy.GetActiveWeaponPitch(m_ActiveVariant) : null;
+		Vector3 rest = m_ActiveVariant == TurretWeaponVariant.Mk19 ? m_Mk19RestEuler : m_Gun127RestEuler;
+		m_ReloadPitchTargetX = TryComputeAimPitchTargetX(pitchPivot, rest, out float aimPitchX)
+			? aimPitchX
+			: m_SavedPitchBeforeReloadX;
+		m_ReloadPitchReturning = true;
+		m_ReloadPitchOverrideActive = true;
+		m_ReloadPitchMoveRate = m_ReloadPitchReturnMaxRate;
 	}
 
 	public bool IsBarrelAlignedTo(Vector3 _worldPoint, float _maxErrorDegrees)
@@ -220,10 +260,14 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 			if (!m_Active)
 				return;
 			ReturnToRest(_dt);
+			if (m_ReloadPitchOverrideActive)
+				RotateWeaponPitch(_dt);
 			return;
 		}
 
+		int prevDir = m_TurretEngagedDir;
 		RotateTurretYaw(_dt);
+		DetectTurretOscillation(prevDir, _dt);
 		RotateWeaponBaseYaw(_dt);
 		RotateWeaponPitch(_dt);
 	}
@@ -256,7 +300,7 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 		}
 
 		Transform pitchPivot = m_Hierarchy.GetActiveWeaponPitch(m_ActiveVariant);
-		if (pitchPivot != null)
+		if (pitchPivot != null && !m_ReloadPitchOverrideActive)
 		{
 			Vector3 pitchRest = m_ActiveVariant == TurretWeaponVariant.Mk19 ? m_Mk19RestEuler : m_Gun127RestEuler;
 			RotateTowardsLocalEuler(pitchPivot, pitchRest, m_PitchRate * _dt);
@@ -319,6 +363,19 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 			? m_Mk19RestEuler
 			: m_Gun127RestEuler;
 
+		if (m_ReloadPitchOverrideActive)
+		{
+			Vector3 current = pitchPivot.localEulerAngles;
+			float newX = Mathf.MoveTowardsAngle(current.x, m_ReloadPitchTargetX, m_ReloadPitchMoveRate * _dt);
+			pitchPivot.localEulerAngles = new Vector3(newX, rest.y, rest.z);
+			if (m_ReloadPitchReturning && Mathf.Abs(Mathf.DeltaAngle(newX, m_ReloadPitchTargetX)) <= 0.05f)
+			{
+				m_ReloadPitchOverrideActive = false;
+				m_ReloadPitchReturning = false;
+			}
+			return;
+		}
+
 		Vector3 local = pitchPivot.parent.InverseTransformPoint(m_AimPoint) -
 		                pitchPivot.parent.InverseTransformPoint(pitchPivot.position);
 		float desiredPitch = 0f;
@@ -331,6 +388,26 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 		desiredPitch = Mathf.Clamp(desiredPitch, -m_PitchUpLimitDegrees, m_PitchDownLimitDegrees);
 		Vector3 goal = new Vector3(rest.x + desiredPitch, rest.y, rest.z);
 		RotateTowardsLocalEuler(pitchPivot, goal, m_PitchRate * _dt);
+	}
+
+	private bool TryComputeAimPitchTargetX(Transform _pitchPivot, Vector3 _rest, out float _targetX)
+	{
+		_targetX = _rest.x;
+		if (!m_HasAimPoint || _pitchPivot == null || _pitchPivot.parent == null)
+			return false;
+
+		Vector3 local = _pitchPivot.parent.InverseTransformPoint(m_AimPoint) -
+		                _pitchPivot.parent.InverseTransformPoint(_pitchPivot.position);
+		float desiredPitch = 0f;
+		if (local.sqrMagnitude > 0.0001f)
+		{
+			float horizontal = new Vector2(local.x, local.z).magnitude;
+			desiredPitch = -Mathf.Atan2(local.y, horizontal) * Mathf.Rad2Deg;
+		}
+
+		desiredPitch = Mathf.Clamp(desiredPitch, -m_PitchUpLimitDegrees, m_PitchDownLimitDegrees);
+		_targetX = _rest.x + desiredPitch;
+		return true;
 	}
 
 	/// <summary>
@@ -388,8 +465,8 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 
 		if (Mathf.Abs(error) <= profile.AimTolerance)
 		{
-			velocity = Mathf.MoveTowards(velocity, 0f, axis.Deceleration * dt);
-			return currentAngle + velocity * dt;
+			velocity = 0f;
+			return currentAngle;
 		}
 
 		float stopDist = (velocity * velocity) / (2f * axis.Deceleration);
@@ -440,6 +517,32 @@ public sealed class VehicleTurretAimController : MonoBehaviour
 		}
 
 		return null;
+	}
+
+	private void DetectTurretOscillation(int _prevDir, float _dt)
+	{
+		if (!m_LogOscillation || m_OscillationReported)
+			return;
+
+		if (m_TurretEngagedDir != 0 && m_TurretEngagedDir != _prevDir)
+			m_TurretDirChangeCount++;
+
+		m_TurretDirChangeElapsed += _dt;
+		if (m_TurretDirChangeElapsed > 3f)
+		{
+			m_TurretDirChangeCount = 0;
+			m_TurretDirChangeElapsed = 0f;
+		}
+
+		if (m_TurretDirChangeCount >= 4)
+		{
+			Debug.LogWarning(
+				$"[TurretAim] Oscillation detected: {m_TurretDirChangeCount} dir changes in {m_TurretDirChangeElapsed:F1}s. "
+				+ $"Yaw velocity={m_TurretYawVelocity:F2} deg/s, backlash={m_TurretBacklashRemaining:F3}, "
+				+ $"drive={m_DriveType}, tolerance={m_ActiveProfile?.AimTolerance:F2}",
+				this);
+			m_OscillationReported = true;
+		}
 	}
 	#endregion
 }

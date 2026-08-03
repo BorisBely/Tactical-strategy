@@ -1,7 +1,11 @@
 using System;
+#pragma warning disable CS0414
 using System.Collections;
+#pragma warning disable CS0414
 using System.Collections.Generic;
+#pragma warning disable CS0414
 using UnityEngine;
+#pragma warning disable CS0414
 
 /// <summary>
 /// Перезарядка: фаза смены магазина (<c>IsReloadingWeapon</c>) и отдельно фаза передёргивания затвора (<c>IsCyclingBolt</c>).
@@ -1142,6 +1146,7 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 		if (IsLmgWeapon())
 		{
 			ReloadDbg($"InsertEvent: skipping LMG belt phase (secondary slot), using standard bolt flow");
+#pragma warning disable CS0414
 		}
 
 		if (!NeedsChamberingAfterMagazineInsert())

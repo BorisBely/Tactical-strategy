@@ -25,6 +25,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[Tooltip("После последнего патрона в магазине — запуск перезарядки (внутри свои проверки на сумку и т.д.).")]
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
+	[SerializeField] private UnitVehicleTurretReloadEvents m_TurretReloadEvents;
 	[Tooltip("Hitscan по сцене; вызывается до ShotFired (разброс без отдачи текущего выстрела).")]
 	[SerializeField] private UnitWeaponHitscanShooting m_HitscanShooting;
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
@@ -136,6 +137,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_FireDisciplineController = GetComponent<UnitWeaponFireDisciplineController>();
 		if (m_ReloadController == null)
 			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_TurretReloadEvents == null)
+			m_TurretReloadEvents = GetComponent<UnitVehicleTurretReloadEvents>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
 		if (m_WeaponRecoil == null)
@@ -263,7 +266,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (IsFireBlockedByBusyState())
 			return false;
 
-		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+		if (IsWeaponReloadBusy())
 			return false;
 
 		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
@@ -372,7 +375,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			    m_WeaponRuntime != null &&
 			    !m_WeaponRuntime.HasAmmoInMagazine &&
 			    !m_WeaponRuntime.HasRoundInChamber)
-				m_ReloadController?.TryStartReload();
+				TryStartReloadWhenOutOfAmmo();
 		}
 		else if (m_TryReloadWhenOutOfAmmo &&
 			(result == WeaponShotAttemptResult.EmptyMagazine ||
@@ -403,7 +406,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (IsFireBlockedByBusyState())
 			return WeaponShotAttemptResult.Busy;
 
-		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+		if (IsWeaponReloadBusy())
 			return WeaponShotAttemptResult.Busy;
 
 		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
@@ -783,7 +786,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	/// </summary>
 	private void TryAutoReloadOrBoltCycle(WeaponShotAttemptResult _result)
 	{
-		if (m_ReloadController == null || m_ReloadController.IsReloadBusy)
+		if (IsWeaponReloadBusy())
 			return;
 
 		float t = Time.time;
@@ -793,9 +796,38 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_NextOutOfAmmoReloadAttemptTime = t + m_OutOfAmmoReloadRetrySeconds;
 
 		if (_result == WeaponShotAttemptResult.NeedsBoltCycle)
-			m_ReloadController.TryStartBoltCycleOnly();
-		else
-			m_ReloadController.TryStartReload();
+		{
+			if (m_ReloadController != null)
+				m_ReloadController.TryStartBoltCycleOnly();
+			return;
+		}
+
+		TryStartReloadWhenOutOfAmmo();
+	}
+
+	private bool IsWeaponReloadBusy()
+	{
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadBusy)
+			return true;
+		return m_ReloadController != null && m_ReloadController.IsReloadBusy;
+	}
+
+	private void TryStartReloadWhenOutOfAmmo()
+	{
+		if (TryStartTurretReloadFromGunner())
+			return;
+
+		if (m_Equipment != null && m_Equipment.IsOperatingVehicleTurret)
+			return;
+
+		m_ReloadController?.TryStartReload();
+	}
+
+	private bool TryStartTurretReloadFromGunner()
+	{
+		if (m_TurretReloadEvents == null)
+			TryGetComponent(out m_TurretReloadEvents);
+		return m_TurretReloadEvents != null && m_TurretReloadEvents.TryStartReloadFromGunner();
 	}
 
 	private void RegisterBurstSpreadShotIfNeeded()

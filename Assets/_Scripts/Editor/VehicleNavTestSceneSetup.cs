@@ -124,7 +124,9 @@ public static class VehicleNavTestSceneSetup
 			if (pf != null) { GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(pf); inst.transform.position = new Vector3(TrackOrigin.x, 1f, TrackOrigin.z + 5f); inst.transform.rotation = Quaternion.identity; SceneManager.MoveGameObjectToScene(inst, scene); }
 		}
 
+#pragma warning disable CS0618
 		UnityEditor.AI.NavMeshBuilder.BuildNavMesh();
+#pragma warning restore CS0618
 		EditorSceneManager.MarkSceneDirty(scene);
 		EditorSceneManager.SaveScene(scene);
 		Debug.Log("[Polygon] Ready. X=80, Z=5, length ~370m, 10 sections.");
@@ -138,7 +140,7 @@ public static class VehicleNavTestSceneSetup
 	static void Marker(Transform p, string n, float x, float z, Color c, float s) { var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = n; g.transform.SetParent(p, false); g.transform.localPosition = new Vector3(x, 0.07f, z); g.transform.localScale = new Vector3(s, 0.14f, s); g.layer = c_LG; g.GetComponent<MeshRenderer>().sharedMaterial = Mat(c); g.GetComponent<Collider>().isTrigger = false; }
 	static void Pillar(Transform p, string n, float x, float z, Color c) { Box(p, n, new Vector3(x, 1f, z), new Vector3(1.2f, 2f, 1.2f), c, c_LG); }
 	static void Arrow(Transform p, string n, float x, float y, float z, Vector3 d, float len, Color c) { var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = n; g.transform.SetParent(p, false); g.transform.localPosition = new Vector3(x, y, z) + d * (len * 0.5f); g.transform.localRotation = Quaternion.LookRotation(d, Vector3.up); g.transform.localScale = new Vector3(0.3f, 0.15f, len); g.layer = c_LG; g.GetComponent<MeshRenderer>().sharedMaterial = Mat(c); }
-	static void Label(Transform p, string n, float x, float y, float z, string t) { var g = new GameObject(n); g.transform.SetParent(p, false); g.transform.localPosition = new Vector3(x, y, z); g.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); var tmp = g.AddComponent<TMPro.TextMeshPro>(); tmp.text = t; tmp.fontSize = 5f; tmp.alignment = TMPro.TextAlignmentOptions.Center; tmp.color = Color.white; tmp.enableWordWrapping = false; }
+	static void Label(Transform p, string n, float x, float y, float z, string t) { var g = new GameObject(n); g.transform.SetParent(p, false); g.transform.localPosition = new Vector3(x, y, z); g.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); var tmp = g.AddComponent<TMPro.TextMeshPro>(); tmp.text = t; tmp.fontSize = 5f; tmp.alignment = TMPro.TextAlignmentOptions.Center; tmp.color = Color.white; }
 	static Material Mat(Color c) { Shader s = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"); if (s == null) return null; var m = new Material(s); if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c); else if (m.HasProperty("_Color")) m.color = c; return m; }
 }
 #endif

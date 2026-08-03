@@ -22,6 +22,10 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 	[SerializeField, Min(0.5f)] private float m_SpatialMaxDistance = 125f;
 	#endregion
 
+	#region Private Fields
+	private Coroutine m_TailCoroutine;
+	#endregion
+
 	#region Unity Lifecycle
 	private void Awake()
 	{
@@ -62,20 +66,35 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		float baseVolume = (weapon != null ? weapon.FireSoundVolume : 1f) * volumeMultiplier;
 		float pitch = ResolvePitch(weapon);
 
-		if (profile == null || !profile.TryPickClip(out AudioClip clip))
-			return;
+		if (profile != null && profile.TryPickClip(out AudioClip clip))
+		{
+			float maxDistance = profile.ResolveMaxAudibleDistance(m_SpatialMaxDistance);
+			int weaponSignatureId = weapon != null ? weapon.GetInstanceID() : 0;
+			CombatAudioManager.TryPlayGunshot(
+				clip, pos, baseVolume, pitch, maxDistance,
+				transform, m_SpatialMinDistance, weaponSignatureId);
+		}
 
-		float maxDistance = profile.ResolveMaxAudibleDistance(m_SpatialMaxDistance);
-		int weaponSignatureId = weapon != null ? weapon.GetInstanceID() : 0;
-		CombatAudioManager.TryPlayGunshot(
-			clip,
-			pos,
-			baseVolume,
-			pitch,
-			maxDistance,
-			transform,
-			m_SpatialMinDistance,
-			weaponSignatureId);
+		if (profile != null && profile.HasAnyTailClips)
+		{
+			if (m_TailCoroutine != null)
+				StopCoroutine(m_TailCoroutine);
+			m_TailCoroutine = StartCoroutine(PlayTailAfterDelay(profile, pos, baseVolume, weapon));
+		}
+	}
+
+	private System.Collections.IEnumerator PlayTailAfterDelay(WeaponFireSoundProfile _profile, Vector3 _pos, float _volume, WeaponDefinition _weapon)
+	{
+		yield return new WaitForSeconds(_profile.TailThresholdSeconds);
+		if (_profile.TryPickTailClip(out AudioClip tailClip))
+		{
+			float maxDistance = _profile.ResolveMaxAudibleDistance(m_SpatialMaxDistance);
+			int weaponSignatureId = _weapon != null ? _weapon.GetInstanceID() : 0;
+			CombatAudioManager.TryPlayGunshot(
+				tailClip, _pos, _volume * 0.6f, 1f, maxDistance,
+				transform, m_SpatialMinDistance, weaponSignatureId);
+		}
+		m_TailCoroutine = null;
 	}
 
 	private static float ResolvePitch(WeaponDefinition _weapon)

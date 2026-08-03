@@ -1,7 +1,11 @@
 using UnityEngine;
+#pragma warning disable CS0414
 using UnityEngine.AI;
+#pragma warning disable CS0414
 using UnityEngine.EventSystems;
+#pragma warning disable CS0414
 using UnityEngine.InputSystem;
+#pragma warning disable CS0414
 
 /// <summary>
 /// NavMesh: ПКМ — точка на поверхности, двойной ПКМ — спринт, F — жёсткий стоп.

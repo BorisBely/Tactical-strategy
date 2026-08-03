@@ -1,7 +1,11 @@
 using System;
+#pragma warning disable CS0414
 using System.Collections;
+#pragma warning disable CS0414
 using System.Collections.Generic;
+#pragma warning disable CS0414
 using UnityEngine;
+#pragma warning disable CS0414
 
 /// <summary>
 /// Ручная зарядка магазина в сумке патронами из коробок того же калибра.

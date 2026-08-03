@@ -28,7 +28,6 @@ public static class VehicleHierarchyBinder
 		if (_vehicle == null)
 			return;
 
-		_vehicle.EnsureComponents();
 		Transform root = _vehicle.transform;
 
 		Transform doorFl = FindDeep(root, c_DoorFl);
@@ -163,10 +162,7 @@ public static class VehicleHierarchyBinder
 		if (_vehicle.Brain != null && _vehicle.Brain.Tuning != null)
 			wheeledMotor.ApplyTuning(_vehicle.Brain.Tuning);
 
-		// WheelColliders are created after the unit blocker, so the blocker must be told
-		// to ignore non-wheel drive colliders (WC skipped — Unity 6 ground desync).
-		_vehicle.UnitBlocker?.RefreshIgnoredDriveColliders();
-		_vehicle.BounceWheelCollidersAfterBind("bind-wheels");
+		_vehicle.NotifyPhysicsWheelsBound();
 	}
 
 	private static void TryAddPhysicsAxle(

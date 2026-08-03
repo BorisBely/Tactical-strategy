@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1547431180775424001}
-  - component: {fileID: 1547431180775424003}
   - component: {fileID: 1547431180775424002}
   - component: {fileID: 1547431180775424004}
   - component: {fileID: 1547431180775424005}
@@ -33,30 +32,10 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1547431180775424011}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &1547431180775424003
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1547431180775424000}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.4, y: 0.3, z: 0.35}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &1547431180775424002
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -165,6 +144,13 @@ MonoBehaviour:
         m_Definition: {fileID: 0}
         m_LoadedAmmoDefinition: {fileID: 0}
         m_CurrentAmmoCount: 0
+      m_CurrentSecondaryMagazineDefinition: {fileID: 0}
+      m_CurrentSecondaryMagazineDisplayName: 
+      m_CurrentSecondaryMagazineLocalizationKey: 
+      m_CurrentSecondaryMagazineRuntimeState:
+        m_Definition: {fileID: 0}
+        m_LoadedAmmoDefinition: {fileID: 0}
+        m_CurrentAmmoCount: 0
       m_Wear01: 0
       m_Fouling01: 0
       m_EquippedAttachments: []
@@ -179,4 +165,65 @@ MonoBehaviour:
     m_AmmoContainerState:
       m_AmmoDefinition: {fileID: 0}
       m_CurrentAmmoCount: 0
+    m_MedkitState:
+      m_Definition: {fileID: 0}
+      m_CurrentResourcePoints: 0
+    m_RocketLauncherState:
+      m_IsLoaded: 0
+      m_LoadedRocketDefinition: {fileID: 0}
+      m_LoadedRocketDisplayName: 
+      m_LoadedRocketLocalizationKey: 
   m_EquippedAttachments: []
+--- !u!1 &1547431180775424010
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1547431180775424011}
+  - component: {fileID: 1547431180775424012}
+  m_Layer: 10
+  m_Name: Collider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1547431180775424011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547431180775424010}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: -0.12869178, w: 0.9916847}
+  m_LocalPosition: {x: -0.02064, y: -0.02464, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1547431180775424001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -14.788}
+--- !u!65 &1547431180775424012
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547431180775424010}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.3949886, y: 0.20354435, z: 0.13760296}
+  m_Center: {x: 0.12044634, y: -0.04822786, z: -0.0019484907}

@@ -16,7 +16,7 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 	private const string c_ZoneObjectName = "BulletWhizZone";
 	private const float c_DefaultWhizRadiusMeters = 5f;
 	private const float c_DefaultAmmoVelocityMetersPerSecond = 400f;
-	private const float c_MuzzleSkipDistanceMeters = 0.45f;
+	private const float c_DefaultMuzzleSkipDistanceMeters = 15f;
 	private const float c_PendingWhizExpireSeconds = 0.35f;
 	private const float c_MinAudibleVolume = 0.001f;
 	private const float c_ImpactAudioWhizVolumeScale = 0.7f;
@@ -27,6 +27,8 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 	[Tooltip("Максимальная дистанция (м) от камеры до траектории/точки попадания, на которой ещё слышен whiz.")]
 	[SerializeField, Min(0.1f)] private float m_WhizRadius = c_DefaultWhizRadiusMeters;
 	[SerializeField] private SphereCollider m_WhizZoneCollider;
+	[Tooltip("Whiz не играет, если стрелок ближе этого расстояния (м) к слушателю — выстрел и так слышен с источника.")]
+	[SerializeField, Min(0f)] private float m_MuzzleSkipDistance = c_DefaultMuzzleSkipDistanceMeters;
 
 	[Header("Audio")]
 	[SerializeField] private WeaponRandomAudioClipSet m_WhizClips = new WeaponRandomAudioClipSet();
@@ -159,7 +161,7 @@ public sealed class CameraBulletWhizListener : MonoBehaviour
 		Vector3 zoneCenter = GetZoneCenter();
 		float radius = m_WhizZoneCollider != null ? m_WhizZoneCollider.radius : m_WhizRadius;
 
-		if ((zoneCenter - _trace.Origin).sqrMagnitude <= c_MuzzleSkipDistanceMeters * c_MuzzleSkipDistanceMeters)
+		if ((zoneCenter - _trace.Origin).sqrMagnitude <= m_MuzzleSkipDistance * m_MuzzleSkipDistance)
 			return;
 
 		if (!TryEvaluateWhiz(_trace, zoneCenter, radius, out float playDelay, out float volume))
