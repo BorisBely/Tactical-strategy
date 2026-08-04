@@ -27,9 +27,11 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 	private UnitWeaponReadyHandsLayer m_BoundReady;
 	private UnitVision m_BoundVision;
 	private UnitWeaponShellEjection m_BoundShellEjection;
+	private UnitWeaponHitscanShooting m_BoundHitscan;
 	private UnitVehicleTurretReloadEvents m_BoundReloadEvents;
 	private bool m_SavedRequireReady = true;
 	private bool m_SavedTryReload = true;
+	private bool m_SavedHitscanEnabled;
 	#endregion
 
 	#region Public Properties
@@ -180,6 +182,9 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		if (particleEjection != null)
 			particleEjection.enabled = false;
 
+		m_BoundHitscan = _gunner.GetComponent<UnitWeaponHitscanShooting>();
+		m_SavedHitscanEnabled = m_BoundHitscan != null && m_BoundHitscan.enabled;
+
 		RefreshWeaponBind();
 	}
 
@@ -206,6 +211,9 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		if (m_BoundShellEjection != null)
 			m_BoundShellEjection.enabled = true;
 
+		if (m_BoundHitscan != null)
+			m_BoundHitscan.enabled = m_SavedHitscanEnabled;
+
 		m_BoundGunner = null;
 		m_BoundFire = null;
 		m_BoundRuntime = null;
@@ -213,6 +221,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		m_BoundReady = null;
 		m_BoundVision = null;
 		m_BoundShellEjection = null;
+		m_BoundHitscan = null;
 		m_BoundReloadEvents = null;
 
 		m_Aim?.SetActive(false);
@@ -229,14 +238,26 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		{
 			m_BoundRuntime.ClearExternalWeaponBind();
 			m_BoundEquipment.ClearTurretWeaponOverride();
+			if (m_BoundHitscan != null)
+				m_BoundHitscan.enabled = m_SavedHitscanEnabled;
 			m_Aim?.SetActive(false);
 			return;
 		}
 
 		InventorySlotRuntimeData weaponSlot = m_Inventory.TurretWeapon;
 		EquippedWeapon equipped = m_Equipment.ActiveEquippedWeapon;
+		bool isMk19 = weaponSlot.Definition != null && weaponSlot.Definition.TurretWeaponVariant == TurretWeaponVariant.Mk19;
+
 		if (equipped != null)
-			VehicleTurretCombatSockets.PrepareM2PitchRuntime(equipped.transform);
+		{
+			if (isMk19)
+				VehicleTurretCombatSockets.PrepareMk19PitchRuntime(equipped.transform);
+			else
+				VehicleTurretCombatSockets.PrepareM2PitchRuntime(equipped.transform);
+		}
+
+		if (m_BoundHitscan != null)
+			m_BoundHitscan.enabled = !isMk19;
 
 		m_BoundRuntime.BindExternalWeaponState(weaponSlot.InstanceState);
 		m_BoundEquipment.SetTurretWeaponOverride(

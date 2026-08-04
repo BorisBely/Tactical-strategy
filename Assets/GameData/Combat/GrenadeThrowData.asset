@@ -92,8 +92,8 @@ MonoBehaviour:
   m_FlashExplosionPrefab: {fileID: 1273314581925930, guid: 4a55681cab9ecd64fb020a5e6018af8b, type: 3}
   m_SmokePrefab: {fileID: 193902, guid: 771ca25c7853f89428e654bd4dba591d, type: 3}
   m_ExplosionFuseSeconds: 3.5
-  m_ExplosionMaxDistanceMeters: 70
-  m_ExplosionAudioMaxDistance: 90
+  m_ExplosionMaxDistanceMeters: 200
+  m_ExplosionAudioMaxDistance: 220
   m_FragExplosionScale: 1.25
   m_FragExplosionLifetimeSeconds: 5
   m_FlashExplosionScale: 0.9

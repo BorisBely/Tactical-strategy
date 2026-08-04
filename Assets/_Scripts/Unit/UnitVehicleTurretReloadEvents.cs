@@ -32,6 +32,7 @@ public sealed class UnitVehicleTurretReloadEvents : MonoBehaviour
 			return null;
 		if (!_unitObject.TryGetComponent(out UnitVehicleTurretReloadEvents events))
 			events = _unitObject.AddComponent<UnitVehicleTurretReloadEvents>();
+		VehicleGunnerReloadBodyMotion.GetOrAdd(_unitObject);
 		return events;
 	}
 
@@ -60,6 +61,7 @@ public sealed class UnitVehicleTurretReloadEvents : MonoBehaviour
 	}
 
 	public void AnimationEvent_TurretAttachMagToLeftHand() => m_BoundController?.AnimationEvent_TurretAttachMagToLeftHand();
+	public void AnimationEvent_TurretShowBelt() => m_BoundController?.AnimationEvent_TurretShowBelt();
 	public void AnimationEvent_TurretDisableRightHandIk() => m_BoundController?.AnimationEvent_TurretDisableRightHandIk();
 	public void AnimationEvent_TurretSwapEmptyForFullMag() => m_BoundController?.AnimationEvent_TurretSwapEmptyForFullMag();
 	public void AnimationEvent_TurretEnableRightHandIk() => m_BoundController?.AnimationEvent_TurretEnableRightHandIk();

@@ -9242,7 +9242,6 @@ MonoBehaviour:
   m_LeftElbowHintWeight: 1
   m_DrawIkTargetGizmo: 1
   m_LogProximityIk: 1
-  m_LogTurretReloadIk: 0
 --- !u!114 &9123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0

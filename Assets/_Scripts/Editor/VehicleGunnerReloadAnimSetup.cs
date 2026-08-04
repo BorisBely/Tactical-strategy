@@ -10,13 +10,15 @@ public static class VehicleGunnerReloadAnimSetup
 {
 	#region Constants
 	private const string c_ControllerPath = "Assets/Animations/UnitAnimController.controller";
-	private const string c_ClipPath = "Assets/Animations/Vehicle/Stand_Gunner_Reload.anim";
+	private const string c_ClipAbovePath = "Assets/Animations/Vehicle/Stand_Gunner_Reload_Above.anim";
+	private const string c_ClipCoverPath = "Assets/Animations/Vehicle/Stand_Gunner_Reload.anim";
+	private const string c_ClipAboveSourcePath = "Assets/Stand_Gunner_rel_MK19_copy.anim";
 	private const string c_CarriedPoseLayerName = UnitFiremanCarryController.CarriedPoseLayerName;
 	private const string c_ParamIsVehicleGunner = UnitVehicleSeatPoseController.ParamIsVehicleGunner;
 	private const string c_ParamIsGunnerReloadingM2 = VehicleTurretReloadController.ParamIsGunnerReloadingM2;
 	private const string c_StateStandGunner = "Stand_Gunner";
-	private const string c_StateStandGunnerCover = "Stand_Gunner_Cover";
 	private const string c_StateStandGunnerReload = "Stand_Gunner_Reload";
+	private const string c_StateStandGunnerReloadAbove = "Stand_Gunner_Reload_Above";
 	private const float c_ReloadClipFps = 30f;
 
 	/// <summary>
@@ -29,6 +31,7 @@ public static class VehicleGunnerReloadAnimSetup
 		("AnimationEvent_TurretSwapEmptyForFullMag", FrameTime(60)),
 		("AnimationEvent_TurretEnableRightHandIk", FrameTime(210)),
 		("AnimationEvent_TurretReturnMagToWeapon", FrameTime(252)),
+		("AnimationEvent_TurretShowBelt", FrameTime(310)),
 		("AnimationEvent_TurretEnableLeftHandIk", FrameTime(401)),
 		("AnimationEvent_TurretHandToHandle", FrameTime(420)),
 		("AnimationEvent_TurretHandleYankDown", FrameTime(429)),
@@ -48,16 +51,28 @@ public static class VehicleGunnerReloadAnimSetup
 	public static void SetupGunnerTurretReload()
 	{
 		AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(c_ControllerPath);
-		AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipPath);
-		if (controller == null || clip == null)
+		AnimationClip clipAbove = LoadOrCopyAboveReloadClip();
+		AnimationClip clipCover = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipCoverPath);
+		if (controller == null)
 		{
-			Debug.LogError("[VehicleGunnerReloadAnimSetup] Controller or clip missing.");
+			Debug.LogError("[VehicleGunnerReloadAnimSetup] Controller missing.");
+			return;
+		}
+
+		if (clipAbove == null)
+		{
+			Debug.LogError("[VehicleGunnerReloadAnimSetup] Above-shield reload clip not found.");
 			return;
 		}
 
 		Undo.RecordObject(controller, "Setup Gunner Turret Reload");
-		EnsureBoolParam(controller, c_ParamIsGunnerReloadingM2);
-		ApplyAnimationEvents(clip);
+		Undo.RecordObject(clipAbove, "Setup Above Reload Events");
+		ApplyAnimationEvents(clipAbove);
+		if (clipCover != null)
+		{
+			Undo.RecordObject(clipCover, "Setup Cover Reload Events");
+			ApplyAnimationEvents(clipCover);
+		}
 
 		int layerIndex = FindLayerIndex(controller, c_CarriedPoseLayerName);
 		if (layerIndex < 0)
@@ -68,26 +83,59 @@ public static class VehicleGunnerReloadAnimSetup
 
 		AnimatorStateMachine sm = controller.layers[layerIndex].stateMachine;
 		AnimatorState gunner = FindState(sm, c_StateStandGunner);
-		AnimatorState cover = FindState(sm, c_StateStandGunnerCover);
+		AnimatorState reload = FindState(sm, c_StateStandGunnerReload);
 
-		// Rename legacy M2 state if present.
-		AnimatorState reload = FindState(sm, c_StateStandGunnerReload)
-			?? FindState(sm, "Stand_Gunner_Reload_M2");
+		if (gunner == null)
+		{
+			Debug.LogError("[VehicleGunnerReloadAnimSetup] Stand_Gunner state missing.");
+			return;
+		}
+
+		// Remove Stand_Gunner → Stand_Gunner_Reload (no longer entered from above-shield).
 		if (reload != null)
-			reload.name = c_StateStandGunnerReload;
-		reload = EnsureMotionState(sm, c_StateStandGunnerReload, clip);
+			RemoveTransition(gunner, reload);
 
-		if (gunner != null)
-			EnsureReloadTransition(gunner, reload);
-		if (cover != null)
-			EnsureReloadTransition(cover, reload);
+		// Above-shield reload state + transitions.
+		AnimatorState reloadAbove = EnsureMotionState(sm, c_StateStandGunnerReloadAbove, clipAbove);
+		EnsureReloadTransition(gunner, reloadAbove);
+		EnsureExitReloadAbove(reloadAbove, gunner);
 
-		EnsureExitReload(reload, gunner, cover);
+		// Mutual transitions: switch reload pose without interrupting.
+		if (reload != null)
+		{
+			EnsureCrossReloadTransition(reload, reloadAbove, _toCover: false);
+			EnsureCrossReloadTransition(reloadAbove, reload, _toCover: true);
+		}
 
 		EditorUtility.SetDirty(controller);
-		EditorUtility.SetDirty(clip);
+		EditorUtility.SetDirty(clipAbove);
+		if (clipCover != null)
+			EditorUtility.SetDirty(clipCover);
 		AssetDatabase.SaveAssets();
-		Debug.Log("[VehicleGunnerReloadAnimSetup] Gunner turret reload setup complete.");
+		Debug.Log("[VehicleGunnerReloadAnimSetup] Above-shield reload setup complete.");
+	}
+	private static AnimationClip LoadOrCopyAboveReloadClip()
+	{
+		AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipAbovePath);
+		if (clip != null)
+			return clip;
+
+		AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipAboveSourcePath);
+		if (source == null)
+		{
+			Debug.LogWarning($"[VehicleGunnerReloadAnimSetup] Above-shield reload source clip not found at '{c_ClipAboveSourcePath}'.");
+			return null;
+		}
+
+		if (!AssetDatabase.CopyAsset(c_ClipAboveSourcePath, c_ClipAbovePath))
+		{
+			Debug.LogError($"[VehicleGunnerReloadAnimSetup] Failed to copy '{c_ClipAboveSourcePath}' → '{c_ClipAbovePath}'.");
+			return null;
+		}
+
+		AssetDatabase.SaveAssets();
+		AssetDatabase.Refresh();
+		return AssetDatabase.LoadAssetAtPath<AnimationClip>(c_ClipAbovePath);
 	}
 	#endregion
 
@@ -129,55 +177,46 @@ public static class VehicleGunnerReloadAnimSetup
 		t.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsVehicleGunner);
 	}
 
-	private static void EnsureExitReload(AnimatorState _reload, AnimatorState _gunner, AnimatorState _cover)
+	private static void EnsureExitReloadAbove(AnimatorState _reloadAbove, AnimatorState _gunner)
 	{
-		if (_gunner != null && !HasTransition(_reload, _gunner))
+		if (_reloadAbove == null || _gunner == null)
+			return;
+
+		if (!HasTransition(_reloadAbove, _gunner))
 		{
-			AnimatorStateTransition toGunner = _reload.AddTransition(_gunner);
+			AnimatorStateTransition toGunner = _reloadAbove.AddTransition(_gunner);
 			toGunner.hasExitTime = true;
 			toGunner.exitTime = 1f;
 			toGunner.duration = 0.08f;
 			toGunner.hasFixedDuration = true;
 			toGunner.canTransitionToSelf = false;
 			toGunner.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsGunnerReloadingM2);
-			toGunner.AddCondition(AnimatorConditionMode.IfNot, 0f, UnitVehicleSeatPoseController.ParamIsGunnerCover);
 			toGunner.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsVehicleGunner);
 		}
+	}
 
-		if (_cover != null && !HasTransition(_reload, _cover))
-		{
-			AnimatorStateTransition toCover = _reload.AddTransition(_cover);
-			toCover.hasExitTime = true;
-			toCover.exitTime = 1f;
-			toCover.duration = 0.08f;
-			toCover.hasFixedDuration = true;
-			toCover.canTransitionToSelf = false;
-			toCover.AddCondition(AnimatorConditionMode.IfNot, 0f, c_ParamIsGunnerReloadingM2);
-			toCover.AddCondition(AnimatorConditionMode.If, 0f, UnitVehicleSeatPoseController.ParamIsGunnerCover);
-			toCover.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsVehicleGunner);
-		}
+	private static void EnsureCrossReloadTransition(AnimatorState _from, AnimatorState _to, bool _toCover)
+	{
+		if (_from == null || _to == null)
+			return;
+		if (HasTransition(_from, _to))
+			return;
+
+		AnimatorStateTransition t = _from.AddTransition(_to);
+		t.hasExitTime = false;
+		t.duration = 0.12f;
+		t.hasFixedDuration = true;
+		t.canTransitionToSelf = false;
+		t.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsGunnerReloadingM2);
+		t.AddCondition(AnimatorConditionMode.If, 0f, c_ParamIsVehicleGunner);
+		t.AddCondition(
+			_toCover ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot,
+			0f,
+			UnitVehicleSeatPoseController.ParamIsGunnerCover);
 	}
 	#endregion
 
 	#region Helpers
-	private static bool HasParam(AnimatorController _controller, string _name)
-	{
-		AnimatorControllerParameter[] parameters = _controller.parameters;
-		for (int i = 0; i < parameters.Length; i++)
-		{
-			if (parameters[i].name == _name)
-				return true;
-		}
-
-		return false;
-	}
-
-	private static void EnsureBoolParam(AnimatorController _controller, string _name)
-	{
-		if (!HasParam(_controller, _name))
-			_controller.AddParameter(_name, AnimatorControllerParameterType.Bool);
-	}
-
 	private static int FindLayerIndex(AnimatorController _controller, string _layerName)
 	{
 		AnimatorControllerLayer[] layers = _controller.layers;
@@ -222,6 +261,22 @@ public static class VehicleGunnerReloadAnimSetup
 		}
 
 		return false;
+	}
+
+	private static void RemoveTransition(AnimatorState _from, AnimatorState _to)
+	{
+		if (_from == null || _to == null)
+			return;
+
+		AnimatorStateTransition[] transitions = _from.transitions;
+		for (int i = 0; i < transitions.Length; i++)
+		{
+			if (transitions[i] != null && transitions[i].destinationState == _to)
+			{
+				_from.RemoveTransition(transitions[i]);
+				return;
+			}
+		}
 	}
 	#endregion
 }

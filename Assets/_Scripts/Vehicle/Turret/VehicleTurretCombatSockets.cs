@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Точки M2 на <see cref="VehicleTurretHierarchyBinder.GetActiveWeaponPitch"/>: MuzzleExit, ShellEject, BeltEject и barrel под inner Gun.12.7.
+/// Точки M2/MK19 на <see cref="VehicleTurretHierarchyBinder.GetActiveWeaponPitch"/>: MuzzleExit, ShellEject, BeltEject и barrel под inner Gun.12.7.
 /// </summary>
 public static class VehicleTurretCombatSockets
 {
@@ -9,6 +9,7 @@ public static class VehicleTurretCombatSockets
 	public const string BeltEjectName = "BeltEject";
 	public const string BarrelRecoilName = "barrel";
 	public const string InnerGun127Name = "Gun.12.7";
+	public const string Mk19ShellEjectName = "ShellEject_MK19";
 
 	/// <summary>Только создаёт отсутствующие пустышки. Позиции/повороты уже существующих не трогает.</summary>
 	public static bool EnsureMissingM2SocketsOnPitch(Transform _pitch)
@@ -44,6 +45,24 @@ public static class VehicleTurretCombatSockets
 	{
 		TryBindEquippedWeaponIfMissing(_pitch);
 		AttachHandIkTargetsToRecoilGun(_pitch);
+	}
+
+	/// <summary>Tолько создаёт отсутствующие сокеты для MK19.</summary>
+	public static bool EnsureMissingMk19SocketsOnPitch(Transform _pitch)
+	{
+		if (_pitch == null)
+			return false;
+
+		bool created = false;
+		created |= EnsureSocket(_pitch, EquippedWeapon.MuzzleExitTransformName, new Vector3(0f, 0.02f, 1.0f), Quaternion.identity) != null;
+		created |= EnsureSocket(_pitch, Mk19ShellEjectName, new Vector3(0.15f, -0.02f, 0.2f), Quaternion.Euler(0f, 90f, 0f)) != null;
+		return created;
+	}
+
+	/// <summary>Runtime-подготовка панели MK19.</summary>
+	public static void PrepareMk19PitchRuntime(Transform _pitch)
+	{
+		TryBindEquippedWeaponIfMissing(_pitch);
 	}
 
 	/// <summary>
@@ -90,6 +109,9 @@ public static class VehicleTurretCombatSockets
 
 	public static Transform FindBeltEject(Transform _pitch) =>
 		FindChildUnder(_pitch, BeltEjectName);
+
+	public static Transform FindMk19ShellEject(Transform _pitch) =>
+		FindChildUnder(_pitch, Mk19ShellEjectName);
 
 	public static Transform FindBarrelRecoil(Transform _pitch)
 	{

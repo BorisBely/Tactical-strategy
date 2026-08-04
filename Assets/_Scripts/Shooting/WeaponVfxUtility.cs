@@ -1,8 +1,15 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
 public static class WeaponVfxUtility
 {
+	#region Constants
+	private const float c_ExplosionScatterParticleScale = 0.5f;
+	private const float c_ExplosionScatterLodDistanceFraction = 0.12f;
+	private const float c_ExplosionMinimalLodDistanceFraction = 0.4f;
+	#endregion
+
 	#region Private Fields
 	private static Camera s_CachedMainCamera;
 	#endregion
@@ -153,6 +160,82 @@ public static class WeaponVfxUtility
 		return null;
 	}
 
+	public static bool TryGetEffectViewerPosition(out Vector3 _position)
+	{
+		Camera camera = ResolveActiveCamera();
+		if (camera != null)
+		{
+			_position = camera.transform.position;
+			return true;
+		}
+
+		AudioListener listener = UnityEngine.Object.FindAnyObjectByType<AudioListener>();
+		if (listener != null)
+		{
+			_position = listener.transform.position;
+			return true;
+		}
+
+		_position = Vector3.zero;
+		return false;
+	}
+
+	public static bool TryGetEffectViewerDistance(Vector3 _worldPosition, out float _distanceMeters)
+	{
+		_distanceMeters = 0f;
+		if (!TryGetEffectViewerPosition(out Vector3 viewerPosition))
+			return false;
+
+		_distanceMeters = Vector3.Distance(_worldPosition, viewerPosition);
+		return true;
+	}
+
+	public enum ExplosionDistanceLod
+	{
+		Full = 0,
+		NoScatter = 1,
+		Minimal = 2,
+	}
+
+	public static ExplosionDistanceLod ResolveExplosionDistanceLod(Vector3 _position, float _maxDistanceMeters)
+	{
+		if (_maxDistanceMeters <= 0f || !TryGetEffectViewerDistance(_position, out float distance))
+			return ExplosionDistanceLod.Full;
+
+		float scatterDistance = _maxDistanceMeters * c_ExplosionScatterLodDistanceFraction;
+		float minimalDistance = _maxDistanceMeters * c_ExplosionMinimalLodDistanceFraction;
+		if (distance <= scatterDistance)
+			return ExplosionDistanceLod.Full;
+		if (distance <= minimalDistance)
+			return ExplosionDistanceLod.NoScatter;
+		return ExplosionDistanceLod.Minimal;
+	}
+
+	public static void ApplyExplosionDistanceLod(GameObject _root, ExplosionDistanceLod _lod)
+	{
+		if (_root == null)
+			return;
+
+		SetExplosionLayerActive(_root, "Debris", true);
+		SetExplosionLayerActive(_root, "Ember", true);
+		SetExplosionLayerActive(_root, "Fire", true);
+		SetExplosionLayerActive(_root, "Smoke", true);
+		SetExplosionLayerActive(_root, "Light", true);
+
+		switch (_lod)
+		{
+			case ExplosionDistanceLod.NoScatter:
+				SetExplosionLayerActive(_root, "Debris", false);
+				SetExplosionLayerActive(_root, "Ember", false);
+				break;
+			case ExplosionDistanceLod.Minimal:
+				SetExplosionLayerActive(_root, "Debris", false);
+				SetExplosionLayerActive(_root, "Ember", false);
+				SetExplosionLayerActive(_root, "Fire", false);
+				break;
+		}
+	}
+
 	public static void InvalidateActiveCameraCache()
 	{
 		s_CachedMainCamera = null;
@@ -163,11 +246,10 @@ public static class WeaponVfxUtility
 		if (_maxDistanceMeters <= 0f)
 			return false;
 
-		Camera camera = ResolveActiveCamera();
-		if (camera == null)
+		if (!TryGetEffectViewerPosition(out Vector3 viewerPosition))
 			return false;
 
-		return (_worldPosition - camera.transform.position).sqrMagnitude <= _maxDistanceMeters * _maxDistanceMeters;
+		return (_worldPosition - viewerPosition).sqrMagnitude <= _maxDistanceMeters * _maxDistanceMeters;
 	}
 
 	/// <summary>
@@ -207,18 +289,17 @@ public static class WeaponVfxUtility
 		nearDistance = Mathf.Max(0f, nearDistance);
 		midDistance = Mathf.Clamp(Mathf.Max(nearDistance, midDistance), 0f, _maxDistanceMeters);
 
-		Camera camera = ResolveActiveCamera();
-		if (camera == null)
+		if (!TryGetEffectViewerPosition(out Vector3 viewerPosition))
 			return WeaponVfxQualityTier.Skip;
 
-		float sqrDistance = (_worldPosition - camera.transform.position).sqrMagnitude;
+		float sqrDistance = (_worldPosition - viewerPosition).sqrMagnitude;
 		if (sqrDistance <= nearDistance * nearDistance)
 			return WeaponVfxQualityTier.Full;
 
 		if (sqrDistance <= midDistance * midDistance)
 			return WeaponVfxQualityTier.Reduced;
 
-		return WeaponVfxQualityTier.Skip;
+		return WeaponVfxQualityTier.Reduced;
 	}
 
 	public static void ApplyParticleQualityTier(GameObject _root, WeaponVfxProfile _profile, WeaponVfxQualityTier _tier)
@@ -290,6 +371,31 @@ public static class WeaponVfxUtility
 	public static void PrepareBodyImpactParticleInstance(GameObject _instance)
 	{
 		PrepareParticleInstance(_instance, _forceNonLooping: true);
+	}
+
+	public static void PrepareExplosionParticleInstance(GameObject _instance)
+	{
+		PrepareParticleInstance(_instance, _forceNonLooping: true);
+		ScaleExplosionScatterParticles(_instance, c_ExplosionScatterParticleScale);
+	}
+
+	/// <summary>
+	/// Debris / ember only — flash, fire, smoke не трогаем.
+	/// </summary>
+	public static void ScaleExplosionScatterParticles(GameObject _root, float _scale)
+	{
+		if (_root == null || _scale <= 0f || _scale >= 1f)
+			return;
+
+		ParticleSystem[] systems = _root.GetComponentsInChildren<ParticleSystem>(true);
+		for (int i = 0; i < systems.Length; i++)
+		{
+			ParticleSystem system = systems[i];
+			if (system == null || !IsExplosionScatterParticleSystem(system))
+				continue;
+
+			ScaleScatterParticleSystem(system, _scale);
+		}
 	}
 
 	/// <summary>
@@ -452,6 +558,62 @@ public static class WeaponVfxUtility
 		}
 
 		return false;
+	}
+
+	private static bool IsExplosionScatterParticleSystem(ParticleSystem _system)
+	{
+		string name = _system.gameObject.name;
+		if (name.IndexOf("Light", StringComparison.OrdinalIgnoreCase) >= 0)
+			return false;
+		if (name.IndexOf("Smoke", StringComparison.OrdinalIgnoreCase) >= 0)
+			return false;
+		if (name.IndexOf("Fire", StringComparison.OrdinalIgnoreCase) >= 0)
+			return false;
+
+		return name.IndexOf("Debris", StringComparison.OrdinalIgnoreCase) >= 0
+		       || name.IndexOf("Ember", StringComparison.OrdinalIgnoreCase) >= 0;
+	}
+
+	private static void ScaleScatterParticleSystem(ParticleSystem _system, float _scale)
+	{
+		ParticleSystem.MainModule main = _system.main;
+		main.maxParticles = Mathf.Max(1, Mathf.RoundToInt(main.maxParticles * _scale));
+
+		ParticleSystem.EmissionModule emission = _system.emission;
+		emission.rateOverTimeMultiplier *= _scale;
+
+		int burstCount = emission.burstCount;
+		if (burstCount <= 0)
+			return;
+
+		ParticleSystem.Burst[] bursts = new ParticleSystem.Burst[burstCount];
+		int got = emission.GetBursts(bursts);
+		for (int i = 0; i < got; i++)
+		{
+			ParticleSystem.Burst burst = bursts[i];
+			burst.minCount = (short)Mathf.Max(1, Mathf.RoundToInt(burst.minCount * _scale));
+			burst.maxCount = (short)Mathf.Max(burst.minCount, Mathf.RoundToInt(burst.maxCount * _scale));
+			bursts[i] = burst;
+		}
+
+		emission.SetBursts(bursts);
+	}
+
+	private static void SetExplosionLayerActive(GameObject _root, string _nameToken, bool _active)
+	{
+		if (_root == null || string.IsNullOrEmpty(_nameToken))
+			return;
+
+		Transform[] transforms = _root.GetComponentsInChildren<Transform>(true);
+		for (int i = 0; i < transforms.Length; i++)
+		{
+			Transform t = transforms[i];
+			if (t == null || t == _root.transform)
+				continue;
+			if (t.name.IndexOf(_nameToken, StringComparison.OrdinalIgnoreCase) < 0)
+				continue;
+			t.gameObject.SetActive(_active);
+		}
 	}
 	#endregion
 }

@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Оркестратор перезарядки M2 на турели: cover, pitch, IK-флаги, короб, рукоятка.
+/// Оркестратор перезарядки M2/MK19 на турели: cover, pitch, IK-флаги, короб, рукоятка.
 /// Тайминги animation events синхронизированы с Stand_Gunner_Reload @ 30 fps.
 /// </summary>
 [DisallowMultipleComponent]
@@ -22,6 +22,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private const float c_HandleFirstUpDuration = 15f / c_ReloadClipFps;
 	private const float c_HandleSecondDownDuration = 9f / c_ReloadClipFps;
 	private const float c_HandleSecondUpDuration = 17f / c_ReloadClipFps;
+
+	private const float c_Mk19HandleRestLocalZ = 0.1667f;
+	private const float c_Mk19HandleOpenLocalZ = -0.141f;
+	private const float c_Mk19HandleRotateXDeg = -70f;
+	private const float c_Mk19HandleRotateDuration = 0.18f;
+	private const float c_Mk19HandleDownDuration = 0.4f;
+	private const float c_Mk19HandleUpDuration = 0.4f;
+	private const string c_Mk19HandleName = "GameObjectBolt";
 	private static readonly int s_IsGunnerReloadingM2 = Animator.StringToHash(ParamIsGunnerReloadingM2);
 	#endregion
 
@@ -32,7 +40,9 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	[SerializeField] private VehicleTurretVisualMount m_VisualMount;
 	[SerializeField] private VehicleTurretAimController m_Aim;
 	[SerializeField] private VehicleTurretEquipmentController m_Equipment;
+	[SerializeField] private VehicleTurretBeltFeed m_BeltFeed;
 	[SerializeField] private ItemDefinition m_M2MagazineBoxItem;
+	[SerializeField] private ItemDefinition m_Mk19MagazineBoxItem;
 	[SerializeField, Min(0.05f)] private float m_CoverPitchMoveDuration = 0.25f;
 	[SerializeField, Min(0.1f)] private float m_ReloadPitchReturnDuration = 2f;
 	[SerializeField, Min(0f)] private float m_PostReloadMinBlockSeconds = 1.5f;
@@ -43,6 +53,10 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	[SerializeField] private Vector3 m_MagLeftHandLocalEuler = new Vector3(-1.725f, 179.976f, -68.553f);
 	[SerializeField, Min(0f)] private float m_MagAttachBlendDuration = 0.12f;
 	[SerializeField, Min(0.01f)] private float m_MagAttachMaxHandDistance = c_DefaultMagAttachMaxHandDistance;
+
+	[Header("MK19 Magazine Grip")]
+	[SerializeField] private Vector3 m_Mk19MagLeftHandLocalPosition = new Vector3(-0.092f, -0.046f, -0.088f);
+	[SerializeField] private Vector3 m_Mk19MagLeftHandLocalEuler = new Vector3(17.745f, -112.385f, -13.41f);
 	#endregion
 
 	#region Private Fields
@@ -54,6 +68,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private float m_PostReloadGateStartTime;
 	private float m_PostReloadAimStableSince = -1f;
 	private bool m_SavedGunnerCover;
+	private bool m_TrackedCoverForPitch;
+	private bool m_ReloadPitchOverrideStarted;
 	private bool m_PendingFromGunnerBag;
 	private int m_PendingBagIndex = -1;
 	private InventorySlotRuntimeData m_PendingFullBox;
@@ -66,10 +82,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private Transform m_LeftHandleIkTarget;
 	private Coroutine m_MagAttachRoutine;
 	private Coroutine m_HandleMoveRoutine;
+	private Coroutine m_HandleRotateRoutine;
 	private bool m_UseLeftHandIk;
 	private bool m_UseRightHandIk;
 	private bool m_UseNotReadyIkTargets;
 	private bool m_UseHandleNotReadyIkTargets;
+	private bool m_IsMk19;
+	private float m_Mk19HandleRestXAngle;
+	private Vector3 m_Mk19HandleRestLocalEuler;
 	#endregion
 
 	#region Public Properties
@@ -90,10 +110,15 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		ResolveRefs();
 		if (m_M2MagazineBoxItem == null)
 			m_M2MagazineBoxItem = TurretContentCatalog.Get()?.M2MagazineBox;
+		if (m_Mk19MagazineBoxItem == null)
+			m_Mk19MagazineBoxItem = TurretContentCatalog.Get()?.Mk19MagazineBox;
 	}
 
 	private void Update()
 	{
+		if (m_IsReloading)
+			SyncPitchToCurrentCover();
+
 		if (!m_AwaitingPostReloadAim)
 			return;
 
@@ -149,6 +174,11 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		AttachMagToLeftHand();
 	}
 
+	public void AnimationEvent_TurretShowBelt()
+	{
+		ShowReloadBeltVisual();
+	}
+
 	public void AnimationEvent_TurretDisableRightHandIk()
 	{
 		SetRightHandIk(false);
@@ -182,22 +212,34 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	public void AnimationEvent_TurretHandleYankDown()
 	{
-		AnimateHandle(c_HandleOpenLocalZ, c_HandleFirstDownDuration);
+		if (m_IsMk19)
+			AnimateMk19HandleYank();
+		else
+			AnimateHandle(c_HandleOpenLocalZ, c_HandleFirstDownDuration);
 	}
 
 	public void AnimationEvent_TurretHandleFirstReturnUp()
 	{
-		AnimateHandle(c_HandleRestLocalZ, c_HandleFirstUpDuration);
+		if (m_IsMk19)
+			AnimateMk19HandleReturn();
+		else
+			AnimateHandle(c_HandleRestLocalZ, c_HandleFirstUpDuration);
 	}
 
 	public void AnimationEvent_TurretHandleSecondYankDown()
 	{
-		AnimateHandle(c_HandleOpenLocalZ, c_HandleSecondDownDuration);
+		if (m_IsMk19)
+			AnimateMk19HandleYank();
+		else
+			AnimateHandle(c_HandleOpenLocalZ, c_HandleSecondDownDuration);
 	}
 
 	public void AnimationEvent_TurretHandleSecondReturnUp()
 	{
-		AnimateHandle(c_HandleRestLocalZ, c_HandleSecondUpDuration);
+		if (m_IsMk19)
+			AnimateMk19HandleReturn();
+		else
+			AnimateHandle(c_HandleRestLocalZ, c_HandleSecondUpDuration);
 	}
 
 	public void AnimationEvent_TurretReleaseHandleIk()
@@ -224,9 +266,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			return false;
 
 		InventorySlotRuntimeData weaponSlot = m_Inventory.TurretWeapon;
-		if (weaponSlot.IsEmpty || weaponSlot.Definition == null ||
-		    weaponSlot.Definition.TurretWeaponVariant != TurretWeaponVariant.Browning127)
+		if (weaponSlot.IsEmpty || weaponSlot.Definition == null)
 			return false;
+
+		TurretWeaponVariant variant = weaponSlot.Definition.TurretWeaponVariant;
+		if (variant != TurretWeaponVariant.Browning127 && variant != TurretWeaponVariant.Mk19)
+			return false;
+
+		m_IsMk19 = variant == TurretWeaponVariant.Mk19;
 
 		if (!TryResolveReloadTransforms(out m_MagTransform, out m_HandleTransform))
 		{
@@ -247,6 +294,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_ActiveEvents.Bind(this);
 
 		m_SavedGunnerCover = m_Vehicle != null && m_Vehicle.IsGunnerCover;
+		m_TrackedCoverForPitch = m_SavedGunnerCover;
 		m_AwaitingPostReloadAim = false;
 		m_UseLeftHandIk = false;
 		m_UseRightHandIk = true;
@@ -263,10 +311,11 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	private void BeginReloadPresentation()
 	{
-		if (m_Vehicle != null && !m_SavedGunnerCover)
-			m_Vehicle.IsGunnerCover = true;
-
-		m_Aim?.BeginReloadPitchOverride(c_ReloadPitchUpDegrees, m_CoverPitchMoveDuration);
+		if (m_TrackedCoverForPitch)
+		{
+			m_Aim?.BeginReloadPitchOverride(c_ReloadPitchUpDegrees, m_CoverPitchMoveDuration);
+			m_ReloadPitchOverrideStarted = true;
+		}
 
 		Animator animator = m_ActiveGunner != null ? m_ActiveGunner.GetComponentInChildren<Animator>() : null;
 		if (animator != null)
@@ -274,6 +323,29 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 		m_VisualMount?.CaptureSnapshotsIfNeeded(_force: true);
 		CaptureMagOriginalPose();
+	}
+
+	private void SyncPitchToCurrentCover()
+	{
+		if (m_Vehicle == null)
+			return;
+
+		bool currentCover = m_Vehicle.IsGunnerCover;
+		if (currentCover == m_TrackedCoverForPitch)
+			return;
+
+		m_TrackedCoverForPitch = currentCover;
+
+		if (currentCover)
+		{
+			m_Aim?.BeginReloadPitchOverride(c_ReloadPitchUpDegrees, m_CoverPitchMoveDuration);
+			m_ReloadPitchOverrideStarted = true;
+		}
+		else if (m_ReloadPitchOverrideStarted)
+		{
+			m_Aim?.EndReloadPitchOverride(m_ReloadPitchReturnDuration);
+			m_ReloadPitchOverrideStarted = false;
+		}
 	}
 
 	private void CompleteReloadAfterAnimation()
@@ -286,16 +358,21 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_UseNotReadyIkTargets = false;
 		m_UseHandleNotReadyIkTargets = false;
 		ApplyFullBoxToWeapon();
+		m_BeltFeed?.ClearReloadBeltVisualOverride();
 		RestoreHandleAndIkParents();
+
+		if (m_Vehicle != null)
+			m_Vehicle.IsGunnerCover = m_SavedGunnerCover;
 
 		Animator animator = m_ActiveGunner != null ? m_ActiveGunner.GetComponentInChildren<Animator>() : null;
 		if (animator != null)
 			animator.SetBool(s_IsGunnerReloadingM2, false);
 
-		m_Aim?.EndReloadPitchOverride(m_ReloadPitchReturnDuration);
-
-		if (m_Vehicle != null)
-			m_Vehicle.IsGunnerCover = m_SavedGunnerCover;
+		if (m_ReloadPitchOverrideStarted)
+		{
+			m_Aim?.EndReloadPitchOverride(m_ReloadPitchReturnDuration);
+			m_ReloadPitchOverrideStarted = false;
+		}
 
 		m_IsReloading = false;
 		m_PostReloadGateStartTime = Time.time;
@@ -308,20 +385,25 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		StopMagAttachRoutine();
 		RestoreHandleAndIkParents();
 		StopHandleMoveRoutine();
+		m_BeltFeed?.ClearReloadBeltVisualOverride();
 		EndReloadPresentationImmediate();
 		ClearReloadState();
 	}
 
 	private void EndReloadPresentationImmediate()
 	{
+		if (m_Vehicle != null)
+			m_Vehicle.IsGunnerCover = m_SavedGunnerCover;
+
 		Animator animator = m_ActiveGunner != null ? m_ActiveGunner.GetComponentInChildren<Animator>() : null;
 		if (animator != null)
 			animator.SetBool(s_IsGunnerReloadingM2, false);
 
-		m_Aim?.EndReloadPitchOverride(m_CoverPitchMoveDuration);
-
-		if (m_Vehicle != null)
-			m_Vehicle.IsGunnerCover = m_SavedGunnerCover;
+		if (m_ReloadPitchOverrideStarted)
+		{
+			m_Aim?.EndReloadPitchOverride(m_CoverPitchMoveDuration);
+			m_ReloadPitchOverrideStarted = false;
+		}
 
 		m_ActiveEvents?.Unbind(this);
 	}
@@ -329,7 +411,10 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private void ClearReloadState()
 	{
 		m_IsReloading = false;
+		m_IsMk19 = false;
 		m_AwaitingPostReloadAim = false;
+		m_ReloadPitchOverrideStarted = false;
+		m_TrackedCoverForPitch = false;
 		m_UseLeftHandIk = false;
 		m_UseRightHandIk = false;
 		m_UseNotReadyIkTargets = false;
@@ -462,13 +547,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	{
 		_index = -1;
 		_box = default;
-		if (_bag == null || m_M2MagazineBoxItem == null)
+		ItemDefinition magItem = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
+		if (_bag == null || magItem == null)
 			return false;
 
 		for (int i = 0; i < _bag.Count; i++)
 		{
 			InventorySlotRuntimeData item = _bag[i];
-			if (item.IsEmpty || item.Definition != m_M2MagazineBoxItem)
+			if (item.IsEmpty || item.Definition != magItem)
 				continue;
 
 			MagazineRuntimeState magState = item.InstanceState?.MagazineState;
@@ -500,14 +586,15 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	private void ReturnEmptyBoxToVehicle()
 	{
-		if (m_Inventory == null || m_M2MagazineBoxItem == null)
+		ItemDefinition magItem = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
+		if (m_Inventory == null || magItem == null)
 			return;
 
-		InventorySlotRuntimeData emptyBox = InventorySlotRuntimeData.FromDefinition(m_M2MagazineBoxItem);
+		InventorySlotRuntimeData emptyBox = InventorySlotRuntimeData.FromDefinition(magItem);
 		EnsureMagazineRuntimeState(ref emptyBox);
 		MagazineRuntimeState magState = emptyBox.InstanceState?.MagazineState;
-		if (magState != null && m_M2MagazineBoxItem.MagazineDefinition != null)
-			magState.Configure(m_M2MagazineBoxItem.MagazineDefinition, null, 0);
+		if (magState != null && magItem.MagazineDefinition != null)
+			magState.Configure(magItem.MagazineDefinition, null, 0);
 
 		m_Inventory.ForceAddToBag(emptyBox);
 	}
@@ -516,6 +603,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	#region Private Methods — Visual / IK phases
 	private void AttachMagToLeftHand()
 	{
+		m_BeltFeed?.HideBeltForReload();
+
 		if (m_MagTransform == null || m_ActiveGunner == null)
 			return;
 
@@ -528,19 +617,21 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 		StopMagAttachRoutine();
 
-		Quaternion targetLocalRotation = Quaternion.Euler(m_MagLeftHandLocalEuler);
+		Vector3 targetPos = m_IsMk19 ? m_Mk19MagLeftHandLocalPosition : m_MagLeftHandLocalPosition;
+		Quaternion targetLocalRotation = Quaternion.Euler(m_IsMk19 ? m_Mk19MagLeftHandLocalEuler : m_MagLeftHandLocalEuler);
 		m_MagTransform.SetParent(leftHand, true);
 
-		if (m_MagAttachBlendDuration <= 0.001f)
+		float handDistance = Vector3.Distance(m_MagTransform.position, leftHand.position);
+		if (handDistance > m_MagAttachMaxHandDistance || m_MagAttachBlendDuration <= 0.001f)
 		{
-			m_MagTransform.localPosition = m_MagLeftHandLocalPosition;
+			m_MagTransform.localPosition = targetPos;
 			m_MagTransform.localRotation = targetLocalRotation;
 			return;
 		}
 
 		m_MagAttachRoutine = StartCoroutine(AnimateLocalTransformRoutine(
 			m_MagTransform,
-			m_MagLeftHandLocalPosition,
+			targetPos,
 			targetLocalRotation,
 			m_MagAttachBlendDuration,
 			() => m_MagAttachRoutine = null));
@@ -590,6 +681,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_UseNotReadyIkTargets = false;
 		m_UseHandleNotReadyIkTargets = true;
 		SetRightHandIk(true);
+		if (m_IsMk19)
+			SetLeftHandIk(true);
 		EnsureHandleIkTargetsResolved();
 	}
 
@@ -597,6 +690,64 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	{
 		m_UseHandleNotReadyIkTargets = false;
 		SetRightHandIk(false);
+		if (m_IsMk19)
+			SetLeftHandIk(false);
+	}
+
+	private void AnimateMk19HandleYank()
+	{
+		if (m_HandleTransform == null)
+			return;
+
+		StopHandleMoveRoutine();
+		StopHandleRotateRoutine();
+
+		Quaternion rotateTarget = Quaternion.Euler(c_Mk19HandleRotateXDeg, m_Mk19HandleRestLocalEuler.y, m_Mk19HandleRestLocalEuler.z);
+		m_HandleRotateRoutine = StartCoroutine(AnimateLocalRotationRoutine(
+			m_HandleTransform,
+			m_HandleTransform.localRotation,
+			rotateTarget,
+			c_Mk19HandleRotateDuration,
+			() =>
+			{
+				m_HandleRotateRoutine = null;
+				Vector3 target = m_HandleTransform.localPosition;
+				target.z = c_Mk19HandleOpenLocalZ;
+				m_HandleMoveRoutine = StartCoroutine(AnimateLocalPositionRoutine(
+					m_HandleTransform,
+					m_HandleTransform.localPosition,
+					target,
+					c_Mk19HandleDownDuration,
+					() => m_HandleMoveRoutine = null));
+			}));
+	}
+
+	private void AnimateMk19HandleReturn()
+	{
+		if (m_HandleTransform == null)
+			return;
+
+		StopHandleMoveRoutine();
+		StopHandleRotateRoutine();
+
+		Vector3 posTarget = m_HandleTransform.localPosition;
+		posTarget.z = c_Mk19HandleRestLocalZ;
+		m_HandleMoveRoutine = StartCoroutine(AnimateLocalPositionRoutine(
+			m_HandleTransform,
+			m_HandleTransform.localPosition,
+			posTarget,
+			c_Mk19HandleUpDuration,
+			() =>
+			{
+				m_HandleMoveRoutine = null;
+				Quaternion rotTarget = Quaternion.Euler(m_Mk19HandleRestLocalEuler);
+				m_HandleRotateRoutine = StartCoroutine(AnimateLocalRotationRoutine(
+					m_HandleTransform,
+					m_HandleTransform.localRotation,
+					rotTarget,
+					c_Mk19HandleRotateDuration,
+					() => m_HandleRotateRoutine = null));
+			}));
 	}
 
 	private void AnimateHandle(float _targetLocalZ, float _duration)
@@ -619,14 +770,25 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private void RestoreHandleAndIkParents()
 	{
 		StopHandleMoveRoutine();
+		StopHandleRotateRoutine();
 		StopMagAttachRoutine();
 		m_UseHandleNotReadyIkTargets = false;
 
 		if (m_HandleTransform != null)
 		{
-			Vector3 pos = m_HandleTransform.localPosition;
-			pos.z = c_HandleRestLocalZ;
-			m_HandleTransform.localPosition = pos;
+			if (m_IsMk19)
+			{
+				Vector3 pos = m_HandleTransform.localPosition;
+				pos.z = c_Mk19HandleRestLocalZ;
+				m_HandleTransform.localPosition = pos;
+				m_HandleTransform.localEulerAngles = m_Mk19HandleRestLocalEuler;
+			}
+			else
+			{
+				Vector3 pos = m_HandleTransform.localPosition;
+				pos.z = c_HandleRestLocalZ;
+				m_HandleTransform.localPosition = pos;
+			}
 		}
 
 		if (m_MagTransform != null && m_MagOriginalParent != null)
@@ -654,6 +816,22 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	#endregion
 
 	#region Private Methods — Helpers
+	private void ShowReloadBeltVisual()
+	{
+		if (m_BeltFeed == null)
+			return;
+
+		InventorySlotRuntimeData box = m_PendingFullBox;
+		EnsureMagazineRuntimeState(ref box);
+		EnsureFullM2BoxRuntimeState(ref box);
+
+		int visualAmmo = box.InstanceState?.MagazineState?.CurrentAmmoCount ?? -1;
+		if (visualAmmo < 0 && box.Definition?.MagazineDefinition != null)
+			visualAmmo = box.Definition.MagazineDefinition.Capacity;
+
+		m_BeltFeed.ShowBeltForReload(visualAmmo);
+	}
+
 	private void ResolveRefs()
 	{
 		if (m_Vehicle == null)
@@ -668,6 +846,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			TryGetComponent(out m_Aim);
 		if (m_Equipment == null)
 			TryGetComponent(out m_Equipment);
+		if (m_BeltFeed == null)
+			TryGetComponent(out m_BeltFeed);
 	}
 
 	private bool TryResolveReloadTransforms(out Transform _mag, out Transform _handle)
@@ -678,6 +858,10 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			return false;
 
 		m_Hierarchy.EnsureBound();
+
+		if (m_IsMk19)
+			return TryResolveMk19Transforms(out _mag, out _handle);
+
 		_mag = m_Hierarchy.Mag127;
 		if (_mag == null)
 			return false;
@@ -698,6 +882,26 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		return _handle != null;
 	}
 
+	private bool TryResolveMk19Transforms(out Transform _mag, out Transform _handle)
+	{
+		_mag = m_Hierarchy.MagMk19;
+		_handle = null;
+		if (_mag == null)
+			return false;
+
+		Transform pitch = m_Hierarchy.GetActiveWeaponPitch(TurretWeaponVariant.Mk19);
+		_handle = FindDeepChild(pitch, c_Mk19HandleName);
+
+		if (_handle != null)
+		{
+			m_Mk19HandleRestLocalEuler = _handle.localEulerAngles;
+			m_Mk19HandleRestXAngle = m_Mk19HandleRestLocalEuler.x;
+			EnsureHandleIkTargetsOnHandle(_handle);
+		}
+
+		return _handle != null;
+	}
+
 	private void EnsureHandleIkTargetsResolved()
 	{
 		if (m_HandleTransform == null)
@@ -710,17 +914,32 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		if (_handle == null)
 			return;
 
-		EnsureEmptyChild(_handle, RightHandIkNotReadyHandleName);
-		m_RightHandleIkTarget = _handle.Find(RightHandIkNotReadyHandleName);
-
-		Transform leftOnHandle = _handle.Find(LeftHandIkNotReadyHandleName);
-		if (leftOnHandle != null)
+		m_RightHandleIkTarget = FindDeepChild(_handle, RightHandIkNotReadyHandleName);
+		if (m_RightHandleIkTarget == null)
 		{
-			// M2 reload uses right handle IK only; left empty may exist disabled on Gun_Handle.
-			leftOnHandle.gameObject.SetActive(false);
+			EnsureEmptyChild(_handle, RightHandIkNotReadyHandleName);
+			m_RightHandleIkTarget = _handle.Find(RightHandIkNotReadyHandleName);
 		}
 
-		m_LeftHandleIkTarget = null;
+		Transform leftOnHandle = FindDeepChild(_handle, LeftHandIkNotReadyHandleName);
+		if (m_IsMk19)
+		{
+			m_LeftHandleIkTarget = leftOnHandle;
+			if (m_LeftHandleIkTarget == null)
+			{
+				EnsureEmptyChild(_handle, LeftHandIkNotReadyHandleName);
+				m_LeftHandleIkTarget = _handle.Find(LeftHandIkNotReadyHandleName);
+			}
+
+			if (m_LeftHandleIkTarget != null)
+				m_LeftHandleIkTarget.gameObject.SetActive(true);
+		}
+		else
+		{
+			m_LeftHandleIkTarget = null;
+			if (leftOnHandle != null)
+				leftOnHandle.gameObject.SetActive(false);
+		}
 	}
 
 	private static bool EnsureEmptyChild(Transform _parent, string _name)
@@ -772,7 +991,9 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		if (magState == null || magState.HasAmmo)
 			return;
 
-		AmmoDefinition ammo = TurretContentCatalog.Get()?.Ammo127;
+		AmmoDefinition ammo = m_IsMk19
+			? TurretContentCatalog.Get()?.Ammo40
+			: TurretContentCatalog.Get()?.Ammo127;
 		if (ammo == null)
 			return;
 
@@ -796,6 +1017,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			return;
 		StopCoroutine(m_HandleMoveRoutine);
 		m_HandleMoveRoutine = null;
+	}
+
+	private void StopHandleRotateRoutine()
+	{
+		if (m_HandleRotateRoutine == null)
+			return;
+		StopCoroutine(m_HandleRotateRoutine);
+		m_HandleRotateRoutine = null;
 	}
 
 	private static IEnumerator AnimateLocalTransformRoutine(
@@ -855,6 +1084,34 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		}
 
 		_target.localPosition = _end;
+		_onComplete?.Invoke();
+	}
+
+	private static IEnumerator AnimateLocalRotationRoutine(
+		Transform _target,
+		Quaternion _start,
+		Quaternion _end,
+		float _duration,
+		System.Action _onComplete)
+	{
+		if (_target == null)
+		{
+			_onComplete?.Invoke();
+			yield break;
+		}
+
+		float elapsed = 0f;
+		float duration = Mathf.Max(0.0001f, _duration);
+		while (elapsed < duration)
+		{
+			elapsed += Time.deltaTime;
+			float t = Mathf.Clamp01(elapsed / duration);
+			t = t * t * (3f - 2f * t);
+			_target.localRotation = Quaternion.Slerp(_start, _end, t);
+			yield return null;
+		}
+
+		_target.localRotation = _end;
 		_onComplete?.Invoke();
 	}
 	#endregion

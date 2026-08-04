@@ -248,6 +248,46 @@ public static class CombatAudioManager
 	}
 
 	/// <summary>
+	/// Взрывы гранат: высокий приоритет, без NonFire-attenuation; при перегрузке вытесняет слабые голоса.
+	/// </summary>
+	public static bool TryPlayExplosion(
+		AudioClip _clip,
+		Vector3 _position,
+		float _volume,
+		float _maxDistance = 90f,
+		Transform _ownerOrNull = null)
+	{
+		if (_clip == null || _volume <= 0f)
+			return false;
+
+		float maxDistance = Mathf.Max(5f, _maxDistance);
+		float distance = GetListenerDistance(_position);
+		if (distance >= maxDistance)
+			return false;
+
+		float estimatedVolume = EstimateVolumeAtListener(_position, _volume, maxDistance);
+		if (estimatedVolume < c_MinAudibleVolume * 0.35f)
+			return false;
+
+		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
+		int priority = ComputeRocketLauncherPriority(_position, _ownerOrNull, estimatedVolume, ownerId);
+		return TryPlayInternal(
+			_clip,
+			_position,
+			_volume,
+			1f,
+			maxDistance,
+			c_DefaultSpatialMinDistance,
+			Category.RocketLauncher,
+			priority,
+			ownerId,
+			0,
+			_nonSpatial: false,
+			_isBulletWhiz: false,
+			_forceMaximumPriority: true);
+	}
+
+	/// <summary>
 	/// Гранатомёт: fire / flyby / explosion — всегда с максимальным приоритетом, без NonFire- attenuation.
 	/// </summary>
 	public static bool TryPlayRocketLauncher(

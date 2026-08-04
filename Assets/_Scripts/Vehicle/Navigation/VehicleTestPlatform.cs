@@ -45,7 +45,7 @@ namespace VehicleNavigation
         [SerializeField] private bool m_RespawnBetweenTests = true;
         [SerializeField] private Vector3 m_StartPosition = Vector3.zero;
         [SerializeField] private float m_StartYaw;
-        [SerializeField] private int m_LogEveryNFrames = 15;
+        [SerializeField] private int m_LogEveryNFrames = 1;
 
         [Header("Camera")]
         [SerializeField] private Camera m_TestCamera;
@@ -77,8 +77,10 @@ namespace VehicleNavigation
         private string m_LastPlanReason;
         private VehicleDrivingMode m_LastMode;
         private DriverFSM.State m_LastFsmState;
+        private string m_LastManeuverType;
         private Vector3 m_LastLoggedPos;
         private int m_FrameCounter;
+        private int m_TestFrameCounter;
 
         private enum Phase { Idle, Spawning, WaitingReady, Driving, Arrived, Respawning, Completed }
         private Phase m_Phase;
@@ -223,12 +225,10 @@ namespace VehicleNavigation
                 DirectionDeg = _test.DirectionDeg
             };
 
-            // Phase 1: Spawn
             m_Phase = Phase.Spawning;
             SpawnVehicle();
             yield return new WaitForSeconds(0.5f);
 
-            // Wait for ready
             float readyWait = 0f;
             while (readyWait < 5f && !IsVehicleReady())
             {
@@ -253,14 +253,10 @@ namespace VehicleNavigation
             target.y = result.StartPos.y;
             result.TargetPos = target;
 
-            // Log vehicle parameters
             var p = m_Navigation.Context?.Params;
             if (p.HasValue)
-                LogFrame($"VEHICLE_PARAMS | wheelBase={p.Value.WheelBase:F2} length={p.Value.Length:F2} width={p.Value.Width:F2} " +
-                    $"turnRadius={p.Value.MinTurningRadius:F2} maxSteer={p.Value.MaxSteeringAngleDeg:F0}° " +
-                    $"maxFwd={p.Value.MaxForwardSpeedKmh:F0}km/h maxRev={p.Value.MaxReverseSpeedKmh:F0}km/h");
+                LogVehicleParams(p.Value);
 
-            // Phase 2: Issue command
             m_Phase = Phase.Driving;
             if (_test.HasHeading)
                 m_Navigation.SetDestination(target, _test.HeadingYaw, VehicleSpeedMode.Medium);
@@ -273,10 +269,13 @@ namespace VehicleNavigation
             m_LastPlanReason = "";
             m_LastMode = VehicleDrivingMode.Forward;
             m_LastFsmState = DriverFSM.State.Idle;
+            m_LastManeuverType = "";
             m_LastLoggedPos = result.StartPos;
             m_FrameCounter = 0;
+            m_TestFrameCounter = 0;
 
             LogTestStart(_test, result);
+            LogFrameHeader();
 
             float elapsed = 0f;
             float stagnantTime = 0f;
@@ -287,6 +286,7 @@ namespace VehicleNavigation
                 elapsed = Time.time - m_TestStartTime;
                 yield return new WaitForFixedUpdate();
                 m_FrameCounter++;
+                m_TestFrameCounter++;
 
                 if (m_Navigation == null || m_VehicleInstance == null) break;
 
@@ -301,33 +301,19 @@ namespace VehicleNavigation
                 string maneuverType = maneuver?.Type.ToString() ?? "-";
                 float curvature = m_Navigation.Context?.CurrentCurvature ?? 0f;
 
-                // Per-frame state logging every N frames
-                if (m_FrameCounter % m_LogEveryNFrames == 0 ||
-                    planReason != m_LastPlanReason ||
-                    fsmState != m_LastFsmState ||
-                    mode != m_LastMode)
+                if (m_TestFrameCounter % m_LogEveryNFrames == 0)
+                    LogPerFrameData(pos, target, currentDist, elapsed);
+
+                if (maneuverType != m_LastManeuverType)
                 {
-                    LogFrame($"t={elapsed:F1}s | state={fsmState} | mode={mode} | maneuver={maneuverType} | " +
-                        $"pos=({pos.x:F2},{pos.z:F2}) | dist={currentDist:F2}m | remaining={remaining:F1}m | " +
-                        $"speed={speed:F1}km/h | curv={curvature:F4} | plan={planReason}");
-
-                    // Log waypoints if available
-                    if (maneuver != null && maneuver.Waypoints != null && maneuver.Waypoints.Count > 0)
-                    {
-                        var wps = new StringBuilder("  waypoints: ");
-                        for (int i = 0; i < Mathf.Min(maneuver.Waypoints.Count, 4); i++)
-                            wps.Append($"({maneuver.Waypoints[i].x:F2},{maneuver.Waypoints[i].z:F2}) ");
-                        LogFrame(wps.ToString());
-                    }
-
-                    m_LastLoggedPos = pos;
+                    LogManeuverChange(maneuver);
+                    m_LastManeuverType = maneuverType;
                 }
 
                 m_LastPlanReason = planReason;
                 m_LastMode = mode;
                 m_LastFsmState = fsmState;
 
-                // Completion: Holding or Idle
                 if (fsmState == DriverFSM.State.Holding || fsmState == DriverFSM.State.Idle)
                 {
                     m_DestinationReached = true;
@@ -342,7 +328,6 @@ namespace VehicleNavigation
                     break;
                 }
 
-                // Empty plan detection
                 if (fsmState == DriverFSM.State.Driving && elapsed > 3f &&
                     (string.IsNullOrEmpty(planReason) || planReason == "empty"))
                 {
@@ -354,7 +339,6 @@ namespace VehicleNavigation
                     break;
                 }
 
-                // Stagnation detection
                 if (remaining < lastRemainingDist - 0.05f)
                 {
                     stagnantTime = 0f;
@@ -391,8 +375,6 @@ namespace VehicleNavigation
             }
 
             m_Phase = Phase.Arrived;
-            LogFrame($"RESULT | success={result.Success} time={result.CompletionTime:F1}s finalDist={result.FinalDistance:F2}m " +
-                $"finalSpeed={result.FinalSpeed:F1}km/h mode={result.ChosenMode} note={result.Note}");
             LogTestEnd(result);
 
             yield return new WaitForSeconds(m_InterTestDelay);
@@ -419,7 +401,6 @@ namespace VehicleNavigation
             sb.AppendLine($"Total: {m_Results.Count}");
             int passed = 0;
 
-            // Group by type
             foreach (TestManeuverType type in Enum.GetValues(typeof(TestManeuverType)))
             {
                 if (type == TestManeuverType.All) continue;
@@ -475,7 +456,7 @@ namespace VehicleNavigation
             {
                 m_Brain.SetControlActive(true);
                 m_Brain.StartEngine();
-                LogFrame($"BRAIN | ControlActive={m_Brain.ControlActive} Engine={m_Brain.EngineRunning} CanDrive={m_Brain.CanDrive} Ready={m_Brain.EngineReady}");
+                LogLine($"BRAIN | ControlActive={m_Brain.ControlActive} Engine={m_Brain.EngineRunning} CanDrive={m_Brain.CanDrive} Ready={m_Brain.EngineReady}");
             }
 
             if (m_Navigation != null)
@@ -512,7 +493,7 @@ namespace VehicleNavigation
             if (m_Brain != null && !m_Brain.CanDrive)
             {
                 if (m_Brain.ControlActive && m_Brain.EngineRunning && !m_Brain.EngineReady)
-                    LogFrame($"BRAIN | waiting engine ready... {(m_Brain.EngineReady ? "YES" : "no")}");
+                    LogLine($"BRAIN | waiting engine ready... {(m_Brain.EngineReady ? "YES" : "no")}");
                 return false;
             }
             return true;
@@ -527,26 +508,144 @@ namespace VehicleNavigation
             string path = Path.Combine(dir, $"VehicleTest_{DateTime.Now:yyyyMMdd_HHmmss}.log");
             m_LogWriter = new StreamWriter(path, false, Encoding.UTF8);
             WriteLog("==============================================================");
-            WriteLog("              VEHICLE TEST PLATFORM LOG                       ");
+            WriteLog("              VEHICLE TEST PLATFORM — DETAILED LOG            ");
             WriteLog("==============================================================");
             WriteLog($"Started: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             WriteLog($"Test cases: {m_TestCases.Count}");
             WriteLog($"Timeout per test: {m_TestTimeout}s");
-            WriteLog($"Log interval: every {m_LogEveryNFrames} frames + on state change");
+            WriteLog($"Log interval: every {m_LogEveryNFrames} frame(s)");
+            WriteLog($"Columns: FRAME|TIME|FSM|MODE|PHASE|POS_X|POS_Z|YAW|SPD|SIGNED_SPD|VEL_SQ|REV|STOP|STUCK|AIR|UP|MANEUVER|MVR_IDX/N|REM_DIST|DST_TGT|CURV|DES_SPD|TGT_SPD|SPD_LIMIT|STOP_REASON|P_LAD|P_NEAR|P_TGT|P_CTE|P_RAW_CURV|P_CLAMP_CURV|P_PREV_CURV|P_ARR_S|P_LAUNCH|P_CAP|P_REV|P_WP_TTL|THR|STEER|BRAKE|PLAN");
             WriteLog("==============================================================");
+            WriteLog("");
+        }
+
+        private void LogVehicleParams(VehicleParameters _p)
+        {
+            WriteLog("");
+            WriteLog("--- VEHICLE PARAMETERS ---");
+            WriteLog($"  wheelBase={_p.WheelBase:F2}m | length={_p.Length:F2}m | width={_p.Width:F2}m");
+            WriteLog($"  turnRadius={_p.MinTurningRadius:F2}m | maxSteer={_p.MaxSteeringAngleDeg:F0}deg");
+            WriteLog($"  maxFwd={_p.MaxForwardSpeedKmh:F0}km/h | maxRev={_p.MaxReverseSpeedKmh:F0}km/h");
+            WriteLog($"  steerRate={_p.SteeringRateDegPerSec:F0}deg/s | hardBrake={_p.HardBrakeDecelMs2:F1}m/s^2");
             WriteLog("");
         }
 
         private void LogTestStart(TestCase _test, TestResult _result)
         {
             WriteLog("");
-            WriteLog("--------------------------------------------------------------");
+            WriteLog("==============================================================");
             WriteLog($"TEST #{m_CurrentTestIndex + 1}: {_test.Name}");
-            WriteLog($"  Type: {_test.ManeuverType} | Direction: {_test.DirectionDeg:F0}° | Distance: {_test.Distance:F0}m");
+            WriteLog($"  Type: {_test.ManeuverType} | Dir: {_test.DirectionDeg:F0}deg | Dist: {_test.Distance:F0}m");
             WriteLog($"  Start:  ({_result.StartPos.x:F3}, {_result.StartPos.y:F3}, {_result.StartPos.z:F3})");
             WriteLog($"  Target: ({_result.TargetPos.x:F3}, {_result.TargetPos.y:F3}, {_result.TargetPos.z:F3})");
-            WriteLog($"  Heading required: {(_test.HasHeading ? $"yes ({_test.HeadingYaw:F0}°)" : "no")}");
-            WriteLog("--------------------------------------------------------------");
+            WriteLog($"  Heading: {(_test.HasHeading ? $"yes ({_test.HeadingYaw:F0}deg)" : "no")}");
+            WriteLog("==============================================================");
+        }
+
+        private void LogFrameHeader()
+        {
+            WriteLog("# FRAME | TIME | FSM | MODE | PHASE | POS_X | POS_Z | YAW | SPD | SIGNED_SPD | VEL_SQ | REV | STOP | STUCK | AIR | UP");
+            WriteLog("#       | MANEUVER | MVR_IDX/N | REM_DIST | DST_TGT | CURV | DES_SPD | TGT_SPD | SPD_LIMIT | STOP_REASON");
+            WriteLog("#       | P_LAD | P_NEAR | P_TGT | P_CTE | P_RAW_CURV | P_CLAMP_CURV | P_PREV_CURV | P_ARR_S | P_LAUNCH | P_CAP | P_REV | P_WP_TTL");
+            WriteLog("#       | THR | STEER | BRAKE | PLAN");
+        }
+
+        private void LogPerFrameData(Vector3 _pos, Vector3 _target, float _distToTarget, float _elapsed)
+        {
+            if (m_Navigation == null) return;
+
+            var ctx = m_Navigation.Context;
+            var fb = ctx?.State ?? default;
+            var plan = m_Navigation.ActivePlan;
+            var maneuver = m_Navigation.CurrentManeuver;
+            var pursuit = m_Navigation.PursuitDebug;
+            var cmd = m_Navigation.LastCommand;
+            var fsmState = m_Navigation.DriverState;
+
+            float speedKmh = m_Navigation.CurrentSpeed * 3.6f;
+
+            string maneuverType = maneuver?.Type.ToString() ?? "-";
+            int maneuverIdx = ctx?.CurrentManeuverIndex ?? 0;
+            int maneuverTotal = plan.Maneuvers?.Count ?? 0;
+            string maneuverIdxStr = maneuverTotal > 0 ? $"{maneuverIdx + 1}/{maneuverTotal}" : "-/-";
+
+            float remaining = ctx?.RemainingDistance ?? 0f;
+            float curvature = ctx?.CurrentCurvature ?? 0f;
+            float desiredSpeed = ctx?.DesiredSpeedKmh ?? 0f;
+            float targetSpeed = ctx?.TargetSpeedKmh ?? 0f;
+
+            string speedLimit = ctx != null ? ctx.ActiveLimit.Reason.ToString() : "-";
+            string stopReason = ctx != null ? ctx.ActiveStopReason.ToString() : "-";
+
+            var sb = new StringBuilder();
+            sb.Append($"{m_TestFrameCounter}|{_elapsed:F3}|{fsmState}|{plan.DrivingMode}|{cmd.Phase}|");
+            sb.Append($"{_pos.x:F2}|{_pos.z:F2}|{fb.Yaw:F1}|");
+            sb.Append($"{speedKmh:F1}|{fb.SpeedSignedKmh:F1}|{fb.VelocitySqr:F2}|");
+            sb.Append($"{(fb.IsReversing ? 1 : 0)}|{(fb.IsStopped ? 1 : 0)}|{(fb.IsStuck ? 1 : 0)}|{(fb.IsAirborne ? 1 : 0)}|{(fb.IsUpright ? 1 : 0)}|");
+            sb.Append($"{maneuverType}|{maneuverIdxStr}|{remaining:F2}|{_distToTarget:F2}|");
+            sb.Append($"{curvature:F4}|{desiredSpeed:F1}|{targetSpeed:F1}|{speedLimit}|{stopReason}|");
+
+            sb.Append($"{pursuit.LookAheadDistance:F2}|{pursuit.NearestWaypointIndex}|{pursuit.LookAheadTargetIndex}|");
+            sb.Append($"{pursuit.CrossTrackError:F3}|{pursuit.RawCurvature:F4}|{pursuit.ClampedCurvature:F4}|");
+            sb.Append($"{pursuit.PreviewCurvature:F4}|{pursuit.ArrivalScale:F3}|{pursuit.LaunchRamp:F3}|");
+            sb.Append($"{pursuit.CappedSpeedKmh:F1}|{(pursuit.IsReversing ? 1 : 0)}|{pursuit.TotalWaypoints}|");
+
+            sb.Append($"{cmd.Throttle:F3}|{cmd.Steer:F3}|{cmd.BrakeMode}|{plan.Reason}");
+
+            WriteLog(sb.ToString());
+        }
+
+        private void LogManeuverChange(Maneuver _maneuver)
+        {
+            if (_maneuver == null || _maneuver.Waypoints == null || _maneuver.Waypoints.Count == 0)
+                return;
+
+            var sb = new StringBuilder();
+            sb.Append($"--- MANEUVER START: {_maneuver.Type} | allowReverse={_maneuver.AllowReverse} | speedScale={_maneuver.SpeedScale:F2} | isArrival={_maneuver.IsArrivalManeuver}");
+            WriteLog(sb.ToString());
+
+            var wps = new StringBuilder("    waypoints[" + _maneuver.Waypoints.Count + "]: ");
+            int maxShow = Mathf.Min(_maneuver.Waypoints.Count, 20);
+            for (int i = 0; i < maxShow; i++)
+            {
+                wps.Append($"({_maneuver.Waypoints[i].x:F2},{_maneuver.Waypoints[i].z:F2})");
+                if (i < maxShow - 1) wps.Append(" ");
+            }
+            if (_maneuver.Waypoints.Count > 20)
+                wps.Append($" ... (+{_maneuver.Waypoints.Count - 20} more)");
+            WriteLog(wps.ToString());
+
+            var corners = m_Navigation?.PathCorners;
+            if (corners != null && corners.Count > 0)
+            {
+                var cps = new StringBuilder("    path_corners[" + corners.Count + "]: ");
+                for (int i = 0; i < corners.Count; i++)
+                {
+                    cps.Append($"({corners[i].x:F2},{corners[i].z:F2})");
+                    if (i < corners.Count - 1) cps.Append(" ");
+                }
+                WriteLog(cps.ToString());
+            }
+
+            var plan = m_Navigation?.ActivePlan;
+            if (plan != null && plan.IsValid)
+            {
+                var pi = new StringBuilder("    plan_info: ");
+                pi.Append($"mode={plan.DrivingMode} | reason={plan.Reason} | cost={plan.TotalCost:F1}");
+                pi.Append($" | estDist={plan.EstimatedDistance:F1}m | revDist={plan.ReverseDistance:F1}m");
+                pi.Append($" | turns={plan.TurnCount} | risk={plan.Risk:F2}");
+                if (plan.Feasibility != null && !plan.Feasibility.IsValid)
+                    pi.Append($" | feasibility=FAIL({plan.Feasibility.FailureReason})");
+                WriteLog(pi.ToString());
+
+                if (plan.Maneuvers != null && plan.Maneuvers.Count > 0)
+                {
+                    var ml = new StringBuilder("    plan_maneuvers: ");
+                    for (int i = 0; i < plan.Maneuvers.Count; i++)
+                        ml.Append($"[{i}]{plan.Maneuvers[i]?.Type} ");
+                    WriteLog(ml.ToString());
+                }
+            }
         }
 
         private void LogTestEnd(TestResult _result)
@@ -556,12 +655,14 @@ namespace VehicleNavigation
             WriteLog($"  Chosen mode: {_result.ChosenMode} | Plan: {_result.PlanReason}");
             if (!string.IsNullOrEmpty(_result.Note))
                 WriteLog($"  Note: {_result.Note}");
+            WriteLog($"  Total test frames: {m_TestFrameCounter} (logged every {m_LogEveryNFrames})");
             WriteLog("--------------------------------------------------------------");
+            WriteLog("");
         }
 
-        private void LogFrame(string _text)
+        private void LogLine(string _text)
         {
-            WriteLog($"  [{DateTime.Now:HH:mm:ss.fff}] {_text}");
+            WriteLog($"[{DateTime.Now:HH:mm:ss.fff}] {_text}");
         }
 
         private void WriteLog(string _text)
@@ -608,7 +709,7 @@ namespace VehicleNavigation
         {
             if (!Application.isPlaying) return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 450, 340));
+            GUILayout.BeginArea(new Rect(10, 10, 500, 400));
             GUILayout.Box($"Test Platform | Phase: {m_Phase} | Timeout: {m_TestTimeout}s");
             GUILayout.Label($"Test: {m_CurrentTestIndex + 1}/{m_TestCases.Count}");
             if (m_CurrentTestIndex < m_TestCases.Count)
@@ -622,8 +723,12 @@ namespace VehicleNavigation
                 float dist = Vector3.Distance(m_Navigation.transform.position,
                     m_Navigation.Context?.Request.Destination ?? m_Navigation.transform.position);
                 GUILayout.Label($"Dist: {dist:F1}m | Remaining: {m_Navigation.Context?.RemainingDistance ?? 0f:F1}m | Speed: {m_Navigation.CurrentSpeed * 3.6f:F1}km/h");
+                GUILayout.Label($"Frame: {m_TestFrameCounter} | LogEvery: {m_LogEveryNFrames}");
                 if (m_Brain != null)
                     GUILayout.Label($"Brain: active={m_Brain.ControlActive} eng={m_Brain.EngineRunning} ready={m_Brain.EngineReady} canDrive={m_Brain.CanDrive}");
+
+                var pursuit = m_Navigation.PursuitDebug;
+                GUILayout.Label($"Pursuit: LA={pursuit.LookAheadDistance:F1}m nearWP={pursuit.NearestWaypointIndex} tgtWP={pursuit.LookAheadTargetIndex} CTE={pursuit.CrossTrackError:F3} curv={pursuit.ClampedCurvature:F4}");
             }
 
             int p = 0; foreach (var r in m_Results) if (r.Success) p++;

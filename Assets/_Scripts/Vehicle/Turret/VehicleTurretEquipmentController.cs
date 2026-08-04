@@ -25,6 +25,8 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 	private EquippedWeapon m_ActiveEquippedWeapon;
 	private VehicleTurretGunnerBridge m_GunnerBridge;
 	private VehicleTurretReloadController m_ReloadController;
+	private static readonly System.Collections.Generic.HashSet<int> s_MissingEquippedWeaponPitchIds =
+		new System.Collections.Generic.HashSet<int>();
 	#endregion
 
 	#region Public Properties
@@ -198,7 +200,8 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 
 		ItemDefinition activeWeapon = ActiveWeaponItem;
 		return activeWeapon != null &&
-		       activeWeapon.TurretWeaponVariant == TurretWeaponVariant.Browning127;
+		       (activeWeapon.TurretWeaponVariant == TurretWeaponVariant.Browning127 ||
+		        activeWeapon.TurretWeaponVariant == TurretWeaponVariant.Mk19);
 	}
 
 	private static InventorySlotRuntimeData BuildFullMagazineSlot(ItemDefinition _magItem, AmmoDefinition _ammo)
@@ -222,10 +225,24 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 
 		if (!pitch.TryGetComponent(out EquippedWeapon equipped))
 		{
-			Debug.LogWarning(
-				$"[{nameof(VehicleTurretEquipmentController)}] EquippedWeapon not found on '{pitch.name}'. "
-				+ "Add it on the prefab pitch; runtime will not create one to avoid duplicate components.",
-				pitch);
+			int pitchId = pitch.GetInstanceID();
+			if (s_MissingEquippedWeaponPitchIds.Add(pitchId))
+			{
+				Debug.LogWarning(
+					$"[{nameof(VehicleTurretEquipmentController)}] EquippedWeapon not found on '{pitch.name}'. "
+					+ "Run Polygone/Vehicles/Setup Turret EquippedWeapon (M2 + MK19) on the vehicle prefab.",
+					pitch);
+			}
+
+			return;
+		}
+
+		s_MissingEquippedWeaponPitchIds.Remove(pitch.GetInstanceID());
+
+		if (_variant == TurretWeaponVariant.Mk19)
+		{
+			VehicleTurretCombatSockets.EnsureMissingMk19SocketsOnPitch(pitch);
+			VehicleTurretCombatSockets.PrepareMk19PitchRuntime(pitch);
 		}
 		else
 		{

@@ -83,8 +83,8 @@ public sealed class GrenadeThrowData : ScriptableObject
 	[Tooltip("Smoke — только дымовой FX.")]
 	[SerializeField] private GameObject m_SmokePrefab;
 	[SerializeField, Min(0.1f)] private float m_ExplosionFuseSeconds = 3.5f;
-	[SerializeField, Min(0f)] private float m_ExplosionMaxDistanceMeters = 70f;
-	[SerializeField, Min(5f)] private float m_ExplosionAudioMaxDistance = 90f;
+	[SerializeField, Min(0f)] private float m_ExplosionMaxDistanceMeters = 200f;
+	[SerializeField, Min(5f)] private float m_ExplosionAudioMaxDistance = 220f;
 
 	[Header("VFX Tuning By Type")]
 	[SerializeField, Min(0.01f)] private float m_FragExplosionScale = 1.25f;

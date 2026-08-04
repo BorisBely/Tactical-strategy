@@ -23,7 +23,7 @@ MonoBehaviour:
     m_FireClips: []
     m_MaxAudibleDistanceMeters: 0
   m_IsSubsonic: 0
-  m_ShellPrefab: {fileID: 0}
+  m_ShellPrefab: {fileID: 4000111100000001, guid: c1000000000000000001000000000001, type: 3}
   m_ShellEjectSpeed: 4
   m_ShellEjectSpeedVariance: 0.5
   m_ShellEjectUpSpeed: 1

@@ -153,6 +153,9 @@ public static class WeaponVfxRuntimeRelease
 		GameObject _instance,
 		CombatVfxBudgetService.Category _category)
 	{
+		if (_category == CombatVfxBudgetService.Category.Explosion)
+			CombatVfxBudgetService.TryUnregisterActiveExplosion(_instance);
+
 		if (_instance != null)
 			_pool.Release(_instance);
 

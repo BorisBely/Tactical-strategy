@@ -165,8 +165,25 @@ MonoBehaviour:
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.2
   m_FireSoundProfile:
-    m_FireClips: []
-    m_MaxAudibleDistanceMeters: 0
+    m_FireClips:
+    - {fileID: 8300000, guid: af6cdd1af6a6c6b4cae5ed9ad703d0de, type: 3}
+    - {fileID: 8300000, guid: e26bce5b63d992342ba2fb656b8fd933, type: 3}
+    - {fileID: 8300000, guid: 7f8a4cceac471ed41a8aaae77fdd5456, type: 3}
+    - {fileID: 8300000, guid: 443c66423806e7e46bfbb24ce27bd30c, type: 3}
+    - {fileID: 8300000, guid: cd45db5f06e7cac43acbe807fbe538de, type: 3}
+    - {fileID: 8300000, guid: cbcbc679c9497f642a46207621ab7ea2, type: 3}
+    - {fileID: 8300000, guid: dbf58edac4748ef44bb76495eeb1cff0, type: 3}
+    - {fileID: 8300000, guid: 21f8ee33dbe37b24dac54b772756f526, type: 3}
+    - {fileID: 8300000, guid: 0817edce0dbf4ae4d8e7279a0d2ef2b4, type: 3}
+    - {fileID: 8300000, guid: 691dd407c88d3d6469162d2a5f573f44, type: 3}
+    m_MaxAudibleDistanceMeters: 500
+    m_TailClips:
+    - {fileID: 8300000, guid: a9159d261b7a1f94d8d31f0fde5e9dc9, type: 3}
+    - {fileID: 8300000, guid: 999df10a6af59bb489f0c2999c9000b6, type: 3}
+    - {fileID: 8300000, guid: 75007c08d4b8d624786d1f9c649a4992, type: 3}
+    - {fileID: 8300000, guid: e8e86f007c2097044ada84d0391d9159, type: 3}
+    - {fileID: 8300000, guid: 65948a6286035fa4fa211a7ea9f3ec39, type: 3}
+    m_TailThresholdSeconds: 0.3
   m_SuppressedFireSoundProfile:
     m_FireClips: []
     m_MaxAudibleDistanceMeters: 0
@@ -190,7 +207,7 @@ MonoBehaviour:
   m_MalfunctionClickSounds:
     m_Clips: []
   m_MalfunctionClickSoundVolume: 1
-  m_VfxProfile: {fileID: 0}
+  m_VfxProfile: {fileID: 11400000, guid: b7c3e1a42d5f6a8490b2000000000002, type: 2}
   m_Reliability: 0.8
   m_BaseDurability: 3000
   m_BaseFoulingBudget: 2000

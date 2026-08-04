@@ -222,6 +222,8 @@ public sealed class EquippedWeapon : MonoBehaviour
 		if (m_ShellEject == null)
 		{
 			Transform shell = FindChildRecursive(transform, "ShellEject");
+			if (shell == null)
+				shell = FindChildRecursive(transform, VehicleTurretCombatSockets.Mk19ShellEjectName);
 			if (shell != null)
 			{
 				m_ShellEject = shell;

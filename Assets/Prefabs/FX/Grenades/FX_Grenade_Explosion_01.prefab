@@ -11,13 +11,14 @@ GameObject:
   - component: {fileID: 4919156884272472}
   - component: {fileID: 108952268237029436}
   - component: {fileID: 165485012158287475}
+  - component: {fileID: 555057228709723189}
   m_Layer: 0
   m_Name: FX_Grenade_Explosive_Light_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &4919156884272472
 Transform:
   m_ObjectHideFlags: 0
@@ -43,9 +44,9 @@ Light:
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 2
-  m_Color: {r: 1, g: 0.90060854, b: 0.6397059, a: 1}
-  m_Intensity: 2
-  m_Range: 10
+  m_Color: {r: 1, g: 0.82, b: 0.55, a: 1}
+  m_Intensity: 0
+  m_Range: 22
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize2D: {x: 10, y: 10}
@@ -127,6 +128,21 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!114 &555057228709723189
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1032854739855156}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f2a6c4d1e3b49a0b7c5d9e0f1a23456, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TimedPointLightPulse
+  m_Light: {fileID: 108952268237029436}
+  m_PeakIntensity: 5.5
+  m_DurationSeconds: 0.14
 --- !u!1 &1178142315076810
 GameObject:
   m_ObjectHideFlags: 0
@@ -14534,7 +14550,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &4669939963778248
 Transform:
   m_ObjectHideFlags: 0

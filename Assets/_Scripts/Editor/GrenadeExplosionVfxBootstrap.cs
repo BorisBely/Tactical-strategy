@@ -61,11 +61,34 @@ internal static class GrenadeExplosionVfxBootstrap
 			root.name = "FX_Grenade_Explosion_01";
 			root.transform.localScale = Vector3.one;
 
-			SetChildActive(root.transform, "FX_Grenade_Explosive_Light_01", false);
+			SetChildActive(root.transform, "FX_Grenade_Explosive_Light_01", true);
 			SetChildActive(root.transform, "FX_Grenade_Explosive_Debris_01", true);
 			SetChildActive(root.transform, "FX_Grenade_Explosive_Fire_01", true);
 			SetChildActive(root.transform, "FX_Grenade_Explosive_Ember_01", true);
 			SetChildActive(root.transform, "FX_Grenade_Explosive_Smoke_01", true);
+
+			Transform lightTf = FindChildRecursive(root.transform, "FX_Grenade_Explosive_Light_01");
+			if (lightTf != null)
+			{
+				if (lightTf.TryGetComponent(out Light pointLight))
+				{
+					pointLight.type = LightType.Point;
+					pointLight.color = new Color(1f, 0.82f, 0.55f, 1f);
+					pointLight.range = 22f;
+					pointLight.intensity = 0f;
+					pointLight.enabled = false;
+				}
+
+				TimedPointLightPulse pulse = lightTf.GetComponent<TimedPointLightPulse>();
+				if (pulse == null)
+					pulse = lightTf.gameObject.AddComponent<TimedPointLightPulse>();
+
+				SerializedObject pulseSo = new SerializedObject(pulse);
+				pulseSo.FindProperty("m_Light").objectReferenceValue = lightTf.GetComponent<Light>();
+				pulseSo.FindProperty("m_PeakIntensity").floatValue = 5.5f;
+				pulseSo.FindProperty("m_DurationSeconds").floatValue = 0.14f;
+				pulseSo.ApplyModifiedPropertiesWithoutUndo();
+			}
 
 			PrefabUtility.SaveAsPrefabAsset(root, c_Explosion01Path);
 		}
@@ -320,8 +343,8 @@ internal static class GrenadeExplosionVfxBootstrap
 		SetObject(so, "m_FlashExplosionPrefab", explosion02);
 		SetObject(so, "m_SmokePrefab", smoke);
 		SetFloat(so, "m_ExplosionFuseSeconds", 3.5f);
-		SetFloat(so, "m_ExplosionMaxDistanceMeters", 70f);
-		SetFloat(so, "m_ExplosionAudioMaxDistance", 90f);
+		SetFloat(so, "m_ExplosionMaxDistanceMeters", 200f);
+		SetFloat(so, "m_ExplosionAudioMaxDistance", 220f);
 		SetFloat(so, "m_FragExplosionScale", 1.25f);
 		SetFloat(so, "m_FragExplosionLifetimeSeconds", 5f);
 		SetFloat(so, "m_FlashExplosionScale", 0.9f);

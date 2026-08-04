@@ -1403,7 +1403,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void TryRestoreReadyAfterSprintWhenStopped()
 	{
-		if (m_Mode != MoveTier.Sprint || m_ReadyHands == null || m_Agent == null)
+		if (m_Mode != MoveTier.Sprint || m_Agent == null)
 			return;
 		if (HasPendingSprintOrder())
 			return;
@@ -1420,7 +1420,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	private void TryRestoreReadyAfterRunWhenStopped()
 	{
-		if (m_Mode != MoveTier.Run || m_ReadyHands == null || m_Agent == null)
+		if (m_Mode != MoveTier.Run || m_Agent == null)
 			return;
 		if (HasPendingRunOrder())
 			return;

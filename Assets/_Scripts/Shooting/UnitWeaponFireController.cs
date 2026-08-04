@@ -807,7 +807,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private bool IsWeaponReloadBusy()
 	{
-		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadBusy)
+		// Турель: огонь только после последнего кадра перезарядки (не блокируем post-reload aim/pitch).
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadAnimationActive)
 			return true;
 		return m_ReloadController != null && m_ReloadController.IsReloadBusy;
 	}

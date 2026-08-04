@@ -123,4 +123,6 @@ MonoBehaviour:
   m_ReducedDecalLifetimeMultiplier: 0.5
   m_SmokeIntensity: 1.5
   m_FlashScale: 2
-  m_TracerEveryNShot: 5
+  m_TracerEveryNShot: 1
+  m_EnhancedTracerEveryNShot: 5
+  m_EnhancedTracerScaleMultiplier: 1.5

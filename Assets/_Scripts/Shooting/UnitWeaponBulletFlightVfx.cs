@@ -56,6 +56,13 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 		if (profile == null || !profile.EnableBulletFlight)
 			return;
 
+		int shotIndex = m_WeaponRuntime?.TransientState?.GetNextBurstShotIndex() ?? 0;
+		if (profile.TracerEveryNShot > 1 && shotIndex % profile.TracerEveryNShot != 0)
+			return;
+
+		bool isEnhanced = profile.EnhancedTracerEveryNShot > 0 &&
+		                  shotIndex % profile.EnhancedTracerEveryNShot == 0;
+
 		if (!_trace.HasHit && !profile.ShowBulletFlightOnMiss)
 			return;
 
@@ -91,7 +98,7 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 
 		ObjectPool<GameObject> pool = GetOrCreatePool(prefab);
 		GameObject instance = pool.Get();
-		PrepareInstance(instance, profile, _trace, tier);
+		PrepareInstance(instance, profile, _trace, tier, isEnhanced);
 		StartCoroutine(AnimateFlight(pool, instance, _trace.Origin, _trace.EndPoint, flightSeconds));
 	}
 
@@ -99,7 +106,8 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 		GameObject _instance,
 		WeaponVfxProfile _profile,
 		WeaponShotTraceInfo _trace,
-		WeaponVfxQualityTier _tier)
+		WeaponVfxQualityTier _tier,
+		bool _enhanced)
 	{
 		Vector3 direction = (_trace.EndPoint - _trace.Origin).normalized;
 		Quaternion rotation = direction.sqrMagnitude > 1e-6f
@@ -107,6 +115,11 @@ public sealed class UnitWeaponBulletFlightVfx : MonoBehaviour
 			: Quaternion.identity;
 		float scale = _profile.BulletFlightScale;
 		float lengthScale = _profile.BulletFlightLengthScale;
+		if (_enhanced)
+		{
+			scale *= _profile.EnhancedTracerScaleMultiplier;
+			lengthScale *= _profile.EnhancedTracerScaleMultiplier;
+		}
 		if (_tier == WeaponVfxQualityTier.Reduced)
 		{
 			scale *= _profile.ReducedBulletFlightScaleMultiplier;

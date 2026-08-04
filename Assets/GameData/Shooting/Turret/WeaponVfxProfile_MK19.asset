@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7c3e1a42d5f6a8490b2c3d4e5f60718, type: 3}
+  m_Name: WeaponVfxProfile_MK19
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponVfxProfile
+  m_EnableMuzzleFlash: 1
+  m_UnsuppressedMuzzleFlashPrefab: {fileID: 157586, guid: 8be1883a0edf37a44923c9d687e7911b, type: 3}
+  m_SuppressedMuzzleFlashPrefab: {fileID: 0}
+  m_UnsuppressedMuzzleLifetimeSeconds: 0.18
+  m_SuppressedMuzzleLifetimeSeconds: 0.1
+  m_UnsuppressedMuzzleScale: 0.8
+  m_SuppressedMuzzleScale: 0.25
+  m_ShellEjectionMode: 1
+  m_ShellParticlePrefab: {fileID: 0}
+  m_ShellParticleLifetimeSeconds: 2.5
+  m_ShellParticleScale: 2
+  m_ShellPrefabEjectionAxis: {x: 1, y: 0, z: 0}
+  m_ShellLocalEulerOffset: {x: 0, y: 0, z: 0}
+  m_HybridPhysicalShellDistanceMeters: 12
+  m_EnableBulletFlight: 0
+  m_BulletFlightPrefab: {fileID: 0}
+  m_BulletFlightScale: 1
+  m_BulletFlightLengthScale: 0.2
+  m_BulletVisualSpeedMultiplier: 0.35
+  m_BulletMinFlightSeconds: 0.04
+  m_BulletMaxFlightSeconds: 0.85
+  m_ShowBulletFlightOnMiss: 0
+  m_EnableBodyImpactFx: 0
+  m_ArmorDeflectImpactPrefab: {fileID: 0}
+  m_FleshImpactPrefab: {fileID: 0}
+  m_ArmorDeflectImpactLifetimeSeconds: 0.35
+  m_FleshImpactLifetimeSeconds: 0.8
+  m_ArmorDeflectImpactScale: 1
+  m_FleshImpactScale: 0.2
+  m_BodyImpactSurfaceOffset: 0.01
+  m_EnableImpactDecals: 0
+  m_EnableImpactAudio: 0
+  m_ImpactSurfaceLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImpactSurfaces: []
+  m_DefaultSurfaceName: Concrete
+  m_DecalSurfaceOffset: 0.012
+  m_DecalScale: 0.45
+  m_DecalLifetimeSeconds: 20
+  m_ImpactAudioMaxDistance: 45
+  m_MuzzleFlashMaxDistanceMeters: 80
+  m_ImpactFxMaxDistanceMeters: 50
+  m_BulletFlightMaxDistanceMeters: 60
+  m_DecalMaxDistanceMeters: 30
+  m_EffectNearQualityDistanceMeters: 20
+  m_EffectMidQualityDistanceMeters: 50
+  m_ReducedParticleScaleMultiplier: 0.6
+  m_ReducedMaxParticlesMultiplier: 0.35
+  m_ReducedMuzzleScaleMultiplier: 0.55
+  m_ReducedBulletFlightScaleMultiplier: 0.7
+  m_ReducedDecalLifetimeMultiplier: 0.5
+  m_SmokeIntensity: 0.5
+  m_FlashScale: 1.2
+  m_TracerEveryNShot: 0

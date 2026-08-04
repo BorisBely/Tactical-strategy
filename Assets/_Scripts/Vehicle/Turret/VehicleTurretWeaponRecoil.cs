@@ -7,14 +7,15 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private VehicleTurretGunnerBridge m_Bridge;
 	[SerializeField] private VehicleTurretHierarchyBinder m_Hierarchy;
+	[SerializeField] private VehicleTurretEquipmentController m_Equipment;
 
-	[Header("Barrel")]
+	[Header("Barrel (M2)")]
 	[Tooltip("На сколько ствол уходит назад по Z при выстреле.")]
 	[SerializeField] private float m_BarrelKickZ = -0.03f;
 	[Tooltip("Скорость возврата ствола (ед/сек).")]
 	[SerializeField] private float m_BarrelReturnSpeed = 0.15f;
 
-	[Header("Gun")]
+	[Header("Gun (M2)")]
 	[Tooltip("На сколько орудие уходит назад по Z при выстреле.")]
 	[SerializeField] private float m_GunKickZ = -0.025f;
 	[Tooltip("Предельное смещение орудия назад (clamp).")]
@@ -29,18 +30,42 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	[SerializeField] private float m_YawKickDeg = 0.25f;
 	[Tooltip("Скорость возврата угла (град/сек).")]
 	[SerializeField] private float m_AngularReturnSpeed = 2f;
+
+	[Header("MK19 Recoil")]
+	[Tooltip("Смещение MK19 вверх по Y за выстрел (основной «прыжок»).")]
+	[SerializeField] private float m_Mk19KickY = 0.065f;
+	[Tooltip("Смещение MK19 назад по Z за выстрел.")]
+	[SerializeField] private float m_Mk19KickZ = -0.022f;
+	[Tooltip("Случайный разброс MK19 по X за выстрел.")]
+	[SerializeField] private float m_Mk19KickXJitter = 0.008f;
+	[Tooltip("Подброс ствола вверх (Pitch, градусы) за выстрел.")]
+	[SerializeField] private float m_Mk19PitchKickDeg = 1.8f;
+	[Tooltip("Случайный разброс по Yaw (градусы) за выстрел.")]
+	[SerializeField] private float m_Mk19YawKickDeg = 0.25f;
+	[Tooltip("Скорость возврата MK19 по позиции (ед/сек).")]
+	[SerializeField] private float m_Mk19ReturnSpeed = 0.28f;
+	[Tooltip("Скорость возврата MK19 по углу (град/сек).")]
+	[SerializeField] private float m_Mk19AngularReturnSpeed = 2.2f;
 	#endregion
 
 	#region Private Fields
 	private Transform m_BarrelTransform;
 	private Transform m_GunTransform;
+	private Transform m_Mk19Transform;
 	private Vector3 m_BarrelRestLocalPos;
 	private Vector3 m_GunRestLocalPos;
+	private Vector3 m_Mk19RestLocalPos;
 	private Quaternion m_GunRestLocalRot;
+	private Quaternion m_Mk19RestLocalRot;
 	private float m_BarrelCurrentZ;
 	private float m_GunCurrentZ;
 	private float m_PitchCurrentDeg;
 	private float m_YawCurrentDeg;
+	private float m_Mk19CurrentX;
+	private float m_Mk19CurrentY;
+	private float m_Mk19CurrentZ;
+	private float m_Mk19PitchDeg;
+	private float m_Mk19YawDeg;
 	private bool m_Subscribed;
 	private UnitWeaponFireController m_SubscribedFireController;
 	#endregion
@@ -52,6 +77,8 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 			TryGetComponent(out m_Bridge);
 		if (m_Hierarchy == null)
 			TryGetComponent(out m_Hierarchy);
+		if (m_Equipment == null)
+			TryGetComponent(out m_Equipment);
 		m_Hierarchy?.EnsureBound();
 		CaptureRestTransforms();
 	}
@@ -74,7 +101,6 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		// Push current recoil pose again before AnimatorHandIk (order 250) reads IK targets.
 		ApplyCurrentRecoilPose();
 	}
 	#endregion
@@ -83,25 +109,38 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	private void CaptureRestTransforms()
 	{
 		m_Hierarchy?.EnsureBound();
-		Transform pitch = m_Hierarchy?.GetActiveWeaponPitch(TurretWeaponVariant.Browning127);
-		if (pitch == null)
-			return;
 
-		VehicleTurretCombatSockets.PrepareM2PitchRuntime(pitch);
-
-		m_GunTransform = VehicleTurretCombatSockets.FindInnerGun127(pitch);
-		if (m_GunTransform != null)
+		Transform m2Pitch = m_Hierarchy?.GetActiveWeaponPitch(TurretWeaponVariant.Browning127);
+		if (m2Pitch != null)
 		{
-			m_GunRestLocalPos = m_GunTransform.localPosition;
-			m_GunRestLocalRot = m_GunTransform.localRotation;
-			m_GunCurrentZ = 0f;
+			VehicleTurretCombatSockets.PrepareM2PitchRuntime(m2Pitch);
+
+			m_GunTransform = VehicleTurretCombatSockets.FindInnerGun127(m2Pitch);
+			if (m_GunTransform != null)
+			{
+				m_GunRestLocalPos = m_GunTransform.localPosition;
+				m_GunRestLocalRot = m_GunTransform.localRotation;
+				m_GunCurrentZ = 0f;
+			}
+
+			m_BarrelTransform = VehicleTurretCombatSockets.FindBarrelRecoil(m2Pitch);
+			if (m_BarrelTransform != null)
+			{
+				m_BarrelRestLocalPos = m_BarrelTransform.localPosition;
+				m_BarrelCurrentZ = 0f;
+			}
 		}
 
-		m_BarrelTransform = VehicleTurretCombatSockets.FindBarrelRecoil(pitch);
-		if (m_BarrelTransform != null)
+		m_Mk19Transform = m_Hierarchy?.Mk19;
+		if (m_Mk19Transform != null)
 		{
-			m_BarrelRestLocalPos = m_BarrelTransform.localPosition;
-			m_BarrelCurrentZ = 0f;
+			m_Mk19RestLocalPos = m_Mk19Transform.localPosition;
+			m_Mk19RestLocalRot = m_Mk19Transform.localRotation;
+			m_Mk19CurrentX = 0f;
+			m_Mk19CurrentY = 0f;
+			m_Mk19CurrentZ = 0f;
+			m_Mk19PitchDeg = 0f;
+			m_Mk19YawDeg = 0f;
 		}
 	}
 
@@ -133,10 +172,38 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
-		if (m_GunTransform == null || m_BarrelTransform == null)
+		if (m_Bridge == null || !m_Bridge.HasBoundGunner)
+			return;
+		ItemDefinition activeWeapon = m_Equipment != null ? m_Equipment.ActiveWeaponItem : null;
+		bool isMk19 = activeWeapon != null && activeWeapon.TurretWeaponVariant == TurretWeaponVariant.Mk19;
+
+		if (isMk19)
+		{
+			ApplyMk19Kick();
+		}
+		else
+		{
+			if (m_GunTransform == null || m_BarrelTransform == null)
+				CaptureRestTransforms();
+			ApplyBarrelKick();
+			ApplyGunKick();
+		}
+	}
+
+	private void ApplyMk19Kick()
+	{
+		if (m_Mk19Transform == null)
 			CaptureRestTransforms();
-		ApplyBarrelKick();
-		ApplyGunKick();
+		if (m_Mk19Transform == null)
+			return;
+
+		m_Mk19CurrentY = m_Mk19KickY;
+		m_Mk19CurrentZ = m_Mk19KickZ;
+		m_Mk19CurrentX = Random.Range(-m_Mk19KickXJitter, m_Mk19KickXJitter);
+		m_Mk19PitchDeg += m_Mk19PitchKickDeg;
+		m_Mk19YawDeg += Random.Range(-m_Mk19YawKickDeg, m_Mk19YawKickDeg);
+
+		ApplyCurrentMk19Pose();
 	}
 
 	private void ApplyBarrelKick()
@@ -175,6 +242,7 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	{
 		ApplyCurrentBarrelPose();
 		ApplyCurrentGunPose();
+		ApplyCurrentMk19Pose();
 	}
 
 	private void ApplyCurrentBarrelPose()
@@ -201,6 +269,19 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 			* Quaternion.Euler(m_PitchCurrentDeg, 0f, 0f);
 	}
 
+	private void ApplyCurrentMk19Pose()
+	{
+		if (m_Mk19Transform == null)
+			return;
+
+		m_Mk19Transform.localPosition = new Vector3(
+			m_Mk19RestLocalPos.x + m_Mk19CurrentX,
+			m_Mk19RestLocalPos.y + m_Mk19CurrentY,
+			m_Mk19RestLocalPos.z + m_Mk19CurrentZ);
+		m_Mk19Transform.localRotation = m_Mk19RestLocalRot
+			* Quaternion.Euler(m_Mk19PitchDeg, m_Mk19YawDeg, 0f);
+	}
+
 	private void ApplyReturn(float _dt)
 	{
 		if (m_BarrelTransform != null)
@@ -211,6 +292,15 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 			m_GunCurrentZ = Mathf.MoveTowards(m_GunCurrentZ, 0f, m_GunReturnSpeed * _dt);
 			m_PitchCurrentDeg = Mathf.MoveTowards(m_PitchCurrentDeg, 0f, m_AngularReturnSpeed * _dt);
 			m_YawCurrentDeg = Mathf.MoveTowards(m_YawCurrentDeg, 0f, m_AngularReturnSpeed * _dt);
+		}
+
+		if (m_Mk19Transform != null)
+		{
+			m_Mk19CurrentX = Mathf.MoveTowards(m_Mk19CurrentX, 0f, m_Mk19ReturnSpeed * _dt);
+			m_Mk19CurrentY = Mathf.MoveTowards(m_Mk19CurrentY, 0f, m_Mk19ReturnSpeed * _dt);
+			m_Mk19CurrentZ = Mathf.MoveTowards(m_Mk19CurrentZ, 0f, m_Mk19ReturnSpeed * _dt);
+			m_Mk19PitchDeg = Mathf.MoveTowards(m_Mk19PitchDeg, 0f, m_Mk19AngularReturnSpeed * _dt);
+			m_Mk19YawDeg = Mathf.MoveTowards(m_Mk19YawDeg, 0f, m_Mk19AngularReturnSpeed * _dt);
 		}
 
 		ApplyCurrentRecoilPose();

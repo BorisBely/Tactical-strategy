@@ -13,10 +13,11 @@ public static class CombatVfxBudgetService
 	private const int c_MaxActiveImpactParticles = 64;
 	private const int c_MaxActiveDecals = 128;
 	private const int c_MaxActiveBulletTrails = 48;
-	private const int c_MaxActiveExplosions = 8;
+	private const int c_MaxActiveExplosions = 24;
+	private const int c_ExplosionOverflowSoftCap = 16;
 	private const int c_MaxActiveSmokeClouds = 4;
-	private const int c_ExplosionPoolDefaultCapacity = 2;
-	private const int c_ExplosionPoolMaxSize = 8;
+	private const int c_ExplosionPoolDefaultCapacity = 4;
+	private const int c_ExplosionPoolMaxSize = 32;
 	private const int c_SmokePoolDefaultCapacity = 1;
 	private const int c_SmokePoolMaxSize = 4;
 	#endregion
@@ -37,6 +38,12 @@ public static class CombatVfxBudgetService
 		public GameObject Instance;
 		public ObjectPool<GameObject> Pool;
 	}
+
+	private struct ExplosionEntry
+	{
+		public GameObject Instance;
+		public ObjectPool<GameObject> Pool;
+	}
 	#endregion
 
 	#region Static Fields
@@ -47,6 +54,7 @@ public static class CombatVfxBudgetService
 	private static int s_ActiveExplosions;
 	private static int s_ActiveSmokeClouds;
 	private static readonly LinkedList<DecalEntry> s_ActiveDecalEntries = new LinkedList<DecalEntry>();
+	private static readonly LinkedList<ExplosionEntry> s_ActiveExplosionEntries = new LinkedList<ExplosionEntry>();
 	private static readonly Dictionary<GameObject, ObjectPool<GameObject>> s_ExplosionPools =
 		new Dictionary<GameObject, ObjectPool<GameObject>>(2);
 	private static readonly Dictionary<GameObject, ObjectPool<GameObject>> s_SmokePools =
@@ -173,6 +181,35 @@ public static class CombatVfxBudgetService
 		return false;
 	}
 
+	public static void RegisterActiveExplosion(GameObject _instance, ObjectPool<GameObject> _pool)
+	{
+		if (_instance == null || _pool == null)
+			return;
+
+		s_ActiveExplosionEntries.AddLast(new ExplosionEntry
+		{
+			Instance = _instance,
+			Pool = _pool,
+		});
+	}
+
+	public static bool TryUnregisterActiveExplosion(GameObject _instance)
+	{
+		if (_instance == null)
+			return false;
+
+		for (LinkedListNode<ExplosionEntry> node = s_ActiveExplosionEntries.First; node != null; node = node.Next)
+		{
+			if (node.Value.Instance != _instance)
+				continue;
+
+			s_ActiveExplosionEntries.Remove(node);
+			return true;
+		}
+
+		return false;
+	}
+
 	public static bool TrySpawnExplosion(
 		GameObject _prefab,
 		Vector3 _position,
@@ -188,28 +225,59 @@ public static class CombatVfxBudgetService
 			null,
 			_position,
 			_maxDistanceMeters,
-			_maxDistanceMeters * 0.5f,
-			_maxDistanceMeters);
+			_maxDistanceMeters * 0.15f,
+			_maxDistanceMeters * 0.55f);
 		if (tier == WeaponVfxQualityTier.Skip)
 			return false;
 
-		if (!TryAcquire(Category.Explosion))
+		WeaponVfxUtility.ExplosionDistanceLod distanceLod =
+			WeaponVfxUtility.ResolveExplosionDistanceLod(_position, _maxDistanceMeters);
+
+		bool overflow = s_ActiveExplosions >= c_ExplosionOverflowSoftCap;
+		if (overflow)
+			tier = WeaponVfxQualityTier.Reduced;
+
+		if (s_ActiveExplosions >= c_MaxActiveExplosions && !TryEvictOldestExplosion())
 			return false;
+
+		if (!TryAcquire(Category.Explosion))
+		{
+			if (!TryEvictOldestExplosion() || !TryAcquire(Category.Explosion))
+				return false;
+			overflow = true;
+			tier = WeaponVfxQualityTier.Reduced;
+		}
 
 		ObjectPool<GameObject> pool = GetOrCreateExplosionPool(_prefab);
 		GameObject instance = pool.Get();
 		Transform t = instance.transform;
 		t.SetPositionAndRotation(_position, _rotation);
-		t.localScale = tier == WeaponVfxQualityTier.Reduced
-			? _scale * 0.75f
-			: _scale;
+
+		float scaleMultiplier = tier == WeaponVfxQualityTier.Reduced ? 0.92f : 1f;
+		if (distanceLod == WeaponVfxUtility.ExplosionDistanceLod.Minimal)
+			scaleMultiplier *= 1.12f;
+		if (overflow)
+			scaleMultiplier *= 0.82f;
+		t.localScale = _scale * scaleMultiplier;
+
+		WeaponVfxUtility.ApplyExplosionDistanceLod(instance, distanceLod);
+
+		if (tier == WeaponVfxQualityTier.Reduced &&
+		    distanceLod == WeaponVfxUtility.ExplosionDistanceLod.Full)
+			ApplyExplosionReducedQuality(instance);
+
+		RegisterActiveExplosion(instance, pool);
+
+		float lifetime = overflow
+			? Mathf.Max(1.5f, _fallbackLifetimeSeconds * 0.65f)
+			: _fallbackLifetimeSeconds;
 
 		WeaponVfxUtility.PlayParticleSystems(instance);
 		WeaponVfxRuntimeRelease.StartRelease(
 			pool,
 			instance,
 			Category.Explosion,
-			_fallbackLifetimeSeconds,
+			lifetime,
 			_waitForParticles: true);
 		return true;
 	}
@@ -292,6 +360,29 @@ public static class CombatVfxBudgetService
 		return true;
 	}
 
+	private static bool TryEvictOldestExplosion()
+	{
+		if (s_ActiveExplosionEntries.Count == 0)
+			return false;
+
+		ExplosionEntry oldest = s_ActiveExplosionEntries.First.Value;
+		s_ActiveExplosionEntries.RemoveFirst();
+
+		if (oldest.Instance != null)
+		{
+			WeaponVfxUtility.StopParticleSystems(oldest.Instance);
+			oldest.Pool.Release(oldest.Instance);
+			s_ActiveExplosions = Mathf.Max(0, s_ActiveExplosions - 1);
+		}
+
+		return true;
+	}
+
+	private static void ApplyExplosionReducedQuality(GameObject _instance)
+	{
+		WeaponVfxUtility.ScaleExplosionScatterParticles(_instance, 0.55f);
+	}
+
 	private static ObjectPool<GameObject> GetOrCreateExplosionPool(GameObject _prefab)
 	{
 		if (s_ExplosionPools.TryGetValue(_prefab, out ObjectPool<GameObject> existing))
@@ -302,7 +393,7 @@ public static class CombatVfxBudgetService
 			createFunc: () =>
 			{
 				GameObject instance = Object.Instantiate(_prefab, s_PoolRoot);
-				WeaponVfxUtility.PrepareBodyImpactParticleInstance(instance);
+				WeaponVfxUtility.PrepareExplosionParticleInstance(instance);
 				return instance;
 			},
 			actionOnGet: go => go.SetActive(true),

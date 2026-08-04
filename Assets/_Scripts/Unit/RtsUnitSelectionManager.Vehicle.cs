@@ -214,7 +214,7 @@ public sealed partial class RtsUnitSelectionManager
 			{
 				LogVehicleClick($"LMB double → BoardUnits count={boarders.Count}");
 				VehicleInteractionMenuController.Instance?.HideImmediate();
-				_vehicle.BoardUnits(boarders, VehicleBoardSide.Any);
+				_vehicle.BoardUnits(boarders, VehicleBoardSide.Any, _forceRun: false);
 				return;
 			}
 
@@ -290,7 +290,7 @@ public sealed partial class RtsUnitSelectionManager
 		RecordVehicleBoardClick(_vehicle, now);
 		LogVehicleClick($"double → BoardUnits count={_boarders.Count}");
 		VehicleInteractionMenuController.Instance?.HideImmediate();
-		_vehicle.BoardUnits(_boarders, VehicleBoardSide.Any);
+		_vehicle.BoardUnits(_boarders, VehicleBoardSide.Any, _forceRun: false);
 		return true;
 	}
 

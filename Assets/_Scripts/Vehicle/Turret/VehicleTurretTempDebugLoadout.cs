@@ -45,10 +45,10 @@ public sealed class VehicleTurretTempDebugLoadout : MonoBehaviour
 		ResolveItemRefs();
 		m_Inventory.SetExchangeModificationAllowed(true);
 
-		TryEquip(m_M2Browning, VehicleEquipmentSlotId.TurretWeapon);
+		TryEquip(m_Mk19, VehicleEquipmentSlotId.TurretWeapon);
 		TryEquip(m_FrontalShield, VehicleEquipmentSlotId.FrontalShield);
 		TryEquip(m_SurroundShield, VehicleEquipmentSlotId.SurroundShield);
-		EnsureBagCount(m_Mk19, 1);
+		EnsureBagCount(m_M2Browning, 1);
 		EnsureBagCount(m_M2Box, m_M2BoxCount);
 		EnsureBagCount(m_Mk19Box, m_Mk19BoxCount);
 

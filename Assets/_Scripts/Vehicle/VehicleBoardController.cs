@@ -200,7 +200,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 		return m_DoorQueues[index].Count > 0;
 	}
 
-	public void EnqueueBoard(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
+	public void EnqueueBoard(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = false)
 	{
 		if (_units == null || m_Seats == null || m_Vehicle == null)
 			return;
@@ -291,7 +291,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 
 			LogBoard(
 				$"PLAN board {UnitLabel(unit)} from {PosLabel(unit.transform.position)} " +
-				$"→ door={DoorLabel(doorId)} seat={SeatLabel(seatHint)} side={SideLabel(_side)}");
+				$"→ door={DoorLabel(doorId)} seat={SeatLabel(seatHint)} side={SideLabel(_side)} tier={tier}");
 
 			EnqueueJob(doorId, new Job
 			{
@@ -305,7 +305,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 		}
 	}
 
-	public void EnqueueBoardGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
+	public void EnqueueBoardGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = false)
 	{
 		if (_units == null || m_Seats == null || m_Vehicle == null || !m_Seats.HasFreeGunnerSeat)
 			return;
@@ -358,7 +358,7 @@ public sealed class VehicleBoardController : MonoBehaviour
 		}
 	}
 
-	public void EnqueueLoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = true)
+	public void EnqueueLoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = false)
 	{
 		if (_carrier == null ||
 		    m_Vehicle == null ||
@@ -505,11 +505,10 @@ public sealed class VehicleBoardController : MonoBehaviour
 
 	private static UnitClickToMove.MoveTier ResolveBoardMoveTier(RtsUnitMember _unit, bool _forceRun)
 	{
-		if (_forceRun)
-			return UnitClickToMove.MoveTier.Run;
-		if (_unit != null && _unit.TryGetComponent<UnitClickToMove>(out var ctm) && ctm.IsRunMoveMode)
-			return UnitClickToMove.MoveTier.Run;
-		return UnitClickToMove.MoveTier.Walk;
+		// Посадка/подход к машине — всегда бег (стоя, шаг по ПКМ, меню «Сесть»).
+		_ = _unit;
+		_ = _forceRun;
+		return UnitClickToMove.MoveTier.Run;
 	}
 
 	private UnitClickToMove.MoveTier GetBoardMoveTier(RtsUnitMember _unit)

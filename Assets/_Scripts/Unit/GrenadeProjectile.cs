@@ -321,7 +321,7 @@ public sealed class GrenadeProjectile : MonoBehaviour
 			return;
 
 		float volume = m_Data.GetExplosionVolume(m_GrenadeDefinition);
-		UnitNonFireAudioUtility.PlayAtPoint(clip, _position, volume, m_Data.ExplosionAudioMaxDistance);
+		CombatAudioManager.TryPlayExplosion(clip, _position, volume, m_Data.ExplosionAudioMaxDistance);
 	}
 
 	private void SpawnExplosionVfx(Vector3 _position, GrenadeType _type)

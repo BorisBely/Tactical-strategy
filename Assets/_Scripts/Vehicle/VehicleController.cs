@@ -58,7 +58,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	[SerializeField] private bool m_LogVehicleBounce;
 	[SerializeField, Min(1f)] private float m_BounceMonitorSeconds = 5f;
 	[Header("Gunner Positions")]
-	[SerializeField] private Vector3 m_GunnerAboveShieldLocalPos = new Vector3(0.005f, -1.05f, -1.19f);
+	[SerializeField] private Vector3 m_GunnerAboveShieldLocalPos = new Vector3(0.005f, -1.05f, -1.114f);
 	[Header("Gunner Audio")]
 	[SerializeField, Range(0f, 1f)] private float m_GunnerSlotMoveVolume = 0.35f;
 	[Header("Temp Debug")]
@@ -308,11 +308,17 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			m_TurretGunnerBridge = gameObject.AddComponent<VehicleTurretGunnerBridge>();
 		m_TurretGunnerBridge.Configure(this);
 
+		if (!TryGetComponent(out VehicleTurretGrenadeFiring grenadeFiring))
+			grenadeFiring = gameObject.AddComponent<VehicleTurretGrenadeFiring>();
+
 		if (m_TurretWeaponRecoil == null && !TryGetComponent(out m_TurretWeaponRecoil))
 			m_TurretWeaponRecoil = gameObject.AddComponent<VehicleTurretWeaponRecoil>();
 
 		if (m_TurretShellEjection == null && !TryGetComponent(out m_TurretShellEjection))
 			m_TurretShellEjection = gameObject.AddComponent<VehicleTurretShellEjection>();
+
+		if (!TryGetComponent(out VehicleTurretBeltFeed _))
+			gameObject.AddComponent<VehicleTurretBeltFeed>();
 
 		// TEMP: тестовый лоад-аут турели — удали компонент после проверки.
 		if (!TryGetComponent(out VehicleTurretTempDebugLoadout _))
@@ -1421,19 +1427,19 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		return StartEngine();
 	}
 
-	public void BoardUnits(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
+	public void BoardUnits(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = false)
 	{
 		SyncChassisDriveHold();
 		m_Board?.EnqueueBoard(_units, _side, _forceRun);
 	}
 
-	public void BoardUnitsAsGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = true)
+	public void BoardUnitsAsGunner(IReadOnlyList<RtsUnitMember> _units, VehicleBoardSide _side, bool _forceRun = false)
 	{
 		SyncChassisDriveHold();
 		m_Board?.EnqueueBoardGunner(_units, _side, _forceRun);
 	}
 
-	public void LoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = true)
+	public void LoadWoundedFromCarrier(RtsUnitMember _carrier, bool _forceRun = false)
 	{
 		SyncChassisDriveHold();
 		m_Board?.EnqueueLoadWoundedFromCarrier(_carrier, _forceRun);

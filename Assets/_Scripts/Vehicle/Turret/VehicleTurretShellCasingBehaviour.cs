@@ -12,8 +12,11 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 	private bool m_HasPlayedImpact;
 	private float m_SpawnedTime;
 	private float m_ReleaseTime = -1f;
+	private float m_ImpactVolume = 0.25f;
 	private Rigidbody m_Rigidbody;
 	private AudioSource m_AudioSource;
+
+	public void ConfigureImpactVolume(float _volume) => m_ImpactVolume = Mathf.Clamp01(_volume);
 
 	private void Awake()
 	{
@@ -42,6 +45,8 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 
 	private void OnCollisionEnter(Collision _collision)
 	{
+		if (GamePauseState.IsSimulationPaused)
+			return;
 		if (m_HasPlayedImpact)
 			return;
 		if (_collision.contactCount <= 0)
@@ -60,7 +65,7 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 		{
 			AudioClip clip = clips[Random.Range(0, clips.Length)];
 			if (clip != null)
-				m_AudioSource.PlayOneShot(clip, 0.25f);
+				m_AudioSource.PlayOneShot(clip, m_ImpactVolume);
 		}
 
 		m_ReleaseTime = Time.time + m_LifetimeAfterImpact;

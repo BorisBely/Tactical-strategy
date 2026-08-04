@@ -91,6 +91,10 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	[SerializeField, Min(0.01f)] private float m_FlashScale = 1f;
 	[Tooltip("Каждая N-я пуля — трассер. 1 = каждая, 5 = каждая 5-я.")]
 	[SerializeField, Min(1)] private int m_TracerEveryNShot = 1;
+	[Tooltip("Каждый N-й трассер сделать усиленным (ярче/крупнее). 0 = выключено.")]
+	[SerializeField, Min(0)] private int m_EnhancedTracerEveryNShot = 0;
+	[Tooltip("Множитель размера для усиленного трассера.")]
+	[SerializeField, Min(0.5f)] private float m_EnhancedTracerScaleMultiplier = 1.5f;
 	#endregion
 
 	#region Public Properties
@@ -156,6 +160,8 @@ public sealed class WeaponVfxProfile : ScriptableObject
 	public float SmokeIntensity => m_SmokeIntensity;
 	public float FlashScale => m_FlashScale;
 	public int TracerEveryNShot => m_TracerEveryNShot;
+	public int EnhancedTracerEveryNShot => m_EnhancedTracerEveryNShot;
+	public float EnhancedTracerScaleMultiplier => m_EnhancedTracerScaleMultiplier;
 	#endregion
 
 	#region Public Methods

@@ -100,9 +100,10 @@ public class AnimatorHandIk : MonoBehaviour
 		if (m_TurretReloadEvents != null && m_TurretReloadEvents.IsReloadAnimationActive)
 		{
 			bool reloadUseNotReady = m_TurretReloadEvents.UseNotReadyIkTargets;
-			if (m_TurretReloadEvents.UseLeftHandIk)
+			bool skipHandleSnap = m_TurretReloadEvents.UseHandleNotReadyIkTargets;
+			if (m_TurretReloadEvents.UseLeftHandIk && !skipHandleSnap)
 				SnapHandBoneToTurretIk(HumanBodyBones.LeftHand, _leftHand: true, reloadUseNotReady);
-			if (m_TurretReloadEvents.UseRightHandIk && !m_TurretReloadEvents.UseHandleNotReadyIkTargets)
+			if (m_TurretReloadEvents.UseRightHandIk && !skipHandleSnap)
 				SnapHandBoneToTurretIk(HumanBodyBones.RightHand, _leftHand: false, reloadUseNotReady);
 			return;
 		}
@@ -977,11 +978,11 @@ public class AnimatorHandIk : MonoBehaviour
 
 	private Transform ResolveTurretIkTargetTransform(bool _leftHand, bool _useNotReadyTargets)
 	{
-		if (m_TurretReloadEvents != null &&
-		    m_TurretReloadEvents.UseHandleNotReadyIkTargets &&
-		    !_leftHand)
+		if (m_TurretReloadEvents != null && m_TurretReloadEvents.UseHandleNotReadyIkTargets)
 		{
-			Transform handleIk = m_TurretReloadEvents.RightHandHandleIkTarget;
+			Transform handleIk = _leftHand
+				? m_TurretReloadEvents.LeftHandHandleIkTarget
+				: m_TurretReloadEvents.RightHandHandleIkTarget;
 			if (handleIk != null)
 				return handleIk;
 		}
