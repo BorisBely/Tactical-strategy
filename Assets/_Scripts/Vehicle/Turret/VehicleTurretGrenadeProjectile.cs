@@ -47,6 +47,7 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 	private Vector3 m_LaunchVelocity;
 	private float m_LaunchTime;
 	private bool m_LaunchDataCaptured;
+	private int m_DiagnosticShotIndex;
 
 	private void Awake()
 	{
@@ -78,6 +79,8 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 
 		if (m_Rigidbody == null)
 			m_Rigidbody = GetComponent<Rigidbody>();
+
+		PrepareRigidbodyForFlight();
 
 		if (m_FlightAudioSource == null)
 		{
@@ -111,7 +114,12 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 			m_LaunchDataCaptured = true;
 		}
 		if (Time.time - m_SpawnedTime >= m_MaxLifetimeSeconds)
+		{
+			Debug.Log(
+				$"[Mk19Grenade] shot#{m_DiagnosticShotIndex} lifetime timeout at {transform.position}",
+				this);
 			Detonate();
+		}
 	}
 
 	private void OnCollisionEnter(Collision _collision)
@@ -129,11 +137,20 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		Detonate();
 	}
 
+	public void ConfigureDiagnostics(int _shotIndex)
+	{
+		m_DiagnosticShotIndex = _shotIndex;
+	}
+
 	private void Detonate()
 	{
 		m_HasExploded = true;
 		StopFlightSound();
 		Vector3 pos = transform.position;
+		float flightTime = Time.time - m_SpawnedTime;
+		Debug.Log(
+			$"[Mk19Grenade] shot#{m_DiagnosticShotIndex} detonate pos={pos} flight={flightTime:F2}s prefab={(m_ExplosionPrefab != null ? m_ExplosionPrefab.name : "null")}",
+			this);
 
 		GameObject prefab = m_ExplosionPrefab;
 		if (m_GrenadeThrowData != null)
@@ -143,19 +160,26 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 				prefab = dataPrefab;
 		}
 
+		// 40 мм MK19: дальность/масштаб задаются на префабе снаряда (RPG-видимость в RTS).
+		// GrenadeThrowData — тип VFX, yaw, звук и lifetime осколочной гранаты.
 		float scale = m_ExplosionVfxScale * Random.Range(0.97f, 1.03f);
 		float yaw = m_GrenadeThrowData != null
 			? m_GrenadeThrowData.GetExplosionVfxYawOffsetDegrees(m_FragGrenadeDefinition) + Random.Range(-8f, 8f)
 			: Random.Range(-8f, 8f);
 		Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
 
+		float maxDistance = m_ExplosionMaxDistanceMeters;
+		float lifetime = m_GrenadeThrowData != null
+			? m_GrenadeThrowData.GetDetonationVfxLifetimeSeconds(m_FragGrenadeDefinition)
+			: m_ExplosionLifetime;
+
 		CombatVfxBudgetService.TrySpawnExplosion(
 			prefab,
 			pos,
 			rotation,
 			Vector3.one * scale,
-			m_ExplosionMaxDistanceMeters,
-			m_ExplosionLifetime);
+			maxDistance,
+			lifetime);
 
 		if (m_SmokeCloudPrefab != null)
 		{
@@ -203,12 +227,15 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		float volume = m_GrenadeThrowData != null
 			? m_GrenadeThrowData.GetExplosionVolume(m_FragGrenadeDefinition)
 			: m_ExplosionSoundVolume;
+		float audioMaxDistance = m_ExplosionAudioMaxDistance;
+		if (m_GrenadeThrowData != null)
+			audioMaxDistance = Mathf.Max(audioMaxDistance, m_GrenadeThrowData.ExplosionAudioMaxDistance);
 
 		CombatAudioManager.TryPlayRocketLauncher(
 			clip,
 			_position,
 			volume,
-			m_ExplosionAudioMaxDistance);
+			audioMaxDistance);
 	}
 
 	private void StartFlightSound()
@@ -231,8 +258,31 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 
 	public void SetVelocity(Vector3 _velocity)
 	{
-		if (m_Rigidbody != null)
-			m_Rigidbody.linearVelocity = _velocity;
+		if (m_Rigidbody == null)
+			m_Rigidbody = GetComponent<Rigidbody>();
+		if (m_Rigidbody == null)
+			return;
+
+		PrepareRigidbodyForFlight();
+		m_Rigidbody.linearVelocity = _velocity;
+		m_Rigidbody.angularVelocity = Random.insideUnitSphere * 2f;
+		m_LaunchVelocity = _velocity;
+		m_LaunchPosition = transform.position;
+		m_LaunchTime = Time.time;
+		m_LaunchDataCaptured = true;
+	}
+
+	private void PrepareRigidbodyForFlight()
+	{
+		if (m_Rigidbody == null)
+			return;
+
+		m_Rigidbody.isKinematic = false;
+		m_Rigidbody.useGravity = true;
+		m_Rigidbody.detectCollisions = true;
+		m_Rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+		m_Rigidbody.linearVelocity = Vector3.zero;
+		m_Rigidbody.angularVelocity = Vector3.zero;
 	}
 
 	private void OnDrawGizmos()

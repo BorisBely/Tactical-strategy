@@ -265,8 +265,11 @@ public class InventoryScreenBindings : MonoBehaviour
 			panel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
 			m_ActiveVehicleInventory.RepaintInventoryPanel(panel);
 			RefreshInventoryWeightTitle();
-			// Nested magazine/box row under turret weapon (same as infantry).
-			RuntimeInventoryModificationCoordinator.Instance?.RefreshInlineModificationRows();
+			// Repaint recreates slot views — rebind click/mod hooks like the character path does on open.
+			RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
+			coordinator?.EnsureModificationUiHooks();
+			coordinator?.EnsureExpandedEmptyVehicleTurretMagazineSlot();
+			coordinator?.RefreshInlineModificationRows();
 			return;
 		}
 

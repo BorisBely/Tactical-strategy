@@ -49,7 +49,7 @@ public sealed class UnitVehicleTurretReloadEvents : MonoBehaviour
 
 	public bool TryStartReload(VehicleTurretReloadController _controller)
 	{
-		if (_controller == null || IsReloadBusy)
+		if (_controller == null)
 			return false;
 		RtsUnitMember gunner = GetComponentInParent<RtsUnitMember>();
 		return gunner != null && _controller.TryStartReload(gunner);
@@ -57,7 +57,28 @@ public sealed class UnitVehicleTurretReloadEvents : MonoBehaviour
 
 	public bool TryStartReloadFromGunner()
 	{
-		return TryStartReload(m_BoundController);
+		if (m_BoundController != null)
+			return TryStartReload(m_BoundController);
+
+		// Recover if bind was cleared while the gunner is still on the turret.
+		RtsUnitMember gunner = GetComponentInParent<RtsUnitMember>();
+		if (gunner == null)
+			return false;
+
+		VehicleController vehicle = null;
+		if (gunner.TryGetComponent(out UnitVehicleMountState mount))
+			vehicle = mount.Vehicle;
+		if (vehicle == null)
+			vehicle = gunner.GetComponentInParent<VehicleController>();
+		if (vehicle == null)
+			return false;
+
+		VehicleTurretReloadController controller = vehicle.GetComponent<VehicleTurretReloadController>();
+		if (controller == null)
+			return false;
+
+		Bind(controller);
+		return TryStartReload(controller);
 	}
 
 	public void AnimationEvent_TurretAttachMagToLeftHand() => m_BoundController?.AnimationEvent_TurretAttachMagToLeftHand();

@@ -126,10 +126,47 @@ public class WorldPickupItem : MonoBehaviour
 	#region Private Methods
 	private void EnsureRuntimeStateInitialized()
 	{
-		if (m_Definition == null || m_InstanceState != null)
+		if (m_Definition == null)
 			return;
 
-		m_InstanceState = ItemInstanceState.CreateForDefinition(m_Definition);
+		if (m_InstanceState == null)
+			m_InstanceState = ItemInstanceState.CreateForDefinition(m_Definition);
+
+		TryRepairEmptyMagazineLootState();
+	}
+
+	/// <summary>
+	/// Loot magazine prefabs sometimes serialize an empty MagazineState (null definition / 0 rounds).
+	/// Refill from TurretContentCatalog when this is clearly uninitialized authoring data.
+	/// </summary>
+	private void TryRepairEmptyMagazineLootState()
+	{
+		if (m_Definition?.MagazineDefinition == null || m_InstanceState?.MagazineState == null)
+			return;
+
+		MagazineRuntimeState magState = m_InstanceState.MagazineState;
+		if (magState.HasAmmo)
+			return;
+
+		// Only repair broken authoring (missing magazine definition on state). Spent empties keep Definition set.
+		if (magState.Definition != null)
+			return;
+
+		TurretContentCatalog catalog = TurretContentCatalog.Get();
+		AmmoDefinition ammo = null;
+		CaliberType caliber = m_Definition.MagazineDefinition.SupportedCaliber;
+		if (caliber == CaliberType.TwelvePointSevenByNinetyNine)
+			ammo = catalog != null ? catalog.Ammo127 : null;
+		else if (caliber == CaliberType.FortyByFiftyThree)
+			ammo = catalog != null ? catalog.Ammo40 : null;
+
+		if (ammo == null)
+			return;
+
+		magState.Configure(
+			m_Definition.MagazineDefinition,
+			ammo,
+			m_Definition.MagazineDefinition.Capacity);
 	}
 
 	private void TryCopyEquippedAttachmentsToWeaponStateIfEmpty()

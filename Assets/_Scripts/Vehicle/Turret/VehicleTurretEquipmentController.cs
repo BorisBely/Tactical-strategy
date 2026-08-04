@@ -25,6 +25,7 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 	private EquippedWeapon m_ActiveEquippedWeapon;
 	private VehicleTurretGunnerBridge m_GunnerBridge;
 	private VehicleTurretReloadController m_ReloadController;
+	private TurretWeaponVariant m_LastAppliedVariant = TurretWeaponVariant.None;
 	private static readonly System.Collections.Generic.HashSet<int> s_MissingEquippedWeaponPitchIds =
 		new System.Collections.Generic.HashSet<int>();
 	#endregion
@@ -86,8 +87,18 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			variant = m_Inventory.TurretWeapon.Definition.TurretWeaponVariant;
 			if (variant == TurretWeaponVariant.None)
 				variant = TurretWeaponVariant.Browning127;
-			EnsureFullLoadedBox(m_Inventory.TurretWeapon);
 		}
+
+		// Swapping M2↔MK19 (or unequip) must abort the old weapon's reload — otherwise
+		// Mag/Handle/anim stay tied to the previous gun and R/drag look "broken".
+		if (variant != m_LastAppliedVariant)
+		{
+			m_ReloadController?.CancelReload();
+			m_LastAppliedVariant = variant;
+		}
+
+		if (variant != TurretWeaponVariant.None)
+			EnsureFullLoadedBox(m_Inventory.TurretWeapon);
 
 		m_VisualMount.ShowWeaponVariant(variant);
 		m_VisualMount.SetFrontalShieldVisible(m_Inventory.HasFrontalShield);
@@ -191,6 +202,9 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 
 		if (_weaponState.HasAmmoInMagazine || _weaponState.HasRoundInChamber)
 			return false;
+
+		if (m_ReloadController != null && m_ReloadController.IsReloading)
+			return true;
 
 		if (m_GunnerBridge == null || !m_GunnerBridge.HasBoundGunner)
 			return false;

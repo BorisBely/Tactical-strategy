@@ -18,6 +18,13 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 
 	public void ConfigureImpactVolume(float _volume) => m_ImpactVolume = Mathf.Clamp01(_volume);
 
+	public void ConfigureImpactClips(AudioClip[] _vehicleClips, float _volume)
+	{
+		ConfigureImpactVolume(_volume);
+		if (_vehicleClips != null && _vehicleClips.Length > 0)
+			m_VehicleImpactClips = _vehicleClips;
+	}
+
 	private void Awake()
 	{
 		m_Rigidbody = GetComponent<Rigidbody>();
@@ -26,7 +33,7 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 			m_AudioSource = gameObject.AddComponent<AudioSource>();
 		m_AudioSource.playOnAwake = false;
 		m_AudioSource.spatialBlend = 1f;
-		m_AudioSource.maxDistance = 15f;
+		m_AudioSource.maxDistance = 25f;
 		m_AudioSource.rolloffMode = AudioRolloffMode.Linear;
 	}
 
@@ -58,16 +65,46 @@ public sealed class VehicleTurretShellCasingBehaviour : MonoBehaviour
 		Vector3 pos = _collision.GetContact(0).point;
 		m_AudioSource.transform.position = pos;
 
-		AudioClip[] clips = m_VehicleImpactClips != null && m_VehicleImpactClips.Length > 0
-			? m_VehicleImpactClips : m_GroundImpactClips;
-
-		if (clips != null && clips.Length > 0)
-		{
-			AudioClip clip = clips[Random.Range(0, clips.Length)];
-			if (clip != null)
-				m_AudioSource.PlayOneShot(clip, m_ImpactVolume);
-		}
+		AudioClip clip = PickImpactClip();
+		if (clip != null)
+			m_AudioSource.PlayOneShot(clip, m_ImpactVolume);
 
 		m_ReleaseTime = Time.time + m_LifetimeAfterImpact;
+	}
+
+	private AudioClip PickImpactClip()
+	{
+		AudioClip clip = PickRandomNonNull(m_VehicleImpactClips);
+		if (clip != null)
+			return clip;
+		return PickRandomNonNull(m_GroundImpactClips);
+	}
+
+	private static AudioClip PickRandomNonNull(AudioClip[] _clips)
+	{
+		if (_clips == null || _clips.Length == 0)
+			return null;
+
+		int nonNullCount = 0;
+		for (int i = 0; i < _clips.Length; i++)
+		{
+			if (_clips[i] != null)
+				nonNullCount++;
+		}
+
+		if (nonNullCount <= 0)
+			return null;
+
+		int pick = Random.Range(0, nonNullCount);
+		for (int i = 0; i < _clips.Length; i++)
+		{
+			if (_clips[i] == null)
+				continue;
+			if (pick == 0)
+				return _clips[i];
+			pick--;
+		}
+
+		return null;
 	}
 }

@@ -39,8 +39,9 @@ public static class VehicleGunnerReloadAnimSetup
 		("AnimationEvent_TurretHandleSecondYankDown", FrameTime(466)),
 		("AnimationEvent_TurretHandleSecondReturnUp", FrameTime(475)),
 		("AnimationEvent_TurretReleaseHandleIk", FrameTime(497)),
-		("AnimationEvent_TurretEnableRightHandIk", FrameTime(519)),
-		("AnimationEvent_TurretFinishReload", FrameTime(520)),
+		("AnimationEvent_TurretEnableRightHandIk", FrameTime(518)),
+		// Not on the last sample — Mecanim often skips events at exact clip end.
+		("AnimationEvent_TurretFinishReload", FrameTime(519)),
 	};
 
 	private static float FrameTime(int _frame) => _frame / c_ReloadClipFps;

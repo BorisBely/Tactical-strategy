@@ -31,21 +31,17 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	[Tooltip("Скорость возврата угла (град/сек).")]
 	[SerializeField] private float m_AngularReturnSpeed = 2f;
 
-	[Header("MK19 Recoil")]
-	[Tooltip("Смещение MK19 вверх по Y за выстрел (основной «прыжок»).")]
-	[SerializeField] private float m_Mk19KickY = 0.065f;
-	[Tooltip("Смещение MK19 назад по Z за выстрел.")]
-	[SerializeField] private float m_Mk19KickZ = -0.022f;
-	[Tooltip("Случайный разброс MK19 по X за выстрел.")]
-	[SerializeField] private float m_Mk19KickXJitter = 0.008f;
-	[Tooltip("Подброс ствола вверх (Pitch, градусы) за выстрел.")]
-	[SerializeField] private float m_Mk19PitchKickDeg = 1.8f;
-	[Tooltip("Случайный разброс по Yaw (градусы) за выстрел.")]
-	[SerializeField] private float m_Mk19YawKickDeg = 0.25f;
-	[Tooltip("Скорость возврата MK19 по позиции (ед/сек).")]
-	[SerializeField] private float m_Mk19ReturnSpeed = 0.28f;
-	[Tooltip("Скорость возврата MK19 по углу (град/сек).")]
-	[SerializeField] private float m_Mk19AngularReturnSpeed = 2.2f;
+	[Header("MK19 Tremor")]
+	[Tooltip("Амплитуда тряски MK19 по Z при выстреле.")]
+	[SerializeField] private float m_Mk19TremorZ = 0.015f;
+	[Tooltip("Амплитуда тряски MK19 по X при выстреле.")]
+	[SerializeField] private float m_Mk19TremorX = 0.008f;
+	[Tooltip("Амплитуда тряски MK19 по Y при выстреле.")]
+	[SerializeField] private float m_Mk19TremorY = 0.005f;
+	[Tooltip("Длительность тряски MK19 (сек).")]
+	[SerializeField] private float m_Mk19TremorDuration = 0.12f;
+	[Tooltip("Скорость возврата MK19 в исходное положение.")]
+	[SerializeField] private float m_Mk19ReturnSpeed = 0.3f;
 	#endregion
 
 	#region Private Fields
@@ -56,16 +52,11 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 	private Vector3 m_GunRestLocalPos;
 	private Vector3 m_Mk19RestLocalPos;
 	private Quaternion m_GunRestLocalRot;
-	private Quaternion m_Mk19RestLocalRot;
 	private float m_BarrelCurrentZ;
 	private float m_GunCurrentZ;
 	private float m_PitchCurrentDeg;
 	private float m_YawCurrentDeg;
-	private float m_Mk19CurrentX;
-	private float m_Mk19CurrentY;
-	private float m_Mk19CurrentZ;
-	private float m_Mk19PitchDeg;
-	private float m_Mk19YawDeg;
+	private Vector3 m_Mk19TremorOffset;
 	private bool m_Subscribed;
 	private UnitWeaponFireController m_SubscribedFireController;
 	#endregion
@@ -135,12 +126,7 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 		if (m_Mk19Transform != null)
 		{
 			m_Mk19RestLocalPos = m_Mk19Transform.localPosition;
-			m_Mk19RestLocalRot = m_Mk19Transform.localRotation;
-			m_Mk19CurrentX = 0f;
-			m_Mk19CurrentY = 0f;
-			m_Mk19CurrentZ = 0f;
-			m_Mk19PitchDeg = 0f;
-			m_Mk19YawDeg = 0f;
+			m_Mk19TremorOffset = Vector3.zero;
 		}
 	}
 
@@ -179,7 +165,7 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 
 		if (isMk19)
 		{
-			ApplyMk19Kick();
+			ApplyMk19Tremor();
 		}
 		else
 		{
@@ -190,20 +176,17 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 		}
 	}
 
-	private void ApplyMk19Kick()
+	private void ApplyMk19Tremor()
 	{
 		if (m_Mk19Transform == null)
 			CaptureRestTransforms();
 		if (m_Mk19Transform == null)
 			return;
 
-		m_Mk19CurrentY = m_Mk19KickY;
-		m_Mk19CurrentZ = m_Mk19KickZ;
-		m_Mk19CurrentX = Random.Range(-m_Mk19KickXJitter, m_Mk19KickXJitter);
-		m_Mk19PitchDeg += m_Mk19PitchKickDeg;
-		m_Mk19YawDeg += Random.Range(-m_Mk19YawKickDeg, m_Mk19YawKickDeg);
-
-		ApplyCurrentMk19Pose();
+		float randX = Random.Range(-m_Mk19TremorX, m_Mk19TremorX);
+		float randY = Random.Range(-m_Mk19TremorY, m_Mk19TremorY);
+		float randZ = Random.Range(-m_Mk19TremorZ, 0f);
+		m_Mk19TremorOffset = new Vector3(randX, randY, randZ);
 	}
 
 	private void ApplyBarrelKick()
@@ -274,12 +257,7 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 		if (m_Mk19Transform == null)
 			return;
 
-		m_Mk19Transform.localPosition = new Vector3(
-			m_Mk19RestLocalPos.x + m_Mk19CurrentX,
-			m_Mk19RestLocalPos.y + m_Mk19CurrentY,
-			m_Mk19RestLocalPos.z + m_Mk19CurrentZ);
-		m_Mk19Transform.localRotation = m_Mk19RestLocalRot
-			* Quaternion.Euler(m_Mk19PitchDeg, m_Mk19YawDeg, 0f);
+		m_Mk19Transform.localPosition = m_Mk19RestLocalPos + m_Mk19TremorOffset;
 	}
 
 	private void ApplyReturn(float _dt)
@@ -296,11 +274,10 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 
 		if (m_Mk19Transform != null)
 		{
-			m_Mk19CurrentX = Mathf.MoveTowards(m_Mk19CurrentX, 0f, m_Mk19ReturnSpeed * _dt);
-			m_Mk19CurrentY = Mathf.MoveTowards(m_Mk19CurrentY, 0f, m_Mk19ReturnSpeed * _dt);
-			m_Mk19CurrentZ = Mathf.MoveTowards(m_Mk19CurrentZ, 0f, m_Mk19ReturnSpeed * _dt);
-			m_Mk19PitchDeg = Mathf.MoveTowards(m_Mk19PitchDeg, 0f, m_Mk19AngularReturnSpeed * _dt);
-			m_Mk19YawDeg = Mathf.MoveTowards(m_Mk19YawDeg, 0f, m_Mk19AngularReturnSpeed * _dt);
+			float decaySpeed = m_Mk19ReturnSpeed;
+			if (m_Mk19TremorDuration > 0f)
+				decaySpeed = Mathf.Max(decaySpeed, m_Mk19TremorOffset.magnitude / m_Mk19TremorDuration);
+			m_Mk19TremorOffset = Vector3.MoveTowards(m_Mk19TremorOffset, Vector3.zero, decaySpeed * _dt);
 		}
 
 		ApplyCurrentRecoilPose();

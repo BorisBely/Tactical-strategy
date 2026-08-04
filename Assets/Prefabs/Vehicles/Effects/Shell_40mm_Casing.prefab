@@ -156,17 +156,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleTurretShellCasingBehaviour
   m_VehicleImpactClips:
-  - {fileID: 8300000, guid: 1ba4c7e3ce94fdd4590818555ff9ce39, type: 3}
-  - {fileID: 8300000, guid: ece6f65f2dac63a48b04bb10859be3d0, type: 3}
-  - {fileID: 8300000, guid: 0833a36efbc19704daecb38c566fa76b, type: 3}
-  - {fileID: 8300000, guid: 77c846087a1ef124383a5c369c7b139b, type: 3}
-  - {fileID: 8300000, guid: fdcdbec8f8bd49c42ae6c0bc274de6b5, type: 3}
-  - {fileID: 8300000, guid: b9e518f62d76f9340979ce07e29cf4b9, type: 3}
-  - {fileID: 8300000, guid: e4da9e3107c10b44f82304dd7779752f, type: 3}
-  - {fileID: 8300000, guid: 2a3eeb0a8f4254f48b26f2949a9718d7, type: 3}
-  - {fileID: 8300000, guid: 71e4de48968e2234e9ed854d7a5a182d, type: 3}
-  - {fileID: 8300000, guid: ffb9d270f1636ae428d862c819842893, type: 3}
-  - {fileID: 8300000, guid: 3c700aa927f0b0b43b27a94522e451fb, type: 3}
+  - {fileID: 8300000, guid: a30f5d3a79c404f4db987f543466b275, type: 3}
+  - {fileID: 8300000, guid: 3dac6640a4b02094098e4cea0ca086ae, type: 3}
+  - {fileID: 8300000, guid: 43e3e03ccef9f3142848b1939ae9ca34, type: 3}
+  - {fileID: 8300000, guid: 156acec3b17f15c4faa06627a33a4408, type: 3}
+  - {fileID: 8300000, guid: 1fce870a7e0671f44bc2a8794aa84702, type: 3}
+  - {fileID: 8300000, guid: 859b86f08f1508a408d365eaebf1d8ee, type: 3}
+  - {fileID: 8300000, guid: 4213e1482a65af24e8c1cd3d4e922b71, type: 3}
+  - {fileID: 8300000, guid: 50deace6f6889a7419f9895ea62044b1, type: 3}
   m_GroundImpactClips:
   - {fileID: 8300000, guid: de9b0948866845f4fa4a9064548a0e42, type: 3}
   - {fileID: 8300000, guid: 777bd9548cc4a8e4ab174d87547fd187, type: 3}

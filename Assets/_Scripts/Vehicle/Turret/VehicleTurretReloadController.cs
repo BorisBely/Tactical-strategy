@@ -26,10 +26,12 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private const float c_Mk19HandleRestLocalZ = 0.1667f;
 	private const float c_Mk19HandleOpenLocalZ = -0.141f;
 	private const float c_Mk19HandleRotateXDeg = -70f;
-	private const float c_Mk19HandleRotateDuration = 0.18f;
-	private const float c_Mk19HandleDownDuration = 0.4f;
-	private const float c_Mk19HandleUpDuration = 0.4f;
 	private const string c_Mk19HandleName = "GameObjectBolt";
+	// Stand_Gunner_Reload ends at frame 520 @ 30fps ≈ 17.3s; allow slack then force-clear.
+	private const float c_ReloadClipSeconds = 520f / c_ReloadClipFps;
+	private const float c_MaxReloadSeconds = 22f;
+	private const string c_ReloadAnimatorState = "Stand_Gunner_Reload";
+	private const string c_ReloadAboveAnimatorState = "Stand_Gunner_Reload_Above";
 	private static readonly int s_IsGunnerReloadingM2 = Animator.StringToHash(ParamIsGunnerReloadingM2);
 	#endregion
 
@@ -57,6 +59,12 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	[Header("MK19 Magazine Grip")]
 	[SerializeField] private Vector3 m_Mk19MagLeftHandLocalPosition = new Vector3(-0.092f, -0.046f, -0.088f);
 	[SerializeField] private Vector3 m_Mk19MagLeftHandLocalEuler = new Vector3(17.745f, -112.385f, -13.41f);
+
+	[Header("Handle Pull Audio")]
+	[Tooltip("Gun Reload 4_5 — рывок зарядной рукоятки M2/MK19.")]
+	[SerializeField] private AudioClip m_HandlePullClip;
+	[SerializeField, Range(0.1f, 1f)] private float m_HandlePullVolume = 0.85f;
+	[SerializeField, Min(5f)] private float m_HandlePullMaxDistance = 35f;
 	#endregion
 
 	#region Private Fields
@@ -67,6 +75,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private bool m_AwaitingPostReloadAim;
 	private float m_PostReloadGateStartTime;
 	private float m_PostReloadAimStableSince = -1f;
+	private float m_ReloadStartedTime = -1f;
 	private bool m_SavedGunnerCover;
 	private bool m_TrackedCoverForPitch;
 	private bool m_ReloadPitchOverrideStarted;
@@ -88,13 +97,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private bool m_UseNotReadyIkTargets;
 	private bool m_UseHandleNotReadyIkTargets;
 	private bool m_IsMk19;
-	private float m_Mk19HandleRestXAngle;
 	private Vector3 m_Mk19HandleRestLocalEuler;
 	#endregion
 
 	#region Public Properties
 	public bool IsReloading => m_IsReloading;
 	public bool IsReloadBusy => m_IsReloading || m_AwaitingPostReloadAim;
+	/// <summary>True when FinishReload never arrived and the reload should be force-cleared.</summary>
+	public bool IsReloadStuckOrTimedOut => IsReloadStuck();
 	public bool UseLeftHandIk => m_IsReloading && m_UseLeftHandIk;
 	public bool UseRightHandIk => m_IsReloading && m_UseRightHandIk;
 	public bool UseNotReadyIkTargets => m_IsReloading && m_UseNotReadyIkTargets;
@@ -117,7 +127,11 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	private void Update()
 	{
 		if (m_IsReloading)
+		{
 			SyncPitchToCurrentCover();
+			TryCompleteReloadIfClipEnded();
+			TryRecoverStuckReload();
+		}
 
 		if (!m_AwaitingPostReloadAim)
 			return;
@@ -145,11 +159,25 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	public bool TryStartReload(RtsUnitMember _gunner)
 	{
-		if (!TryPrepareReload(_gunner))
+		// Already running a valid reload — treat as success (don't cancel mid-anim).
+		if (m_IsReloading && !IsReloadStuck())
+			return true;
+
+		if (!TryPrepareReload(_gunner, _allowCancelStuck: true))
 			return false;
 
 		if (!TryFindReloadBox(_gunner, out m_PendingFromGunnerBag, out m_PendingBagIndex, out m_PendingFullBox))
+		{
+			ItemDefinition needed = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
+			int vehicleBag = m_Inventory != null ? m_Inventory.BagCount : 0;
+			CharacterInventory gunnerInv = _gunner.GetComponent<CharacterInventory>();
+			int gunnerBag = gunnerInv != null ? gunnerInv.BagCount : 0;
+			Debug.LogWarning(
+				$"[TurretReload] No spare {(m_IsMk19 ? "MK19" : "M2")} box in gunner/vehicle bag" +
+				$" (needed={(needed != null ? needed.name : "null")}, vehicleBag={vehicleBag}, gunnerBag={gunnerBag}).",
+				this);
 			return false;
+		}
 
 		return BeginPreparedReload(_gunner);
 	}
@@ -159,7 +187,11 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		if (_fullBox.IsEmpty || _fullBox.Definition == null)
 			return false;
 
-		if (!TryPrepareReload(_gunner))
+		// Don't tear down a valid in-progress reload (cancelling mid-SwapEmpty loses the consumed box).
+		if (m_IsReloading && !IsReloadStuck())
+			return false;
+
+		if (!TryPrepareReload(_gunner, _allowCancelStuck: true))
 			return false;
 
 		m_PendingFromGunnerBag = false;
@@ -167,6 +199,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_PendingFullBox = _fullBox;
 		EnsureFullM2BoxRuntimeState(ref m_PendingFullBox);
 		return BeginPreparedReload(_gunner);
+	}
+
+	/// <summary>Force-clear a stuck/interrupted reload so fire and a new reload can proceed.</summary>
+	public void CancelReload()
+	{
+		if (!m_IsReloading && !m_AwaitingPostReloadAim)
+			return;
+		ForceCancelReload();
 	}
 
 	public void AnimationEvent_TurretAttachMagToLeftHand()
@@ -212,8 +252,9 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	public void AnimationEvent_TurretHandleYankDown()
 	{
+		PlayHandlePullSound();
 		if (m_IsMk19)
-			AnimateMk19HandleYank();
+			AnimateMk19HandleYank(c_HandleFirstDownDuration);
 		else
 			AnimateHandle(c_HandleOpenLocalZ, c_HandleFirstDownDuration);
 	}
@@ -221,15 +262,16 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	public void AnimationEvent_TurretHandleFirstReturnUp()
 	{
 		if (m_IsMk19)
-			AnimateMk19HandleReturn();
+			AnimateMk19HandleReturn(c_HandleFirstUpDuration);
 		else
 			AnimateHandle(c_HandleRestLocalZ, c_HandleFirstUpDuration);
 	}
 
 	public void AnimationEvent_TurretHandleSecondYankDown()
 	{
+		PlayHandlePullSound();
 		if (m_IsMk19)
-			AnimateMk19HandleYank();
+			AnimateMk19HandleYank(c_HandleSecondDownDuration);
 		else
 			AnimateHandle(c_HandleOpenLocalZ, c_HandleSecondDownDuration);
 	}
@@ -237,7 +279,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	public void AnimationEvent_TurretHandleSecondReturnUp()
 	{
 		if (m_IsMk19)
-			AnimateMk19HandleReturn();
+			AnimateMk19HandleReturn(c_HandleSecondUpDuration);
 		else
 			AnimateHandle(c_HandleRestLocalZ, c_HandleSecondUpDuration);
 	}
@@ -257,28 +299,68 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	#endregion
 
 	#region Private Methods — Start / Finish
-	private bool TryPrepareReload(RtsUnitMember _gunner)
+	private bool TryPrepareReload(RtsUnitMember _gunner, bool _allowCancelStuck)
 	{
-		if (IsReloadBusy || _gunner == null)
+		if (_gunner == null)
+		{
+			Debug.LogWarning("[TurretReload] Prepare failed (gunner=False).", this);
 			return false;
+		}
+
+		if (m_IsReloading)
+		{
+			if (_allowCancelStuck && IsReloadStuck())
+			{
+				Debug.LogWarning(
+					$"[TurretReload] Clearing stuck reload before start (elapsed={(m_ReloadStartedTime >= 0f ? Time.time - m_ReloadStartedTime : -1f):F1}s).",
+					this);
+				ForceCancelReload();
+			}
+			else
+			{
+				Debug.LogWarning(
+					$"[TurretReload] Prepare failed (reloading=True, stuck={IsReloadStuck()}).",
+					this);
+				return false;
+			}
+		}
+
+		if (m_AwaitingPostReloadAim)
+		{
+			m_AwaitingPostReloadAim = false;
+			ClearReloadState();
+		}
+
+		EnsureMagazineItemRefs();
 
 		if (m_Inventory == null || !m_Inventory.HasTurretWeapon)
+		{
+			Debug.LogWarning("[TurretReload] Prepare failed (no turret weapon).", this);
 			return false;
+		}
 
 		InventorySlotRuntimeData weaponSlot = m_Inventory.TurretWeapon;
 		if (weaponSlot.IsEmpty || weaponSlot.Definition == null)
+		{
+			Debug.LogWarning("[TurretReload] Prepare failed (empty turret weapon slot).", this);
 			return false;
+		}
 
 		TurretWeaponVariant variant = weaponSlot.Definition.TurretWeaponVariant;
 		if (variant != TurretWeaponVariant.Browning127 && variant != TurretWeaponVariant.Mk19)
+		{
+			Debug.LogWarning(
+				$"[TurretReload] Prepare failed (unsupported variant={variant}).",
+				this);
 			return false;
+		}
 
 		m_IsMk19 = variant == TurretWeaponVariant.Mk19;
 
 		if (!TryResolveReloadTransforms(out m_MagTransform, out m_HandleTransform))
 		{
 			Debug.LogWarning(
-				$"[TurretReload] Mag/Handle not found (mag={(m_MagTransform != null)}, handle={(m_HandleTransform != null)}).",
+				$"[TurretReload] Mag/Handle not found (mag={(m_MagTransform != null)}, handle={(m_HandleTransform != null)}, mk19={m_IsMk19}).",
 				this);
 			return false;
 		}
@@ -301,6 +383,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_UseNotReadyIkTargets = false;
 		m_UseHandleNotReadyIkTargets = false;
 		m_IsReloading = true;
+		m_ReloadStartedTime = Time.time;
 
 		UnitWeaponFireController fire = _gunner.GetComponent<UnitWeaponFireController>();
 		fire?.StopFiring();
@@ -375,9 +458,123 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		}
 
 		m_IsReloading = false;
+		m_ReloadStartedTime = -1f;
 		m_PostReloadGateStartTime = Time.time;
 		m_PostReloadAimStableSince = -1f;
 		m_AwaitingPostReloadAim = true;
+	}
+
+	private void TryCompleteReloadIfClipEnded()
+	{
+		if (!m_IsReloading || m_ReloadStartedTime < 0f)
+			return;
+
+		float elapsed = Time.time - m_ReloadStartedTime;
+		// FinishReload sits on the last sample and is often skipped by Mecanim — complete in code.
+		if (elapsed >= c_ReloadClipSeconds - 0.02f)
+		{
+			Debug.LogWarning(
+				$"[TurretReload] FinishReload missed at clip end — completing after {elapsed:F1}s.",
+				this);
+			CompleteReloadAfterAnimation();
+			return;
+		}
+
+		Animator animator = m_ActiveGunner != null
+			? m_ActiveGunner.GetComponentInChildren<Animator>()
+			: null;
+		if (animator == null || !IsAnimatorInReloadState(animator))
+			return;
+
+		int layerCount = animator.layerCount;
+		for (int i = 0; i < layerCount; i++)
+		{
+			if (animator.IsInTransition(i))
+				continue;
+
+			AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(i);
+			if (!info.IsName(c_ReloadAnimatorState) && !info.IsName(c_ReloadAboveAnimatorState))
+				continue;
+
+			if (info.normalizedTime >= 0.995f)
+			{
+				Debug.LogWarning(
+					$"[TurretReload] FinishReload missed (normalizedTime={info.normalizedTime:F3}) — completing.",
+					this);
+				CompleteReloadAfterAnimation();
+				return;
+			}
+		}
+	}
+
+	private void TryRecoverStuckReload()
+	{
+		if (!IsReloadStuck())
+			return;
+
+		Debug.LogWarning(
+			$"[TurretReload] Stuck reload recovered after {Time.time - m_ReloadStartedTime:F1}s (FinishReload never arrived).",
+			this);
+		ForceCancelReload();
+	}
+
+	private bool IsReloadStuck()
+	{
+		if (!m_IsReloading)
+			return false;
+
+		if (m_ReloadStartedTime < 0f)
+			return true;
+
+		float elapsed = Time.time - m_ReloadStartedTime;
+		if (elapsed >= c_MaxReloadSeconds)
+			return true;
+
+		// Weapon was swapped under an active reload — Mag/Handle/anim no longer match.
+		if (elapsed > 0.05f && IsActiveWeaponMk19() != m_IsMk19)
+			return true;
+
+		// Clip ended / left reload state without FinishReload.
+		if (elapsed < 2.5f)
+			return false;
+
+		Animator animator = m_ActiveGunner != null
+			? m_ActiveGunner.GetComponentInChildren<Animator>()
+			: null;
+		if (animator == null)
+			return false;
+
+		return !IsAnimatorInReloadState(animator);
+	}
+
+	private bool IsActiveWeaponMk19()
+	{
+		if (m_Inventory == null || !m_Inventory.HasTurretWeapon || m_Inventory.TurretWeapon.Definition == null)
+			return m_IsMk19;
+		return m_Inventory.TurretWeapon.Definition.TurretWeaponVariant == TurretWeaponVariant.Mk19;
+	}
+
+	private static bool IsAnimatorInReloadState(Animator _animator)
+	{
+		if (_animator == null)
+			return false;
+
+		int layerCount = _animator.layerCount;
+		for (int i = 0; i < layerCount; i++)
+		{
+			AnimatorStateInfo info = _animator.GetCurrentAnimatorStateInfo(i);
+			if (info.IsName(c_ReloadAnimatorState) || info.IsName(c_ReloadAboveAnimatorState))
+				return true;
+
+			if (_animator.IsInTransition(i))
+			{
+				AnimatorStateInfo next = _animator.GetNextAnimatorStateInfo(i);
+				if (next.IsName(c_ReloadAnimatorState) || next.IsName(c_ReloadAboveAnimatorState))
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	private void ForceCancelReload()
@@ -386,8 +583,30 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		RestoreHandleAndIkParents();
 		StopHandleMoveRoutine();
 		m_BeltFeed?.ClearReloadBeltVisualOverride();
+
+		// SwapEmpty may already have consumed the spare box. Install it so ammo isn't lost
+		// when FinishReload never arrives and we have to abort.
+		TryApplyPendingBoxIfWeaponNeedsAmmo();
+
 		EndReloadPresentationImmediate();
 		ClearReloadState();
+	}
+
+	private void TryApplyPendingBoxIfWeaponNeedsAmmo()
+	{
+		if (m_PendingFullBox.IsEmpty || m_Inventory == null || !m_Inventory.HasTurretWeapon)
+			return;
+
+		WeaponRuntimeState weaponState = m_Inventory.TurretWeapon.InstanceState != null
+			? m_Inventory.TurretWeapon.InstanceState.WeaponState
+			: null;
+		if (weaponState == null)
+			return;
+
+		if (weaponState.HasAmmoInMagazine && weaponState.HasRoundInChamber)
+			return;
+
+		ApplyFullBoxToWeapon();
 	}
 
 	private void EndReloadPresentationImmediate()
@@ -405,7 +624,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			m_ReloadPitchOverrideStarted = false;
 		}
 
-		m_ActiveEvents?.Unbind(this);
+		// Do not Unbind here — GunnerBridge owns the bind for the whole seat occupancy
+		// so auto-reload (TryStartReloadFromGunner) keeps working after FinishReload.
 	}
 
 	private void ClearReloadState()
@@ -413,6 +633,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_IsReloading = false;
 		m_IsMk19 = false;
 		m_AwaitingPostReloadAim = false;
+		m_ReloadStartedTime = -1f;
 		m_ReloadPitchOverrideStarted = false;
 		m_TrackedCoverForPitch = false;
 		m_UseLeftHandIk = false;
@@ -421,7 +642,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		m_UseHandleNotReadyIkTargets = false;
 		m_ActiveGunner = null;
 		m_GunnerInventory = null;
-		m_ActiveEvents?.Unbind(this);
+		// Keep UnitVehicleTurretReloadEvents bound (see EndReloadPresentationImmediate).
 		m_ActiveEvents = null;
 		m_PendingFullBox = default;
 		m_PendingBagIndex = -1;
@@ -547,23 +768,75 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 	{
 		_index = -1;
 		_box = default;
-		ItemDefinition magItem = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
-		if (_bag == null || magItem == null)
+		if (_bag == null)
 			return false;
+
+		WeaponRuntimeState weaponState = null;
+		if (m_Inventory != null &&
+		    m_Inventory.HasTurretWeapon &&
+		    m_Inventory.TurretWeapon.InstanceState != null)
+			weaponState = m_Inventory.TurretWeapon.InstanceState.WeaponState;
+
+		ItemDefinition catalogMag = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
 
 		for (int i = 0; i < _bag.Count; i++)
 		{
 			InventorySlotRuntimeData item = _bag[i];
-			if (item.IsEmpty || item.Definition != magItem)
+			if (item.IsEmpty || item.Definition == null || item.Definition.MagazineDefinition == null)
 				continue;
 
-			MagazineRuntimeState magState = item.InstanceState?.MagazineState;
-			if (magState != null && !magState.HasAmmo)
+			if (!IsCompatibleReloadBox(item.Definition, catalogMag, weaponState))
+				continue;
+
+			InventorySlotRuntimeData usable = item;
+			EnsureMagazineRuntimeState(ref usable);
+			EnsureFullM2BoxRuntimeState(ref usable);
+			MagazineRuntimeState magState = usable.InstanceState?.MagazineState;
+			if (magState == null || !magState.HasAmmo)
+				continue;
+
+			if (weaponState != null && !weaponState.CanAcceptMagazineItem(usable))
 				continue;
 
 			_index = i;
-			_box = item;
+			_box = usable;
 			return true;
+		}
+
+		return false;
+	}
+
+	private static bool IsCompatibleReloadBox(
+		ItemDefinition _item,
+		ItemDefinition _catalogMag,
+		WeaponRuntimeState _weaponState)
+	{
+		if (_item == null || _item.MagazineDefinition == null)
+			return false;
+
+		if (_catalogMag != null)
+		{
+			if (_item == _catalogMag)
+				return true;
+			if (_catalogMag.MagazineDefinition != null &&
+			    _item.MagazineDefinition == _catalogMag.MagazineDefinition)
+				return true;
+			if (_catalogMag.MagazineDefinition != null &&
+			    _item.MagazineDefinition.MagazineType == _catalogMag.MagazineDefinition.MagazineType &&
+			    _item.MagazineDefinition.SupportedCaliber == _catalogMag.MagazineDefinition.SupportedCaliber &&
+			    _catalogMag.MagazineDefinition.MagazineType != MagazineType.None)
+				return true;
+		}
+
+		if (_weaponState?.WeaponDefinition != null)
+		{
+			WeaponDefinition weaponDef = _weaponState.WeaponDefinition;
+			MagazineDefinition magDef = _item.MagazineDefinition;
+			if (weaponDef.SupportedMagazineType != MagazineType.None &&
+			    magDef.MagazineType == weaponDef.SupportedMagazineType &&
+			    (weaponDef.SupportedCaliber == CaliberType.None ||
+			     magDef.SupportedCaliber == weaponDef.SupportedCaliber))
+				return true;
 		}
 
 		return false;
@@ -586,17 +859,8 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	private void ReturnEmptyBoxToVehicle()
 	{
-		ItemDefinition magItem = m_IsMk19 ? m_Mk19MagazineBoxItem : m_M2MagazineBoxItem;
-		if (m_Inventory == null || magItem == null)
-			return;
-
-		InventorySlotRuntimeData emptyBox = InventorySlotRuntimeData.FromDefinition(magItem);
-		EnsureMagazineRuntimeState(ref emptyBox);
-		MagazineRuntimeState magState = emptyBox.InstanceState?.MagazineState;
-		if (magState != null && magItem.MagazineDefinition != null)
-			magState.Configure(magItem.MagazineDefinition, null, 0);
-
-		m_Inventory.ForceAddToBag(emptyBox);
+		// Turret ammo boxes are consumed on reload. Returning empty shells made Find reject
+		// "boxes in inventory" (HasAmmo == false) and looked like a missing spare box.
 	}
 	#endregion
 
@@ -639,19 +903,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 
 	private void SwapEmptyForFullMag()
 	{
+		// Remove spent box from the weapon without putting an empty shell back into cargo.
+		// Returning empties made auto-reload find "boxes" that were then refilled from thin air,
+		// and also fought the consume-on-reload model.
 		if (m_Inventory != null &&
 		    m_Inventory.TryGetEquipmentSlot(VehicleEquipmentSlotId.TurretWeapon, out InventorySlotRuntimeData weaponSlot) &&
-		    weaponSlot.InstanceState?.WeaponState != null &&
-		    weaponSlot.InstanceState.WeaponState.TryEjectMagazine(out InventorySlotRuntimeData ejected))
+		    weaponSlot.InstanceState?.WeaponState != null)
 		{
-			MagazineRuntimeState magState = ejected.InstanceState?.MagazineState;
-			if (magState != null)
-				magState.Configure(magState.Definition, magState.LoadedAmmoDefinition, 0);
-			m_Inventory.ForceAddToBag(ejected);
-		}
-		else
-		{
-			ReturnEmptyBoxToVehicle();
+			weaponSlot.InstanceState.WeaponState.TryEjectMagazine(out _);
 		}
 
 		ConsumeReservedFullBox();
@@ -694,7 +953,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			SetLeftHandIk(false);
 	}
 
-	private void AnimateMk19HandleYank()
+	private void AnimateMk19HandleYank(float _duration)
 	{
 		if (m_HandleTransform == null)
 			return;
@@ -702,27 +961,24 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		StopHandleMoveRoutine();
 		StopHandleRotateRoutine();
 
-		Quaternion rotateTarget = Quaternion.Euler(c_Mk19HandleRotateXDeg, m_Mk19HandleRestLocalEuler.y, m_Mk19HandleRestLocalEuler.z);
-		m_HandleRotateRoutine = StartCoroutine(AnimateLocalRotationRoutine(
+		// Rotate + pull in parallel so both cycles finish inside animation-event windows
+		// (2nd yank is only ~9 frames @ 30fps — sequential 0.58s motion was cut short).
+		Vector3 targetPos = m_HandleTransform.localPosition;
+		targetPos.z = c_Mk19HandleOpenLocalZ;
+		Quaternion targetRot = Quaternion.Euler(
+			c_Mk19HandleRotateXDeg,
+			m_Mk19HandleRestLocalEuler.y,
+			m_Mk19HandleRestLocalEuler.z);
+
+		m_HandleMoveRoutine = StartCoroutine(AnimateLocalTransformRoutine(
 			m_HandleTransform,
-			m_HandleTransform.localRotation,
-			rotateTarget,
-			c_Mk19HandleRotateDuration,
-			() =>
-			{
-				m_HandleRotateRoutine = null;
-				Vector3 target = m_HandleTransform.localPosition;
-				target.z = c_Mk19HandleOpenLocalZ;
-				m_HandleMoveRoutine = StartCoroutine(AnimateLocalPositionRoutine(
-					m_HandleTransform,
-					m_HandleTransform.localPosition,
-					target,
-					c_Mk19HandleDownDuration,
-					() => m_HandleMoveRoutine = null));
-			}));
+			targetPos,
+			targetRot,
+			_duration,
+			() => m_HandleMoveRoutine = null));
 	}
 
-	private void AnimateMk19HandleReturn()
+	private void AnimateMk19HandleReturn(float _duration)
 	{
 		if (m_HandleTransform == null)
 			return;
@@ -730,24 +986,16 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		StopHandleMoveRoutine();
 		StopHandleRotateRoutine();
 
-		Vector3 posTarget = m_HandleTransform.localPosition;
-		posTarget.z = c_Mk19HandleRestLocalZ;
-		m_HandleMoveRoutine = StartCoroutine(AnimateLocalPositionRoutine(
+		Vector3 targetPos = m_HandleTransform.localPosition;
+		targetPos.z = c_Mk19HandleRestLocalZ;
+		Quaternion targetRot = Quaternion.Euler(m_Mk19HandleRestLocalEuler);
+
+		m_HandleMoveRoutine = StartCoroutine(AnimateLocalTransformRoutine(
 			m_HandleTransform,
-			m_HandleTransform.localPosition,
-			posTarget,
-			c_Mk19HandleUpDuration,
-			() =>
-			{
-				m_HandleMoveRoutine = null;
-				Quaternion rotTarget = Quaternion.Euler(m_Mk19HandleRestLocalEuler);
-				m_HandleRotateRoutine = StartCoroutine(AnimateLocalRotationRoutine(
-					m_HandleTransform,
-					m_HandleTransform.localRotation,
-					rotTarget,
-					c_Mk19HandleRotateDuration,
-					() => m_HandleRotateRoutine = null));
-			}));
+			targetPos,
+			targetRot,
+			_duration,
+			() => m_HandleMoveRoutine = null));
 	}
 
 	private void AnimateHandle(float _targetLocalZ, float _duration)
@@ -765,6 +1013,19 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			target,
 			_duration,
 			() => m_HandleMoveRoutine = null));
+	}
+
+	private void PlayHandlePullSound()
+	{
+		if (m_HandlePullClip == null)
+			return;
+
+		Vector3 pos = m_HandleTransform != null ? m_HandleTransform.position : transform.position;
+		UnitNonFireAudioUtility.PlayAtPoint(
+			m_HandlePullClip,
+			pos,
+			m_HandlePullVolume,
+			m_HandlePullMaxDistance);
 	}
 
 	private void RestoreHandleAndIkParents()
@@ -890,12 +1151,14 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			return false;
 
 		Transform pitch = m_Hierarchy.GetActiveWeaponPitch(TurretWeaponVariant.Mk19);
+		if (pitch != null)
+			VehicleTurretCombatSockets.PrepareMk19PitchRuntime(pitch);
+
 		_handle = FindDeepChild(pitch, c_Mk19HandleName);
 
 		if (_handle != null)
 		{
 			m_Mk19HandleRestLocalEuler = _handle.localEulerAngles;
-			m_Mk19HandleRestXAngle = m_Mk19HandleRestLocalEuler.x;
 			EnsureHandleIkTargetsOnHandle(_handle);
 		}
 
@@ -991,9 +1254,7 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 		if (magState == null || magState.HasAmmo)
 			return;
 
-		AmmoDefinition ammo = m_IsMk19
-			? TurretContentCatalog.Get()?.Ammo40
-			: TurretContentCatalog.Get()?.Ammo127;
+		AmmoDefinition ammo = ResolveReloadAmmo(_slot);
 		if (ammo == null)
 			return;
 
@@ -1001,6 +1262,39 @@ public sealed class VehicleTurretReloadController : MonoBehaviour
 			_slot.Definition.MagazineDefinition,
 			ammo,
 			_slot.Definition.MagazineDefinition.Capacity);
+	}
+
+	private AmmoDefinition ResolveReloadAmmo(InventorySlotRuntimeData _slot)
+	{
+		TurretContentCatalog catalog = TurretContentCatalog.Get();
+		AmmoDefinition ammo = m_IsMk19 ? catalog?.Ammo40 : catalog?.Ammo127;
+		if (ammo != null)
+			return ammo;
+
+		MagazineRuntimeState existing = _slot.InstanceState?.MagazineState;
+		if (existing != null && existing.LoadedAmmoDefinition != null)
+			return existing.LoadedAmmoDefinition;
+
+		WeaponRuntimeState weaponState = m_Inventory != null &&
+		                                 m_Inventory.HasTurretWeapon &&
+		                                 m_Inventory.TurretWeapon.InstanceState != null
+			? m_Inventory.TurretWeapon.InstanceState.WeaponState
+			: null;
+		if (weaponState?.CurrentMagazine?.LoadedAmmoDefinition != null)
+			return weaponState.CurrentMagazine.LoadedAmmoDefinition;
+
+		return weaponState?.WeaponDefinition != null
+			? weaponState.WeaponDefinition.BuiltInMagazineDefaultAmmo
+			: null;
+	}
+
+	private void EnsureMagazineItemRefs()
+	{
+		TurretContentCatalog catalog = TurretContentCatalog.Get();
+		if (m_M2MagazineBoxItem == null)
+			m_M2MagazineBoxItem = catalog?.M2MagazineBox;
+		if (m_Mk19MagazineBoxItem == null)
+			m_Mk19MagazineBoxItem = catalog?.Mk19MagazineBox;
 	}
 
 	private void StopMagAttachRoutine()

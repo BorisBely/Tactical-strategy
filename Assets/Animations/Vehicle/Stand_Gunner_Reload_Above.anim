@@ -685163,7 +685163,7 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 17.333334
+  - time: 17.3
     functionName: AnimationEvent_TurretFinishReload
     data: 
     objectReferenceParameter: {fileID: 0}

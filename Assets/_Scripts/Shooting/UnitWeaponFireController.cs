@@ -114,6 +114,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		get => m_TryReloadWhenOutOfAmmo;
 		set => m_TryReloadWhenOutOfAmmo = value;
 	}
+
+	/// <summary>Диагностика MK19 / турели в Console.</summary>
+	public int DebugSuccessfulShotCountForDiagnostics => m_DebugSuccessfulShotCount;
+
+	/// <summary>Диагностика MK19 / турели в Console.</summary>
+	public AmmoDefinition LastFiredAmmoDefinitionForDiagnostics => m_LastFiredAmmoDefinition;
 	#endregion
 
 	#region Unity Lifecycle

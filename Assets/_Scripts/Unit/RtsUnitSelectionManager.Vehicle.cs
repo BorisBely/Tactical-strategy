@@ -94,7 +94,7 @@ public sealed partial class RtsUnitSelectionManager
 
 		VehicleTurretGunnerBridge bridge = m_SelectedVehicle.TurretGunnerBridge;
 		if (bridge == null || !bridge.TryStartGunnerReload())
-			Debug.LogWarning("[Vehicle] Gunner reload failed (no spare M2 box or Mag/Handle missing).", m_SelectedVehicle);
+			Debug.LogWarning("[Vehicle] Gunner reload failed — see [TurretReload] warning above (busy / Mag-Handle / no spare box for active weapon).", m_SelectedVehicle);
 	}
 
 	public void CommandLoadWoundedIntoSelectedOrTargetVehicle()

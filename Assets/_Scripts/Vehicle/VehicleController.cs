@@ -311,6 +311,9 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		if (!TryGetComponent(out VehicleTurretGrenadeFiring grenadeFiring))
 			grenadeFiring = gameObject.AddComponent<VehicleTurretGrenadeFiring>();
 
+		if (TryGetComponent(out VehicleTurretMk19FireDiagnostics mk19Diag))
+			mk19Diag.enabled = false;
+
 		if (m_TurretWeaponRecoil == null && !TryGetComponent(out m_TurretWeaponRecoil))
 			m_TurretWeaponRecoil = gameObject.AddComponent<VehicleTurretWeaponRecoil>();
 

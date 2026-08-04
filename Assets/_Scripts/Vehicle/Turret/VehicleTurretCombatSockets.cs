@@ -10,6 +10,11 @@ public static class VehicleTurretCombatSockets
 	public const string BarrelRecoilName = "barrel";
 	public const string InnerGun127Name = "Gun.12.7";
 	public const string Mk19ShellEjectName = "ShellEject_MK19";
+	public const string Mk19InnerMeshName = "MK19_1";
+	public const string Mk19HandleName = "GameObjectBolt";
+	public const string Mk19BoltVisualName = "Bolt";
+	public const string LeftHandleIkName = "LeftHandIkTarget_NotReady_Handle";
+	public const string RightHandleIkName = "RightHandIkTarget_NotReady_Handle";
 
 	/// <summary>Только создаёт отсутствующие пустышки. Позиции/повороты уже существующих не трогает.</summary>
 	public static bool EnsureMissingM2SocketsOnPitch(Transform _pitch)
@@ -62,6 +67,7 @@ public static class VehicleTurretCombatSockets
 	/// <summary>Runtime-подготовка панели MK19.</summary>
 	public static void PrepareMk19PitchRuntime(Transform _pitch)
 	{
+		EnsureMissingMk19SocketsOnPitch(_pitch);
 		TryBindEquippedWeaponIfMissing(_pitch);
 	}
 

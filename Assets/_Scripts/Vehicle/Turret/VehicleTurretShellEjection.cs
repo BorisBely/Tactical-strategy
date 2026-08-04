@@ -82,8 +82,8 @@ public sealed class VehicleTurretShellEjection : MonoBehaviour
 			EnsureEjectPointsResolved();
 			EnsurePoolsFromAmmo(_ammo);
 			EjectShell(_ammo);
-			if (m_BeltFeed == null)
-				EjectBeltLink(_ammo);
+			// BeltFeed only animates the live belt mesh — physical ejected links are separate.
+			EjectBeltLink(_ammo);
 		}
 	}
 
@@ -140,6 +140,8 @@ public sealed class VehicleTurretShellEjection : MonoBehaviour
 		go.SetActive(true);
 		if (go.TryGetComponent(out Rigidbody rb))
 		{
+			rb.useGravity = true;
+			rb.isKinematic = false;
 			float speed = _ammo != null ? _ammo.BeltLinkEjectSpeed : 1.5f;
 			rb.linearVelocity = m_BeltEjectPoint.right * speed * 0.3f + Vector3.down * 0.5f;
 			rb.angularVelocity = Random.insideUnitSphere * (_ammo != null ? _ammo.BeltLinkAngularVelocity : 4f);
@@ -195,20 +197,16 @@ public sealed class VehicleTurretShellEjection : MonoBehaviour
 			audioSource = go.AddComponent<AudioSource>();
 		audioSource.playOnAwake = false;
 		audioSource.spatialBlend = 1f;
-		audioSource.maxDistance = 15f;
+		audioSource.maxDistance = 25f;
 		audioSource.rolloffMode = AudioRolloffMode.Linear;
 
 		var casing = go.GetComponent<VehicleTurretShellCasingBehaviour>();
 		if (casing == null)
 			casing = go.AddComponent<VehicleTurretShellCasingBehaviour>();
-		casing.ConfigureImpactVolume(m_ShellDropVolume);
-
 		if (m_Mk19ShellDropClips != null && m_Mk19ShellDropClips.Length > 0)
-		{
-			AudioClip clip = m_Mk19ShellDropClips[Random.Range(0, m_Mk19ShellDropClips.Length)];
-			if (clip != null)
-				audioSource.PlayOneShot(clip, m_ShellDropVolume);
-		}
+			casing.ConfigureImpactClips(m_Mk19ShellDropClips, m_ShellDropVolume);
+		else
+			casing.ConfigureImpactVolume(m_ShellDropVolume);
 	}
 
 	private void EnsureEjectPointsResolved()

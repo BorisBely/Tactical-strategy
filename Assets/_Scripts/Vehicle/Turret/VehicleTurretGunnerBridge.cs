@@ -108,8 +108,15 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 
 	public bool TryStartGunnerReload()
 	{
+		ReconcileGunnerBinding();
 		if (m_BoundGunner == null || m_ReloadController == null)
+		{
+			Debug.LogWarning(
+				$"[TurretReload] Bridge start failed (gunner={(m_BoundGunner != null)}, reloadCtrl={(m_ReloadController != null)}).",
+				this);
 			return false;
+		}
+
 		return m_ReloadController.TryStartReload(m_BoundGunner);
 	}
 
@@ -118,6 +125,26 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		if (m_BoundGunner == null || m_ReloadController == null)
 			return false;
 		return m_ReloadController.TryStartReloadWithReservedBox(m_BoundGunner, _fullBox);
+	}
+
+	public void CancelGunnerReload()
+	{
+		m_ReloadController?.CancelReload();
+	}
+
+	/// <summary>
+	/// Clears a stuck reload (FinishReload never fired). Returns false if busy with a valid in-progress reload.
+	/// </summary>
+	public bool TryCancelStuckGunnerReload()
+	{
+		if (m_ReloadController == null || !m_ReloadController.IsReloading)
+			return true;
+
+		if (!m_ReloadController.IsReloadStuckOrTimedOut)
+			return false;
+
+		m_ReloadController.CancelReload();
+		return true;
 	}
 	#endregion
 

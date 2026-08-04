@@ -334,6 +334,20 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 		SuppressBeltTemplateVisuals(m_Mk19BeltRoot);
 	}
 
+	private static bool IsMk19NonBeltChild(Transform _child)
+	{
+		if (_child == null)
+			return true;
+
+		string name = _child.name;
+		return name == VehicleTurretCombatSockets.Mk19HandleName
+		       || name == VehicleTurretCombatSockets.Mk19BoltVisualName
+		       || name == EquippedWeapon.MuzzleExitTransformName
+		       || name == VehicleTurretCombatSockets.Mk19ShellEjectName
+		       || name == VehicleTurretReloadController.LeftHandIkNotReadyHandleName
+		       || name == VehicleTurretReloadController.RightHandIkNotReadyHandleName;
+	}
+
 	private static void SuppressBeltTemplateVisuals(Transform _beltRoot)
 	{
 		if (_beltRoot == null)
@@ -342,7 +356,7 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 		for (int i = 0; i < _beltRoot.childCount; i++)
 		{
 			Transform child = _beltRoot.GetChild(i);
-			if (child == null)
+			if (child == null || IsMk19NonBeltChild(child))
 				continue;
 
 			child.gameObject.SetActive(false);
@@ -402,19 +416,32 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 		if (_beltRoot == null || _beltRoot.childCount == 0)
 			return false;
 
-		int count = Mathf.Min(m_SlotCount, _beltRoot.childCount);
-		_slots = new BeltSlot[count];
-		for (int i = 0; i < count; i++)
+		string prefix = InferRuntimeTemplatePrefix(_beltRoot);
+		var captured = new System.Collections.Generic.List<BeltSlot>(_beltRoot.childCount);
+		for (int i = 0; i < _beltRoot.childCount; i++)
 		{
 			Transform child = _beltRoot.GetChild(i);
-			_slots[i] = new BeltSlot
+			if (child == null || IsMk19NonBeltChild(child))
+				continue;
+			if (prefix != null &&
+			    !child.name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			captured.Add(new BeltSlot
 			{
 				LocalPosition = child.localPosition,
 				LocalRotation = child.localRotation
-			};
+			});
 		}
 
-		m_SlotCount = count;
+		if (captured.Count == 0)
+			return false;
+
+		_slots = captured.ToArray();
+		if (prefix == "40mm")
+			_slots = BuildMk19FeedOrderedSlots(_slots);
+
+		m_SlotCount = _slots.Length;
 		SuppressBeltTemplateVisuals(_beltRoot);
 		return true;
 	}
@@ -425,12 +452,117 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 		if (baked == null || baked.Length == 0)
 			return false;
 
-		int count = Mathf.Min(m_SlotCount, baked.Length);
-		m_Slots = new BeltSlot[count];
-		for (int i = 0; i < count; i++)
+		// Prefer live template children when present — baked data can go stale after hierarchy restores.
+		Transform beltRoot = GetBeltRootForVariant(_variant);
+		int templateCount = CountBeltTemplateChildren(beltRoot, _variant);
+		if (templateCount > 0)
+		{
+			// Always rebuild MK19 from live templates so feed order/poses stay correct.
+			if (_variant == TurretWeaponVariant.Mk19)
+				return false;
+
+			if (templateCount != baked.Length)
+				return false;
+		}
+
+		m_Slots = new BeltSlot[baked.Length];
+		for (int i = 0; i < baked.Length; i++)
 			m_Slots[i] = baked[i];
-		m_SlotCount = count;
+		m_SlotCount = baked.Length;
 		return true;
+	}
+
+	/// <summary>
+	/// Belt feed expects slot 0 = magazine side, last = chamber/feed.
+	/// MK19 mesh templates are authored chamber→mag; reverse and optionally densify the chain.
+	/// </summary>
+	private static BeltSlot[] BuildMk19FeedOrderedSlots(BeltSlot[] _captured)
+	{
+		if (_captured == null || _captured.Length == 0)
+			return _captured;
+
+		BeltSlot[] ordered = (BeltSlot[])_captured.Clone();
+		if (ordered.Length >= 2)
+		{
+			float firstDist = ordered[0].LocalPosition.sqrMagnitude;
+			float lastDist = ordered[ordered.Length - 1].LocalPosition.sqrMagnitude;
+			// Closer to belt origin ≈ chamber/receiver; farther ≈ hanging mag side.
+			if (firstDist < lastDist)
+				System.Array.Reverse(ordered);
+		}
+
+		const int desiredCount = 6;
+		if (ordered.Length >= desiredCount)
+			return ordered;
+
+		return DensifyBeltSlots(ordered, desiredCount);
+	}
+
+	private static BeltSlot[] DensifyBeltSlots(BeltSlot[] _source, int _desiredCount)
+	{
+		if (_source == null || _source.Length == 0 || _desiredCount <= _source.Length)
+			return _source;
+
+		var result = new System.Collections.Generic.List<BeltSlot>(_desiredCount);
+		int segments = _source.Length - 1;
+		if (segments <= 0)
+		{
+			for (int i = 0; i < _desiredCount; i++)
+				result.Add(_source[0]);
+			return result.ToArray();
+		}
+
+		// Extrapolate past magazine end (index 0) so the hanging belt looks longer.
+		int extraMag = _desiredCount - _source.Length;
+		Vector3 magStep = _source[0].LocalPosition - _source[1].LocalPosition;
+		Quaternion magRot = _source[0].LocalRotation;
+		for (int e = extraMag; e >= 1; e--)
+		{
+			result.Add(new BeltSlot
+			{
+				LocalPosition = _source[0].LocalPosition + magStep * e,
+				LocalRotation = magRot
+			});
+		}
+
+		for (int i = 0; i < _source.Length; i++)
+			result.Add(_source[i]);
+
+		return result.ToArray();
+	}
+
+	private static int CountBeltTemplateChildren(Transform _beltRoot, TurretWeaponVariant _variant)
+	{
+		if (_beltRoot == null)
+			return 0;
+
+		string prefix = _variant == TurretWeaponVariant.Mk19 ? "40mm" : "12_7";
+		int count = 0;
+		for (int i = 0; i < _beltRoot.childCount; i++)
+		{
+			Transform child = _beltRoot.GetChild(i);
+			if (child == null || IsMk19NonBeltChild(child))
+				continue;
+			if (child.name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+				count++;
+		}
+
+		return count;
+	}
+
+	private static string InferRuntimeTemplatePrefix(Transform _beltRoot)
+	{
+		if (_beltRoot == null)
+			return null;
+
+		string name = _beltRoot.name;
+		if (name.IndexOf("Bullet", System.StringComparison.OrdinalIgnoreCase) >= 0)
+			return "12_7";
+		if (name.IndexOf("MK19", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+		    name.IndexOf("belt", System.StringComparison.OrdinalIgnoreCase) >= 0)
+			return "40mm";
+
+		return null;
 	}
 
 	private void EnsurePoolForVariant(TurretWeaponVariant _variant)
@@ -507,8 +639,7 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 			{
 				go = Instantiate(template, m_PoolRoot);
 				go.name = $"BeltRound_{i}";
-				MeshRenderer mr = go.GetComponent<MeshRenderer>();
-				if (mr != null) mr.enabled = true;
+				EnsureRoundRenderersEnabled(go.transform);
 			}
 			else
 			{
@@ -546,6 +677,10 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 		if (ammoRemaining <= 0)
 			return;
 
+		Transform beltRoot = GetActiveBeltRoot();
+		if (beltRoot == null)
+			return;
+
 		int visibleCount = Mathf.Min(m_VisibleRounds, m_SlotCount, m_PoolCapacity);
 		visibleCount = Mathf.Min(visibleCount, ammoRemaining);
 
@@ -560,13 +695,32 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 			round.Visible = true;
 			round.InertiaOvershoot = Vector3.zero;
 			round.JitterOffset = Vector3.zero;
-			round.Transform.gameObject.SetActive(true);
+
+			// Parent first with local identity, then apply belt-local slot pose.
+			// Previous order (set local while under pool, then SetParent worldStays)
+			// placed MK19 grenades in the wrong space under MK19_1/belt.
+			round.Transform.SetParent(beltRoot, false);
 			BeltSlot slot = m_Slots[slotIndex];
 			round.Transform.localPosition = slot.LocalPosition;
 			round.Transform.localRotation = slot.LocalRotation;
-			round.Transform.SetParent(GetActiveBeltRoot(), true);
+			round.Transform.localScale = Vector3.one;
+			EnsureRoundRenderersEnabled(round.Transform);
+			round.Transform.gameObject.SetActive(true);
 		}
 		m_PoolIndex = visibleCount;
+	}
+
+	private static void EnsureRoundRenderersEnabled(Transform _round)
+	{
+		if (_round == null)
+			return;
+
+		MeshRenderer[] renderers = _round.GetComponentsInChildren<MeshRenderer>(true);
+		for (int i = 0; i < renderers.Length; i++)
+		{
+			if (renderers[i] != null)
+				renderers[i].enabled = true;
+		}
 	}
 
 	private int GetAmmoRemaining()
@@ -707,11 +861,13 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 
 		free.Transform.gameObject.SetActive(true);
 
-		free.Transform.SetParent(GetActiveBeltRoot(), true);
+		free.Transform.SetParent(GetActiveBeltRoot(), false);
 
 		BeltSlot slot0 = m_Slots[0];
 		free.Transform.localPosition = slot0.LocalPosition;
 		free.Transform.localRotation = slot0.LocalRotation;
+		free.Transform.localScale = Vector3.one;
+		EnsureRoundRenderersEnabled(free.Transform);
 
 		free.CurrentSlot = 0;
 		free.TargetSlot = 0;
@@ -1027,13 +1183,15 @@ public sealed class VehicleTurretBeltFeed : MonoBehaviour
 				basePos += forward * stretch;
 			}
 
-			// Layer 1: wave
+			float waveAmplitude = m_PoolVariant == TurretWeaponVariant.Mk19
+				? m_WaveAmplitude * 0.35f
+				: m_WaveAmplitude;
 			float waveT = Mathf.Clamp01(m_WaveTimer / Mathf.Max(0.001f, m_WaveDuration));
-			if (waveT > 0f)
+			if (waveT > 0f && m_SlotCount > 1)
 			{
 				float slotFactor = (float)(m_SlotCount - 1 - round.CurrentSlot) / (m_SlotCount - 1);
 				float waveStrength = Mathf.Lerp(0.2f, 1f, slotFactor);
-				float waveOffset = Mathf.Sin(waveT * Mathf.PI * 2f + slotFactor * 2f) * m_WaveAmplitude * waveStrength;
+				float waveOffset = Mathf.Sin(waveT * Mathf.PI * 2f + slotFactor * 2f) * waveAmplitude * waveStrength;
 				basePos.y += waveOffset;
 			}
 

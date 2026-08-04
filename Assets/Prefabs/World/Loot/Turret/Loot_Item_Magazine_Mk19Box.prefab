@@ -159,9 +159,9 @@ MonoBehaviour:
       m_HasRoundInChamber: 0
       m_ChamberedAmmoDefinition: {fileID: 0}
     m_MagazineState:
-      m_Definition: {fileID: 0}
-      m_LoadedAmmoDefinition: {fileID: 0}
-      m_CurrentAmmoCount: 0
+      m_Definition: {fileID: 11400000, guid: 5f1410e4881e40c18766686142c8a1fb, type: 2}
+      m_LoadedAmmoDefinition: {fileID: 11400000, guid: 980a4e11b974485a9b06db4a27f2de5b, type: 2}
+      m_CurrentAmmoCount: 48
     m_AmmoContainerState:
       m_AmmoDefinition: {fileID: 0}
       m_CurrentAmmoCount: 0

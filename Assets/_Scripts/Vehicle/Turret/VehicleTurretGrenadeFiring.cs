@@ -18,6 +18,9 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 	[SerializeField] private float m_MuzzleFlashLifetime = 0.15f;
 	[SerializeField] private Vector3 m_MuzzleFlashScale = Vector3.one;
 
+	[Header("Diagnostics")]
+	[SerializeField] private bool m_LogMk19Shots = true;
+
 	private Transform m_MuzzleExit;
 	private GameObject m_ProjectilePoolRoot;
 	private GameObject[] m_ProjectilePool;
@@ -58,27 +61,53 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		m_Subscribed = false;
 	}
 
+	private int m_Mk19ProjectileShotCount;
+
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
 		if (m_Bridge == null || !m_Bridge.HasBoundGunner)
+		{
+			LogMk19("ShotFired ignored: no bound gunner");
 			return;
+		}
+
 		ItemDefinition activeWeapon = m_Equipment != null ? m_Equipment.ActiveWeaponItem : null;
 		if (activeWeapon == null || activeWeapon.TurretWeaponVariant != TurretWeaponVariant.Mk19)
 			return;
 
+		m_Mk19ProjectileShotCount++;
+		string ammoName = _ammo != null ? _ammo.name : "null";
+		LogMk19($"ShotFired #{m_Mk19ProjectileShotCount} ammo={ammoName}");
+
 		ResolveMuzzleExit();
+		if (m_MuzzleExit == null)
+		{
+			LogMk19Warning($"Shot #{m_Mk19ProjectileShotCount}: MuzzleExit missing — no projectile");
+			return;
+		}
+
+		if (m_ProjectilePrefab == null)
+		{
+			LogMk19Warning($"Shot #{m_Mk19ProjectileShotCount}: projectile prefab missing");
+			return;
+		}
+
 		SpawnMuzzleFlash();
 		FireProjectile();
 	}
 
 	private void ResolveMuzzleExit()
 	{
-		if (m_MuzzleExit != null)
-			return;
 		m_Hierarchy?.EnsureBound();
 		Transform pitch = m_Hierarchy?.GetActiveWeaponPitch(TurretWeaponVariant.Mk19);
-		if (pitch != null)
-			m_MuzzleExit = VehicleTurretCombatSockets.FindMuzzleExit(pitch);
+		if (pitch == null)
+		{
+			m_MuzzleExit = null;
+			return;
+		}
+
+		VehicleTurretCombatSockets.PrepareMk19PitchRuntime(pitch);
+		m_MuzzleExit = VehicleTurretCombatSockets.FindMuzzleExit(pitch);
 	}
 
 	private void SpawnMuzzleFlash()
@@ -112,13 +141,24 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		proj.transform.rotation = m_MuzzleExit.rotation;
 		proj.SetActive(true);
 
-		if (proj.TryGetComponent(out Rigidbody rb))
+		Vector3 launchVelocity = m_MuzzleExit.forward * m_MuzzleVelocity;
+		if (proj.TryGetComponent(out VehicleTurretGrenadeProjectile grenade))
+		{
+			grenade.ConfigureDiagnostics(m_Mk19ProjectileShotCount);
+			grenade.SetVelocity(launchVelocity);
+		}
+		else if (proj.TryGetComponent(out Rigidbody rb))
 		{
 			rb.isKinematic = false;
 			rb.useGravity = true;
-			rb.linearVelocity = m_MuzzleExit.forward * m_MuzzleVelocity;
+			rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+			rb.linearVelocity = launchVelocity;
 			rb.angularVelocity = Random.insideUnitSphere * 2f;
 		}
+
+		LogMk19(
+			$"Projectile #{m_Mk19ProjectileShotCount} pool={((m_ProjectileIndex - 1) % m_PoolCapacity) + 1}/{m_PoolCapacity} " +
+			$"pos={m_MuzzleExit.position} vel={launchVelocity.magnitude:F0}m/s");
 	}
 
 	private void EnsureProjectilePool()
@@ -159,5 +199,19 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		Gizmos.color = Color.red;
 		Gizmos.DrawRay(origin, dir * 0.5f);
 		Gizmos.DrawWireSphere(m_MuzzleExit.position, 0.05f);
+	}
+
+	private void LogMk19(string _message)
+	{
+		if (!m_LogMk19Shots)
+			return;
+		Debug.Log($"[Mk19Grenade] {name} {_message}", this);
+	}
+
+	private void LogMk19Warning(string _message)
+	{
+		if (!m_LogMk19Shots)
+			return;
+		Debug.LogWarning($"[Mk19Grenade] {name} {_message}", this);
 	}
 }

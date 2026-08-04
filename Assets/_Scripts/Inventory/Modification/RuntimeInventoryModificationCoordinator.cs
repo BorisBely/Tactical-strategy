@@ -173,8 +173,7 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (!TryResolveCharacterSlot(_slot, out bool isMainHand, out int bagIndex))
 			return false;
 
-		CharacterInventory inventory = ActiveInventory;
-		if (inventory == null || !inventory.TryGetInventorySlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
+		if (!TryGetCharacterOrVehicleWeaponSlot(isMainHand, bagIndex, out InventorySlotRuntimeData weaponSlot))
 			return false;
 
 		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
@@ -279,11 +278,9 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 				: RuntimeModifiableWeaponDisplayState.Collapsed;
 		}
 
-		VehicleInventory vehicleInventory = ActiveVehicleInventory;
-		if (vehicleInventory != null && isMainHand && vehicleInventory.HasTurretWeapon)
+		if (TryGetCharacterOrVehicleWeaponSlot(isMainHand, bagIndex, out InventorySlotRuntimeData vehicleOrSlotWeapon))
 		{
-			return IsSameWeaponAsSelection(
-				vehicleInventory.TurretWeapon.InstanceState, false, -1, true, -1)
+			return IsSameWeaponAsSelection(vehicleOrSlotWeapon.InstanceState, false, -1, isMainHand, bagIndex)
 				? m_ModificationUiState.DisplayState
 				: RuntimeModifiableWeaponDisplayState.Collapsed;
 		}
@@ -317,14 +314,40 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return !_weaponSlot.IsEmpty && ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
 		}
 
-		CharacterInventory inventory = ActiveInventory;
-		if (inventory == null)
+		if (!TryGetCharacterOrVehicleWeaponSlot(
+			    m_ModificationUiState.IsMainHand,
+			    m_ModificationUiState.BagIndex,
+			    out _weaponSlot))
 			return false;
 
-		if (!inventory.TryGetInventorySlot(m_ModificationUiState.IsMainHand, m_ModificationUiState.BagIndex, out _weaponSlot))
-			return false;
+		return ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
+	}
 
-		return !_weaponSlot.IsEmpty && ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
+	/// <summary>
+	/// After vehicle inventory repaint (weapon swap), keep empty magazine row visible under turret gun —
+	/// same as expanded infantry weapon with no magazine installed.
+	/// </summary>
+	public void EnsureExpandedEmptyVehicleTurretMagazineSlot()
+	{
+		VehicleInventory vehicleInventory = ActiveVehicleInventory;
+		if (vehicleInventory == null || !vehicleInventory.HasTurretWeapon)
+			return;
+
+		InventorySlotRuntimeData weaponSlot = vehicleInventory.TurretWeapon;
+		if (!ItemModificationUtility.IsModifiableWeapon(weaponSlot.Definition))
+			return;
+
+		WeaponRuntimeState weaponState = weaponSlot.InstanceState != null
+			? weaponSlot.InstanceState.WeaponState
+			: null;
+		if (weaponState != null && weaponState.HasMagazine)
+			return;
+
+		m_ModificationUiState = RuntimeInventoryModificationUiState.CreateCharacterSelection(
+			true,
+			-1,
+			weaponSlot.InstanceState,
+			RuntimeModifiableWeaponDisplayState.Expanded);
 	}
 
 	public bool ShouldHighlightCompatibleWithModificationWeapon(InventorySlotRuntimeData _candidate)
@@ -575,6 +598,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		{
 			if (ActiveInventory != null)
 				ActiveInventory.TryAdd(replacedItem);
+			else if (ActiveVehicleInventory != null)
+			{
+				ActiveVehicleInventory.SetExchangeModificationAllowed(true);
+				if (!ActiveVehicleInventory.TryAdd(replacedItem))
+					ActiveVehicleInventory.ForceAddToBag(replacedItem);
+				ActiveVehicleInventory.SetExchangeModificationAllowed(false);
+			}
 			else
 				GroundPanel?.TryAdd(replacedItem);
 		}
@@ -1596,17 +1626,24 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		if (_vehicleInventory == null || _payload.Item.IsEmpty)
 			return false;
 
-		int ignored = -1;
-		if (!TryConsumeModificationDragSource(_payload, ref ignored))
-			return false;
-
 		InventorySlotRuntimeData box = MissionPrepInventoryCopyUtility.CloneSlot(_payload.Item);
 		VehicleTurretGunnerBridge bridge = _vehicleInventory.Vehicle != null
 			? _vehicleInventory.Vehicle.TurretGunnerBridge
 			: null;
 
-		if (bridge != null && bridge.HasBoundGunner && bridge.TryStartGunnerReloadWithReservedBox(box))
+		// With a bound gunner: only animated reload — never instant mag spawn.
+		if (bridge != null && bridge.HasBoundGunner)
 		{
+			if (!bridge.TryStartGunnerReloadWithReservedBox(box))
+				return false;
+
+			int ignored = -1;
+			if (!TryConsumeModificationDragSource(_payload, ref ignored))
+			{
+				bridge.CancelGunnerReload();
+				return false;
+			}
+
 			KeepExpandedSelectionAfterModificationInstall(
 				false,
 				-1,
@@ -1617,6 +1654,10 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			ScheduleRefreshInlineModificationRowsAfterDrag();
 			return true;
 		}
+
+		int bagIgnored = -1;
+		if (!TryConsumeModificationDragSource(_payload, ref bagIgnored))
+			return false;
 
 		if (!TryInstantReplaceVehicleTurretMagazine(_vehicleInventory, box))
 		{
@@ -2247,12 +2288,29 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		}
 
 		VehicleInventory vehicleInventoryForResolve = ActiveVehicleInventory;
-		if (vehicleInventoryForResolve != null && _weaponIsMainHand && vehicleInventoryForResolve.HasTurretWeapon)
+		if (vehicleInventoryForResolve != null)
 		{
-			_weaponSlot = vehicleInventoryForResolve.TurretWeapon;
-			_resolvedIsMainHand = true;
-			_resolvedBagIndex = -1;
-			return true;
+			if (_weaponIsMainHand && vehicleInventoryForResolve.HasTurretWeapon)
+			{
+				_weaponSlot = vehicleInventoryForResolve.TurretWeapon;
+				_resolvedIsMainHand = true;
+				_resolvedBagIndex = -1;
+				return true;
+			}
+
+			if (!_weaponIsMainHand &&
+			    _weaponBagIndex >= 0 &&
+			    _weaponBagIndex < vehicleInventoryForResolve.BagCount)
+			{
+				InventorySlotRuntimeData bagWeapon = vehicleInventoryForResolve.BagItems[_weaponBagIndex];
+				if (!bagWeapon.IsEmpty && ItemModificationUtility.IsModifiableWeapon(bagWeapon.Definition))
+				{
+					_weaponSlot = bagWeapon;
+					_resolvedIsMainHand = false;
+					_resolvedBagIndex = _weaponBagIndex;
+					return true;
+				}
+			}
 		}
 
 		if (_weaponInventorySlotView != null &&
@@ -2295,10 +2353,10 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return true;
 
 		VehicleInventory vehicleInventory = ActiveVehicleInventory;
-		if (vehicleInventory != null && _isMainHand)
+		if (vehicleInventory != null)
 		{
 			vehicleInventory.SetExchangeModificationAllowed(true);
-			bool set = vehicleInventory.TrySetInventorySlot(true, false, false, -1, _weaponSlot);
+			bool set = vehicleInventory.TrySetInventorySlot(_isMainHand, false, false, _bagIndex, _weaponSlot);
 			vehicleInventory.SetExchangeModificationAllowed(false);
 			if (set)
 				return true;
@@ -2313,6 +2371,40 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 			return inventory.TrySetInventorySlot(resolvedMainHand, resolvedBagIndex, _weaponSlot);
 
 		return _weaponInventorySlotView.HasItem;
+	}
+
+	private bool TryGetCharacterOrVehicleWeaponSlot(
+		bool _isMainHand,
+		int _bagIndex,
+		out InventorySlotRuntimeData _weaponSlot)
+	{
+		_weaponSlot = default;
+
+		CharacterInventory inventory = ActiveInventory;
+		if (inventory != null)
+		{
+			if (!inventory.TryGetInventorySlot(_isMainHand, _bagIndex, out _weaponSlot))
+				return false;
+			return !_weaponSlot.IsEmpty;
+		}
+
+		VehicleInventory vehicleInventory = ActiveVehicleInventory;
+		if (vehicleInventory == null)
+			return false;
+
+		if (_isMainHand)
+		{
+			if (!vehicleInventory.HasTurretWeapon)
+				return false;
+			_weaponSlot = vehicleInventory.TurretWeapon;
+			return true;
+		}
+
+		if (_bagIndex < 0 || _bagIndex >= vehicleInventory.BagCount)
+			return false;
+
+		_weaponSlot = vehicleInventory.BagItems[_bagIndex];
+		return !_weaponSlot.IsEmpty;
 	}
 
 	private bool TryCommitGroundWeaponSlot(int _groundSlotIndex, InventorySlotRuntimeData _weaponSlot)
@@ -2512,8 +2604,16 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 		    inventory.TryGetInventorySlot(_isMainHand, _bagIndex, out InventorySlotRuntimeData inventorySlot) &&
 		    !inventorySlot.IsEmpty)
 			_weaponSlot = inventorySlot;
-		else if (ActiveVehicleInventory != null && _isMainHand && ActiveVehicleInventory.HasTurretWeapon)
-			_weaponSlot = ActiveVehicleInventory.TurretWeapon;
+		else if (ActiveVehicleInventory != null)
+		{
+			if (_isMainHand && ActiveVehicleInventory.HasTurretWeapon)
+				_weaponSlot = ActiveVehicleInventory.TurretWeapon;
+			else if (!_isMainHand &&
+			         _bagIndex >= 0 &&
+			         _bagIndex < ActiveVehicleInventory.BagCount &&
+			         !ActiveVehicleInventory.BagItems[_bagIndex].IsEmpty)
+				_weaponSlot = ActiveVehicleInventory.BagItems[_bagIndex];
+		}
 
 		return ItemModificationUtility.IsModifiableWeapon(_weaponSlot.Definition);
 	}
