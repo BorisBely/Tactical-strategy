@@ -7,8 +7,9 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 	#region Constants
 	private const float c_RpgExplosionVfxScale = 2.15f;
 	private const float c_RpgExplosionMaxDistanceMeters = 600f;
-	private const float c_RpgExplosionAudioMaxDistance = 110f;
+	private const float c_RpgExplosionAudioMaxDistance = 600f;
 	private const float c_RpgExplosionLifetimeSeconds = 5.5f;
+	private const string c_RocketLauncherDataResourcesPath = "Combat/RocketLauncherData";
 	#endregion
 
 	[Header("Explosion")]
@@ -37,6 +38,7 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 	[Header("Grenade Data Reference")]
 	[SerializeField] private GrenadeThrowData m_GrenadeThrowData;
 	[SerializeField] private ItemDefinition m_FragGrenadeDefinition;
+	[SerializeField] private RocketLauncherData m_RocketLauncherData;
 
 	private float m_SpawnedTime;
 	private bool m_HasExploded;
@@ -147,10 +149,6 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		m_HasExploded = true;
 		StopFlightSound();
 		Vector3 pos = transform.position;
-		float flightTime = Time.time - m_SpawnedTime;
-		Debug.Log(
-			$"[Mk19Grenade] shot#{m_DiagnosticShotIndex} detonate pos={pos} flight={flightTime:F2}s prefab={(m_ExplosionPrefab != null ? m_ExplosionPrefab.name : "null")}",
-			this);
 
 		GameObject prefab = m_ExplosionPrefab;
 		if (m_GrenadeThrowData != null)
@@ -213,29 +211,67 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 
 	private void PlayExplosionSound(Vector3 _position)
 	{
-		AudioClip clip = null;
-		if (m_GrenadeThrowData != null &&
-		    m_GrenadeThrowData.TryPickExplosionSound(m_FragGrenadeDefinition, out AudioClip dataClip))
-			clip = dataClip;
-
-		if (clip == null && m_ExplosionSoundClips != null && m_ExplosionSoundClips.Length > 0)
-			clip = m_ExplosionSoundClips[Random.Range(0, m_ExplosionSoundClips.Length)];
-
+		AudioClip clip = ResolveExplosionClip();
 		if (clip == null)
 			return;
 
-		float volume = m_GrenadeThrowData != null
-			? m_GrenadeThrowData.GetExplosionVolume(m_FragGrenadeDefinition)
-			: m_ExplosionSoundVolume;
-		float audioMaxDistance = m_ExplosionAudioMaxDistance;
+		if (clip.loadState != AudioDataLoadState.Loaded)
+			clip.LoadAudioData();
+
+		float volume = m_ExplosionSoundVolume;
+		if (m_GrenadeThrowData != null)
+			volume = Mathf.Max(volume, m_GrenadeThrowData.GetExplosionVolume(m_FragGrenadeDefinition));
+
+		float audioMaxDistance = Mathf.Max(m_ExplosionAudioMaxDistance, m_ExplosionMaxDistanceMeters);
 		if (m_GrenadeThrowData != null)
 			audioMaxDistance = Mathf.Max(audioMaxDistance, m_GrenadeThrowData.ExplosionAudioMaxDistance);
+		if (m_RocketLauncherData != null)
+			audioMaxDistance = Mathf.Max(audioMaxDistance, m_RocketLauncherData.ExplosionAudioMaxDistance);
 
-		CombatAudioManager.TryPlayRocketLauncher(
-			clip,
-			_position,
-			volume,
-			audioMaxDistance);
+		// Same voice path as RPG explosions — high priority, no NonFire attenuation.
+		if (CombatAudioManager.TryPlayRocketLauncher(clip, _position, volume, audioMaxDistance))
+			return;
+
+		if (CombatAudioManager.TryPlayExplosion(clip, _position, volume, audioMaxDistance))
+			return;
+
+		// Guaranteed audible fallback for elevated RTS cameras / full voice pool.
+		AudioSource.PlayClipAtPoint(clip, _position, Mathf.Clamp01(volume));
+	}
+
+	private AudioClip ResolveExplosionClip()
+	{
+		// Prefab clips first — wired to RPG-scale explosions for 40mm HE.
+		if (m_ExplosionSoundClips != null && m_ExplosionSoundClips.Length > 0)
+		{
+			int start = Random.Range(0, m_ExplosionSoundClips.Length);
+			for (int i = 0; i < m_ExplosionSoundClips.Length; i++)
+			{
+				AudioClip clip = m_ExplosionSoundClips[(start + i) % m_ExplosionSoundClips.Length];
+				if (clip != null)
+					return clip;
+			}
+		}
+
+		EnsureRocketLauncherData();
+		if (m_RocketLauncherData != null &&
+		    m_RocketLauncherData.TryPickExplosionClip(RocketLauncherType.Rpg7, out AudioClip rpgClip) &&
+		    rpgClip != null)
+			return rpgClip;
+
+		if (m_GrenadeThrowData != null &&
+		    m_GrenadeThrowData.TryPickExplosionSound(m_FragGrenadeDefinition, out AudioClip dataClip) &&
+		    dataClip != null)
+			return dataClip;
+
+		return null;
+	}
+
+	private void EnsureRocketLauncherData()
+	{
+		if (m_RocketLauncherData != null)
+			return;
+		m_RocketLauncherData = Resources.Load<RocketLauncherData>(c_RocketLauncherDataResourcesPath);
 	}
 
 	private void StartFlightSound()

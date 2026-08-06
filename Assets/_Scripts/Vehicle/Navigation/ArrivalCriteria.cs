@@ -4,8 +4,11 @@ namespace VehicleNavigation
 {
 	public sealed class ArrivalCriteria
 	{
-		public float PositionTolerance { get; set; } = 0.6f;
-		public float HeadingToleranceDeg { get; set; } = 8f;
+		/// <summary>Equivalent radius for coarse near-goal checks.</summary>
+		public float PositionTolerance { get; set; } = ArrivalPositionBand.DefaultLateral;
+		public float LongitudinalTolerance { get; set; } = ArrivalPositionBand.DefaultLongitudinal;
+		public float LateralTolerance { get; set; } = ArrivalPositionBand.DefaultLateral;
+		public float HeadingToleranceDeg { get; set; } = 5f;
 
 		public bool RequireFaceHeading { get; set; }
 		public float HeadingBlendStartDistance { get; set; } = 6f;
@@ -16,10 +19,15 @@ namespace VehicleNavigation
 
 		public static ArrivalCriteria FromRequest(NavigationRequest _request)
 		{
+			float lat = _request.MinArrivalDistance > 0f
+				? _request.MinArrivalDistance
+				: ArrivalPositionBand.DefaultLateral;
 			var criteria = new ArrivalCriteria
 			{
-				PositionTolerance = _request.MinArrivalDistance > 0f
-					? _request.MinArrivalDistance : 0.6f,
+				LongitudinalTolerance = ArrivalPositionBand.DefaultLongitudinal,
+				LateralTolerance = lat,
+				PositionTolerance = ArrivalPositionBand.EquivalentRadius(
+					ArrivalPositionBand.DefaultLongitudinal, lat),
 				HeadingToleranceDeg = _request.MinArrivalHeading > 0f
 					? _request.MinArrivalHeading : 8f
 			};
@@ -28,16 +36,10 @@ namespace VehicleNavigation
 			{
 				criteria.RequireFaceHeading = true;
 				criteria.HasTargetForward = true;
-				criteria.TargetForward = AngleToForward(_request.HeadingYaw.Value);
+				criteria.TargetForward = Quaternion.Euler(0f, _request.HeadingYaw.Value, 0f) * Vector3.forward;
 			}
 
 			return criteria;
-		}
-
-		private static Vector3 AngleToForward(float _yawDeg)
-		{
-			float rad = _yawDeg * Mathf.Deg2Rad;
-			return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
 		}
 	}
 }

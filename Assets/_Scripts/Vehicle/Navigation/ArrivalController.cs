@@ -4,18 +4,31 @@ namespace VehicleNavigation
 {
 	/// <summary>
 	/// Checks whether the vehicle has reached its destination
-	/// (position + optional heading).
+	/// (oval position band + optional heading).
 	/// </summary>
 	public sealed class ArrivalController
 	{
-		private readonly float m_PositionTolerance;
+		private readonly float m_LongitudinalTolerance;
+		private readonly float m_LateralTolerance;
 		private readonly float m_HeadingTolerance;
 
 		public ArrivalController(
-			float _positionTolerance = 0.6f,
-			float _headingTolerance = 8f)
+			float _positionTolerance = 0.45f,
+			float _headingTolerance = 5f)
+			: this(
+				ArrivalPositionBand.DefaultLongitudinal,
+				Mathf.Max(_positionTolerance, ArrivalPositionBand.DefaultLateral),
+				_headingTolerance)
 		{
-			m_PositionTolerance = _positionTolerance;
+		}
+
+		public ArrivalController(
+			float _longitudinalTolerance,
+			float _lateralTolerance,
+			float _headingTolerance)
+		{
+			m_LongitudinalTolerance = Mathf.Max(0.05f, _longitudinalTolerance);
+			m_LateralTolerance = Mathf.Max(0.05f, _lateralTolerance);
 			m_HeadingTolerance = _headingTolerance;
 		}
 
@@ -25,11 +38,15 @@ namespace VehicleNavigation
 			Vector3 _destination,
 			float? _targetHeading)
 		{
-			float d = FlatDistance(_position, _destination);
-			if (d > m_PositionTolerance)
+			if (!ArrivalPositionBand.IsInside(
+				    _position, _yaw, _destination,
+				    m_LongitudinalTolerance, m_LateralTolerance))
 			{
+				float d = FlatDistance(_position, _destination);
 				if (d < 1.5f)
-					Debug.Log($"[Arrival] close but not there: dist={d:F2}m > tol={m_PositionTolerance}m");
+					Debug.Log(
+						$"[Arrival] close but not there: dist={d:F2}m " +
+						$"oval lon≤{m_LongitudinalTolerance:F2} lat≤{m_LateralTolerance:F2}");
 				return false;
 			}
 
@@ -44,7 +61,9 @@ namespace VehicleNavigation
 			Vector3 _destination,
 			ArrivalCriteria _criteria)
 		{
-			if (FlatDistance(_state.Position, _destination) > _criteria.PositionTolerance)
+			if (!ArrivalPositionBand.IsInside(
+				    _state.Position, _state.Yaw, _destination,
+				    _criteria.LongitudinalTolerance, _criteria.LateralTolerance))
 				return false;
 
 			if (!_criteria.RequireFaceHeading)

@@ -10,26 +10,31 @@ namespace VehicleNavigation
 		public ArrivalPlan Generate(ArrivalAnalysis _a, ArrivalPlanningSettings _s,
 			Vector3 _pos, float _yaw, Vector3 _target, float? _heading)
 		{
-			// Already at target — terminal, not error. Flag AtGoal to abort further planning.
 			if (_a.Distance < 0.2f)
 				return ArrivalPlan.AtGoalPlan();
 
-			// Strictly front-hemisphere only, with tight heading/lateral bounds
-			if (_a.Side != TargetSide.Front)
-				return ArrivalPlan.Invalid("target not in front hemisphere");
+			if (_a.Side != TargetSide.Front && _a.Side != TargetSide.Rear)
+				return ArrivalPlan.Invalid("target not in front/rear hemisphere");
+
+			bool canForward = _a.CanReachForward && _a.Side == TargetSide.Front;
+			bool canReverse = _a.CanReachReverse && _a.Side == TargetSide.Rear;
+			if (!canForward && !canReverse)
+				return ArrivalPlan.Invalid("target inside turning circle");
+
 			if (Mathf.Abs(_a.HeadingError) > 45f)
 				return ArrivalPlan.Invalid("heading error too large for direct");
-			if (_a.LateralOffset > 1.5f)
+			if (_a.LateralOffset > Mathf.Max(1.5f, _s.TurnRadius * 0.25f))
 				return ArrivalPlan.Invalid("lateral offset too large for direct");
 
 			var maneuvers = new List<Maneuver>();
+			float targetYaw = _heading ?? _yaw;
 			if (_heading.HasValue)
-				maneuvers.Add(new ApproachWithHeadingManeuver(_target, _heading.Value));
+				maneuvers.Add(new ApproachWithHeadingManeuver(_target, targetYaw));
 			else
-				maneuvers.Add(new ParkingManeuver(_heading ?? _yaw));
+				maneuvers.Add(new ParkingManeuver(targetYaw));
 
 			float cost = _a.Distance * 1f + Mathf.Abs(_a.HeadingError) * 0.2f;
-			return new ArrivalPlan(maneuvers, cost, Name) { PreferredSide = TargetSide.Front };
+			return new ArrivalPlan(maneuvers, cost, Name) { PreferredSide = _a.Side };
 		}
 	}
 }

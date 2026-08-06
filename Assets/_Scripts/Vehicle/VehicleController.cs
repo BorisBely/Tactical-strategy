@@ -67,6 +67,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	#endregion
 
 	#region Private Fields
+	private const bool c_EnableUnitBlocker = false;
 	private Transform m_CachedCameraTransform;
 	private VehicleTuning m_RuntimeTuning;
 	private VehicleUnitBlocker m_UnitBlocker;
@@ -85,6 +86,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	private Coroutine m_GunnerSlotMoveRoutine;
 	private bool m_PhysicsDriveCoreInitialized;
 	private bool m_UnitBlockingInitialized;
+	private bool m_ExternalDriveRelease;
 	private const float c_GunnerSlotMoveDuration = 0.25f;
 	#endregion
 
@@ -129,6 +131,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	public bool IsDrivePhysicsReady => true;
 	/// <summary>Разрешить мотор/руль (Brain + Navigation).</summary>
 	public bool IsDriveMotorAllowed => true;
+	/// <summary>Release chassis park-hold for open-loop calibration / external drive.</summary>
+	public void SetExternalDriveHoldOverride(bool _releaseHold) => m_ExternalDriveRelease = _releaseHold;
 	/// <summary>
 	/// Выделение: своя сторона (водитель) или внутри ещё есть юнит игрока
 	/// (после высадки водителя сторона Neutral, но пассажиры должны управлять высадкой).
@@ -220,6 +224,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 
 	private void OnDestroy()
 	{
+		VehicleUnitBlocker.DestroyFor(this);
+
 		if (m_RuntimeTuning != null)
 		{
 			Destroy(m_RuntimeTuning);
@@ -508,10 +514,13 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			selectionBox.isTrigger = true;
 		}
 
-		m_UnitBlocker = VehicleUnitBlocker.Ensure(this, selectionBox);
-		// Cache the result immediately so geometry probes can ignore the blocker.
-		if (m_UnitBlocker == null)
+		m_UnitBlocker = c_EnableUnitBlocker
+			? VehicleUnitBlocker.Ensure(this, selectionBox)
+			: null;
+		if (c_EnableUnitBlocker && m_UnitBlocker == null)
 			m_UnitBlocker = VehicleUnitBlocker.Ensure(this, selectionBox);
+		else
+			VehicleUnitBlocker.DestroyFor(this);
 		DestroyGroundContactIfPresent();
 		EnsureHullCollidersForGroundSupport();
 		EnsureChassisGroundSupportBox();
@@ -1708,7 +1717,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		bool hasPath = m_Navigation != null && m_Navigation.HasDestination;
 		// Release while control is on and a path/manoeuvre exists (do not require
 		// CanDrive — engine ready delay would otherwise freeze the chassis every FixedUpdate).
-		bool releaseHold = !boardHold && controlOn && (needsSim || hasPath);
+		bool releaseHold = !boardHold && controlOn && (needsSim || hasPath || m_ExternalDriveRelease);
 		string phase = releaseHold
 			? "drive"
 			: boardHold

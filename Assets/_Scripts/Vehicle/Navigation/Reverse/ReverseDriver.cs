@@ -232,7 +232,7 @@ namespace VehicleNavigation
 				{
 					Steer = 0f,
 					Throttle = 0f,
-					BrakeMode = VehicleBrakeMode.Hard,
+					BrakeMode = VehicleBrakeMode.Soft,
 					FireHeld = false,
 					AimWorldPoint = Vector3.zero,
 					HasAimPoint = false
@@ -247,7 +247,7 @@ namespace VehicleNavigation
 			{
 				Steer = 0f,
 				Throttle = 0f,
-				BrakeMode = _state == ReverseState.Finished ? VehicleBrakeMode.Hard : VehicleBrakeMode.Soft,
+				BrakeMode = _state == ReverseState.Finished ? VehicleBrakeMode.Soft : VehicleBrakeMode.Soft,
 				FireHeld = false,
 				AimWorldPoint = Vector3.zero,
 				HasAimPoint = false

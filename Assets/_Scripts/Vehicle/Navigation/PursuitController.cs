@@ -8,6 +8,8 @@ namespace VehicleNavigation
 		public readonly float DesiredSpeedKmh;
 		public readonly float DesiredCurvature;
 		public readonly bool Reverse;
+		public readonly StopIntent StopIntent;
+
 		public GearDirection Gear
 		{
 			get
@@ -20,11 +22,16 @@ namespace VehicleNavigation
 
 		public static MotionCommand Empty => new MotionCommand(0f, 0f, false);
 
-		public MotionCommand(float _desiredSpeedKmh, float _desiredCurvature, bool _reverse)
+		public MotionCommand(
+			float _desiredSpeedKmh,
+			float _desiredCurvature,
+			bool _reverse,
+			StopIntent _stopIntent = StopIntent.None)
 		{
 			DesiredSpeedKmh = _desiredSpeedKmh;
 			DesiredCurvature = _desiredCurvature;
 			Reverse = _reverse;
+			StopIntent = _stopIntent;
 		}
 	}
 
@@ -40,14 +47,21 @@ namespace VehicleNavigation
 		public readonly float SteeringRateDegPerSec;
 		public readonly float HardBrakeDecelMs2;
 		public readonly AnimationCurve CurvatureSpeedCurve;
+		public readonly VehicleKinematicsProfile Kinematics;
+
+		public float ComfortBrakeDecelMs2 =>
+			Mathf.Clamp(HardBrakeDecelMs2 * 0.3f, 0.7f, 1.2f);
 
 		public float MaxSteeringAngleRad => MaxSteeringAngleDeg * Mathf.Deg2Rad;
+		public float EffectiveTurnRadius =>
+			Kinematics != null ? Kinematics.EffectiveTurnRadius : MinTurningRadius;
 
 		public VehicleParameters(
 			float _length, float _width, float _wheelBase,
 			float _maxForwardSpeedKmh, float _maxReverseSpeedKmh,
 			float _maxSteeringAngleDeg, float _steeringRateDegPerSec,
-			float _hardBrakeDecelMs2, AnimationCurve _curvatureSpeedCurve)
+			float _hardBrakeDecelMs2, AnimationCurve _curvatureSpeedCurve,
+			VehicleKinematicsProfile _kinematics = null)
 		{
 			Length = Mathf.Max(0.5f, _length);
 			Width = Mathf.Max(0.5f, _width);
@@ -60,21 +74,19 @@ namespace VehicleNavigation
 			HardBrakeDecelMs2 = Mathf.Max(1f, _hardBrakeDecelMs2);
 			CurvatureSpeedCurve = _curvatureSpeedCurve ?? new AnimationCurve(
 				new Keyframe(0f, 1f), new Keyframe(0.15f, 0.55f), new Keyframe(0.3f, 0.18f));
+			Kinematics = _kinematics;
 		}
 
-		public static VehicleParameters FromTuning(VehicleTuning _tuning)
+		public static VehicleParameters FromTuning(VehicleTuning _tuning, Transform _root = null, VehicleNavigationSettings _settings = null)
 		{
 			if (_tuning == null) return Default;
-			float brakeDecel = _tuning.HardBrakeTorque / Mathf.Max(1f, _tuning.RigidbodyMass);
-			if (brakeDecel < 1f) brakeDecel = 5.5f;
-			return new VehicleParameters(
-				4.8f, 2.4f, _tuning.WheelBase, _tuning.TopSpeedKmh,
-				_tuning.TopSpeedKmh * 0.35f, _tuning.DefaultSteerAngle,
-				_tuning.SteerRate, brakeDecel, _tuning.CurvatureSpeedCurve);
+			var profile = VehicleKinematicsProfile.FromVehicle(_root, _tuning, _settings);
+			return profile.ToVehicleParameters(_tuning);
 		}
 
 		public static VehicleParameters Default => new VehicleParameters(
-			4.8f, 2.4f, 3.5f, 90f, 30f, 30f, 120f, 5.5f, null);
+			4.8f, 2.4f, 3.5f, 90f, 30f, 30f, 120f, 5.5f, null,
+			new VehicleKinematicsProfile(3.5f, 4.8f, 2.4f, 30f));
 	}
 
 	/// <summary>
@@ -135,6 +147,7 @@ namespace VehicleNavigation
 			public MotionCommand Command;
 			public float DistanceToEnd;
 			public bool IsComplete;
+			public bool TargetBehind;
 		}
 
 		public PursuitDebugInfo LastDebugInfo { get; private set; }
@@ -146,6 +159,11 @@ namespace VehicleNavigation
 		private int m_CurvatureFlipCount;
 		private float m_AdaptiveLookAheadMult = 1f;
 		private const float c_AdaptiveDecayRate = 0.3f;
+		private const float c_BehindDot = -0.2f;
+		private const float c_BehindMinCross = 0.05f;
+		private const float c_BehindMaxSpeedKmh = 8f;
+		private readonly TrajectoryPath m_Trajectory = new TrajectoryPath();
+		private int m_LastPathRevision = -1;
 
 		public PursuitController(AnimationCurve _curvatureSpeedCurve = null)
 		{
@@ -184,50 +202,70 @@ namespace VehicleNavigation
 			float lookAhead = ComputeLookAhead(fb.SpeedKmh,
 				_lookAheadOverride ?? _defaultLookAhead);
 
-			int nearest = FindNearestWaypointIndex(waypoints, fb.Position);
-			int targetIndex = FindLookAheadIndex(waypoints, nearest, fb.Position, lookAhead);
-			Vector3 target = waypoints[targetIndex];
+			int pathRevision = _ctx.CurrentManeuverIndex * 1000 + waypoints.Length;
+			if (pathRevision != m_LastPathRevision)
+			{
+				m_Trajectory.Build(waypoints, pathRevision);
+				m_LastPathRevision = pathRevision;
+			}
+
+			Vector3 controlPoint = isReversing
+				? GetRearAxle(fb.Position, fb.Forward, _ctx.Params)
+				: GetFrontAxle(fb.Position, fb.Forward, _ctx.Params);
+
+			m_Trajectory.Project(controlPoint, out int nearest, out _, out float crossTrackDeb);
+			Vector3 target = m_Trajectory.GetLookAheadPoint(controlPoint, lookAhead);
+			int targetIndex = nearest;
 
 			// Remaining distance (needed early for curvature clamping).
-			float distanceToEnd = EstimateDistanceToEnd(waypoints, targetIndex, fb.Position);
+			float distanceToEnd = m_Trajectory.RemainingDistance(controlPoint);
 			result.DistanceToEnd = distanceToEnd;
 
 			// --- curvature via pure pursuit: κ = 2·Δx / L² ---
-			Vector3 toTarget = target - fb.Position;
+			Vector3 toTarget = target - controlPoint;
 			toTarget.y = 0f;
 			float dist = toTarget.magnitude;
 			float rawCurvature = 0f;
-			float crossTrackDeb = 0f;
 			float curvature = 0f;
+			bool targetBehind = false;
+			float maxCurv = 1f / Mathf.Max(0.5f, _ctx.Params.EffectiveTurnRadius);
 			if (dist > 0.05f && lookAhead > 0.05f)
 			{
-				// Cross-track (signed lateral offset).
-				float cross = Vector3.Cross(fb.Forward, toTarget.normalized).y;
-				float crossTrack = cross * dist;
-				crossTrackDeb = crossTrack;
-				rawCurvature = 2f * crossTrack / (lookAhead * lookAhead);
+				Vector3 toTargetDir = toTarget / dist;
+				float cross = Vector3.Cross(fb.Forward, toTargetDir).y;
+				float fwdDot = Vector3.Dot(fb.Forward, toTargetDir);
+				if (!isReversing && fwdDot < c_BehindDot)
+				{
+					targetBehind = true;
+					float side = Mathf.Abs(cross) < c_BehindMinCross ? 1f : Mathf.Sign(cross);
+					rawCurvature = side * maxCurv;
+				}
+				else
+				{
+					float crossTrack = cross * dist;
+					rawCurvature = 2f * crossTrack / (lookAhead * lookAhead);
+				}
 				curvature = rawCurvature;
 
-				// When very close to the target, small position errors cause huge
-				// angular errors — clamp curvature to prevent spinning out.
 				float closeness = 1f - Mathf.Clamp01(distanceToEnd / 6f);
-				float maxCurv = Mathf.Lerp(0.35f, 0.12f, closeness);
+				maxCurv = Mathf.Lerp(maxCurv, maxCurv * 0.35f, closeness);
 				curvature = Mathf.Clamp(curvature, -maxCurv, maxCurv);
 
 				float speedLimit = m_SteeringLimitCurve.Evaluate(Mathf.Abs(fb.SpeedKmh));
 				float speedMaxCurv = maxCurv * speedLimit;
 				curvature = Mathf.Clamp(curvature, -speedMaxCurv, speedMaxCurv);
 
-			// Invert steering sense when reversing.
-			if (isReversing)
-				curvature = -curvature;
-		}
+				if (isReversing)
+					curvature = -curvature;
+			}
 
 			// Adaptive lookahead: detect oscillation
 			UpdateOscillation(rawCurvature);
 
 			// --- desired speed from curvature ---
 			float capKmh = Mathf.Max(1f, _topSpeedKmh) * Mathf.Clamp01(_speedCapFraction);
+			if (targetBehind)
+				capKmh = Mathf.Min(capKmh, c_BehindMaxSpeedKmh);
 
 			// Preview: look ahead for tight turns and brake early.
 			float previewCurvature = EvaluatePreviewCurvature(waypoints, nearest, targetIndex, lookAhead);
@@ -269,6 +307,7 @@ namespace VehicleNavigation
 				targetKmh = -targetKmh;
 
 			result.Command = new MotionCommand(targetKmh, curvature, isReversing);
+			result.TargetBehind = targetBehind;
 
 			LastDebugInfo = new PursuitDebugInfo(
 				lookAhead, nearest, targetIndex, target,
@@ -401,6 +440,20 @@ namespace VehicleNavigation
 				}
 			}
 			return maxCurvature;
+		}
+
+		private static Vector3 GetFrontAxle(Vector3 _position, Vector3 _forward, VehicleParameters _params)
+		{
+			if (_params.Kinematics != null)
+				return _params.Kinematics.FrontAxlePosition(_position, _forward);
+			return _position + _forward.normalized * (_params.WheelBase * 0.5f);
+		}
+
+		private static Vector3 GetRearAxle(Vector3 _position, Vector3 _forward, VehicleParameters _params)
+		{
+			if (_params.Kinematics != null)
+				return _params.Kinematics.RearAxlePosition(_position, _forward);
+			return _position - _forward.normalized * (_params.WheelBase * 0.5f);
 		}
 	}
 }

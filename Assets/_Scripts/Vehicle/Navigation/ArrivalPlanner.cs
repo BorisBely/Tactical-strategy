@@ -28,7 +28,8 @@ namespace VehicleNavigation
 
 		public List<Maneuver> PlanArrival(
 			Vector3 _position, float _yaw,
-			Vector3 _target, float? _targetHeading)
+			Vector3 _target, float? _targetHeading,
+			VehicleLocalGeometry.Sample _geometry = default)
 		{
 			float dist = FlatDistance(_position, _target);
 			if (dist > m_Settings.PlanningDistance || dist < 0.1f)

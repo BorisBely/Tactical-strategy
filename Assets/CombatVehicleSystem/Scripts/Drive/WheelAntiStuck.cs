@@ -11,6 +11,7 @@ namespace CombatVehicleSystem
 	{
 		#region Serialized Fields
 		[SerializeField] private bool m_Enabled = true;
+		[SerializeField] private bool m_DemandOnly = true;
 		[SerializeField] private Transform m_WheelVisual;
 		[SerializeField] private int m_RayCount = 24;
 		[SerializeField] private float m_RayArcDegrees = 160f;
@@ -26,6 +27,7 @@ namespace CombatVehicleSystem
 		private Transform m_Root;
 		private Rigidbody m_Body;
 		private int m_ObstacleMask;
+		private float m_DemandTimer;
 		#endregion
 
 		#region Public Properties
@@ -53,6 +55,17 @@ namespace CombatVehicleSystem
 				return;
 
 			float dt = Time.fixedDeltaTime;
+			if (m_DemandTimer > 0f)
+				m_DemandTimer = Mathf.Max(0f, m_DemandTimer - dt);
+
+			if (m_DemandOnly && m_DemandTimer <= 0f)
+			{
+				m_Collider.radius = Mathf.Lerp(
+					m_Collider.radius,
+					m_BaseRadius,
+					dt * m_CorrectionSpeed);
+				return;
+			}
 
 			if (m_Body != null)
 			{
@@ -110,6 +123,16 @@ namespace CombatVehicleSystem
 			m_Enabled = true;
 			enabled = true;
 		}
+
+		/// <summary>
+		/// Enable dense wheel fan for a short window (stuck / recovery only).
+		/// </summary>
+		public void RequestAssist(float _durationSeconds = 1.25f)
+		{
+			m_DemandTimer = Mathf.Max(m_DemandTimer, Mathf.Max(0.1f, _durationSeconds));
+		}
+
+		public void SetDemandOnly(bool _demandOnly) => m_DemandOnly = _demandOnly;
 		#endregion
 
 		#region Private Methods

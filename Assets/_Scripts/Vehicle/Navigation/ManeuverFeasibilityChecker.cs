@@ -39,10 +39,9 @@ namespace VehicleNavigation
 			for (int i = 0; i < _plan.Maneuvers.Count; i++)
 			{
 				Maneuver m = _plan.Maneuvers[i];
-				if (m is ReverseIntentManeuver)
-					continue;
-
-				FeasibilityResult result = CheckManeuverInternal(m, _geometry, _turnRadius);
+				FeasibilityResult result = m is ReverseIntentManeuver revIntent
+					? CheckReverseIntent(revIntent, _geometry)
+					: CheckManeuverInternal(m, _geometry, _turnRadius);
 				if (!result.IsValid)
 				{
 					if (DebugLog)
@@ -69,10 +68,9 @@ namespace VehicleNavigation
 			for (int i = 0; i < _plan.Maneuvers.Count; i++)
 			{
 				Maneuver m = _plan.Maneuvers[i];
-				if (m is ReverseIntentManeuver)
-					continue;
-
-				FeasibilityResult result = CheckManeuverInternal(m, _geometry, _params);
+				FeasibilityResult result = m is ReverseIntentManeuver revIntent
+					? CheckReverseIntent(revIntent, _geometry)
+					: CheckManeuverInternal(m, _geometry, _params);
 				if (!result.IsValid)
 					return result;
 				if (result.RiskScore > worst.RiskScore)
@@ -136,6 +134,19 @@ namespace VehicleNavigation
 				default:
 					return FeasibilityResult.Valid;
 			}
+		}
+
+		private FeasibilityResult CheckReverseIntent(ReverseIntentManeuver _maneuver, VehicleLocalGeometry.Sample _geo)
+		{
+			FeasibilityResult reverse = CheckReversePath(_geo);
+			if (!reverse.IsValid)
+				return reverse;
+
+			if (_maneuver.Path != null && _maneuver.Path.IsValid &&
+			    _maneuver.Path.Points != null && _maneuver.Path.Points.Count > 0)
+				return FeasibilityResult.Valid;
+
+			return CheckReversePath(_geo);
 		}
 
 		public FeasibilityResult CheckForwardPath(VehicleLocalGeometry.Sample _geometry)

@@ -16,6 +16,7 @@ namespace VehicleNavigation
 		private readonly float m_StuckSpeedKmh;
 		private readonly float m_StuckTime;
 		private readonly float m_AirborneTime;
+		private readonly bool m_LightweightProbes;
 
 		private float m_StuckTimer;
 		private float m_AirborneTimer;
@@ -31,7 +32,8 @@ namespace VehicleNavigation
 			float _vehicleWidth,
 			float _stuckSpeedKmh = 1.2f,
 			float _stuckTime = 3f,
-			float _airborneTime = 0.35f)
+			float _airborneTime = 0.35f,
+			bool _lightweightProbes = true)
 		{
 			m_Transform = _transform;
 			m_Body = _body;
@@ -41,6 +43,7 @@ namespace VehicleNavigation
 			m_StuckSpeedKmh = _stuckSpeedKmh;
 			m_StuckTime = _stuckTime;
 			m_AirborneTime = _airborneTime;
+			m_LightweightProbes = _lightweightProbes;
 		}
 
 		public FeedbackState Update(float _dt, bool _isReversing)
@@ -71,10 +74,9 @@ namespace VehicleNavigation
 			bool isStuck = m_StuckTimer >= m_StuckTime && !isStopped;
 			bool isUpright = Vector3.Dot(m_Transform.up, Vector3.up) > 0.45f;
 
-			VehicleLocalGeometry.Sample geometry = VehicleLocalGeometry.Probe(
-				m_Transform,
-				m_VehicleWidth,
-				m_GeometryMask);
+			VehicleLocalGeometry.Sample geometry = m_LightweightProbes
+				? VehicleLocalGeometry.ProbeLightweight(m_Transform, m_VehicleWidth, m_GeometryMask)
+				: VehicleLocalGeometry.Probe(m_Transform, m_VehicleWidth, m_GeometryMask);
 
 			m_WasReversing = reversing;
 

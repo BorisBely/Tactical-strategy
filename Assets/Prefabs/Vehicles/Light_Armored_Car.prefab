@@ -1610,6 +1610,7 @@ GameObject:
   - component: {fileID: 9147088068413560816}
   - component: {fileID: 1091828434941493388}
   - component: {fileID: 4445956395396893464}
+  - component: {fileID: 9123456789012345678}
   - component: {fileID: 2503631656488479615}
   - component: {fileID: 2071416491799625064}
   - component: {fileID: 4130400864686562886}
@@ -1899,6 +1900,55 @@ MonoBehaviour:
     InvertOpen: 1
   m_OpenSeconds: 0.35
   m_ClearExitDistance: 1.6
+  m_OpenClip: {fileID: 8300000, guid: e3f5b833487f4b04bace58c525dd788a, type: 3}
+  m_CloseClip: {fileID: 8300000, guid: 05f85669e3c9ad54e8537f66ea8b52cc, type: 3}
+  m_DoorVolume: 0.9
+--- !u!114 &9123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3048653151834290230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8f4a2e1d7b94603a5f8c2d9e1b0a374, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleEngineAudio
+  m_StartClip: {fileID: 8300000, guid: 77e53dab6effc9144a8bcda5a5dc1ec4, type: 3}
+  m_RpmLayers:
+  - Rpm: 600
+    Clip: {fileID: 8300000, guid: dfaa8d76e03348e4cbe743a5b2ef9607, type: 3}
+  - Rpm: 1000
+    Clip: {fileID: 8300000, guid: 2d88597bc61d8384a8a6d697a1064648, type: 3}
+  - Rpm: 1500
+    Clip: {fileID: 8300000, guid: 321a0f834129bbc4eb2956a98ff82146, type: 3}
+  - Rpm: 2000
+    Clip: {fileID: 8300000, guid: 827a0535abace824e824ca678cea9fd5, type: 3}
+  - Rpm: 2500
+    Clip: {fileID: 8300000, guid: 7a7797875226f0742832ecb115521705, type: 3}
+  - Rpm: 3000
+    Clip: {fileID: 8300000, guid: 3dd9ac11b049c3644a7477f8827379de, type: 3}
+  - Rpm: 3500
+    Clip: {fileID: 8300000, guid: 1d89777dfcad381419978d9ced4e4c05, type: 3}
+  - Rpm: 4000
+    Clip: {fileID: 8300000, guid: 454597a2464ad5e45bd9dbdb5df54293, type: 3}
+  - Rpm: 4500
+    Clip: {fileID: 8300000, guid: bdc5fc6daf4b6b64b8caa4d1f3a6432e, type: 3}
+  - Rpm: 5000
+    Clip: {fileID: 8300000, guid: 2d3a992c2d0f0b14c8699019bfa4b614, type: 3}
+  - Rpm: 5500
+    Clip: {fileID: 8300000, guid: 1832237a29a17bb4e934ce217f9de885, type: 3}
+  - Rpm: 6000
+    Clip: {fileID: 8300000, guid: 592f8c30cfb47f34c9f36319e91a8ffb, type: 3}
+  m_Volume: 1
+  m_SpatialBlend: 1
+  m_MinDistance: 30
+  m_MaxDistance: 180
+  m_LoopFadeSeconds: 0.35
+  m_RpmSmoothSpeed: 900
+  m_ThrottleInfluence: 0.35
+  m_SpeedInfluence: 0.65
 --- !u!114 &1254726012205483250
 MonoBehaviour:
   m_ObjectHideFlags: 0

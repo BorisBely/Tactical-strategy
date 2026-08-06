@@ -174,9 +174,13 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 
 			m_Sb.Clear();
 			m_Sb.Append($"── [NavDebug:{name}] СОСТОЯНИЕ: {state} ── ");
-			if (state == VehicleNavigation.DriverFSM.State.Arrival)
+			if (state == VehicleNavigation.DriverFSM.State.Arrival ||
+			    state == VehicleNavigation.DriverFSM.State.FollowingTrajectory)
 			{
 				m_Sb.Append($"дист.до цели={FlatDist(transform.position, m_Nav.Destination):F2}м");
+				var traj = m_Nav.ActiveTrajectory;
+				if (traj != null && traj.IsValid)
+					m_Sb.Append($" | localPose len={traj.TotalLength:F1}m segs={traj.GearSegmentCount}");
 			}
 			else if (state == VehicleNavigation.DriverFSM.State.Idle)
 			{
@@ -254,6 +258,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 
 		DrawNavMeshPath();
 		DrawManeuverWaypoints();
+		DrawLocalTrajectory();
 		DrawPursuitTarget();
 		DrawCurvatureArc();
 		DrawGeometryProbes();
@@ -264,6 +269,26 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 			DrawFeasibilityInfo();
 			DrawQueuePreview();
 			DrawArrivalDebug();
+	}
+
+	private void DrawLocalTrajectory()
+	{
+		var traj = m_Nav.ActiveTrajectory;
+		if (traj == null || !traj.IsValid || traj.PointCount < 2)
+			return;
+
+		Vector3 prev = traj.Points[0].Position;
+		for (int i = 1; i < traj.PointCount; i++)
+		{
+			var p = traj.Points[i];
+			Gizmos.color = p.Gear == TrajectoryGear.Reverse
+				? new Color(1f, 0.4f, 0.1f, 0.9f)
+				: new Color(0.2f, 0.95f, 0.35f, 0.9f);
+			Gizmos.DrawLine(prev, p.Position);
+			if (p.IsCusp)
+				Gizmos.DrawWireSphere(p.Position, m_WaypointSphereRadius * 1.4f);
+			prev = p.Position;
+		}
 	}
 
 	private void DrawNavMeshPath()
@@ -324,32 +349,50 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		if (!m_DrawPursuitTarget)
 			return;
 
-		var debug = m_Nav.PursuitDebug;
-		if (debug.TotalWaypoints == 0)
-			return;
-
-		Vector3 target = debug.LookAheadTargetPoint;
 		Vector3 pos = transform.position;
+		Vector3 target;
+		float lookDist;
+		float crossTrack;
+		float curv;
+		string label;
 
-		// Yellow sphere at pursuit target
+		if (m_Nav.DriverState == DriverFSM.State.FollowingTrajectory)
+		{
+			var trk = m_Nav.LastTrackerOutput;
+			target = trk.LookAheadPoint;
+			if (target == Vector3.zero)
+				return;
+			lookDist = Vector3.Distance(pos, target);
+			crossTrack = trk.CrossTrack;
+			curv = trk.WheelCurvature;
+			label = $"tracker LA idx={trk.NearestIndex}\nкрив={curv:F3}";
+		}
+		else
+		{
+			var debug = m_Nav.PursuitDebug;
+			if (debug.TotalWaypoints == 0)
+				return;
+			target = debug.LookAheadTargetPoint;
+			lookDist = debug.LookAheadDistance;
+			crossTrack = debug.CrossTrackError;
+			curv = debug.ClampedCurvature;
+			label = $"цель-пресл #{debug.LookAheadTargetIndex}\nкрив={curv:F3}";
+		}
+
 		Gizmos.color = Color.yellow;
 		Gizmos.DrawSphere(target, m_TargetSphereRadius);
 
-		// Arrow pointing to target
 		Vector3 mid = (pos + target) * 0.5f;
 		Vector3 dir = (target - pos).normalized;
 		DrawArrow(mid, dir, 0.4f, 0.25f, Color.yellow);
 
-		// Dashed line from vehicle to pursuit target
 		Handles.color = new Color(1f, 1f, 0f, 0.6f);
 		Handles.DrawDottedLine(pos, target, 4f);
 
-		// LookAhead circle indicator
 		Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-		Handles.DrawWireDisc(pos, Vector3.up, debug.LookAheadDistance);
+		Handles.DrawWireDisc(pos, Vector3.up, Mathf.Max(0.2f, lookDist));
 
-		// Cross-track visualization: perpendicular line from forward axis to target
-		if (Mathf.Abs(debug.CrossTrackError) > 0.01f)
+		if (Mathf.Abs(crossTrack) > 0.01f)
 		{
 			Vector3 fwd = transform.forward;
 			fwd.y = 0f;
@@ -358,13 +401,10 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 			Gizmos.color = new Color(1f, 0f, 1f, 0.8f);
 			Gizmos.DrawLine(proj, target);
 			Handles.Label((proj + target) * 0.5f + Vector3.up * 0.3f,
-				$"cross:{debug.CrossTrackError:F2}м", EditorStyles.miniLabel);
+				$"cross:{crossTrack:F2}м", EditorStyles.miniLabel);
 		}
 
-		// Labels near target
-		Handles.Label(target + Vector3.up * 1.0f,
-			$"🎯 цель-пресл #{debug.LookAheadTargetIndex}\nкрив={debug.ClampedCurvature:F3}",
-			EditorStyles.miniLabel);
+		Handles.Label(target + Vector3.up * 1.0f, label, EditorStyles.miniLabel);
 	}
 
 	private void DrawCurvatureArc()

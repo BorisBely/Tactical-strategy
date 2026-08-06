@@ -35,12 +35,14 @@ namespace CombatVehicleSystem
 		private float m_CurrentSpeedKmh;
 		private float m_SmoothedThrottle;
 		private float m_CurrentSteer;
+		private float m_HoldSettleTimer;
 		private Vector3[] m_VisualRestLocalPos = System.Array.Empty<Vector3>();
 		private Quaternion[] m_VisualRestLocalRot = System.Array.Empty<Quaternion>();
 		#endregion
 
 		#region Public Properties
 		public float CurrentSpeedKmh => m_CurrentSpeedKmh;
+		public float SmoothedThrottle => m_SmoothedThrottle;
 		public float CurrentSteerNormalized => m_CurrentSteer;
 		public WheelAxle[] Axles => m_Axles;
 		#endregion
@@ -106,13 +108,42 @@ namespace CombatVehicleSystem
 
 			m_CurrentSpeedKmh = m_Body.linearVelocity.magnitude * 3.6f;
 			float dt = Time.deltaTime;
-			float throttleTarget = _command.Throttle;
+			float throttleTarget = _command.HoldPosition ? 0f : _command.Throttle;
 			m_SmoothedThrottle = Mathf.MoveTowards(
 				m_SmoothedThrottle,
 				throttleTarget,
 				m_ThrottleResponse * dt);
 
-			float brakeTorque = ResolveBrakeTorque(_command.BrakeMode, m_SmoothedThrottle);
+			if (_command.HoldPosition)
+				m_SmoothedThrottle = 0f;
+
+			VehicleBrakeMode effectiveBrakeMode = _command.BrakeMode;
+			if (_command.HoldPosition && effectiveBrakeMode == VehicleBrakeMode.None)
+				effectiveBrakeMode = VehicleBrakeMode.Soft;
+
+			float brakeTorque = ResolveBrakeTorque(effectiveBrakeMode, m_SmoothedThrottle);
+
+			// After sustained near-zero speed under hold, clamp residual drift.
+			if (_command.HoldPosition)
+			{
+				if (m_CurrentSpeedKmh < 0.12f)
+					m_HoldSettleTimer += dt;
+				else
+					m_HoldSettleTimer = 0f;
+
+				if (m_HoldSettleTimer >= 0.25f)
+				{
+					Vector3 velocity = m_Body.linearVelocity;
+					m_Body.linearVelocity = new Vector3(0f, velocity.y, 0f);
+					Vector3 angular = m_Body.angularVelocity;
+					m_Body.angularVelocity = new Vector3(angular.x, 0f, angular.z);
+					m_CurrentSpeedKmh = Mathf.Abs(m_Body.linearVelocity.y) * 3.6f;
+				}
+			}
+			else
+			{
+				m_HoldSettleTimer = 0f;
+			}
 
 			for (int i = 0; i < m_Axles.Length; i++)
 			{
@@ -129,7 +160,7 @@ namespace CombatVehicleSystem
 				}
 
 				if (brakeTorque > 0.01f &&
-				    (_command.BrakeMode != VehicleBrakeMode.None || Mathf.Abs(m_SmoothedThrottle) < 0.02f))
+				    (effectiveBrakeMode != VehicleBrakeMode.None || Mathf.Abs(m_SmoothedThrottle) < 0.02f))
 				{
 					axle.Collider.motorTorque = 0f;
 					axle.Collider.brakeTorque = brakeTorque;
@@ -154,7 +185,7 @@ namespace CombatVehicleSystem
 					force *= Mathf.Lerp(1f, 0.25f, (steerAbs - 0.25f) / 0.75f);
 			}
 
-			if (m_CurrentSpeedKmh < m_TopSpeedKmh || m_SmoothedThrottle < 0f)
+			if (m_CurrentSpeedKmh < m_TopSpeedKmh)
 				axle.Collider.motorTorque = m_SmoothedThrottle * force;
 			else
 				axle.Collider.motorTorque = 0f;
@@ -186,10 +217,11 @@ namespace CombatVehicleSystem
 				return;
 
 			float steerTarget = Mathf.Clamp(_command.Steer, -1f, 1f);
-			m_CurrentSteer = Mathf.MoveTowards(
-				m_CurrentSteer,
-				steerTarget,
-				(m_SteerRate / 90f) * Time.fixedDeltaTime);
+			// m_SteerRate is physical deg/s; convert to normalized units via axle lock angle
+			// (not hardcoded 90°) so 160°/s @ 28° lock ≈ 0.18s full travel.
+			float maxAxleDeg = GetMaxSteerAxleDegrees();
+			float deltaNorm = (m_SteerRate / Mathf.Max(1f, maxAxleDeg)) * Time.fixedDeltaTime;
+			m_CurrentSteer = Mathf.MoveTowards(m_CurrentSteer, steerTarget, deltaNorm);
 
 			for (int i = 0; i < m_Axles.Length; i++)
 			{
@@ -198,6 +230,22 @@ namespace CombatVehicleSystem
 					continue;
 				axle.Collider.steerAngle = axle.SteerAngle * m_CurrentSteer;
 			}
+		}
+
+		private float GetMaxSteerAxleDegrees()
+		{
+			float maxDeg = 0f;
+			if (m_Axles != null)
+			{
+				for (int i = 0; i < m_Axles.Length; i++)
+				{
+					WheelAxle axle = m_Axles[i];
+					if (axle == null || !axle.ApplySteer)
+						continue;
+					maxDeg = Mathf.Max(maxDeg, Mathf.Abs(axle.SteerAngle));
+				}
+			}
+			return maxDeg > 1f ? maxDeg : 28f;
 		}
 
 		public void SetSpeedCapKmh(float _capKmh)
@@ -211,6 +259,7 @@ namespace CombatVehicleSystem
 			m_SmoothedThrottle = 0f;
 			m_CurrentSteer = 0f;
 			m_CurrentSpeedKmh = 0f;
+			m_HoldSettleTimer = 0f;
 			if (m_Axles == null)
 				return;
 
@@ -287,7 +336,8 @@ namespace CombatVehicleSystem
 				case VehicleBrakeMode.Soft:
 					return m_SoftBrakeTorque;
 				case VehicleBrakeMode.Coast:
-					return 0f;
+					// Gentle continuous drag (~⅓ Soft). Coast=0 then Soft=1400 was the nav jolt.
+					return Mathf.Max(m_CoastDecelTorque, m_SoftBrakeTorque * 0.35f);
 				default:
 					if (Mathf.Abs(_throttle) < 0.02f)
 						return m_CoastDecelTorque;

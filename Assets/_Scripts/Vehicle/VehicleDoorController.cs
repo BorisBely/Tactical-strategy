@@ -26,6 +26,9 @@ public sealed class VehicleDoorController : MonoBehaviour
 	[SerializeField] private DoorBinding[] m_Doors = Array.Empty<DoorBinding>();
 	[SerializeField, Min(0.05f)] private float m_OpenSeconds = 0.35f;
 	[SerializeField, Min(0.5f)] private float m_ClearExitDistance = 1.6f;
+	[SerializeField] private AudioClip m_OpenClip;
+	[SerializeField] private AudioClip m_CloseClip;
+	[SerializeField, Range(0f, 1f)] private float m_DoorVolume = 0.9f;
 	#endregion
 
 	#region Private Fields
@@ -171,6 +174,9 @@ public sealed class VehicleDoorController : MonoBehaviour
 			current = 0f;
 
 		float start = current;
+		if (Mathf.Abs(start - _target) > 0.05f)
+			PlayDoorSound(_target > start ? m_OpenClip : m_CloseClip, binding.Hinge);
+
 		float elapsed = 0f;
 		while (elapsed < m_OpenSeconds)
 		{
@@ -184,6 +190,14 @@ public sealed class VehicleDoorController : MonoBehaviour
 
 		m_OpenT[_doorId] = _target;
 		ApplyHinge(binding, _target);
+	}
+
+	private void PlayDoorSound(AudioClip _clip, Transform _hinge)
+	{
+		if (_clip == null || _hinge == null)
+			return;
+
+		AudioSource.PlayClipAtPoint(_clip, _hinge.position, m_DoorVolume);
 	}
 
 	private static void ApplyHinge(DoorBinding _binding, float _open01)

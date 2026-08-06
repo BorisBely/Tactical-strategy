@@ -19,7 +19,7 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 	[SerializeField] private Vector3 m_MuzzleFlashScale = Vector3.one;
 
 	[Header("Diagnostics")]
-	[SerializeField] private bool m_LogMk19Shots = true;
+	[SerializeField] private bool m_LogMk19Shots = false;
 
 	private Transform m_MuzzleExit;
 	private GameObject m_ProjectilePoolRoot;

@@ -42,6 +42,7 @@ namespace VehicleNavigation
 		private bool m_QueueAutoAdvance = true;
 		private bool m_HasDestination;
 		private bool m_IsStopped;
+		private bool m_TerminalEventSent;
 		private DriverFSM.State m_LastLoggedState;
 		private VehicleCommand m_LastLoggedCommand;
 		#endregion
@@ -81,6 +82,19 @@ namespace VehicleNavigation
 		public VehicleLocalGeometry.Sample Geometry => m_Ctx?.State.Geometry ?? default;
 		public FeasibilityResult LastFeasibility => m_FSM?.LastFeasibility;
 		public VehicleOrderQueue OrderQueue => m_OrderQueue;
+		public NavigationOutcome NavigationOutcome => m_FSM?.Outcome ?? NavigationOutcome.None;
+		public NavigationProgressSnapshot ProgressSnapshot => m_FSM?.LastProgress ?? NavigationProgressSnapshot.Empty;
+		public VehicleKinematicsProfile KinematicsProfile { get; private set; }
+		public VehicleTrajectory ActiveTrajectory => m_FSM?.ActiveTrajectory;
+		public TrajectoryTracker.Output LastTrackerOutput =>
+			m_FSM != null ? m_FSM.LastTrackerOutput : default;
+		public bool TurnEntryGateActive => m_FSM != null && m_FSM.TurnEntryGateActive;
+		public float PathYawAtIndex => m_FSM != null ? m_FSM.PathYawAtIndex : 0f;
+		public LocalPosePlanner.PlanStats LastLocalPlanStats =>
+			m_FSM != null ? m_FSM.LastLocalPlanStats : default;
+		/// <summary>Physical WheelCollider steer in [-1,1] (after WheeledMotor rate-limit).</summary>
+		public float ActualSteerNormalized =>
+			m_WheeledMotor != null ? m_WheeledMotor.CurrentSteerNormalized : 0f;
 		#endregion
 
 		#region Events
@@ -99,7 +113,12 @@ namespace VehicleNavigation
 		private void OnDestroy()
 		{
 			if (m_FSM != null)
+			{
 				m_FSM.PathChanged -= OnFsmPathChanged;
+				m_FSM.ManeuverStarted -= OnManeuverStarted;
+				m_FSM.ManeuverFinished -= OnManeuverFinished;
+				m_FSM.ReplanTriggered -= OnReplanTriggered;
+			}
 		}
 
 		private void FixedUpdate()
@@ -124,6 +143,9 @@ namespace VehicleNavigation
 			VehicleCommand command = m_FSM.Tick();
 
 			bool isRecovering = m_FSM.CurrentState == DriverFSM.State.Recovery;
+			if (isRecovering || (m_Ctx.State.IsStuck))
+				RequestWheelAntiStuckAssist();
+
 			if (m_Safety != null)
 			{
 				var safetyResult = m_Safety.Apply(
@@ -167,10 +189,21 @@ namespace VehicleNavigation
 			bool fsmIdle = m_FSM.CurrentState == DriverFSM.State.Idle ||
 			               m_FSM.CurrentState == DriverFSM.State.Holding;
 
-			if (fsmIdle && !m_OrderQueue.HasCurrent)
+			if (fsmIdle && !m_OrderQueue.HasCurrent && !m_TerminalEventSent)
 			{
 				m_HasDestination = false;
-				DestinationReached?.Invoke();
+				if (m_FSM.Outcome == NavigationOutcome.Succeeded)
+				{
+					m_TerminalEventSent = true;
+					DestinationReached?.Invoke();
+				}
+				else if (m_FSM.Outcome != NavigationOutcome.None &&
+				         m_FSM.Outcome != NavigationOutcome.Cancelled &&
+				         m_FSM.Outcome != NavigationOutcome.InProgress)
+				{
+					m_TerminalEventSent = true;
+					DestinationFailed?.Invoke();
+				}
 			}
 		}
 		#endregion
@@ -195,12 +228,13 @@ namespace VehicleNavigation
 		private void SetDestinationFromGoal(VehicleMoveGoal _goal)
 		{
 			EnsureSettings();
+			m_TerminalEventSent = false;
 			NavigationRequest request = _goal.HasHeading
 				? NavigationRequest.FromPositionAndHeading(_goal.Position, _goal.HeadingYawDegrees, _goal.SpeedMode)
 				: NavigationRequest.FromPosition(_goal.Position, _goal.SpeedMode);
 
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] SetDestination pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")}", this);
+				Debug.Log($"[VehicleNav:{name}] SetDestination pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")} source={request.HeadingSource}", this);
 			m_FeedbackSystem.ResetStuckTimer();
 			m_FSM.SetDestination(request);
 			m_HasDestination = true;
@@ -337,13 +371,17 @@ namespace VehicleNavigation
 				m_Settings.GeometryLayers,
 				m_Settings.VehicleWidth,
 				m_Settings.StuckSpeedKmh,
-				m_Settings.StuckTimeSeconds);
+				m_Settings.StuckTimeSeconds,
+				0.35f,
+				m_Settings.LightweightRuntimeProbes);
+
+			KinematicsProfile = VehicleKinematicsProfile.FromVehicle(transform, m_Brain?.Tuning, m_Settings);
 
 			VehicleParameters parameters = m_Brain != null && m_Brain.Tuning != null
-				? VehicleParameters.FromTuning(m_Brain.Tuning)
+				? VehicleParameters.FromTuning(m_Brain.Tuning, transform, m_Settings)
 				: VehicleParameters.Default;
 
-			m_ArrivalPlanner = new ArrivalPlanner(parameters.MinTurningRadius);
+			m_ArrivalPlanner = new ArrivalPlanner(parameters.EffectiveTurnRadius);
 			m_DrivingPlanner.SetArrivalPlanner(m_ArrivalPlanner);
 
 			m_Ctx = new NavigationContext(parameters, new VehicleDriverMemory());
@@ -356,7 +394,8 @@ namespace VehicleNavigation
 			m_Motion = new MotionController(m_WheeledMotor, m_Brain);
 			m_Safety = new VehicleSafetyController(parameters, m_WheeledMotor);
 			m_Arrival = new ArrivalController(
-				m_Settings.ArrivalPositionTolerance,
+				m_Settings.ArrivalLongitudinalTolerance,
+				m_Settings.ArrivalLateralTolerance,
 				m_Settings.ArrivalHeadingTolerance);
 			m_Recovery = new RecoveryController();
 			m_FSM = new DriverFSM(
@@ -369,10 +408,38 @@ namespace VehicleNavigation
 				m_Arrival,
 				m_Recovery,
 				m_Settings);
+			m_FSM.SetVehicleRoot(transform);
 			m_FSM.SetPrediction(m_Prediction, feasibility);
 			m_FSM.PathChanged += OnFsmPathChanged;
+			m_FSM.ManeuverStarted += OnManeuverStarted;
+			m_FSM.ManeuverFinished += OnManeuverFinished;
+			m_FSM.ReplanTriggered += OnReplanTriggered;
+			m_FSM.SetGoalCriteria(new GoalPoseCriteria(
+				m_Settings.ArrivalLongitudinalTolerance,
+				m_Settings.ArrivalLateralTolerance,
+				m_Settings.ArrivalHeadingTolerance,
+				m_Settings.ArrivalMaxSpeedKmh,
+				m_Settings.ArrivalStableWindowSeconds));
 
 			m_FSM.BuildLimiters(m_Brain != null ? m_Brain.Tuning : null);
+		}
+
+		private void OnManeuverStarted(Maneuver _maneuver)
+		{
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] ManeuverStarted: {_maneuver?.Type}", this);
+		}
+
+		private void OnManeuverFinished(Maneuver _maneuver)
+		{
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] ManeuverFinished: {_maneuver?.Type}", this);
+		}
+
+		private void OnReplanTriggered(string _reason)
+		{
+			if (m_LogNavigation)
+				Debug.Log($"[VehicleNav:{name}] Replan: {_reason}", this);
 		}
 
 		private void OnFsmPathChanged()
@@ -382,6 +449,23 @@ namespace VehicleNavigation
 
 		private Vector3 GetLookAheadPoint()
 		{
+			// During local trajectory following, expose the real tracker look-ahead.
+			if (DriverState == DriverFSM.State.FollowingTrajectory)
+			{
+				var trackerOut = LastTrackerOutput;
+				if (ActiveTrajectory != null && ActiveTrajectory.IsValid)
+					return trackerOut.LookAheadPoint;
+			}
+
+			var traj = ActiveTrajectory;
+			if (traj != null && traj.IsValid && traj.PointCount > 1)
+			{
+				int idx = Mathf.Clamp(LastTrackerOutput.NearestIndex, 0, traj.PointCount - 1);
+				if (idx <= 0)
+					idx = Mathf.Min(traj.PointCount - 1, Mathf.Max(1, traj.PointCount / 4));
+				return traj.Points[idx].Position;
+			}
+
 			Maneuver maneuver = CurrentManeuver;
 			if (maneuver == null || maneuver.Waypoints.Count == 0)
 				return Destination;
@@ -463,6 +547,15 @@ namespace VehicleNavigation
 			IsReversing = _command.Throttle < -0.02f;
 			if (m_Brain != null)
 				m_Brain.SetCommand(_command);
+		}
+
+		private void RequestWheelAntiStuckAssist()
+		{
+			WheelAntiStuck[] wheels = GetComponentsInChildren<WheelAntiStuck>(true);
+			if (wheels == null)
+				return;
+			for (int i = 0; i < wheels.Length; i++)
+				wheels[i]?.RequestAssist(1.25f);
 		}
 		#endregion
 	}

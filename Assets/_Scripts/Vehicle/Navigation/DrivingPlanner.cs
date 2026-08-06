@@ -37,7 +37,8 @@ namespace VehicleNavigation
 			float _reverseMaxSegment,
 			float _reverseAngleDegrees,
 			float _turnRadius = c_DefaultTurnRadius,
-			DriverContext _ctx = null)
+			DriverContext _ctx = null,
+			VehicleDriverMemory _memory = null)
 		{
 			Vector3 forward = FlatDir(_feedback.Forward);
 
@@ -54,6 +55,7 @@ namespace VehicleNavigation
 
 			float flatToDest = FlatDistance(_feedback.Position, _request.Destination);
 			float reverseRange = Mathf.Max(_reverseMaxSegment * 1.25f, 3f);
+			float turnRadius = _ctx != null && _ctx.TurnRadius > 0f ? _ctx.TurnRadius : _turnRadius;
 
 			VehicleDrivingMode proposedMode = DecideBaseMode(
 				firstAngle, firstSegLen, flatToDest,
@@ -61,48 +63,61 @@ namespace VehicleNavigation
 
 			VehicleDrivingMode safeMode = m_DecisionEvaluator != null
 				? m_DecisionEvaluator.ChooseSafeMode(
-					proposedMode, flatToDest, _turnRadius,
-					_feedback.Geometry, _feedback.Memory)
+					proposedMode, flatToDest, turnRadius,
+					_feedback.Geometry, _memory)
 				: proposedMode;
 
-			// Build candidates — Reverse and TurnAround are always created, feasibility handles quality
 			var candidates = new List<DrivingCandidate>(3);
 			candidates.Add(BuildForwardCandidate(_request, _path, _feedback, _ctx));
 
-			bool revOk = _request.AllowReverse;
-			bool turnOk = _request.AllowTurnAround && VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry);
+			bool reverseGeometricallyRelevant =
+				firstAngle >= 120f &&
+				flatToDest <= reverseRange;
+			bool reverseNeededForBlockedFront = safeMode == VehicleDrivingMode.Reverse;
+			bool revOk = _request.AllowReverse &&
+			             (reverseGeometricallyRelevant || reverseNeededForBlockedFront) &&
+			             !(_memory != null && _memory.ShouldAvoidReverse());
+			bool turnOk = _request.AllowTurnAround && VehicleLocalGeometry.CanFitTurnRadius(turnRadius, _feedback.Geometry);
 
 			if (DebugLog)
 			{
-				string revWhy = !_request.AllowReverse ? "disabled" : "available";
+				string revWhy = !_request.AllowReverse ? "disabled" :
+					(_memory != null && _memory.ShouldAvoidReverse()) ? "oscillation" : "available";
 				string turnWhy = !_request.AllowTurnAround ? "disabled" :
-					!VehicleLocalGeometry.CanFitTurnRadius(_turnRadius, _feedback.Geometry) ? "no space" : "ok";
-				Debug.Log($"[DrivingPlanner] candidates: Forward (always), Reverse={revOk} ({revWhy}), TurnAround={turnOk} ({turnWhy}), angle={firstAngle:F0}° dist={flatToDest:F1}m proposed={proposedMode}");
+					!VehicleLocalGeometry.CanFitTurnRadius(turnRadius, _feedback.Geometry) ? "no space" : "ok";
+				Debug.Log($"[DrivingPlanner] candidates: Forward (always), Reverse={revOk} ({revWhy}), TurnAround={turnOk} ({turnWhy}), angle={firstAngle:F0}° dist={flatToDest:F1}m proposed={proposedMode} safe={safeMode}");
 			}
 
 			if (revOk)
-				candidates.Add(BuildReverseCandidate(_request, _path, _feedback, _turnRadius, _ctx));
+				candidates.Add(BuildReverseCandidate(_request, _path, _feedback, turnRadius, _ctx));
 			if (turnOk)
-				candidates.Add(BuildTurnAroundCandidate(_request, _path, _feedback, _turnRadius, _ctx));
+				candidates.Add(BuildTurnAroundCandidate(_request, _path, _feedback, turnRadius, _ctx));
 
-			// Evaluate: check feasibility + score
 			for (int i = 0; i < candidates.Count; i++)
 			{
 				var c = candidates[i];
 				c.Feasibility = m_Feasibility != null
-					? m_Feasibility.CheckPlan(c.Plan, _feedback.Geometry, _turnRadius)
+					? m_Feasibility.CheckPlan(c.Plan, _feedback.Geometry, turnRadius)
 					: FeasibilityResult.Valid;
-				c.Cost = ScoreCandidate(c, flatToDest, firstAngle, _turnRadius, _ctx);
+				c.Cost = ScoreCandidate(c, flatToDest, firstAngle, turnRadius, _ctx);
+
+				if (c.Feasibility != null && c.Feasibility.Severity == FeasibilitySeverity.Impossible)
+					c.Cost = float.MaxValue;
+
+				if (safeMode != VehicleDrivingMode.Forward && c.Mode != safeMode)
+					c.Cost += 25f;
+
 				if (DebugLog)
 					Debug.Log($"[DrivingPlanner]   {c.Mode}: cost={c.Cost:F1} severity={c.Feasibility?.Severity} {(c.Feasibility != null && c.Feasibility.Severity != FeasibilitySeverity.Valid ? c.Feasibility.FailureReason : "")}");
 			}
 
-			// Pick best by score (severity penalty is baked into Cost)
 			DrivingCandidate best = null;
 			float bestCost = float.MaxValue;
 			for (int i = 0; i < candidates.Count; i++)
 			{
 				var c = candidates[i];
+				if (c.Cost >= float.MaxValue * 0.5f)
+					continue;
 				if (c.Cost < bestCost)
 				{
 					bestCost = c.Cost;
@@ -110,22 +125,23 @@ namespace VehicleNavigation
 				}
 			}
 
-			FeasibilityResult bestFeasibility = best?.Feasibility ?? FeasibilityResult.Valid;
-
-			if (DebugLog)
-				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} (of {candidates.Count} candidates), firstAngle={firstAngle:F0}° dist={flatToDest:F1}m");
-
-			// Guard: if ALL candidates are Impossible — don't return a Forward plan
-			if (bestCost > 500000f)
+			if (best == null)
 			{
 				if (DebugLog)
-					Debug.LogWarning($"[DrivingPlanner] ALL candidates Impossible — aborting, returning StopManeuver");
+					Debug.LogWarning("[DrivingPlanner] ALL candidates Impossible — aborting, returning StopManeuver");
 				var abort = new DrivingPlan(new Maneuver[] { new StopManeuver() },
-					"all impossible — abort", VehicleDrivingMode.Forward, bestCost, bestFeasibility);
+					"all impossible — abort", VehicleDrivingMode.Forward, bestCost, FeasibilityResult.Impossible("all candidates impossible"));
 				abort.FallbackDecision = ArrivalFallbackDecision.RequestReplan;
 				abort.BuildSegments();
 				return abort;
 			}
+
+			FeasibilityResult bestFeasibility = best.Feasibility ?? FeasibilityResult.Valid;
+
+			if (DebugLog)
+				Debug.Log($"[DrivingPlanner] => CHOSE {best.Mode} cost={best.Cost:F1} (of {candidates.Count} candidates), firstAngle={firstAngle:F0}° dist={flatToDest:F1}m safe={safeMode}");
+
+			_memory?.RecordDecision(best.Mode, $"chosen over {candidates.Count} candidates, safe={safeMode}");
 
 			string reason = $"mode={best.Mode} cost={best.Cost:F1} candidates={candidates.Count} safe={safeMode}";
 			var plan = new DrivingPlan(best.Maneuvers, reason, best.Mode, best.Cost, bestFeasibility);
@@ -335,8 +351,8 @@ namespace VehicleNavigation
 			if (m_ArrivalPlanner != null)
 			{
 				float? heading = _request.HasHeading ? _request.HeadingYaw : (float?)null;
-				var arrivalManeuvers = m_ArrivalPlanner.PlanArrival(
-					_feedback.Position, currentYaw, _request.Destination, heading);
+			var arrivalManeuvers = m_ArrivalPlanner.PlanArrival(
+				_feedback.Position, currentYaw, _request.Destination, heading, _feedback.Geometry);
 				if (arrivalManeuvers != null && arrivalManeuvers.Count > 0)
 				{
 					// Don't append redundant reverse if candidate is already reverse

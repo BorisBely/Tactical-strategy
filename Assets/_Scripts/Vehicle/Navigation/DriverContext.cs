@@ -120,7 +120,7 @@ namespace VehicleNavigation
 
 		public Vector3 GetControlPoint(DriverIntent _intent)
 		{
-			return _intent == DriverIntent.Reverse ? RearAxlePosition : Position;
+			return _intent == DriverIntent.Reverse ? RearAxlePosition : FrontAxlePosition;
 		}
 
 		private static AnimationCurve CreateDefaultSteeringLimitCurve()

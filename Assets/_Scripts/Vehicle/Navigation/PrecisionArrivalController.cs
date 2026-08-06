@@ -5,22 +5,68 @@ namespace VehicleNavigation
 {
 	public sealed class PrecisionArrivalController
 	{
-		public float ActivationDistance = 6f;
-		public float CompletionDistance = 0.3f;
+		public float ActivationDistance = 1.5f;
+		public float CompletionDistance = 0.5f;
 		public float CompletionSpeed = 1f;
+		public float CompletionHeadingDeg = 5f;
 
 		private const float MaxSpeedClose = 3f;
-		private const float MaxSpeedVeryClose = 1.5f;
-		private const float MaxSpeedFinal = 0.8f;
+		private const float ComfortDecelMs2 = 1.2f;
+		private const float MinCreepSpeedKmh = 0.25f;
+		private const float c_ShuffleLegMeters = 0.6f;
+		private const int c_MaxShuffleCycles = 6;
 
-		private const float CloseThreshold = 1.5f;
-		private const float VeryCloseThreshold = 0.6f;
-		private const float FinalThreshold = 0.3f;
+		private bool m_ShuffleReverse;
+		private Vector3 m_ShuffleStartPos;
+		private int m_ShuffleCycles;
 
 		public bool IsActive { get; private set; }
 
 		public void Activate() { IsActive = true; }
-		public void Deactivate() { IsActive = false; }
+		public void Deactivate()
+		{
+			IsActive = false;
+			m_ShuffleCycles = 0;
+			m_ShuffleReverse = false;
+		}
+
+		public void BeginHeadingShuffle(Vector3 _startPos)
+		{
+			m_ShuffleStartPos = _startPos;
+			m_ShuffleReverse = false;
+			m_ShuffleCycles = 0;
+		}
+
+		public bool IsHeadingShuffleExhausted => m_ShuffleCycles > c_MaxShuffleCycles;
+
+		public MotionCommand TickHeadingShuffle(
+			Vector3 _pos,
+			float _yaw,
+			float _speedKmh,
+			GoalPose _goal,
+			VehicleParameters _p)
+		{
+			float headingErr = Mathf.DeltaAngle(_yaw, _goal.YawDegrees);
+			if (Mathf.Abs(headingErr) <= _goal.HeadingToleranceDeg)
+				return MotionCommand.Empty;
+
+			float maxCurv = 1f / Mathf.Max(0.5f, _p.EffectiveTurnRadius);
+			float wheelCurvature = Mathf.Clamp(Mathf.Sign(headingErr) * maxCurv * 0.25f, -maxCurv * 0.25f, maxCurv * 0.25f);
+			float legTravel = BicycleKinematics.FlatDistance(_pos, m_ShuffleStartPos);
+
+			if (legTravel >= c_ShuffleLegMeters)
+			{
+				m_ShuffleReverse = !m_ShuffleReverse;
+				m_ShuffleStartPos = _pos;
+				m_ShuffleCycles++;
+			}
+
+			float creep = Mathf.Clamp(Mathf.Abs(headingErr) * 0.08f + 0.8f, 0.8f, 2f);
+			if (_speedKmh > c_ShuffleLegMeters * 3.6f)
+				creep = 0f;
+
+			return new MotionCommand(creep, wheelCurvature, m_ShuffleReverse);
+		}
 
 		public struct Output
 		{
@@ -52,9 +98,11 @@ namespace VehicleNavigation
 
 			Vector3 toGoalDir = dist > 0.01f ? toGoal / dist : _forward;
 			float signedAngleToGoal = Vector3.SignedAngle(_forward, toGoalDir, Vector3.up);
-			bool shouldReverse = Mathf.Abs(signedAngleToGoal) > 100f && _speedKmh < 2f && dist > 2f;
+			bool shouldReverse = Mathf.Abs(signedAngleToGoal) > 100f &&
+			                     _speedKmh < 2f &&
+			                     dist > CompletionDistance * 0.8f &&
+			                     _goalHeadingYaw.HasValue;
 
-			// Reverse: recompute errors from REAR AXLE (same formula as DriverContext.RearAxlePosition)
 			if (shouldReverse)
 			{
 				float rearOffset = wheelBase * 0.5f;
@@ -70,13 +118,12 @@ namespace VehicleNavigation
 			result.LateralError = Mathf.Abs(Mathf.Sin(signedAngleToGoal * Mathf.Deg2Rad)) * dist;
 			result.HeadingError = signedAngleToGoal;
 
-			// Completion check
 			bool headingOk = true;
 			if (_goalHeadingYaw.HasValue)
 			{
 				float hErr = Mathf.Abs(Mathf.DeltaAngle(_yaw, _goalHeadingYaw.Value));
 				result.HeadingError = hErr;
-				headingOk = hErr < 4f;
+				headingOk = hErr < CompletionHeadingDeg;
 			}
 
 			if (dist < CompletionDistance && _speedKmh < CompletionSpeed && headingOk)
@@ -86,7 +133,6 @@ namespace VehicleNavigation
 				return result;
 			}
 
-			// --- Unified steer calculation (forward AND reverse) ---
 			float steerFromLateral = Mathf.Clamp(signedAngleToGoal / 60f, -1f, 1f) * 0.7f;
 			float steerFromHeading = 0f;
 			if (_goalHeadingYaw.HasValue)
@@ -101,27 +147,26 @@ namespace VehicleNavigation
 			float steer = Mathf.Clamp(steerFromLateral + steerFromHeading, -1f, 1f);
 			float curvature = Mathf.Tan(steer * maxSteerRad) / Mathf.Max(0.5f, wheelBase);
 
-			// --- Speed ---
-			float speedCap;
-			if (dist < FinalThreshold)
-				speedCap = MaxSpeedFinal;
-			else if (dist < VeryCloseThreshold)
-				speedCap = MaxSpeedVeryClose;
-			else if (dist < CloseThreshold)
-				speedCap = MaxSpeedClose;
-			else
-				speedCap = Mathf.Lerp(MaxSpeedClose, 12f, (dist - CloseThreshold) / (ActivationDistance - CloseThreshold));
+			// Continuous braking-distance speed profile: v = sqrt(2*a*d)
+			float brakingDist = Mathf.Max(0f, dist - CompletionDistance);
+			float comfortDecel = Mathf.Min(ComfortDecelMs2, _params.HardBrakeDecelMs2 * 0.35f);
+			float speedFromBrakingMs = Mathf.Sqrt(2f * comfortDecel * brakingDist);
+			float speedFromBrakingKmh = speedFromBrakingMs * 3.6f;
+
+			float speedCap = Mathf.Min(MaxSpeedClose, speedFromBrakingKmh);
 
 			float steerAbs = Mathf.Abs(steer);
 			if (steerAbs > 0.3f)
 				speedCap *= 1f - (steerAbs - 0.3f) * 0.6f;
 
-			float targetSpeed = Mathf.Max(0.5f, speedCap);
+			float targetSpeed = dist > CompletionDistance * 1.2f
+				? Mathf.Max(MinCreepSpeedKmh, speedCap)
+				: Mathf.Lerp(0f, MinCreepSpeedKmh, dist / (CompletionDistance * 1.2f));
 
-			if (_speedKmh > targetSpeed * 1.5f)
-				targetSpeed = 0f;
-
-			result.Command = new MotionCommand(shouldReverse ? -targetSpeed : targetSpeed, curvature, shouldReverse);
+			result.Command = new MotionCommand(
+				shouldReverse ? -targetSpeed : targetSpeed,
+				curvature,
+				shouldReverse);
 			return result;
 		}
 	}

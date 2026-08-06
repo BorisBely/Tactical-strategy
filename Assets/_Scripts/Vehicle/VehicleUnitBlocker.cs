@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -32,6 +33,7 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 	#endregion
 
 	#region Public Properties
+	public VehicleController Vehicle => m_Vehicle;
 	public BoxCollider BlockCollider => m_BlockCollider;
 	#endregion
 
@@ -58,6 +60,45 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 	#endregion
 
 	#region Public Methods
+	/// <summary>
+	/// True when this collider belongs to a vehicle unit blocker that should not
+	/// count as an obstacle during navigation planning.
+	/// </summary>
+	public static bool ShouldIgnoreForPlanning(Collider _collider, HashSet<Collider> _self)
+	{
+		if (_collider == null)
+			return true;
+		if (_self != null && _self.Contains(_collider))
+			return true;
+
+		var blocker = _collider.GetComponentInParent<VehicleUnitBlocker>();
+		if (blocker == null)
+			return false;
+
+		// Orphan blockers from destroyed vehicles must never block planning.
+		if (blocker.Vehicle == null)
+			return true;
+
+		if (_self != null &&
+		    blocker.BlockCollider != null &&
+		    _self.Contains(blocker.BlockCollider))
+			return true;
+
+		return false;
+	}
+
+	public static void DestroyFor(VehicleController _vehicle)
+	{
+		if (_vehicle == null)
+			return;
+
+		Transform holder = GetHolder();
+		string goName = c_ObjectName + "_" + _vehicle.GetInstanceID();
+		Transform existing = holder.Find(goName);
+		if (existing != null)
+			Object.Destroy(existing.gameObject);
+	}
+
 	public static VehicleUnitBlocker Ensure(VehicleController _vehicle, BoxCollider _selectionTemplate)
 	{
 		if (_vehicle == null)
@@ -194,7 +235,10 @@ public sealed class VehicleUnitBlocker : MonoBehaviour
 	private void FollowVehicle()
 	{
 		if (m_Vehicle == null)
+		{
+			Destroy(gameObject);
 			return;
+		}
 		Transform t = m_Vehicle.transform;
 
 		Vector3 pos = t.position;

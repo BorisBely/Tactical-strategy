@@ -4,8 +4,7 @@ using UnityEngine;
 namespace VehicleNavigation
 {
 	/// <summary>
-	/// Smooth arc approach: one continuous turn into the target.
-	/// Best when target is off-center but not behind.
+	/// Smooth arc approach using a biarc/staging path instead of a full U-turn.
 	/// </summary>
 	public sealed class ArcArrivalStrategy : IArrivalStrategy
 	{
@@ -22,13 +21,16 @@ namespace VehicleNavigation
 			if (_a.Distance < _s.ArcMinDistance)
 				return ArrivalPlan.Invalid($"too close for arc (min {_s.ArcMinDistance:F1}m)");
 
+			float targetYaw = _heading ?? Quaternion.LookRotation((_target - _pos).normalized, Vector3.up).eulerAngles.y;
+			var arc = ReedsSheppPlanner.PlanForwardArc(
+				new ReedsSheppPlanner.Pose(_pos, _yaw),
+				new ReedsSheppPlanner.Pose(_target, targetYaw),
+				_s.TurnRadius);
+
 			var maneuvers = new List<Maneuver>();
-			float sign = _a.HeadingError > 0f ? 1f : -1f;
-			maneuvers.Add(new TurnAroundManeuver(sign));
-			if (_heading.HasValue)
-				maneuvers.Add(new ApproachWithHeadingManeuver(_target, _heading.Value));
-			else
-				maneuvers.Add(new ParkingManeuver(_heading ?? _yaw));
+			var approach = new ApproachWithHeadingManeuver(_target, targetYaw);
+			approach.SetWaypoints(arc);
+			maneuvers.Add(approach);
 
 			float cost = _a.Distance * 1.1f + absAngle * 0.15f;
 			return new ArrivalPlan(maneuvers, cost, Name);

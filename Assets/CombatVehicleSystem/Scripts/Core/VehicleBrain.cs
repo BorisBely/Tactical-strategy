@@ -20,6 +20,7 @@ namespace CombatVehicleSystem
 		#endregion
 
 		#region Private Fields
+		private IAdvancedEngineAudio m_AdvancedEngineAudio;
 		private Rigidbody m_Body;
 		private IVehicleDriveGating m_Vehicle;
 		private VehicleCommand m_Command = VehicleCommand.Idle;
@@ -143,11 +144,14 @@ namespace CombatVehicleSystem
 			m_EngineReadyAt = Time.time + delay;
 			m_EngineReady = delay <= 0.001f;
 
-			if (m_EngineAudio != null)
+			if (!UsesAdvancedEngineAudio())
 			{
-				m_EngineAudio.enabled = true;
-				if (!m_EngineAudio.isPlaying && m_EngineAudio.clip != null)
-					m_EngineAudio.Play();
+				if (m_EngineAudio != null)
+				{
+					m_EngineAudio.enabled = true;
+					if (!m_EngineAudio.isPlaying && m_EngineAudio.clip != null)
+						m_EngineAudio.Play();
+				}
 			}
 
 			EngineStateChanged?.Invoke(true);
@@ -246,7 +250,11 @@ namespace CombatVehicleSystem
 				TryGetComponent(out m_WeaponMount);
 			if (m_EngineAudio == null)
 				TryGetComponent(out m_EngineAudio);
+			if (m_AdvancedEngineAudio == null)
+				TryGetComponent(out m_AdvancedEngineAudio);
 		}
+
+		private bool UsesAdvancedEngineAudio() => m_AdvancedEngineAudio != null;
 
 	private void ApplyCenterOfMass()
 	{
@@ -285,6 +293,8 @@ namespace CombatVehicleSystem
 
 		private void UpdateEngineAudio()
 		{
+			if (UsesAdvancedEngineAudio())
+				return;
 			if (m_EngineAudio == null || m_Tuning == null || !m_EngineRunning)
 				return;
 
@@ -296,6 +306,8 @@ namespace CombatVehicleSystem
 
 		private void SyncEngineAudio(bool _running)
 		{
+			if (UsesAdvancedEngineAudio())
+				return;
 			if (m_EngineAudio == null)
 				return;
 			if (_running)

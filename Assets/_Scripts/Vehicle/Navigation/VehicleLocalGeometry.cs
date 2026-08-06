@@ -35,63 +35,87 @@ namespace VehicleNavigation
 
 		public static Sample Probe(Transform _vehicle, float _vehicleWidth, LayerMask _mask)
 		{
+			HashSet<Collider> selfSet = BuildSelfSet(_vehicle);
+			return ProbeInternal(_vehicle, _vehicleWidth, _mask, selfSet, _dense: true);
+		}
+
+		/// <summary>
+		/// Cheap front/rear emergency probes for runtime driving (not route selection).
+		/// </summary>
+		public static Sample ProbeLightweight(Transform _vehicle, float _vehicleWidth, LayerMask _mask)
+		{
+			HashSet<Collider> selfSet = BuildSelfSet(_vehicle);
+			return ProbeInternal(_vehicle, _vehicleWidth, _mask, selfSet, _dense: false);
+		}
+
+		private static Sample ProbeInternal(
+			Transform _vehicle,
+			float _vehicleWidth,
+			LayerMask _mask,
+			HashSet<Collider> selfSet,
+			bool _dense)
+		{
 			Vector3 origin = _vehicle.position + Vector3.up * c_ProbeHeight;
 			float halfWidth = Mathf.Max(0.5f, _vehicleWidth * 0.5f);
 
-			Collider[] selfColliders = _vehicle.GetComponentsInChildren<Collider>(true);
-			HashSet<Collider> selfSet = new HashSet<Collider>(selfColliders);
-
-			if (_vehicle.TryGetComponent(out VehicleController vehicleCtrl) &&
-			    vehicleCtrl.UnitBlocker != null &&
-			    vehicleCtrl.UnitBlocker.BlockCollider != null)
-			{
-				selfSet.Add(vehicleCtrl.UnitBlocker.BlockCollider);
-			}
-
-			float left = RayClearance(origin, -_vehicle.right, c_MaxProbe, _mask, selfSet) - halfWidth;
-			float right = RayClearance(origin, _vehicle.right, c_MaxProbe, _mask, selfSet) - halfWidth;
 			float rear = RayClearance(origin, -_vehicle.forward, c_MaxProbe, _mask, selfSet);
 			float front = RayClearance(origin, _vehicle.forward, c_MaxProbe, _mask, selfSet);
-
-			left = Mathf.Max(0f, left);
-			right = Mathf.Max(0f, right);
 			rear = Mathf.Max(0f, rear);
 			front = Mathf.Max(0f, front);
 
-			// Diagonal probes
-			Vector3 diagFrontLeft  = Quaternion.Euler(0f, -30f, 0f) * _vehicle.forward;
-			Vector3 diagFrontRight = Quaternion.Euler(0f,  30f, 0f) * _vehicle.forward;
-			Vector3 diagRearLeft   = Quaternion.Euler(0f, -150f, 0f) * _vehicle.forward;
-			Vector3 diagRearRight  = Quaternion.Euler(0f,  150f, 0f) * _vehicle.forward;
+			float left = c_MaxProbe;
+			float right = c_MaxProbe;
+			float fal = c_MaxProbe;
+			float far = c_MaxProbe;
+			float ral = c_MaxProbe;
+			float rar = c_MaxProbe;
 
-			float fal = RayClearance(origin, diagFrontLeft,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
-			float far = RayClearance(origin, diagFrontRight, c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
-			float ral = RayClearance(origin, diagRearLeft,   c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
-			float rar = RayClearance(origin, diagRearRight,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f;
+			if (_dense)
+			{
+				left = Mathf.Max(0f, RayClearance(origin, -_vehicle.right, c_MaxProbe, _mask, selfSet) - halfWidth);
+				right = Mathf.Max(0f, RayClearance(origin, _vehicle.right, c_MaxProbe, _mask, selfSet) - halfWidth);
 
-			fal = Mathf.Max(0f, fal);
-			far = Mathf.Max(0f, far);
-			ral = Mathf.Max(0f, ral);
-			rar = Mathf.Max(0f, rar);
+				Vector3 diagFrontLeft  = Quaternion.Euler(0f, -30f, 0f) * _vehicle.forward;
+				Vector3 diagFrontRight = Quaternion.Euler(0f,  30f, 0f) * _vehicle.forward;
+				Vector3 diagRearLeft   = Quaternion.Euler(0f, -150f, 0f) * _vehicle.forward;
+				Vector3 diagRearRight  = Quaternion.Euler(0f,  150f, 0f) * _vehicle.forward;
 
-			// Drop check: double-ray — both must miss to confirm cliff
+				fal = Mathf.Max(0f, RayClearance(origin, diagFrontLeft,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f);
+				far = Mathf.Max(0f, RayClearance(origin, diagFrontRight, c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f);
+				ral = Mathf.Max(0f, RayClearance(origin, diagRearLeft,   c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f);
+				rar = Mathf.Max(0f, RayClearance(origin, diagRearRight,  c_MaxProbe, _mask, selfSet) - halfWidth * 1.15f);
+			}
+			else
+			{
+				// One diagonal each side for emergency awareness only.
+				Vector3 diagFrontLeft  = Quaternion.Euler(0f, -25f, 0f) * _vehicle.forward;
+				Vector3 diagFrontRight = Quaternion.Euler(0f,  25f, 0f) * _vehicle.forward;
+				fal = Mathf.Max(0f, RayClearance(origin, diagFrontLeft,  6f, _mask, selfSet) - halfWidth);
+				far = Mathf.Max(0f, RayClearance(origin, diagFrontRight, 6f, _mask, selfSet) - halfWidth);
+				left = fal;
+				right = far;
+			}
+
 			Vector3 dropForwardOrigin = origin + _vehicle.forward * (halfWidth + 0.5f);
 			dropForwardOrigin.y += 0.5f;
-			bool dropAhead1 = !Physics.Raycast(dropForwardOrigin, Vector3.down, out RaycastHit hit1, 5f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropAhead1 = !Physics.Raycast(dropForwardOrigin, Vector3.down, out _, 5f, _mask, QueryTriggerInteraction.Ignore);
 			Vector3 dropForwardOrigin2 = origin + _vehicle.forward * (halfWidth + 1.5f);
 			dropForwardOrigin2.y += 0.5f;
-			bool dropAhead2 = !Physics.Raycast(dropForwardOrigin2, Vector3.down, out RaycastHit hit2, 5f, _mask, QueryTriggerInteraction.Ignore);
+			bool dropAhead2 = !Physics.Raycast(dropForwardOrigin2, Vector3.down, out _, 5f, _mask, QueryTriggerInteraction.Ignore);
 			bool dropAhead = dropAhead1 && dropAhead2;
 
-			Vector3 dropBackOrigin = origin - _vehicle.forward * (halfWidth + 0.5f);
-			dropBackOrigin.y += 0.5f;
-			bool dropBehind1 = !Physics.Raycast(dropBackOrigin, Vector3.down, out RaycastHit hit3, 5f, _mask, QueryTriggerInteraction.Ignore);
-			Vector3 dropBackOrigin2 = origin - _vehicle.forward * (halfWidth + 1.5f);
-			dropBackOrigin2.y += 0.5f;
-			bool dropBehind2 = !Physics.Raycast(dropBackOrigin2, Vector3.down, out RaycastHit hit4, 5f, _mask, QueryTriggerInteraction.Ignore);
-			bool dropBehind = dropBehind1 && dropBehind2;
+			bool dropBehind = false;
+			if (_dense)
+			{
+				Vector3 dropBackOrigin = origin - _vehicle.forward * (halfWidth + 0.5f);
+				dropBackOrigin.y += 0.5f;
+				bool dropBehind1 = !Physics.Raycast(dropBackOrigin, Vector3.down, out _, 5f, _mask, QueryTriggerInteraction.Ignore);
+				Vector3 dropBackOrigin2 = origin - _vehicle.forward * (halfWidth + 1.5f);
+				dropBackOrigin2.y += 0.5f;
+				bool dropBehind2 = !Physics.Raycast(dropBackOrigin2, Vector3.down, out _, 5f, _mask, QueryTriggerInteraction.Ignore);
+				dropBehind = dropBehind1 && dropBehind2;
+			}
 
-			// Narrow passage: both left and right clearances are tight
 			bool narrowPassage = left < 2f && right < 2f;
 
 			float prefer = 0f;
@@ -115,6 +139,20 @@ namespace VehicleNavigation
 				HasNarrowPassage = narrowPassage,
 				PreferredTurnSign = prefer
 			};
+		}
+
+		private static HashSet<Collider> BuildSelfSet(Transform _vehicle)
+		{
+			Collider[] selfColliders = _vehicle.GetComponentsInChildren<Collider>(true);
+			HashSet<Collider> selfSet = new HashSet<Collider>(selfColliders);
+
+			if (_vehicle.TryGetComponent(out VehicleController vehicleCtrl) &&
+			    vehicleCtrl.UnitBlocker != null &&
+			    vehicleCtrl.UnitBlocker.BlockCollider != null)
+			{
+				selfSet.Add(vehicleCtrl.UnitBlocker.BlockCollider);
+			}
+			return selfSet;
 		}
 
 		public static bool CanFitTurnRadius(float _radius, Sample _geometry)

@@ -28,6 +28,9 @@ namespace VehicleNavigation
 				return;
 
 			List<Vector3> corners = ExtractPathCorners(_path, _feedback);
+			float cornerCut = Mathf.Clamp(_minRadius * 0.08f, 0.15f, 0.35f);
+			Vector3[] forwardPath = m_Smoother.SmoothCorners(corners.ToArray(), cornerCut);
+			forwardPath = TrimPassedCorners(forwardPath, _feedback.Position);
 
 			for (int i = 0; i < _plan.Maneuvers.Count; i++)
 			{
@@ -40,7 +43,7 @@ namespace VehicleNavigation
 				switch (m.Type)
 				{
 					case VehicleManeuverType.Forward:
-						m.SetWaypoints(corners.ToArray());
+						m.SetWaypoints(forwardPath);
 						break;
 
 					case VehicleManeuverType.Reverse:
@@ -69,21 +72,17 @@ namespace VehicleNavigation
 
 				case VehicleManeuverType.Parking:
 					ParkingManeuver park = (ParkingManeuver)m;
-					m.SetWaypoints(m_Smoother.GenerateParkingWaypoints(
-						_feedback.Position,
-						_feedback.Yaw,
-						_request.Destination,
-						park.TargetHeadingYaw,
+					m.SetWaypoints(ReedsSheppPlanner.PlanStagingApproach(
+						new ReedsSheppPlanner.Pose(_feedback.Position, _feedback.Yaw),
+						new ReedsSheppPlanner.Pose(_request.Destination, park.TargetHeadingYaw),
 						_minRadius));
 					break;
 
 				case VehicleManeuverType.ApproachWithHeading:
 					ApproachWithHeadingManeuver approach = (ApproachWithHeadingManeuver)m;
-					m.SetWaypoints(m_Smoother.GenerateApproachWithHeadingArc(
-						_feedback.Position,
-						_feedback.Yaw,
-						approach.Destination,
-						approach.TargetHeadingYaw,
+					m.SetWaypoints(ReedsSheppPlanner.PlanStagingApproach(
+						new ReedsSheppPlanner.Pose(_feedback.Position, _feedback.Yaw),
+						new ReedsSheppPlanner.Pose(approach.Destination, approach.TargetHeadingYaw),
 						_minRadius));
 					break;
 
@@ -121,6 +120,40 @@ namespace VehicleNavigation
 			}
 
 			return corners;
+		}
+
+		private static Vector3[] TrimPassedCorners(Vector3[] _corners, Vector3 _position)
+		{
+			if (_corners == null || _corners.Length <= 2)
+				return _corners;
+
+			int best = 0;
+			float bestDist = float.MaxValue;
+			for (int i = 0; i < _corners.Length; i++)
+			{
+				float d = FlatDistance(_position, _corners[i]);
+				if (d < bestDist)
+				{
+					bestDist = d;
+					best = i;
+				}
+			}
+
+			if (best <= 0)
+				return _corners;
+
+			var trimmed = new Vector3[_corners.Length - best + 1];
+			trimmed[0] = _position;
+			for (int i = 1; i < trimmed.Length; i++)
+				trimmed[i] = _corners[best + i - 1];
+			return trimmed;
+		}
+
+		private static float FlatDistance(Vector3 _a, Vector3 _b)
+		{
+			_a.y = 0f;
+			_b.y = 0f;
+			return Vector3.Distance(_a, _b);
 		}
 
 		private static Vector3[] BuildReverseWaypoints(
