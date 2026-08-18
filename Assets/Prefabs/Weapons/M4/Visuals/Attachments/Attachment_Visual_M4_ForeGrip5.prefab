@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &46819018609846358
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 95520434570021221}
+  m_Layer: 0
+  m_Name: LeftHandGrip
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &95520434570021221
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 46819018609846358}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.3448646, y: 0.45243004, z: 0.7143338, w: 0.40755713}
+  m_LocalPosition: {x: -0.0819, y: -0.0262, z: -0.0601}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2888043361323388814}
+  m_LocalEulerAnglesHint: {x: 24.125214, y: 12.409649, z: 110.430756}
 --- !u!1 &4323312252066313687
 GameObject:
   m_ObjectHideFlags: 0
@@ -161,6 +192,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2888043361323388814}
+  - component: {fileID: 758899658953642723}
   m_Layer: 0
   m_Name: Attachment_Visual_M4_ForeGrip5
   m_TagString: Untagged
@@ -184,5 +216,19 @@ Transform:
   - {fileID: 6214966599828864263}
   - {fileID: 8123456789012345718}
   - {fileID: 1592889469146388800}
+  - {fileID: 95520434570021221}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &758899658953642723
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8489061993567981433}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e4d2f30c8e5f7b0d1e3a5c7294f6b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponForeGrip
+  m_LeftHandGrip: {fileID: 95520434570021221}

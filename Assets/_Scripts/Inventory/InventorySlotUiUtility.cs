@@ -13,6 +13,20 @@ public static class InventorySlotUiUtility
 	public const string EquipmentDropReceiverObjectName = "EquipmentDropReceiver";
 	/// <summary>Допуск в пикселях для сброса оружия на слот экипировки (EndDrag fallback).</summary>
 	public const float MainHandEquipDropPaddingPixels = 20f;
+
+	public const string EmptyEquipSlotWeaponKey = "inventory.equip_slot.empty.weapon";
+	public const string EmptyEquipSlotHelmetKey = "inventory.equip_slot.empty.helmet";
+	public const string EmptyEquipSlotBackpackKey = "inventory.equip_slot.empty.backpack";
+	public const string EmptyEquipSlotTurretWeaponKey = "inventory.equip_slot.empty.turret_weapon";
+	public const string EmptyEquipSlotGunShieldKey = "inventory.equip_slot.empty.gun_shield";
+	public const string EmptyEquipSlotGunnerShieldKey = "inventory.equip_slot.empty.gunner_shield";
+	public const string EmptyEquipSlotGenericKey = "inventory.equip_slot.empty";
+	public const string EquipSlotTitleWeaponKey = "inventory.equip_slot.title.weapon";
+	public const string EquipSlotTitleHelmetKey = "inventory.equip_slot.title.helmet";
+	public const string EquipSlotTitleBackpackKey = "inventory.equip_slot.title.backpack";
+	public const string EquipSlotTitleTurretWeaponKey = "inventory.equip_slot.title.turret_weapon";
+	public const string EquipSlotTitleGunShieldKey = "inventory.equip_slot.title.gun_shield";
+	public const string EquipSlotTitleGunnerShieldKey = "inventory.equip_slot.title.gunner_shield";
 	#endregion
 
 	#region Private Fields
@@ -183,6 +197,9 @@ public static class InventorySlotUiUtility
 			receiver = receiverImage.gameObject.AddComponent<InventoryEquipmentSlotDropReceiver>();
 
 		receiver.Bind(_dropHandler);
+
+		if (slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome))
+			chrome.EnsureDropRelay();
 	}
 
 	public static void ApplySlotBackgroundColor(InventorySlotView _slot, Color _color)
@@ -246,28 +263,118 @@ public static class InventorySlotUiUtility
 
 	public static void ConfigureMainHandEquipmentSlot(
 		InventorySlotView _slot,
-		InventoryEquipmentSlotAppearance _appearance)
+		InventoryEquipmentSlotAppearance _appearance,
+		bool _vehicleEquipment = false)
 	{
-		ConfigureEquipmentSlot(_slot, _appearance);
+		ConfigureEquipmentSlot(_slot, _appearance, 0, _vehicleEquipment);
 	}
 
 	public static void ConfigureHeadEquipmentSlot(
 		InventorySlotView _slot,
-		InventoryEquipmentSlotAppearance _appearance)
+		InventoryEquipmentSlotAppearance _appearance,
+		bool _vehicleEquipment = false)
 	{
-		ConfigureEquipmentSlot(_slot, _appearance);
+		ConfigureEquipmentSlot(_slot, _appearance, 1, _vehicleEquipment);
 	}
 
 	public static void ConfigureBackEquipmentSlot(
 		InventorySlotView _slot,
-		InventoryEquipmentSlotAppearance _appearance)
+		InventoryEquipmentSlotAppearance _appearance,
+		bool _vehicleEquipment = false)
 	{
-		ConfigureEquipmentSlot(_slot, _appearance);
+		ConfigureEquipmentSlot(_slot, _appearance, 2, _vehicleEquipment);
+	}
+
+	public static string GetEmptyEquipmentSlotLocalizationKey(int _equipmentSlotIndex, bool _vehicleEquipment)
+	{
+		return EmptyEquipSlotGenericKey;
+	}
+
+	public static string GetEquipmentSlotTitleLocalizationKey(int _equipmentSlotIndex, bool _vehicleEquipment)
+	{
+		if (_vehicleEquipment)
+		{
+			return _equipmentSlotIndex switch
+			{
+				0 => EquipSlotTitleTurretWeaponKey,
+				1 => EquipSlotTitleGunShieldKey,
+				2 => EquipSlotTitleGunnerShieldKey,
+				_ => string.Empty
+			};
+		}
+
+		return _equipmentSlotIndex switch
+		{
+			0 => EquipSlotTitleWeaponKey,
+			1 => EquipSlotTitleHelmetKey,
+			2 => EquipSlotTitleBackpackKey,
+			_ => string.Empty
+		};
+	}
+
+	public static string GetEquipmentSlotTitleFallback(int _equipmentSlotIndex, bool _vehicleEquipment)
+	{
+		if (_vehicleEquipment)
+		{
+			return _equipmentSlotIndex switch
+			{
+				0 => "Вооружение",
+				1 => "Пулемётный щит",
+				2 => "Бронещит стрелка",
+				_ => string.Empty
+			};
+		}
+
+		return _equipmentSlotIndex switch
+		{
+			0 => "Оружие",
+			1 => "Шлем",
+			2 => "Рюкзак",
+			_ => string.Empty
+		};
+	}
+
+	public static void ApplyEmptyEquipmentSlotLabel(
+		InventorySlotView _slot,
+		int _equipmentSlotIndex,
+		bool _vehicleEquipment)
+	{
+		if (_slot == null)
+			return;
+
+		_slot.SetEmptyLocalizationKey(GetEmptyEquipmentSlotLocalizationKey(_equipmentSlotIndex, _vehicleEquipment));
+	}
+
+	public static void ApplyEmptyEquipmentSlotBackground(InventorySlotView _slot)
+	{
+		if (_slot == null || !TryGetSlotBackgroundImage(_slot, out Image background))
+			return;
+
+		EnsureImageCanRenderSolidColor(background);
+		background.color = InventoryUiTheme.TitleBar;
+		background.enabled = true;
+	}
+
+	public static void EnsureEquipmentSlotChrome(
+		InventorySlotView _slot,
+		int _equipmentSlotIndex,
+		bool _vehicleEquipment)
+	{
+		if (_slot == null || _equipmentSlotIndex < 0)
+			return;
+
+		InventoryEquipmentSlotChrome chrome = _slot.GetComponent<InventoryEquipmentSlotChrome>();
+		if (chrome == null)
+			chrome = _slot.gameObject.AddComponent<InventoryEquipmentSlotChrome>();
+
+		chrome.Configure(_equipmentSlotIndex, _vehicleEquipment);
 	}
 
 	public static void ConfigureEquipmentSlot(
 		InventorySlotView _slot,
-		InventoryEquipmentSlotAppearance _appearance)
+		InventoryEquipmentSlotAppearance _appearance,
+		int _equipmentSlotIndex = -1,
+		bool _vehicleEquipment = false)
 	{
 		if (_slot == null || _appearance == null)
 			return;
@@ -276,6 +383,12 @@ public static class InventorySlotUiUtility
 		EnsureEquipmentSlotDropTarget(_slot);
 		DisableTextRaycastTargets(_slot);
 		EnsureDescriptionHover(_slot);
+
+		if (_equipmentSlotIndex >= 0)
+		{
+			ApplyEmptyEquipmentSlotLabel(_slot, _equipmentSlotIndex, _vehicleEquipment);
+			EnsureEquipmentSlotChrome(_slot, _equipmentSlotIndex, _vehicleEquipment);
+		}
 
 		InventoryEquipmentSlotHighlightOverlay overlay = _slot.GetComponent<InventoryEquipmentSlotHighlightOverlay>();
 		if (overlay == null)
@@ -320,6 +433,9 @@ public static class InventorySlotUiUtility
 		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretWeapon)))
 			return true;
 
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return false;
+
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
 		return MissionPrepWeaponEquipUtility.IsWeaponEquipDragSource(missionPrepPayload.SourceKind) &&
 		       MissionPrepWeaponEquipUtility.CanEquipToMainHand(missionPrepPayload.Item);
@@ -335,6 +451,9 @@ public static class InventorySlotUiUtility
 		    (HelmetEquipUtility.CanEquipToHead(runtimePayload.Item) ||
 		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretFrontalShield)))
 			return true;
+
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return false;
 
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
 		return MissionPrepHelmetEquipUtility.IsHelmetEquipDragSource(missionPrepPayload.SourceKind) &&
@@ -352,6 +471,9 @@ public static class InventorySlotUiUtility
 		     (runtimePayload.Item.Definition != null && runtimePayload.Item.Definition.IsTurretSurroundShield)))
 			return true;
 
+		if (MissionPrepModificationDragContext.WasDropConsumed)
+			return false;
+
 		MissionPrepModificationDragPayload missionPrepPayload = MissionPrepModificationDragContext.Current;
 		return MissionPrepBackpackEquipUtility.IsBackpackEquipDragSource(missionPrepPayload.SourceKind) &&
 		       MissionPrepBackpackEquipUtility.CanEquipToBack(missionPrepPayload.Item);
@@ -359,9 +481,54 @@ public static class InventorySlotUiUtility
 
 	public static void RefreshEquipmentSlotHighlights(InventoryPanelView _panel)
 	{
-		RefreshMainHandEquipHighlight(_panel);
-		RefreshHeadEquipHighlight(_panel);
-		RefreshBackEquipHighlight(_panel);
+		if (_panel == null)
+			return;
+
+		InventorySlotView mainHandSlot = GetMainHandEquipmentSlot(_panel);
+		InventorySlotView headSlot = GetHeadEquipmentSlot(_panel);
+		InventorySlotView backSlot = GetBackEquipmentSlot(_panel);
+
+		bool highlightWeapon = IsWeaponEquipDragActive();
+		bool highlightHelmet = IsHelmetEquipDragActive();
+		bool highlightBackpack = IsBackpackEquipDragActive();
+
+		ApplyMainHandEquipmentSlotHighlight(mainHandSlot, highlightWeapon);
+		ApplyEquipmentSlotHighlight(headSlot, highlightHelmet);
+		ApplyBackEquipmentSlotHighlight(backSlot, highlightBackpack);
+
+		InventoryEquipmentSlotHighlightOverlay[] overlays =
+			_panel.GetComponentsInChildren<InventoryEquipmentSlotHighlightOverlay>(true);
+		for (int i = 0; i < overlays.Length; i++)
+		{
+			InventoryEquipmentSlotHighlightOverlay overlay = overlays[i];
+			if (overlay == null)
+				continue;
+
+			InventorySlotView slot = overlay.GetComponent<InventorySlotView>();
+			bool shouldHighlight =
+				(slot == mainHandSlot && highlightWeapon) ||
+				(slot == headSlot && highlightHelmet) ||
+				(slot == backSlot && highlightBackpack);
+			if (!shouldHighlight)
+				overlay.SetHighlighted(false);
+		}
+
+		InventoryEquipmentSlotChrome[] chromes =
+			_panel.GetComponentsInChildren<InventoryEquipmentSlotChrome>(true);
+		for (int i = 0; i < chromes.Length; i++)
+		{
+			InventoryEquipmentSlotChrome chrome = chromes[i];
+			if (chrome == null)
+				continue;
+
+			InventorySlotView slot = chrome.GetComponent<InventorySlotView>();
+			bool shouldHighlight =
+				(slot == mainHandSlot && highlightWeapon) ||
+				(slot == headSlot && highlightHelmet) ||
+				(slot == backSlot && highlightBackpack);
+			if (!shouldHighlight)
+				chrome.SetDropHighlight(false);
+		}
 	}
 
 	public static void RefreshMainHandEquipHighlight(InventoryPanelView _panel)
@@ -418,9 +585,14 @@ public static class InventorySlotUiUtility
 			return;
 		}
 
+		if (_slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome))
+			chrome.SetDropHighlight(_highlighted);
+
 		InventoryEquipmentSlotAppearance appearance = ResolveEquipmentSlotAppearance(_slot);
 		if (_highlighted)
 			appearance.ApplyHighlight(_slot);
+		else if (_slot.IsEmptyEquipmentSlot)
+			ApplyEmptyEquipmentSlotBackground(_slot);
 		else
 			appearance.ApplyNormal(_slot);
 	}
@@ -470,6 +642,12 @@ public static class InventorySlotUiUtility
 		if (rect != null && IsScreenPointInsideRectTransform(rect, _screenPosition, _eventCamera, _paddingPixels))
 			return true;
 
+		if (_slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome) &&
+		    chrome.HeaderRect != null &&
+		    chrome.HeaderRect.gameObject.activeInHierarchy &&
+		    IsScreenPointInsideRectTransform(chrome.HeaderRect, _screenPosition, _eventCamera, 0f))
+			return true;
+
 		return _paddingPixels <= 0f && IsScreenPointOverSlotRaycast(_slot, _screenPosition);
 	}
 
@@ -486,10 +664,19 @@ public static class InventorySlotUiUtility
 
 		EventSystem.current.RaycastAll(pointerData, s_RaycastResults);
 		Transform slotRoot = _slot.transform;
+		RectTransform headerRect = null;
+		if (_slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome))
+			headerRect = chrome.HeaderRect;
+
 		for (int i = 0; i < s_RaycastResults.Count; i++)
 		{
 			Transform hit = s_RaycastResults[i].gameObject.transform;
 			if (hit == slotRoot || hit.IsChildOf(slotRoot))
+				return true;
+
+			if (headerRect != null &&
+			    headerRect.gameObject.activeInHierarchy &&
+			    (hit == headerRect || hit.IsChildOf(headerRect)))
 				return true;
 		}
 

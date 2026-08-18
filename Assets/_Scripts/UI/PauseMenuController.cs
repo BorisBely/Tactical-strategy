@@ -54,6 +54,9 @@ public sealed class PauseMenuController : MonoBehaviour
 		if (s_Instance != null)
 			return;
 
+		if (!PlayModeSingleton.CanSpawn)
+			return;
+
 		GameObject root = new GameObject(nameof(PauseMenuController));
 		s_Instance = root.AddComponent<PauseMenuController>();
 	}
@@ -90,6 +93,19 @@ public sealed class PauseMenuController : MonoBehaviour
 		Keyboard keyboard = Keyboard.current;
 		if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame)
 			return;
+
+		// Сначала закрываем UI-окна, паузу — только если они уже закрыты.
+		if (InventoryScreenBindings.Instance != null && InventoryScreenBindings.Instance.IsInventoryOpen)
+		{
+			InventoryScreenBindings.Instance.SetInventoryWindowOpen(false);
+			return;
+		}
+
+		if (MissionPrepScreenBindings.Instance != null && MissionPrepScreenBindings.Instance.IsMissionPrepOpen)
+		{
+			MissionPrepScreenBindings.Instance.SetMissionPrepWindowOpen(false);
+			return;
+		}
 
 		SetPaused(!IsPaused, true);
 	}

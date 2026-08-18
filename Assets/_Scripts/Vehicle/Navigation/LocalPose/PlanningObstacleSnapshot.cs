@@ -34,13 +34,13 @@ namespace VehicleNavigation
 		private readonly List<RaySample> m_Rays = new List<RaySample>(64);
 		private HashSet<Collider> m_Self = new HashSet<Collider>();
 		private static readonly RaycastHit[] s_RayHits = new RaycastHit[32];
-		private static readonly Dictionary<int, HashSet<Collider>> s_SelfColliderCache =
-			new Dictionary<int, HashSet<Collider>>(8);
+		private static readonly Dictionary<EntityId, HashSet<Collider>> s_SelfColliderCache =
+			new Dictionary<EntityId, HashSet<Collider>>(8);
 
 		public static void ClearColliderCache(Transform _vehicle)
 		{
 			if (_vehicle != null)
-				s_SelfColliderCache.Remove(_vehicle.root.GetInstanceID());
+				s_SelfColliderCache.Remove(_vehicle.root.GetEntityId());
 		}
 
 		private static void CopySelfColliders(Transform _vehicle, HashSet<Collider> _target)
@@ -49,7 +49,7 @@ namespace VehicleNavigation
 			if (_vehicle == null)
 				return;
 
-			int rootId = _vehicle.root.GetInstanceID();
+			EntityId rootId = _vehicle.root.GetEntityId();
 			if (!s_SelfColliderCache.TryGetValue(rootId, out HashSet<Collider> cached))
 			{
 				cached = new HashSet<Collider>(16);
@@ -57,6 +57,7 @@ namespace VehicleNavigation
 					cached.Add(col);
 				if (_vehicle.TryGetComponent(out VehicleController vc) &&
 				    vc.UnitBlocker != null &&
+				    vc.UnitBlocker.IsSolidActive &&
 				    vc.UnitBlocker.BlockCollider != null)
 					cached.Add(vc.UnitBlocker.BlockCollider);
 				s_SelfColliderCache[rootId] = cached;

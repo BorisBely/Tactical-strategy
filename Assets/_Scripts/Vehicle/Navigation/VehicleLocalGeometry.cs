@@ -148,6 +148,7 @@ namespace VehicleNavigation
 
 			if (_vehicle.TryGetComponent(out VehicleController vehicleCtrl) &&
 			    vehicleCtrl.UnitBlocker != null &&
+			    vehicleCtrl.UnitBlocker.IsSolidActive &&
 			    vehicleCtrl.UnitBlocker.BlockCollider != null)
 			{
 				selfSet.Add(vehicleCtrl.UnitBlocker.BlockCollider);

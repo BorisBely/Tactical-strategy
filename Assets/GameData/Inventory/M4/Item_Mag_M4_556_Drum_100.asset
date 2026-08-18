@@ -14,21 +14,45 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.mag.m4_556_drum_100
   m_Description: 100-round 5.56 drum magazine.
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 21300000, guid: 3729ee9b911f47840af33831f2f0930c, type: 3}
   m_BasePrice: 420
+  m_WeightKg: 0
   m_Category: 0
   m_DropWorldPrefab: {fileID: 747034077624553870, guid: 541a21eaacbae6a4ba988e9f64421eee, type: 3}
   m_EquippedVisualPrefab: {fileID: 7767766498245400676, guid: d1cc9db2e9f879b4c8204840b68fb1ca, type: 3}
   m_RightHandLocalPosition: {x: -0.1592, y: 0.0356, z: -0.1185}
   m_RightHandLocalEulerAngles: {x: -61.456, y: 244.767, z: 292.553}
-  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 0
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
   m_MagazineDefinition: {fileID: 11400000, guid: 2a7235a28e7a47a44b93b3f17e231245, type: 2}
   m_WeaponAttachmentDefinition: {fileID: 0}
+  m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
+  m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:
     - {fileID: 8300000, guid: dfc6cd0b876db3a43a345c6122d66a1f, type: 3}

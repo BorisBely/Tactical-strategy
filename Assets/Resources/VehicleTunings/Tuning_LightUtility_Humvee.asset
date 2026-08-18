@@ -24,6 +24,8 @@ MonoBehaviour:
   m_CoastDecelTorque: 380
   m_ApproachSlowdownDistance: 14
   m_ArriveDistance: 2.2
+  m_CreepSpeedKmh: 4.5
+  m_CreepDistance: 3
   m_IdleParkBrake: 1
   m_SteerRate: 140
   m_ThrottleResponse: 5

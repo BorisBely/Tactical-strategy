@@ -3,8 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Re-attach the Play Mode weapon pose / hand IK tuner to Unit when you need to retune.
-/// Gameplay does not need the tuner on Unit — see <see cref="UnitEquippedWeaponPoseRuntimeTuner"/>.
+/// Re-attach the Play Mode weapon pose / grip tuner to Unit when you need to retune.
 /// </summary>
 public static class UnitEquippedWeaponPoseRuntimeTunerSetup
 {
@@ -27,9 +26,8 @@ public static class UnitEquippedWeaponPoseRuntimeTunerSetup
 		PrefabUtility.UnloadPrefabContents(root);
 		AssetDatabase.SaveAssets();
 		Debug.Log(
-			"Added UnitEquippedWeaponPoseRuntimeTuner to Unit prefab. " +
-			"Play Mode → Enable Runtime Tuning → Save To Asset / Save Left IK To Foregrip Prefab. " +
-			"Remove the component from Unit when finished.");
+			"Added UnitEquippedWeaponPoseRuntimeTuner to Unit. " +
+			"Play → Включить тюнинг → Save Standing/Crouch/Vehicle + Сохранить руки в префаб.");
 	}
 }
 #endif

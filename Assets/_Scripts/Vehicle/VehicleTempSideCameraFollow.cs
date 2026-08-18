@@ -25,7 +25,7 @@ public sealed class VehicleTempSideCameraFollow : MonoBehaviour
 	{
 		Camera cam = Camera.main;
 		if (cam == null)
-			cam = Object.FindFirstObjectByType<Camera>();
+			cam = Object.FindAnyObjectByType<Camera>();
 		if (cam == null)
 			return;
 		if (cam.GetComponent<VehicleTempSideCameraFollow>() == null)
@@ -63,7 +63,7 @@ public sealed class VehicleTempSideCameraFollow : MonoBehaviour
 	{
 		m_Camera = Camera.main;
 		if (m_Camera == null)
-			m_Camera = FindFirstObjectByType<Camera>();
+			m_Camera = FindAnyObjectByType<Camera>();
 
 		if (m_Camera != null)
 		{

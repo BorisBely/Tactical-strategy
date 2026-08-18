@@ -55,6 +55,21 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		if (m_CanvasGroup == null)
 			m_CanvasGroup = gameObject.AddComponent<CanvasGroup>();
 	}
+
+	private void OnDisable()
+	{
+		if (!m_Dragging)
+			return;
+
+		m_Dragging = false;
+		if (m_CanvasGroup != null)
+			m_CanvasGroup.blocksRaycasts = true;
+
+		m_ModDragAttachment = null;
+		m_DropAccepted = false;
+		m_CharacterContentParent = null;
+		RuntimeInventoryModificationDragContext.ResetAfterDrag();
+	}
 	#endregion
 
 	#region Public Methods
@@ -340,10 +355,26 @@ public class InventoryCharacterToGroundDrag : MonoBehaviour, IBeginDragHandler, 
 		RuntimeInlineModificationDragHelper.CleanupAfterDrop(m_ModDragAttachment);
 		m_ModDragAttachment = null;
 
-		if (m_CharacterPanel != null && m_Slot.IsRuntimeSpawned)
-			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(gameObject, m_CharacterPanel.transform);
-		else
-			Destroy(gameObject);
+		if (m_Slot.IsRuntimeSpawned)
+		{
+			if (m_CharacterPanel != null)
+				EditorSelectionGuard.DestroyRuntimeSpawnedSlot(gameObject, m_CharacterPanel.transform);
+			else
+				Destroy(gameObject);
+			return;
+		}
+
+		// Персистентный EquipSlot: вернуть в Content, не Destroy.
+		Transform content = m_CharacterContentParent != null
+			? m_CharacterContentParent
+			: (m_CharacterPanel != null ? m_CharacterPanel.SlotsContainerTransform : null);
+		if (content != null)
+		{
+			m_Slot.Clear();
+			transform.SetParent(content, false);
+			if (m_CharacterSiblingIndex >= 0)
+				transform.SetSiblingIndex(m_CharacterSiblingIndex);
+		}
 	}
 	#endregion
 }

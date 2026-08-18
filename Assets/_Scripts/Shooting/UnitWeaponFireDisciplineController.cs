@@ -13,7 +13,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitEquipment m_Equipment;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitIndividualTraits m_IndividualTraits;
 
@@ -67,8 +67,8 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_CombatStats == null)
 			m_CombatStats = GetComponent<UnitCombatStats>();
 		if (m_IndividualTraits == null)
@@ -79,10 +79,10 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 	{
 		if (m_FireController != null)
 			m_FireController.ShotFired += HandleShotFired;
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged += HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged += HandleSelectedTargetChanged;
 
-		m_LastTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		m_LastTarget = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 	}
 
 	private void OnDisable()
@@ -94,8 +94,8 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			m_FireController.StopFiring();
 		}
 
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged -= HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged -= HandleSelectedTargetChanged;
 
 		ResetPlanState();
 	}
@@ -296,9 +296,9 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			FinishSeriesAndEnterPause();
 	}
 
-	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)
+	private void HandleSelectedTargetChanged(Transform _newSelectedTarget)
 	{
-		Transform engageable = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform engageable = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (engageable == m_LastTarget)
 			return;
 
@@ -308,7 +308,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return 0f;
 
@@ -316,7 +316,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 		Transform fireOrigin = weapon != null && weapon.FireOriginTransform != null
 			? weapon.FireOriginTransform
 			: transform;
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 

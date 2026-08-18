@@ -40,7 +40,7 @@ public static class UnitFallenStateUtility
 		bool isRagdollActive = ragdoll != null && ragdoll.IsRagdollActive;
 
 		_description =
-			$"instanceId={_unit.GetInstanceID()}, rtsMemberEnabled={_unit.enabled}, conscious={isConscious}, dead={isDead}, ragdoll={isRagdollActive}";
+			$"entityId={_unit.GetEntityId()}, rtsMemberEnabled={_unit.enabled}, conscious={isConscious}, dead={isDead}, ragdoll={isRagdollActive}";
 
 		if (consciousness != null && !consciousness.IsConscious)
 			return true;

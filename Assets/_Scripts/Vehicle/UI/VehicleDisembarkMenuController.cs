@@ -187,6 +187,8 @@ public sealed class VehicleDisembarkMenuController : MonoBehaviour
 	{
 		if (s_Instance != null)
 			return s_Instance;
+		if (!PlayModeSingleton.CanSpawn)
+			return null;
 		var go = new GameObject(nameof(VehicleDisembarkMenuController));
 		s_Instance = go.AddComponent<VehicleDisembarkMenuController>();
 		return s_Instance;

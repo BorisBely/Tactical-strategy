@@ -22,7 +22,10 @@ public sealed class RuntimeCharacterMainHandEquipmentSlotView : MonoBehaviour, I
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();

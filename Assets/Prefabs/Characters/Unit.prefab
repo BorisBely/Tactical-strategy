@@ -7852,10 +7852,14 @@ GameObject:
   - component: {fileID: 6875159727817653897}
   - component: {fileID: 5322687323565292150}
   - component: {fileID: 731500000000000200}
+  - component: {fileID: 731500000000000302}
   - component: {fileID: 1703047740406568110}
   - component: {fileID: 3806570450536705422}
   - component: {fileID: 1773384317962348157}
   - component: {fileID: 1955663392430061257}
+  - component: {fileID: 731500000000000410}
+  - component: {fileID: 6182047391850274610}
+  - component: {fileID: 7293158402961385721}
   - component: {fileID: 1512094426153763378}
   - component: {fileID: 383407823447829567}
   - component: {fileID: 2625859228613252192}
@@ -7868,6 +7872,8 @@ GameObject:
   - component: {fileID: 4829173650182746501}
   - component: {fileID: 2745828861811900171}
   - component: {fileID: 8412401315927888462}
+  - component: {fileID: 5739102847163921846}
+  - component: {fileID: 2201847193058471622}
   - component: {fileID: 8082661923994252123}
   - component: {fileID: 731300000000000020}
   - component: {fileID: 731300000000000001}
@@ -7876,6 +7882,7 @@ GameObject:
   - component: {fileID: 731300000000000003}
   - component: {fileID: 3544168995589682661}
   - component: {fileID: 2876543210987654320}
+  - component: {fileID: 731500000000000301}
   - component: {fileID: 9123456789012345678}
   - component: {fileID: 9123456789012345679}
   - component: {fileID: 3408199974750778793}
@@ -7904,6 +7911,8 @@ GameObject:
   - component: {fileID: 647898583761294424}
   - component: {fileID: 647898583761294505}
   - component: {fileID: 7912499842099294816}
+  - component: {fileID: 1100000875000488401}
+  - component: {fileID: 7085333448395688764}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -8002,7 +8011,7 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.22
   m_Height: 1.82
@@ -8058,12 +8067,15 @@ MonoBehaviour:
   m_RayCamera: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_StanceSource: {fileID: 3741241907743255212}
+  m_TargetSelector: {fileID: 0}
   m_Vision: {fileID: 0}
   m_ReadyHands: {fileID: 0}
   m_Equipment: {fileID: 0}
   m_ReloadController: {fileID: 0}
   m_FireController: {fileID: 0}
   m_GrenadeThrowController: {fileID: 0}
+  m_WeaponAiming: {fileID: 0}
+  m_SpineHorizontalAim: {fileID: 6182047391850274610}
   m_Team: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
@@ -8113,9 +8125,8 @@ MonoBehaviour:
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
-  m_LogReadyMoveFacingMismatch: 0
-  m_LogReadyMoveFacingIntervalSeconds: 0.25
-  m_LogReadyMoveFacingMinDeltaDegrees: 2
+  m_LogFacingSystem: 0
+  m_LogFacingIntervalSeconds: 0.2
   m_EngageRootFacingWhenBarrelOffsetExceeds: 25
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
@@ -8180,11 +8191,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitNavLocomotionDriver
   m_Animator: {fileID: 5771954729034314130}
   m_StanceSource: {fileID: 3741241907743255212}
+  m_TargetSelector: {fileID: 0}
   m_Vision: {fileID: 1773384317962348157}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_Equipment: {fileID: 0}
   m_FireController: {fileID: 8854059317223957988}
   m_GrenadeThrowController: {fileID: 0}
+  m_WeaponAiming: {fileID: 0}
+  m_SpineHorizontalAim: {fileID: 6182047391850274610}
+  m_ReloadController: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
   m_StabilizeOther: {fileID: 0}
@@ -8223,6 +8238,8 @@ MonoBehaviour:
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  m_LogFacingSystem: 0
+  m_LogFacingIntervalSeconds: 0.2
   m_EngageRootFacingWhenBarrelOffsetExceeds: 25
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
@@ -8452,8 +8469,8 @@ MonoBehaviour:
   m_Stance: {fileID: 0}
   m_Animator: {fileID: 0}
   m_VehiclePassengerState: {fileID: 0}
-  m_ReadyPoseBlendDuration: 0.28
-  m_ReadyPoseBlendCurve:
+  m_FallbackBlendDuration: 0.28
+  m_PoseBlendCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
@@ -8477,6 +8494,21 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  m_LogHighReadyToPreAim: 0
+  m_LogStandingPoseSwitch: 0
+  m_LogPoseOwnership: 0
+--- !u!114 &731500000000000302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4e8c2a19d3b4f6e8a1c0d5e7b9f2a3c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitEquippedWeaponPoseCommit
 --- !u!114 &1703047740406568110
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8501,12 +8533,19 @@ MonoBehaviour:
   m_LeftHandIk: {fileID: 2876543210987654320}
   m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_BusyState: {fileID: 0}
+  m_WeaponRuntime: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
+  m_CombatStats: {fileID: 0}
+  m_IndividualTraits: {fileID: 0}
+  m_CombatCondition: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_EnableKeyboardInput: 1
   m_ToggleReadyKey: 19
-  m_EnterReadyClip: {fileID: 8300000, guid: 7ee343a066bc66646bde96cf283f3633, type: 3}
-  m_EnterNotReadyClip: {fileID: 8300000, guid: a6ddd658e53ff1046bcc3d4d9b3d202a, type: 3}
+  m_EnterLowReadyClip: {fileID: 8300000, guid: a6ddd658e53ff1046bcc3d4d9b3d202a, type: 3}
   m_ReadyTransitionVolume: 0.55
   m_ReadyTransitionSpatialMaxDistance: 18
+  m_AcceptableHitRadiusMeters: 0.35
+  m_LogPoseTransitions: 0
 --- !u!114 &3806570450536705422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8521,7 +8560,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitAnimatorWeaponMode
   m_Animator: {fileID: 5771954729034314130}
   m_Equipment: {fileID: 5322687323565292150}
+  m_StanceSource: {fileID: 0}
+  m_ReadyHands: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_WeaponModeCrossFadeSeconds: 0.22
+  m_RelaxedReadyWalkCrossFadeSeconds: 0.18
+  m_LogCrouchTransitions: 1
 --- !u!114 &1773384317962348157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8542,19 +8586,16 @@ MonoBehaviour:
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 0}
-  m_EquippedWeaponPose: {fileID: 0}
-  m_ReloadController: {fileID: 0}
-  m_WeaponRuntime: {fileID: 0}
+  m_ObservationSource: {fileID: 1100000875000488401}
+  m_Perception: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
   m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
-  m_RetainTargetDuringReloadOrMalfunction: 1
   m_EyeHeight: 1.6
   m_ScanIntervalMin: 0.25
   m_ScanIntervalMax: 0.45
   m_ImmediateRescanAngleDegrees: 2.5
-  m_AimPointVelocitySmoothTime: 0.15
-  m_AimPointMaxProjectionSeconds: 0.5
   m_LayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8572,13 +8613,10 @@ MonoBehaviour:
   m_DrawVisionGizmos: 0
   m_GizmoRayHitColor: {r: 1, g: 0.3, b: 0.1, a: 0.9}
   m_GizmoRayMissColor: {r: 0.4, g: 0.4, b: 0.9, a: 0.6}
-  m_LineOfFireSafetyRadius: 0.35
-  m_LineOfFireBlockedRetrySeconds: 0.15
   m_DrawEyeLookDebugRay: 1
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
   m_LogReadyForwardShift: 0
-  m_LogLineOfFireSuppression: 1
 --- !u!114 &1955663392430061257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8592,7 +8630,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponAiming
   m_UnitEquipment: {fileID: 5322687323565292150}
-  m_Vision: {fileID: 1773384317962348157}
+  m_TargetSelector: {fileID: 0}
   m_UnitForwardSource: {fileID: 6544963493894048048}
   m_Animator: {fileID: 5771954729034314130}
   m_ReadyHands: {fileID: 1703047740406568110}
@@ -8608,26 +8646,52 @@ MonoBehaviour:
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
   m_RtsMember: {fileID: 0}
+  m_SpineLean: {fileID: 0}
+  m_SpineHorizontalAim: {fileID: 6182047391850274610}
+  m_AnimatorWeaponMode: {fileID: 0}
+  m_SkipBodyAlignWhenLeanAbove: 0.05
   m_RequireReadyAndTarget: 1
   m_AimAtVisibleTarget: 1
   m_PitchSmoothTime: 0.08
   m_SofterAimPitchWhileFiring: 1
   m_PitchSmoothTimeWhileFiring: 0.2
+  m_WalkPitchCompensationStandDegrees: -4.5
+  m_WalkPitchCompensationCrouchDegrees: -8.5
   m_LayerWeightSmoothSeconds: 0.08
   m_BlockAimDuringStanceTransition: 1
   m_BlockCombatAimDuringReload: 1
+  m_ReloadExitAimSettleSeconds: 0.22
+  m_AimYawSmoothTime: 0.04
+  m_MaxArmAimYawDegrees: 5
+  m_MaxArmAimPitchDegrees: 5
   m_EnableWeaponModelAimCorrection: 1
-  m_WeaponModelYawLimitDegrees: 20
+  m_WeaponModelYawLimitDegrees: 5
   m_WeaponModelPitchUpLimitDegrees: 18
   m_WeaponModelPitchDownLimitDegrees: 10
   m_WeaponModelCorrectionSmoothTime: 0.04
   m_SofterWeaponModelCorrectionWhileFiring: 1
   m_WeaponModelCorrectionSmoothTimeWhileFiring: 0.12
+  m_LeanAimYawLimitDegrees: 36
   m_AlignBarrelToBodyWhenReadyNoTarget: 1
   m_BodyAlignYawLimitDegrees: 90
   m_BodyAlignYawSmoothTime: 0.02
+  m_FireRaiseAimCorrectionEaseSeconds: 0.22
   m_LogReadyBodyAlign: 0
   m_LogReadyBodyAlignIntervalSeconds: 0.25
+  m_LogPoseAimTransitions: 0
+  m_LogPoseAimTransitionIntervalSeconds: 0.2
+  m_LogReloadAimMix: 0
+  m_LogReloadAimIntervalSeconds: 0.12
+  m_LogReloadAimAfterSeconds: 2.5
+  m_LogHipFireAimMix: 0
+  m_LogHipFireAimIntervalSeconds: 0.12
+  m_LogHipFireAimAfterSeconds: 2.5
+  m_LogWeaponSpin: 0
+  m_LogWeaponSpinIntervalSeconds: 0.1
+  m_LogWeaponSpinAfterSeconds: 3
+  m_WeaponSpinLocalJumpDegrees: 4
+  m_WeaponSpinBarrelJumpDegrees: 10
+  m_WeaponSpinRootTurnDegrees: 2.5
   m_DebugCombatAimActive: 0
   m_DebugCurrentStance: 0
   m_DebugAimPointWorld: {x: 0, y: 0, z: 0}
@@ -8636,11 +8700,123 @@ MonoBehaviour:
   m_DebugWeaponPitchErrorDegrees: 0
   m_DebugWeaponYawAppliedDegrees: 0
   m_DebugWeaponPitchAppliedDegrees: 0
+  m_DebugDesiredAimYawDegrees: 0
+  m_DebugDesiredAimPitchDegrees: 0
+  m_DebugResidualYawDegrees: 0
+  m_DebugResidualPitchDegrees: 0
+  m_DebugAimQuality01: 1
+  m_DebugAimSaturation: 0
   m_DebugSmoothedPitch01: 0
+  m_DebugWalkPitchCompensationDegrees: 0
   m_DebugAimLayerWeight: 0
   m_DrawBarrelForwardRay: 1
   m_BarrelForwardRayLength: 120
   m_BarrelForwardRayColor: {r: 1, g: 0.85, b: 0, a: 0.95}
+--- !u!114 &731500000000000410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7f3a1c94b2d4e608c5a7d91f0b36e48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponAimVisualBarrelSpinFlush
+  m_Aiming: {fileID: 1955663392430061257}
+--- !u!114 &6182047391850274610
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7e4c91a2f6d4a0e9c3d5f8172a64b10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitSpineHorizontalAim
+  m_Animator: {fileID: 5771954729034314130}
+  m_TargetSelector: {fileID: 0}
+  m_ReadyHands: {fileID: 1703047740406568110}
+  m_Stance: {fileID: 3741241907743255212}
+  m_BusyState: {fileID: 383407823447829567}
+  m_RagdollController: {fileID: 8893568136447935561}
+  m_GrenadeThrowController: {fileID: 0}
+  m_FallenDragController: {fileID: 7912499842099294814}
+  m_FiremanCarryController: {fileID: 0}
+  m_VehiclePassengerState: {fileID: 0}
+  m_RtsMember: {fileID: 3503617795371132269}
+  m_ClickToMove: {fileID: 4256334534260426623}
+  m_LocomotionDriver: {fileID: 6826918016596314260}
+  m_Equipment: {fileID: 0}
+  m_ReloadController: {fileID: 4859917004016156609}
+  m_EquippedWeaponPose: {fileID: 731500000000000200}
+  m_Spine01: {fileID: 3770988348980524466}
+  m_Spine02: {fileID: 5583257052563532237}
+  m_Spine01Weight: 0.35
+  m_MaxAbsorbDegrees: 35
+  m_YawSmoothTime: 0.13
+  m_RecenterCompleteDegrees: 2.5
+  m_BlockDuringStanceTransition: 1
+  m_MaxHipFireWalkPitchDegrees: 18
+  m_HipFireWalkBarrelLiftCrouch: 5
+  m_HipFireWalkBarrelLiftStand: 4
+  m_MaxHipFireWalkYawDegrees: 14
+  m_PitchSmoothTime: 0.13
+  m_DebugIsActive: 0
+  m_DebugWantsRootRecenter: 0
+  m_DebugBodyToTargetYaw: 0
+  m_DebugSmoothedSpineYaw: 0
+  m_DebugSmoothedSpinePitch: 0
+--- !u!114 &7293158402961385721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8f1a03e5b7d4e6a9d2c4f8153a70b21, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitSpineLean
+  m_Animator: {fileID: 5771954729034314130}
+  m_Stance: {fileID: 3741241907743255212}
+  m_BusyState: {fileID: 383407823447829567}
+  m_RagdollController: {fileID: 8893568136447935561}
+  m_GrenadeThrowController: {fileID: 0}
+  m_FallenDragController: {fileID: 7912499842099294814}
+  m_FiremanCarryController: {fileID: 0}
+  m_VehiclePassengerState: {fileID: 0}
+  m_ClickToMove: {fileID: 4256334534260426623}
+  m_LocomotionDriver: {fileID: 6826918016596314260}
+  m_Equipment: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
+  m_Spine01: {fileID: 3770988348980524466}
+  m_Spine02: {fileID: 5583257052563532237}
+  m_StandingDegrees:
+  - 0
+  - 11
+  - 20
+  - 26
+  m_CrouchDegrees:
+  - 0
+  - 9
+  - 17
+  - 22
+  m_Spine01Weight: 0.4
+  m_SmoothTime: 0.13
+  m_SettleDegrees: 1
+  m_BlockDuringStanceTransition: 1
+  m_DebugLeanLevel: 0
+  m_DebugLeanSide: 0
+  m_DebugTargetLeanDegrees: 0
+  m_DebugSmoothedLeanDegrees: 0
+  m_DebugBlocked: 0
+  m_LogLeanDiagnostics: 0
+  m_LogIntervalSeconds: 0.45
 --- !u!114 &1512094426153763378
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8763,7 +8939,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponHitscanShooting
   m_Equipment: {fileID: 5322687323565292150}
   m_WeaponRuntime: {fileID: 1512094426153763378}
-  m_Vision: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
   m_Stance: {fileID: 0}
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
@@ -8774,6 +8950,7 @@ MonoBehaviour:
   m_AimProgressController: {fileID: 365107933097138229}
   m_FireDisciplineController: {fileID: 4829173650182746501}
   m_RecoilController: {fileID: 0}
+  m_ReadyHands: {fileID: 0}
   m_HitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8837,6 +9014,7 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_TargetSelector: {fileID: 0}
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
@@ -8863,8 +9041,16 @@ MonoBehaviour:
   m_RequireBarrelAlignedToFire: 1
   m_MaxBarrelAimErrorDegrees: 3
   m_MaxBarrelAimErrorDegreesCrouch: 9
-  m_MaxBarrelAimErrorDegreesCrouchMoving: 10
+  m_MaxBarrelAimErrorDegreesCrouchMoving: 9
   m_MaxBarrelAimErrorDegreesMoving: 8
+  m_MaxBarrelAimErrorDegreesPointAim: 5
+  m_MaxBarrelAimErrorDegreesPointAimMoving: 10
+  m_MaxBarrelAimErrorDegreesPointAimCrouch: 7
+  m_MaxBarrelAimErrorDegreesPointAimCrouchMoving: 11
+  m_MaxBarrelAimErrorDegreesHipFire: 12
+  m_MaxBarrelAimErrorDegreesHipFireMoving: 16
+  m_MaxBarrelAimErrorDegreesHipFireCrouch: 14
+  m_MaxBarrelAimErrorDegreesHipFireCrouchMoving: 18
   m_IsFiringCommandActive: 0
   m_LastShotAttemptResult: 1
   m_LastFiredAmmoDefinition: {fileID: 0}
@@ -8875,6 +9061,7 @@ MonoBehaviour:
   m_DebugEffectiveFireMode: 0
   m_DebugCurrentAimProgress: 0
   m_DebugLastBarrelAimErrorDegrees: 0
+  m_DebugLastAimGateFail: ok
 --- !u!114 &731300000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8906,6 +9093,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponAimProgressController
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_ReadyHands: {fileID: 1703047740406568110}
+  m_TargetSelector: {fileID: 0}
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
@@ -8958,7 +9146,7 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_Equipment: {fileID: 5322687323565292150}
-  m_Vision: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
   m_CombatStats: {fileID: 3408199974750778793}
   m_IndividualTraits: {fileID: 1889259709996966414}
   m_DebugSelectedDiscipline: 3
@@ -9033,8 +9221,26 @@ MonoBehaviour:
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
+      time: 15
+      value: 0.6
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 30
+      value: 1.7
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
       time: 60
-      value: 5
+      value: 4.5
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -9044,16 +9250,75 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  m_BackScale: 0.006
-  m_UpScale: 0.002
   m_VisualOffsetScale: 1
-  m_ShotPitch: 1
+  m_ShotPitch: 2.5
   m_ShotYawScale: 0.3
-  m_ShotSmoothTime: 0.05
-  m_HandPitch: 0.45
-  m_HandYaw: 0.35
-  m_HandBack: 0.5
-  m_HandUp: 0.4
+  m_YawBias: 0.45
+  m_ShotSmoothTime: 0.08
+  m_DecayWhileFiringMultiplier: 1.75
+  m_MaxShotImpulse: 6
+  m_MaxShotYawDegrees: 6
+  m_BackScale: 0.035
+  m_UpScale: 0.008
+  m_HandPitch: 0.8
+  m_HandYaw: 0.85
+  m_HandBack: 1
+  m_HandUp: 0.75
+--- !u!114 &5739102847163921846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c2f6e1a4b7d4038a5e8c0d1f3b69427, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponVisualRecoilApplicator
+  m_Recoil: {fileID: 8412401315927888462}
+  m_Equipment: {fileID: 5322687323565292150}
+--- !u!114 &2201847193058471622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e8f2a1b9c6d47e0b3a5d8c1f0e29476, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponArmRecoil
+  m_Animator: {fileID: 5771954729034314130}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_WeaponRecoil: {fileID: 8412401315927888462}
+  m_FireController: {fileID: 8854059317223957988}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_MaxArmImpulse: 2.5
+  m_ArmResponseTau: 0.13
+  m_ShoulderResponseTau: 0.18
+  m_RecoveryTau: 0.13
+  m_ArmShotCatchup: 0.9
+  m_ShoulderShotCatchup: 0.5
+  m_ShoulderStrength: 1.5
+  m_ShoulderPitch: 2.5
+  m_ShoulderYaw: 0.8
+  m_ShoulderRoll: 0.45
+  m_MaxShoulderPitch: 3
+  m_MaxShoulderYaw: 2
+  m_MaxShoulderRoll: 2
+  m_ShoulderCarry: 0.22
+  m_ElbowCarry: 0.5
+  m_ElbowStrength: 1.5
+  m_ElbowBackward: 0
+  m_ElbowDown: 0
+  m_MaxPoleRotation: 18
+  m_FullQualityDistanceMeters: 12
+  m_LightQualityDistanceMeters: 25
+  m_QualityCheckIntervalSeconds: 0.25
+  m_DebugDraw: 0
+  m_LogOnShot: 0
 --- !u!114 &8082661923994252123
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9192,6 +9457,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimatorHandIk
   m_UnitEquipment: {fileID: 5322687323565292150}
+  m_GripResolver: {fileID: 731500000000000301}
   m_RuntimeTuner: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_MagazineLoading: {fileID: 0}
@@ -9202,7 +9468,6 @@ MonoBehaviour:
   m_GrenadeThrow: {fileID: 0}
   m_RocketLauncherOrder: {fileID: 0}
   m_TurretReloadEvents: {fileID: 0}
-  m_WeaponRecoil: {fileID: 0}
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
   m_Stance: {fileID: 0}
@@ -9212,6 +9477,8 @@ MonoBehaviour:
   m_RightHandPositionWeight: 1
   m_RightHandRotationWeight: 1
   m_RightHandNotReadyIkWeight: 1
+  m_LeftHandIkWeightWhileRunning: 1
+  m_RightHandIkWeightWhileRunning: 0
   m_EquipBlendDuration: 0.35
   m_EquipBlendCurve:
     serializedVersion: 2
@@ -9237,11 +9504,40 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  m_LeftIkRaiseSeconds: 0.07
+  m_LeftIkReleaseSeconds: 0.12
+  m_RightIkRaiseSeconds: 0.08
+  m_RightIkReleaseSeconds: 0.1
+  m_LeftSnapWeightThreshold: 0.85
+  m_MaxGripErrorMeters: 0.12
+  m_RightTargetJumpLogMeters: 0.08
   m_UseLeftElbowHint: 0
   m_LeftElbowHint: {fileID: 0}
   m_LeftElbowHintWeight: 1
   m_DrawIkTargetGizmo: 1
   m_LogProximityIk: 1
+--- !u!114 &731500000000000301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b82a14b93b6140458088963fb11c82fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponGripResolver
+  m_UnitEquipment: {fileID: 5322687323565292150}
+  m_WeaponPose: {fileID: 731500000000000200}
+  m_Stance: {fileID: 3741241907743255212}
+  m_VehiclePassengerState: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
+  m_DefaultRightWeight: 0.35
+  m_DefaultLeftWeight: 0.9
+  m_StanceIkBlendSeconds: 0.2
+  m_RightTargetMaxMetersPerSecond: 2.5
+  m_RightTargetMaxDegreesPerSecond: 540
 --- !u!114 &9123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10190,7 +10486,7 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_Animator: {fileID: 0}
   m_ReadyLayer: {fileID: 0}
-  m_Vision: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
   m_Data: {fileID: 11400000, guid: b8d4f02a3c5e4f7b9a2d1e6f0c4b8d23, type: 2}
   m_RpgHandler: {fileID: 647898583761294422}
   m_DisposableHandler: {fileID: 647898583761294423}
@@ -10264,6 +10560,35 @@ MonoBehaviour:
   m_IsSleepPoseActive: 0
   m_ExternalPoseOverride: 0
   m_DebugLayerWeight: 0
+--- !u!114 &1100000875000488401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b4eb1dcb125b254bbf9b9ef38063299, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::UnitObservationSource
+  m_Equipment: {fileID: 5322687323565292150}
+  m_ReadyHands: {fileID: 1703047740406568110}
+  m_EyeHeight: 1.6
+  m_SightPivotOverride: {fileID: 0}
+  m_SightPivotChildName: 
+--- !u!114 &7085333448395688764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 570ddcacd39ee9c4e94896d08918dc5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::UnitPerception
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

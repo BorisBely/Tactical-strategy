@@ -12,7 +12,9 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[Tooltip("Состояние ready: без него боевое прицеливание не накапливается.")]
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
-	[Tooltip("Видимая цель, при необходимости обязательная для роста AimProgress.")]
+	[Tooltip("Selected/engageable combat target (TargetSelector).")]
+	[SerializeField] private TargetSelector m_TargetSelector;
+	[Tooltip("Detection scan defer after clearing non-engageable selection.")]
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
@@ -73,6 +75,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
 		if (m_BusyState == null)
@@ -101,21 +105,21 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private void OnEnable()
 	{
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged += HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged += HandleSelectedTargetChanged;
 		if (m_FireController != null)
 			m_FireController.ShotFired += HandleShotFired;
 
-		m_LastVisibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
-		m_LastValidAimPointWorld = m_LastVisibleTarget != null && m_Vision != null
-			? m_Vision.GetVisibleTargetAimPointWorld()
+		m_LastVisibleTarget = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
+		m_LastValidAimPointWorld = m_LastVisibleTarget != null && m_TargetSelector != null
+			? m_TargetSelector.GetEngageableAimPointWorld()
 			: Vector3.zero;
 	}
 
 	private void OnDisable()
 	{
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged -= HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged -= HandleSelectedTargetChanged;
 		if (m_FireController != null)
 			m_FireController.ShotFired -= HandleShotFired;
 	}
@@ -144,7 +148,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		m_WeaponRuntime.SetAimProgress(nextProgress);
 		m_DebugCurrentAimTimeSeconds = aimTimeSeconds;
 		m_DebugCanAccumulateAim = canAccumulateAim;
-		m_DebugCurrentTarget = m_Vision != null ? m_Vision.VisibleTarget : null;
+		m_DebugCurrentTarget = m_TargetSelector != null ? m_TargetSelector.SelectedTarget : null;
 	}
 	#endregion
 
@@ -154,27 +158,32 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (m_WeaponRuntime == null || m_WeaponRuntime.CurrentWeaponDefinition == null)
 			return false;
 
-		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady()))
+		if (m_RequireReady)
 		{
-			return false;
+			if (m_ReadyHands == null)
+				return false;
+			if (!m_ReadyHands.EffectivePoseState.CanAccumulateAimFromPose() &&
+			    !m_ReadyHands.IsWeaponEquippedAndReady())
+				return false;
 		}
 
-		if (m_RequireVisibleTarget && (m_Vision == null || m_Vision.GetEngageableVisibleTarget() == null))
+		if (m_RequireVisibleTarget)
 		{
-			return false;
+			if (m_TargetSelector == null)
+				return false;
+			if (m_TargetSelector.GetEngageableSelectedTarget() == null)
+				return false;
 		}
 
 		if (m_BlockDuringStanceTransition &&
-			m_BusyState != null &&
-			m_BusyState.IsBusy &&
-			(m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
-		{
+		    m_BusyState != null &&
+		    m_BusyState.IsBusy &&
+		    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
 			return false;
-		}
 
 		if (m_BlockDuringReloadOrBoltCycle &&
-			m_ReloadController != null &&
-			m_ReloadController.IsReloadBusy)
+		    m_ReloadController != null &&
+		    m_ReloadController.IsReloadBusy)
 			return false;
 
 		if (m_MagazineLoadingController != null && m_MagazineLoadingController.IsLoadingMagazine)
@@ -187,19 +196,64 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
 		WeaponRuntimeState weaponState = m_WeaponRuntime != null ? m_WeaponRuntime.RuntimeState : null;
+		float distance = EstimateTargetDistanceMeters();
+
+		WeaponPoseState pose = m_ReadyHands != null
+			? m_ReadyHands.EffectivePoseState
+			: WeaponPoseState.Aiming;
+		bool includeOptics = pose == WeaponPoseState.Aiming;
+		WeaponAttachmentDefinition[] attachments = weaponState != null ? weaponState.EquippedAttachments : null;
+		WeaponAttachmentDefinition[] filtered = WeaponPoseAutoCapabilityBaker.FilterAttachments(attachments, includeOptics);
+
 		float weaponAimTimeSeconds = WeaponDistanceAimEvaluator.GetRequiredAimTimeSeconds(
 			weaponDefinition,
-			weaponState != null ? weaponState.EquippedAttachments : null,
-			EstimateTargetDistanceMeters());
+			filtered,
+			distance);
+		float poseDistanceAimMult = WeaponPoseDistanceCurves.GetAimTimeMultiplier(pose, distance);
+
+		// Prefer baked pose aim mult (includes unit+flat attach+pose factor) — avoid double-counting skills.
+		if (m_ReadyHands != null && m_ReadyHands.PoseCapabilityCache.IsValid)
+		{
+			float bakedPoseAim = m_ReadyHands.PoseCapabilityCache.GetAimTimeMult(pose);
+			float weaponDistOnly = weaponDefinition != null
+				? Mathf.Max(0.01f, weaponDefinition.GetDistanceAimTimeMultiplier(distance))
+				: 1f;
+			float baseAim = weaponDefinition != null ? weaponDefinition.AimTimeSeconds : 0.28f;
+			float postureMultiplier = m_StanceCombatModifiers != null
+				? m_StanceCombatModifiers.GetAimTimeMultiplier()
+				: 1f;
+			float seconds = baseAim * weaponDistOnly * bakedPoseAim * poseDistanceAimMult * postureMultiplier;
+			return Mathf.Max(0.01f, ApplyLaserAimTime(seconds, pose, attachments, distance, _cacheIncludesAimingLaser: true));
+		}
+
 		float unitMultiplier = m_CombatStats != null ? m_CombatStats.GetAimTimeMultiplier() : 1f;
 		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetAimTimeMultiplier() : 1f;
 		float conditionMultiplier = m_CombatCondition != null
 			? m_CombatCondition.GetAimTimeMultiplier(IsMoving())
 			: 1f;
-		float postureMultiplier = m_StanceCombatModifiers != null
+		float postureMult = m_StanceCombatModifiers != null
 			? m_StanceCombatModifiers.GetAimTimeMultiplier()
 			: 1f;
-		return Mathf.Max(0.01f, weaponAimTimeSeconds * unitMultiplier * individualMultiplier * conditionMultiplier * postureMultiplier);
+		float poseScale = pose.IsHipFireHold() ? 0.55f
+			: pose == WeaponPoseState.PointAim ? 0.85f
+			: pose == WeaponPoseState.PreAim ? PreAimPoseUtility.AimTimeMult
+			: 1f;
+		float fallbackSeconds = weaponAimTimeSeconds * unitMultiplier * individualMultiplier * conditionMultiplier * postureMult * poseScale * poseDistanceAimMult;
+		return Mathf.Max(0.01f, ApplyLaserAimTime(fallbackSeconds, pose, attachments, distance, _cacheIncludesAimingLaser: false));
+	}
+
+	private static float ApplyLaserAimTime(
+		float _seconds,
+		WeaponPoseState _pose,
+		WeaponAttachmentDefinition[] _attachments,
+		float _distanceMeters,
+		bool _cacheIncludesAimingLaser)
+	{
+		if (_pose == WeaponPoseState.PointAim)
+			return _seconds * WeaponLaserModifiers.GetPointAimAimTimeProduct(_attachments, _distanceMeters);
+		if (_pose == WeaponPoseState.Aiming && !_cacheIncludesAimingLaser)
+			return _seconds * WeaponLaserModifiers.GetAimingAimTimeProduct(_attachments);
+		return _seconds;
 	}
 
 	private bool IsMoving()
@@ -214,11 +268,11 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return 0f;
 
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 
@@ -236,19 +290,19 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		m_WeaponRuntime.SetAimProgress(0f);
 	}
 
-	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)
+	private void HandleSelectedTargetChanged(Transform _newSelectedTarget)
 	{
 		TrySyncEngagementTarget();
 	}
 
 	private void TrySyncEngagementTarget()
 	{
-		Transform engageableTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform engageableTarget = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 
 		Vector3 oldAimPoint = m_LastValidAimPointWorld;
 		if (engageableTarget != null)
 		{
-			Vector3 currentAimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+			Vector3 currentAimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 			if (currentAimPoint != Vector3.zero)
 				m_LastValidAimPointWorld = currentAimPoint;
 		}
@@ -256,18 +310,21 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (engageableTarget == m_LastVisibleTarget)
 			return;
 
-		if (m_LastVisibleTarget != null && engageableTarget == null && m_Vision.VisibleTarget != null)
+		// Selected but not engageable: clear selection and wait for next planned scan.
+		if (m_LastVisibleTarget != null && engageableTarget == null &&
+		    m_TargetSelector != null && m_TargetSelector.SelectedTarget != null)
 		{
 			m_LastVisibleTarget = null;
-			m_Vision.ClearVisibleTargetAndWaitForNextScan();
+			m_TargetSelector.ClearSelectionAndNotifyIfHadTarget();
+			m_Vision?.DeferNextScan();
 			return;
 		}
 
 		Transform previousTarget = m_LastVisibleTarget;
 		m_LastVisibleTarget = engageableTarget;
 
-		if (m_Vision != null &&
-			m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget) &&
+		if (m_TargetSelector != null &&
+			m_TargetSelector.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget) &&
 			m_WeaponRuntime != null)
 		{
 			bool isFullAuto = m_FireController != null && m_FireController.IsCurrentEffectiveFireModeAutomatic()
@@ -287,10 +344,10 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 
 	private float CalculateAimCarryover(Vector3 _oldAimPointWorld)
 	{
-		if (m_Vision == null || _oldAimPointWorld == Vector3.zero)
+		if (m_TargetSelector == null || _oldAimPointWorld == Vector3.zero)
 			return 0f;
 
-		Vector3 newAimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 newAimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (newAimPoint == Vector3.zero)
 			return 0f;
 

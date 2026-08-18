@@ -47,6 +47,22 @@ public class InventoryGroundToCharacterDrag : MonoBehaviour, IBeginDragHandler, 
 		if (m_CanvasGroup == null)
 			m_CanvasGroup = gameObject.AddComponent<CanvasGroup>();
 	}
+
+	private void OnDisable()
+	{
+		if (!m_Dragging)
+			return;
+
+		m_Dragging = false;
+		if (m_CanvasGroup != null)
+			m_CanvasGroup.blocksRaycasts = true;
+
+		m_ModDragAttachment = null;
+		m_DropAccepted = false;
+		m_GroundContentParent = null;
+		m_CapturedGroundSlotIndex = -1;
+		RuntimeInventoryModificationDragContext.ResetAfterDrag();
+	}
 	#endregion
 
 	#region Public Methods

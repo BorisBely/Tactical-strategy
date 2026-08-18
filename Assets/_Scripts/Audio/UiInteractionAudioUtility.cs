@@ -51,8 +51,7 @@ public static class UiInteractionAudioUtility
 	public static void WireAllHoverSoundsInLoadedScenes()
 	{
 		Selectable[] selectables = Object.FindObjectsByType<Selectable>(
-			FindObjectsInactive.Include,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Include);
 		for (int i = 0; i < selectables.Length; i++)
 			EnsureHoverSoundOn(selectables[i].gameObject);
 
@@ -62,8 +61,7 @@ public static class UiInteractionAudioUtility
 	public static void WireExpandedDropdownItems()
 	{
 		TMP_Dropdown[] dropdowns = Object.FindObjectsByType<TMP_Dropdown>(
-			FindObjectsInactive.Include,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Include);
 		for (int i = 0; i < dropdowns.Length; i++)
 		{
 			if (dropdowns[i] == null)
@@ -73,8 +71,7 @@ public static class UiInteractionAudioUtility
 		}
 
 		Dropdown[] legacyDropdowns = Object.FindObjectsByType<Dropdown>(
-			FindObjectsInactive.Include,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Include);
 		for (int i = 0; i < legacyDropdowns.Length; i++)
 		{
 			if (legacyDropdowns[i] == null)

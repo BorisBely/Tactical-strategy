@@ -1,32 +1,24 @@
-using System;
 using CombatVehicleSystem;
 using UnityEngine;
 
 /// <summary>
-/// Realistic engine audio: start one-shot + crossfade between RPM loop layers.
+/// Engine audio: start one-shot + single looping clip pitched by speed/throttle load.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(VehicleBrain))]
 public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 {
-	#region Nested
-	[Serializable]
-	public struct RpmLayer
-	{
-		public float Rpm;
-		public AudioClip Clip;
-	}
-	#endregion
-
 	#region Serialized Fields
 	[SerializeField] private AudioClip m_StartClip;
-	[SerializeField] private RpmLayer[] m_RpmLayers = Array.Empty<RpmLayer>();
+	[SerializeField] private AudioClip m_LoopClip;
 	[SerializeField, Range(0f, 1f)] private float m_Volume = 1f;
 	[SerializeField, Range(0f, 1f)] private float m_SpatialBlend = 1f;
 	[SerializeField, Min(1f)] private float m_MinDistance = 30f;
 	[SerializeField, Min(1f)] private float m_MaxDistance = 180f;
 	[SerializeField, Min(0.01f)] private float m_LoopFadeSeconds = 0.35f;
-	[SerializeField, Min(1f)] private float m_RpmSmoothSpeed = 900f;
+	[SerializeField, Min(0.01f)] private float m_LoadSmoothSpeed = 1.5f;
+	[SerializeField, Range(0.1f, 3f)] private float m_IdlePitch = 1f;
+	[SerializeField, Range(0.1f, 3f)] private float m_MaxPitch = 2f;
 	[SerializeField, Range(0f, 1f)] private float m_ThrottleInfluence = 0.35f;
 	[SerializeField, Range(0f, 1f)] private float m_SpeedInfluence = 0.65f;
 	#endregion
@@ -36,9 +28,8 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 	private WheeledMotor m_WheeledMotor;
 	private TrackedMotor m_TrackedMotor;
 	private AudioSource m_StartSource;
-	private AudioSource m_LoopSourceA;
-	private AudioSource m_LoopSourceB;
-	private float m_SmoothedRpm = 600f;
+	private AudioSource m_LoopSource;
+	private float m_SmoothedLoad;
 	private float m_LoopGain;
 	private bool m_Subscribed;
 	#endregion
@@ -49,9 +40,8 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 		m_Brain = GetComponent<VehicleBrain>();
 		m_WheeledMotor = GetComponent<WheeledMotor>();
 		m_TrackedMotor = GetComponent<TrackedMotor>();
-		SortLayers();
 		EnsureAudioSources();
-		StopLoopSourcesImmediate();
+		StopLoopSourceImmediate();
 	}
 
 	private void OnEnable()
@@ -64,7 +54,7 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 	private void OnDisable()
 	{
 		Unsubscribe();
-		StopLoopSourcesImmediate();
+		StopLoopSourceImmediate();
 	}
 
 	private void Update()
@@ -72,7 +62,7 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 		if (m_Brain == null || !m_Brain.EngineRunning)
 			return;
 
-		UpdateLoopCrossfade();
+		UpdateLoopPlayback();
 	}
 	#endregion
 
@@ -103,12 +93,15 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 
 	private void BeginEngineStart()
 	{
-		m_SmoothedRpm = GetMinRpm();
+		m_SmoothedLoad = 0f;
 		m_LoopGain = 0f;
-		StopLoopSourcesImmediate();
+		StopLoopSourceImmediate();
 
-		if (m_StartClip != null && m_StartSource != null)
-			m_StartSource.PlayOneShot(m_StartClip, m_Volume);
+		if (m_StartClip == null || m_StartSource == null)
+			return;
+
+		m_StartSource.volume = m_Volume;
+		m_StartSource.PlayOneShot(m_StartClip, m_Volume);
 	}
 
 	private void StopEngineAudio()
@@ -116,36 +109,48 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 		if (m_StartSource != null && m_StartSource.isPlaying)
 			m_StartSource.Stop();
 
-		StopLoopSourcesImmediate();
-		m_SmoothedRpm = GetMinRpm();
+		StopLoopSourceImmediate();
+		m_SmoothedLoad = 0f;
 		m_LoopGain = 0f;
 	}
 
-	private void UpdateLoopCrossfade()
+	private void UpdateLoopPlayback()
 	{
-		if (m_RpmLayers == null || m_RpmLayers.Length == 0)
+		if (m_LoopClip == null || m_LoopSource == null)
 			return;
 
-		float targetRpm = m_Brain.EngineReady ? EstimateTargetRpm() : GetMinRpm();
-		m_SmoothedRpm = Mathf.MoveTowards(m_SmoothedRpm, targetRpm, m_RpmSmoothSpeed * Time.deltaTime);
+		float targetLoad = m_Brain.EngineReady ? EstimateLoad01() : 0f;
+		m_SmoothedLoad = Mathf.MoveTowards(m_SmoothedLoad, targetLoad, m_LoadSmoothSpeed * Time.deltaTime);
 
 		float targetGain = m_Brain.EngineReady ? m_Volume : 0f;
-		m_LoopGain = Mathf.MoveTowards(m_LoopGain, targetGain, (m_Volume / Mathf.Max(0.01f, m_LoopFadeSeconds)) * Time.deltaTime);
+		m_LoopGain = Mathf.MoveTowards(
+			m_LoopGain,
+			targetGain,
+			(m_Volume / Mathf.Max(0.01f, m_LoopFadeSeconds)) * Time.deltaTime);
+
 		if (m_LoopGain <= 0.001f)
 		{
-			StopLoopSourcesImmediate();
+			StopLoopSourceImmediate();
 			return;
 		}
 
-		FindAdjacentLayers(m_SmoothedRpm, out int lowerIndex, out int upperIndex, out float blend01);
-		ApplyLayerToSource(m_LoopSourceA, lowerIndex, (1f - blend01) * m_LoopGain);
-		ApplyLayerToSource(m_LoopSourceB, upperIndex, blend01 * m_LoopGain);
+		if (m_LoopSource.clip != m_LoopClip)
+		{
+			m_LoopSource.clip = m_LoopClip;
+			m_LoopSource.time = 0f;
+			m_LoopSource.Play();
+		}
+		else if (!m_LoopSource.isPlaying)
+		{
+			m_LoopSource.Play();
+		}
+
+		m_LoopSource.volume = Mathf.Clamp01(m_LoopGain);
+		m_LoopSource.pitch = Mathf.Lerp(m_IdlePitch, m_MaxPitch, m_SmoothedLoad);
 	}
 
-	private float EstimateTargetRpm()
+	private float EstimateLoad01()
 	{
-		float minRpm = GetMinRpm();
-		float maxRpm = GetMaxRpm();
 		float topSpeed = m_Brain.Tuning != null ? Mathf.Max(1f, m_Brain.Tuning.TopSpeedKmh) : 100f;
 		float speedRatio = Mathf.Clamp01(m_Brain.CurrentSpeedKmh / topSpeed);
 		float throttle = 0f;
@@ -155,98 +160,38 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 			throttle = speedRatio;
 
 		float load = m_ThrottleInfluence * throttle + m_SpeedInfluence * speedRatio;
-		float rpm01 = Mathf.Clamp01(Mathf.Max(speedRatio, load));
-		return Mathf.Lerp(minRpm, maxRpm, rpm01);
+		return Mathf.Clamp01(Mathf.Max(speedRatio, load));
 	}
 
-	private void FindAdjacentLayers(float _rpm, out int _lowerIndex, out int _upperIndex, out float _blend01)
+	private void StopLoopSourceImmediate()
 	{
-		_lowerIndex = 0;
-		_upperIndex = 0;
-		_blend01 = 0f;
-
-		if (m_RpmLayers.Length == 1)
+		if (m_LoopSource == null)
 			return;
-
-		if (_rpm <= m_RpmLayers[0].Rpm)
-		{
-			_lowerIndex = 0;
-			_upperIndex = 1;
-			_blend01 = 0f;
-			return;
-		}
-
-		int last = m_RpmLayers.Length - 1;
-		if (_rpm >= m_RpmLayers[last].Rpm)
-		{
-			_lowerIndex = last - 1;
-			_upperIndex = last;
-			_blend01 = 1f;
-			return;
-		}
-
-		for (int i = 0; i < last; i++)
-		{
-			float lowRpm = m_RpmLayers[i].Rpm;
-			float highRpm = m_RpmLayers[i + 1].Rpm;
-			if (_rpm < lowRpm || _rpm > highRpm)
-				continue;
-
-			_lowerIndex = i;
-			_upperIndex = i + 1;
-			float span = Mathf.Max(1f, highRpm - lowRpm);
-			_blend01 = (_rpm - lowRpm) / span;
-			return;
-		}
-	}
-
-	private void ApplyLayerToSource(AudioSource _source, int _layerIndex, float _volume)
-	{
-		if (_source == null || _layerIndex < 0 || _layerIndex >= m_RpmLayers.Length)
-			return;
-
-		AudioClip clip = m_RpmLayers[_layerIndex].Clip;
-		if (clip == null)
-		{
-			if (_source.isPlaying)
-				_source.Stop();
-			return;
-		}
-
-		if (_source.clip != clip)
-		{
-			_source.clip = clip;
-			_source.time = 0f;
-			_source.Play();
-		}
-		else if (!_source.isPlaying)
-		{
-			_source.Play();
-		}
-
-		_source.volume = Mathf.Clamp01(_volume);
-	}
-
-	private void StopLoopSourcesImmediate()
-	{
-		StopSource(m_LoopSourceA);
-		StopSource(m_LoopSourceB);
-	}
-
-	private static void StopSource(AudioSource _source)
-	{
-		if (_source == null)
-			return;
-		if (_source.isPlaying)
-			_source.Stop();
-		_source.volume = 0f;
+		if (m_LoopSource.isPlaying)
+			m_LoopSource.Stop();
+		m_LoopSource.volume = 0f;
+		m_LoopSource.pitch = m_IdlePitch;
 	}
 
 	private void EnsureAudioSources()
 	{
 		m_StartSource = EnsureChildSource("EngineStartAudio", _loop: false);
-		m_LoopSourceA = EnsureChildSource("EngineLoopAudioA", _loop: true);
-		m_LoopSourceB = EnsureChildSource("EngineLoopAudioB", _loop: true);
+		m_LoopSource = EnsureChildSource("EngineLoopAudio", _loop: true);
+
+		// Drop legacy dual-loop children from the previous RPM crossfade setup.
+		DestroyChildIfPresent("EngineLoopAudioA");
+		DestroyChildIfPresent("EngineLoopAudioB");
+	}
+
+	private void DestroyChildIfPresent(string _name)
+	{
+		Transform child = transform.Find(_name);
+		if (child == null)
+			return;
+		if (Application.isPlaying)
+			Destroy(child.gameObject);
+		else
+			DestroyImmediate(child.gameObject);
 	}
 
 	private AudioSource EnsureChildSource(string _name, bool _loop)
@@ -270,29 +215,8 @@ public sealed class VehicleEngineAudio : MonoBehaviour, IAdvancedEngineAudio
 		source.rolloffMode = AudioRolloffMode.Linear;
 		source.dopplerLevel = 0.25f;
 		source.volume = 0f;
+		source.pitch = 1f;
 		return source;
-	}
-
-	private void SortLayers()
-	{
-		if (m_RpmLayers == null || m_RpmLayers.Length < 2)
-			return;
-
-		Array.Sort(m_RpmLayers, static (a, b) => a.Rpm.CompareTo(b.Rpm));
-	}
-
-	private float GetMinRpm()
-	{
-		if (m_RpmLayers == null || m_RpmLayers.Length == 0)
-			return 600f;
-		return m_RpmLayers[0].Rpm;
-	}
-
-	private float GetMaxRpm()
-	{
-		if (m_RpmLayers == null || m_RpmLayers.Length == 0)
-			return 6000f;
-		return m_RpmLayers[m_RpmLayers.Length - 1].Rpm;
 	}
 	#endregion
 }

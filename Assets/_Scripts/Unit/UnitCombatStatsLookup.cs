@@ -22,7 +22,7 @@ public static class UnitCombatStatsLookup
 		_combatStats = null;
 
 #if UNITY_2023_1_OR_NEWER
-		RtsUnitMember[] rtsMembers = UnityEngine.Object.FindObjectsByType<RtsUnitMember>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		RtsUnitMember[] rtsMembers = UnityEngine.Object.FindObjectsByType<RtsUnitMember>(FindObjectsInactive.Exclude);
 #else
 		RtsUnitMember[] rtsMembers = UnityEngine.Object.FindObjectsOfType<RtsUnitMember>();
 #endif
@@ -43,7 +43,7 @@ public static class UnitCombatStatsLookup
 		}
 
 #if UNITY_2023_1_OR_NEWER
-		UnitCombatStats[] allStats = UnityEngine.Object.FindObjectsByType<UnitCombatStats>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		UnitCombatStats[] allStats = UnityEngine.Object.FindObjectsByType<UnitCombatStats>(FindObjectsInactive.Exclude);
 #else
 		UnitCombatStats[] allStats = UnityEngine.Object.FindObjectsOfType<UnitCombatStats>();
 #endif

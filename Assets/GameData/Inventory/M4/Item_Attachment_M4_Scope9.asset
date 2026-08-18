@@ -15,19 +15,30 @@ MonoBehaviour:
   m_LocalizationKey: item.attachment.m4_scope9
   m_Description: "\u0421\u043D\u0430\u0439\u043F\u0435\u0440\u0441\u043A\u0438\u0439
     \u043F\u0440\u0438\u0446\u0435\u043B \u0434\u043B\u044F 80-100 \u043C."
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 21300000, guid: 8a2de6eca76823f4e8bff484ab6691b0, type: 3}
   m_BasePrice: 1100
+  m_WeightKg: 0
   m_Category: 0
   m_DropWorldPrefab: {fileID: 8240590178978148134, guid: 5f47b245812f4ee4bb7dbb7d8d40bf52, type: 3}
   m_EquippedVisualPrefab: {fileID: 6333786410895549730, guid: 5908d36c3ecba4a4d965ecffafe3b4f8, type: 3}
   m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
   m_BackpackCapacity: 0
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
@@ -35,6 +46,13 @@ MonoBehaviour:
   m_WeaponAttachmentDefinition: {fileID: 11400000, guid: 2691da02b3ead7c4b8a4b15f29aae8e2, type: 2}
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:

@@ -108,6 +108,36 @@ public sealed class VehicleSeatLayout : MonoBehaviour
 		return false;
 	}
 
+	/// <summary>Сиденья с валидным Anchor — для UI списка Mission Prep.</summary>
+	public void CollectConfiguredSeats(List<SeatBinding> _out)
+	{
+		if (_out == null)
+			return;
+
+		_out.Clear();
+		for (int i = 0; i < m_Seats.Length; i++)
+		{
+			if (m_Seats[i].Anchor == null)
+				continue;
+			_out.Add(m_Seats[i]);
+		}
+	}
+
+	/// <summary>Посадочные места без носилок — для списка Mission Prep.</summary>
+	public void CollectConfiguredBoardingSeats(List<SeatBinding> _out)
+	{
+		CollectConfiguredSeats(_out);
+		if (_out == null)
+			return;
+
+		for (int i = _out.Count - 1; i >= 0; i--)
+		{
+			SeatBinding binding = _out[i];
+			if (binding.IsLitter || IsLitterSeat(binding.SeatId))
+				_out.RemoveAt(i);
+		}
+	}
+
 	/// <summary>
 	/// Дверь посадки/высадки для слота.
 	/// FL — только водитель; FR — только командир.

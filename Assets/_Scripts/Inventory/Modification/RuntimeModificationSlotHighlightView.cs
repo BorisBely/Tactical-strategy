@@ -28,15 +28,16 @@ public sealed class RuntimeModificationSlotHighlightView : MonoBehaviour
 	public void RefreshHighlight()
 	{
 		EnsureBackgroundImage();
-		if (m_BackgroundImage == null || m_Slot == null || !m_Slot.HasItem)
+		if (m_BackgroundImage == null)
 			return;
 
 		if (m_Coordinator == null)
 			m_Coordinator = RuntimeInventoryModificationCoordinator.Instance;
 
-		bool compatible = m_Coordinator != null &&
+		bool compatible = m_Slot != null &&
+		                  m_Slot.HasItem &&
+		                  m_Coordinator != null &&
 		                  m_Coordinator.ShouldHighlightCompatibleWithModificationWeapon(m_Slot.Data);
-
 		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
 	}
 	#endregion

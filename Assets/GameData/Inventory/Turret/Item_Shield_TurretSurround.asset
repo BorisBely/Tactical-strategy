@@ -13,14 +13,29 @@ MonoBehaviour:
   m_Name: Item_Shield_TurretSurround
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.shield.turret.surround
-  m_Description: Surround armor shield for turret gunner.
-  m_Icon: {fileID: 0}
+  m_Description: Circular gunner shield for the turret gunner.
+  m_Icon: {fileID: 21300000, guid: 9d0946963cff2a144a23776eccbf179b, type: 3}
   m_BasePrice: 1400
   m_WeightKg: 8
   m_Category: 1
   m_DropWorldPrefab: {fileID: 1310429720889675776, guid: e80fce64e1ce41bf8a425970e279539e, type: 3}
   m_EquippedVisualPrefab: {fileID: 0}
+  m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 6
+  m_VisualProfile: {fileID: 0}
+  m_HeadBulletBlockChance: 0
+  m_BackpackCapacity: 0
   m_WeaponType: 0
   m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
@@ -29,7 +44,12 @@ MonoBehaviour:
   m_MagazineDefinition: {fileID: 0}
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 0
+  m_AttachedBodyVisualPrefab: {fileID: 0}
   m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
   m_RocketLauncherStartsLoaded: 0
   m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 0}

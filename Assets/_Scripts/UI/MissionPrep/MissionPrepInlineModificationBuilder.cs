@@ -61,8 +61,11 @@ public static class MissionPrepInlineModificationBuilder
 			row.transform.SetSiblingIndex(insertIndex + i);
 
 			LayoutElement layout = row.AddComponent<LayoutElement>();
-			layout.preferredHeight = 30f;
-			layout.minHeight = 30f;
+			layout.preferredHeight = InventoryModificationSlotUiBuilder.RowHeight;
+			layout.minHeight = InventoryModificationSlotUiBuilder.RowHeight;
+			layout.preferredWidth = InventoryModificationSlotUiBuilder.RowWidth;
+			layout.minWidth = InventoryModificationSlotUiBuilder.RowWidth;
+			layout.flexibleWidth = 0f;
 
 			MissionPrepModificationSlotView view = row.AddComponent<MissionPrepModificationSlotView>();
 			view.Configure(_coordinator, _visibleDescriptors[i], _weaponData, _isMainHand, _bagIndex);

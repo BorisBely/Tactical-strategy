@@ -13,7 +13,7 @@ namespace VehicleNavigation
 		{
 			Path = _path;
 			AllowReverse = true;
-			SpeedScale = 0.45f;
+			SpeedScale = 0.55f;
 			LookAheadOverride = 2.5f;
 
 			if (_path != null && _path.IsValid)

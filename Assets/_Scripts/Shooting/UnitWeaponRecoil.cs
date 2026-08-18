@@ -1,28 +1,24 @@
 using UnityEngine;
 
 /// <summary>
-/// Визуальная отдача оружия и правой кисти.
+/// Computes visual recoil state only. Does not author weapon BASE pose and does not write bones.
 ///
-/// Две независимые величины:
-///   1. VisualRecoil = PitchCurve(RecoilPenalty) — положение оружия, вычисляется каждый кадр заново.
-///   2. ShotImpulse  — резкий удар после выстрела, SmoothDamp → 0.
+/// Roles of the visual channels:
+///   Back  = primary translation
+///   Up    = secondary translation
+///   Pitch = secondary rotation
+///   Climb = PitchCurve(RecoilPenalty) — sustained secondary rotation (rotation only, no translation)
+///   Yaw   = small variation
 ///
-/// Всё остальное (Back, Up, Yaw) — производные от этих двух.
-/// Никаких recovery-интерполяций, отдельных режимов стрельбы, зависимости от SpreadAngle.
-/// Подписывается на FireController.ShotFired напрямую, без PenaltyDelta-посредника.
+/// Punch — per-shot value: one shared visual impulse (normalized visual recoil strength,
+/// not a physical impulse) decomposed into pitch / back / up.
+///
+/// <see cref="WeaponVisualRecoilApplicator"/> applies the state to Hand_R after animation, before left IK.
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(66)]
+[DefaultExecutionOrder(50)]
 public sealed class UnitWeaponRecoil : MonoBehaviour
 {
-	#region Cached Pose
-	private struct CachedWeaponVisualPose
-	{
-		public Quaternion Rotation;
-		public Vector3 Position;
-	}
-	#endregion
-
 	#region Serialized Fields
 	[Tooltip("Снаряжение: корень оружия в руке.")]
 	[SerializeField] private UnitEquipment m_Equipment;
@@ -34,53 +30,157 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitRagdollController m_RagdollController;
 	[SerializeField] private UnitEquippedWeaponPoseRuntimeTuner m_RuntimeTuner;
-	[Tooltip("Редко: явная цель kick.")]
+	[Tooltip("Редко: явная точка выборки дистанции до камеры.")]
 	[SerializeField] private Transform m_KickTransformOverride;
 	[Tooltip("Базовая поза оружия (relaxed↔ready).")]
 	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 
-	[Header("Offset — положение от накопленной отдачи")]
-	[Tooltip("Кривая: ось X = RecoilPenalty (абсолютный), ось Y = визуальный pitch (градусы).")]
-	[SerializeField] private AnimationCurve m_PitchCurve = AnimationCurve.EaseInOut(0f, 0f, 60f, 5f);
-		[Tooltip("Сдвиг назад (метры) на градус Pitch.")]
-	[SerializeField, Min(0f)] private float m_BackScale = 0.012f;
-	[Tooltip("Сдвиг вверх (метры) на градус Pitch.")]
-	[SerializeField, Min(0f)] private float m_UpScale = 0.004f;
-	[Tooltip("Множитель offset-смещения (не влияет на импульс).")]
+	[Header("Climb — устойчивый подъём от накопленной отдачи")]
+	[Tooltip("Кривая: ось X = RecoilPenalty (абсолютный), ось Y = визуальный pitch (градусы). Первые выстрелы почти не поднимают ствол — очередь уводит выше постепенно.")]
+	[SerializeField] private AnimationCurve m_PitchCurve = new AnimationCurve(
+		new Keyframe(0f, 0f),
+		new Keyframe(15f, 0.6f),
+		new Keyframe(30f, 1.7f),
+		new Keyframe(60f, 4.5f));
+	[Tooltip("Множитель climb-подъёма (не влияет на punch).")]
 	[SerializeField, Min(0f)] private float m_VisualOffsetScale = 1f;
 
-	[Header("Shot Impulse — резкий удар выстрела")]
-	[Tooltip("Базовый градус импульса на единицу RecoilPerShot. Умножается на VisualRecoilKickScale из WeaponDefinition.")]
-	[SerializeField, Min(0f)] private float m_ShotPitch = 2f;
+	[Header("Punch — удар выстрела (единый impulse → pitch/back/up)")]
+	[Tooltip("Градусы pitch на единицу визуальной силы отдачи. Impulse = RecoilAddedPerShot x VisualRecoilKickScale — нормализованная визуальная сила, не физический импульс.")]
+	[SerializeField, Min(0f)] private float m_ShotPitch = 2.5f;
 	[Tooltip("Доля pitch для амплитуды yaw-импульса.")]
 	[SerializeField, Range(0f, 1f)] private float m_ShotYawScale = 0.3f;
-	[Tooltip("SmoothDamp время импульса (сек).")]
-	[SerializeField, Min(0.01f)] private float m_ShotSmoothTime = 0.05f;
+	[Tooltip("Смещение yaw вправо (>0) / влево (<0). Шум не переворачивает сторону каждый выстрел.")]
+	[SerializeField, Range(-1f, 1f)] private float m_YawBias = 0.45f;
+	[Tooltip("Постоянная времени затухания punch (сек). Без перелёта за ноль.")]
+	[SerializeField, Min(0.01f)] private float m_ShotSmoothTime = 0.08f;
+	[Tooltip("Во время очереди punch гасится медленнее — ствол не ныряет между выстрелами.")]
+	[SerializeField, Min(1f)] private float m_DecayWhileFiringMultiplier = 1.75f;
+	[Tooltip("Страховочный потолок накопленной визуальной силы отдачи (impulse cap), чтобы автоочередь не улетала.")]
+	[SerializeField, Min(1f)] private float m_MaxShotImpulse = 6f;
+	[Tooltip("Отдельный потолок бокового yaw (градусы). Независим от impulse cap.")]
+	[SerializeField, Min(1f)] private float m_MaxShotYawDegrees = 6f;
+	[Tooltip("Сдвиг назад (метры) на единицу визуальной силы отдачи. Главное направление recoil. Climb сдвигом не едет.")]
+	[SerializeField, Min(0f)] private float m_BackScale = 0.035f;
+	[Tooltip("Сдвиг вверх (метры) на единицу визуальной силы отдачи. Вторичное направление.")]
+	[SerializeField, Min(0f)] private float m_UpScale = 0.008f;
 
 	[Header("Hand Kick")]
-	[Tooltip("Множитель pitch-вращения кисти.")]
-	[SerializeField, Range(0f, 2f)] private float m_HandPitch = 0.45f;
+	[Tooltip("Множитель pitch-вращения кисти. 1 = полный визуальный kick через руку.")]
+	[SerializeField, Range(0f, 2f)] private float m_HandPitch = 0.8f;
 	[Tooltip("Множитель yaw-вращения кисти.")]
-	[SerializeField, Range(0f, 2f)] private float m_HandYaw = 0.35f;
+	[SerializeField, Range(0f, 2f)] private float m_HandYaw = 0.85f;
 	[Tooltip("Множитель сдвига кисти назад.")]
-	[SerializeField, Range(0f, 2f)] private float m_HandBack = 0.5f;
+	[SerializeField, Range(0f, 2f)] private float m_HandBack = 1f;
 	[Tooltip("Множитель сдвига кисти вверх.")]
-	[SerializeField, Range(0f, 2f)] private float m_HandUp = 0.4f;
+	[SerializeField, Range(0f, 2f)] private float m_HandUp = 0.75f;
 	#endregion
 
 	#region Private Fields
-	private Transform m_KickTarget;
-	private CachedWeaponVisualPose m_CachedTotalPose;
-
-	// Единственное состояние: импульс (2 float)
-	private float m_ShotImpulsePitch;
+	private WeaponVisualRecoilState m_CurrentState;
+	private float m_ShotImpulse;
 	private float m_ShotImpulseYaw;
-	private float m_ShotImpulseVelocityPitch;
-	private float m_ShotImpulseVelocityYaw;
-
-	// Детерминированный шум yaw по номеру выстрела
 	private int m_ShotIndex;
 	private float m_YawSeed;
+	#endregion
+
+	#region Public API
+	public WeaponVisualRecoilState CurrentState => m_CurrentState;
+	public bool HasVisualKick => m_CurrentState.isActive;
+
+	/// <summary>
+	/// RecoilSweep: keep punch/climb even if the camera is outside the VFX near-detail radius.
+	/// </summary>
+	public bool IgnoreCameraDistanceCull { get; set; }
+
+	public bool IsCameraNearForVisualKick() => IsNearCameraForVisualDetail();
+
+	public Quaternion BuildHandRotationOffset()
+	{
+		return Quaternion.Euler(
+			-(m_CurrentState.climbPitch + m_CurrentState.punchPitch) * m_HandPitch,
+			m_CurrentState.punchYaw * m_HandYaw,
+			0f);
+	}
+
+	/// <summary>
+	/// World-space direction of visual recoil (back along the barrel).
+	/// </summary>
+	public Vector3 GetCurrentRecoilDirectionWorld()
+	{
+		Transform fireOrigin = ResolveFireOriginTransform();
+		if (fireOrigin == null)
+			return -transform.forward;
+		return -fireOrigin.forward;
+	}
+
+	/// <summary>
+	/// Same world translation the applicator writes onto Hand_R (up + back along the barrel).
+	/// </summary>
+	public Vector3 GetCurrentKickTranslationWorld()
+	{
+		Transform fireOrigin = ResolveFireOriginTransform();
+		Vector3 barrelForward = fireOrigin != null ? fireOrigin.forward : transform.forward;
+		return Vector3.up * m_CurrentState.upOffset - barrelForward * m_CurrentState.backOffset;
+	}
+
+	/// <summary>
+	/// Translation recoil в пространстве родителя кисти (parent-space delta для Hand_R.localPosition).
+	/// Back идёт строго назад вдоль реального ствола (FireOriginTransform.forward),
+	/// up — по мировой вертикали (roll оружия не уводит recoil вбок).
+	/// Оси кости Hand_R НЕ используются: они не совпадают с продольной осью оружия.
+	/// </summary>
+	public Vector3 BuildHandParentSpaceTranslation(Transform hand)
+	{
+		Transform fireOrigin = ResolveFireOriginTransform();
+
+		if (fireOrigin == null || hand == null || hand.parent == null)
+			return Vector3.zero;
+
+		Vector3 worldDelta =
+			Vector3.up * m_CurrentState.upOffset -
+			fireOrigin.forward * m_CurrentState.backOffset;
+
+		return hand.parent.InverseTransformVector(worldDelta);
+	}
+
+	public float RecoilRotationDeltaDegrees =>
+		Quaternion.Angle(Quaternion.identity, BuildHandRotationOffset());
+
+	public float ShotPitchDegrees => m_ShotPitch;
+	public float ShotYawScale => m_ShotYawScale;
+	public float YawBias => m_YawBias;
+	public float ShotSmoothTime => m_ShotSmoothTime;
+	public float DecayWhileFiringMultiplier => m_DecayWhileFiringMultiplier;
+	public float MaxShotImpulse => m_MaxShotImpulse;
+	public float MaxShotYawDegrees => m_MaxShotYawDegrees;
+	public float ShotImpulse => m_ShotImpulse;
+	public float LastAddedVisualImpulse { get; private set; }
+	public float BackScale => m_BackScale;
+	public float UpScale => m_UpScale;
+	public float HandPitch => m_HandPitch;
+	public float HandYaw => m_HandYaw;
+	public float HandBack => m_HandBack;
+	public float HandUp => m_HandUp;
+
+	public bool ShouldApplyOverlayThisFrame()
+	{
+		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
+			return false;
+		if (IsRuntimePoseTuningActive())
+			return false;
+		if (m_Equipment != null && m_Equipment.IsWeaponHeldForBoltCycle)
+			return false;
+		if (m_Equipment != null && m_Equipment.IsOperatingVehicleTurret)
+			return false;
+		return HasEquippedWeaponForVisualKick() && ResolveRightHandTransform() != null;
+	}
+
+	public void ResetVisualKick()
+	{
+		ResetImpulseState();
+		m_CurrentState = default;
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -112,7 +212,6 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 			m_Equipment.EquipmentChanged += HandleEquipmentChanged;
 		if (m_FireController != null)
 			m_FireController.ShotFired += HandleShotFired;
-		RefreshKickTarget(true);
 	}
 
 	private void OnDisable()
@@ -121,13 +220,10 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 			m_Equipment.EquipmentChanged -= HandleEquipmentChanged;
 		if (m_FireController != null)
 			m_FireController.ShotFired -= HandleShotFired;
-		if (m_KickTarget != null)
-			ResetVisualKick();
-		m_KickTarget = null;
-		ResetImpulseState();
+		ResetVisualKick();
 	}
 
-	private void LateUpdate()
+	private void Update()
 	{
 		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
 			return;
@@ -141,108 +237,106 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 			return;
 		}
 
-		if (m_KickTarget == null)
-			return;
-
-		bool nearCam = IsNearCameraForVisualDetail();
-		if (!nearCam)
+		if (m_Equipment != null && m_Equipment.IsOperatingVehicleTurret)
 		{
 			ResetVisualKick();
 			return;
 		}
 
-		// 1) Decay impulse
-		m_ShotImpulsePitch = Mathf.SmoothDamp(m_ShotImpulsePitch, 0f, ref m_ShotImpulseVelocityPitch, m_ShotSmoothTime);
-		m_ShotImpulseYaw   = Mathf.SmoothDamp(m_ShotImpulseYaw,   0f, ref m_ShotImpulseVelocityYaw,   m_ShotSmoothTime);
-
-		// 2) Offset — fresh every frame from penalty, no interpolation
-		float penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
-		float offsetPitch = m_PitchCurve.Evaluate(penalty);
-
-		// 3) Combine — offset and impulse scaled independently
-		float kickScale = ResolveVisualRecoilKickScale();
-		float totalPitch = offsetPitch * m_VisualOffsetScale + m_ShotImpulsePitch * kickScale;
-		float totalYaw   = m_ShotImpulseYaw * kickScale;
-		float totalBack  = totalPitch * m_BackScale;
-		float totalUp    = totalPitch * m_UpScale;
-
-		// 4) Apply — ONLY position (Aiming handles rotation)
-		Vector3 basePos = ResolveBaseWeaponLocalPosition();
-
-		if (Mathf.Abs(totalPitch) < 0.001f && Mathf.Abs(totalYaw) < 0.001f)
+		if (!HasEquippedWeaponForVisualKick())
 		{
-			m_CachedTotalPose = default;
+			ResetVisualKick();
 			return;
 		}
 
-		Vector3 kickPos = new Vector3(0f, totalUp, -totalBack);
+		if (!IgnoreCameraDistanceCull && !IsNearCameraForVisualDetail())
+		{
+			ResetVisualKick();
+			return;
+		}
 
-		m_CachedTotalPose.Rotation = Quaternion.identity;
-		m_CachedTotalPose.Position = kickPos;
+		float tau = Mathf.Max(0.01f, m_ShotSmoothTime);
+		if (m_FireController != null && m_FireController.IsFiringCommandActive)
+			tau *= Mathf.Max(1f, m_DecayWhileFiringMultiplier);
+		float decay = Mathf.Exp(-Time.deltaTime / tau);
+		m_ShotImpulse *= decay;
+		m_ShotImpulseYaw *= decay;
+		if (Mathf.Abs(m_ShotImpulse) < 0.001f)
+			m_ShotImpulse = 0f;
+		if (Mathf.Abs(m_ShotImpulseYaw) < 0.001f)
+			m_ShotImpulseYaw = 0f;
 
-		m_KickTarget.localPosition = basePos + kickPos;
+		RebuildCurrentState();
 	}
-	#endregion
 
-	#region Public API
-	public void ApplyHandKick(ref Vector3 _localPosition, ref Quaternion _localRotation)
+	private void LateUpdate()
 	{
-		if (m_CachedTotalPose.Rotation == Quaternion.identity
-		    && m_CachedTotalPose.Position == Vector3.zero)
+		if (!ShouldApplyOverlayThisFrame())
 			return;
 
-		Quaternion kickRot = Quaternion.Euler(
-			m_CachedTotalPose.Rotation.eulerAngles.x * m_HandPitch,
-			m_CachedTotalPose.Rotation.eulerAngles.y * m_HandYaw,
-			0f);
-		Vector3 kickPos = new Vector3(
-			0f,
-			m_CachedTotalPose.Position.y * m_HandUp,
-			m_CachedTotalPose.Position.z * m_HandBack);
-
-		_localPosition = kickRot * _localPosition + kickPos;
-		_localRotation = kickRot * _localRotation;
-	}
-
-	public void ResetVisualKick()
-	{
-		ResetImpulseState();
-		m_CachedTotalPose = default;
+		RebuildCurrentState();
 	}
 	#endregion
 
 	#region Private Methods
+	private void RebuildCurrentState()
+	{
+		float kickScale = ResolveVisualRecoilKickScale();
+		float penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
+		float climbPitch = m_PitchCurve.Evaluate(penalty) * m_VisualOffsetScale * kickScale;
+
+		float impulse = m_ShotImpulse;
+		float punchPitch = impulse * m_ShotPitch;
+		float punchYaw = m_ShotImpulseYaw;
+		float backOffset = impulse * m_BackScale * m_HandBack;
+		float upOffset = impulse * m_UpScale * m_HandUp;
+
+		float totalPitch = climbPitch + punchPitch;
+		bool isActive = Mathf.Abs(totalPitch) >= 0.001f
+		                || Mathf.Abs(punchYaw) >= 0.001f
+		                || Mathf.Abs(backOffset) >= 0.000001f
+		                || Mathf.Abs(upOffset) >= 0.000001f;
+
+		if (!isActive)
+		{
+			m_CurrentState = default;
+			return;
+		}
+
+		m_CurrentState = new WeaponVisualRecoilState
+		{
+			punchPitch = punchPitch,
+			punchYaw = punchYaw,
+			climbPitch = climbPitch,
+			backOffset = backOffset,
+			upOffset = upOffset,
+			isActive = true
+		};
+	}
+
+	private Transform ResolveRightHandTransform()
+	{
+		return m_Equipment != null ? m_Equipment.RightHandAnchor : null;
+	}
+
+	private Transform ResolveFireOriginTransform()
+	{
+		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
+		if (weapon != null && weapon.FireOriginTransform != null)
+			return weapon.FireOriginTransform;
+		return m_Equipment != null ? m_Equipment.MainWeaponRoot : null;
+	}
+
+	private bool HasEquippedWeaponForVisualKick()
+	{
+		return m_Equipment != null && m_Equipment.MainWeaponRoot != null;
+	}
+
 	private bool IsRuntimePoseTuningActive()
 	{
 		if (m_RuntimeTuner == null)
 			m_RuntimeTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
-		return m_RuntimeTuner != null && m_RuntimeTuner.ShouldSkipWeaponPoseWrite;
-	}
-
-	private Quaternion ResolveBaseWeaponLocalRotation()
-	{
-		if (m_EquippedWeaponPose != null)
-			return m_EquippedWeaponPose.BaseWeaponLocalRotation;
-		if (m_KickTarget != null)
-			return m_KickTarget.localRotation;
-		return Quaternion.identity;
-	}
-
-	private Vector3 ResolveBaseWeaponLocalPosition()
-	{
-		if (m_EquippedWeaponPose != null)
-			return m_EquippedWeaponPose.BaseWeaponLocalPosition;
-		if (m_KickTarget != null)
-			return m_KickTarget.localPosition;
-		return Vector3.zero;
-	}
-
-	private static bool HasActiveVisual(float _pitch, float _yaw, float _back, float _up)
-	{
-		return Mathf.Abs(_pitch) > 0.001f
-			|| Mathf.Abs(_yaw) > 0.001f
-			|| Mathf.Abs(_back) > 0.00001f
-			|| Mathf.Abs(_up) > 0.00001f;
+		return m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive;
 	}
 
 	private float ResolveVisualRecoilKickScale()
@@ -255,56 +349,31 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 
 	private void HandleShotFired(AmmoDefinition _ammoDefinition)
 	{
-		Transform kickTarget = ResolveKickTarget();
-		if (kickTarget == null)
-			return;
-		if (kickTarget != m_KickTarget)
-			RefreshKickTarget(true);
-		if (m_KickTarget == null)
+		LastAddedVisualImpulse = 0f;
+		if (!HasEquippedWeaponForVisualKick())
 			return;
 
 		float recoilPerShot = m_RecoilController != null
 			? m_RecoilController.ComputeRecoilAddedPerShot(_ammoDefinition)
 			: 1f;
 		float kickScale = ResolveVisualRecoilKickScale();
-		float shotPitchAmount = recoilPerShot * kickScale * m_ShotPitch;
+		float impulse = recoilPerShot * kickScale;
+		LastAddedVisualImpulse = impulse;
+		float shotPitch = impulse * m_ShotPitch;
 
-		m_ShotImpulsePitch += shotPitchAmount;
+		m_ShotImpulse = Mathf.Min(m_ShotImpulse + impulse, m_MaxShotImpulse);
 
 		float yawNoise = Mathf.PerlinNoise(m_YawSeed, m_ShotIndex * 0.73f) * 2f - 1f;
-		m_ShotImpulseYaw += yawNoise * shotPitchAmount * m_ShotYawScale;
+		float yawDir = Mathf.Clamp(m_YawBias + yawNoise * (1f - Mathf.Abs(m_YawBias)), -1f, 1f);
+		m_ShotImpulseYaw += yawDir * shotPitch * m_ShotYawScale;
+		m_ShotImpulseYaw = Mathf.Clamp(m_ShotImpulseYaw, -m_MaxShotYawDegrees, m_MaxShotYawDegrees);
 		m_ShotIndex++;
+		RebuildCurrentState();
 	}
 
 	private void HandleEquipmentChanged()
 	{
-		RefreshKickTarget(true);
-	}
-
-	private Transform ResolveKickTarget()
-	{
-		if (m_KickTransformOverride != null)
-			return m_KickTransformOverride;
-		EquippedWeapon equipped = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
-		if (equipped != null && equipped.VisualRecoilKickPivot != null)
-			return equipped.VisualRecoilKickPivot;
-		return m_Equipment != null ? m_Equipment.MainWeaponRoot : null;
-	}
-
-	private void RefreshKickTarget(bool _resetKick)
-	{
-		Transform newTarget = ResolveKickTarget();
-		bool targetChanged = newTarget != m_KickTarget;
-		m_KickTarget = newTarget;
-
-		if (m_KickTarget == null)
-		{
-			ResetImpulseState();
-			return;
-		}
-
-		if (_resetKick || targetChanged)
-			ResetImpulseState();
+		ResetVisualKick();
 	}
 
 	private bool IsNearCameraForVisualDetail()
@@ -314,8 +383,8 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		Vector3 samplePosition;
 		if (weapon != null && WeaponVfxUtility.TryGetShellEjectionPose(weapon, out Vector3 shellPos, out _))
 			samplePosition = shellPos;
-		else if (m_KickTarget != null)
-			samplePosition = m_KickTarget.position;
+		else if (m_KickTransformOverride != null)
+			samplePosition = m_KickTransformOverride.position;
 		else if (m_Equipment != null && m_Equipment.MainWeaponRoot != null)
 			samplePosition = m_Equipment.MainWeaponRoot.position;
 		else
@@ -325,11 +394,10 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 
 	private void ResetImpulseState()
 	{
-		m_ShotImpulsePitch = 0f;
+		m_ShotImpulse = 0f;
 		m_ShotImpulseYaw = 0f;
-		m_ShotImpulseVelocityPitch = 0f;
-		m_ShotImpulseVelocityYaw = 0f;
 		m_ShotIndex = 0;
+		LastAddedVisualImpulse = 0f;
 	}
 	#endregion
 }

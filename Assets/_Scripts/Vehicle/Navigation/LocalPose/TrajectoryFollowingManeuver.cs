@@ -15,7 +15,7 @@ namespace VehicleNavigation
 		{
 			Trajectory = _trajectory;
 			AllowReverse = true;
-			SpeedScale = 0.45f;
+			SpeedScale = 0.55f;
 			LookAheadOverride = 2.5f;
 			IsArrivalManeuver = true;
 			if (_trajectory != null && _trajectory.IsValid)

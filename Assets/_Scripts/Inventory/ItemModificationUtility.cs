@@ -109,11 +109,10 @@ public static class ItemModificationUtility
 
 		for (int i = 0; i < slots.Length; i++)
 		{
-			WeaponAttachmentSlotType slotType = slots[i].SlotType;
-			if (!WeaponAttachmentSlotPolicy.IsSlotTypeEnabled(weapon, slotType))
+			if (!WeaponAttachmentSlotPolicy.IsWeaponSlotEnabled(weapon, i))
 				continue;
 
-			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Attachment, slotType, i, displayIndex++));
+			_outSlots.Add(new ItemModificationSlotDescriptor(ItemModificationSlotKind.Attachment, slots[i].SlotType, i, displayIndex++));
 		}
 	}
 
@@ -132,7 +131,12 @@ public static class ItemModificationUtility
 					1 => "weapon.mod_slot.rail_2",
 					_ => "weapon.mod_slot.rail_3"
 				};
-				string railFallback = $"Rail {railIndex + 1}";
+				string railFallback = railIndex switch
+				{
+					0 => "Tactical LCU",
+					1 => "Flashlight",
+					_ => "LCU"
+				};
 				return LocalizationManager.Get(railKey, railFallback);
 			}
 		}
@@ -140,6 +144,17 @@ public static class ItemModificationUtility
 		string key = GetSlotLabelKey(_slot);
 		string fallback = GetSlotFallbackLabel(_slot);
 		return LocalizationManager.Get(key, fallback);
+	}
+
+	public static string FormatEmptySlotLabel(ItemModificationSlotDescriptor _slot, WeaponDefinition _weapon = null)
+	{
+		string slotLabel = GetSlotLabel(_slot, _weapon);
+		string empty = LocalizationManager.Get("weapon.mod_slot.empty", "Empty");
+		if (string.IsNullOrWhiteSpace(slotLabel))
+			return empty;
+
+		string template = LocalizationManager.Get("weapon.mod_slot.empty_named", "{0} ({1})");
+		return string.Format(template, slotLabel, empty);
 	}
 
 	public static string GetSlotLabelKey(ItemModificationSlotDescriptor _slot)
@@ -648,6 +663,9 @@ public static class ItemModificationUtility
 		if (WeaponOpticSlotUtility.IsOpticSlotType(_slot.AttachmentSlotType))
 			WeaponOpticSlotUtility.ClearConflictingOpticSlot(_weaponState.WeaponDefinition, _slot.AttachmentSlotType, attachments, items);
 
+		if (WeaponLaserSlotUtility.IsLaserAttachment(attachment))
+			WeaponLaserSlotUtility.ClearConflictingLaserSlots(_slot.WeaponSlotIndex, attachments, items);
+
 		attachments[_slot.WeaponSlotIndex] = attachment;
 		items[_slot.WeaponSlotIndex] = _candidate.Definition;
 		_weaponState.SetEquippedAttachmentSlotItems(TrimEmptyAttachments(attachments), TrimEmptyAttachmentItems(items));
@@ -792,7 +810,7 @@ public static class ItemModificationUtility
 		return _slot.AttachmentSlotType switch
 		{
 			WeaponAttachmentSlotType.Muzzle => "Muzzle",
-			WeaponAttachmentSlotType.UnderBarrel => "Underbarrel",
+			WeaponAttachmentSlotType.UnderBarrel => "Tactical grip",
 			WeaponAttachmentSlotType.Rail => "Rail",
 			WeaponAttachmentSlotType.Optic => "Optic",
 			WeaponAttachmentSlotType.Stock => "Stock",

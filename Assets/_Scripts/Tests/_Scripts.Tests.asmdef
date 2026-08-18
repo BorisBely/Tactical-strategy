@@ -3,7 +3,6 @@
     "rootNamespace": "",
     "references": [
         "_Scripts",
-        "CombatVehicleSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

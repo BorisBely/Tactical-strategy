@@ -1,0 +1,512 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
+
+/// <summary>
+/// Автокалибровка spine lean: клавиша L на выбранном юните.
+/// Логирует боковой сдвиг ствола относительно корня юнита до/после наклона.
+/// </summary>
+[DisallowMultipleComponent]
+public sealed class UnitSpineLeanCalibrationTest : MonoBehaviour
+{
+	#region Types
+	private struct SampleResult
+	{
+		public string PoseName;
+		public string Side;
+		public float OffsetMeters;
+		public float PeakOffsetMeters;
+		public float LeanDegrees;
+		public float ThresholdMeters;
+		public bool Pass;
+		public bool Soft; // walk: не обязателен для боевого AI
+	}
+	#endregion
+
+	#region Serialized Fields
+	[SerializeField] private UnitSpineLean m_Lean;
+	[SerializeField] private UnitAnimatorStance m_Stance;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
+	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private RtsUnitMember m_RtsMember;
+
+	[Header("Input")]
+	[Tooltip("Выключено после калибровки: механику lean не трогает, только автотест по L.")]
+	[SerializeField] private bool m_EnableKeyboardStart = false;
+	[SerializeField] private Key m_StartTestKey = Key.L;
+	[SerializeField] private bool m_RequireSelected = true;
+
+	[Header("Timing")]
+	[SerializeField, Min(0.05f)] private float m_SettleTimeoutSeconds = 4f;
+	[SerializeField, Min(0f)] private float m_HoldAfterSettleSeconds = 0.35f;
+	[Tooltip("Окно замера barrel local-X.")]
+	[SerializeField, Min(0.05f)] private float m_SampleWindowSeconds = 0.55f;
+	[SerializeField, Min(0.1f)] private float m_StanceWaitTimeoutSeconds = 5f;
+	[SerializeField, Min(1f)] private float m_WalkDistanceMeters = 8f;
+	[SerializeField, Min(0.5f)] private float m_WalkStartTimeoutSeconds = 3f;
+
+	[Header("Pass thresholds (barrel lateral meters vs unit root)")]
+	[Tooltip("Обязательные для AI peek (idle).")]
+	[SerializeField, Min(0f)] private float m_StandingIdleMinOffset = 0.16f;
+	[SerializeField, Min(0f)] private float m_CrouchIdleMinOffset = 0.10f;
+	[Tooltip("Мягкие (walk): для AI peek не обязательны — логируются как WEAK/OK.")]
+	[SerializeField, Min(0f)] private float m_StandingWalkMinOffset = 0.07f;
+	[SerializeField, Min(0f)] private float m_CrouchWalkMinOffset = 0.07f;
+	[SerializeField] private bool m_StandingWalkIsSoft = true;
+	[SerializeField] private bool m_CrouchWalkIsSoft = true;
+	#endregion
+
+	#region Private Fields
+	private Coroutine m_TestRoutine;
+	private readonly List<SampleResult> m_Results = new List<SampleResult>(8);
+	private float m_LastSampleAverage;
+	private float m_LastSamplePeakDelta;
+	private int m_LastSampleCount;
+	#endregion
+
+	#region Public Properties
+	public bool IsRunning => m_TestRoutine != null;
+	#endregion
+
+	#region Unity Lifecycle
+	private void Awake()
+	{
+		ResolveReferences();
+	}
+
+	private void OnDisable()
+	{
+		if (m_TestRoutine != null)
+		{
+			StopCoroutine(m_TestRoutine);
+			m_TestRoutine = null;
+		}
+
+		if (m_Lean != null)
+			m_Lean.SetLeanTarget(0f);
+	}
+
+	private void Update()
+	{
+		if (!m_EnableKeyboardStart)
+			return;
+		if (m_TestRoutine != null)
+			return;
+		if (!WasKeyPressedThisFrame(m_StartTestKey))
+			return;
+		if (m_RequireSelected && (m_RtsMember == null || !m_RtsMember.IsSelected))
+			return;
+
+		StartCalibration();
+	}
+	#endregion
+
+	#region Public Methods
+	public void StartCalibration()
+	{
+		if (m_TestRoutine != null)
+			return;
+
+		ResolveReferences();
+		m_TestRoutine = StartCoroutine(CoRunCalibration());
+	}
+	#endregion
+
+	#region Private Methods
+	private void ResolveReferences()
+	{
+		if (m_Lean == null)
+			m_Lean = GetComponent<UnitSpineLean>();
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_BusyState == null)
+			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_RtsMember == null)
+			m_RtsMember = GetComponent<RtsUnitMember>();
+	}
+
+	private IEnumerator CoRunCalibration()
+	{
+		m_Results.Clear();
+		Debug.Log($"[SpineLeanCalib] START unit={name}", this);
+
+		if (m_Lean == null)
+		{
+			Debug.LogError("[SpineLeanCalib] ABORT: UnitSpineLean missing.", this);
+			m_TestRoutine = null;
+			yield break;
+		}
+
+		if (m_ReadyHands == null || !m_ReadyHands.IsWeaponEquippedAndReady())
+		{
+			Debug.LogError("[SpineLeanCalib] ABORT: need high ready + equipped weapon.", this);
+			m_TestRoutine = null;
+			yield break;
+		}
+
+		if (!TryGetBarrel(out _))
+		{
+			Debug.LogError("[SpineLeanCalib] ABORT: barrel transform not found.", this);
+			m_TestRoutine = null;
+			yield break;
+		}
+
+		m_Lean.SetLeanTarget(0f);
+
+		yield return CoRunPose("StandingIdle", LocomotionStance.Standing, false, m_StandingIdleMinOffset, false);
+		yield return CoRunPose("StandingWalk", LocomotionStance.Standing, true, m_StandingWalkMinOffset, m_StandingWalkIsSoft);
+		yield return CoRunPose("CrouchIdle", LocomotionStance.Crouch, false, m_CrouchIdleMinOffset, false);
+		yield return CoRunPose("CrouchWalk", LocomotionStance.Crouch, true, m_CrouchWalkMinOffset, m_CrouchWalkIsSoft);
+
+		if (m_Stance != null)
+			m_Stance.RequestStanding();
+		if (m_ClickToMove != null)
+			m_ClickToMove.HardStop();
+		m_Lean.SetLeanTarget(0f);
+
+		LogSummary();
+		Debug.Log($"[SpineLeanCalib] DONE unit={name}", this);
+		m_TestRoutine = null;
+	}
+
+	private IEnumerator CoRunPose(
+		string _poseName,
+		LocomotionStance _stance,
+		bool _walk,
+		float _thresholdMeters,
+		bool _soft)
+	{
+		Debug.Log($"[SpineLeanCalib] POSE begin {_poseName} soft={_soft}", this);
+
+		if (m_Stance != null)
+		{
+			if (_stance == LocomotionStance.Crouch)
+				m_Stance.RequestCrouch();
+			else
+				m_Stance.RequestStanding();
+		}
+
+		yield return CoWaitStance(_stance);
+		yield return CoWaitStanceTransitionClear();
+
+		m_Lean.SetLeanTarget(0f);
+		yield return CoWaitLeanSettled();
+
+		if (_walk)
+		{
+			if (m_ClickToMove == null)
+			{
+				Debug.LogWarning($"[SpineLeanCalib] SKIP {_poseName}: no UnitClickToMove.", this);
+				yield break;
+			}
+
+			yield return CoEnsureWalking();
+		}
+		else if (m_ClickToMove != null)
+		{
+			m_ClickToMove.HardStop();
+			yield return new WaitForSeconds(0.15f);
+		}
+
+		yield return CoSampleSide(_poseName, "Left", -1f, _thresholdMeters, _walk, _soft);
+		if (_walk)
+			yield return CoEnsureWalking();
+		yield return CoSampleSide(_poseName, "Right", 1f, _thresholdMeters, _walk, _soft);
+
+		m_Lean.SetLeanTarget(0f);
+		yield return CoWaitLeanSettled();
+
+		if (_walk && m_ClickToMove != null)
+			m_ClickToMove.HardStop();
+
+		Debug.Log($"[SpineLeanCalib] POSE end {_poseName}", this);
+	}
+
+	private IEnumerator CoEnsureWalking()
+	{
+		m_ClickToMove.ForceWalkMoveMode();
+		Vector3 dest = transform.position + Flatten(transform.forward) * m_WalkDistanceMeters;
+		if (!m_ClickToMove.IssueNavOrder(dest, UnitClickToMove.MoveTier.Walk))
+		{
+			Debug.LogWarning("[SpineLeanCalib] IssueNavOrder failed.", this);
+			yield break;
+		}
+
+		yield return CoWaitWalkStarted();
+		// Дать шагу стабилизироваться, чтобы walk-профиль точно активен.
+		yield return new WaitForSeconds(0.35f);
+	}
+
+	private IEnumerator CoSampleSide(
+		string _poseName,
+		string _side,
+		float _lean01,
+		float _thresholdMeters,
+		bool _walk,
+		bool _soft)
+	{
+		m_Lean.SetLeanTarget(0f);
+		yield return CoWaitLeanSettled();
+		yield return null;
+
+		float sampleWindow = _walk ? m_SampleWindowSeconds : Mathf.Max(0.2f, Mathf.Min(0.25f, m_SampleWindowSeconds));
+		yield return CoSampleBarrelLocalX(sampleWindow, 0f, 0f);
+		if (m_LastSampleCount <= 0)
+		{
+			Debug.LogError($"[SpineLeanCalib] {_poseName}/{_side} ABORT: baseline sample failed.", this);
+			yield break;
+		}
+
+		float beforeLocal = m_LastSampleAverage;
+		int beforeSamples = m_LastSampleCount;
+
+		Debug.Log(
+			$"[SpineLeanCalib] BEFORE pose={_poseName} side={_side} walk={_walk} soft={_soft} " +
+			$"barrelLocalX={beforeLocal:F3}m samples={beforeSamples} leanDeg={m_Lean.CurrentLeanDegrees:F2} " +
+			$"blocked={m_Lean.IsLeanBlockedNow} profile={m_Lean.ActiveProfileKind}",
+			this);
+
+		m_Lean.SetLeanTarget(_lean01);
+		yield return CoWaitLeanSettled();
+		if (m_HoldAfterSettleSeconds > 0f)
+			yield return new WaitForSeconds(m_HoldAfterSettleSeconds);
+
+		float leanSign = _lean01 < 0f ? -1f : 1f;
+		yield return CoSampleBarrelLocalX(sampleWindow, beforeLocal, leanSign);
+		if (m_LastSampleCount <= 0)
+		{
+			Debug.LogError($"[SpineLeanCalib] {_poseName}/{_side} ABORT: lean sample failed.", this);
+			yield break;
+		}
+
+		float meanOffset = m_LastSampleAverage - beforeLocal;
+		float peakOffset = m_LastSamplePeakDelta;
+		// Idle: mean стабильнее; walk: peak только в сторону наклона.
+		float scoreOffset = _walk ? peakOffset : meanOffset;
+		float leanDeg = m_Lean.CurrentLeanDegrees;
+		bool pass = Mathf.Abs(scoreOffset) >= _thresholdMeters;
+
+		m_Results.Add(new SampleResult
+		{
+			PoseName = _poseName,
+			Side = _side,
+			OffsetMeters = meanOffset,
+			PeakOffsetMeters = peakOffset,
+			LeanDegrees = leanDeg,
+			ThresholdMeters = _thresholdMeters,
+			Pass = pass,
+			Soft = _soft
+		});
+
+		string verdict = pass ? "PASS" : (_soft ? "WEAK" : "FAIL");
+		Debug.Log(
+			$"[SpineLeanCalib] AFTER pose={_poseName} side={_side} " +
+			$"mean={meanOffset:F3}m peak={peakOffset:F3}m score={scoreOffset:F3}m leanDeg={leanDeg:F1} " +
+			$"samples={m_LastSampleCount} threshold={_thresholdMeters:F2}m result={verdict} " +
+			$"blocked={m_Lean.IsLeanBlockedNow} profile={m_Lean.ActiveProfileKind}",
+			this);
+
+		m_Lean.SetLeanTarget(0f);
+		yield return CoWaitLeanSettled();
+	}
+
+	/// <param name="_leanSign">0 = только average; ±1 = peak только в сторону наклона.</param>
+	private IEnumerator CoSampleBarrelLocalX(float _seconds, float _baselineLocal, float _leanSign)
+	{
+		m_LastSampleAverage = 0f;
+		m_LastSamplePeakDelta = 0f;
+		m_LastSampleCount = 0;
+		float sum = 0f;
+		int count = 0;
+		float peakAlongLean = 0f;
+		bool trackPeak = Mathf.Abs(_leanSign) > 0.5f;
+		float t = 0f;
+		float duration = Mathf.Max(0.05f, _seconds);
+
+		while (t < duration)
+		{
+			if (TryGetBarrel(out Transform barrel))
+			{
+				Vector3 rightXZ = Flatten(transform.right);
+				if (rightXZ.sqrMagnitude > 1e-6f)
+				{
+					float local = Vector3.Dot(barrel.position - transform.position, rightXZ);
+					sum += local;
+					count++;
+
+					if (trackPeak)
+					{
+						float delta = local - _baselineLocal;
+						float along = delta * _leanSign; // >0 если смещение в сторону lean
+						if (along > peakAlongLean)
+						{
+							peakAlongLean = along;
+							m_LastSamplePeakDelta = delta;
+						}
+					}
+				}
+			}
+
+			t += Time.deltaTime;
+			yield return null;
+		}
+
+		m_LastSampleCount = count;
+		m_LastSampleAverage = count > 0 ? sum / count : 0f;
+		if (!trackPeak)
+			m_LastSamplePeakDelta = 0f;
+	}
+
+	private IEnumerator CoWaitStance(LocomotionStance _stance)
+	{
+		if (m_Stance == null)
+			yield break;
+
+		float t = 0f;
+		while (t < m_StanceWaitTimeoutSeconds)
+		{
+			if (m_Stance.CurrentStance == _stance)
+				yield break;
+			t += Time.deltaTime;
+			yield return null;
+		}
+
+		Debug.LogWarning(
+			$"[SpineLeanCalib] stance wait timeout want={_stance} have={m_Stance.CurrentStance}",
+			this);
+	}
+
+	private IEnumerator CoWaitStanceTransitionClear()
+	{
+		float t = 0f;
+		while (t < m_StanceWaitTimeoutSeconds)
+		{
+			bool busy = m_BusyState != null &&
+			            m_BusyState.IsBusy &&
+			            (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0;
+			if (!busy)
+				yield break;
+			t += Time.deltaTime;
+			yield return null;
+		}
+	}
+
+	private IEnumerator CoWaitLeanSettled()
+	{
+		float t = 0f;
+		while (t < m_SettleTimeoutSeconds)
+		{
+			if (m_Lean != null && m_Lean.IsLeanSettled)
+				yield break;
+			t += Time.deltaTime;
+			yield return null;
+		}
+
+		Debug.LogWarning(
+			$"[SpineLeanCalib] lean settle timeout target01={m_Lean.CurrentLean01:F2} " +
+			$"deg={m_Lean.CurrentLeanDegrees:F1} blocked={m_Lean.IsLeanBlockedNow}",
+			this);
+	}
+
+	private IEnumerator CoWaitWalkStarted()
+	{
+		float t = 0f;
+		while (t < m_WalkStartTimeoutSeconds)
+		{
+			if (m_ClickToMove != null && m_ClickToMove.HasMoveIntent)
+				yield break;
+			t += Time.deltaTime;
+			yield return null;
+		}
+
+		Debug.LogWarning("[SpineLeanCalib] walk start timeout.", this);
+	}
+
+	private bool TryGetBarrel(out Transform _barrel)
+	{
+		_barrel = null;
+		if (m_Equipment == null)
+			return false;
+
+		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+		if (weapon == null)
+			return false;
+
+		_barrel = weapon.BarrelTransform != null ? weapon.BarrelTransform : weapon.FireOriginTransform;
+		if (_barrel == null)
+			_barrel = m_Equipment.MainWeaponRoot;
+		return _barrel != null;
+	}
+
+	private void LogSummary()
+	{
+		var sb = new StringBuilder(512);
+		sb.AppendLine($"[SpineLeanCalib] SUMMARY unit={name}");
+		int requiredPass = 0;
+		int requiredTotal = 0;
+		int softPass = 0;
+		int softTotal = 0;
+
+		for (int i = 0; i < m_Results.Count; i++)
+		{
+			SampleResult r = m_Results[i];
+			string verdict = r.Pass ? "PASS" : (r.Soft ? "WEAK" : "FAIL");
+			if (r.Soft)
+			{
+				softTotal++;
+				if (r.Pass)
+					softPass++;
+			}
+			else
+			{
+				requiredTotal++;
+				if (r.Pass)
+					requiredPass++;
+			}
+
+			sb.AppendLine(
+				$"  {r.PoseName}/{r.Side}: mean={r.OffsetMeters:F3}m peak={r.PeakOffsetMeters:F3}m " +
+				$"lean={r.LeanDegrees:F1}° min={r.ThresholdMeters:F2}m {verdict}" +
+				(r.Soft ? " (soft/walk)" : " (required/idle)"));
+		}
+
+		sb.AppendLine($"  required idle: {requiredPass}/{requiredTotal} PASS");
+		sb.Append($"  soft walk: {softPass}/{softTotal} OK (WEAK допустим для AI peek)");
+		Debug.Log(sb.ToString(), this);
+	}
+
+	private static Vector3 Flatten(Vector3 _v)
+	{
+		_v.y = 0f;
+		if (_v.sqrMagnitude < 1e-6f)
+			return Vector3.zero;
+		return _v.normalized;
+	}
+
+	private static bool WasKeyPressedThisFrame(Key _key)
+	{
+		for (int i = 0; i < InputSystem.devices.Count; i++)
+		{
+			if (InputSystem.devices[i] is not Keyboard kb)
+				continue;
+
+			KeyControl key = kb[_key];
+			if (key != null && key.wasPressedThisFrame)
+				return true;
+		}
+
+		return false;
+	}
+	#endregion
+}

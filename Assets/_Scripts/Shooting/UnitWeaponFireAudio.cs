@@ -69,7 +69,7 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (profile != null && profile.TryPickClip(out AudioClip clip))
 		{
 			float maxDistance = profile.ResolveMaxAudibleDistance(m_SpatialMaxDistance);
-			int weaponSignatureId = weapon != null ? weapon.GetInstanceID() : 0;
+			EntityId weaponSignatureId = weapon != null ? weapon.GetEntityId() : default;
 			CombatAudioManager.TryPlayGunshot(
 				clip, pos, baseVolume, pitch, maxDistance,
 				transform, m_SpatialMinDistance, weaponSignatureId);
@@ -89,7 +89,7 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 		if (_profile.TryPickTailClip(out AudioClip tailClip))
 		{
 			float maxDistance = _profile.ResolveMaxAudibleDistance(m_SpatialMaxDistance);
-			int weaponSignatureId = _weapon != null ? _weapon.GetInstanceID() : 0;
+			EntityId weaponSignatureId = _weapon != null ? _weapon.GetEntityId() : default;
 			CombatAudioManager.TryPlayGunshot(
 				tailClip, _pos, _volume * 0.6f, 1f, maxDistance,
 				transform, m_SpatialMinDistance, weaponSignatureId);

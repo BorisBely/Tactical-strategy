@@ -126,13 +126,13 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 
 	private void OnDisable()
 	{
+		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
+		RuntimeInventoryModificationDragContext.ResetAfterDrag();
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		RuntimeInventoryModificationDragContext.Changed -= HandleModificationDragContextChanged;
 		InventoryEquipmentEquipHoverContext.Changed -= HandleEquipmentEquipHoverChanged;
 		TryUnsubscribeReloadCompletionHandler();
 		TryUnsubscribeRocketModificationCompletionHandler();
-		RuntimeModificationSlotDrag.CleanupActiveDragVisual();
-		RuntimeInventoryModificationDragContext.ResetAfterDrag();
-		InventoryEquipmentEquipHoverContext.ClearAll();
 		if (m_DeferredMagazineRepaintCoroutine != null)
 		{
 			StopCoroutine(m_DeferredMagazineRepaintCoroutine);
@@ -2683,7 +2683,11 @@ public sealed class RuntimeInventoryModificationCoordinator : MonoBehaviour
 	private void SetDisplayState(RuntimeModifiableWeaponDisplayState _displayState)
 	{
 		if (!m_ModificationUiState.HasSelection || m_ModificationUiState.DisplayState == _displayState)
+		{
+			if (_displayState == RuntimeModifiableWeaponDisplayState.Collapsed)
+				RefreshModificationCompatibilityHighlights();
 			return;
+		}
 
 		m_ModificationUiState.DisplayState = _displayState;
 		RebuildInlineModificationRows();

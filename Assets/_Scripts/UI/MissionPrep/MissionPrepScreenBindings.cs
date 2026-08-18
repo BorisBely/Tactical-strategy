@@ -1,6 +1,7 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using TMPro;
+using UnityEngine.UI;
 
 /// <summary>
 /// Открытие/закрытие экрана предмиссии по U — по тому же принципу, что инвентарь по I.
@@ -16,6 +17,8 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 	[SerializeField] private bool m_StartWithMissionPrepClosed = true;
 	[Header("Заголовок инвентаря")]
 	[SerializeField] private TMP_Text m_EquipmentTitleText;
+	[Header("Закрытие")]
+	[SerializeField] private Button m_CloseButton;
 	#endregion
 
 	#region Static Access
@@ -24,9 +27,25 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 	public static MissionPrepScreenBindings Instance => s_Instance;
 	#endregion
 
+	#region Private Fields
+	private Button m_RuntimeCloseButton;
+	#endregion
+
 	#region Public Properties
-	public bool IsMissionPrepOpen =>
-		m_MissionPrepCanvasRoot != null && m_MissionPrepCanvasRoot.activeSelf;
+	public bool IsMissionPrepOpen
+	{
+		get
+		{
+			if (m_MissionPrepCanvasRoot == null)
+				return false;
+
+			InventoryUiWindowMotion motion = m_MissionPrepCanvasRoot.GetComponent<InventoryUiWindowMotion>();
+			if (motion != null)
+				return motion.IsOpen;
+
+			return m_MissionPrepCanvasRoot.activeSelf;
+		}
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -38,8 +57,10 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 		if (m_ScreenController == null && m_MissionPrepCanvasRoot != null)
 			m_MissionPrepCanvasRoot.TryGetComponent(out m_ScreenController);
 
+		EnsureCloseButton();
+
 		if (m_StartWithMissionPrepClosed && m_MissionPrepCanvasRoot != null)
-			m_MissionPrepCanvasRoot.SetActive(false);
+			InventoryUiWindowMotion.Ensure(m_MissionPrepCanvasRoot)?.SnapClosed();
 	}
 
 	private void Update()
@@ -92,9 +113,10 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 		if (_open && InventoryScreenBindings.Instance != null && InventoryScreenBindings.Instance.IsInventoryOpen)
 			InventoryScreenBindings.Instance.SetInventoryWindowOpen(false);
 
-		m_MissionPrepCanvasRoot.SetActive(_open);
+		InventoryUiWindowMotion motion = InventoryUiWindowMotion.Ensure(m_MissionPrepCanvasRoot);
 		if (_open)
 		{
+			motion.Open();
 			if (m_ScreenController == null)
 				m_MissionPrepCanvasRoot.TryGetComponent(out m_ScreenController);
 
@@ -105,6 +127,10 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 		{
 			GameInputGate.ReleaseUiInputCapture();
 			RtsUnitSelectionManager.Instance?.CancelRouteEditInputState();
+			InventoryItemTooltip.Instance.HideImmediate();
+			motion.Close();
+			// После закрытия prep юниты снова RTS-controllable — восстановим выделение.
+			RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
 		}
 	}
 
@@ -131,6 +157,17 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 
 		if (m_ScreenController == null)
 			return;
+
+		MissionPrepLoadoutCoordinator coordinator = MissionPrepLoadoutCoordinator.Instance;
+		if (coordinator != null && coordinator.IsBoundToVehicle && coordinator.BoundVehicle != null)
+		{
+			string vehicleTitle = LocalizationManager.Get("mission_prep.vehicle.inventory_title", "Инвентарь машины");
+			string vehicleName = VehicleCellDisplayBinder.ResolveVehicleName(coordinator.BoundVehicle);
+			m_EquipmentTitleText.text = string.IsNullOrWhiteSpace(vehicleName)
+				? vehicleTitle
+				: $"{vehicleTitle}: {vehicleName}";
+			return;
+		}
 
 		MissionPrepPresetSnapshot snapshot = m_ScreenController.GetCurrentPresetSnapshot();
 		if (snapshot != null)
@@ -185,6 +222,70 @@ public sealed class MissionPrepScreenBindings : MonoBehaviour
 				break;
 			}
 		}
+	}
+
+	private void EnsureCloseButton()
+	{
+		if (m_MissionPrepCanvasRoot == null)
+			return;
+
+		if (m_CloseButton != null)
+		{
+			m_CloseButton.onClick.RemoveListener(HandleCloseClicked);
+			m_CloseButton.onClick.AddListener(HandleCloseClicked);
+			return;
+		}
+
+		if (m_RuntimeCloseButton != null)
+			return;
+
+		Transform existing = m_MissionPrepCanvasRoot.transform.Find("PrepCloseButton");
+		if (existing != null && existing.TryGetComponent(out Button existingButton))
+		{
+			m_RuntimeCloseButton = existingButton;
+			m_RuntimeCloseButton.onClick.RemoveListener(HandleCloseClicked);
+			m_RuntimeCloseButton.onClick.AddListener(HandleCloseClicked);
+			return;
+		}
+
+		GameObject go = new GameObject("PrepCloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
+		go.transform.SetParent(m_MissionPrepCanvasRoot.transform, false);
+		RectTransform rt = go.transform as RectTransform;
+		rt.anchorMin = new Vector2(1f, 1f);
+		rt.anchorMax = new Vector2(1f, 1f);
+		rt.pivot = new Vector2(1f, 1f);
+		rt.anchoredPosition = new Vector2(-24f, -24f);
+		rt.sizeDelta = new Vector2(36f, 36f);
+
+		Image image = go.GetComponent<Image>();
+		InventoryUiTheme.ApplyImageColor(image, InventoryUiTheme.TitleBar);
+		image.raycastTarget = true;
+
+		GameObject labelGo = new GameObject("Label", typeof(RectTransform));
+		labelGo.transform.SetParent(go.transform, false);
+		RectTransform labelRt = labelGo.transform as RectTransform;
+		labelRt.anchorMin = Vector2.zero;
+		labelRt.anchorMax = Vector2.one;
+		labelRt.offsetMin = Vector2.zero;
+		labelRt.offsetMax = Vector2.zero;
+		TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
+		label.text = "×";
+		label.fontSize = 26f;
+		label.alignment = TextAlignmentOptions.Midline;
+		label.color = Color.white;
+		label.raycastTarget = false;
+
+		m_RuntimeCloseButton = go.GetComponent<Button>();
+		ColorBlock colors = m_RuntimeCloseButton.colors;
+		colors.highlightedColor = InventoryUiTheme.CellHover;
+		colors.pressedColor = InventoryUiTheme.UnitCellSelected;
+		m_RuntimeCloseButton.colors = colors;
+		m_RuntimeCloseButton.onClick.AddListener(HandleCloseClicked);
+	}
+
+	private void HandleCloseClicked()
+	{
+		SetMissionPrepWindowOpen(false);
 	}
 	#endregion
 }

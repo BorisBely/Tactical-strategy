@@ -183,7 +183,7 @@ public sealed class VehicleTurretMk19FireDiagnostics : MonoBehaviour
 	private string BuildCombatSnapshot(UnitWeaponFireController _fireController, RtsUnitMember _gunner)
 	{
 		UnitWeaponFireDisciplineController discipline = _gunner.GetComponent<UnitWeaponFireDisciplineController>();
-		UnitVision vision = _gunner.GetComponent<UnitVision>();
+		TargetSelector selector = _gunner.GetComponent<TargetSelector>();
 		UnitBusyState busy = _gunner.GetComponent<UnitBusyState>();
 		UnitVehicleTurretReloadEvents turretReload = _gunner.GetComponent<UnitVehicleTurretReloadEvents>();
 
@@ -191,7 +191,7 @@ public sealed class VehicleTurretMk19FireDiagnostics : MonoBehaviour
 			? $"discipline={discipline.PlannedEffectiveFireMode}/{discipline.PlannedSeriesShotCount} pause={discipline.IsInSeriesPause}"
 			: "discipline=idle";
 
-		Transform target = vision != null ? vision.GetEngageableVisibleTarget() : null;
+		Transform target = selector != null ? selector.GetEngageableSelectedTarget() : null;
 		string targetStr = target != null ? target.name : "none";
 
 		bool turretReloadAnim = turretReload != null && turretReload.IsReloadAnimationActive;

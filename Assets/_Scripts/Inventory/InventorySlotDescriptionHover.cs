@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
 {
 	#region Constants
-	private const float c_ShowDelaySeconds = 2f;
+	private const float c_ShowDelaySeconds = 0.35f;
 	#endregion
 
 	#region Private Fields
@@ -120,7 +120,7 @@ public sealed class InventorySlotDescriptionHover : MonoBehaviour, IPointerEnter
 	private IEnumerator ShowAfterDelayCoroutine()
 	{
 		Log($"Delay started ({c_ShowDelaySeconds:0.0}s) for '{(m_Slot != null ? m_Slot.name : name)}'.");
-		yield return new WaitForSeconds(c_ShowDelaySeconds);
+		yield return new WaitForSecondsRealtime(c_ShowDelaySeconds);
 
 		if (m_Slot == null || !m_Slot.HasItem)
 		{

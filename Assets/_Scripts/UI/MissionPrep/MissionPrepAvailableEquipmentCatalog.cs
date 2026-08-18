@@ -100,42 +100,21 @@ public sealed class MissionPrepAvailableEquipmentCatalog : MonoBehaviour
 		if (_slots == null || _slots.Count <= 1)
 			return;
 
-		_slots.Sort(static (a, b) =>
+		var keyed = new List<(int Index, InventorySlotRuntimeData Slot)>(_slots.Count);
+		for (int i = 0; i < _slots.Count; i++)
+			keyed.Add((i, _slots[i]));
+
+		keyed.Sort(static (a, b) =>
 		{
-			int orderA = GetDisplaySortOrder(a.Definition);
-			int orderB = GetDisplaySortOrder(b.Definition);
-			if (orderA != orderB)
-				return orderA.CompareTo(orderB);
+			int compare = MissionPrepAvailableEquipmentGroupClassifier.CompareSlots(a.Slot, b.Slot);
+			if (compare != 0)
+				return compare;
 
-			string nameA = a.Definition != null ? a.Definition.name : string.Empty;
-			string nameB = b.Definition != null ? b.Definition.name : string.Empty;
-			return string.Compare(nameA, nameB, System.StringComparison.Ordinal);
+			return a.Index.CompareTo(b.Index);
 		});
-	}
 
-	private static int GetDisplaySortOrder(ItemDefinition _definition)
-	{
-		if (_definition == null)
-			return 99;
-
-		if (_definition.WeaponDefinition != null)
-			return 0;
-		if (_definition.IsEquipment && _definition.EquipmentKind == EquipmentKind.Helmet)
-			return 1;
-		if (_definition.WeaponAttachmentDefinition != null)
-			return 2;
-		if (_definition.MagazineDefinition != null)
-			return 3;
-		if (_definition.AmmoDefinition != null)
-			return 4;
-		if (_definition.IsGrenade)
-			return 5;
-		if (_definition.IsRocketLauncher)
-			return 0;
-		if (_definition.IsRpgRocketAmmo)
-			return 4;
-
-		return 6;
+		for (int i = 0; i < keyed.Count; i++)
+			_slots[i] = keyed[i].Slot;
 	}
 	#endregion
 

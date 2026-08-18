@@ -1,0 +1,3478 @@
+
+
+# Часть 1. Итоговая модель состояний
+
+Я предлагаю окончательно принять:
+
+```text
+NotReady
+    ↓ Ctrl+E / боевой переход
+LowReady
+    ↓
+HighReady
+    ↓
+Aiming
+
+LowReady → HipFire
+LowReady → PointAim
+
+HighReady → Aiming
+HighReady → PointAim
+HighReady → HipFire
+```
+
+То есть:
+
+### 1. NotReady
+
+Мирное, расслабленное состояние.
+
+```text
+Animator:
+    Stand_Relaxed_Idle
+
+WeaponReady:
+    false
+
+AimProgress:
+    0 / не накапливается
+
+Fire:
+    запрещён
+```
+
+Смысл:
+
+> «Контакта сейчас не ожидаю».
+
+---
+
+### 2. LowReady
+
+Первый уровень боевой готовности.
+
+```text
+Animator:
+    Stand_Aim_Idle
+
+WeaponReady:
+    true визуально
+    но Fire = false
+
+AimProgress:
+    не накапливается
+```
+
+Смысл:
+
+> «Я уже в боевой стойке и готов быстро поднять оружие, но пока не держу его на конкретной цели».
+
+---
+
+### 3. HighReady
+
+Непосредственно перед Aiming.
+
+```text
+Animator:
+    Stand_Aim_Idle
+
+Weapon:
+    уже направлено в сторону потенциальной угрозы
+
+RightHand:
+    почти финальная Aiming-поза
+
+Fire:
+    разрешён
+```
+
+Смысл:
+
+> «Я уже практически наведён, но ещё не совместил глаз с прицелом».
+
+Это состояние особенно полезно для AI, который знает, откуда ожидается контакт.
+
+---
+
+### 4. Aiming
+
+Полный ADS.
+
+```text
+Weapon:
+    глаз → прицел → ствол
+
+AimProgress:
+    полный
+
+Spread:
+    минимальный
+
+Optic:
+    учитывается
+```
+
+Это твой основной режим точного огня.
+
+---
+
+### 5. HipFire
+
+Особый CQB-режим.
+
+Здесь я согласен с твоей идеей:
+
+> **HipFire не обязан быть «промежуточным режимом наведения».**
+
+Это полноценный способ стрельбы.
+
+Он особенно подходит:
+
+* неопытным солдатам;
+* внезапному контакту на очень короткой дистанции;
+* оружию, которое ещё не успели поднять;
+* экстремально быстрому огню.
+
+При этом опытный солдат тоже может хорошо стрелять из HipFire — просто за счёт своих навыков.
+
+---
+
+### 6. PointAim
+
+Оружие направлено по ЛЦУ/естественной линии оружия, но **без ADS**.
+
+```text
+Optic:
+    не участвует
+
+Laser:
+    может участвовать в качестве визуального/геометрического ориентира
+
+Fire:
+    разрешён
+
+Accuracy:
+    хорошая вблизи
+    быстро ухудшается с дистанцией
+```
+
+И я согласен с твоим новым решением:
+
+> **PointAim доступен даже без ЛЦУ.**
+
+ЛЦУ тогда становится **модификатором PointAim**, а не обязательным условием.
+
+Это лучше для архитектуры.
+
+---
+
+# Часть 2. Что меняется в архитектуре
+
+Сейчас у тебя `WeaponPoseState` уже фактически содержит `LowReady`, `PointAim`, `HipFire`, `Aiming`, а `NotReady` оставлен вне обычного gameplay cycle. 
+
+Нужно добавить:
+
+```csharp
+HighReady
+```
+
+Получится:
+
+```csharp
+public enum WeaponPoseState
+{
+    NotReady,
+    LowReady,
+    HighReady,
+    HipFire,
+    PointAim,
+    Aiming
+}
+```
+
+Я бы **поставил `HighReady` именно между LowReady и остальными боевыми состояниями**, но физический enum-порядок сам по себе не должен использоваться как логика переходов.
+
+---
+
+# Часть 3. `WeaponPoseMode` и `WeaponPoseState` оставить раздельными
+
+Это важная часть твоей текущей архитектуры и её стоит сохранить. У тебя уже правильно разделено:
+
+```text
+WeaponPoseMode
+    ↓
+EffectivePoseState
+```
+
+а `WeaponAimMode` отдельно отвечает за порог выстрела. 
+
+Я бы сделал:
+
+```csharp
+public enum WeaponPoseMode
+{
+    LowReady,
+    HighReady,
+    HipFire,
+    PointAim,
+    Aiming,
+    Auto
+}
+```
+
+`NotReady` сюда **не добавлять**.
+
+Почему:
+
+`NotReady` — это не боевой режим, а carry state.
+
+Поэтому:
+
+```text
+Ctrl + E
+    NotReady → LowReady
+
+E
+    LowReady → HighReady → Aiming → HipFire → PointAim → LowReady
+```
+
+---
+
+# Часть 4. Ручное управление
+
+Ты подтвердил:
+
+## `Ctrl + E`
+
+Если юнит находится в:
+
+```text
+NotReady
+```
+
+то:
+
+```text
+Ctrl+E
+    ↓
+LowReady
+```
+
+Это переход:
+
+> «перейти из небоевого состояния в боевое».
+
+---
+
+## `E`
+
+Если юнит уже в боевом режиме:
+
+```text
+LowReady
+→ HighReady
+→ Aiming
+→ HipFire
+→ PointAim
+→ LowReady
+```
+
+При отсутствии каких-либо возможностей режима:
+
+```text
+PointAim
+```
+
+просто пропускается или становится недоступен.
+
+Я бы **не делал E циклическим через NotReady**.
+
+То есть:
+
+```text
+E
+LowReady → HighReady → Aiming → HipFire → PointAim → LowReady
+```
+
+а:
+
+```text
+Ctrl+E
+NotReady → LowReady
+```
+
+---
+
+# Часть 5. HighReady не нужно сразу делать отдельными ручными координатами
+
+Твоя идея здесь хорошая.
+
+Для первого варианта:
+
+```text
+HighReadyWeaponPose =
+    Lerp(LowReadyWeaponPose,
+         AimingWeaponPose,
+         HighReadyBlend)
+```
+
+и аналогично для правой руки:
+
+```text
+HighReadyRightIK =
+    Lerp(LowReadyRightIK,
+         AimingRightIK,
+         HighReadyBlend)
+```
+
+Начальное значение:
+
+```text
+HighReadyBlend = 0.70–0.80
+```
+
+Я бы начал с:
+
+```text
+0.75
+```
+
+---
+
+# Часть 6. Но сделать это не просто `Lerp` по всему Transform
+
+Лучше ввести:
+
+```csharp
+HighReadyDefinition
+```
+
+с:
+
+```text
+WeaponBlend
+RightHandBlend
+```
+
+Например:
+
+```csharp
+[Serializable]
+public struct HighReadyDefinition
+{
+    [Range(0f, 1f)]
+    public float WeaponBlend;
+
+    [Range(0f, 1f)]
+    public float RightHandBlend;
+}
+```
+
+Почему?
+
+Потому что может оказаться:
+
+```text
+WeaponBlend = 0.75
+RightHandBlend = 0.62
+```
+
+Оружие уже почти в Aiming, а рука чуть дальше от финальной позиции.
+
+Это намного лучше, чем заставлять обе системы иметь один коэффициент.
+
+---
+
+# Часть 7. Для HighReady сделать optional override
+
+На оружии можно иметь:
+
+```text
+HighReady:
+    UseDerivedPose = true
+
+    WeaponBlend = 0.75
+    RightHandBlend = 0.70
+
+    Optional custom pose
+```
+
+По умолчанию:
+
+```text
+UseDerivedPose = true
+```
+
+Если конкретная винтовка плохо смешивается:
+
+```text
+UseDerivedPose = false
+```
+
+и настраиваются отдельные:
+
+```text
+HighReady Weapon Pose
+HighReady RightHand IK
+```
+
+Таким образом в 90% случаев у тебя нет дополнительных ручных настроек.
+
+---
+
+# Часть 8. Что происходит с левой рукой
+
+Левую вообще не добавлять в эту систему.
+
+Она остаётся:
+
+```text
+Weapon
+ ↓
+ForeGrip
+ ↓
+LeftHandGrip
+ ↓
+LeftHand IK
+```
+
+То есть HighReady автоматически получает правильную левую руку потому, что само оружие уже переместилось.
+
+Это именно то, чего мы хотели добиться раньше.
+
+---
+
+# Часть 9. `WeaponReady` теперь немного меняет смысл
+
+Сейчас в документе:
+
+* `LowReady` → `WeaponReady=false`;
+* остальные боевые pose → `true`. 
+
+Я бы изменил:
+
+```text
+NotReady:
+    WeaponReady = false
+
+LowReady:
+    WeaponReady = false для FireGate
+    AnimatorWeaponReady = false/боевой idle по необходимости
+
+HighReady:
+    true
+
+HipFire:
+    true
+
+PointAim:
+    true
+
+Aiming:
+    true
+```
+
+Но я бы **не использовал один `WeaponReady` для всей логики**.
+
+Лучше иметь:
+
+```text
+IsWeaponInCombatPose
+IsWeaponReadyToFire
+```
+
+Потому что LowReady:
+
+> оружие в боевой стойке,
+
+но:
+
+> стрелять пока нельзя.
+
+---
+
+# Часть 10. Ввести два понятия
+
+## `IsCombatPose`
+
+```text
+LowReady
+HighReady
+HipFire
+PointAim
+Aiming
+```
+
+## `CanFireFromPose`
+
+```text
+HighReady
+HipFire
+PointAim
+Aiming
+```
+
+Так исчезает путаница.
+
+---
+
+# Часть 11. AimProgress
+
+Твою существующую систему я бы **сохранил**.
+
+Она уже хорошо разделена:
+
+```text
+Pose
+ ↓
+AimProgress
+ ↓
+Fire gate
+```
+
+А `AimProgress` сейчас считается по:
+
+```text
+dt / CurrentAimTimeSeconds
+```
+
+и уменьшается быстрее, чем накапливается. 
+
+Но теперь `CurrentAimTimeSeconds` будет зависеть от **перехода и состояния**.
+
+---
+
+# Часть 12. Разделить `AimTime` на два понятия
+
+Это очень важно.
+
+### `FullAimTime`
+
+Полное время:
+
+```text
+HighReady → Aiming
+```
+
+или:
+
+```text
+LowReady → Aiming
+```
+
+### `CurrentPoseAimTime`
+
+Сколько времени нужно, чтобы достичь боевой эффективности в текущем состоянии.
+
+---
+
+# Часть 13. Базовое время Aiming
+
+Твоё существующее значение около:
+
+```text
+0.28 sec
+```
+
+можно сохранить как базовый порядок величины. 
+
+Но теперь:
+
+```text
+Aiming = 1.00
+HighReady ≈ 0.70
+PointAim ≈ 0.85
+HipFire ≈ 0.55
+```
+
+как начальные pose multipliers.
+
+Текущая система уже использует приблизительно:
+
+```text
+HipFire = 0.55
+PointAim = 0.85
+Aiming = 1.0
+```
+
+поэтому это почти готовая база. 
+
+Для HighReady я бы добавил:
+
+```text
+HighReady = 0.65–0.75
+```
+
+Начать:
+
+```text
+0.70
+```
+
+---
+
+# Часть 14. Но здесь вмешивается ранг
+
+И это хорошо.
+
+В твоей текущей системе ранг уже непосредственно влияет:
+
+* `Marksmanship` → spread;
+* `WeaponHandling` → aim time;
+* `RecoilControl` → recoil recovery. 
+
+Это **не нужно дублировать в pose system**.
+
+То есть:
+
+```text
+FinalAimTime =
+BaseWeaponAimTime
+× DistanceMultiplier
+× PoseMultiplier
+× WeaponHandlingMultiplier
+× TraitMultiplier
+× MovementMultiplier
+× StanceMultiplier
+```
+
+---
+
+# Часть 15. Ранги уже дают хорошую основу
+
+Сейчас:
+
+| Ранг       | Marksmanship | Handling | Recoil |
+| ---------- | -----------: | -------: | -----: |
+| Recruit    |           35 |       40 |     35 |
+| Soldier    |           50 |       50 |     50 |
+| Veteran    |           58 |       56 |     58 |
+| Specialist |           61 |       68 |     60 |
+| Elite      |           65 |       63 |     66 |
+
+а базовая нормализация даёт:
+
+```text
+Recruit:
+spread ×1.08
+aim ×1.05
+
+Soldier:
+1.00 / 1.00
+
+Specialist:
+spread ×0.95
+aim ×0.91
+```
+
+и т. д. 
+
+**Я пока не стал бы переделывать ранги.**
+
+Их различия уже достаточно заметны.
+
+---
+
+# Часть 16. HipFire — особый случай
+
+Твоя идея:
+
+> неопытные AI могут в основном стрелять от бедра.
+
+Мне она нравится.
+
+Но важно:
+
+**HipFire не должен означать «плохой солдат».**
+
+Он означает:
+
+> очень быстрый способ применить оружие на короткой дистанции.
+
+А ранг определяет, насколько хорошо конкретный солдат умеет им пользоваться.
+
+---
+
+# Часть 17. Пример HipFire по рангам
+
+Возьмём `Soldier` как `1.00`.
+
+### Recruit
+
+```text
+AimTime:
+×1.05 rank
+×0.55 HipFire
+
+Spread:
+×1.08 rank
+×2.5 HipFire
+```
+
+### Soldier
+
+```text
+×1.00
+×1.00
+```
+
+### Veteran
+
+```text
+×0.97 time
+×0.96 spread
+```
+
+### Specialist
+
+```text
+×0.91 time
+×0.95 spread
+```
+
+Получается:
+
+> хороший солдат может реально неплохо стрелять из HipFire, но это никогда не превращается в Aiming.
+
+Это именно то, что тебе нужно.
+
+---
+
+# Часть 18. Дистанция 0–500 м
+
+Здесь я бы **не делал линейный штраф**.
+
+Для оружия должен существовать:
+
+```text
+WeaponDistanceAimProfile
+```
+
+с кривой:
+
+```text
+0 m
+10
+25
+50
+100
+200
+300
+500
+```
+
+Она влияет прежде всего на:
+
+```text
+AimTime
+```
+
+и отдельно:
+
+```text
+PointAim effectiveness
+HipFire effectiveness
+```
+
+---
+
+# Часть 19. Почему нельзя просто сделать «500 м = в 5 раз хуже»
+
+Потому что на 0–20 м различие расстояния для реакции небольшое, а после 50–100 м влияние должно становиться заметнее.
+
+Я бы использовал **кусочно-плавную кривую**.
+
+Например для времени наведения:
+
+| Дистанция | multiplier |
+| --------- | ---------: |
+| 0–5 m     |       0.90 |
+| 10 m      |       0.95 |
+| 25 m      |       1.00 |
+| 50 m      |       1.05 |
+| 100 m     |       1.15 |
+| 200 m     |       1.30 |
+| 300 m     |       1.45 |
+| 500 m     |       1.70 |
+
+Это не «реальные физические числа», а стартовая игровая кривая, которую потом нужно проверять на твоих оружиях.
+
+---
+
+# Часть 20. Но для PointAim и HipFire важнее не AimTime, а точность
+
+Я бы сделал:
+
+```text
+AimTimeDistanceMultiplier
+```
+
+и:
+
+```text
+PoseDistanceAccuracyMultiplier
+```
+
+отдельными.
+
+Например:
+
+### HipFire
+
+| Дистанция |      Доп. multiplier |
+| --------- | -------------------: |
+| 0–3 m     |                  1.0 |
+| 5 m       |                 1.15 |
+| 10 m      |                  1.5 |
+| 15 m      |                  2.2 |
+| 25 m      |                  3.5 |
+| 50 m      |                  6.0 |
+| 100 m     | практически unusable |
+
+---
+
+# Часть 21. PointAim
+
+Я бы сделал существенно лучше:
+
+| Дистанция | PointAim accuracy multiplier |
+| --------- | ---------------------------: |
+| 0–5 m     |                         1.05 |
+| 10 m      |                         1.10 |
+| 25 m      |                         1.20 |
+| 50 m      |                         1.40 |
+| 100 m     |                         1.80 |
+| 200 m     |                          2.8 |
+| 300 m     |                          4.0 |
+| 500 m     |                          7.0 |
+
+И здесь **Marksmanship ранга продолжает влиять сверху**.
+
+Поэтому:
+
+```text
+Elite PointAim 25m
+```
+
+может быть вполне хорошим.
+
+А:
+
+```text
+Recruit PointAim 25m
+```
+
+будет заметно хуже.
+
+---
+
+# Часть 22. Aiming
+
+Для Aiming я бы **почти не добавлял сильный distance penalty**.
+
+На дальности 500 м проблема должна идти больше через:
+
+* weapon dispersion;
+* optics;
+* marksmanship;
+* recoil;
+* movement;
+* target size;
+* incomplete aim.
+
+А не через:
+
+```text
+500m → ×3 AimTime
+```
+
+То есть:
+
+```text
+AimingTime:
+25m → 1.0
+100m → 1.05
+300m → 1.10
+500m → 1.15
+```
+
+---
+
+# Часть 23. Реалистичнее связать дистанцию с выбором позы
+
+Вот здесь AI становится интересным.
+
+До 500 м я бы разделил:
+
+```text
+0–5m
+5–15m
+15–40m
+40–100m
+100–300m
+300–500m
+```
+
+Но это **не жёсткие переключатели для точности**.
+
+Это зоны принятия решения AI.
+
+---
+
+# Часть 24. Первая версия Auto AI
+
+Без сложной тактики.
+
+AI проверяет:
+
+```text
+Есть engageable target?
+```
+
+### Нет
+
+```text
+ThreatExpected?
+    No → NotReady
+    Yes → HighReady/LowReady
+```
+
+Для самой первой реализации я бы даже сделал:
+
+```text
+Нет цели
+    ↓
+LowReady
+```
+
+а:
+
+```text
+ExpectedContact
+```
+
+позже.
+
+---
+
+# Часть 25. Есть цель
+
+AI получает:
+
+```text
+distance
+angleFromForward
+laserAvailable
+rank
+movement
+```
+
+и выбирает состояние.
+
+Пример:
+
+### 0–5 м
+
+```text
+HipFire
+```
+
+особенно у:
+
+```text
+Recruit / Soldier
+```
+
+если контакт внезапный.
+
+---
+
+### 5–20 м
+
+```text
+PointAim
+```
+
+если оружие поддерживает такой режим.
+
+---
+
+### 20–50 м
+
+```text
+PointAim
+```
+
+для хороших стрелков / ЛЦУ,
+
+или:
+
+```text
+Aiming
+```
+
+для более точной стрельбы.
+
+---
+
+### 50–150 м
+
+```text
+Aiming
+```
+
+---
+
+### 150–500 м
+
+```text
+Aiming
+```
+
+без попытки использовать PointAim.
+
+---
+
+# Часть 26. Но ранг должен менять Auto-пороги
+
+Вот это я бы добавил.
+
+Например базово:
+
+```text
+HipFireMaxDistance = 7m
+PointAimMaxDistance = 30m
+```
+
+Но:
+
+### Recruit
+
+```text
+HipFireMax = 10m
+PointAimMax = 20m
+```
+
+Потому что AI проще использовать быстрый режим.
+
+### Soldier
+
+```text
+HipFireMax = 7m
+PointAimMax = 30m
+```
+
+### Veteran
+
+```text
+HipFireMax = 5m
+PointAimMax = 40m
+```
+
+### Specialist
+
+```text
+HipFireMax = 5m
+PointAimMax = 45m
+```
+
+### Elite
+
+```text
+HipFireMax = 4m
+PointAimMax = 50m
+```
+
+Это лучше, чем просто сказать:
+
+> плохой солдат получает больше spread.
+
+Он ещё и **принимает другие решения**.
+
+---
+
+# Часть 27. Но не делать резких переключений
+
+Использовать hysteresis.
+
+Например:
+
+```text
+HipFire → PointAim
+    > 10m
+
+PointAim → HipFire
+    < 7m
+```
+
+А:
+
+```text
+PointAim → Aiming
+    > 35m
+
+Aiming → PointAim
+    < 25m
+```
+
+Так AI не будет постоянно:
+
+```text
+PointAim
+Aiming
+PointAim
+Aiming
+```
+
+если цель колеблется возле порога.
+
+---
+
+# Часть 28. HighReady в Auto
+
+HighReady я бы **не выбирал просто по дистанции**.
+
+Он нужен когда:
+
+```text
+нет цели,
+но
+ожидается контакт
+```
+
+или:
+
+```text
+цель только что потеряна,
+но
+юнит продолжает смотреть в последний опасный сектор.
+```
+
+На первой версии AI можно сделать проще:
+
+```text
+No target + combat alert
+    ↓
+HighReady
+```
+
+А позже подключить last-known position.
+
+---
+
+# Часть 29. Реакция AI
+
+У тебя уже ранг содержит `ReactionTimeMin/Max`, это отдельная характеристика, которую не надо смешивать с `AimTime`. 
+
+Поэтому:
+
+```text
+Target detected
+    ↓
+Reaction delay
+    ↓
+Choose pose
+    ↓
+AimProgress
+    ↓
+Fire gate
+```
+
+Это очень важно.
+
+Иначе хороший ранг будет ощущаться просто как «быстрее прицеливается», хотя на самом деле он должен ещё и **быстрее реагировать**.
+
+---
+
+# Часть 30. Огневой процесс AI
+
+Я бы оставил твою текущую идею `FireDisciplineController`:
+
+```text
+Aiming phase
+    ↓
+hold virtual trigger
+    ↓
+AimProgress
+    ↓
+required threshold
+    ↓
+Fire
+```
+
+Она уже хорошо отделяет:
+
+> «я хочу стрелять»
+
+от:
+
+> «я достаточно навёлся, чтобы действительно стрелять». 
+
+Но расширить `Aiming phase` на все боевые pose:
+
+```text
+HighReady
+HipFire
+PointAim
+Aiming
+```
+
+---
+
+# Часть 31. Threshold для стрельбы
+
+Я бы переиспользовал твою существующую модель:
+
+```text
+SnapShot = 0.35
+QuickAim = 0.68
+FullAim = 1.00
+```
+
+Вместо создания новой шкалы. 
+
+Например:
+
+| Pose      | Базовый fire threshold |
+| --------- | ---------------------: |
+| HipFire   |              0.30–0.35 |
+| HighReady |              0.40–0.50 |
+| PointAim  |              0.60–0.68 |
+| Aiming    |                   1.00 |
+
+Но финальный threshold может определяться ещё `WeaponFireDisciplineMode`.
+
+То есть:
+
+```text
+Pose
++
+FireDiscipline
++
+Distance
++
+Rank/Skill
+```
+
+---
+
+# Часть 32. Ранг не должен напрямую менять fire threshold
+
+Это важное правило.
+
+Ранг уже влияет на:
+
+```text
+AimTime
+Spread
+Reaction
+Recoil
+```
+
+Я бы **не давал рангу напрямую снижать RequiredAimProgress**.
+
+Почему?
+
+Иначе Elite начнёт стрелять почти мгновенно всегда.
+
+Лучший солдат должен:
+
+* быстрее подготовиться;
+* быстрее повернуть оружие;
+* стабильнее держать оружие;
+* лучше контролировать recoil;
+* лучше стрелять в движении.
+
+Но **сама доктрина огня** должна определять, насколько быстро он решается стрелять.
+
+Это сохраняет смысл `WeaponFireDisciplineMode`.
+
+---
+
+# Часть 33. Дистанция тоже не должна просто снижать threshold
+
+Наоборот.
+
+На большой дистанции:
+
+```text
+AimMode = FullAim
+```
+
+и:
+
+```text
+RequiredAimProgress ≈ 1.0
+```
+
+А на близкой:
+
+```text
+SnapShot
+```
+
+может позволить:
+
+```text
+0.35
+```
+
+Это уже есть у тебя и хорошо работает концептуально. 
+
+---
+
+# Часть 34. Spread
+
+Твою нынешнюю модель я бы сохранил:
+
+```text
+Base dispersion
+× ammo
+× weapon distance
+× attachments
+× recoil
+× stance
+× movement
+× skills
+× traits
+× incomplete aim
+× pose
+```
+
+Это уже хорошая композиция. 
+
+Добавить нужно только:
+
+```text
+HighReadyPoseSpread
+```
+
+Я бы начал:
+
+```text
+HipFire      ×2.50
+HighReady    ×1.75
+PointAim     ×1.50
+Aiming       ×1.00
+```
+
+`LowReady` и `NotReady` не стреляют.
+
+---
+
+# Часть 35. Ранг и эти spread
+
+Например условно:
+
+### Recruit
+
+```text
+HipFire:
+2.50 × 1.08 = 2.70
+
+PointAim:
+1.50 × 1.08 = 1.62
+```
+
+### Elite
+
+```text
+HipFire:
+2.50 × 0.93 = 2.33
+
+PointAim:
+1.50 × 0.93 = 1.40
+```
+
+То есть:
+
+> Elite действительно способен показать неплохую стрельбу от бедра.
+
+Но:
+
+```text
+Elite HipFire
+```
+
+всё равно хуже:
+
+```text
+Elite PointAim
+```
+
+и тем более:
+
+```text
+Elite Aiming
+```
+
+Это именно то, что ты хотел.
+
+---
+
+# Часть 36. PointAim + расстояние
+
+Здесь я бы использовал отдельный:
+
+```text
+PointAimDistanceAccuracyCurve
+```
+
+а не менял `Marksmanship`.
+
+Например:
+
+```text
+0m    1.00
+5m    1.00
+10m   1.05
+25m   1.20
+50m   1.45
+100m  1.90
+200m  3.00
+300m  4.20
+500m  7.00
+```
+
+Это умножается поверх:
+
+```text
+PointAimPoseSpread × Marksmanship × ...
+```
+
+---
+
+# Часть 37. HipFire distance curve
+
+Ещё сильнее:
+
+```text
+0m    1.00
+3m    1.00
+5m    1.10
+10m   1.50
+15m   2.20
+25m   3.50
+50m   6.00
+100m  10+
+```
+
+Такой режим перестаёт быть «универсальным быстрым режимом» и становится именно:
+
+> **очень быстрый CQB огонь.**
+
+---
+
+# Часть 38. Aiming distance
+
+Здесь кривая должна быть гораздо слабее:
+
+```text
+0m    1.00
+25m   1.00
+50m   1.02
+100m  1.05
+200m  1.08
+300m  1.10
+500m  1.15
+```
+
+В реальной игре на 500 м будет гораздо важнее:
+
+* dispersion оружия;
+* оптика;
+* marksmanship;
+* recoil;
+* movement;
+* stance;
+* target size.
+
+---
+
+# Часть 39. Оптика
+
+Ты попросил напомнить в конце — но я уже заложу это в архитектуру.
+
+Для `PointAim`:
+
+```text
+Optic = ignored
+```
+
+но:
+
+```text
+Laser = optional modifier
+```
+
+Для `Aiming`:
+
+```text
+Optic = active
+```
+
+---
+
+# Часть 40. Предложение по двум ЛЦУ
+
+Поскольку пока у тебя две модели, я бы для начала сделал их не радикально разными.
+
+## ЛЦУ 1 — обычный/базовый
+
+### PointAim
+
+```text
+PointAimSpreadMultiplier:
+×0.95
+```
+
+и:
+
+```text
+PointAimAimTimeMultiplier:
+×0.95
+```
+
+То есть небольшая помощь.
+
+### Aiming
+
+```text
+не влияет на spread напрямую
+```
+
+может немного помочь только с acquisition:
+
+```text
+AimTime ×0.97
+```
+
+---
+
+# Часть 41. ЛЦУ 2 — улучшенный
+
+Более качественная модель:
+
+### PointAim
+
+```text
+spread ×0.88
+aim time ×0.90
+```
+
+### Aiming
+
+```text
+AimTime ×0.92
+```
+
+Но я бы **не давал ЛЦУ огромного бонуса**.
+
+Оно не должно превращать PointAim в Aiming.
+
+---
+
+# Часть 42. Ещё важнее — расстояние для ЛЦУ
+
+ЛЦУ должен давать эффект главным образом на близких дистанциях.
+
+Можно сделать:
+
+```text
+LaserPointAimEffect
+```
+
+с дистанционной кривой:
+
+### Базовый ЛЦУ
+
+```text
+0–5m       100% бонуса
+10m        100%
+20m         90%
+30m         70%
+50m         40%
+100m        10%
+200m         0%
+```
+
+### Улучшенный ЛЦУ
+
+```text
+0–5m       100%
+10m        100%
+20m         95%
+30m         85%
+50m         60%
+100m        25%
+200m         5%
+500m         0%
+```
+
+Это намного лучше, чем просто:
+
+```text
+Laser = -10% spread everywhere
+```
+
+потому что соответствует назначению ЛЦУ.
+
+**Напоминание для реализации:** эти два набора бонусов нужно добавить в систему модификаторов attachment, а не в сам `PointAim`. И `PointAim` должен уметь работать без ЛЦУ.
+
+---
+
+# Часть 43. Как связать это с текущим `WeaponPoseAutoCapabilityCache`
+
+У тебя уже есть очень хорошая точка расширения:
+
+```text id="5td94l"
+WeaponPoseAutoCapabilityCache
+```
+
+Сейчас она уже использует spread rank multiplier при определении дальности для Auto. 
+
+Я бы расширил cache до:
+
+```text
+PoseCapabilityCache
+{
+    AimTimeMultiplier
+    SpreadMultiplier
+
+    EffectiveMaxDistance
+    PreferredDistance
+}
+```
+
+для:
+
+```text
+HipFire
+HighReady
+PointAim
+Aiming
+```
+
+---
+
+# Часть 44. Что значит PreferredDistance
+
+Это очень полезный параметр для AI.
+
+Например:
+
+```text
+HipFire
+    preferred 0–5m
+    maximum ~15m
+
+PointAim
+    preferred 5–30m
+    maximum ~80m
+
+Aiming
+    preferred 30–500m
+```
+
+А реальное значение зависит от:
+
+```text
+Weapon
+Rank
+Marksmanship
+Attachments
+Pose
+```
+
+---
+
+# Часть 45. Тогда AI становится очень простым
+
+AI не делает:
+
+> «Я Recruit — надо HipFire».
+
+Он делает:
+
+```text
+Какая pose сейчас наиболее эффективна для этой дистанции?
+```
+
+И capability cache отвечает.
+
+Например:
+
+```text
+Target = 8m
+```
+
+Для Recruit:
+
+```text
+HipFire capability = good
+PointAim capability = okay
+```
+
+AI выбирает HipFire.
+
+Для Elite:
+
+```text
+HipFire = still usable
+PointAim = clearly better
+```
+
+AI выбирает PointAim.
+
+Это создаёт **разное поведение рангов**, не создавая отдельный AI для каждого ранга.
+
+---
+
+# Часть 46. Auto AI v1
+
+Предлагаю максимально простую первую версию.
+
+### Нет цели
+
+```text
+No engageable target
+    ↓
+LowReady
+```
+
+Если AI получил сигнал:
+
+```text
+combat alert / expected contact
+```
+
+то:
+
+```text
+HighReady
+```
+
+---
+
+### Есть цель
+
+Получаем:
+
+```text
+distance
+```
+
+и:
+
+```text
+best pose capability
+```
+
+и:
+
+```text
+weapon has target support
+```
+
+Выбираем:
+
+```text
+0–5m:
+    HipFire
+
+5–30m:
+    PointAim / HipFire
+
+30m+:
+    Aiming
+```
+
+А реальные пороги будут определяться `PoseCapabilityCache`.
+
+---
+
+# Часть 47. Что должен учитывать Auto AI сразу
+
+Только:
+
+```text
+1. Есть ли engageable target
+2. Дистанция
+3. Угол до target
+4. Видимость / engageability
+5. Capability pose
+6. Наличие огневых блокировок
+```
+
+Не нужно пока добавлять:
+
+* suppression;
+* fear;
+* tactical preference;
+* ammunition conservation;
+* target priority;
+* last known position.
+
+Это следующая стадия.
+
+---
+
+# Часть 48. Условие для HighReady
+
+Я бы сделал:
+
+```text
+HighReady
+```
+
+если:
+
+```text
+NoCurrentTarget
+AND CombatAlert
+```
+
+или:
+
+```text
+TargetRecentlyLost
+AND LastKnownThreatDirectionValid
+```
+
+Но для первой реализации:
+
+```text
+CombatAlert → HighReady
+```
+
+достаточно.
+
+---
+
+# Часть 49. Условие выхода из HighReady
+
+### Появилась цель
+
+```text
+distance ≤ HipFireMax
+    → HipFire
+
+distance ≤ PointAimMax
+    → PointAim
+
+otherwise
+    → Aiming
+```
+
+### Цель потеряна
+
+```text
+HighReady
+    → HighReady некоторое время
+    → LowReady
+```
+
+Это можно добавить позже.
+
+---
+
+# Часть 50. Ручной E-cycle
+
+Я бы сделал точно:
+
+```text
+Ctrl+E:
+
+NotReady → LowReady
+```
+
+и:
+
+```text
+E:
+
+LowReady
+   ↓
+HighReady
+   ↓
+Aiming
+   ↓
+HipFire
+   ↓
+PointAim
+   ↓
+LowReady
+```
+
+Причём если на оружии нет какой-либо возможности, состояние пропускается.
+
+Например:
+
+```text
+PointAim
+```
+
+всегда доступен после твоего решения использовать PointAim без ЛЦУ.
+
+---
+
+# Часть 51. Нужно ли менять состояние при выстреле?
+
+Нет.
+
+Если:
+
+```text
+HighReady
+```
+
+и разрешён выстрел:
+
+```text
+HighReady → FIRE
+```
+
+после выстрела остаёмся в:
+
+```text
+HighReady
+```
+
+А не:
+
+```text
+HighReady → Aiming
+```
+
+Это важно.
+
+Стрельба не должна автоматически заставлять юнита перейти в ADS.
+
+---
+
+# Часть 52. Что происходит после серии
+
+Например:
+
+```text
+PointAim
+→ burst
+→ PointAim
+```
+
+`AimProgress` можно сохранить в соответствии с уже существующей логикой burst/full-auto. Она сейчас специально не сбрасывает progress между выстрелами серии. 
+
+---
+
+# Часть 53. Что делает NotReady после стрельбы
+
+Отдельное решение AI/command system.
+
+Я бы пока:
+
+```text
+После боя:
+    LowReady
+```
+
+а не:
+
+```text
+NotReady
+```
+
+Потому что выход из боя должен оставлять юнита настороженным.
+
+`NotReady` возвращается отдельной командой/состоянием:
+
+```text
+CombatEnded
+AND no threat
+AND command says safe
+```
+
+---
+
+# Часть 54. Что делать при движении
+
+Текущая система уже учитывает movement в AimTime и spread. 
+
+Я бы просто усилил это для новых режимов.
+
+Пример:
+
+| Состояние | Slow Walk |  Walk |               Run |
+| --------- | --------: | ----: | ----------------: |
+| HipFire   |     ×1.10 | ×1.20 |             ×1.50 |
+| HighReady |     ×1.10 | ×1.25 | запрещён/LowReady |
+| PointAim  |     ×1.15 | ×1.30 |          запрещён |
+| Aiming    |     ×1.20 | ×1.40 |          запрещён |
+
+Но точные цифры лучше вынести в `UnitCombatCondition`, а не зашивать в Pose.
+
+---
+
+# Часть 55. Очень важно не смешать Pose и AimProgress
+
+Оставляем:
+
+```text
+Pose
+=
+куда и как держит оружие
+```
+
+и:
+
+```text
+AimProgress
+=
+насколько хорошо юнит уже подготовился к выстрелу
+```
+
+Например:
+
+```text
+HighReady
+AimProgress = 0.55
+```
+
+может стрелять.
+
+Но:
+
+```text
+HighReady
+AimProgress = 1
+```
+
+всё равно не превращается визуально в Aiming.
+
+Это позволяет сделать механику намного гибче.
+
+---
+
+# Часть 56. Изменение `IsWeaponReadyToFire()`
+
+Сейчас:
+
+```text
+HipFire
+PointAim
+Aiming
+```
+
+
+
+должно стать:
+
+```csharp
+return pose is
+    HighReady or
+    HipFire or
+    PointAim or
+    Aiming;
+```
+
+Но:
+
+```text
+LowReady = false
+NotReady = false
+```
+
+---
+
+# Часть 57. Изменение `CanAccumulateAim`
+
+Сейчас AimProgress может расти у:
+
+```text
+HipFire
+PointAim
+Aiming
+```
+
+
+
+Добавить:
+
+```text
+HighReady
+```
+
+Получится:
+
+```text
+HighReady
+HipFire
+PointAim
+Aiming
+```
+
+---
+
+# Часть 58. Fire gate
+
+Оставить тройную проверку:
+
+```text
+Pose allows fire
+        ↓
+AimProgress threshold
+        ↓
+Barrel alignment
+        ↓
+Line of fire
+        ↓
+Ammo
+```
+
+Это уже хорошая архитектура. 
+
+Не надо делать для каждого pose отдельный fire controller.
+
+---
+
+# Часть 59. Barrel alignment
+
+Текущие значения:
+
+```text
+Standing = 3°
+Moving = 8°
+Crouch = 9°
+Crouch+Moving = 10°
+```
+
+я бы **не менял пока вообще**. 
+
+Состояние оружия уже влияет на pose и spread.
+
+Не надо ещё дополнительно разрешать HighReady стрелять при огромном угле к цели.
+
+Если ствол не направлен на цель:
+
+```text
+NotAimed
+```
+
+---
+
+# Часть 60. Но HighReady должен иметь быстрый переход
+
+Вот здесь его главное преимущество.
+
+Если:
+
+```text
+HighReady
+```
+
+и цель появилась:
+
+```text
+HighReady → Aiming
+```
+
+не должно занимать столько же, сколько:
+
+```text
+LowReady → Aiming
+```
+
+Можно сделать transition:
+
+```text
+HighReady → Aiming
+    0.08–0.12 s
+```
+
+а:
+
+```text
+LowReady → Aiming
+    0.20–0.30 s
+```
+
+---
+
+# Часть 61. Что делать с настоящим временем полного Aim
+
+Не уменьшать физически:
+
+```text
+AimTimeSeconds
+```
+
+из-за HighReady.
+
+Лучше:
+
+```text
+CurrentPose = HighReady
+```
+
+имеет:
+
+```text
+PoseAimTimeMultiplier
+```
+
+Например:
+
+```text
+0.70
+```
+
+Это уже соответствует твоей текущей модели. 
+
+---
+
+# Часть 62. Ранг + Pose
+
+Итог:
+
+```text
+FinalAimTime =
+BaseWeaponAimTime
+× DistanceCurve
+× PoseMultiplier
+× WeaponHandlingRank
+× Trait
+× Movement
+× Stance
+× condition
+× attachment
+```
+
+А точность:
+
+```text
+FinalSpread =
+BaseSpread
+× Weapon
+× Ammo
+× Distance
+× Attachment
+× Marksmanship
+× Recoil
+× Stance
+× Movement
+× PoseSpread
+× IncompleteAim
+× PointAimDistancePenalty
+```
+
+Это очень важное разделение.
+
+---
+
+# Часть 63. Что получится у разных солдат
+
+## Recruit
+
+```text
+NotReady
+↓
+LowReady
+↓
+HipFire
+```
+
+Он может стрелять быстро, но с большим разбросом.
+
+---
+
+## Soldier
+
+Более часто:
+
+```text
+LowReady
+→ PointAim
+```
+
+---
+
+## Veteran
+
+Чаще:
+
+```text
+HighReady
+→ Aiming
+```
+
+и использует HipFire только при совсем близком контакте.
+
+---
+
+## Specialist
+
+Может использовать:
+
+```text
+HighReady
+→ Aiming
+```
+
+очень быстро и стабильно.
+
+---
+
+## Elite
+
+Может:
+
+* быстро переходить из HighReady;
+* хорошо стрелять PointAim;
+* эффективно использовать даже HipFire;
+* быстро стабилизировать оружие;
+* хорошо стрелять на дальних дистанциях.
+
+Но всё равно:
+
+```text
+Elite HipFire
+<
+Elite PointAim
+<
+Elite Aiming
+```
+
+по эффективности.
+
+---
+
+# Часть 64. Что я бы поменял в рангах
+
+Пока **ничего обязательного**.
+
+Текущие ранги дают достаточно небольшое, но ощутимое преимущество: Recruit → Elite меняет Handling примерно от `1.05` до `0.94`, Marksmanship от `1.08` до `0.93`. 
+
+Это как раз хороший диапазон.
+
+После внедрения новой системы нужно посмотреть на реальные результаты.
+
+Если выяснится:
+
+> Elite слишком похож на Recruit,
+
+тогда лучше усилить `Marksmanship`/`Handling`, а не создавать десятки pose-specific rank modifiers.
+
+---
+
+# Часть 65. Новые основные параметры
+
+Я бы создал такой `WeaponPoseCapability`:
+
+```csharp
+[Serializable]
+public struct WeaponPoseCapability
+{
+    public float AimTimeMultiplier;
+    public float SpreadMultiplier;
+
+    public float FireRequiredAimProgress;
+
+    public float MinFireTime;
+
+    public bool CanFire;
+    public bool CanAccumulateAim;
+
+    public float DistanceAccuracyMultiplier;
+}
+```
+
+---
+
+# Часть 66. Для каждого pose
+
+### NotReady
+
+```text
+CanFire = false
+CanAccumulateAim = false
+```
+
+### LowReady
+
+```text
+CanFire = false
+CanAccumulateAim = false
+```
+
+### HighReady
+
+```text
+AimTime = 0.70
+Spread = 1.75
+RequiredAim = 0.45
+```
+
+### HipFire
+
+```text
+AimTime = 0.55
+Spread = 2.5
+RequiredAim = 0.30–0.35
+```
+
+### PointAim
+
+```text
+AimTime = 0.85
+Spread = 1.5
+RequiredAim = 0.60–0.68
+```
+
+### Aiming
+
+```text
+AimTime = 1.0
+Spread = 1.0
+RequiredAim = 1.0
+```
+
+---
+
+# Часть 67. Не забыть `MinFireTime`
+
+Текущий `WeaponAimMode` уже имеет:
+
+```text
+SnapShot = 0.11 sec
+QuickAim = 0.22 sec
+FullAim ≈ 0.32 sec minimum
+```
+
+
+
+Я бы не удалял это.
+
+И использовал:
+
+```text
+Pose + FireDiscipline
+```
+
+для выбора конкретного порога.
+
+---
+
+# Часть 68. Auto AI — первая реализация
+
+Создать:
+
+```csharp
+WeaponAutoPoseResolver
+```
+
+или расширить существующий:
+
+```text
+WeaponPoseAutoCapabilityCache
+```
+
+Он получает:
+
+```text
+Target distance
+Rank
+Weapon
+Attachments
+Current pose
+Laser
+Movement
+```
+
+и возвращает:
+
+```csharp
+WeaponPoseState ResolveAutoPose(context)
+```
+
+---
+
+# Часть 69. Логика Auto
+
+Порядок:
+
+```text
+1. Проверить бой активен?
+2. Есть engageable target?
+3. Если нет:
+      LowReady / HighReady по alert
+4. Если есть:
+      distance
+      ↓
+      calculate capability
+      ↓
+      выбрать лучший pose
+```
+
+Не начинать с огромной decision tree.
+
+---
+
+# Часть 70. Первая простая таблица Auto
+
+Можно буквально начать с:
+
+```text
+distance <= 5m
+    → HipFire
+
+distance <= PointAimPreferredDistance
+    → PointAim
+
+distance > PointAimPreferredDistance
+    → Aiming
+```
+
+А позже добавить:
+
+```text
+CombatAlert
+    → HighReady
+```
+
+---
+
+# Часть 71. Как ранг изменяет Auto
+
+Не:
+
+```text
+if Recruit → HipFire
+```
+
+а:
+
+```text
+rank → Marksmanship
+rank → WeaponHandling
+       ↓
+PoseCapabilityCache
+       ↓
+Effective distance
+```
+
+У тебя такой механизм уже частично существует — cache учитывает dispersion при вычислении Auto ranges. 
+
+Его стоит расширить на новую систему.
+
+---
+
+# Часть 72. Hysteresis для Auto
+
+Обязательно.
+
+Например:
+
+```text
+HipFire → PointAim:
+10m
+
+PointAim → HipFire:
+7m
+```
+
+и:
+
+```text
+PointAim → Aiming:
+35m
+
+Aiming → PointAim:
+25m
+```
+
+Это даст стабильное поведение.
+
+---
+
+# Часть 73. Условие угла
+
+Если цель далеко сбоку:
+
+```text
+Target angle > ~60°
+```
+
+не надо сразу выбирать Aiming.
+
+Сначала:
+
+```text
+rotate toward target
+```
+
+или:
+
+```text
+HighReady
+```
+
+Здесь существующая система `UnitSpineHorizontalAim` должна продолжать работать как часть визуального наведения. Сейчас она поглощает до 35° yaw через spine. 
+
+---
+
+# Часть 74. Поведение при внезапной цели
+
+Это будет особенно хорошо смотреться.
+
+### Юнит в NotReady
+
+```text
+Target suddenly appears at 4m
+```
+
+AI:
+
+```text
+ReactionTime
+ ↓
+HipFire
+ ↓
+fire
+```
+
+Не нужно ждать:
+
+```text
+NotReady
+→ LowReady
+→ HighReady
+→ Aiming
+```
+
+---
+
+### Юнит уже в LowReady
+
+```text
+Target at 4m
+```
+
+```text
+LowReady
+→ HipFire
+→ fire
+```
+
+---
+
+### Юнит в HighReady
+
+```text
+Target at 50m
+```
+
+```text
+HighReady
+→ Aiming
+→ fire
+```
+
+Очень естественно.
+
+---
+
+# Часть 75. Что происходит при неожиданной близкой цели у профессионала
+
+Он всё равно может использовать:
+
+```text
+PointAim
+```
+
+вместо HipFire.
+
+То есть:
+
+```text
+Recruit:
+4m → HipFire
+
+Elite:
+4m → PointAim
+```
+
+Это как раз создаёт ощущение разницы навыков.
+
+---
+
+# Часть 76. ЛЦУ — итоговая роль
+
+После изменения:
+
+```text
+PointAim
+```
+
+не требует ЛЦУ.
+
+ЛЦУ добавляет:
+
+### Basic Laser
+
+```text
+PointAim spread ×0.95
+PointAim aim time ×0.95
+```
+
+с сильным эффектом на:
+
+```text
+0–30m
+```
+
+---
+
+### Improved Laser
+
+```text
+PointAim spread ×0.88
+PointAim aim time ×0.90
+```
+
+с эффектом примерно до:
+
+```text
+50–100m
+```
+
+и дальше стремится к нулю.
+
+В Aiming можно дать небольшой acquisition bonus, например:
+
+```text
+Basic: ×0.97
+Improved: ×0.92
+```
+
+но **не давать ЛЦУ прямой бонус к итоговой ballistic precision при полном ADS**, если у тебя оптика/прицел уже отвечает за эту часть.
+
+И обязательно: **занести эти два набора modifiers в attachment-модификаторы ЛЦУ после основной реализации pose system.**
+
+---
+
+# Часть 77. Что конкретно менять в существующих классах
+
+## `UnitWeaponReadyHandsLayer`
+
+Переделать:
+
+```text
+WeaponPoseMode
+EffectivePoseState
+WeaponReady
+WeaponStandIdle
+E-cycle
+```
+
+Добавить:
+
+```text
+HighReady
+NotReady → LowReady через Ctrl+E
+E-cycle только боевых states
+```
+
+---
+
+## `UnitEquippedWeaponPose`
+
+Добавить:
+
+```text
+HighReady pose
+```
+
+или вычисляемый HighReady blend.
+
+Добавить:
+
+```text
+ResolvePose()
+BlendPose()
+```
+
+и transition table для новых состояний.
+
+Текущая transition matrix сейчас 4×4 и отдельно отмечена как неполная для новой модели. 
+
+---
+
+# Часть 78. `WeaponGripResolver`
+
+Добавить:
+
+```text
+HighReady
+```
+
+для правой руки.
+
+Если HighReady derived:
+
+```text
+RightHandTarget =
+Blend(LowReadyTarget, AimingTarget, blend)
+```
+
+Но **левая рука не меняется**.
+
+---
+
+# Часть 79. `AnimatorHandIk`
+
+Остаётся почти без изменений.
+
+Он только получает:
+
+```text
+currentRightTarget
+currentLeftTarget
+```
+
+и применяет IK.
+
+Это хорошо соответствует разделению твоей системы на pose и GripRig. 
+
+---
+
+# Часть 80. `UnitWeaponAimProgressController`
+
+Добавить возможность:
+
+```text
+HighReady
+```
+
+накапливать AimProgress.
+
+Переработать:
+
+```text
+ResolveCurrentAimTime()
+```
+
+чтобы учитывался:
+
+```text
+PoseCapability
+Rank
+Distance
+Movement
+Stance
+Weapon
+Attachments
+```
+
+---
+
+# Часть 81. `UnitWeaponFireController`
+
+Изменить:
+
+```text
+IsWeaponReadyToFire()
+```
+
+на:
+
+```text
+HighReady / HipFire / PointAim / Aiming
+```
+
+Оставить:
+
+```text
+AimProgress
+Barrel alignment
+LOF
+Ammo
+```
+
+без изменения общей архитектуры.
+
+---
+
+# Часть 82. `WeaponShotAccuracyEvaluator`
+
+Добавить:
+
+```text
+HighReadySpreadMultiplier
+```
+
+и:
+
+```text
+PointAimDistanceAccuracyMultiplier
+HipFireDistanceAccuracyMultiplier
+```
+
+Остальное оставить как есть.
+
+---
+
+# Часть 83. `WeaponPoseAutoCapabilityCache`
+
+Сделать главным источником для AI:
+
+```text
+Pose
+    AimTime
+    Spread
+    EffectiveDistance
+    PreferredDistance
+```
+
+с учётом:
+
+```text
+Weapon
+Rank
+Traits
+Attachments
+```
+
+---
+
+# Часть 84. `WeaponFireDisciplineController`
+
+Не переписывать.
+
+Расширить его так, чтобы он работал с:
+
+```text
+HighReady
+HipFire
+PointAim
+Aiming
+```
+
+а `PlannedRequiredAimProgress01` продолжал работать.
+
+Текущая система уже умеет удерживать виртуальный trigger и ждать threshold. 
+
+---
+
+# Часть 85. Что НЕ делать
+
+Не создавать:
+
+```text
+HipFireAimProgressController
+PointAimAccuracyController
+HighReadyFireController
+```
+
+Каждое состояние должно быть **данными/параметрами общего pipeline**, а не отдельной системой.
+
+---
+
+# Часть 86. Итоговая формула прицела
+
+Я бы стремился к:
+
+```text
+CurrentAimTime =
+BaseWeaponAimTime
+
+× DistanceAimMultiplier
+× PoseAimMultiplier
+× WeaponHandling
+× Trait
+× Movement
+× Stance
+× Condition
+× Attachment
+```
+
+---
+
+# Часть 87. Итоговая формула точности
+
+```text
+FinalSpread =
+BaseWeaponDispersion
+
+× Ammo
+× WeaponDistance
+× AttachmentDistance
+
+× Marksmanship
+× Traits
+
+× Stance
+× Movement
+× Condition
+
+× RecoilPenalty
+
+× PoseSpread
+
+× IncompleteAim
+
+× PoseDistancePenalty
+```
+
+Это естественно расширяет твою текущую формулу. 
+
+---
+
+# Часть 88. Рекомендованные стартовые параметры
+
+| Состояние |  AimTime |   Spread | Fire | AimProgress |
+| --------- | -------: | -------: | ---- | ----------: |
+| NotReady  |        — |        — | ❌    |           ❌ |
+| LowReady  |        — |        — | ❌    |           ❌ |
+| HighReady | **0.70** | **1.75** | ✅    |           ✅ |
+| HipFire   | **0.55** | **2.50** | ✅    |           ✅ |
+| PointAim  | **0.85** | **1.50** | ✅    |           ✅ |
+| Aiming    | **1.00** | **1.00** | ✅    |           ✅ |
+
+Это именно **стартовые коэффициенты**, а не утверждение о реальной баллистике.
+
+---
+
+# Часть 89. Дистанционные кривые
+
+## HipFire
+
+```text
+0m      1.00
+3m      1.00
+5m      1.10
+10m     1.50
+15m     2.20
+25m     3.50
+50m     6.00
+100m    10+
+500m    practically unusable
+```
+
+## PointAim
+
+```text
+0m      1.00
+5m      1.00
+10m     1.05
+25m     1.20
+50m     1.45
+100m    1.90
+200m    3.00
+300m    4.20
+500m    7.00
+```
+
+## Aiming
+
+```text
+0m      1.00
+25m     1.00
+50m     1.02
+100m    1.05
+200m    1.08
+300m    1.10
+500m    1.15
+```
+
+Эти коэффициенты я бы сначала считал **балансной стартовой точкой**, а не «реалистичными в строгом смысле». Наиболее реалистичность здесь будет определяться тем, что они работают **вместе** с базовым dispersion, Marksmanship, recoil, movement, stance и характеристиками конкретного оружия.
+
+---
+
+# Часть 90. Пороги Auto
+
+Для начала:
+
+```text
+HipFire:
+    <= 5–7m
+
+PointAim:
+    <= 25–40m
+
+Aiming:
+    > 25–40m
+```
+
+Но не хранить эти числа как жёсткие глобальные правила.
+
+Вынести:
+
+```text
+HipFirePreferredDistance
+PointAimPreferredDistance
+PointAimMaxDistance
+```
+
+в capability cache.
+
+---
+
+# Часть 91. Ранг влияет на Auto
+
+Пример:
+
+| Ранг       | HipFire предпочтительно | PointAim предпочтительно | Aiming |
+| ---------- | ----------------------: | -----------------------: | ------ |
+| Recruit    |                до ~10 м |                 до ~20 м | дальше |
+| Soldier    |                 до ~7 м |                 до ~30 м | дальше |
+| Veteran    |                 до ~5 м |                 до ~35 м | дальше |
+| Specialist |                 до ~5 м |                 до ~40 м | дальше |
+| Elite      |               до ~4–5 м |              до ~45–50 м | дальше |
+
+Но это будет зависеть от конкретного оружия.
+
+---
+
+# Часть 92. Очень важно: это не значит, что Recruit «запрещён» в PointAim
+
+Это только **Auto preference**.
+
+Если AI решил сам перейти в PointAim из-за:
+
+* приказа;
+* специальной задачи;
+* состояния тревоги;
+
+он может это сделать.
+
+Таким образом:
+
+```text
+Rank
+→ предпочтения
+```
+
+а не:
+
+```text
+Rank
+→ жёсткие запреты
+```
+
+---
+
+# Часть 93. Результат для поведения AI
+
+Ты получишь примерно такую картину:
+
+### Новичок
+
+```text
+опасность
+ ↓
+LowReady
+ ↓
+цель 4m
+ ↓
+HipFire
+ ↓
+достаточно быстро стреляет,
+но заметно хуже контролирует spread
+```
+
+### Опытный
+
+```text
+LowReady
+ ↓
+HighReady
+ ↓
+цель 8m
+ ↓
+PointAim
+ ↓
+довольно хороший первый выстрел
+```
+
+### Хороший специалист
+
+```text
+HighReady
+ ↓
+цель 70m
+ ↓
+Aiming
+ ↓
+быстро достигает рабочего AimProgress
+ ↓
+точный огонь
+```
+
+И это будет сильно лучше, чем:
+
+```text
+AI увидел цель
+→ всегда Aiming
+→ ждать 0.28s
+→ стрелять
+```
+
+---
+
+# Часть 94. Порядок реализации
+
+Я бы делал строго так.
+
+### Этап A — состояния
+
+1. Добавить `HighReady`.
+2. Вынести `NotReady` из боевого цикла.
+3. Определить `IsCombatPose`.
+4. Определить `CanFireFromPose`.
+5. Сделать E-cycle.
+6. Сделать Ctrl+E.
+
+### Этап B — Weapon Pose
+
+7. Добавить HighReady derived pose.
+8. Добавить `WeaponBlend`.
+9. Добавить `RightHandBlend`.
+10. Добавить optional custom override.
+11. Расширить transition table.
+
+### Этап C — GripRig
+
+12. Добавить HighReady resolver.
+13. Для default HighReady интерполировать LowReady/Aiming targets.
+14. Не менять систему левой руки.
+
+### Этап D — AimProgress
+
+15. Добавить HighReady в `CanAccumulateAim`.
+16. Добавить HighReady `AimTimeMultiplier`.
+17. Сохранить rank/trait/stance/movement composition.
+18. Подключить distance curve 0–500 м.
+
+### Этап E — Fire
+
+19. Добавить HighReady в `IsWeaponReadyToFire`.
+20. Определить Pose Fire Threshold.
+21. Оставить barrel alignment.
+22. Оставить LOS/ammo checks.
+
+### Этап F — Accuracy
+
+23. Добавить HighReady spread.
+24. Добавить HipFire distance curve.
+25. Добавить PointAim distance curve.
+26. Не менять базовую Marksmanship.
+27. Не менять recoil model.
+
+### Этап G — Auto AI
+
+28. Добавить HighReady при CombatAlert.
+29. Добавить distance-based pose selection.
+30. Добавить rank influence через capability.
+31. Добавить hysteresis.
+32. Добавить emergency direct transition LowReady → HipFire.
+
+### Этап H — ЛЦУ
+
+33. Разрешить PointAim без ЛЦУ.
+34. Добавить Basic Laser modifier.
+35. Добавить Improved Laser modifier.
+36. Сделать их distance-dependent.
+37. Проверить влияние на PointAim.
+38. Добавить небольшое влияние на acquisition для Aiming.
+39. **Отдельно проверить и встроить эти modifiers в attachment систему ЛЦУ.**
+
+---
+
+# Часть 95. Тестирование после каждого этапа
+
+Я бы не переносил сразу всё на всех оружиях.
+
+Сначала одно оружие.
+
+Проверить:
+
+```text
+NotReady
+→ LowReady
+→ HighReady
+→ Aiming
+```
+
+затем:
+
+```text
+LowReady
+→ HipFire
+→ PointAim
+→ LowReady
+```
+
+Затем:
+
+```text
+HighReady → Fire
+HighReady → Aiming
+PointAim → Fire
+HipFire → Fire
+```
+
+---
+
+# Часть 96. Проверить ранги
+
+Одно оружие:
+
+```text
+Recruit
+Soldier
+Veteran
+Specialist
+Elite
+```
+
+и для каждого:
+
+```text
+HipFire 5m
+HipFire 10m
+
+PointAim 10m
+PointAim 25m
+PointAim 50m
+
+Aiming 50m
+Aiming 100m
+Aiming 300m
+Aiming 500m
+```
+
+Ты должен увидеть не просто изменение цифр, а **разное поведение**.
+
+---
+
+# Часть 97. Проверить AI
+
+Для одной группы:
+
+```text
+Recruit
+Soldier
+Veteran
+Specialist
+Elite
+```
+
+поставить одинаковые цели:
+
+```text
+3m
+8m
+20m
+40m
+100m
+300m
+500m
+```
+
+и смотреть:
+
+* какую позу выбирает;
+* сколько времени до первого выстрела;
+* какой spread;
+* как часто переключает позу;
+* не дёргается ли на границах.
+
+---
+
+# Часть 98. Самое важное, что я бы сохранил из твоей нынешней системы
+
+Текущая архитектура уже имеет очень хорошее разделение:
+
+```text
+Pose
+ ↓
+AimProgress
+ ↓
+Barrel alignment
+ ↓
+Fire
+ ↓
+Spread
+```
+
+и ранги уже разделены на:
+
+```text
+Marksmanship
+WeaponHandling
+RecoilControl
+```
+
+
+
+**Я бы не ломал это.**
+
+Новая система должна просто добавить промежуточный слой:
+
+```text
+Pose capability
+      ↓
+AimTime / Spread / FireThreshold / DistanceEffect
+```
+
+---
+
+# Главный итог
+
+Я бы строил систему вокруг следующей модели:
+
+```text
+                    WEAPON STATE
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+   HOLDING POSE     AIM PROGRESS      FIRE QUALITY
+        │                │                │
+        ▼                ▼                ▼
+ NotReady/Low/High   0 → 1           Spread
+ Hip/Point/Aiming    AimTime          Distance
+        │            Rank             Rank
+        ▼            Movement         Recoil
+       IK            Stance           Stance
+                      │
+                      ▼
+                 FIRE GATE
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+       Barrel                  LOS/Ammo
+      Alignment
+```
+
+А игровая логика:
+
+```text
+NotReady
+    ↓ Ctrl+E
+LowReady
+    ↓
+HighReady
+    ↓
+Aiming
+```
+
+при этом в зависимости от ситуации можно мгновенно выбрать:
+
+```text
+LowReady → HipFire
+LowReady → PointAim
+HighReady → HipFire
+HighReady → PointAim
+HighReady → Aiming
+```
+

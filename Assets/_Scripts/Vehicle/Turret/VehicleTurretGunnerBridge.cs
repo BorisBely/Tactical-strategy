@@ -25,7 +25,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 	private UnitWeaponRuntime m_BoundRuntime;
 	private UnitEquipment m_BoundEquipment;
 	private UnitWeaponReadyHandsLayer m_BoundReady;
-	private UnitVision m_BoundVision;
+	private TargetSelector m_BoundTargetSelector;
 	private UnitWeaponShellEjection m_BoundShellEjection;
 	private UnitWeaponHitscanShooting m_BoundHitscan;
 	private UnitVehicleTurretReloadEvents m_BoundReloadEvents;
@@ -66,12 +66,12 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		if (m_BoundGunner == null || m_Aim == null || m_BoundVision == null)
+		if (m_BoundGunner == null || m_Aim == null || m_BoundTargetSelector == null)
 			return;
 
-		Transform target = m_BoundVision.GetEngageableVisibleTarget();
+		Transform target = m_BoundTargetSelector.GetEngageableSelectedTarget();
 		if (target == null)
-			target = m_BoundVision.VisibleTarget;
+			target = m_BoundTargetSelector.SelectedTarget;
 		if (target == null)
 			return;
 
@@ -185,7 +185,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		m_BoundRuntime = _gunner.GetComponent<UnitWeaponRuntime>();
 		m_BoundEquipment = _gunner.GetComponent<UnitEquipment>();
 		m_BoundReady = _gunner.GetComponent<UnitWeaponReadyHandsLayer>();
-		m_BoundVision = _gunner.GetComponent<UnitVision>();
+		m_BoundTargetSelector = _gunner.GetComponent<TargetSelector>();
 
 		if (m_BoundFire != null)
 		{
@@ -246,7 +246,7 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 		m_BoundRuntime = null;
 		m_BoundEquipment = null;
 		m_BoundReady = null;
-		m_BoundVision = null;
+		m_BoundTargetSelector = null;
 		m_BoundShellEjection = null;
 		m_BoundHitscan = null;
 		m_BoundReloadEvents = null;

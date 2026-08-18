@@ -134,7 +134,13 @@ public sealed class MedkitDefinition : ScriptableObject
 			Entry("health.injury.arm_bleeding", 35),
 			Entry("health.injury.left_arm_bleeding", 35),
 			Entry("health.injury.head_wound", 45),
-			Entry("health.injury.generic_wound", 25)
+			Entry("health.injury.generic_wound", 25),
+			Entry("health.injury.vehicle_polytrauma", 100),
+			Entry("health.injury.vehicle_crush_chest", 90),
+			Entry("health.injury.vehicle_impact_trauma", 75),
+			Entry("health.injury.vehicle_soft_tissue", 30),
+			Entry("health.injury.vehicle_limb_sprain", 35),
+			Entry("health.injury.vehicle_bruise", 20)
 		};
 	}
 

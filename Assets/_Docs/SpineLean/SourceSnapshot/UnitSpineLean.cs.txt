@@ -1,0 +1,662 @@
+using System;
+using UnityEngine;
+using UnityEngine.AI;
+
+/// <summary>
+/// Наклон корпуса влево/вправо (peek) через Spine_01 / Spine_02.
+/// Roll + боковой сдвиг. Профили Standing/Crouch × idle/walk. API для будущего боевого AI.
+/// </summary>
+[DisallowMultipleComponent]
+[DefaultExecutionOrder(0)]
+public sealed class UnitSpineLean : MonoBehaviour
+{
+	#region Types
+	public enum LeanProfileKind
+	{
+		StandingIdle = 0,
+		StandingWalk = 1,
+		CrouchIdle = 2,
+		CrouchWalk = 3
+	}
+
+	[Serializable]
+	public struct LeanProfile
+	{
+		[Tooltip("Суммарный угол roll при |lean|=1 (градусы).")]
+		[Min(1f)] public float MaxLeanDegrees;
+		[Tooltip("Суммарный боковой сдвиг костей при |lean|=1 (метры, вдоль right юнита).")]
+		[Min(0f)] public float MaxLateralMeters;
+		[Tooltip("Доля на Spine_01 (остальное — Spine_02).")]
+		[Range(0f, 1f)] public float Spine01Weight;
+		[Tooltip("Сглаживание наклона (сек).")]
+		[Min(0.01f)] public float SmoothTime;
+
+		public static LeanProfile Create(
+			float _maxLeanDegrees,
+			float _maxLateralMeters,
+			float _spine01Weight,
+			float _smoothTime)
+		{
+			return new LeanProfile
+			{
+				MaxLeanDegrees = _maxLeanDegrees,
+				MaxLateralMeters = _maxLateralMeters,
+				Spine01Weight = _spine01Weight,
+				SmoothTime = _smoothTime
+			};
+		}
+	}
+	#endregion
+
+	#region Serialized Fields
+	[SerializeField] private Animator m_Animator;
+	[SerializeField] private UnitAnimatorStance m_Stance;
+	[SerializeField] private UnitBusyState m_BusyState;
+	[SerializeField] private UnitRagdollController m_RagdollController;
+	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
+	[SerializeField] private UnitFallenDragController m_FallenDragController;
+	[SerializeField] private UnitFiremanCarryController m_FiremanCarryController;
+	[SerializeField] private VehiclePassengerState m_VehiclePassengerState;
+	[SerializeField] private UnitClickToMove m_ClickToMove;
+	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
+	[SerializeField] private NavMeshAgent m_Agent;
+	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private TargetSelector m_TargetSelector;
+
+	[Header("Bones")]
+	[SerializeField] private Transform m_Spine01;
+	[SerializeField] private Transform m_Spine02;
+
+	[Header("Profiles")]
+	// Lateral meters = 0: world-сдвиг Spine ломает IK рук/оружие. Peek только roll.
+	[SerializeField] private LeanProfile m_StandingIdle = LeanProfile.Create(42f, 0f, 0.25f, 0.13f);
+	[SerializeField] private LeanProfile m_StandingWalk = LeanProfile.Create(36f, 0f, 0.30f, 0.15f);
+	[SerializeField] private LeanProfile m_CrouchIdle = LeanProfile.Create(38f, 0f, 0.25f, 0.14f);
+	[SerializeField] private LeanProfile m_CrouchWalk = LeanProfile.Create(30f, 0f, 0.30f, 0.16f);
+
+	[Header("Asymmetry")]
+	[Tooltip("Оружие справа: lean вправо усиливается этим множителем (компенсация асимметрии ready-позы).")]
+	[SerializeField, Range(1f, 1.5f)] private float m_RightLeanScale = 1.18f;
+
+	[Header("Settle")]
+	[Tooltip("|smoothedLean01 - target01| <= 1 - SettleTargetRatio считается достигнутым.")]
+	[SerializeField, Range(0.5f, 1f)] private float m_SettleTargetRatio = 0.92f;
+	[SerializeField, Min(0.01f)] private float m_MoveSpeedEpsilon = 0.08f;
+	[SerializeField] private bool m_BlockDuringStanceTransition = true;
+
+	[Header("Debug")]
+	[SerializeField] private float m_DebugLeanTarget01;
+	[SerializeField] private float m_DebugSmoothedLeanDegrees;
+	[SerializeField] private float m_DebugSmoothedLateralMeters;
+	[SerializeField] private LeanProfileKind m_DebugActiveProfile;
+	[SerializeField] private bool m_DebugBlocked;
+
+	[Header("Debug Log")]
+	[SerializeField] private bool m_LogLeanDiagnostics = true;
+	[SerializeField, Min(0.1f)] private float m_LogIntervalSeconds = 0.45f;
+	[Tooltip("Idle standing: минимальный боковой сдвиг ствола (м) для peek.")]
+	[SerializeField, Min(0f)] private float m_MinLateralIdleStanding = 0.16f;
+	[Tooltip("Idle crouch: минимальный боковой сдвиг ствола (м).")]
+	[SerializeField, Min(0f)] private float m_MinLateralIdleCrouch = 0.10f;
+	[Tooltip("Walk: мягкий порог бокового сдвига ствола (м).")]
+	[SerializeField, Min(0f)] private float m_MinLateralWalk = 0.07f;
+	[Tooltip("Допустимый увод yaw ствола от базовой ready-позы (градусы).")]
+	[SerializeField, Min(1f)] private float m_MaxBarrelYawDriftDegrees = 18f;
+	[Tooltip("Допустимый увод pitch ствола от базовой ready-позы (градусы).")]
+	[SerializeField, Min(1f)] private float m_MaxBarrelPitchDriftDegrees = 15f;
+	[Tooltip("Если есть цель: макс. угол ствол→цель после наклона.")]
+	[SerializeField, Min(1f)] private float m_MaxTargetAimErrorDegrees = 8f;
+	#endregion
+
+	#region Private Fields
+	private float m_LeanTarget01;
+	private float m_SmoothedLean01;
+	private float m_Lean01Velocity;
+	private bool m_BonesResolved;
+	private bool m_HasBarrelBaseline;
+	private float m_BaselineBarrelLocalX;
+	private float m_BaselineBarrelYaw;
+	private float m_BaselineBarrelPitch;
+	private bool m_LoggedSettledForTarget;
+	private float m_LastDiagnosticLogTime = -999f;
+	#endregion
+
+	#region Public Properties
+	/// <summary>-1 left … 0 … +1 right (запрошенная цель).</summary>
+	public float CurrentLean01 => m_LeanTarget01;
+
+	/// <summary>Текущий сглаженный угол (градусы), + вправо (с учётом RightLeanScale).</summary>
+	public float CurrentLeanDegrees
+	{
+		get
+		{
+			LeanProfile profile = GetActiveProfile(out _);
+			return GetScaledLean01(m_SmoothedLean01) * Mathf.Max(1f, profile.MaxLeanDegrees);
+		}
+	}
+
+	/// <summary>Текущий сглаженный боковой сдвиг (м), + вправо.</summary>
+	public float CurrentLateralMeters
+	{
+		get
+		{
+			LeanProfile profile = GetActiveProfile(out _);
+			return GetScaledLean01(m_SmoothedLean01) * Mathf.Max(0f, profile.MaxLateralMeters);
+		}
+	}
+
+	public bool IsLeanBlockedNow => IsLeanBlocked();
+
+	/// <summary>Idle-профиль активен — предпочтительный режим peek для боевого AI.</summary>
+	public bool IsIdlePeekProfile
+	{
+		get
+		{
+			LeanProfileKind kind = ActiveProfileKind;
+			return kind == LeanProfileKind.StandingIdle || kind == LeanProfileKind.CrouchIdle;
+		}
+	}
+
+	public bool IsLeanSettled
+	{
+		get
+		{
+			// Запрошен наклон, но сейчас блок — ещё не «достигли» цели.
+			if (IsLeanBlocked() && Mathf.Abs(m_LeanTarget01) > 0.001f)
+				return false;
+
+			float target01 = IsLeanBlocked() ? 0f : m_LeanTarget01;
+			float delta = Mathf.Abs(m_SmoothedLean01 - target01);
+			float settle01 = 1f - m_SettleTargetRatio;
+			if (Mathf.Abs(target01) < 0.001f)
+				return delta <= 0.02f && Mathf.Abs(m_Lean01Velocity) < 0.5f;
+
+			return delta <= settle01 && Mathf.Abs(m_Lean01Velocity) < 0.5f;
+		}
+	}
+
+	public LeanProfileKind ActiveProfileKind
+	{
+		get
+		{
+			GetActiveProfile(out LeanProfileKind kind);
+			return kind;
+		}
+	}
+	#endregion
+
+	#region Public Methods
+	/// <summary>Задать наклон: -1 влево, 0 нейтраль, +1 вправо.</summary>
+	public void SetLeanTarget(float _lean01)
+	{
+		float clamped = Mathf.Clamp(_lean01, -1f, 1f);
+		bool changed = Mathf.Abs(clamped - m_LeanTarget01) > 0.001f;
+		m_LeanTarget01 = clamped;
+		m_DebugLeanTarget01 = m_LeanTarget01;
+		if (!changed)
+			return;
+
+		m_LoggedSettledForTarget = false;
+		if (Mathf.Abs(clamped) < 0.001f)
+			m_HasBarrelBaseline = false;
+		else
+			TryCaptureBarrelBaseline();
+
+		if (m_LogLeanDiagnostics)
+			LogLeanSnapshot("REQUEST", _force: true);
+	}
+
+	public LeanProfile GetProfile(LeanProfileKind _kind)
+	{
+		return _kind switch
+		{
+			LeanProfileKind.StandingWalk => m_StandingWalk,
+			LeanProfileKind.CrouchIdle => m_CrouchIdle,
+			LeanProfileKind.CrouchWalk => m_CrouchWalk,
+			_ => m_StandingIdle
+		};
+	}
+
+	public void TickDiagnosticsAfterAim()
+	{
+		TickLeanDiagnostics();
+	}
+	#endregion
+
+	#region Unity Lifecycle
+	private void Awake()
+	{
+		ResolveReferences();
+		ResolveBones();
+	}
+
+	private void OnDisable()
+	{
+		m_LeanTarget01 = 0f;
+		m_SmoothedLean01 = 0f;
+		m_Lean01Velocity = 0f;
+		m_DebugLeanTarget01 = 0f;
+		m_DebugSmoothedLeanDegrees = 0f;
+		m_DebugSmoothedLateralMeters = 0f;
+		m_DebugBlocked = false;
+		m_HasBarrelBaseline = false;
+		m_LoggedSettledForTarget = false;
+	}
+
+	private void Update()
+	{
+		EvaluateLean();
+	}
+
+	private void LateUpdate()
+	{
+		if (!m_BonesResolved)
+			ResolveBones();
+		if (!m_BonesResolved)
+			return;
+
+		ApplySpineLean(m_SmoothedLean01);
+		if (!ShouldDeferDiagnosticsToAiming())
+			TickLeanDiagnostics();
+	}
+	#endregion
+
+	#region Private Methods
+	private void ResolveReferences()
+	{
+		if (m_Animator == null)
+			m_Animator = GetComponentInChildren<Animator>();
+		if (m_Stance == null)
+			m_Stance = GetComponent<UnitAnimatorStance>();
+		if (m_BusyState == null)
+			m_BusyState = GetComponent<UnitBusyState>();
+		if (m_RagdollController == null)
+			m_RagdollController = GetComponent<UnitRagdollController>();
+		if (m_GrenadeThrowController == null)
+			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_FallenDragController == null)
+			m_FallenDragController = GetComponent<UnitFallenDragController>();
+		if (m_FiremanCarryController == null)
+			m_FiremanCarryController = GetComponent<UnitFiremanCarryController>();
+		if (m_VehiclePassengerState == null)
+			m_VehiclePassengerState = GetComponent<VehiclePassengerState>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_LocomotionDriver == null)
+			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
+		if (m_Agent == null)
+			m_Agent = GetComponent<NavMeshAgent>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
+	}
+
+	private void ResolveBones()
+	{
+		m_BonesResolved = false;
+		if (m_Animator == null)
+			return;
+
+		if (m_Spine01 == null)
+		{
+			m_Spine01 = m_Animator.GetBoneTransform(HumanBodyBones.Spine);
+			if (m_Spine01 == null)
+				m_Spine01 = FindChildRecursive(transform, "Spine_01");
+		}
+
+		if (m_Spine02 == null)
+		{
+			m_Spine02 = m_Animator.GetBoneTransform(HumanBodyBones.Chest);
+			if (m_Spine02 == null)
+				m_Spine02 = FindChildRecursive(transform, "Spine_02");
+		}
+
+		m_BonesResolved = m_Spine01 != null && m_Spine02 != null;
+	}
+
+	private void EvaluateLean()
+	{
+		bool blocked = IsLeanBlocked();
+		m_DebugBlocked = blocked;
+
+		LeanProfile profile = GetActiveProfile(out LeanProfileKind kind);
+		m_DebugActiveProfile = kind;
+
+		float target01 = blocked ? 0f : m_LeanTarget01;
+		float smooth = Mathf.Max(0.0001f, profile.SmoothTime);
+		m_SmoothedLean01 = Mathf.SmoothDamp(
+			m_SmoothedLean01,
+			target01,
+			ref m_Lean01Velocity,
+			smooth,
+			Mathf.Infinity,
+			Time.deltaTime);
+
+		float scaled01 = GetScaledLean01(m_SmoothedLean01);
+		m_DebugSmoothedLeanDegrees = scaled01 * Mathf.Max(1f, profile.MaxLeanDegrees);
+		m_DebugSmoothedLateralMeters = scaled01 * Mathf.Max(0f, profile.MaxLateralMeters);
+		m_DebugLeanTarget01 = m_LeanTarget01;
+	}
+
+	/// <summary>Положительный lean (вправо) усиливается <see cref="m_RightLeanScale"/>.</summary>
+	private float GetScaledLean01(float _lean01)
+	{
+		if (_lean01 > 0f)
+			return _lean01 * m_RightLeanScale;
+		return _lean01;
+	}
+
+	private LeanProfile GetActiveProfile(out LeanProfileKind _kind)
+	{
+		bool crouch = m_Stance != null && m_Stance.CurrentStance == LocomotionStance.Crouch;
+		bool moving = IsMovingForLeanProfile();
+
+		if (crouch)
+		{
+			_kind = moving ? LeanProfileKind.CrouchWalk : LeanProfileKind.CrouchIdle;
+			return moving ? m_CrouchWalk : m_CrouchIdle;
+		}
+
+		_kind = moving ? LeanProfileKind.StandingWalk : LeanProfileKind.StandingIdle;
+		return moving ? m_StandingWalk : m_StandingIdle;
+	}
+
+	private bool IsMovingForLeanProfile()
+	{
+		if (m_ClickToMove != null && m_ClickToMove.isActiveAndEnabled && m_ClickToMove.HasMoveIntent)
+			return true;
+		if (m_LocomotionDriver != null && m_LocomotionDriver.isActiveAndEnabled && m_LocomotionDriver.HasMoveIntent)
+			return true;
+
+		if (m_Agent == null || !m_Agent.isOnNavMesh)
+			return false;
+
+		Vector3 vel = m_Agent.velocity;
+		vel.y = 0f;
+		return vel.sqrMagnitude > m_MoveSpeedEpsilon * m_MoveSpeedEpsilon;
+	}
+
+	private bool IsLeanBlocked()
+	{
+		if (!m_BonesResolved && m_Animator != null)
+			ResolveBones();
+		if (!m_BonesResolved)
+			return true;
+
+		if (m_RagdollController != null && m_RagdollController.ShouldBlockWeaponPoseScripts)
+			return true;
+		if (m_VehiclePassengerState != null && m_VehiclePassengerState.IsVehicleReady)
+			return true;
+		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
+			return true;
+		if (m_FiremanCarryController != null && m_FiremanCarryController.IsCarryingFallen)
+			return true;
+		if (m_GrenadeThrowController != null &&
+		    (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
+			return true;
+		if (m_BlockDuringStanceTransition &&
+		    m_BusyState != null &&
+		    m_BusyState.IsBusy &&
+		    (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0)
+			return true;
+		if (m_Stance != null && m_Stance.CurrentStance == LocomotionStance.Prone)
+			return true;
+		if (IsRunOrSprintActive())
+			return true;
+
+		return false;
+	}
+
+	private void ApplySpineLean(float _lean01)
+	{
+		float scaled01 = GetScaledLean01(_lean01);
+		if (Mathf.Abs(scaled01) < 0.0001f)
+			return;
+
+		Vector3 forwardXZ = transform.forward;
+		forwardXZ.y = 0f;
+		if (forwardXZ.sqrMagnitude < 1e-6f)
+			return;
+		forwardXZ.Normalize();
+
+		Vector3 rightXZ = transform.right;
+		rightXZ.y = 0f;
+		if (rightXZ.sqrMagnitude < 1e-6f)
+			return;
+		rightXZ.Normalize();
+
+		LeanProfile profile = GetActiveProfile(out _);
+		float w1 = Mathf.Clamp01(profile.Spine01Weight);
+		float totalRoll = scaled01 * Mathf.Max(1f, profile.MaxLeanDegrees);
+		float totalLateral = scaled01 * Mathf.Max(0f, profile.MaxLateralMeters);
+
+		// +lean = вправо: negative AngleAxis around forward tipит торс к +right.
+		float roll1 = -totalRoll * w1;
+		float roll2 = -totalRoll * (1f - w1);
+
+		if (m_Spine01 != null && Mathf.Abs(roll1) > 0.0001f)
+			m_Spine01.rotation = Quaternion.AngleAxis(roll1, forwardXZ) * m_Spine01.rotation;
+		if (m_Spine02 != null && Mathf.Abs(roll2) > 0.0001f)
+			m_Spine02.rotation = Quaternion.AngleAxis(roll2, forwardXZ) * m_Spine02.rotation;
+
+		// Опциональный сдвиг (по умолчанию 0). Не включать без нужды — ломает IK.
+		if (Mathf.Abs(totalLateral) > 1e-6f)
+		{
+			float lat1 = totalLateral * w1;
+			float lat2 = totalLateral * (1f - w1);
+			if (m_Spine01 != null && Mathf.Abs(lat1) > 1e-6f)
+				m_Spine01.position += rightXZ * lat1;
+			if (m_Spine02 != null && Mathf.Abs(lat2) > 1e-6f)
+				m_Spine02.position += rightXZ * lat2;
+		}
+	}
+
+	private bool IsRunOrSprintActive()
+	{
+		if (m_ClickToMove != null && m_ClickToMove.isActiveAndEnabled)
+			return m_ClickToMove.IsRunMoveMode || m_ClickToMove.IsSprintMoveMode;
+		if (m_LocomotionDriver != null && m_LocomotionDriver.isActiveAndEnabled)
+			return m_LocomotionDriver.IsRunMoveMode || m_LocomotionDriver.IsSprintMoveMode;
+		return false;
+	}
+
+	private bool ShouldDeferDiagnosticsToAiming()
+	{
+		return m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+	}
+
+	private void TickLeanDiagnostics()
+	{
+		if (!m_LogLeanDiagnostics)
+			return;
+
+		bool active = Mathf.Abs(m_LeanTarget01) > 0.001f || Mathf.Abs(m_SmoothedLean01) > 0.001f;
+		if (!active)
+			return;
+
+		if (!m_LoggedSettledForTarget && IsLeanSettled)
+		{
+			m_LoggedSettledForTarget = true;
+			LogLeanSnapshot("SETTLED", _force: true);
+			return;
+		}
+
+		LogLeanSnapshot("TICK", _force: false);
+	}
+
+	private void TryCaptureBarrelBaseline()
+	{
+		if (!TrySampleBarrel(out float localX, out float yaw, out float pitch, out _))
+		{
+			m_HasBarrelBaseline = false;
+			return;
+		}
+
+		m_BaselineBarrelLocalX = localX;
+		m_BaselineBarrelYaw = yaw;
+		m_BaselineBarrelPitch = pitch;
+		m_HasBarrelBaseline = true;
+	}
+
+	private void LogLeanSnapshot(string _tag, bool _force)
+	{
+		if (!_force && Time.unscaledTime - m_LastDiagnosticLogTime < m_LogIntervalSeconds)
+			return;
+
+		m_LastDiagnosticLogTime = Time.unscaledTime;
+
+		LeanProfile profile = GetActiveProfile(out LeanProfileKind kind);
+		float leanDeg = CurrentLeanDegrees;
+		float maxDeg = Mathf.Max(1f, profile.MaxLeanDegrees) * (m_SmoothedLean01 > 0f ? m_RightLeanScale : 1f);
+		float leanRatio = maxDeg > 0.01f ? Mathf.Abs(leanDeg) / maxDeg : 0f;
+		string leanVerdict;
+		if (_tag == "REQUEST")
+			leanVerdict = IsLeanBlocked() ? "BLOCKED" : "запрошен";
+		else if (IsLeanBlocked())
+			leanVerdict = "BLOCKED — наклон сброшен";
+		else if (leanRatio >= m_SettleTargetRatio)
+			leanVerdict = "OK наклон";
+		else
+			leanVerdict = "WEAK — ещё не дошёл до цели";
+
+		bool hasBarrel = TrySampleBarrel(out float barrelLocalX, out float barrelYaw, out float barrelPitch, out Transform barrel);
+		float lateralDelta = m_HasBarrelBaseline ? barrelLocalX - m_BaselineBarrelLocalX : 0f;
+		float yawDrift = m_HasBarrelBaseline ? Mathf.DeltaAngle(m_BaselineBarrelYaw, barrelYaw) : 0f;
+		float pitchDrift = m_HasBarrelBaseline ? Mathf.DeltaAngle(m_BaselineBarrelPitch, barrelPitch) : 0f;
+
+		float needLateral = ResolveNeededLateralMeters(kind);
+		float leanSign = m_LeanTarget01 < 0f ? -1f : (m_LeanTarget01 > 0f ? 1f : 0f);
+		float alongLean = lateralDelta * leanSign;
+		string sideVerdict;
+		if (!hasBarrel)
+			sideVerdict = "FAIL нет ствола";
+		else if (_tag == "REQUEST" || Mathf.Abs(m_LeanTarget01) < 0.001f)
+			sideVerdict = _tag == "REQUEST" ? "ожидаем settle" : "нейтраль";
+		else if (alongLean >= needLateral)
+			sideVerdict = $"OK в сторону {alongLean:F3}m >= {needLateral:F2}m";
+		else if (alongLean > 0.01f)
+			sideVerdict = $"WEAK мало в сторону {alongLean:F3}m < {needLateral:F2}m — крути MaxLeanDegrees (сейчас {profile.MaxLeanDegrees:F0}°)";
+		else
+			sideVerdict = $"FAIL ствол не ушёл в сторону lean (delta={lateralDelta:F3}m, ждали sign={leanSign:F0})";
+
+		string weaponVerdict;
+		if (!hasBarrel)
+		{
+			weaponVerdict = "FAIL нет ствола";
+		}
+		else
+		{
+			bool yawOk = !m_HasBarrelBaseline || Mathf.Abs(yawDrift) <= m_MaxBarrelYawDriftDegrees;
+			bool pitchOk = !m_HasBarrelBaseline || Mathf.Abs(pitchDrift) <= m_MaxBarrelPitchDriftDegrees;
+			weaponVerdict = yawOk && pitchOk
+				? $"OK направление yawDrift={yawDrift:F1}° pitchDrift={pitchDrift:F1}°"
+				: $"WEAK ствол уехал yawDrift={yawDrift:F1}°/{m_MaxBarrelYawDriftDegrees:F0}° pitchDrift={pitchDrift:F1}°/{m_MaxBarrelPitchDriftDegrees:F0}°";
+		}
+
+		string aimVerdict = "цель нет";
+		if (hasBarrel && m_TargetSelector != null && m_TargetSelector.SelectedTarget != null)
+		{
+			Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
+			Vector3 toTarget = aimPoint - barrel.position;
+			if (toTarget.sqrMagnitude > 1e-4f)
+			{
+				float aimErr = Vector3.Angle(barrel.forward, toTarget);
+				aimVerdict = aimErr <= m_MaxTargetAimErrorDegrees
+					? $"OK ствол→цель {aimErr:F1}°"
+					: $"WEAK ствол→цель {aimErr:F1}° > {m_MaxTargetAimErrorDegrees:F0}° — aiming не догоняет lean";
+			}
+		}
+
+		string sideName = m_LeanTarget01 < -0.05f ? "Left" : (m_LeanTarget01 > 0.05f ? "Right" : "Off");
+		Debug.Log(
+			$"[SpineLean] {_tag} unit={name} side={sideName} target01={m_LeanTarget01:F2} " +
+			$"smoothed01={m_SmoothedLean01:F2} leanDeg={leanDeg:F1}/{maxDeg:F1} ({leanVerdict}) " +
+			$"profile={kind} blocked={IsLeanBlocked()} settled={IsLeanSettled} " +
+			$"barrelLocalX={barrelLocalX:F3}m lateralDelta={lateralDelta:F3}m ({sideVerdict}) " +
+			$"barrelYaw={barrelYaw:F1}° barrelPitch={barrelPitch:F1}° ({weaponVerdict}) {aimVerdict} " +
+			$"bodyAlignSkip={(Mathf.Abs(m_LeanTarget01) >= 0.05f ? "yes" : "no")} " +
+			$"lateralMetersProfile={profile.MaxLateralMeters:F3}",
+			this);
+
+		if (hasBarrel)
+		{
+			Debug.DrawRay(barrel.position, barrel.forward * 2.5f, Color.yellow, 0.2f);
+			Vector3 rightXZ = Flatten(transform.right);
+			Debug.DrawRay(transform.position + Vector3.up * 1.2f, rightXZ * 0.8f * (leanSign == 0f ? 1f : leanSign), Color.cyan, 0.2f);
+		}
+	}
+
+	private float ResolveNeededLateralMeters(LeanProfileKind _kind)
+	{
+		return _kind switch
+		{
+			LeanProfileKind.CrouchIdle => m_MinLateralIdleCrouch,
+			LeanProfileKind.StandingWalk => m_MinLateralWalk,
+			LeanProfileKind.CrouchWalk => m_MinLateralWalk,
+			_ => m_MinLateralIdleStanding
+		};
+	}
+
+	private bool TrySampleBarrel(out float _localX, out float _yaw, out float _pitch, out Transform _barrel)
+	{
+		_localX = 0f;
+		_yaw = 0f;
+		_pitch = 0f;
+		_barrel = null;
+
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_Equipment == null)
+			return false;
+
+		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
+		if (weapon == null)
+			return false;
+
+		_barrel = weapon.BarrelTransform != null ? weapon.BarrelTransform : weapon.FireOriginTransform;
+		if (_barrel == null)
+			_barrel = m_Equipment.MainWeaponRoot;
+		if (_barrel == null)
+			return false;
+
+		Vector3 rightXZ = Flatten(transform.right);
+		if (rightXZ.sqrMagnitude > 1e-6f)
+			_localX = Vector3.Dot(_barrel.position - transform.position, rightXZ);
+
+		Vector3 bodyFwd = Flatten(transform.forward);
+		Vector3 barrelFwd = _barrel.forward;
+		Vector3 barrelFwdXZ = Flatten(barrelFwd);
+		if (bodyFwd.sqrMagnitude > 1e-6f && barrelFwdXZ.sqrMagnitude > 1e-6f)
+			_yaw = Vector3.SignedAngle(bodyFwd, barrelFwdXZ, Vector3.up);
+
+		_pitch = Mathf.Asin(Mathf.Clamp(barrelFwd.y, -1f, 1f)) * Mathf.Rad2Deg;
+		return true;
+	}
+
+	private static Vector3 Flatten(Vector3 _v)
+	{
+		_v.y = 0f;
+		if (_v.sqrMagnitude < 1e-6f)
+			return Vector3.zero;
+		return _v.normalized;
+	}
+
+	private static Transform FindChildRecursive(Transform _root, string _name)
+	{
+		if (_root == null || string.IsNullOrEmpty(_name))
+			return null;
+		if (_root.name == _name)
+			return _root;
+
+		for (int i = 0; i < _root.childCount; i++)
+		{
+			Transform found = FindChildRecursive(_root.GetChild(i), _name);
+			if (found != null)
+				return found;
+		}
+
+		return null;
+	}
+	#endregion
+}

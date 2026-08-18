@@ -10,7 +10,7 @@ namespace VehicleNavigation
 	/// </summary>
 	public sealed class VehicleSafetyController
 	{
-		public static bool DebugLog = true;
+		public static bool DebugLog = false;
 		private readonly List<ISafetyLimiter> m_Limiters = new List<ISafetyLimiter>();
 
 		public VehicleSafetyController(VehicleParameters _params, WheeledMotor _motor)
@@ -58,8 +58,8 @@ namespace VehicleNavigation
 				lastOutput = limiter.Apply(input);
 				current = lastOutput.Command;
 
-				if (lastOutput.Triggered && DebugLog)
-					Debug.Log($"[Safety] {limiter.GetType().Name}: {lastOutput.Warning}");
+				if (lastOutput.Triggered && DebugLog && !string.IsNullOrEmpty(lastOutput.Warning))
+					VehicleFileLog.WriteActive($"[Safety] {limiter.GetType().Name}: {lastOutput.Warning}");
 
 				if (lastOutput.ShouldAbortRecovery)
 					break;

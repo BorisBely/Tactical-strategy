@@ -202,7 +202,9 @@ namespace VehicleNavigation
 			float lookAhead = ComputeLookAhead(fb.SpeedKmh,
 				_lookAheadOverride ?? _defaultLookAhead);
 
-			int pathRevision = _ctx.CurrentManeuverIndex * 1000 + waypoints.Length;
+			// Must include waypoint coordinates — index+count alone stays "2" for every
+			// 2-point globalCruise, so a new order kept the exhausted old path (dist=0, thr=0).
+			int pathRevision = ComputeWaypointsRevision(waypoints, _ctx.CurrentManeuverIndex);
 			if (pathRevision != m_LastPathRevision)
 			{
 				m_Trajectory.Build(waypoints, pathRevision);
@@ -454,6 +456,27 @@ namespace VehicleNavigation
 			if (_params.Kinematics != null)
 				return _params.Kinematics.RearAxlePosition(_position, _forward);
 			return _position - _forward.normalized * (_params.WheelBase * 0.5f);
+		}
+
+		/// <summary>
+		/// Stable identity for the pursuit path. Quantized to cm so float noise does not
+		/// rebuild every tick, but a new destination always changes the hash.
+		/// </summary>
+		private static int ComputeWaypointsRevision(Vector3[] _waypoints, int _maneuverIndex)
+		{
+			unchecked
+			{
+				int hash = 17;
+				hash = hash * 31 + _maneuverIndex;
+				hash = hash * 31 + _waypoints.Length;
+				for (int i = 0; i < _waypoints.Length; i++)
+				{
+					hash = hash * 31 + Mathf.RoundToInt(_waypoints[i].x * 100f);
+					hash = hash * 31 + Mathf.RoundToInt(_waypoints[i].z * 100f);
+				}
+
+				return hash;
+			}
 		}
 	}
 }

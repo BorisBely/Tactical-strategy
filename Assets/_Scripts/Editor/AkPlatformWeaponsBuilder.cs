@@ -152,6 +152,9 @@ public static class AkPlatformWeaponsBuilder
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = _config.SemiAutoRecoilMultiplier;
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = _config.AutoRecoilMultiplier;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = _config.RecoilRecoveryPerSecond;
+		SerializedProperty visualKickScale = so.FindProperty("m_VisualRecoilKickScale");
+		if (visualKickScale != null)
+			visualKickScale.floatValue = WeaponVisualRecoilKickScaleTable.ForAsset(_config.WeaponAssetName);
 		so.FindProperty("m_Reliability").floatValue = _config.Reliability;
 		so.FindProperty("m_AnimationPlatform").enumValueIndex = (int)WeaponAnimationPlatform.Ak;
 		ApplyBalanceCurves(so, _config.CurveKind);
@@ -202,16 +205,6 @@ public static class AkPlatformWeaponsBuilder
 		so.FindProperty("m_RightHandLocalEulerAngles").vector3Value =
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		CopyReadyHandPoseFields(so, templateSo);
-		CopyRightHandIkFields(so, templateSo);
-		CopyLeftHandIkFields(so, templateSo);
-		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
-		so.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(item);
 		return item;
@@ -680,30 +673,6 @@ public static class AkPlatformWeaponsBuilder
 			_so.FindProperty("m_RightHandReadyLocalEulerAngles").vector3Value =
 				_templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		}
-	}
-
-	private static void CopyRightHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
-	}
-
-	private static void CopyLeftHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value;
 	}
 
 }

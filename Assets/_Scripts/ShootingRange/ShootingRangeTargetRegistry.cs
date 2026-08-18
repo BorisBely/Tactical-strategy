@@ -51,17 +51,22 @@ public sealed class ShootingRangeTargetRegistry : MonoBehaviour
 			return;
 
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif
 		for (int i = 0; i < visions.Length; i++)
 		{
 			UnitVision vision = visions[i];
-			if (vision == null || !vision.IsTrackingTarget(_target.transform))
+			if (vision == null)
 				continue;
 
-			vision.ClearVisibleTargetAndWaitForNextScan();
+			TargetSelector selector = vision.GetComponent<TargetSelector>();
+			if (selector == null || !selector.IsTrackingTarget(_target.transform))
+				continue;
+
+			selector.ClearSelectionAndNotifyIfHadTarget();
+			vision.DeferNextScan();
 		}
 	}
 	#endregion

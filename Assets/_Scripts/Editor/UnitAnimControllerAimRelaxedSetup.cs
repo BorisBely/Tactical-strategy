@@ -286,6 +286,35 @@ public static class UnitAnimControllerAimRelaxedSetup
 			CondIfNot(c_ParamIsCyclingBolt),
 			CondIfNot(c_ParamWeaponReady));
 
+		EnsureTransition(aimReload, pitchBlend, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondIfNot(c_ParamIsLoadingLmgBelt),
+			CondEquals(c_ParamStance, 0f));
+		EnsureTransition(aimReload, pitchBlend, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondIfNot(c_ParamIsLoadingLmgBelt),
+			CondEquals(c_ParamStance, 2f));
+		EnsureTransition(aimReload, crouchPitch, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondIfNot(c_ParamIsLoadingLmgBelt),
+			CondEquals(c_ParamStance, 1f));
+
+		EnsureTransition(aimBolt, pitchBlend, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondEquals(c_ParamStance, 0f));
+		EnsureTransition(aimBolt, pitchBlend, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondEquals(c_ParamStance, 2f));
+		EnsureTransition(aimBolt, crouchPitch, 0.22f,
+			CondIfNot(c_ParamIsReloading),
+			CondIfNot(c_ParamIsCyclingBolt),
+			CondEquals(c_ParamStance, 1f));
+
 		// Болтовые винтовки: отдельные клипы (вход через Animator.Play из ReloadController).
 		AnimationClip aimBoltActionClip = LoadClip(c_ClipAimBoltAction);
 		AnimationClip relaxedBoltActionClip = LoadClip(c_ClipRelaxedBoltAction);
@@ -301,22 +330,22 @@ public static class UnitAnimControllerAimRelaxedSetup
 			RemoveTransition(aimBoltAction, relaxedIdle);
 			RemoveTransition(relaxedBoltAction, relaxedIdle);
 
-			EnsureTransition(aimBoltAction, pitchBlend, 0.12f,
+			EnsureTransition(aimBoltAction, pitchBlend, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 0f),
 				CondIf(c_ParamWeaponReady));
-			EnsureTransition(aimBoltAction, crouchPitch, 0.12f,
+			EnsureTransition(aimBoltAction, crouchPitch, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 1f));
 
-			EnsureTransition(relaxedBoltAction, pitchBlend, 0.12f,
+			EnsureTransition(relaxedBoltAction, pitchBlend, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 0f),
 				CondIf(c_ParamWeaponReady));
-			EnsureTransition(relaxedBoltAction, crouchPitch, 0.12f,
+			EnsureTransition(relaxedBoltAction, crouchPitch, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 1f));
@@ -342,12 +371,12 @@ public static class UnitAnimControllerAimRelaxedSetup
 			RemoveDuplicateNamedStates(sm, c_AimBoltAk, aimBoltAk);
 			RemoveDuplicateNamedStates(sm, c_RelaxedBoltAk, relaxedBoltAk);
 
-			EnsureTransition(aimBoltAk, pitchBlend, 0.12f,
+			EnsureTransition(aimBoltAk, pitchBlend, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 0f),
 				CondIf(c_ParamWeaponReady));
-			EnsureTransition(aimBoltAk, crouchPitch, 0.12f,
+			EnsureTransition(aimBoltAk, crouchPitch, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 1f));
@@ -360,7 +389,7 @@ public static class UnitAnimControllerAimRelaxedSetup
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondIf(c_ParamWeaponReady));
 
-			EnsureTransition(relaxedBoltAk, pitchBlend, 0.12f,
+			EnsureTransition(relaxedBoltAk, pitchBlend, 0.22f,
 				CondIfNot(c_ParamIsReloading),
 				CondIfNot(c_ParamIsCyclingBolt),
 				CondEquals(c_ParamStance, 0f),
@@ -912,8 +941,14 @@ public static class UnitAnimControllerAimRelaxedSetup
 		{
 			if (existing.destinationState != _to)
 				continue;
-			if (ConditionsMatch(existing.conditions, _conditions))
-				return;
+			if (!ConditionsMatch(existing.conditions, _conditions))
+				continue;
+
+			existing.hasExitTime = false;
+			existing.exitTime = 0f;
+			existing.duration = _duration;
+			existing.offset = 0f;
+			return;
 		}
 
 		AnimatorStateTransition transition = _from.AddTransition(_to);

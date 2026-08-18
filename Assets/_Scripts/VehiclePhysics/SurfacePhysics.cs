@@ -6,7 +6,7 @@ public sealed class SurfacePhysics
 	#region Private Fields
 	private readonly List<SurfacePhysicsDefinition> m_Profiles;
 	private readonly SurfacePhysicsDefinition m_DefaultProfile;
-	private readonly Dictionary<int, SurfacePhysicsDefinition> m_CacheByInstanceId = new();
+	private readonly Dictionary<EntityId, SurfacePhysicsDefinition> m_CacheByEntityId = new();
 	#endregion
 
 	#region Constructor
@@ -23,18 +23,18 @@ public sealed class SurfacePhysics
 		if (collider == null)
 			return m_DefaultProfile;
 
-		int id = collider.GetInstanceID();
-		if (m_CacheByInstanceId.TryGetValue(id, out var cached))
+		EntityId id = collider.GetEntityId();
+		if (m_CacheByEntityId.TryGetValue(id, out var cached))
 			return cached;
 
 		var result = ResolveUncached(collider);
-		m_CacheByInstanceId[id] = result;
+		m_CacheByEntityId[id] = result;
 		return result;
 	}
 
 	public void ClearCache()
 	{
-		m_CacheByInstanceId.Clear();
+		m_CacheByEntityId.Clear();
 	}
 	#endregion
 

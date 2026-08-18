@@ -115,8 +115,11 @@ public static class RuntimeInlineModificationBuilder
 			row.transform.SetSiblingIndex(insertIndex + i);
 
 			LayoutElement layout = row.AddComponent<LayoutElement>();
-			layout.preferredHeight = 30f;
-			layout.minHeight = 30f;
+			layout.preferredHeight = InventoryModificationSlotUiBuilder.RowHeight;
+			layout.minHeight = InventoryModificationSlotUiBuilder.RowHeight;
+			layout.preferredWidth = InventoryModificationSlotUiBuilder.RowWidth;
+			layout.minWidth = InventoryModificationSlotUiBuilder.RowWidth;
+			layout.flexibleWidth = 0f;
 
 			RuntimeModificationSlotView view = row.AddComponent<RuntimeModificationSlotView>();
 			view.Configure(

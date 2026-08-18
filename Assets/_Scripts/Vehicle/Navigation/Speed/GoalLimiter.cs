@@ -7,7 +7,7 @@ namespace VehicleNavigation
 		private readonly float m_CreepSpeedKmh;
 		private readonly float m_CreepDistance;
 
-		public GoalLimiter(float _creepSpeedKmh = 3f, float _creepDistance = 3f)
+		public GoalLimiter(float _creepSpeedKmh = 4.5f, float _creepDistance = 3f)
 		{
 			m_CreepSpeedKmh = _creepSpeedKmh;
 			m_CreepDistance = Mathf.Max(0.5f, _creepDistance);
@@ -15,17 +15,6 @@ namespace VehicleNavigation
 
 		public SpeedLimitResult GetLimit(NavigationContext _ctx)
 		{
-			// Precision maneuvers: force creep speed regardless of distance
-			if (_ctx.CurrentManeuver != null)
-			{
-				var mType = _ctx.CurrentManeuver.Type;
-				if (mType == VehicleManeuverType.ApproachWithHeading ||
-				    mType == VehicleManeuverType.Parking)
-				{
-					return new SpeedLimitResult(m_CreepSpeedKmh, StopReason.Goal, 50, false);
-				}
-			}
-
 			float distanceToEnd = _ctx.RemainingDistance;
 			if (distanceToEnd <= 0f)
 				return new SpeedLimitResult(0f, StopReason.Goal, 60, true);
@@ -35,6 +24,7 @@ namespace VehicleNavigation
 
 			float brakingDistance = (currentSpeedMs * currentSpeedMs) / (2f * maxDecel);
 
+			// Approach/Parking: use normal braking profile until creep zone; only then crawl.
 			if (distanceToEnd > brakingDistance + m_CreepDistance)
 				return SpeedLimitResult.Unlimited;
 

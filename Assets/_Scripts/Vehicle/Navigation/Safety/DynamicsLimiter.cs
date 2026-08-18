@@ -55,7 +55,12 @@ namespace VehicleNavigation
 				if (Mathf.Abs(delta) > maxDelta)
 				{
 					output.Command.Steer = m_PrevSteer + Mathf.Sign(delta) * maxDelta;
-					output.Triggered = output.Triggered || Mathf.Abs(delta) > maxDelta * 2f;
+					if (Mathf.Abs(delta) > maxDelta * 2f)
+					{
+						output.Triggered = true;
+						if (string.IsNullOrEmpty(output.Warning))
+							output.Warning = $"SteerRate: d={delta:F2}>{maxDelta:F2}";
+					}
 				}
 			}
 			m_PrevSteer = output.Command.Steer;

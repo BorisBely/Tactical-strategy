@@ -18,11 +18,11 @@ public static class VehicleSpeedModeUtil
 	{
 		switch (_mode)
 		{
-			case VehicleSpeedMode.Slow: return 0.28f;
-			case VehicleSpeedMode.Medium: return 0.55f;
-			case VehicleSpeedMode.Fast: return 0.78f;
+			case VehicleSpeedMode.Slow: return 0.32f;
+			case VehicleSpeedMode.Medium: return 0.65f;
+			case VehicleSpeedMode.Fast: return 0.85f;
 			case VehicleSpeedMode.Max: return 1f;
-			default: return 0.55f;
+			default: return 0.65f;
 		}
 	}
 

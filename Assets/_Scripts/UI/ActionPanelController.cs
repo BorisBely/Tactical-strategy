@@ -13,12 +13,13 @@ public sealed class ActionPanelController : MonoBehaviour
 	#region Constants
 	private const int c_PanelSortingOrder = 31000;
 	private const float c_PanelHeight = 56f;
-	private const float c_ButtonWidth = 88f;
-	private const float c_ButtonSpacing = 4f;
-	private const float c_FadeDuration = 0.2f;
-	private const float c_LabelFontSize = 12f;
-	private const float c_KeyFontSize = 14f;
-	private const float c_ScreenBottomMargin = 4f;
+	private const float c_ButtonWidth = 96f;
+	private const float c_ButtonSpacing = 3f;
+	private const float c_FadeDuration = 0.12f;
+	private const float c_SlidePixels = 12f;
+	private const float c_LabelFontSize = 13f;
+	private const float c_KeyFontSize = 12f;
+	private const float c_ScreenBottomMargin = 8f;
 	#endregion
 
 	#region Entry Definition
@@ -49,17 +50,25 @@ public sealed class ActionPanelController : MonoBehaviour
 	private GameObject[] m_ButtonObjects;
 	private TextMeshProUGUI[] m_ButtonLabels;
 	private bool m_SubscribedToSelection;
+	private const int c_NonCombatReadyButtonIndex = 2;
+	private const int c_CombatReadyButtonIndex = 3;
 	private const int c_RocketLauncherButtonIndex = 1;
-	private const int c_FormationButtonIndex = 9;
-	private const int c_InventoryButtonIndex = 10;
-	private const int c_GunnerButtonIndex = 11;
-	private const int c_GunnerStanceButtonIndex = 12;
-	private const int c_VehicleReadyButtonIndex = 13;
-	private const int c_DisembarkButtonIndex = 14;
-	private const int c_LoadWoundedButtonIndex = 15;
-	private const int c_EngineButtonIndex = 16;
-	private const int c_SpeedButtonIndex = 17;
-	private const int c_LastUnitButtonIndex = 10;
+	private const int c_ReloadButtonIndex = 6;
+	private const int c_AimModeButtonIndex = 7;
+	private const int c_FireModeButtonIndex = 8;
+	private const int c_FormationButtonIndex = 10;
+	private const int c_InventoryButtonIndex = 11;
+	private const int c_GunnerButtonIndex = 12;
+	private const int c_GunnerStanceButtonIndex = 13;
+	private const int c_VehicleReadyButtonIndex = 14;
+	private const int c_DisembarkButtonIndex = 15;
+	private const int c_LoadWoundedButtonIndex = 16;
+	private const int c_EngineButtonIndex = 17;
+	private const int c_SpeedButtonIndex = 18;
+	private const int c_LastUnitButtonIndex = 11;
+	private const int c_FirstDebugPoseButtonIndex = 19;
+	private const int c_LeanLeftButtonIndex = 28;
+	private const int c_LeanRightButtonIndex = 29;
 	#endregion
 
 	#region Entries
@@ -115,14 +124,10 @@ public sealed class ActionPanelController : MonoBehaviour
 		if (!m_UiBuilt)
 			return;
 
-		if (PauseMenuController.IsPaused)
+		if (PauseMenuController.IsPaused || IsFullscreenUiBlocking())
 		{
-			if (m_TargetAlpha > 0f)
-			{
-				m_TargetAlpha = 0f;
-				StartFade(0f);
-			}
-
+			if (m_TargetAlpha > 0f || m_IsHovered)
+				HideImmediate();
 			return;
 		}
 
@@ -135,6 +140,12 @@ public sealed class ActionPanelController : MonoBehaviour
 			StartFade(desired);
 			if (desired > 0.5f)
 				RefreshConditionalButtons();
+		}
+
+		if (m_IsHovered && m_TargetAlpha > 0.01f)
+		{
+			UpdateReadyButtonPresentation();
+			UpdateLeanButtonPresentation();
 		}
 
 		// Прямой клик: EventSystem/IsPointerOverGameObject с Input System часто не видит эту панель.
@@ -158,6 +169,16 @@ public sealed class ActionPanelController : MonoBehaviour
 		Vector2 mousePosition = Mouse.current?.position.ReadValue() ?? Vector2.zero;
 		return RectTransformUtility.RectangleContainsScreenPoint(m_PanelRect, mousePosition, null);
 	}
+
+	/// <summary>Окна пресета / runtime-инвентаря перекрывают нижнюю панель действий.</summary>
+	private static bool IsFullscreenUiBlocking()
+	{
+		if (MissionPrepScreenBindings.Instance != null && MissionPrepScreenBindings.Instance.IsMissionPrepOpen)
+			return true;
+		if (InventoryScreenBindings.Instance != null && InventoryScreenBindings.Instance.IsInventoryOpen)
+			return true;
+		return false;
+	}
 	#endregion
 
 	#region Public Methods
@@ -177,7 +198,7 @@ public sealed class ActionPanelController : MonoBehaviour
 		if (s_Instance == null || !s_Instance.m_UiBuilt || s_Instance.m_PanelRect == null)
 			return false;
 
-		if (PauseMenuController.IsPaused)
+		if (PauseMenuController.IsPaused || IsFullscreenUiBlocking())
 			return false;
 
 		Vector2 mousePosition = Mouse.current?.position.ReadValue() ?? Vector2.zero;
@@ -252,7 +273,7 @@ public sealed class ActionPanelController : MonoBehaviour
 		m_PanelCanvasGroup.blocksRaycasts = false;
 
 		Image panelBg = panelGo.AddComponent<Image>();
-		panelBg.color = new Color(0.08f, 0.08f, 0.1f, 0.85f);
+		InventoryUiTheme.ApplyImageColor(panelBg, InventoryUiTheme.PanelBackground);
 		panelBg.raycastTarget = false;
 
 		HorizontalLayoutGroup layout = panelGo.AddComponent<HorizontalLayoutGroup>();
@@ -262,7 +283,21 @@ public sealed class ActionPanelController : MonoBehaviour
 		layout.childForceExpandWidth = false;
 		layout.childForceExpandHeight = true;
 		layout.spacing = c_ButtonSpacing;
-		layout.padding = new RectOffset(8, 8, 4, 4);
+		layout.padding = new RectOffset(8, 8, 6, 6);
+
+		GameObject dividerGo = new GameObject("TopDivider", typeof(RectTransform));
+		dividerGo.transform.SetParent(m_PanelRect, false);
+		RectTransform dividerRt = dividerGo.transform as RectTransform;
+		dividerRt.anchorMin = new Vector2(0f, 1f);
+		dividerRt.anchorMax = new Vector2(1f, 1f);
+		dividerRt.pivot = new Vector2(0.5f, 1f);
+		dividerRt.anchoredPosition = Vector2.zero;
+		dividerRt.sizeDelta = new Vector2(0f, InventoryUiTheme.DividerHeight);
+		LayoutElement dividerLayout = dividerGo.AddComponent<LayoutElement>();
+		dividerLayout.ignoreLayout = true;
+		Image dividerImage = dividerGo.AddComponent<Image>();
+		InventoryUiTheme.ApplyImageColor(dividerImage, InventoryUiTheme.Divider);
+		dividerImage.raycastTarget = false;
 	}
 
 	private void BuildButtons()
@@ -283,21 +318,34 @@ public sealed class ActionPanelController : MonoBehaviour
 		btnGo.transform.SetParent(m_PanelRect, false);
 
 		RectTransform btnRect = btnGo.transform as RectTransform;
-		btnRect.sizeDelta = new Vector2(c_ButtonWidth, c_PanelHeight - 8f);
+		btnRect.sizeDelta = new Vector2(c_ButtonWidth, c_PanelHeight - 12f);
+
+		LayoutElement layoutElement = btnGo.AddComponent<LayoutElement>();
+		layoutElement.preferredWidth = c_ButtonWidth;
+		layoutElement.minWidth = c_ButtonWidth;
+		layoutElement.preferredHeight = c_PanelHeight - 12f;
+		layoutElement.minHeight = c_PanelHeight - 12f;
 
 		Image btnBg = btnGo.AddComponent<Image>();
-		btnBg.color = new Color(0.18f, 0.18f, 0.22f, 1f);
+		// ColorTint multiplies Image.color × ColorBlock — keep Image white, put theme colors in the block.
+		InventoryUiTheme.ApplyImageColor(btnBg, Color.white);
 		btnBg.raycastTarget = false;
 
 		Button button = btnGo.AddComponent<Button>();
 		button.targetGraphic = btnBg;
 		button.transition = Selectable.Transition.ColorTint;
 		ColorBlock colors = button.colors;
-		colors.normalColor = new Color(0.18f, 0.18f, 0.22f, 1f);
-		colors.highlightedColor = new Color(0.28f, 0.28f, 0.35f, 1f);
-		colors.pressedColor = new Color(0.12f, 0.12f, 0.16f, 1f);
-		colors.selectedColor = new Color(0.22f, 0.22f, 0.28f, 1f);
+		colors.normalColor = InventoryUiTheme.CellBackground;
+		colors.highlightedColor = InventoryUiTheme.UnitCellSelected;
+		colors.pressedColor = InventoryUiTheme.MenuItemPressed;
+		colors.selectedColor = InventoryUiTheme.UnitCellSelected;
+		colors.disabledColor = new Color(
+			InventoryUiTheme.CellBackground.r,
+			InventoryUiTheme.CellBackground.g,
+			InventoryUiTheme.CellBackground.b,
+			0.45f);
 		colors.colorMultiplier = 1f;
+		colors.fadeDuration = 0.08f;
 		button.colors = colors;
 
 		int index = _index;
@@ -308,19 +356,17 @@ public sealed class ActionPanelController : MonoBehaviour
 		RectTransform labelRect = labelGo.transform as RectTransform;
 		labelRect.anchorMin = Vector2.zero;
 		labelRect.anchorMax = new Vector2(1f, 0.55f);
-		labelRect.offsetMin = new Vector2(2f, 2f);
-		labelRect.offsetMax = new Vector2(-2f, 0f);
+		labelRect.offsetMin = new Vector2(3f, 2f);
+		labelRect.offsetMax = new Vector2(-3f, 0f);
 
 		TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
 		label.text = _entry.Label;
 		label.fontSize = c_LabelFontSize;
 		label.alignment = TextAlignmentOptions.Center;
-		label.color = new Color(0.82f, 0.82f, 0.82f, 1f);
+		label.color = InventoryUiTheme.PrimaryText;
 		label.raycastTarget = false;
-#pragma warning disable CS0618
-		label.enableWordWrapping = true;
-#pragma warning restore CS0618
-		label.overflowMode = TextOverflowModes.Truncate;
+		label.textWrappingMode = TextWrappingModes.Normal;
+		label.overflowMode = TextOverflowModes.Ellipsis;
 		if (m_ResolvedFont != null)
 			label.font = m_ResolvedFont;
 		_label = label;
@@ -330,17 +376,36 @@ public sealed class ActionPanelController : MonoBehaviour
 		RectTransform keyRect = keyGo.transform as RectTransform;
 		keyRect.anchorMin = new Vector2(0f, 0.55f);
 		keyRect.anchorMax = new Vector2(1f, 1f);
-		keyRect.offsetMin = new Vector2(2f, 0f);
-		keyRect.offsetMax = new Vector2(-2f, -2f);
+		keyRect.offsetMin = new Vector2(3f, 0f);
+		keyRect.offsetMax = new Vector2(-3f, -2f);
 
 		TextMeshProUGUI keyText = keyGo.AddComponent<TextMeshProUGUI>();
 		keyText.text = _entry.KeyDisplay;
-		keyText.fontSize = c_KeyFontSize;
+		keyText.fontSize = !string.IsNullOrEmpty(_entry.KeyDisplay) && _entry.KeyDisplay.Length > 4
+			? 10f
+			: c_KeyFontSize;
+		keyText.fontStyle = FontStyles.Bold;
 		keyText.alignment = TextAlignmentOptions.Center;
-		keyText.color = new Color(0.5f, 0.6f, 0.75f, 1f);
+		keyText.color = string.IsNullOrEmpty(_entry.KeyDisplay)
+			? InventoryUiTheme.SectionHeaderText
+			: InventoryUiTheme.HotkeyText;
 		keyText.raycastTarget = false;
 		if (m_ResolvedFont != null)
 			keyText.font = m_ResolvedFont;
+
+		GameObject bottomLine = new GameObject("Divider", typeof(RectTransform));
+		bottomLine.transform.SetParent(btnRect, false);
+		RectTransform lineRt = bottomLine.transform as RectTransform;
+		lineRt.anchorMin = new Vector2(0f, 0f);
+		lineRt.anchorMax = new Vector2(1f, 0f);
+		lineRt.pivot = new Vector2(0.5f, 0.5f);
+		lineRt.anchoredPosition = new Vector2(0f, 0.5f);
+		lineRt.sizeDelta = new Vector2(0f, InventoryUiTheme.DividerHeight);
+		LayoutElement lineLayout = bottomLine.AddComponent<LayoutElement>();
+		lineLayout.ignoreLayout = true;
+		Image lineImage = bottomLine.AddComponent<Image>();
+		InventoryUiTheme.ApplyImageColor(lineImage, InventoryUiTheme.Divider);
+		lineImage.raycastTarget = false;
 
 		return btnGo;
 	}
@@ -351,7 +416,8 @@ public sealed class ActionPanelController : MonoBehaviour
 		{
 			new Entry { Label = "Граната",    KeyDisplay = "G", OnClick = OnClickGrenade },
 			new Entry { Label = "Гранатомёт", KeyDisplay = "H", OnClick = OnClickRocketLauncher },
-			new Entry { Label = "Готовность", KeyDisplay = "E", OnClick = OnClickReady },
+			new Entry { Label = "Небоевой", KeyDisplay = "Ctrl+E", OnClick = OnClickNonCombatReady },
+			new Entry { Label = "Боевой",   KeyDisplay = "E", OnClick = OnClickCombatReady },
 			new Entry { Label = "Присед",     KeyDisplay = "C", OnClick = OnClickCrouch },
 			new Entry { Label = "Зарядка",    KeyDisplay = "T", OnClick = OnClickMagazineLoad },
 			new Entry { Label = "Перезарядка",KeyDisplay = "R", OnClick = OnClickReload },
@@ -367,14 +433,33 @@ public sealed class ActionPanelController : MonoBehaviour
 			new Entry { Label = "Погр.раненого", KeyDisplay = "", OnClick = OnClickLoadWounded },
 			new Entry { Label = "Завести", KeyDisplay = "", OnClick = OnClickEngine },
 			new Entry { Label = "Скорость", KeyDisplay = "", OnClick = OnClickVehicleSpeed },
+			new Entry { Label = "Low ready", KeyDisplay = "dbg", OnClick = OnClickDebugLowReady },
+			new Entry { Label = "Not ready", KeyDisplay = "dbg", OnClick = OnClickDebugNotReady },
+			new Entry { Label = "Patrol", KeyDisplay = "dbg", OnClick = OnClickDebugNotReadyPatrol },
+			new Entry { Label = "High ready", KeyDisplay = "dbg", OnClick = OnClickDebugHighReady },
+			new Entry { Label = "Pre-aim", KeyDisplay = "dbg", OnClick = OnClickDebugPreAim },
+			new Entry { Label = "Hip fire", KeyDisplay = "dbg", OnClick = OnClickDebugHipFire },
+			new Entry { Label = "Point aim", KeyDisplay = "dbg", OnClick = OnClickDebugPointAim },
+			new Entry { Label = "Прицел", KeyDisplay = "dbg", OnClick = OnClickDebugAiming },
+			new Entry { Label = "Auto", KeyDisplay = "dbg", OnClick = OnClickDebugAuto },
+			new Entry { Label = "Накл.Л", KeyDisplay = "dbg", OnClick = OnClickDebugLeanLeft },
+			new Entry { Label = "Накл.П", KeyDisplay = "dbg", OnClick = OnClickDebugLeanRight },
 		};
 	}
 
 	private void PositionPanel()
 	{
-		float totalWidth = m_Entries.Length * c_ButtonWidth + (m_Entries.Length - 1) * c_ButtonSpacing + 16f;
-		m_PanelRect.sizeDelta = new Vector2(totalWidth, c_PanelHeight);
-		m_PanelRect.anchoredPosition = new Vector2(0f, c_ScreenBottomMargin);
+		UpdatePanelWidth();
+		ApplyPanelSlide(m_PanelCanvasGroup != null ? m_PanelCanvasGroup.alpha : 0f);
+	}
+
+	private void ApplyPanelSlide(float _alpha01)
+	{
+		if (m_PanelRect == null)
+			return;
+
+		float y = c_ScreenBottomMargin - c_SlidePixels * (1f - Mathf.Clamp01(_alpha01));
+		m_PanelRect.anchoredPosition = new Vector2(0f, y);
 	}
 	#endregion
 
@@ -397,11 +482,14 @@ public sealed class ActionPanelController : MonoBehaviour
 		{
 			elapsed += Time.unscaledDeltaTime;
 			float t = Mathf.Clamp01(elapsed / c_FadeDuration);
-			m_PanelCanvasGroup.alpha = Mathf.Lerp(startAlpha, _targetAlpha, t);
+			float alpha = Mathf.Lerp(startAlpha, _targetAlpha, t);
+			m_PanelCanvasGroup.alpha = alpha;
+			ApplyPanelSlide(alpha);
 			yield return null;
 		}
 
 		m_PanelCanvasGroup.alpha = _targetAlpha;
+		ApplyPanelSlide(_targetAlpha);
 		m_PanelCanvasGroup.blocksRaycasts = _targetAlpha > 0.01f;
 		m_FadeCoroutine = null;
 	}
@@ -420,6 +508,7 @@ public sealed class ActionPanelController : MonoBehaviour
 			m_PanelCanvasGroup.blocksRaycasts = false;
 		}
 
+		ApplyPanelSlide(0f);
 		m_TargetAlpha = 0f;
 		m_IsHovered = false;
 	}
@@ -470,7 +559,7 @@ public sealed class ActionPanelController : MonoBehaviour
 		{
 			TextMeshProUGUI label = m_ButtonLabels[c_RocketLauncherButtonIndex];
 			label.text = showReloadLabel ? "Зарядить гранатомёт" : "Гранатомёт";
-			label.fontSize = showReloadLabel ? 10f : c_LabelFontSize;
+			label.fontSize = showReloadLabel ? 11f : c_LabelFontSize;
 		}
 
 		if (m_ButtonObjects.Length > c_FormationButtonIndex && m_ButtonObjects[c_FormationButtonIndex] != null)
@@ -500,23 +589,22 @@ public sealed class ActionPanelController : MonoBehaviour
 
 		bool showTurretGunnerFireButtons = hasVehicle && vehicle != null && vehicle.IsGunnerOnTurret;
 
-		if (m_ButtonObjects.Length > 7 && m_ButtonObjects[7] != null)
+		if (m_ButtonObjects.Length > c_FireModeButtonIndex && m_ButtonObjects[c_FireModeButtonIndex] != null)
 		{
 			if (showTurretGunnerFireButtons)
-				m_ButtonObjects[7].SetActive(true);
+				m_ButtonObjects[c_FireModeButtonIndex].SetActive(true);
 		}
 
-		if (m_ButtonObjects.Length > 6 && m_ButtonObjects[6] != null)
+		if (m_ButtonObjects.Length > c_AimModeButtonIndex && m_ButtonObjects[c_AimModeButtonIndex] != null)
 		{
 			if (showTurretGunnerFireButtons)
-				m_ButtonObjects[6].SetActive(true);
+				m_ButtonObjects[c_AimModeButtonIndex].SetActive(true);
 		}
 
-		// Reload (index 5) when gunner is on turret — same as R key.
-		if (m_ButtonObjects.Length > 5 && m_ButtonObjects[5] != null)
+		if (m_ButtonObjects.Length > c_ReloadButtonIndex && m_ButtonObjects[c_ReloadButtonIndex] != null)
 		{
 			if (showTurretGunnerFireButtons)
-				m_ButtonObjects[5].SetActive(true);
+				m_ButtonObjects[c_ReloadButtonIndex].SetActive(true);
 		}
 
 		if (m_ButtonObjects.Length > c_GunnerButtonIndex && m_ButtonObjects[c_GunnerButtonIndex] != null)
@@ -582,7 +670,92 @@ public sealed class ActionPanelController : MonoBehaviour
 			m_ButtonLabels[c_SpeedButtonIndex].text = "Скор: " + VehicleSpeedModeUtil.LabelRu(vehicle.SpeedCeiling);
 		}
 
+		for (int i = c_FirstDebugPoseButtonIndex; i < m_ButtonObjects.Length; i++)
+		{
+			if (m_ButtonObjects[i] != null)
+				m_ButtonObjects[i].SetActive(showUnitActions);
+		}
+
+		UpdateReadyButtonPresentation();
+		UpdateLeanButtonPresentation();
 		UpdatePanelWidth();
+	}
+
+	private void UpdateReadyButtonPresentation()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		UnitWeaponReadyHandsLayer hands = manager != null ? manager.GetPrimarySelectedReadyHands() : null;
+
+		if (m_ButtonLabels != null && m_ButtonLabels.Length > c_NonCombatReadyButtonIndex)
+		{
+			TextMeshProUGUI nonCombat = m_ButtonLabels[c_NonCombatReadyButtonIndex];
+			if (nonCombat != null)
+			{
+				nonCombat.text = FormatNonCombatButtonLabel(hands);
+				nonCombat.fontSize = 12f;
+			}
+		}
+
+		if (m_ButtonLabels != null && m_ButtonLabels.Length > c_CombatReadyButtonIndex)
+		{
+			TextMeshProUGUI combat = m_ButtonLabels[c_CombatReadyButtonIndex];
+			if (combat != null)
+			{
+				combat.text = FormatCombatButtonLabel(hands);
+				combat.fontSize = 12f;
+			}
+		}
+	}
+
+	private void UpdateLeanButtonPresentation()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		UnitSpineLean lean = manager != null ? manager.GetPrimarySelectedSpineLean() : null;
+		int level = lean != null ? lean.CurrentLeanLevel : 0;
+		int side = lean != null ? lean.CurrentLeanSide : 0;
+		SetLeanButtonLabel(c_LeanLeftButtonIndex, side < 0 && level > 0 ? $"Накл.Л {level}" : "Накл.Л");
+		SetLeanButtonLabel(c_LeanRightButtonIndex, side > 0 && level > 0 ? $"Накл.П {level}" : "Накл.П");
+	}
+
+	private void SetLeanButtonLabel(int _index, string _text)
+	{
+		if (m_ButtonLabels == null || _index < 0 || _index >= m_ButtonLabels.Length)
+			return;
+		TextMeshProUGUI label = m_ButtonLabels[_index];
+		if (label == null)
+			return;
+		label.text = _text;
+		label.fontSize = 12f;
+	}
+
+	private static string FormatNonCombatButtonLabel(UnitWeaponReadyHandsLayer _hands)
+	{
+		if (_hands != null &&
+		    _hands.IsPeacefulNotReady &&
+		    _hands.PeacefulCarryPose == WeaponPoseState.NotReadyPatrol)
+			return "Патруль";
+		return "Не готов";
+	}
+
+	private static string FormatCombatButtonLabel(UnitWeaponReadyHandsLayer _hands)
+	{
+		if (_hands == null || _hands.IsPeacefulNotReady || !_hands.WantedMode.IsManualCombatMode())
+			return "Low ready";
+		switch (_hands.WantedMode)
+		{
+			case WeaponPoseMode.LowReady:
+				return "Low ready";
+			case WeaponPoseMode.HighReady:
+				return "High ready";
+			case WeaponPoseMode.PreAim:
+				return "Pre-aim";
+			case WeaponPoseMode.PointAim:
+				return "Point aim";
+			case WeaponPoseMode.Aiming:
+				return "Прицел";
+			default:
+				return "Low ready";
+		}
 	}
 
 	private int CountVisibleButtons()
@@ -720,12 +893,68 @@ public sealed class ActionPanelController : MonoBehaviour
 		manager.CommandSelectedRocketLauncher();
 	}
 
-	private static void OnClickReady()
+	private static void OnClickNonCombatReady()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		if (manager == null)
+			return;
+		manager.ToggleSelectedPeacefulNotReady();
+	}
+
+	private static void OnClickCombatReady()
 	{
 		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
 		if (manager == null)
 			return;
 		manager.ToggleSelectedReady();
+	}
+
+	private static void OnClickDebugLowReady() => SetSelectedDebugPose(WeaponPoseMode.LowReady);
+
+	private static void OnClickDebugNotReady() =>
+		SetSelectedPeacefulCarry(WeaponPoseState.NotReady);
+
+	private static void OnClickDebugNotReadyPatrol() =>
+		SetSelectedPeacefulCarry(WeaponPoseState.NotReadyPatrol);
+
+	private static void OnClickDebugHipFire() => SetSelectedDebugPose(WeaponPoseMode.HipFire);
+
+	private static void OnClickDebugPointAim() => SetSelectedDebugPose(WeaponPoseMode.PointAim);
+
+	private static void OnClickDebugAiming() => SetSelectedDebugPose(WeaponPoseMode.Aiming);
+
+	private static void OnClickDebugHighReady() => SetSelectedDebugPose(WeaponPoseMode.HighReady);
+
+	private static void OnClickDebugPreAim() => SetSelectedDebugPose(WeaponPoseMode.PreAim);
+
+	private static void OnClickDebugAuto() => SetSelectedDebugPose(WeaponPoseMode.Auto);
+
+	private static void OnClickDebugLeanLeft()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CycleSelectedSpineLean(-1);
+	}
+
+	private static void OnClickDebugLeanRight()
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		manager?.CycleSelectedSpineLean(1);
+	}
+
+	private static void SetSelectedDebugPose(WeaponPoseMode _mode)
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		if (manager == null)
+			return;
+		manager.SetSelectedWeaponPoseMode(_mode);
+	}
+
+	private static void SetSelectedPeacefulCarry(WeaponPoseState _pose)
+	{
+		RtsUnitSelectionManager manager = RtsUnitSelectionManager.Instance;
+		if (manager == null)
+			return;
+		manager.SetSelectedPeacefulCarryPose(_pose);
 	}
 
 	private static void OnClickCrouch()

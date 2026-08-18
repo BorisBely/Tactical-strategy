@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -25,8 +26,12 @@ public class InventoryPanelView : MonoBehaviour
 	[Tooltip("Применяется при создании ячейки в RepaintFromCharacterInventory / RepaintFromPresetSnapshot.")]
 	[SerializeField] private InventoryEquipmentSlotAppearance m_EquipmentSlotAppearance = new InventoryEquipmentSlotAppearance();
 
+	[Header("Иконки")]
+	[Tooltip("Каталог доступного снаряжения: bake-иконка, если есть; иначе runtime-студия.")]
+	[SerializeField] private bool m_UseDefinitionIconsOnly;
+
 	[Header("Прокрутка")]
-	[SerializeField, Range(5f, 80f)] private float m_ScrollSensitivity = 25f;
+	[SerializeField, Range(5f, 80f)] private float m_ScrollSensitivity = c_DefaultScrollSensitivity;
 
 	[Header("Связи Canvas (опционально)")]
 	[Tooltip("Для панели инвентаря персонажа: зона drag-and-drop с «земли». Заполняется на общем Canvas.")]
@@ -35,9 +40,16 @@ public class InventoryPanelView : MonoBehaviour
 	[SerializeField] private InventoryGroundDropZone m_GroundDropZone;
 	#endregion
 
+	#region Constants
+	public const float c_DefaultScrollSensitivity = 40f;
+	#endregion
+
 	#region Private Fields
 	private readonly List<InventorySlotView> m_Slots = new List<InventorySlotView>();
 	private readonly List<InventorySlotView> m_SpawnedSlots = new List<InventorySlotView>();
+	private readonly List<InventorySlotView> m_SlotPool = new List<InventorySlotView>(32);
+	private bool m_LeadingEquipmentUsesVehicleLabels;
+	private Coroutine m_ScrollToTopCoroutine;
 	#endregion
 
 	#region Public Properties
@@ -46,9 +58,13 @@ public class InventoryPanelView : MonoBehaviour
 	public InventoryEquipmentSlotAppearance EquipmentSlotAppearance => m_EquipmentSlotAppearance;
 	public InventoryCharacterBagDropZone CharacterBagDropZone => m_CharacterBagDropZone;
 	public InventoryGroundDropZone GroundDropZone => m_GroundDropZone;
+	/// <summary>Leading-слоты показывают подписи машины (вооружение / щиты), а не юнита.</summary>
+	public bool LeadingEquipmentUsesVehicleLabels => m_LeadingEquipmentUsesVehicleLabels;
 
 	/// <summary>Префаб и контент заданы — ячейки создаются в runtime, в сцене их может не быть.</summary>
 	public bool IsConfiguredForDynamicRepaint => m_SlotPrefab != null && m_SlotsContainer != null;
+
+	public bool UseDefinitionIconsOnly => m_UseDefinitionIconsOnly;
 
 	/// <summary>Родитель для динамических ячеек (Content в ScrollRect).</summary>
 	public Transform SlotsContainerTransform => m_SlotsContainer;
@@ -58,6 +74,11 @@ public class InventoryPanelView : MonoBehaviour
 	public void SetLeadingEquipmentSlotCount(int _count)
 	{
 		m_LeadingEquipmentSlotCount = Mathf.Max(0, _count);
+	}
+
+	public void SetUseDefinitionIconsOnly(bool _enabled)
+	{
+		m_UseDefinitionIconsOnly = _enabled;
 	}
 	#endregion
 
@@ -70,6 +91,11 @@ public class InventoryPanelView : MonoBehaviour
 			m_CharacterBagDropZone.BindBagPanel(this);
 		if (m_GroundDropZone != null)
 			m_GroundDropZone.BindGroundPanel(this);
+	}
+
+	private void OnDisable()
+	{
+		m_ScrollToTopCoroutine = null;
 	}
 	#endregion
 
@@ -110,8 +136,15 @@ public class InventoryPanelView : MonoBehaviour
 		if (_slot == null || m_SlotsContainer == null)
 			return false;
 
+		// На земле нет empty equipment-слотов: не adopt'ить персистентный EquipSlot_*.
+		if (m_LeadingEquipmentSlotCount <= 0 &&
+		    !_slot.IsRuntimeSpawned &&
+		    !string.IsNullOrWhiteSpace(_slot.EmptyLocalizationKey))
+			return false;
+
 		_slot.transform.SetParent(m_SlotsContainer, false);
 		_slot.transform.SetAsLastSibling();
+		_slot.SetEmptyLocalizationKey(string.Empty);
 		if (!m_Slots.Contains(_slot))
 			m_Slots.Add(_slot);
 		if (_slot.IsRuntimeSpawned && !m_SpawnedSlots.Contains(_slot))
@@ -125,6 +158,65 @@ public class InventoryPanelView : MonoBehaviour
 	{
 		if (m_SlotsContainer is RectTransform rt)
 			LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+	}
+
+	/// <summary>Сохранить/восстановить позицию скролла вокруг repaint (моды, фильтры, обмен).</summary>
+	public Vector2 CaptureScrollNormalizedPosition()
+	{
+		ScrollRect scroll = ResolveScrollRect();
+		if (scroll == null)
+			return Vector2.up;
+
+		Vector2 n = scroll.normalizedPosition;
+		// Unity отдаёт y=0 и для низа списка, и когда скроллить ещё нечего.
+		// Пустой/короткий список считаем верхом, иначе после наполнения окажемся внизу.
+		if (n.y < 0.01f && !IsVerticallyScrollable(scroll))
+			n.y = 1f;
+
+		return n;
+	}
+
+	public void RestoreScrollNormalizedPosition(Vector2 _normalized)
+	{
+		ScrollRect scroll = ResolveScrollRect();
+		if (scroll == null)
+			return;
+
+		if (scroll.content != null)
+			LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
+
+		scroll.StopMovement();
+		scroll.normalizedPosition = _normalized;
+		if (Mathf.Abs(_normalized.y - 1f) < 0.01f)
+			ApplyScrollToTopImmediate();
+	}
+
+	public void ScrollToTop()
+	{
+		ApplyScrollToTopImmediate();
+		if (!isActiveAndEnabled)
+			return;
+
+		if (m_ScrollToTopCoroutine != null)
+			StopCoroutine(m_ScrollToTopCoroutine);
+		m_ScrollToTopCoroutine = StartCoroutine(CoScrollToTopAfterLayout());
+	}
+
+	/// <summary>
+	/// Якоря Content сверху, без вертикального stretch — иначе соседний ForceRebuild
+	/// переворачивает визуальный порядок списка.
+	/// </summary>
+	public void StabilizeListLayout()
+	{
+		ScrollRect scroll = ResolveScrollRect();
+		if (scroll != null)
+		{
+			InventoryUiScrollbarUtility.ConfigureScrollRect(scroll);
+			return;
+		}
+
+		if (m_SlotsContainer is RectTransform content)
+			InventoryUiScrollbarUtility.FixScrollContent(content);
 	}
 
 	public void SetRuntimeSlotPrefab(InventorySlotView _slotPrefab)
@@ -148,7 +240,7 @@ public class InventoryPanelView : MonoBehaviour
 		return created;
 	}
 
-	/// <summary>После переноса предмета с «земли»: убрать пустую строку из префаба или оставить пустую ручную ячейку.</summary>
+	/// <summary>После переноса предмета с «земли»: убрать пустую строку (земля не хранит empty equipment-слоты).</summary>
 	public void NotifyGroundSlotItemTakenAway(InventorySlotView _slot)
 	{
 		if (_slot == null)
@@ -156,14 +248,16 @@ public class InventoryPanelView : MonoBehaviour
 
 		RuntimeInlineModificationBuilder.ClearAllRowsImmediate(this);
 
+		if (_slot.HasItem)
+			_slot.Clear();
+
+		m_Slots.Remove(_slot);
+		m_SpawnedSlots.Remove(_slot);
+
 		if (_slot.IsRuntimeSpawned)
-		{
-			if (_slot.HasItem)
-				_slot.Clear();
-			m_Slots.Remove(_slot);
-			m_SpawnedSlots.Remove(_slot);
 			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(_slot.gameObject, transform);
-		}
+		else if (Application.isPlaying)
+			Destroy(_slot.gameObject);
 
 		RefreshSlotsFromHierarchy();
 		RebuildContentLayout();
@@ -241,7 +335,9 @@ public class InventoryPanelView : MonoBehaviour
 		if (_inventory == null || m_SlotPrefab == null || m_SlotsContainer == null)
 			return;
 
+		Vector2 scroll = CaptureScrollNormalizedPosition();
 		ClearAllSlots();
+		m_LeadingEquipmentUsesVehicleLabels = false;
 
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
@@ -251,13 +347,15 @@ public class InventoryPanelView : MonoBehaviour
 
 		for (int i = 0; i < lead; i++)
 		{
-			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			InventorySlotView cell = EnsureLeadingEquipmentSlot(i, false);
 			if (i == 0 && !main.IsEmpty)
 				cell.SetItem(main);
 			else if (i == 1 && !head.IsEmpty)
 				cell.SetItem(head);
 			else if (i == 2 && !back.IsEmpty)
 				cell.SetItem(back);
+			else
+				cell.Clear();
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -267,7 +365,9 @@ public class InventoryPanelView : MonoBehaviour
 		}
 
 		RefreshSlotsFromHierarchy();
+		ApplySectionHeadersAndOrder();
 		RebuildContentLayout();
+		RestoreScrollNormalizedPosition(scroll);
 	}
 
 	/// <summary>Перерисовать панель из инвентаря машины (3 слота турели + багаж).</summary>
@@ -276,7 +376,9 @@ public class InventoryPanelView : MonoBehaviour
 		if (_inventory == null || m_SlotPrefab == null || m_SlotsContainer == null)
 			return;
 
+		Vector2 scroll = CaptureScrollNormalizedPosition();
 		ClearAllSlots();
+		m_LeadingEquipmentUsesVehicleLabels = true;
 
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _inventory.MainHandEquipment;
@@ -286,13 +388,15 @@ public class InventoryPanelView : MonoBehaviour
 
 		for (int i = 0; i < lead; i++)
 		{
-			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			InventorySlotView cell = EnsureLeadingEquipmentSlot(i, true);
 			if (i == 0 && !main.IsEmpty)
 				cell.SetItem(main);
 			else if (i == 1 && !head.IsEmpty)
 				cell.SetItem(head);
 			else if (i == 2 && !back.IsEmpty)
 				cell.SetItem(back);
+			else
+				cell.Clear();
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -302,7 +406,9 @@ public class InventoryPanelView : MonoBehaviour
 		}
 
 		RefreshSlotsFromHierarchy();
+		ApplySectionHeadersAndOrder();
 		RebuildContentLayout();
+		RestoreScrollNormalizedPosition(scroll);
 	}
 
 	/// <summary>Перерисовать панель из снимка пресета (слот оружия + сумка).</summary>
@@ -311,7 +417,9 @@ public class InventoryPanelView : MonoBehaviour
 		if (_snapshot == null || m_SlotPrefab == null || m_SlotsContainer == null)
 			return;
 
+		Vector2 scroll = CaptureScrollNormalizedPosition();
 		ClearAllSlots();
+		m_LeadingEquipmentUsesVehicleLabels = false;
 
 		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
 		InventorySlotRuntimeData main = _snapshot.MainHandEquipment;
@@ -321,13 +429,15 @@ public class InventoryPanelView : MonoBehaviour
 
 		for (int i = 0; i < lead; i++)
 		{
-			InventorySlotView cell = SpawnNewSlotFromPrefab(i);
+			InventorySlotView cell = EnsureLeadingEquipmentSlot(i, false);
 			if (i == 0 && !main.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(main));
 			else if (i == 1 && !head.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(head));
 			else if (i == 2 && !back.IsEmpty)
 				cell.SetItem(MissionPrepInventoryCopyUtility.CloneSlot(back));
+			else
+				cell.Clear();
 		}
 
 		for (int b = 0; b < bag.Count; b++)
@@ -337,7 +447,9 @@ public class InventoryPanelView : MonoBehaviour
 		}
 
 		RefreshSlotsFromHierarchy();
+		ApplySectionHeadersAndOrder();
 		RebuildContentLayout();
+		RestoreScrollNormalizedPosition(scroll);
 	}
 
 	/// <summary>Статический список ячеек (панель «доступное снаряжение»). Пустые записи пропускаются.</summary>
@@ -347,6 +459,8 @@ public class InventoryPanelView : MonoBehaviour
 			return;
 
 		ClearAllSlots();
+		HideSectionHeaders();
+		ApplyScrollToTopImmediate();
 
 		for (int i = 0; i < _slots.Count; i++)
 		{
@@ -359,7 +473,9 @@ public class InventoryPanelView : MonoBehaviour
 		}
 
 		RefreshSlotsFromHierarchy();
+		ApplyAvailableEquipmentGroupHeaders();
 		RebuildContentLayout();
+		ScrollToTop();
 	}
 
 	/// <summary>Индекс ячейки среди <see cref="InventorySlotView"/> на панели (без inline-строк модификации).</summary>
@@ -414,48 +530,12 @@ public class InventoryPanelView : MonoBehaviour
 
 		if (IsConfiguredForDynamicRepaint && m_DestroySpawnedSlotsOnClearAll && m_SlotsContainer != null)
 		{
-			var toKill = new List<GameObject>(m_Slots.Count + m_SpawnedSlots.Count);
-			for (int i = 0; i < m_SpawnedSlots.Count; i++)
-			{
-				if (m_SpawnedSlots[i] != null)
-					toKill.Add(m_SpawnedSlots[i].gameObject);
-			}
-
-			for (int i = 0; i < m_SlotsContainer.childCount; i++)
-			{
-				Transform child = m_SlotsContainer.GetChild(i);
-				if (child == null)
-					continue;
-
-				InventorySlotView slot = child.GetComponent<InventorySlotView>();
-				if (slot == null || !slot.IsRuntimeSpawned)
-					continue;
-
-				GameObject go = child.gameObject;
-				if (!toKill.Contains(go))
-					toKill.Add(go);
-			}
-
-			m_Slots.Clear();
-			m_SpawnedSlots.Clear();
-			if (toKill.Count > 0)
-				EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(toKill, transform);
+			RecycleRuntimeSpawnedSlotsFromContainer();
 			return;
 		}
 
 		if (m_DestroySpawnedSlotsOnClearAll && m_SpawnedSlots.Count > 0)
-		{
-			var toKill = new List<GameObject>(m_SpawnedSlots.Count);
-			for (int i = 0; i < m_SpawnedSlots.Count; i++)
-			{
-				if (m_SpawnedSlots[i] != null)
-					toKill.Add(m_SpawnedSlots[i].gameObject);
-			}
-
-			m_Slots.Clear();
-			m_SpawnedSlots.Clear();
-			EditorSelectionGuard.DestroyRuntimeSpawnedSlotsBatch(toKill, transform);
-		}
+			RecycleSpawnedSlotsList();
 	}
 	#endregion
 
@@ -483,28 +563,348 @@ public class InventoryPanelView : MonoBehaviour
 		}
 	}
 
-	private InventorySlotView SpawnNewSlotFromPrefab(int _equipmentSlotIndex = -1)
+	/// <summary>
+	/// Берёт ручной leading-слот из иерархии (сцена/пресет) или создаёт из префаба.
+	/// </summary>
+	private InventorySlotView EnsureLeadingEquipmentSlot(int _equipmentSlotIndex, bool _vehicleEquipment)
 	{
-		InventorySlotView created = Instantiate(m_SlotPrefab, m_SlotsContainer);
+		InventorySlotView existing = FindSceneLeadingEquipmentSlot(_equipmentSlotIndex);
+		if (existing != null)
+		{
+			ConfigureLeadingEquipmentSlot(existing, _equipmentSlotIndex, _vehicleEquipment);
+			if (!m_Slots.Contains(existing))
+				m_Slots.Add(existing);
+			return existing;
+		}
+
+		return SpawnNewSlotFromPrefab(_equipmentSlotIndex, _vehicleEquipment);
+	}
+
+	private void ApplySectionHeadersAndOrder()
+	{
+		int lead = Mathf.Max(0, m_LeadingEquipmentSlotCount);
+		if (lead <= 0 || m_SlotsContainer == null)
+		{
+			HideSectionHeaders();
+			return;
+		}
+
+		HideEquipmentSlotHeaders();
+
+		InventoryPanelSectionHeader equipmentHeader = InventoryPanelSectionHeader.Ensure(
+			m_SlotsContainer,
+			InventoryPanelSectionHeader.EquipmentObjectName,
+			InventoryPanelSectionHeader.EquipmentLocalizationKey,
+			"Equipment");
+		InventoryPanelSectionHeader bagHeader = InventoryPanelSectionHeader.Ensure(
+			m_SlotsContainer,
+			InventoryPanelSectionHeader.BagObjectName,
+			InventoryPanelSectionHeader.BagLocalizationKey,
+			"Bag");
+
+		int sibling = 0;
+		if (equipmentHeader != null)
+			equipmentHeader.transform.SetSiblingIndex(sibling++);
+
+		for (int i = 0; i < lead && i < m_Slots.Count; i++)
+		{
+			InventorySlotView slot = m_Slots[i];
+			if (slot == null)
+				continue;
+
+			if (slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome) && chrome.Header != null)
+			{
+				chrome.Header.gameObject.SetActive(true);
+				chrome.Header.transform.SetSiblingIndex(sibling++);
+			}
+
+			slot.transform.SetSiblingIndex(sibling++);
+		}
+
+		if (bagHeader != null)
+			bagHeader.transform.SetSiblingIndex(sibling++);
+
+		for (int i = lead; i < m_Slots.Count; i++)
+		{
+			if (m_Slots[i] != null)
+				m_Slots[i].transform.SetSiblingIndex(sibling++);
+		}
+	}
+
+	private void HideSectionHeaders()
+	{
+		if (m_SlotsContainer == null)
+			return;
+
+		Transform equipment = m_SlotsContainer.Find(InventoryPanelSectionHeader.EquipmentObjectName);
+		if (equipment != null)
+			equipment.gameObject.SetActive(false);
+
+		Transform bag = m_SlotsContainer.Find(InventoryPanelSectionHeader.BagObjectName);
+		if (bag != null)
+			bag.gameObject.SetActive(false);
+
+		HideEquipmentSlotHeaders();
+		HideAvailableGroupHeaders();
+	}
+
+	private void HideAvailableGroupHeaders()
+	{
+		if (m_SlotsContainer == null)
+			return;
+
+		for (int i = 0; i < m_SlotsContainer.childCount; i++)
+		{
+			Transform child = m_SlotsContainer.GetChild(i);
+			if (child == null ||
+			    !child.name.StartsWith(MissionPrepAvailableEquipmentGroupClassifier.HeaderObjectNamePrefix))
+				continue;
+
+			child.gameObject.SetActive(false);
+		}
+	}
+
+	private void ApplyAvailableEquipmentGroupHeaders()
+	{
+		if (m_SlotsContainer == null)
+			return;
+
+		HideAvailableGroupHeaders();
+		if (m_Slots.Count == 0)
+			return;
+
+		int sibling = 0;
+		MissionPrepAvailableEquipmentGroup? lastGroup = null;
+		for (int i = 0; i < m_Slots.Count; i++)
+		{
+			InventorySlotView slot = m_Slots[i];
+			if (slot == null)
+				continue;
+
+			MissionPrepAvailableEquipmentGroup group =
+				MissionPrepAvailableEquipmentGroupClassifier.GetGroup(slot.HasItem ? slot.Data.Definition : null);
+			if (!lastGroup.HasValue || lastGroup.Value != group)
+			{
+				InventoryPanelSectionHeader header = InventoryPanelSectionHeader.Ensure(
+					m_SlotsContainer,
+					MissionPrepAvailableEquipmentGroupClassifier.GetObjectName(group),
+					MissionPrepAvailableEquipmentGroupClassifier.GetLocalizationKey(group),
+					MissionPrepAvailableEquipmentGroupClassifier.GetFallback(group));
+				if (header != null)
+					header.transform.SetSiblingIndex(sibling++);
+
+				lastGroup = group;
+			}
+
+			slot.transform.SetSiblingIndex(sibling++);
+		}
+	}
+
+	private void HideEquipmentSlotHeaders()
+	{
+		if (m_SlotsContainer == null)
+			return;
+
+		for (int i = 0; i < m_SlotsContainer.childCount; i++)
+		{
+			Transform child = m_SlotsContainer.GetChild(i);
+			if (child == null || !child.name.StartsWith(InventoryEquipmentSlotChrome.HeaderObjectNamePrefix))
+				continue;
+
+			child.gameObject.SetActive(false);
+		}
+	}
+
+	private InventorySlotView FindSceneLeadingEquipmentSlot(int _equipmentSlotIndex)
+	{
+		if (m_SlotsContainer == null || _equipmentSlotIndex < 0)
+			return null;
+
+		int foundIndex = 0;
+		for (int i = 0; i < m_SlotsContainer.childCount; i++)
+		{
+			Transform child = m_SlotsContainer.GetChild(i);
+			if (child == null)
+				continue;
+
+			InventorySlotView slot = child.GetComponent<InventorySlotView>();
+			if (slot == null || slot.IsRuntimeSpawned)
+				continue;
+
+			if (foundIndex == _equipmentSlotIndex)
+				return slot;
+
+			foundIndex++;
+		}
+
+		return null;
+	}
+
+	private void ConfigureLeadingEquipmentSlot(
+		InventorySlotView _slot,
+		int _equipmentSlotIndex,
+		bool _vehicleEquipment)
+	{
+		if (_slot == null)
+			return;
+
+		if (_equipmentSlotIndex == 0)
+			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(_slot, m_EquipmentSlotAppearance, _vehicleEquipment);
+		else if (_equipmentSlotIndex == 1)
+			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(_slot, m_EquipmentSlotAppearance, _vehicleEquipment);
+		else if (_equipmentSlotIndex == 2)
+			InventorySlotUiUtility.ConfigureBackEquipmentSlot(_slot, m_EquipmentSlotAppearance, _vehicleEquipment);
+		else
+			InventorySlotUiUtility.ApplyEmptyEquipmentSlotLabel(_slot, _equipmentSlotIndex, _vehicleEquipment);
+	}
+
+	private InventorySlotView SpawnNewSlotFromPrefab(int _equipmentSlotIndex = -1, bool _vehicleEquipment = false)
+	{
+		InventorySlotView created = TakeFromPool();
+		if (created == null)
+		{
+			created = Instantiate(m_SlotPrefab, m_SlotsContainer);
+			created.MarkRuntimeSpawned();
+		}
+		else
+		{
+			created.transform.SetParent(m_SlotsContainer, false);
+			created.gameObject.SetActive(true);
+		}
+
+		created.transform.SetAsLastSibling();
+
 		created.gameObject.name = $"{m_SlotPrefab.name}_{m_SpawnedSlots.Count}";
 		created.Clear();
-		created.MarkRuntimeSpawned();
+		created.SetUseDefinitionIconOnly(m_UseDefinitionIconsOnly);
+		created.SetEmptyLocalizationKey(string.Empty);
 		m_SpawnedSlots.Add(created);
 		m_Slots.Add(created);
 
-		if (_equipmentSlotIndex == 0)
-			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(created, m_EquipmentSlotAppearance);
-		else if (_equipmentSlotIndex == 1)
-			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(created, m_EquipmentSlotAppearance);
-		else if (_equipmentSlotIndex == 2)
-			InventorySlotUiUtility.ConfigureBackEquipmentSlot(created, m_EquipmentSlotAppearance);
+		if (_equipmentSlotIndex >= 0)
+			ConfigureLeadingEquipmentSlot(created, _equipmentSlotIndex, _vehicleEquipment);
 
 		return created;
 	}
 
+	private InventorySlotView TakeFromPool()
+	{
+		while (m_SlotPool.Count > 0)
+		{
+			InventorySlotView slot = m_SlotPool[0];
+			m_SlotPool.RemoveAt(0);
+			if (slot != null)
+				return slot;
+		}
+
+		return null;
+	}
+
+	private void RecycleSpawnedSlotsList()
+	{
+		for (int i = 0; i < m_SpawnedSlots.Count; i++)
+			RecycleSlot(m_SpawnedSlots[i]);
+
+		m_Slots.Clear();
+		m_SpawnedSlots.Clear();
+		HideEquipmentSlotHeaders();
+	}
+
+	private void RecycleRuntimeSpawnedSlotsFromContainer()
+	{
+		var toRecycle = new List<InventorySlotView>(m_SpawnedSlots.Count + 8);
+		for (int i = 0; i < m_SpawnedSlots.Count; i++)
+		{
+			if (m_SpawnedSlots[i] != null && !toRecycle.Contains(m_SpawnedSlots[i]))
+				toRecycle.Add(m_SpawnedSlots[i]);
+		}
+
+		for (int i = 0; i < m_SlotsContainer.childCount; i++)
+		{
+			Transform child = m_SlotsContainer.GetChild(i);
+			if (child == null)
+				continue;
+
+			InventorySlotView slot = child.GetComponent<InventorySlotView>();
+			if (slot == null || !slot.IsRuntimeSpawned)
+				continue;
+
+			if (!toRecycle.Contains(slot))
+				toRecycle.Add(slot);
+		}
+
+		m_Slots.Clear();
+		m_SpawnedSlots.Clear();
+		HideEquipmentSlotHeaders();
+		for (int i = 0; i < toRecycle.Count; i++)
+			RecycleSlot(toRecycle[i]);
+	}
+
+	private void RecycleSlot(InventorySlotView _slot)
+	{
+		if (_slot == null)
+			return;
+
+		_slot.Clear();
+		_slot.SetEmptyLocalizationKey(string.Empty);
+		if (_slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome) && chrome.Header != null)
+			chrome.Header.gameObject.SetActive(false);
+		_slot.gameObject.SetActive(false);
+		if (!m_SlotPool.Contains(_slot))
+			m_SlotPool.Add(_slot);
+	}
+
+	private ScrollRect ResolveScrollRect()
+	{
+		if (TryGetComponent(out ScrollRect self))
+			return self;
+
+		return GetComponentInParent<ScrollRect>();
+	}
+
+	private static bool IsVerticallyScrollable(ScrollRect _scroll)
+	{
+		if (_scroll == null || _scroll.content == null)
+			return false;
+
+		RectTransform view = _scroll.viewport != null
+			? _scroll.viewport
+			: _scroll.transform as RectTransform;
+		if (view == null)
+			return false;
+
+		return _scroll.content.rect.height > view.rect.height + 1f;
+	}
+
+	private void ApplyScrollToTopImmediate()
+	{
+		RectTransform content = m_SlotsContainer as RectTransform;
+		if (content != null)
+			content.anchoredPosition = new Vector2(content.anchoredPosition.x, 0f);
+
+		ScrollRect scroll = ResolveScrollRect();
+		if (scroll == null)
+			return;
+
+		scroll.StopMovement();
+		scroll.verticalNormalizedPosition = 1f;
+		if (scroll.verticalScrollbar != null)
+			scroll.verticalScrollbar.value = 1f;
+	}
+
+	private IEnumerator CoScrollToTopAfterLayout()
+	{
+		yield return null;
+		ApplyScrollToTopImmediate();
+		yield return null;
+		ApplyScrollToTopImmediate();
+		m_ScrollToTopCoroutine = null;
+	}
+
 	private void ApplyScrollSensitivity()
 	{
-		if (!TryGetComponent(out ScrollRect scrollRect))
+		ScrollRect scrollRect = ResolveScrollRect();
+		if (scrollRect == null)
 			return;
 
 		scrollRect.scrollSensitivity = m_ScrollSensitivity;

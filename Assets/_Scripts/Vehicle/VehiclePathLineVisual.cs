@@ -22,8 +22,8 @@ public sealed class VehiclePathLineVisual : MonoBehaviour
 	private static Material s_Material;
 	private LineRenderer m_CommittedLine;
 	private LineRenderer m_PreviewLine;
-	private LineRenderer m_PreviewFacingArrow;
 	private readonly List<Vector3> m_PointBuffer = new List<Vector3>(32);
+	private readonly VehicleMovePoseGhostVisual m_PoseGhost = new VehicleMovePoseGhostVisual();
 	#endregion
 
 	#region Unity Lifecycle
@@ -51,10 +51,13 @@ public sealed class VehiclePathLineVisual : MonoBehaviour
 			m_Follower.PathChanged -= OnPathChanged;
 		if (m_Vehicle != null)
 			m_Vehicle.SelectionChanged -= OnSelectionChanged;
+		m_PoseGhost.Clear();
 	}
 
 	private void LateUpdate()
 	{
+		m_PoseGhost.Draw();
+
 		if (m_CommittedLine == null || m_Vehicle == null || !m_Vehicle.IsSelected)
 			return;
 		if (m_Follower == null || !m_Follower.HasDestination)
@@ -132,7 +135,7 @@ public sealed class VehiclePathLineVisual : MonoBehaviour
 		m_PointBuffer.Add(transform.position);
 		m_PointBuffer.Add(_worldPoint);
 		ApplyLine(m_PreviewLine, m_PointBuffer, _mode, _preview: true);
-		SetPreviewFacingArrow(_worldPoint, _headingYawDegrees);
+		UpdatePoseGhost(_worldPoint, _headingYawDegrees);
 	}
 
 	public void ClearPreview()
@@ -143,7 +146,7 @@ public sealed class VehiclePathLineVisual : MonoBehaviour
 			m_PreviewLine.enabled = false;
 		}
 
-		SetPreviewFacingArrowVisible(false);
+		m_PoseGhost.Clear();
 	}
 
 	public void RefreshCommitted()
@@ -181,45 +184,26 @@ public sealed class VehiclePathLineVisual : MonoBehaviour
 			m_CommittedLine = CreateLine("VehiclePathLine");
 		if (m_PreviewLine == null)
 			m_PreviewLine = CreateLine("VehiclePathPreviewLine");
-		if (m_PreviewFacingArrow == null)
-			m_PreviewFacingArrow = CreateLine("VehiclePreviewFacingArrow");
+		DestroyLegacyFacingArrow();
 	}
 
-	private void SetPreviewFacingArrow(Vector3 _anchor, float? _headingYawDegrees)
+	private void DestroyLegacyFacingArrow()
 	{
-		EnsureLines();
-		if (m_PreviewFacingArrow == null)
-			return;
+		Transform existing = transform.Find("VehiclePreviewFacingArrow");
+		if (existing != null)
+			Destroy(existing.gameObject);
+	}
 
-		if (!_headingYawDegrees.HasValue)
+	private void UpdatePoseGhost(Vector3 _worldPoint, float? _headingYawDegrees)
+	{
+		bool selected = m_Vehicle != null && m_Vehicle.IsSelected;
+		if (!selected || !_headingYawDegrees.HasValue)
 		{
-			SetPreviewFacingArrowVisible(false);
+			m_PoseGhost.Clear();
 			return;
 		}
 
-		Vector3 dir = Quaternion.Euler(0f, _headingYawDegrees.Value, 0f) * Vector3.forward;
-		Vector3 start = _anchor + dir * 0.15f + s_YOffset;
-		Vector3 tip = _anchor + dir * 2.5f + s_YOffset;
-		m_PreviewFacingArrow.positionCount = 2;
-		m_PreviewFacingArrow.SetPosition(0, start);
-		m_PreviewFacingArrow.SetPosition(1, tip);
-		m_PreviewFacingArrow.startWidth = 0.05f;
-		m_PreviewFacingArrow.endWidth = 0.02f;
-		Color color = new Color(1f, 0.85f, 0.2f, 0.95f);
-		m_PreviewFacingArrow.startColor = color;
-		m_PreviewFacingArrow.endColor = color;
-		m_PreviewFacingArrow.enabled = m_Vehicle != null && m_Vehicle.IsSelected;
-	}
-
-	private void SetPreviewFacingArrowVisible(bool _visible)
-	{
-		if (m_PreviewFacingArrow == null)
-			return;
-		if (!_visible)
-		{
-			m_PreviewFacingArrow.positionCount = 0;
-			m_PreviewFacingArrow.enabled = false;
-		}
+		m_PoseGhost.SetPose(transform, _worldPoint, _headingYawDegrees.Value);
 	}
 
 	private LineRenderer CreateLine(string _name)

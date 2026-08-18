@@ -67,7 +67,6 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	#endregion
 
 	#region Private Fields
-	private const bool c_EnableUnitBlocker = false;
 	private Transform m_CachedCameraTransform;
 	private VehicleTuning m_RuntimeTuning;
 	private VehicleUnitBlocker m_UnitBlocker;
@@ -149,24 +148,20 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	public VehicleSpeedMode SpeedCeiling => m_SpeedCeiling;
 	public VehicleSpeedMode LastIssuedSpeedMode => m_LastIssuedSpeedMode;
 	public VehiclePathLineVisual PathLine => m_PathLine;
-	public VehicleUnitBlocker UnitBlocker => m_UnitBlocker != null
-		? m_UnitBlocker
-		: GetComponentInChildren<VehicleUnitBlocker>(true);
+	public VehicleUnitBlocker UnitBlocker => m_UnitBlocker;
 	public bool IsDriveWakeLocked => false;
 
+	/// <summary>
+	/// Per-unit ignore vs the external VehicleBlocker only (boarding enter/exit).
+	/// Drive chassis stays ignored from Unit at the layer matrix — never SoftPass for everyone.
+	/// </summary>
 	public void SetIgnoreUnitColliders(RtsUnitMember _unit, bool _ignore)
 	{
-		VehicleUnitBlocker blocker = UnitBlocker;
-		if (blocker == null || _unit == null)
+		if (_unit == null)
 			return;
-
-		Collider[] cols = _unit.GetComponentsInChildren<Collider>(true);
-		for (int i = 0; i < cols.Length; i++)
-		{
-			if (cols[i] == null || cols[i].isTrigger)
-				continue;
-			blocker.SetIgnoreUnit(cols[i], _ignore);
-		}
+		if (m_UnitBlocker == null && TryGetComponent(out Rigidbody body))
+			EnsureUnitBlockingSetup(body);
+		m_UnitBlocker?.SetIgnoreUnit(_unit, _ignore);
 	}
 	#endregion
 
@@ -220,11 +215,13 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	{
 		SyncChassisDriveHold();
 		TickBounceMonitor();
+		TickUnitBlockerMotion();
 	}
 
 	private void OnDestroy()
 	{
 		VehicleUnitBlocker.DestroyFor(this);
+		VehicleNavigation.VehicleFileLog.CloseRuntimeFor(this);
 
 		if (m_RuntimeTuning != null)
 		{
@@ -497,13 +494,15 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 
 	private void EnsureUnitBlockingSetup(Rigidbody _driveBody)
 	{
-		int unitLayer = LayerMask.NameToLayer("Unit");
-		int vehicleLayer = LayerMask.NameToLayer("Vehicle");
-		if (unitLayer >= 0 && vehicleLayer >= 0)
+		// Mission Prep presentation vehicles: seats/inventory UI only — no external blocker hull.
+		if (GetComponent<MissionPrepPresentationVehicle>() != null ||
+		    MissionPrepSquadSpawner.IsSpawningPresentationVehicles)
 		{
-			// Hull blocker must collide with Unit — do not ignore the layer pair.
-			Physics.IgnoreLayerCollision(unitLayer, vehicleLayer, false);
+			m_UnitBlocker = null;
+			return;
 		}
+
+		VehicleUnitBlocker.EnsureLayerCollisionMatrix();
 
 		EnsureSelectionCollider();
 
@@ -514,20 +513,14 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			selectionBox.isTrigger = true;
 		}
 
-		m_UnitBlocker = c_EnableUnitBlocker
-			? VehicleUnitBlocker.Ensure(this, selectionBox)
-			: null;
-		if (c_EnableUnitBlocker && m_UnitBlocker == null)
-			m_UnitBlocker = VehicleUnitBlocker.Ensure(this, selectionBox);
-		else
-			VehicleUnitBlocker.DestroyFor(this);
+		m_UnitBlocker = VehicleUnitBlocker.Ensure(this, selectionBox);
 		DestroyGroundContactIfPresent();
 		EnsureHullCollidersForGroundSupport();
 		EnsureChassisGroundSupportBox();
 
 		// Do NOT set Rigidbody.excludeLayers — in Unity 6 that can kill WheelCollider
-		// ground hits for the whole body. Infantry shove is handled by UnitBlocker +
-		// collider-level exclude on non-wheel hull + VehicleDriveUnitPushIgnore.
+		// ground hits for the whole body. Drive colliders exclude infantry layers;
+		// Vehicle↔Unit is also ignored in the layer matrix.
 		LayerMask infantryMask = BuildInfantryPushExcludeMask();
 		if (_driveBody != null)
 			_driveBody.excludeLayers = 0;
@@ -540,14 +533,44 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 				continue;
 			if (col.GetComponentInParent<VehicleUnitBlocker>() != null)
 				continue;
-			if (col is WheelCollider)
-				continue;
+			// Include WheelColliders: they must not shove / rock from infantry.
 			col.excludeLayers |= infantryMask;
 		}
 
-		if (!TryGetComponent(out VehicleDriveUnitPushIgnore pushIgnore))
-			pushIgnore = gameObject.AddComponent<VehicleDriveUnitPushIgnore>();
-		pushIgnore.Configure(this);
+		// Legacy safety net no longer required with layer+exclude; remove if present.
+		if (TryGetComponent(out VehicleDriveUnitPushIgnore pushIgnore))
+			Destroy(pushIgnore);
+
+		m_UnitBlocker?.RefreshIgnoredDriveColliders();
+	}
+
+	private void TickUnitBlockerMotion()
+	{
+		if (GetComponent<MissionPrepPresentationVehicle>() != null)
+			return;
+
+		if (!TryGetComponent(out Rigidbody body))
+			return;
+
+		if (m_UnitBlocker == null)
+		{
+			EnsureUnitBlockingSetup(body);
+			m_UnitBlockingInitialized = true;
+			if (m_UnitBlocker == null)
+				return;
+		}
+
+		float speedKmh = m_Brain != null
+			? m_Brain.CurrentSpeedKmh
+			: 0f;
+		if (Mathf.Abs(speedKmh) < 0.01f && body != null)
+		{
+			Vector3 flat = body.linearVelocity;
+			flat.y = 0f;
+			speedKmh = flat.magnitude * 3.6f;
+		}
+
+		m_UnitBlocker.TickFromVehicle(speedKmh);
 	}
 
 	/// <summary>
@@ -1002,7 +1025,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	{
 		if (!m_LogVehicleBounce)
 			return;
-		Debug.Log($"[VehicleBounce:{name}] {_message}", this);
+		VehicleNavigation.VehicleFileLog.Write(this, $"[VehicleBounce:{name}] {_message}");
 	}
 
 	private string BuildDriveContextSummary()
@@ -1097,7 +1120,7 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 	{
 		if (!m_LogDriveSink)
 			return;
-		Debug.Log($"[VehicleNav] {name} {_message}", this);
+		VehicleNavigation.VehicleFileLog.Write(this, $"[VehicleNav] {name} {_message}");
 	}
 
 	private void LogSinkIfYDropped(string _phase, float _previousY)
@@ -1320,7 +1343,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 		m_LastIssuedSpeedMode = capped;
 		_goal.SpeedMode = capped;
 		if (m_LogDriveSink)
-			Debug.Log($"[VehicleNav:{name}] IssueMoveOrder to {_goal.Position} speed={_goal.SpeedMode} nav={(m_Navigation != null ? "yes" : "NO")}", this);
+			VehicleNavigation.VehicleFileLog.Write(this,
+				$"[VehicleNav:{name}] IssueMoveOrder to {_goal.Position} speed={_goal.SpeedMode} nav={(m_Navigation != null ? "yes" : "NO")}");
 		m_Navigation?.SetDestination(_goal);
 		m_PathLine?.ClearPreview();
 		m_PathLine?.RefreshCommitted();
@@ -2026,7 +2050,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			bool hasOccupant = m_Seats.TryGetOccupant(seat, out RtsUnitMember unit);
 			if (!hasOccupant || unit == null)
 			{
-				Debug.Log($"[VehPassReady] VEHICLE ToggleAll: seat={seat} SKIP — {(hasOccupant ? "unit=null" : "no occupant")}");
+				VehicleNavigation.VehicleFileLog.Write(this,
+					$"[VehPassReady] VEHICLE ToggleAll: seat={seat} SKIP — {(hasOccupant ? "unit=null" : "no occupant")}");
 				continue;
 			}
 
@@ -2035,7 +2060,8 @@ public sealed class VehicleController : MonoBehaviour, CombatVehicleSystem.IVehi
 			toggled++;
 		}
 
-		Debug.Log($"[VehPassReady] VEHICLE ToggleAll: toggled {toggled}/{s_FireCapableSeats.Length} passengers (target={(anyWants ? "OFF" : "ON")})");
+		VehicleNavigation.VehicleFileLog.Write(this,
+			$"[VehPassReady] VEHICLE ToggleAll: toggled {toggled}/{s_FireCapableSeats.Length} passengers (target={(anyWants ? "OFF" : "ON")})");
 	}
 
 	public void TogglePassengerVehicleReady(VehicleSeatId _seat)

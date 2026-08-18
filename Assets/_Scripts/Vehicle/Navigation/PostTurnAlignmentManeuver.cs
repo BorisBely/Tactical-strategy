@@ -11,7 +11,7 @@ namespace VehicleNavigation
 		public PostTurnAlignmentManeuver()
 		{
 			AllowReverse = false;
-			SpeedScale = 0.28f;
+			SpeedScale = 0.36f;
 			LookAheadOverride = 1.0f;
 			IsArrivalManeuver = true;
 		}

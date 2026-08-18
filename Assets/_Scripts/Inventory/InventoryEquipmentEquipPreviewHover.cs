@@ -18,11 +18,23 @@ public sealed class InventoryEquipmentEquipPreviewHover : MonoBehaviour, IPointe
 		if (m_Slot == null)
 			m_Slot = GetComponent<InventorySlotView>();
 	}
+
+	private void OnDisable()
+	{
+		InventoryEquipmentEquipHoverContext.ClearAll();
+	}
 	#endregion
 
 	#region Event Handlers
 	public void OnPointerEnter(PointerEventData eventData)
 	{
+		if (eventData != null && eventData.dragging)
+			return;
+
+		if (MissionPrepModificationDragContext.Current.HasItem ||
+		    RuntimeInventoryModificationDragContext.Current.HasItem)
+			return;
+
 		if (m_Slot == null)
 			m_Slot = GetComponent<InventorySlotView>();
 
@@ -40,16 +52,7 @@ public sealed class InventoryEquipmentEquipPreviewHover : MonoBehaviour, IPointe
 
 	public void OnPointerExit(PointerEventData eventData)
 	{
-		if (m_Slot == null)
-			m_Slot = GetComponent<InventorySlotView>();
-
-		if (m_Slot == null)
-			return;
-
-		InventorySlotRuntimeData data = m_Slot.Data;
-		InventoryEquipmentEquipHoverContext.ClearHoveredHelmet(data);
-		InventoryEquipmentEquipHoverContext.ClearHoveredWeapon(data);
-		InventoryEquipmentEquipHoverContext.ClearHoveredBackpack(data);
+		InventoryEquipmentEquipHoverContext.ClearAll();
 	}
 	#endregion
 }

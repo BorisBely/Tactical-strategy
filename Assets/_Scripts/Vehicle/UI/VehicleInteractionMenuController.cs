@@ -43,12 +43,12 @@ public sealed class VehicleInteractionMenuController : MonoBehaviour
 		{
 			return new MenuVisualStyle
 			{
-				PanelBackground = new Color(0.31132078f, 0.31132078f, 0.31132078f, 0.9411765f),
-				ItemNormal = new Color(0.3372549f, 0.3529412f, 0.37254903f, 1f),
-				ItemHover = new Color(0.2f, 0.68f, 0.32f, 0.72f),
-				ItemPressed = new Color(0.254717f, 0.254717f, 0.254717f, 1f),
-				Text = Color.white,
-				FontSize = 18f
+				PanelBackground = InventoryUiTheme.PanelBackground,
+				ItemNormal = InventoryUiTheme.CellBackground,
+				ItemHover = InventoryUiTheme.MenuItemHover,
+				ItemPressed = InventoryUiTheme.MenuItemPressed,
+				Text = InventoryUiTheme.PrimaryText,
+				FontSize = 16f
 			};
 		}
 	}
@@ -211,6 +211,8 @@ public sealed class VehicleInteractionMenuController : MonoBehaviour
 	{
 		if (s_Instance != null)
 			return s_Instance;
+		if (!PlayModeSingleton.CanSpawn)
+			return null;
 		var go = new GameObject(nameof(VehicleInteractionMenuController));
 		s_Instance = go.AddComponent<VehicleInteractionMenuController>();
 		return s_Instance;

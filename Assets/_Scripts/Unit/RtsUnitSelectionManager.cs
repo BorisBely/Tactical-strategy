@@ -14,7 +14,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// RTS-выбор юнитов: одиночный ЛКМ, ctrl-toggle, box selection и групповые команды.
 /// Инвентарь всегда привязан к последнему юниту в текущем выделении.
-/// Клавиши (без UI): F стоп, E: high ready, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
+/// Клавиши (без UI): F стоп, E: LowReady→HighReady→PreAim→Aiming→PointAim, Ctrl+E: NotReady↔NotReadyPatrol, Z/C стойки, T зарядка магазина, R перезарядка, V режим огня.
 /// На RTS-юнитах прямой клавиатурный ввод readiness layer отключён — см. <see cref="RtsUnitMember.ApplyDirectInputState"/>.
 /// </summary>
 [DisallowMultipleComponent]
@@ -417,7 +417,6 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			DrawScreenRectBorder(rect, 1f, new Color(0.2f, 0.7f, 1f, 0.95f));
 		}
 
-		DrawRtsControlHintsIfAnySelection();
 		DrawFormationPickerIfAny();
 		DrawArrowDeleteButtonIfAny();
 		DrawWaitPointIconsIfAny();
@@ -460,27 +459,82 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 
 	public void CommandSelectedNotReady()
 	{
-		SetSelectedReady(false);
+		ToggleSelectedPeacefulNotReady();
 	}
 
 	public void ToggleSelectedReady()
 	{
-		bool hasNotReady = false;
-		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.CycleCombatPose(_stagger));
+	}
+
+	public void ToggleSelectedPeacefulNotReady()
+	{
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.TogglePeacefulNotReady(_stagger));
+	}
+
+	public void SetSelectedPeacefulCarryPose(WeaponPoseState _pose)
+	{
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.SetPeacefulCarryPose(_pose, _stagger));
+	}
+
+	public void SetSelectedWeaponPoseMode(WeaponPoseMode _mode)
+	{
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.SetWeaponPoseModeWanted(_mode, _stagger));
+	}
+
+	public UnitWeaponReadyHandsLayer GetPrimarySelectedReadyHands()
+	{
+		List<RtsUnitMember> valid = GetValidSelectedUnits();
+		if (valid == null || valid.Count == 0 || valid[0] == null)
+			return null;
+		return valid[0].GetComponent<UnitWeaponReadyHandsLayer>();
+	}
+
+	public UnitSpineLean GetPrimarySelectedSpineLean()
+	{
+		List<RtsUnitMember> valid = GetValidSelectedUnits();
+		if (valid == null || valid.Count == 0 || valid[0] == null)
+			return null;
+		return valid[0].GetComponent<UnitSpineLean>();
+	}
+
+	/// <summary>Отладка peek: цикл 0 → 1 → 2 → 3 → 0 на стороне _side (−1 влево, +1 вправо).</summary>
+	public void CycleSelectedSpineLean(int _side)
+	{
+		List<RtsUnitMember> valid = GetValidSelectedUnits();
+		if (valid == null || valid.Count == 0)
 		{
-			RtsUnitMember unit = m_SelectedUnits[i];
+			Debug.LogWarning("[SpineLean] нет выбранного юнита.");
+			return;
+		}
+
+		for (int i = 0; i < valid.Count; i++)
+		{
+			RtsUnitMember unit = valid[i];
 			if (unit == null)
 				continue;
 
-			UnitWeaponReadyHandsLayer readyHands = unit.GetComponent<UnitWeaponReadyHandsLayer>();
-			if (readyHands != null && !readyHands.WantsReady)
+			UnitSpineLean lean = unit.GetComponent<UnitSpineLean>();
+			if (lean == null)
 			{
-				hasNotReady = true;
-				break;
+				Debug.LogWarning($"[SpineLean] {unit.name}: UnitSpineLean отсутствует.", unit);
+				continue;
 			}
-		}
 
-		SetSelectedReady(hasNotReady);
+			if (!lean.isActiveAndEnabled)
+			{
+				Debug.LogWarning($"[SpineLean] {unit.name}: UnitSpineLean был выключен — включаю.", unit);
+				lean.enabled = true;
+			}
+
+			lean.CycleLeanSide(_side);
+		}
+	}
+
+	/// <summary>Совместимость: −1 влево / +1 вправо квантуется к уровню через SetLeanTarget.</summary>
+	public void ToggleSelectedSpineLean(float _lean01)
+	{
+		CycleSelectedSpineLean(_lean01 < 0f ? -1 : 1);
 	}
 
 	public void ConfigureInventoryPanels(InventoryPanelView _groundPanel, InventoryPanelView _characterInventoryPanel)
@@ -2311,7 +2365,13 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		if (_action != FallenUnitInteractionMenuAction.Exchange)
 			return;
 
-		if (!TryGetControllablePlayerUnit(out RtsUnitMember exchangePlayerUnit))
+		if (!TryGetExactlyOneControllablePlayerUnit(out RtsUnitMember exchangePlayerUnit))
+		{
+			Debug.LogWarning("[RtsUnitSelection] Exchange rejected: need exactly one controllable player unit.");
+			return;
+		}
+
+		if (ReferenceEquals(_targetUnit, exchangePlayerUnit))
 			return;
 
 		if (m_ExchangeApproachCoroutine != null)
@@ -2330,7 +2390,6 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 
 	private IEnumerator CoApproachAndBeginExchange(RtsUnitMember _playerUnit, RtsUnitMember _partnerUnit)
 	{
-		const float c_ArriveDistance = 1f;
 		const float c_MaxApproachSeconds = 45f;
 
 		if (_playerUnit == null || _partnerUnit == null)
@@ -2340,13 +2399,24 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			yield break;
 		}
 
-		float distance = HorizontalDistance(_playerUnit.transform.position, _partnerUnit.transform.position);
-		if (distance > c_ArriveDistance)
+		// Sync fallen partner root before first approach — ragdoll can leave root at impact point.
+		TrySyncFallenPartnerRoot(_partnerUnit);
+
+		Vector3 partnerFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_partnerUnit.transform);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, partnerFocus);
+		if (distance > UnitFallenApproachUtility.ArriveDistanceMeters)
 		{
-			Vector3 approachPoint = ComputeExchangeApproachPoint(_playerUnit, _partnerUnit, c_ArriveDistance * 0.85f);
+			Vector3 approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+				_playerUnit.transform, _partnerUnit.transform, UnitFallenApproachUtility.StandoffMeters);
 			_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
 
 			float elapsed = 0f;
+			float nextRetargetTime = UnitFallenApproachUtility.RetargetIntervalSeconds;
+			float stuckSeconds = 0f;
+			float bestDistance = distance;
+			Vector3 lastPosition = _playerUnit.transform.position;
+			Vector3 lastApproachPoint = approachPoint;
+
 			while (elapsed < c_MaxApproachSeconds)
 			{
 				if (_playerUnit == null || _partnerUnit == null)
@@ -2356,8 +2426,30 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 					yield break;
 				}
 
-				distance = HorizontalDistance(_playerUnit.transform.position, _partnerUnit.transform.position);
-				if (distance <= c_ArriveDistance)
+				if (elapsed >= nextRetargetTime)
+				{
+					TrySyncFallenPartnerRoot(_partnerUnit);
+					approachPoint = UnitFallenApproachUtility.ComputeNavMeshApproachPoint(
+						_playerUnit.transform, _partnerUnit.transform, UnitFallenApproachUtility.StandoffMeters);
+					if (UnitFallenApproachUtility.ShouldRetargetApproach(lastApproachPoint, approachPoint))
+					{
+						_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
+						lastApproachPoint = approachPoint;
+					}
+
+					nextRetargetTime += UnitFallenApproachUtility.RetargetIntervalSeconds;
+				}
+
+				Vector3 currentPosition = _playerUnit.transform.position;
+				partnerFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_partnerUnit.transform);
+				distance = UnitFallenApproachUtility.HorizontalDistance(currentPosition, partnerFocus);
+				float moved = UnitFallenApproachUtility.HorizontalDistance(currentPosition, lastPosition);
+				lastPosition = currentPosition;
+				stuckSeconds = UnitFallenApproachUtility.UpdateStuckSeconds(
+					stuckSeconds, distance, ref bestDistance, moved);
+
+				if (UnitFallenApproachUtility.HasArrivedOrStuckCloseEnough(distance, stuckSeconds) ||
+				    UnitFallenApproachUtility.ShouldAbortApproach(distance, stuckSeconds))
 					break;
 
 				elapsed += Time.deltaTime;
@@ -2366,29 +2458,26 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		}
 
 		_playerUnit.HardStop();
+		TrySyncFallenPartnerRoot(_partnerUnit);
 
-		distance = HorizontalDistance(_playerUnit.transform.position, _partnerUnit.transform.position);
-		if (distance <= c_ArriveDistance)
+		partnerFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_partnerUnit.transform);
+		distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, partnerFocus);
+		if (UnitFallenApproachUtility.IsWithinInteractRange(distance))
 			InventoryExchangeController.Instance.TryBeginExchange(_partnerUnit, _playerUnit);
 
 		m_ExchangeApproachCoroutine = null;
 		ClearPendingExchangeApproach();
 	}
 
-	private static Vector3 ComputeExchangeApproachPoint(
-		RtsUnitMember _playerUnit,
-		RtsUnitMember _partnerUnit,
-		float _standoffMeters)
+	private static void TrySyncFallenPartnerRoot(RtsUnitMember _partnerUnit)
 	{
-		Vector3 partnerPosition = _partnerUnit.transform.position;
-		Vector3 toPartner = partnerPosition - _playerUnit.transform.position;
-		toPartner.y = 0f;
-
-		if (toPartner.sqrMagnitude < 0.04f)
-			toPartner = _partnerUnit.transform.forward;
-
-		toPartner.Normalize();
-		return partnerPosition - toPartner * _standoffMeters;
+		if (_partnerUnit == null)
+			return;
+		if (!_partnerUnit.TryGetComponent(out UnitRagdollController ragdoll) || ragdoll == null)
+			return;
+		if (!ragdoll.IsRagdollActive)
+			return;
+		ragdoll.SyncRootTransformToRootBone();
 	}
 
 	private static float HorizontalDistance(Vector3 _a, Vector3 _b)
@@ -2410,6 +2499,32 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(_slotView.gameObject, _panel.transform);
 		else
 			Destroy(_slotView.gameObject);
+	}
+
+	/// <summary>
+	/// После дропа на землю: runtime-ячейку уничтожить; персистентный EquipSlot вернуть в Content юнита.
+	/// </summary>
+	private void ReturnOrDestroyDraggedCharacterSlotAfterGroundTransfer(InventorySlotView _slotView)
+	{
+		if (_slotView == null || !Application.isPlaying)
+			return;
+
+		if (_slotView.IsRuntimeSpawned)
+		{
+			EditorSelectionGuard.DestroyRuntimeSpawnedSlot(
+				_slotView.gameObject,
+				m_CharacterInventoryPanel != null ? m_CharacterInventoryPanel.transform : transform);
+			return;
+		}
+
+		Transform content = m_CharacterInventoryPanel != null
+			? m_CharacterInventoryPanel.SlotsContainerTransform
+			: null;
+		if (content == null)
+			return;
+
+		_slotView.Clear();
+		_slotView.transform.SetParent(content, false);
 	}
 
 	private CharacterInventory GetActiveInventory()
@@ -6524,7 +6639,13 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		if (Keyboard.current.eKey.wasPressedThisFrame)
 		{
 			if (!m_VehicleEKeyConsumed)
-				ToggleSelectedReady();
+			{
+				if (IsCtrlPressed())
+					ToggleSelectedPeacefulNotReady();
+				else
+					ToggleSelectedReady();
+			}
+
 			m_VehicleEKeyConsumed = false;
 			if (m_IsPreviewingMove)
 				UpdateMovePreviewVisuals();
@@ -6600,7 +6721,13 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 
 	private void SetSelectedReady(bool _ready)
 	{
-		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) => _unit.SetReadyWanted(_ready, _stagger));
+		ForEachSelectedUnitWithGroupStagger((_unit, _stagger) =>
+		{
+			UnitWeaponReadyHandsLayer readyHands = _unit.GetComponent<UnitWeaponReadyHandsLayer>();
+			if (readyHands != null && readyHands.IsPeacefulNotReady)
+				return;
+			_unit.SetReadyWanted(_ready, _stagger);
+		});
 	}
 
 	private void CommandSelectedHardStop()
@@ -7602,24 +7729,8 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
-		bool placed;
-		if (_adoptExistingSlotOrNull != null)
-		{
-			if (!m_GroundPanel.AdoptDraggedSlot(_adoptExistingSlotOrNull))
-			{
-				_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
-				_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
-				if (spawned != null)
-					Destroy(spawned.gameObject);
-				return false;
-			}
-
-			_adoptExistingSlotOrNull.SetItem(groundData);
-			placed = true;
-		}
-		else
-			placed = m_GroundPanel.TryAdd(groundData);
-
+		// Всегда новая runtime-строка на земле. Не adopt'ить EquipSlot_* — иначе остаётся «Пусто (рюкзак)».
+		bool placed = m_GroundPanel.TryAdd(groundData);
 		if (!placed)
 		{
 			_inventory.RestoreAfterFailedDrop(_removedFromMainHandSlot, _removedFromHeadSlot, _removedFromBackSlot, _data);
@@ -7629,6 +7740,7 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			return false;
 		}
 
+		ReturnOrDestroyDraggedCharacterSlotAfterGroundTransfer(_adoptExistingSlotOrNull);
 		FinalizeGroundPanelPlacement(spawned);
 		InventoryWindowAudioUtility.TryPlayRemoveSoundFromSlot(_data, _inventory, spawned, _removedFromMainHandSlot);
 		_inventory.RepaintInventoryPanel(m_CharacterInventoryPanel);
@@ -7788,34 +7900,6 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 	private static bool IsCtrlShiftHeld()
 	{
 		return IsCtrlPressed() && IsShiftHeld();
-	}
-
-	private void DrawRtsControlHintsIfAnySelection()
-	{
-		if (PauseMenuController.IsPaused)
-			return;
-		if (m_SelectedUnits == null || m_SelectedUnits.Count == 0)
-			return;
-
-		string hintText = m_SelectedUnits.Count >= 2
-			? "ПКМ — перемещение · ПКМ по юниту группы — поворот на месте · удерж. ПКМ + колёсико — интервал · потянуть ПКМ — фронт формации · Ctrl — фикс. взгляд · Ctrl+Shift — в очередь + фикс. взгляд · X (коротко) — следующая формация · удерж. X — список · X+1..7 — выбор · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет"
-			: "ПКМ — перемещение · потянуть ПКМ — направление · Ctrl+потянуть ПКМ — держать взгляд в пути · двойной ПКМ — бег · маршрут: ПКМ по отрезку — стрелка (Ctrl — удержать взгляд) · Q — режим наведения · ПКМ по врагу — приоритет";
-		const float pad = 10f;
-		const float height = 34f;
-
-		if (s_RtsHintsGuiStyle == null)
-		{
-			s_RtsHintsGuiStyle = new GUIStyle(GUI.skin.box)
-			{
-				fontSize = 13,
-				alignment = TextAnchor.MiddleCenter,
-				wordWrap = true
-			};
-			s_RtsHintsGuiStyle.normal.textColor = new Color(0.95f, 0.95f, 0.95f, 1f);
-		}
-
-		float width = Mathf.Min(920f, Screen.width - pad * 2f);
-		GUI.Box(new Rect(pad, Screen.height - height - pad, width, height), hintText, s_RtsHintsGuiStyle);
 	}
 
 	private void DrawFormationPickerIfAny()
@@ -8362,12 +8446,13 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null)
 				continue;
 
+			TargetSelector selector = unit.GetComponent<TargetSelector>();
 			UnitVision vision = unit.GetComponent<UnitVision>();
-			if (vision != null)
+			if (selector != null)
 			{
-				vision.ForcedPriorityTarget = m_PriorityTargetTransform;
-				vision.ClearVisibleTargetAndWaitForNextScan();
-				vision.RequestImmediateScan();
+				selector.ForcedPriorityTarget = m_PriorityTargetTransform;
+				selector.ClearSelectionAndNotifyIfHadTarget();
+				vision?.RequestImmediateScan();
 			}
 		}
 	}
@@ -8380,9 +8465,9 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			if (unit == null)
 				continue;
 
-			UnitVision vision = unit.GetComponent<UnitVision>();
-			if (vision != null)
-				vision.ForcedPriorityTarget = null;
+			TargetSelector selector = unit.GetComponent<TargetSelector>();
+			if (selector != null)
+				selector.ForcedPriorityTarget = null;
 		}
 	}
 

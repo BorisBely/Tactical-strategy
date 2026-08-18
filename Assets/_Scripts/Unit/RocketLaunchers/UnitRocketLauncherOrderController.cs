@@ -31,7 +31,7 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyLayer;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private RocketLauncherData m_Data;
 	[SerializeField] private UnitRpg7LauncherHandler m_RpgHandler;
 	[SerializeField] private UnitDisposableLauncherHandler m_DisposableHandler;
@@ -73,6 +73,10 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	private Transform m_RightHandIkTargetNotReadyTransform;
 	private Transform m_LeftHandIkTargetTransform;
 	private Transform m_LeftHandIkTargetNotReadyTransform;
+	private WeaponGripRig m_LauncherGripRig;
+	private Transform m_GripLeftHand;
+	private Transform m_GripRightReady;
+	private Transform m_GripRightNotReady;
 	private bool m_FiredProjectile;
 	private bool m_DiscardedLauncher;
 	private bool m_InsertedRocket;
@@ -82,6 +86,7 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	private Coroutine m_OrderCoroutine;
 	private int m_AimLayerIndex = -1;
 	private bool m_EnteredRocketLauncherFireReady;
+	private bool m_HoldForTuning;
 	private readonly Vector3[] m_AimGizmoBuffer = new Vector3[64];
 	#endregion
 
@@ -97,10 +102,18 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	public ItemDefinition ActiveLauncherDefinition => m_ActiveDefinition;
 	public int ActiveBagIndex => m_ActiveBagIndex;
 	public Transform HandLauncherRoot => m_HandLauncherInstance != null ? m_HandLauncherInstance.transform : null;
-	public Transform RightHandIkTargetTransform => m_RightHandIkTargetTransform;
-	public Transform RightHandIkTargetNotReadyTransform => m_RightHandIkTargetNotReadyTransform;
-	public Transform LeftHandIkTargetTransform => m_LeftHandIkTargetTransform;
-	public Transform LeftHandIkTargetNotReadyTransform => m_LeftHandIkTargetNotReadyTransform;
+	public Transform RightHandIkTargetTransform =>
+		m_RightHandIkTargetTransform != null ? m_RightHandIkTargetTransform : m_GripRightReady;
+	public Transform RightHandIkTargetNotReadyTransform =>
+		m_RightHandIkTargetNotReadyTransform != null ? m_RightHandIkTargetNotReadyTransform : m_GripRightNotReady;
+	public Transform LeftHandIkTargetTransform =>
+		m_LeftHandIkTargetTransform != null ? m_LeftHandIkTargetTransform : m_GripLeftHand;
+	public Transform LeftHandIkTargetNotReadyTransform =>
+		m_LeftHandIkTargetNotReadyTransform != null ? m_LeftHandIkTargetNotReadyTransform : m_GripLeftHand;
+
+	/// <summary>GripRig left hand on the held launcher tube.</summary>
+	public Transform GripLeftHandTarget => m_GripLeftHand;
+	public WeaponGripRig LauncherGripRig => m_LauncherGripRig;
 
 	/// <summary>
 	/// Держать локальную позу трубы в правой руке: aim, fire до выброса, reload, тюнер.
@@ -277,6 +290,41 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Тюнер: взять гранатомёт в руки и держать aim, без выстрела и без reload-ролика.
+	/// RPG помечается заряженным, чтобы не уходить в ReloadOnly.
+	/// </summary>
+	public bool TryHoldForTuning(ItemDefinition _preferredLauncher = null)
+	{
+		ResolveReferences();
+
+		if (IsBusy && HandLauncherRoot != null &&
+		    (_preferredLauncher == null || m_ActiveDefinition == _preferredLauncher))
+		{
+			EnsureGripRigTargets();
+			m_HoldForTuning = true;
+			EnterRocketLauncherAimReady();
+			SetAimParameter(true);
+			OrderStateChanged?.Invoke();
+			return true;
+		}
+
+		if (IsBusy)
+			CancelOrder(true);
+
+		if (m_BusyState != null &&
+		    m_BusyState.IsBusy &&
+		    !m_BusyState.HasReason(UnitBusyState.BusyReason.RocketLauncher))
+			return false;
+
+		if (!TryFindLauncherForTuning(_preferredLauncher, out InventorySlotRuntimeData slot, out int bagIndex))
+			return false;
+
+		EnsureLauncherLoadedForTuning(ref slot, bagIndex);
+		m_HoldForTuning = true;
+		return TryStartOrderInternal(slot, bagIndex, _holdForTuning: true);
+	}
+
+	/// <summary>
 	/// UI: вставка снаряда в РПГ из инвентаря — анимация reload, предмет уже изъят из источника.
 	/// </summary>
 	public bool TryStartUiRocketInstall(int _launcherBagIndex, InventorySlotRuntimeData _rocket, bool _mirrorAnimationOnly = false)
@@ -365,37 +413,165 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 
 	public void EnsureHandIkTargetsExist()
 	{
+		EnsureGripRigTargets();
+	}
+
+	/// <summary>
+	/// Wire IK to the authored GripRig on the held tube.
+	/// Prefabs store LeftHandIK + RightHandIK. Creating a parallel LeftHandGrip / RightHand
+	/// steals the rig: tuner saves LeftHandIK, next spawn seeds LeftHandGrip from legacy
+	/// LeftHandIkTarget — switching RPG ↔ disposable then looks like the left hand jumped.
+	/// </summary>
+	public void EnsureGripRigTargets()
+	{
 		Transform root = HandLauncherRoot;
-		if (root == null || m_ActiveDefinition == null)
+		if (root == null)
 			return;
 
-		EnsureChildEmpty(root, m_ActiveDefinition.RightHandIkTargetChildName,
-			m_ActiveDefinition.RightHandIkReadyLocalPosition, m_ActiveDefinition.RightHandIkReadyLocalEulerAngles);
-		EnsureChildEmpty(root, m_ActiveDefinition.RightHandIkTargetNotReadyChildName,
-			m_ActiveDefinition.RightHandIkNotReadyLocalPosition, m_ActiveDefinition.RightHandIkNotReadyLocalEulerAngles);
-		EnsureChildEmpty(root, m_ActiveDefinition.LeftHandIkTargetChildName,
-			m_ActiveDefinition.LeftHandIkReadyLocalPosition, m_ActiveDefinition.LeftHandIkReadyLocalEulerAngles);
+		WeaponGripRig grip = root.GetComponent<WeaponGripRig>()
+		                     ?? root.GetComponentInChildren<WeaponGripRig>(true);
+		if (grip == null)
+			grip = root.gameObject.AddComponent<WeaponGripRig>();
+		m_LauncherGripRig = grip;
 
-		string leftNotReadyName = m_ActiveDefinition.LeftHandIkTargetNotReadyChildName;
-		if (string.IsNullOrWhiteSpace(leftNotReadyName))
-			leftNotReadyName = "LeftHandIkTarget_NotReady";
-		EnsureChildEmpty(root, leftNotReadyName,
-			m_ActiveDefinition.LeftHandIkNotReadyLocalPosition, m_ActiveDefinition.LeftHandIkNotReadyLocalEulerAngles);
+		Transform gripRoot = root.Find(WeaponGripRig.GripRigChildName)
+		                     ?? FindChildRecursive(root, WeaponGripRig.GripRigChildName);
+		if (gripRoot == null)
+		{
+			var go = new GameObject(WeaponGripRig.GripRigChildName);
+			gripRoot = go.transform;
+			gripRoot.SetParent(root, false);
+		}
+
+		Transform rightMarker = grip.RightHandGrip != null
+			? grip.RightHandGrip
+			: EnsureNamedChild(gripRoot, WeaponGripRig.RightHandGripName);
+		Transform leftIk = ResolveAuthoredLeftHandIk(grip, gripRoot);
+		grip.SetGrips(rightMarker, leftIk);
+		grip.SetLeftHandIk(leftIk);
+
+		Transform rightRoot = grip.RightHandIkRoot != null
+			? grip.RightHandIkRoot
+			: (gripRoot.Find(WeaponGripRig.RightHandIkRootName)
+			   ?? gripRoot.Find(WeaponGripRig.RightHandRootName));
+		if (rightRoot == null)
+			rightRoot = EnsureNamedChild(gripRoot, WeaponGripRig.RightHandIkRootName);
+
+		grip.BuildCache();
+		if (!grip.HasRightHandIkTargets)
+		{
+			Transform standing = EnsureNamedChild(rightRoot, WeaponGripRig.StandingName);
+			Transform crouch = EnsureNamedChild(rightRoot, WeaponGripRig.CrouchName);
+			Transform vehicle = EnsureNamedChild(rightRoot, WeaponGripRig.VehicleName);
+
+			Transform sReady = EnsureNamedChild(standing, WeaponGripRig.ReadyName);
+			Transform sNotReady = EnsureNamedChild(standing, WeaponGripRig.NotReadyName);
+			Transform cReady = EnsureNamedChild(crouch, WeaponGripRig.ReadyName);
+			Transform cNotReady = EnsureNamedChild(crouch, WeaponGripRig.NotReadyName);
+			Transform vReady = EnsureNamedChild(vehicle, WeaponGripRig.ReadyName);
+			Transform vNotReady = EnsureNamedChild(vehicle, WeaponGripRig.NotReadyName);
+			grip.SetRightHandPoseTargets(sReady, sNotReady, cReady, cNotReady, vReady, vNotReady);
+			SeedFromLegacyIfNeeded(root, sReady, sNotReady, cReady, cNotReady, vReady, vNotReady, leftIk, rightMarker);
+		}
+		else if (IsIdentityLocal(leftIk))
+		{
+			Transform authoredLeft = gripRoot.Find(WeaponGripRig.LeftHandIkName);
+			Transform legacyLeft = FindChildRecursive(root, "LeftHandIkTarget");
+			if (authoredLeft != null && authoredLeft != leftIk && !IsIdentityLocal(authoredLeft))
+				CopyLocal(authoredLeft, leftIk);
+			else if (legacyLeft != null)
+				CopyLocal(legacyLeft, leftIk);
+		}
+
+		RefreshHandIkTargets();
 	}
 
 	public void RefreshHandIkTargets()
 	{
 		Transform root = HandLauncherRoot;
-		if (root == null || m_ActiveDefinition == null)
+		if (root == null)
 			return;
 
-		m_RightHandIkTargetTransform = FindChildRecursive(root, m_ActiveDefinition.RightHandIkTargetChildName);
-		m_RightHandIkTargetNotReadyTransform = FindChildRecursive(root, m_ActiveDefinition.RightHandIkTargetNotReadyChildName);
-		m_LeftHandIkTargetTransform = FindChildRecursive(root, m_ActiveDefinition.LeftHandIkTargetChildName);
-		string leftNotReadyName = string.IsNullOrWhiteSpace(m_ActiveDefinition.LeftHandIkTargetNotReadyChildName)
-			? "LeftHandIkTarget_NotReady"
-			: m_ActiveDefinition.LeftHandIkTargetNotReadyChildName;
-		m_LeftHandIkTargetNotReadyTransform = FindChildRecursive(root, leftNotReadyName);
+		if (m_LauncherGripRig == null)
+			m_LauncherGripRig = root.GetComponent<WeaponGripRig>();
+
+		if (m_LauncherGripRig != null &&
+		    m_LauncherGripRig.TryGetRightHandTargets(WeaponStance.Standing, out Transform notReady, out Transform ready))
+		{
+			m_GripRightReady = ready;
+			m_GripRightNotReady = notReady;
+			m_RightHandIkTargetTransform = ready;
+			m_RightHandIkTargetNotReadyTransform = notReady;
+		}
+		else
+		{
+			m_RightHandIkTargetTransform = FindChildRecursive(root, "RightHandIkTarget");
+			m_RightHandIkTargetNotReadyTransform = FindChildRecursive(root, "RightHandIkTarget_NotReady");
+			m_GripRightReady = m_RightHandIkTargetTransform;
+			m_GripRightNotReady = m_RightHandIkTargetNotReadyTransform;
+		}
+
+		m_GripLeftHand = m_LauncherGripRig != null ? m_LauncherGripRig.LeftHandIk : null;
+		if (m_GripLeftHand == null)
+		{
+			Transform gripRoot = root.Find(WeaponGripRig.GripRigChildName);
+			if (gripRoot != null)
+			{
+				m_GripLeftHand = gripRoot.Find(WeaponGripRig.LeftHandIkName)
+				                 ?? gripRoot.Find(WeaponGripRig.LeftHandGripName);
+			}
+		}
+
+		if (m_GripLeftHand == null)
+			m_GripLeftHand = FindChildRecursive(root, "LeftHandIkTarget");
+
+		m_LeftHandIkTargetTransform = m_GripLeftHand;
+		m_LeftHandIkTargetNotReadyTransform = m_GripLeftHand;
+	}
+
+	/// <summary>Blended right-hand world pose from GripRig stance targets.</summary>
+	public bool TryGetGripRightHandWorldPose(WeaponStance _stance, float _readyBlend01, out Vector3 _pos, out Quaternion _rot)
+	{
+		_pos = Vector3.zero;
+		_rot = Quaternion.identity;
+		if (m_LauncherGripRig == null ||
+		    !m_LauncherGripRig.TryGetRightHandTargets(_stance, out Transform notReady, out Transform ready))
+			return false;
+
+		float t = Mathf.Clamp01(_readyBlend01);
+		_pos = Vector3.Lerp(notReady.position, ready.position, t);
+		_rot = Quaternion.Slerp(notReady.rotation, ready.rotation, t);
+		return true;
+	}
+
+	/// <summary>Exact GripRig pose slot (tuner). Falls back to LowReady↔PointAim blend if the slot is missing.</summary>
+	public bool TryGetGripRightHandWorldPose(
+		WeaponStance _stance,
+		WeaponPoseState _pose,
+		out Vector3 _pos,
+		out Quaternion _rot)
+	{
+		_pos = Vector3.zero;
+		_rot = Quaternion.identity;
+		if (m_LauncherGripRig == null)
+			RefreshHandIkTargets();
+		if (m_LauncherGripRig == null)
+			return false;
+
+		Transform target = m_LauncherGripRig.GetRightHandTarget(_stance, _pose);
+		if (target != null)
+		{
+			_pos = target.position;
+			_rot = target.rotation;
+			return true;
+		}
+
+		float blend = _pose == WeaponPoseState.NotReady ||
+		              _pose == WeaponPoseState.NotReadyPatrol ||
+		              _pose == WeaponPoseState.LowReady
+			? 0f
+			: 1f;
+		return TryGetGripRightHandWorldPose(_stance, blend, out _pos, out _rot);
 	}
 	#endregion
 
@@ -509,7 +685,10 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	#endregion
 
 	#region Private Methods - Order
-	private bool TryStartOrderInternal(InventorySlotRuntimeData _slot, int _bagIndex)
+	private bool TryStartOrderInternal(
+		InventorySlotRuntimeData _slot,
+		int _bagIndex,
+		bool _holdForTuning = false)
 	{
 		ResolveReferences();
 		m_ActiveSlot = _slot;
@@ -522,12 +701,14 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		m_UiRocketInstallActive = false;
 		m_UiRocketMirrorAnimationOnly = false;
 		m_PendingUiRocket = default;
+		m_HoldForTuning = _holdForTuning;
 
 		// Сразу гасим автоогонь экипированного оружия — до ready/aim, иначе возможен выстрел в том же кадре.
 		SuppressEquippedWeaponFire();
 		HideMainWeapon();
 
 		bool needsReload =
+			!_holdForTuning &&
 			m_ActiveDefinition != null &&
 			m_ActiveDefinition.RocketLauncherType == RocketLauncherType.Rpg7 &&
 			m_RpgHandler != null &&
@@ -536,13 +717,15 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		if (m_BusyState != null)
 			m_BusyState.SetReasonActive(UnitBusyState.BusyReason.RocketLauncher, true);
 
+		// Aiming до Instantiate — тюнер сразу видит HandLauncherRoot как активный контекст.
+		m_Phase = needsReload ? RocketLauncherOrderPhase.Reloading : RocketLauncherOrderPhase.Aiming;
+
 		SpawnHandLauncherVisual();
 		SetAnimatorKind(m_ActiveDefinition.RocketLauncherType);
 
 		// Пустой RPG с ракетой в сумке: сразу reload, без aim-таймера (иначе зацикленный aim крутится 1–2 раза).
 		if (needsReload)
 		{
-			m_Phase = RocketLauncherOrderPhase.Reloading;
 			SetAimParameter(false);
 			TriggerReload();
 			m_OrderCoroutine = StartCoroutine(ReloadOnlyRoutine());
@@ -550,12 +733,11 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 			return true;
 		}
 
-		m_Phase = RocketLauncherOrderPhase.Aiming;
 		SetAimParameter(true);
 		// Поворот к цели + подъём трубы — с начала aim, не в момент fire.
 		EnterRocketLauncherAimReady();
 
-		m_OrderCoroutine = StartCoroutine(OrderRoutine());
+		m_OrderCoroutine = StartCoroutine(_holdForTuning ? TuningHoldRoutine() : OrderRoutine());
 		OrderStateChanged?.Invoke();
 		return true;
 	}
@@ -569,6 +751,24 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	private IEnumerator ReloadOnlyRoutine()
 	{
 		yield return WaitForAnimatorStateEnd(ParamRocketLauncherReload, 3.5f);
+		while (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+			yield return null;
+		FinishOrder(true);
+	}
+
+	private IEnumerator TuningHoldRoutine()
+	{
+		bool sawTuner = m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive;
+		while (true)
+		{
+			yield return null;
+			bool tuning = m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive;
+			if (tuning)
+				sawTuner = true;
+			else if (sawTuner)
+				break;
+		}
+
 		FinishOrder(true);
 	}
 
@@ -577,8 +777,18 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		float aimSeconds = CalculateAimReadySeconds();
 		yield return new WaitForSeconds(aimSeconds);
 
+		bool heldForTuning = false;
 		while (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+		{
+			heldForTuning = true;
 			yield return null;
+		}
+
+		if (heldForTuning || m_HoldForTuning)
+		{
+			FinishOrder(true);
+			yield break;
+		}
 
 		bool isRpg = m_ActiveDefinition != null && m_ActiveDefinition.RocketLauncherType == RocketLauncherType.Rpg7;
 		bool canFire = true;
@@ -677,6 +887,7 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		m_UiRocketMirrorAnimationOnly = false;
 		m_PendingUiRocket = default;
 		m_EnteredRocketLauncherFireReady = false;
+		m_HoldForTuning = false;
 		OrderStateChanged?.Invoke();
 
 		if (wasUiRocketInstall && !wasUiMirrorOnly)
@@ -735,6 +946,51 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		}
 
 		return false;
+	}
+
+	private bool TryFindLauncherForTuning(
+		ItemDefinition _preferred,
+		out InventorySlotRuntimeData _slot,
+		out int _bagIndex)
+	{
+		_slot = default;
+		_bagIndex = -1;
+		if (m_Inventory == null)
+			return false;
+
+		if (_preferred != null)
+		{
+			for (int i = 0; i < m_Inventory.BagCount; i++)
+			{
+				InventorySlotRuntimeData slot = m_Inventory.BagItems[i];
+				if (slot.IsEmpty || slot.Definition != _preferred)
+					continue;
+				if (!IsUsableLauncher(slot))
+					continue;
+				_slot = slot;
+				_bagIndex = i;
+				return true;
+			}
+		}
+
+		return TryFindBestLauncher(out _slot, out _bagIndex);
+	}
+
+	private void EnsureLauncherLoadedForTuning(ref InventorySlotRuntimeData _slot, int _bagIndex)
+	{
+		if (_slot.Definition == null || _slot.Definition.RocketLauncherType != RocketLauncherType.Rpg7)
+			return;
+		if (m_RpgHandler == null)
+			return;
+		if (m_RpgHandler.IsLoaded(_slot))
+			return;
+
+		InventorySlotRuntimeData rocket = default;
+		if (_slot.Definition.RpgRocketItemDefinition != null)
+			rocket = InventorySlotRuntimeData.FromDefinition(_slot.Definition.RpgRocketItemDefinition);
+		m_RpgHandler.MarkLoaded(ref _slot, rocket);
+		if (_bagIndex >= 0 && m_Inventory != null)
+			m_Inventory.TrySetBagItemAt(_bagIndex, _slot);
 	}
 
 	private static bool IsUsableLauncher(InventorySlotRuntimeData _slot)
@@ -906,16 +1162,12 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		DisablePhysicsRecursive(m_HandLauncherInstance);
 		CacheMuzzleAndBackblast(m_HandLauncherInstance.transform);
 		SyncHandLauncherRocketVisual();
-		EnsureHandIkTargetsExist();
-		RefreshHandIkTargets();
+		EnsureGripRigTargets();
 
 		UnitEquippedWeaponPoseRuntimeTuner poseTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>()
 			?? GetComponentInParent<UnitEquippedWeaponPoseRuntimeTuner>();
 		if (poseTuner != null && poseTuner.IsTuningActive)
-		{
 			poseTuner.ApplyActiveTargetPoseToWeapon();
-			poseTuner.ApplyStoredIkToTargets();
-		}
 		else
 			m_EquippedWeaponPose?.ApplyImmediateFromEquipment();
 	}
@@ -1046,14 +1298,14 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 	private bool TryGetAimTargetPoint(out Vector3 _aimPoint)
 	{
 		_aimPoint = Vector3.zero;
-		if (m_Vision == null)
+		if (m_TargetSelector == null)
 			return false;
 
-		Transform target = m_Vision.GetEngageableVisibleTarget();
+		Transform target = m_TargetSelector.GetEngageableSelectedTarget();
 		if (target == null)
 			return false;
 
-		_aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		_aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (_aimPoint == Vector3.zero)
 			_aimPoint = target.position;
 
@@ -1278,6 +1530,10 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		m_RightHandIkTargetNotReadyTransform = null;
 		m_LeftHandIkTargetTransform = null;
 		m_LeftHandIkTargetNotReadyTransform = null;
+		m_LauncherGripRig = null;
+		m_GripLeftHand = null;
+		m_GripRightReady = null;
+		m_GripRightNotReady = null;
 	}
 
 	private void ClearHandRocketVisual()
@@ -1317,6 +1573,103 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		targetTransform.localPosition = _localPosition;
 		targetTransform.localRotation = Quaternion.Euler(_localEulerAngles);
 		targetTransform.localScale = Vector3.one;
+	}
+
+	private static Transform EnsureNamedChild(Transform _parent, string _name)
+	{
+		Transform existing = _parent.Find(_name);
+		if (existing != null)
+			return existing;
+
+		var go = new GameObject(_name);
+		Transform t = go.transform;
+		t.SetParent(_parent, false);
+		t.localPosition = Vector3.zero;
+		t.localRotation = Quaternion.identity;
+		t.localScale = Vector3.one;
+		return t;
+	}
+
+	private static void SeedFromLegacyIfNeeded(
+		Transform _weaponRoot,
+		Transform _sReady,
+		Transform _sNotReady,
+		Transform _cReady,
+		Transform _cNotReady,
+		Transform _vReady,
+		Transform _vNotReady,
+		Transform _leftGrip,
+		Transform _rightMarker)
+	{
+		Transform legacyReady = FindChildRecursive(_weaponRoot, "RightHandIkTarget");
+		Transform legacyNotReady = FindChildRecursive(_weaponRoot, "RightHandIkTarget_NotReady");
+		Transform legacyLeft = FindChildRecursive(_weaponRoot, "LeftHandIkTarget");
+
+		if (legacyReady != null && IsIdentityLocal(_sReady))
+			CopyLocal(legacyReady, _sReady);
+		if (legacyNotReady != null && IsIdentityLocal(_sNotReady))
+			CopyLocal(legacyNotReady, _sNotReady);
+
+		if (IsIdentityLocal(_cReady))
+			CopyLocal(_sReady, _cReady);
+		if (IsIdentityLocal(_cNotReady))
+			CopyLocal(_sNotReady, _cNotReady);
+		if (IsIdentityLocal(_vReady))
+			CopyLocal(_sReady, _vReady);
+		if (IsIdentityLocal(_vNotReady))
+			CopyLocal(_sNotReady, _vNotReady);
+
+		if (legacyReady != null && IsIdentityLocal(_rightMarker))
+			CopyLocal(legacyReady, _rightMarker);
+
+		Transform authoredLeft = FindChildRecursive(_weaponRoot, WeaponGripRig.LeftHandIkName);
+		if (authoredLeft != null && authoredLeft != _leftGrip && !IsIdentityLocal(authoredLeft) && IsIdentityLocal(_leftGrip))
+			CopyLocal(authoredLeft, _leftGrip);
+		else if (legacyLeft != null && IsIdentityLocal(_leftGrip))
+			CopyLocal(legacyLeft, _leftGrip);
+	}
+
+	/// <summary>
+	/// Canonical left IK is GripRig/LeftHandIK. A leftover LeftHandGrip (created by older Ensure)
+	/// must not replace it — that is what made RPG/disposable overwrite each other in the tuner.
+	/// </summary>
+	private static Transform ResolveAuthoredLeftHandIk(WeaponGripRig _grip, Transform _gripRoot)
+	{
+		Transform authoredIk = _gripRoot != null ? _gripRoot.Find(WeaponGripRig.LeftHandIkName) : null;
+		Transform current = _grip != null ? _grip.LeftHandIk : null;
+		Transform leftoverGrip = _gripRoot != null ? _gripRoot.Find(WeaponGripRig.LeftHandGripName) : null;
+
+		if (authoredIk != null)
+		{
+			if (current != null && current != authoredIk && IsIdentityLocal(authoredIk) && !IsIdentityLocal(current))
+				CopyLocal(current, authoredIk);
+			else if (leftoverGrip != null && leftoverGrip != authoredIk &&
+			         IsIdentityLocal(authoredIk) && !IsIdentityLocal(leftoverGrip))
+				CopyLocal(leftoverGrip, authoredIk);
+			return authoredIk;
+		}
+
+		if (current != null)
+			return current;
+		if (leftoverGrip != null)
+			return leftoverGrip;
+		return EnsureNamedChild(_gripRoot, WeaponGripRig.LeftHandIkName);
+	}
+
+	private static bool IsIdentityLocal(Transform _t)
+	{
+		return _t != null
+		       && _t.localPosition == Vector3.zero
+		       && _t.localRotation == Quaternion.identity;
+	}
+
+	private static void CopyLocal(Transform _from, Transform _to)
+	{
+		if (_from == null || _to == null)
+			return;
+		_to.localPosition = _from.localPosition;
+		_to.localRotation = _from.localRotation;
+		_to.localScale = _from.localScale;
 	}
 
 	private static Transform FindChildRecursive(Transform _root, string _name)
@@ -1407,11 +1760,11 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return 0f;
 
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 
@@ -1499,8 +1852,8 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_ReadyLayer == null)
 			m_ReadyLayer = GetComponent<UnitWeaponReadyHandsLayer>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_RpgHandler == null)
 			m_RpgHandler = GetComponent<UnitRpg7LauncherHandler>();
 		if (m_DisposableHandler == null)

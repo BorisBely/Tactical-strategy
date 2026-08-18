@@ -46,11 +46,15 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 	private static readonly int s_AimShellReloadStateHash = Animator.StringToHash("Stand_Aim_ShellReload");
 	private static readonly int s_AimRelaxedLmgStateHash = Animator.StringToHash("Stand_Relaxed_Reload_LMG");
 	private static readonly int s_AimLmgStateHash = Animator.StringToHash("Stand_Reload_LMG");
+	private static readonly int s_AimPitchBlendStateHash = Animator.StringToHash("Stand_Aim_Pitch_Blend");
+	private static readonly int s_CrouchAimPitchBlendStateHash = Animator.StringToHash("Crouch_Aim_Pitch_Blend");
 	/// <summary>Согласовано с <c>Stand_Relaxed_Reload.anim</c> / <c>Stand_Aim_Reload.anim</c> (30 fps, ~89 кадров).</summary>
 	private const float c_ReloadClipDurationSeconds = 2.966667f;
 	private const float c_ReloadClipSampleRate = 30f;
 	/// <summary>UI install-only: начало фазы вставки (кадр 40 в DCC / в клипе перезарядки).</summary>
 	private const int c_UiInstallOnlyReloadStartFrame = 40;
+	/// <summary>WeaponReady: выход из reload/bolt на Aim_Point в pitch-blend. 0.12 с давало рывок ствола.</summary>
+	private const float c_ReadyReloadExitCrossFadeSeconds = 0.22f;
 	#endregion
 
 	#region Serialized Fields
@@ -1865,6 +1869,10 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 					}
 				}
 			}
+			else if (exitingReload)
+			{
+				CrossFadeAimLayerToPitchBlendIfReady();
+			}
 		}
 
 		ApplyReloadAnimatorLayerWeightsIfBusy();
@@ -2141,6 +2149,31 @@ public sealed class UnitWeaponReloadController : MonoBehaviour
 			return;
 
 		m_Animator.Play(s_AimRelaxedIdleStateHash, m_AimReloadLayerIndex, 0f);
+	}
+
+	/// <summary>
+	/// WeaponReady: клип reload/bolt на Aim_Point кроссфейдится в pitch-blend, а не щёлкает булами за 0.12 с.
+	/// </summary>
+	private void CrossFadeAimLayerToPitchBlendIfReady()
+	{
+		if (m_Animator == null || !m_Animator.GetBool(s_WeaponReady))
+			return;
+
+		if (m_AimReloadLayerIndex < 0)
+			ResolveAnimatorLayerIndices();
+		if (m_AimReloadLayerIndex < 0)
+			return;
+
+		int stance = m_Animator.GetInteger(s_Stance);
+		int hash = stance == (int)LocomotionStance.Crouch
+			? s_CrouchAimPitchBlendStateHash
+			: s_AimPitchBlendStateHash;
+		AnimatorStateInfo current = m_Animator.GetCurrentAnimatorStateInfo(m_AimReloadLayerIndex);
+		if (current.shortNameHash == hash && !m_Animator.IsInTransition(m_AimReloadLayerIndex))
+			return;
+
+		m_Animator.CrossFadeInFixedTime(hash, c_ReadyReloadExitCrossFadeSeconds, m_AimReloadLayerIndex, 0f);
+		ReloadDbg($"SyncAnimatorState: CrossFade → pitchBlend hash={hash} duration={c_ReadyReloadExitCrossFadeSeconds:F2}");
 	}
 
 	private void FinalizeUiMagazineInstallOnlyWithoutBolt()

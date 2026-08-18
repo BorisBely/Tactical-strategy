@@ -11,33 +11,33 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 
 	[Header("Barrel (M2)")]
 	[Tooltip("На сколько ствол уходит назад по Z при выстреле.")]
-	[SerializeField] private float m_BarrelKickZ = -0.03f;
+	[SerializeField] private float m_BarrelKickZ = -0.028f;
 	[Tooltip("Скорость возврата ствола (ед/сек).")]
 	[SerializeField] private float m_BarrelReturnSpeed = 0.15f;
 
 	[Header("Gun (M2)")]
 	[Tooltip("На сколько орудие уходит назад по Z при выстреле.")]
-	[SerializeField] private float m_GunKickZ = -0.025f;
+	[SerializeField] private float m_GunKickZ = -0.022f;
 	[Tooltip("Предельное смещение орудия назад (clamp).")]
-	[SerializeField] private float m_GunMaxKickZ = -0.04f;
+	[SerializeField] private float m_GunMaxKickZ = -0.035f;
 	[Tooltip("Скорость возврата орудия (ед/сек).")]
 	[SerializeField] private float m_GunReturnSpeed = 0.04f;
 
 	[Header("Angular Kick")]
 	[Tooltip("Макс. отклонение по Pitch (X) в градусах за выстрел.")]
-	[SerializeField] private float m_PitchKickDeg = 0.4f;
+	[SerializeField] private float m_PitchKickDeg = 0.9f;
 	[Tooltip("Макс. отклонение по Yaw (Y) в градусах за выстрел.")]
-	[SerializeField] private float m_YawKickDeg = 0.25f;
+	[SerializeField] private float m_YawKickDeg = 0.35f;
 	[Tooltip("Скорость возврата угла (град/сек).")]
-	[SerializeField] private float m_AngularReturnSpeed = 2f;
+	[SerializeField] private float m_AngularReturnSpeed = 3.5f;
 
 	[Header("MK19 Tremor")]
 	[Tooltip("Амплитуда тряски MK19 по Z при выстреле.")]
-	[SerializeField] private float m_Mk19TremorZ = 0.015f;
+	[SerializeField] private float m_Mk19TremorZ = 0.014f;
 	[Tooltip("Амплитуда тряски MK19 по X при выстреле.")]
-	[SerializeField] private float m_Mk19TremorX = 0.008f;
+	[SerializeField] private float m_Mk19TremorX = 0.007f;
 	[Tooltip("Амплитуда тряски MK19 по Y при выстреле.")]
-	[SerializeField] private float m_Mk19TremorY = 0.005f;
+	[SerializeField] private float m_Mk19TremorY = 0.0045f;
 	[Tooltip("Длительность тряски MK19 (сек).")]
 	[SerializeField] private float m_Mk19TremorDuration = 0.12f;
 	[Tooltip("Скорость возврата MK19 в исходное положение.")]
@@ -249,7 +249,7 @@ public sealed class VehicleTurretWeaponRecoil : MonoBehaviour
 			m_GunRestLocalPos.y,
 			m_GunRestLocalPos.z + m_GunCurrentZ);
 		m_GunTransform.localRotation = m_GunRestLocalRot
-			* Quaternion.Euler(m_PitchCurrentDeg, 0f, 0f);
+			* Quaternion.Euler(m_PitchCurrentDeg, m_YawCurrentDeg, 0f);
 	}
 
 	private void ApplyCurrentMk19Pose()

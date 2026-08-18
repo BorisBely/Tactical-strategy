@@ -191,8 +191,7 @@ public sealed class LocalizationManager : MonoBehaviour
 	private static void DestroyAllLocalizationManagerObjects()
 	{
 		LocalizationManager[] managers = UnityEngine.Object.FindObjectsByType<LocalizationManager>(
-			FindObjectsInactive.Include,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Include);
 
 		for (int i = 0; i < managers.Length; i++)
 		{

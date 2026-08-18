@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.backpack.2
   m_Description: 
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 21300000, guid: 492f5c4f594cdad4ca13452fc2ce9e55, type: 3}
   m_BasePrice: 100
   m_WeightKg: 0
   m_Category: 1
@@ -22,12 +22,22 @@ MonoBehaviour:
   m_EquippedVisualPrefab: {fileID: 362850561658408507, guid: 98dd472252b2a98499e930442af410fd, type: 3}
   m_RightHandLocalPosition: {x: 0, y: 0, z: 0}
   m_RightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 3
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
   m_BackpackCapacity: 12
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
@@ -35,6 +45,13 @@ MonoBehaviour:
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 0}
   m_BagAddSounds:
     m_Clips:

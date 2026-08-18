@@ -159,7 +159,7 @@ namespace VehicleNavigation
 					m_OrderQueue?.CancelAll("safety-abort-recovery");
 					m_QueueAutoAdvance = false;
 					if (m_LogNavigation)
-						Debug.LogWarning($"[VehicleNav:{name}] Recovery aborted by safety: {safetyResult.Warning}", this);
+						VehicleFileLog.Write(this, $"[VehicleNav:{name}] Recovery aborted by safety: {safetyResult.Warning}");
 				}
 			}
 
@@ -178,10 +178,9 @@ namespace VehicleNavigation
 			     Mathf.Abs(command.Steer - m_LastLoggedCommand.Steer) > 0.06f ||
 			     command.BrakeMode != m_LastLoggedCommand.BrakeMode))
 			{
-				Debug.Log(
+				VehicleFileLog.Write(this,
 					$"[VehicleNav:{name}] state={m_FSM.CurrentState} cmd=thr{command.Throttle:F2}/ste{command.Steer:F2}/brk{command.BrakeMode} phase={command.Phase} " +
-					$"rev={IsReversing} plan={m_Ctx.Plan.Reason} dist={m_Ctx.RemainingDistance:F1}m curv={m_Ctx.CurrentCurvature:F3}",
-					this);
+					$"rev={IsReversing} plan={m_Ctx.Plan.Reason} dist={m_Ctx.RemainingDistance:F1}m curv={m_Ctx.CurrentCurvature:F3}");
 				m_LastLoggedState = m_FSM.CurrentState;
 				m_LastLoggedCommand = command;
 			}
@@ -234,7 +233,8 @@ namespace VehicleNavigation
 				: NavigationRequest.FromPosition(_goal.Position, _goal.SpeedMode);
 
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] SetDestination pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")} source={request.HeadingSource}", this);
+				VehicleFileLog.Write(this,
+					$"[VehicleNav:{name}] SetDestination pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")} source={request.HeadingSource}");
 			m_FeedbackSystem.ResetStuckTimer();
 			m_FSM.SetDestination(request);
 			m_HasDestination = true;
@@ -293,7 +293,7 @@ namespace VehicleNavigation
 			m_OrderQueue.Enqueue(_order);
 
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] EnqueueOrder: {_order}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] EnqueueOrder: {_order}");
 
 			TryPromoteNextOrder(Time.time);
 		}
@@ -305,13 +305,13 @@ namespace VehicleNavigation
 			m_HasDestination = false;
 			m_IsStopped = true;
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] CancelAllOrders: {_reason}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] CancelAllOrders: {_reason}");
 		}
 
 		public void CancelCurrentOrder(string _reason)
 		{
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] CancelCurrentOrder: {_reason}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] CancelCurrentOrder: {_reason}");
 
 			if (m_OrderQueue.HasCurrent)
 				m_OrderQueue.MarkCurrentOrderAborted();
@@ -333,7 +333,8 @@ namespace VehicleNavigation
 			NavigationRequest request = NavigationRequest.FromOrder(_order);
 
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] Order → Request: pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")}", this);
+				VehicleFileLog.Write(this,
+					$"[VehicleNav:{name}] Order → Request: pos={request.Destination} speed={request.SpeedMode} heading={(request.HasHeading ? request.HeadingYaw.Value.ToString("F0") : "none")}");
 
 			m_FeedbackSystem.ResetStuckTimer();
 			m_FSM.SetDestination(request);
@@ -427,19 +428,19 @@ namespace VehicleNavigation
 		private void OnManeuverStarted(Maneuver _maneuver)
 		{
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] ManeuverStarted: {_maneuver?.Type}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] ManeuverStarted: {_maneuver?.Type}");
 		}
 
 		private void OnManeuverFinished(Maneuver _maneuver)
 		{
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] ManeuverFinished: {_maneuver?.Type}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] ManeuverFinished: {_maneuver?.Type}");
 		}
 
 		private void OnReplanTriggered(string _reason)
 		{
 			if (m_LogNavigation)
-				Debug.Log($"[VehicleNav:{name}] Replan: {_reason}", this);
+				VehicleFileLog.Write(this, $"[VehicleNav:{name}] Replan: {_reason}");
 		}
 
 		private void OnFsmPathChanged()
@@ -538,7 +539,8 @@ namespace VehicleNavigation
 				return;
 
 			m_Settings = ScriptableObject.CreateInstance<VehicleNavigationSettings>();
-			m_Settings.GeometryLayers = LayerMask.GetMask("Default", "Obstacle", "Vehicle", "Ground");
+			m_Settings.GeometryLayers =
+				LayerMask.GetMask("Default", "Obstacle", "Vehicle", "VehicleBlocker", "Ground");
 		}
 
 		private void ApplyCommand(VehicleCommand _command)

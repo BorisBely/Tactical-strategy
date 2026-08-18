@@ -20,7 +20,7 @@ public static class VehicleSceneAutoSetup
 
 	private static void SetupActiveScene()
 	{
-		Transform[] transforms = Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		Transform[] transforms = Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude);
 		for (int i = 0; i < transforms.Length; i++)
 		{
 			Transform t = transforms[i];

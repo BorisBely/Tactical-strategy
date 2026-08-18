@@ -16,7 +16,10 @@ public sealed class RuntimePartnerMainHandEquipmentSlotView : MonoBehaviour, IDr
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureMainHandEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();
@@ -73,7 +76,10 @@ public sealed class RuntimePartnerHeadEquipmentSlotView : MonoBehaviour, IDropHa
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();
@@ -130,7 +136,10 @@ public sealed class RuntimePartnerBackEquipmentSlotView : MonoBehaviour, IDropHa
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureBackEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureBackEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();

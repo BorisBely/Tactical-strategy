@@ -50,7 +50,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 	[SerializeField] private Transform m_StockSocket;
 	[Tooltip("Рукоятка / упор под стволом (слот UnderBarrel).")]
 	[SerializeField] private Transform m_UnderBarrelSocket;
-	[Tooltip("До трёх слотов планки Rail: ЛЦУ, фонарь, накладки и т.д. Индексы 0..2. Пустые элементы — не используются.")]
+	[Tooltip("До трёх слотов планки Rail. 0 сверху (тактический ЛЦУ), 1 слева (фонарь), 2 справа (тактический или компактный ЛЦУ). Пустые элементы — не используются.")]
 	[SerializeField] private Transform[] m_RailSockets = new Transform[c_RailSocketCount];
 	[Tooltip("Параллельно WeaponDefinition.AttachmentSlots. На префабе лута должен совпадать с WorldPickupItem.EquippedAttachments. Копируется в WeaponRuntimeState, пока там пусто (если на WorldPickupItem список пуст); иначе подставляется для визуала.")]
 	[SerializeField] private WeaponAttachmentDefinition[] m_EquippedAttachments;
@@ -70,7 +70,7 @@ public sealed class EquippedWeapon : MonoBehaviour
 
 	#region Serialized Fields — прочее
 	[Header("Визуал отдачи")]
-	[Tooltip("Необязательно: отдельный узел для kick. Если пусто — UnitWeaponRecoil крутит корень оружия целиком.")]
+	[Tooltip("Устарело для записи: visual recoil идёт в Hand_R. Поле сохранено, kick в корень оружия больше не пишется.")]
 	[SerializeField] private Transform m_VisualRecoilKickPivot;
 
 	[Header("Визуал затвора / dust cover")]
@@ -631,6 +631,9 @@ public sealed class EquippedWeapon : MonoBehaviour
 			m_LmgCoverInitialLocalRotation = m_LmgTopCoverHinge.localRotation;
 			m_LmgCoverInitialLocalEulerAngles = m_LmgCoverInitialLocalRotation.eulerAngles;
 		}
+
+		if (GetComponent<WeaponLaserDotVisual>() == null)
+			gameObject.AddComponent<WeaponLaserDotVisual>();
 	}
 
 #if UNITY_EDITOR

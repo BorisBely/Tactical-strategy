@@ -29,6 +29,8 @@ public class UnitEquipment : MonoBehaviour
 	private Transform m_LeftHandIkTargetNotReady;
 	private Transform m_RightHandIkTarget;
 	private Transform m_RightHandIkTargetNotReady;
+	private Transform m_GripLeftHandTarget;
+	private bool m_UsesWeaponGripRig;
 	private EquippedWeapon m_EquippedWeapon;
 	private bool m_WeaponParentedToLeftHandForBoltCycle;
 	private Transform m_BoltCycleOriginalWeaponParent;
@@ -63,6 +65,11 @@ public class UnitEquipment : MonoBehaviour
 
 	/// <summary>Right‑hand IK target transform (low ready) on the weapon instance. Null otherwise.</summary>
 	public Transform RightHandIkTargetNotReadyTransform => m_RightHandIkTargetNotReady;
+
+	/// <summary>Cached left grip: ForeGrip LeftHandIK if attached, else WeaponGripRig.LeftHandIK.</summary>
+	public Transform GripLeftHandTarget => m_GripLeftHandTarget;
+
+	public bool UsesWeaponGripRig => m_UsesWeaponGripRig;
 
 	/// <summary>Корень инстанса визуала в руке. Null если нет префаба или слот пуст.</summary>
 	public Transform MainWeaponRoot => m_MainWeaponInstance != null ? m_MainWeaponInstance.transform : null;
@@ -222,11 +229,10 @@ public class UnitEquipment : MonoBehaviour
 			return;
 		}
 
-		ItemDefinition def = m_TurretWeaponDefinitionOverride;
-		string leftReady = GetChildNameOr(def, def != null ? def.LeftHandIkTargetChildName : null, "LeftHandIkTarget");
-		string leftNotReady = GetChildNameOr(def, def != null ? def.LeftHandIkTargetNotReadyChildName : null, "LeftHandIkTarget_NotReady");
-		string rightReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetChildName : null, "RightHandIkTarget");
-		string rightNotReady = GetChildNameOr(def, def != null ? def.RightHandIkTargetNotReadyChildName : null, "RightHandIkTarget_NotReady");
+		const string leftReady = "LeftHandIkTarget";
+		const string leftNotReady = "LeftHandIkTarget_NotReady";
+		const string rightReady = "RightHandIkTarget";
+		const string rightNotReady = "RightHandIkTarget_NotReady";
 
 		Transform pitch = m_TurretWeaponOverride.transform;
 		m_LeftHandIkTarget = ResolveTurretHandIkTarget(pitch, m_TurretWeaponOverride, leftReady, true);
@@ -264,13 +270,6 @@ public class UnitEquipment : MonoBehaviour
 		return null;
 	}
 
-	private static string GetChildNameOr(ItemDefinition def, string fromDef, string fallback)
-	{
-		if (!string.IsNullOrWhiteSpace(fromDef))
-			return fromDef;
-		return fallback;
-	}
-
 	public void ClearMainWeapon()
 	{
 		ClearMainWeaponInternal(true);
@@ -306,7 +305,6 @@ public class UnitEquipment : MonoBehaviour
 		m_EquippedWeapon = m_MainWeaponInstance.GetComponentInChildren<EquippedWeapon>(true);
 
 		RefreshHandIkTargets();
-		SyncForeGripIkTargetsFromAsset();
 
 		NotifyEquipmentChanged();
 		return true;
@@ -332,6 +330,138 @@ public class UnitEquipment : MonoBehaviour
 	{
 		RefreshLeftHandIkTarget();
 		RefreshRightHandIkTarget();
+		ResolveGripTargets();
+		WeaponGripResolver resolver = GetComponent<WeaponGripResolver>();
+		if (resolver != null)
+			resolver.RebuildCache();
+	}
+
+	/// <summary>
+	/// Cache GripRig / ForeGrip hand targets. Call on equip and after attachment visual refresh.
+	/// Creates GripRig at runtime from ItemDefinition Ready IK if prefab was not migrated yet.
+	/// </summary>
+	public void ResolveGripTargets()
+	{
+		m_GripLeftHandTarget = null;
+		m_UsesWeaponGripRig = false;
+
+		if (m_TurretWeaponOverride != null)
+			return;
+
+		if (m_MainWeaponInstance == null)
+			return;
+
+		WeaponGripRig gripRig = m_MainWeaponInstance.GetComponentInChildren<WeaponGripRig>(true);
+		if (gripRig == null || !gripRig.HasValidGrips)
+			gripRig = EnsureGripRigRuntime(m_MainWeaponInstance.transform, m_EquippedDefinition);
+
+		if (gripRig == null)
+			return;
+
+		gripRig.BuildCache();
+		m_UsesWeaponGripRig = gripRig.HasRightHandIkTargets;
+
+		Transform foregripRoot = m_EquippedWeapon != null ? m_EquippedWeapon.UnderBarrelForegripVisualRoot : null;
+		if (foregripRoot != null)
+		{
+			WeaponForeGrip foreGrip = EnsureForeGripRuntime(foregripRoot, m_EquippedDefinition);
+			if (foreGrip != null && foreGrip.LeftHandGrip != null)
+			{
+				m_GripLeftHandTarget = foreGrip.LeftHandGrip;
+				return;
+			}
+		}
+
+		m_GripLeftHandTarget = gripRig.LeftHandIk;
+	}
+
+	private static WeaponGripRig EnsureGripRigRuntime(Transform _weaponRoot, ItemDefinition _)
+	{
+		if (_weaponRoot == null)
+			return null;
+
+		WeaponGripRig gripRig = _weaponRoot.GetComponent<WeaponGripRig>();
+		if (gripRig == null)
+			gripRig = _weaponRoot.gameObject.AddComponent<WeaponGripRig>();
+
+		Transform gripRoot = _weaponRoot.Find(WeaponGripRig.GripRigChildName);
+		if (gripRoot == null)
+		{
+			var go = new GameObject(WeaponGripRig.GripRigChildName);
+			gripRoot = go.transform;
+			gripRoot.SetParent(_weaponRoot, false);
+		}
+
+		Transform left = EnsureNamedChild(gripRoot, WeaponGripRig.LeftHandIkName);
+		if (left == null)
+			left = EnsureNamedChild(gripRoot, WeaponGripRig.LeftHandGripName);
+		gripRig.SetLeftHandIk(left);
+		EnsureRightHandIkTreeRuntime(gripRoot, gripRig);
+
+		return gripRig;
+	}
+
+	private static void EnsureRightHandIkTreeRuntime(Transform _gripRoot, WeaponGripRig _gripRig)
+	{
+		if (_gripRoot == null || _gripRig == null)
+			return;
+
+		Transform rightRoot = _gripRoot.Find(WeaponGripRig.RightHandIkRootName)
+		                    ?? _gripRoot.Find(WeaponGripRig.RightHandRootName);
+		if (rightRoot == null)
+		{
+			var go = new GameObject(WeaponGripRig.RightHandIkRootName);
+			rightRoot = go.transform;
+			rightRoot.SetParent(_gripRoot, false);
+		}
+
+		Transform standing = EnsureNamedChild(rightRoot, WeaponGripRig.StandingName);
+		Transform crouch = EnsureNamedChild(rightRoot, WeaponGripRig.CrouchName);
+		Transform vehicle = EnsureNamedChild(rightRoot, WeaponGripRig.VehicleName);
+
+		_gripRig.SetRightHandPoseTargets(
+			EnsureNamedChild(standing, WeaponGripRig.ReadyName),
+			EnsureNamedChild(standing, WeaponGripRig.NotReadyName),
+			EnsureNamedChild(crouch, WeaponGripRig.ReadyName),
+			EnsureNamedChild(crouch, WeaponGripRig.NotReadyName),
+			EnsureNamedChild(vehicle, WeaponGripRig.ReadyName),
+			EnsureNamedChild(vehicle, WeaponGripRig.NotReadyName));
+	}
+
+	private static WeaponForeGrip EnsureForeGripRuntime(Transform _foregripRoot, ItemDefinition _)
+	{
+		if (_foregripRoot == null)
+			return null;
+
+		WeaponForeGrip foreGrip = _foregripRoot.GetComponent<WeaponForeGrip>();
+		if (foreGrip == null)
+			foreGrip = _foregripRoot.GetComponentInChildren<WeaponForeGrip>(true);
+		if (foreGrip == null)
+			foreGrip = _foregripRoot.gameObject.AddComponent<WeaponForeGrip>();
+
+		Transform left = foreGrip.LeftHandGrip;
+		if (left == null)
+		{
+			left = EnsureNamedChild(_foregripRoot, WeaponForeGrip.LeftHandGripName);
+			foreGrip.SetLeftHandGrip(left);
+		}
+
+		return foreGrip;
+	}
+
+	private static Transform EnsureNamedChild(Transform _parent, string _name)
+	{
+		Transform existing = _parent.Find(_name);
+		if (existing != null)
+			return existing;
+
+		var go = new GameObject(_name);
+		Transform t = go.transform;
+		t.SetParent(_parent, false);
+		t.localPosition = Vector3.zero;
+		t.localRotation = Quaternion.identity;
+		t.localScale = Vector3.one;
+		return t;
 	}
 
 	/// <summary>
@@ -352,18 +482,14 @@ public class UnitEquipment : MonoBehaviour
 			return;
 		}
 
-		string readyName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetChildName : null;
-		if (string.IsNullOrWhiteSpace(readyName))
-			m_LeftHandIkTarget = null;
-		else if (m_EquippedWeapon != null)
+		const string readyName = "LeftHandIkTarget";
+		const string notReadyName = "LeftHandIkTarget_NotReady";
+		if (m_EquippedWeapon != null)
 			m_LeftHandIkTarget = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(readyName);
 		else
 			m_LeftHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, readyName);
 
-		string notReadyName = m_EquippedDefinition != null ? m_EquippedDefinition.LeftHandIkTargetNotReadyChildName : null;
-		if (string.IsNullOrWhiteSpace(notReadyName))
-			m_LeftHandIkTargetNotReady = null;
-		else if (m_EquippedWeapon != null)
+		if (m_EquippedWeapon != null)
 			m_LeftHandIkTargetNotReady = m_EquippedWeapon.ResolveLeftHandIkTargetTransform(notReadyName);
 		else
 			m_LeftHandIkTargetNotReady = FindChildRecursive(m_MainWeaponInstance.transform, notReadyName);
@@ -385,18 +511,14 @@ public class UnitEquipment : MonoBehaviour
 			return;
 		}
 
-		string readyName = m_EquippedDefinition != null ? m_EquippedDefinition.RightHandIkTargetChildName : null;
-		if (string.IsNullOrWhiteSpace(readyName))
-			m_RightHandIkTarget = null;
-		else if (m_EquippedWeapon != null)
+		const string readyName = "RightHandIkTarget";
+		const string notReadyName = "RightHandIkTarget_NotReady";
+		if (m_EquippedWeapon != null)
 			m_RightHandIkTarget = m_EquippedWeapon.ResolveRightHandIkTargetTransform(readyName);
 		else
 			m_RightHandIkTarget = FindChildRecursive(m_MainWeaponInstance.transform, readyName);
 
-		string notReadyName = m_EquippedDefinition != null ? m_EquippedDefinition.RightHandIkTargetNotReadyChildName : null;
-		if (string.IsNullOrWhiteSpace(notReadyName))
-			m_RightHandIkTargetNotReady = null;
-		else if (m_EquippedWeapon != null)
+		if (m_EquippedWeapon != null)
 			m_RightHandIkTargetNotReady = m_EquippedWeapon.ResolveRightHandIkTargetTransform(notReadyName);
 		else
 			m_RightHandIkTargetNotReady = FindChildRecursive(m_MainWeaponInstance.transform, notReadyName);
@@ -471,6 +593,8 @@ public class UnitEquipment : MonoBehaviour
 		m_LeftHandIkTargetNotReady = null;
 		m_RightHandIkTarget = null;
 		m_RightHandIkTargetNotReady = null;
+		m_GripLeftHandTarget = null;
+		m_UsesWeaponGripRig = false;
 		m_EquippedWeapon = null;
 		if (m_MainWeaponInstance != null)
 		{
@@ -574,38 +698,7 @@ public class UnitEquipment : MonoBehaviour
 
 	public void SyncForeGripIkTargetsFromAsset()
 	{
-		if (m_EquippedWeapon == null || m_EquippedDefinition == null)
-			return;
-
-		Transform fgRoot = m_EquippedWeapon.UnderBarrelForegripVisualRoot;
-		if (fgRoot == null)
-			return;
-
-		int fgIndex = 0;
-		string name = fgRoot.name;
-		for (int i = 5; i >= 1; i--)
-		{
-			if (name.Contains("ForeGrip" + i))
-			{
-				fgIndex = i;
-				break;
-			}
-		}
-
-		if (fgIndex < 1 || !m_EquippedDefinition.HasForeGripIkConfigured(fgIndex))
-			return;
-
-		if (m_LeftHandIkTarget != null && m_LeftHandIkTarget.IsChildOf(fgRoot))
-		{
-			m_LeftHandIkTarget.localPosition = m_EquippedDefinition.GetForeGripLeftHandIkReadyLocalPosition(fgIndex);
-			m_LeftHandIkTarget.localRotation = m_EquippedDefinition.GetForeGripLeftHandIkReadyLocalRotation(fgIndex);
-		}
-
-		if (m_LeftHandIkTargetNotReady != null && m_LeftHandIkTargetNotReady.IsChildOf(fgRoot))
-		{
-			m_LeftHandIkTargetNotReady.localPosition = m_EquippedDefinition.GetForeGripLeftHandIkNotReadyLocalPosition(fgIndex);
-			m_LeftHandIkTargetNotReady.localRotation = m_EquippedDefinition.GetForeGripLeftHandIkNotReadyLocalRotation(fgIndex);
-		}
+		// ForeGrip IK coords no longer live on ItemDefinition; GripRig / WeaponForeGrip own the targets.
 	}
 
 	private static Transform FindChildRecursive(Transform _root, string _name)

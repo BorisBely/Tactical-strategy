@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.grenade.flash_01
   m_Description: Flashbang grenade.
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 21300000, guid: 06b50fdc6d6086c4c8ad164c031f1a80, type: 3}
   m_BasePrice: 160
   m_WeightKg: 0
   m_Category: 0
@@ -24,42 +24,14 @@ MonoBehaviour:
   m_RightHandLocalEulerAngles: {x: -9.829, y: -110.251, z: 101.518}
   m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
   m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_RightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_RightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_RightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_LeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_LeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_LeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_LeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_LeftHandIkTargetChildName: LeftHandIkTarget
-  m_LeftHandIkTargetNotReadyChildName: LeftHandIkTarget_NotReady
-  m_RightHandIkTargetChildName: RightHandIkTarget
-  m_RightHandIkTargetNotReadyChildName: RightHandIkTarget_NotReady
   m_CrouchRightHandLocalPosition: {x: 0.0876, y: 0.0275, z: -0.0191}
   m_CrouchRightHandLocalEulerAngles: {x: -9.829, y: -110.251, z: 101.518}
   m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
   m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_CrouchRightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_CrouchRightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_CrouchRightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_CrouchRightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_CrouchLeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_CrouchLeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_CrouchLeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_CrouchLeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
   m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
   m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_VehicleRightHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_VehicleRightHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_VehicleRightHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_VehicleRightHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_VehicleLeftHandIkNotReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_VehicleLeftHandIkNotReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
-  m_VehicleLeftHandIkReadyLocalPosition: {x: 0, y: 0, z: 0}
-  m_VehicleLeftHandIkReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0

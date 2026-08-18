@@ -61,8 +61,20 @@ public class InventoryScreenBindings : MonoBehaviour
 	/// <summary>Кэшированный или выбранный инвентарь для UI (drag, repaint).</summary>
 	public CharacterInventory GetActiveCharacterInventoryForUi() => ResolveActiveCharacterInventoryForUi();
 	public VehicleInventory GetActiveVehicleInventoryForUi() => m_ActiveVehicleInventory;
-	public bool IsInventoryOpen =>
-		m_InventoryCanvasRoot != null && m_InventoryCanvasRoot.activeSelf;
+	public bool IsInventoryOpen
+	{
+		get
+		{
+			if (m_InventoryCanvasRoot == null)
+				return false;
+
+			InventoryUiWindowMotion motion = m_InventoryCanvasRoot.GetComponent<InventoryUiWindowMotion>();
+			if (motion != null)
+				return motion.IsOpen;
+
+			return m_InventoryCanvasRoot.activeSelf;
+		}
+	}
 	#endregion
 
 	#region Exchange UI
@@ -83,7 +95,7 @@ public class InventoryScreenBindings : MonoBehaviour
 			m_SelectionManager = RtsUnitSelectionManager.Instance;
 		RefreshLocalizedTexts();
 		if (m_StartWithInventoryClosed && m_InventoryCanvasRoot != null)
-			m_InventoryCanvasRoot.SetActive(false);
+			InventoryUiWindowMotion.Ensure(m_InventoryCanvasRoot)?.SnapClosed();
 		if (m_HealthStatusPanel != null)
 			m_HealthStatusPanel.gameObject.SetActive(false);
 		if (m_HealthStatusSlotPrefab != null && m_HealthStatusPanel != null)
@@ -341,18 +353,23 @@ public class InventoryScreenBindings : MonoBehaviour
 			InventoryExchangeController.Instance.EndExchangeIfActive();
 			RuntimeInventoryModificationCoordinator.Instance?.ClearAllModificationVisuals();
 			HealthStatusTooltip.Instance.HideImmediate();
+			InventoryItemTooltip.Instance.HideImmediate();
 		}
 
-		m_InventoryCanvasRoot.SetActive(_open);
+		InventoryUiWindowMotion motion = InventoryUiWindowMotion.Ensure(m_InventoryCanvasRoot);
 		SetInventoryTitleVisible(_open);
 		if (_open)
+		{
+			motion.Open();
 			RefreshPanelsOnOpen();
+		}
 		else
 		{
 			m_UnitListPresenter?.Clear();
 			if (m_HealthStatusPanel != null)
 				m_HealthStatusPanel.gameObject.SetActive(false);
 			HideExchangePartnerUi();
+			motion.Close();
 		}
 	}
 
@@ -441,6 +458,12 @@ public class InventoryScreenBindings : MonoBehaviour
 	{
 		if (m_UnitListPresenter == null)
 			return;
+
+		if (m_ActiveVehicleInventory != null)
+		{
+			m_UnitListPresenter.RefreshForVehicle(m_ActiveVehicleInventory);
+			return;
+		}
 
 		m_UnitListPresenter.RefreshForInventory(ResolveActiveCharacterInventoryForUi());
 	}

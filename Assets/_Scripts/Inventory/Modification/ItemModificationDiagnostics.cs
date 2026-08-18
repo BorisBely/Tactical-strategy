@@ -12,11 +12,7 @@ public static class ItemModificationDiagnostics
 	#endregion
 
 	#region Public Properties
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-	public static bool VerboseLogging { get; set; } = true;
-#else
 	public static bool VerboseLogging { get; set; }
-#endif
 	#endregion
 
 	#region Public Methods
@@ -166,6 +162,10 @@ public static class ItemModificationDiagnostics
 		    WeaponOpticSlotUtility.IsOpticSlotType(_slot.AttachmentSlotType) &&
 		    WeaponOpticSlotUtility.CountEquippedOpticAttachments(weaponState) >= 2)
 			return "weapon already has two optic mounts occupied (only one allowed)";
+
+		if (WeaponLaserSlotUtility.IsLaserAttachment(attachment) &&
+		    WeaponLaserSlotUtility.HasLaserOnOtherSlot(weaponState, _slot.WeaponSlotIndex))
+			return "weapon already has a laser/LCU on another rail (only one allowed)";
 
 		return AcceptedReason;
 	}

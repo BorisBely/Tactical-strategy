@@ -68,6 +68,9 @@ public sealed class InventoryEquipmentSlotHighlightOverlay : MonoBehaviour
 			return;
 
 		InventoryEquipmentSlotAppearance appearance = InventorySlotUiUtility.ResolveEquipmentSlotAppearance(m_Slot);
+		if (m_Slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome))
+			chrome.SetDropHighlight(_highlighted);
+
 		if (_highlighted)
 		{
 			m_OverlayImage.enabled = true;
@@ -76,7 +79,22 @@ public sealed class InventoryEquipmentSlotHighlightOverlay : MonoBehaviour
 		}
 
 		m_OverlayImage.enabled = false;
-		appearance.ApplyNormal(m_Slot);
+		m_OverlayImage.color = new Color(1f, 1f, 1f, 0f);
+		if (m_Slot.IsEmptyEquipmentSlot)
+			InventorySlotUiUtility.ApplyEmptyEquipmentSlotBackground(m_Slot);
+		else
+			appearance.ApplyNormal(m_Slot);
+	}
+	#endregion
+
+	#region Unity Lifecycle
+	private void OnDisable()
+	{
+		if (m_OverlayImage != null)
+			m_OverlayImage.enabled = false;
+
+		if (m_Slot != null && m_Slot.TryGetComponent(out InventoryEquipmentSlotChrome chrome))
+			chrome.SetDropHighlight(false);
 	}
 	#endregion
 }

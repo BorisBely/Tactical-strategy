@@ -478,5 +478,66 @@ namespace VehicleNavigation.Tests
 			Assert.Greater(output.Command.DesiredSpeedKmh, 0.1f,
 				"should keep following path when distToEnd > approach zone");
 		}
+
+		[Test]
+		public void TrajectoryTracker_StoppedNearCusp_CommandsBreakawaySpeed()
+		{
+			// Short reverse → forward gap: classic free-play stall when stopSpeed collapsed to 0 at rest.
+			var pts = new System.Collections.Generic.List<TrajectoryPoint>();
+			for (int i = 0; i <= 16; i++)
+			{
+				float z = -i * 0.25f;
+				pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, z), 180f, 0.05f, TrajectoryGear.Reverse, -z));
+			}
+
+			float cuspZ = -4f;
+			pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, cuspZ), 180f, 0f, TrajectoryGear.Forward, 4f));
+			for (int i = 1; i <= 20; i++)
+			{
+				float z = cuspZ + i * 0.25f;
+				pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, z), 0f, 0.12f, TrajectoryGear.Forward, 4f + i * 0.25f));
+			}
+
+			var traj = new VehicleTrajectory();
+			traj.Build(pts, 9f, 0, "rs-lrl2");
+			Assert.Greater(traj.GearSegmentCount, 1);
+			Assert.Greater(traj.CuspIndices.Count, 0);
+
+			var goal = new GoalPose(pts[pts.Count - 1].Position, 0f, 0.5f, 8f);
+			var tracker = new TrajectoryTracker();
+			tracker.Activate(traj, goal, 1.2f);
+			var p = TestParams;
+
+			// Stopped ~0.4m before the cusp (inside comfort brake margin, outside stop margin).
+			Vector3 pos = new Vector3(0f, 0f, cuspZ + 0.4f);
+			var output = tracker.Tick(pos, 180f, 0f, p, 1f);
+			Assert.Greater(output.Command.DesiredSpeedKmh, 0.5f,
+				"must crawl toward cusp while stopped — not latch DesiredSpeed=0");
+			Assert.IsFalse(output.NeedPathReplan);
+		}
+
+		[Test]
+		public void TrajectoryTracker_AfterCuspSwitch_DepartsWithThrottle()
+		{
+			var pts = new System.Collections.Generic.List<TrajectoryPoint>();
+			for (int i = 0; i <= 12; i++)
+				pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, -i * 0.25f), 180f, 0.04f, TrajectoryGear.Reverse, i * 0.25f));
+			pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, -3f), 180f, 0f, TrajectoryGear.Forward, 3f));
+			for (int i = 1; i <= 24; i++)
+				pts.Add(new TrajectoryPoint(new Vector3(0f, 0f, -3f + i * 0.25f), 0f, 0.1f, TrajectoryGear.Forward, 3f + i * 0.25f));
+
+			var traj = new VehicleTrajectory();
+			traj.Build(pts, 9f, 0, "rs-lrl2");
+			var goal = new GoalPose(pts[pts.Count - 1].Position, 0f, 0.5f, 8f);
+			var tracker = new TrajectoryTracker();
+			tracker.Activate(traj, goal, 1.2f);
+			var p = TestParams;
+
+			// Arrive at cusp slowly so gear switch fires, then require forward breakaway.
+			Vector3 pos = new Vector3(0f, 0f, -3f);
+			var atCusp = tracker.Tick(pos, 180f, 0.5f, p, 1f);
+			Assert.AreEqual(TrajectoryGear.Forward, atCusp.ActiveGear, "should switch into next gear at cusp");
+			Assert.Greater(atCusp.Command.DesiredSpeedKmh, 0.5f, "Depart must not command thr=0");
+		}
 	}
 }

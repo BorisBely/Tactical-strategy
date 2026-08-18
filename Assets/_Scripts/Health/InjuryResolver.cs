@@ -63,6 +63,46 @@ public sealed class InjuryResolver : MonoBehaviour
 		m_ConsciousnessRules.EvaluateAfterInjury(_info, _injury);
 		return true;
 	}
+
+	/// <summary>Apply a blunt / vehicle injury without ammo (caller builds <see cref="DamageHitInfo"/>).</summary>
+	public bool TryApplyBluntInjury(DamageHitInfo _info, bool _severe, out InjuryUiEntry _injury)
+	{
+		_injury = default;
+
+		if (m_UnitHealth == null)
+		{
+			ResolveReferences();
+			if (m_UnitHealth == null)
+				m_UnitHealth = GetComponentInParent<UnitHealth>();
+		}
+
+		if (m_UnitHealth == null)
+		{
+			LogInjury("blunt: нет UnitHealth");
+			return false;
+		}
+
+		EnsureConsciousnessRules();
+
+		BodyPartType bodyPart = _info.BodyPart;
+		if (bodyPart == BodyPartType.Unknown)
+		{
+			UnitBodyHitZone hitZone = ResolveHitZone(_info.HitCollider);
+			bodyPart = hitZone != null ? hitZone.BodyPart : BodyPartType.Chest;
+		}
+
+		_injury = InjuryRollTable.RollBlunt(bodyPart, _severe);
+		m_UnitHealth.AddInjury(_injury);
+
+		LogInjury(
+			$"blunt={_injury.StatusLocalizationKey} severe={_severe} | priority={_injury.SortPriority} | " +
+			$"всего={m_UnitHealth.InjuryCount} | зона={bodyPart}");
+
+		if (m_ConsciousnessRules != null)
+			m_ConsciousnessRules.EvaluateAfterInjury(_info, _injury);
+
+		return true;
+	}
 	#endregion
 
 	#region Private Methods

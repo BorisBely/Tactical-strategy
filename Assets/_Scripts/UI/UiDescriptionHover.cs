@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 public sealed class UiDescriptionHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
 {
 	#region Constants
-	private const float c_ShowDelaySeconds = 2f;
+	private const float c_ShowDelaySeconds = 0.35f;
 	#endregion
 
 	#region Private Fields

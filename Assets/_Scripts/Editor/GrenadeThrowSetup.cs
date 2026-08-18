@@ -130,7 +130,7 @@ public static class GrenadeThrowSetup
 			}
 
 			RtsUnitSelectionManager[] managers = UnityEngine.Object.FindObjectsByType<RtsUnitSelectionManager>(
-				FindObjectsInactive.Include, FindObjectsSortMode.None);
+				FindObjectsInactive.Include);
 
 			for (int i = 0; i < managers.Length; i++)
 			{

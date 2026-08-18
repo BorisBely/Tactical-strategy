@@ -23,6 +23,7 @@ public sealed partial class RtsUnitSelectionManager
 	private float m_VehiclePreviewFacingYaw;
 	private VehicleSpeedMode m_VehiclePreviewSpeedMode = VehicleSpeedMode.Medium;
 	private Coroutine m_PendingVehicleMoveCoroutine;
+	private Coroutine m_VehicleExchangeApproachCoroutine;
 	private const float c_VehicleBoardDoubleClickSeconds = 0.45f;
 	private const float c_VehicleFacingDragThresholdPixels = 5f;
 	private const bool c_VehicleClickDebugLogs = false;
@@ -197,6 +198,9 @@ public sealed partial class RtsUnitSelectionManager
 		if (_vehicle == null)
 			return;
 
+		if (MissionPrepPresentationVehicle.IsPresentation(_vehicle))
+			return;
+
 		float now = Time.unscaledTime;
 		bool isDoubleClick = IsVehicleBoardDoubleClick(_vehicle, now);
 
@@ -322,6 +326,9 @@ public sealed partial class RtsUnitSelectionManager
 			LogVehicleClick("RMB → no vehicle on ray");
 			return false;
 		}
+
+		if (MissionPrepPresentationVehicle.IsPresentation(vehicle))
+			return false;
 
 		List<RtsUnitMember> selectedUnits = CollectBoardIntentUnits();
 
@@ -652,10 +659,126 @@ public sealed partial class RtsUnitSelectionManager
 				else if (m_SelectedUnits.Count == 1)
 					player = m_SelectedUnits[0];
 				if (player != null)
-					TryBeginVehicleInventoryExchange(_vehicle, player);
+					RequestVehicleInventoryExchange(_vehicle, player);
 				break;
 			}
 		}
+	}
+
+	private void RequestVehicleInventoryExchange(VehicleController _vehicle, RtsUnitMember _playerUnit)
+	{
+		if (_vehicle == null || _playerUnit == null)
+			return;
+
+		if (m_VehicleExchangeApproachCoroutine != null)
+			StopCoroutine(m_VehicleExchangeApproachCoroutine);
+
+		m_VehicleExchangeApproachCoroutine = StartCoroutine(CoApproachAndBeginVehicleExchange(_vehicle, _playerUnit));
+	}
+
+	private IEnumerator CoApproachAndBeginVehicleExchange(VehicleController _vehicle, RtsUnitMember _playerUnit)
+	{
+		const float c_MaxApproachSeconds = 45f;
+
+		if (_vehicle == null || _playerUnit == null)
+		{
+			m_VehicleExchangeApproachCoroutine = null;
+			yield break;
+		}
+
+		Vector3 focus = InventoryExchangeController.ResolveVehicleExchangeFocus(_vehicle, _playerUnit);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, focus);
+		if (distance > InventoryExchangeController.VehicleArriveDistanceMeters)
+		{
+			Vector3 approachPoint = SampleVehicleExchangeApproachPoint(_playerUnit, focus);
+			_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
+
+			float elapsed = 0f;
+			float nextRetargetTime = UnitFallenApproachUtility.RetargetIntervalSeconds;
+			float stuckSeconds = 0f;
+			float bestDistance = distance;
+			Vector3 lastPosition = _playerUnit.transform.position;
+			Vector3 lastApproachPoint = approachPoint;
+
+			while (elapsed < c_MaxApproachSeconds)
+			{
+				if (_playerUnit == null || _vehicle == null)
+				{
+					m_VehicleExchangeApproachCoroutine = null;
+					yield break;
+				}
+
+				if (elapsed >= nextRetargetTime)
+				{
+					focus = InventoryExchangeController.ResolveVehicleExchangeFocus(_vehicle, _playerUnit);
+					approachPoint = SampleVehicleExchangeApproachPoint(_playerUnit, focus);
+					if (UnitFallenApproachUtility.ShouldRetargetApproach(lastApproachPoint, approachPoint))
+					{
+						_playerUnit.IssueMoveOrder(approachPoint, UnitClickToMove.MoveTier.Run);
+						lastApproachPoint = approachPoint;
+					}
+
+					nextRetargetTime += UnitFallenApproachUtility.RetargetIntervalSeconds;
+				}
+
+				Vector3 currentPosition = _playerUnit.transform.position;
+				focus = InventoryExchangeController.ResolveVehicleExchangeFocus(_vehicle, _playerUnit);
+				distance = UnitFallenApproachUtility.HorizontalDistance(currentPosition, focus);
+				float moved = UnitFallenApproachUtility.HorizontalDistance(currentPosition, lastPosition);
+				lastPosition = currentPosition;
+				stuckSeconds = UnitFallenApproachUtility.UpdateStuckSeconds(
+					stuckSeconds, distance, ref bestDistance, moved);
+
+				bool arrived = distance <= InventoryExchangeController.VehicleArriveDistanceMeters ||
+				               (distance <= InventoryExchangeController.VehicleMaxInteractDistanceMeters &&
+				                stuckSeconds >= UnitFallenApproachUtility.StuckSeconds);
+				bool abort = distance > InventoryExchangeController.VehicleMaxInteractDistanceMeters &&
+				             stuckSeconds >= UnitFallenApproachUtility.AbortStuckSeconds;
+				if (arrived || abort)
+					break;
+
+				elapsed += Time.deltaTime;
+				yield return null;
+			}
+		}
+
+		_playerUnit.HardStop();
+		focus = InventoryExchangeController.ResolveVehicleExchangeFocus(_vehicle, _playerUnit);
+		distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, focus);
+		if (distance <= InventoryExchangeController.VehicleMaxInteractDistanceMeters)
+			InventoryExchangeController.Instance.TryBeginVehicleExchange(_vehicle, _playerUnit, out _);
+
+		m_VehicleExchangeApproachCoroutine = null;
+	}
+
+	private static Vector3 SampleVehicleExchangeApproachPoint(RtsUnitMember _playerUnit, Vector3 _focus)
+	{
+		if (_playerUnit == null)
+			return _focus;
+
+		Vector3 from = _playerUnit.transform.position;
+		Vector3 toFocus = _focus - from;
+		toFocus.y = 0f;
+		if (toFocus.sqrMagnitude < 0.01f)
+			return _focus;
+
+		toFocus.Normalize();
+		Vector3 ideal = _focus - toFocus * InventoryExchangeController.VehicleStandoffMeters;
+		if (UnityEngine.AI.NavMesh.SamplePosition(
+			    ideal,
+			    out UnityEngine.AI.NavMeshHit hit,
+			    UnitFallenApproachUtility.NavSampleRadiusMeters,
+			    UnityEngine.AI.NavMesh.AllAreas))
+			return hit.position;
+
+		if (UnityEngine.AI.NavMesh.SamplePosition(
+			    _focus,
+			    out hit,
+			    UnitFallenApproachUtility.NavSampleRadiusMeters,
+			    UnityEngine.AI.NavMesh.AllAreas))
+			return hit.position;
+
+		return ideal;
 	}
 
 	/// <summary>
@@ -719,7 +842,7 @@ public sealed partial class RtsUnitSelectionManager
 		if (m_SelectedVehicle != null && Keyboard.current.fKey.wasPressedThisFrame)
 			m_SelectedVehicle.HardStop();
 
-		if (m_SelectedVehicle != null && Keyboard.current.eKey.wasPressedThisFrame)
+		if (m_SelectedVehicle != null && Keyboard.current.eKey.wasPressedThisFrame && !IsCtrlPressed())
 		{
 			m_SelectedVehicle.ToggleAllPassengersVehicleReady();
 			m_VehicleEKeyConsumed = true;
@@ -1123,7 +1246,8 @@ public sealed partial class RtsUnitSelectionManager
 
 	public bool TryBeginVehicleInventoryExchange(VehicleController _vehicle, RtsUnitMember _playerUnit)
 	{
-		return InventoryExchangeController.Instance.TryBeginVehicleExchange(_vehicle, _playerUnit, out _);
+		RequestVehicleInventoryExchange(_vehicle, _playerUnit);
+		return true;
 	}
 	#endregion
 }

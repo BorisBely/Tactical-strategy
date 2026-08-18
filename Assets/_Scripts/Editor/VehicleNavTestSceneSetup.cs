@@ -112,11 +112,11 @@ public static class VehicleNavTestSceneSetup
 		Label(root.transform, "LF", x, 4f, z, "FINISH");
 
 		// Camera
-		Camera cam = Camera.main ?? Object.FindFirstObjectByType<Camera>();
+		Camera cam = Camera.main ?? Object.FindAnyObjectByType<Camera>();
 		if (cam != null) { cam.transform.position = new Vector3(TrackOrigin.x, 25f, TrackOrigin.z - 8f); cam.transform.rotation = Quaternion.Euler(60f, 0f, 0f); }
 
 		// Vehicle
-		VehicleController v = Object.FindFirstObjectByType<VehicleController>();
+		VehicleController v = Object.FindAnyObjectByType<VehicleController>();
 		if (v != null) { v.transform.position = new Vector3(TrackOrigin.x, 1f, TrackOrigin.z + 5f); v.transform.rotation = Quaternion.identity; }
 		else
 		{

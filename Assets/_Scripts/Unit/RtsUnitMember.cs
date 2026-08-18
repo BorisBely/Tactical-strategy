@@ -41,6 +41,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 	[SerializeField] private bool m_DisableDirectInputForRts = true;
 	private UnitConsciousness m_Consciousness;
 	private UnitHealth m_Health;
+	private UnitEquippedWeaponPoseRuntimeTuner m_WeaponPoseTuner;
+	private bool m_TriedResolveWeaponPoseTuner;
 	[Header("Selection Name Label")]
 	[SerializeField] private GameObject m_SelectionNameLabelRoot;
 	[SerializeField] private TextMeshProUGUI m_SelectionNameText;
@@ -95,7 +97,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private float m_FacingRotateVelocity;
 	private bool m_FacingSuppressedReady;
 	private bool m_FacingAutoRestoreReady;
-	private bool m_WasReadyBeforeFacing;
 	private bool m_LastTrackedWantsReady;
 	private bool m_IsInFacingTurn;
 	private FacingArrowMode m_FacingTurnMode;
@@ -288,6 +289,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private Vector3 m_YellowArrowWorldPos;
 	private FacingArrowMode m_ActiveArrowPriorityMode;
 	private UnitVision m_CachedVision;
+	private TargetSelector m_CachedTargetSelector;
 	private const float c_ArrowFullTurnThresholdDegrees = 5f;
 	private const float c_YellowArrowMaxWanderDistance = 5f;
 	private FacingArrow? m_PersistentFacingIndicator;
@@ -311,6 +313,32 @@ public sealed class RtsUnitMember : MonoBehaviour
 	/// <summary>Отложенная RTS-команда (reaction delay / group stagger) ещё не выполнена.</summary>
 	public bool HasPendingRtsCommand => m_PendingCommandCoroutine != null;
 	public bool IsRotatingToRouteFacing => m_IsRotatingToFacing;
+
+	/// <summary>
+	/// Синяя/зелёная hold-стрелка явно держит взгляд по сегменту и не уступает цели.
+	/// Жёлтый разворот, leftover OverrideFacingAngle и wanted-facing уступают поднятому оружию с целью.
+	/// </summary>
+	public bool ShouldYieldRouteFacingToCombatTarget
+	{
+		get
+		{
+			if (m_ArrowPriorityPhase == ArrowPriorityPhase.BlueHold ||
+			    m_ArrowPriorityPhase == ArrowPriorityPhase.GreenHold)
+				return false;
+
+			TargetSelector selector = ResolveCachedTargetSelector();
+			if (selector == null || selector.SelectedTarget == null)
+				return false;
+
+			if (m_RocketLauncherOrderController != null &&
+			    m_RocketLauncherOrderController.IsBusy &&
+			    (m_RocketLauncherOrderController.CurrentPhase == RocketLauncherOrderPhase.Aiming ||
+			     m_RocketLauncherOrderController.CurrentPhase == RocketLauncherOrderPhase.Firing))
+				return true;
+
+			return m_ReadyHands != null && m_ReadyHands.WantsCombatTargetFacing();
+		}
+	}
 	public bool IsWaitingAtRouteGate => m_IsWaitingAtRouteGate;
 	public int ActiveWaitGroup => m_ActiveWaitGroup;
 	public FormationType CurrentFormation { get => m_CurrentFormation; set => m_CurrentFormation = value; }
@@ -927,6 +955,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (!m_IsRotatingToFacing)
 			return;
 
+		if (ShouldYieldRouteFacingToCombatTarget)
+			return;
+
 		if (ShouldDeferRouteFacingOverride())
 			return;
 
@@ -950,7 +981,7 @@ public sealed class RtsUnitMember : MonoBehaviour
 			if (m_FacingSuppressedReady)
 			{
 				if (m_FacingAutoRestoreReady)
-					m_ReadyHands?.SetReadyWanted(true);
+					m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 
 				m_FacingSuppressedReady = false;
 				m_FacingAutoRestoreReady = false;
@@ -975,26 +1006,19 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (m_ReadyHands == null)
 			return;
-		if (!m_WasReadyBeforeFacing)
-			return;
 
 		if (_angleDegrees > 90f)
 		{
 			if (!m_FacingSuppressedReady)
 			{
-				if (m_ReadyHands.IsWeaponEquipped() && m_ReadyHands.WantsReady)
-				{
-					m_ReadyHands.ApplyTemporaryReadySuppression();
-					m_FacingAutoRestoreReady = true;
-				}
-
+				m_FacingAutoRestoreReady = m_ReadyHands.SuppressReadyForTurnIfNeeded();
 				m_FacingSuppressedReady = true;
 			}
 		}
 		else if (_angleDegrees < 20f && m_FacingSuppressedReady)
 		{
 			if (m_FacingAutoRestoreReady)
-				m_ReadyHands?.SetReadyWanted(true);
+				m_ReadyHands.TryRestoreReadyAfterTurn(false);
 
 			m_FacingSuppressedReady = false;
 			m_FacingAutoRestoreReady = false;
@@ -1052,7 +1076,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 				{
 					m_FacingRotateVelocity = 0f;
 					m_FacingSuppressedReady = false;
-					m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
 				}
 				else
 				{
@@ -3829,7 +3852,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		// Как TurnOnArrival / formation slot: крутим на месте через UpdateFacingRotation,
 		// а не только OverrideFacingAngle (его глушит engage / idle-ветка locomotion).
 		m_IsRotatingToFacing = true;
-		m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
 		m_FacingRotateVelocity = 0f;
 
 		if (ShouldDeferRouteFacingOverride())
@@ -3925,6 +3947,9 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		get
 		{
+			if (ShouldYieldRouteFacingToCombatTarget)
+				return false;
+
 			if (m_ArrowPriorityPhase == ArrowPriorityPhase.Turning ||
 			    m_ArrowPriorityPhase == ArrowPriorityPhase.BlueHold ||
 			    m_ArrowPriorityPhase == ArrowPriorityPhase.GreenHold ||
@@ -4025,6 +4050,45 @@ public sealed class RtsUnitMember : MonoBehaviour
 					HandleReadyBecameFalse();
 			}
 			else
+				DowngradeActiveMovementTierForReady();
+		}, _groupStaggerDelaySeconds);
+	}
+
+	public void TogglePeacefulNotReady(float _groupStaggerDelaySeconds = 0f)
+	{
+		ScheduleRtsCommand(() => m_ReadyHands?.TogglePeacefulNotReady(), _groupStaggerDelaySeconds);
+	}
+
+	public void SetPeacefulCarryPose(WeaponPoseState _pose, float _groupStaggerDelaySeconds = 0f)
+	{
+		ScheduleRtsCommand(() => m_ReadyHands?.SetPeacefulCarryPose(_pose), _groupStaggerDelaySeconds);
+	}
+
+	public void CycleCombatPose(float _groupStaggerDelaySeconds = 0f)
+	{
+		ScheduleRtsCommand(() =>
+		{
+			UnitFiremanCarryController firemanCarry = ResolveFiremanCarryController();
+			if (firemanCarry != null && firemanCarry.IsCarryingFallen)
+				return;
+
+			if (m_ReadyHands == null)
+				return;
+			m_ReadyHands.CycleCombatPose();
+			if (m_ReadyHands.WantedMode.IsManualCombatMode() &&
+			    m_ReadyHands.WantedMode != WeaponPoseMode.LowReady)
+				DowngradeActiveMovementTierForReady();
+		}, _groupStaggerDelaySeconds);
+	}
+
+	public void SetWeaponPoseModeWanted(WeaponPoseMode _mode, float _groupStaggerDelaySeconds = 0f)
+	{
+		ScheduleRtsCommand(() =>
+		{
+			if (m_ReadyHands == null)
+				return;
+			m_ReadyHands.SetPoseModeWanted(_mode, true);
+			if (_mode != WeaponPoseMode.LowReady && _mode != WeaponPoseMode.Auto)
 				DowngradeActiveMovementTierForReady();
 		}, _groupStaggerDelaySeconds);
 	}
@@ -5099,12 +5163,12 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (_arrow.Mode != FacingArrowMode.TurnOnArrival)
 			PrepareLocomotionForArrowFacing();
 
-		ResolveCachedVision();
+		ResolveCachedTargetSelector();
 		if (!m_HasOldTargetAngle &&
-		    m_CachedVision != null &&
-		    m_CachedVision.VisibleTarget != null)
+		    m_CachedTargetSelector != null &&
+		    m_CachedTargetSelector.SelectedTarget != null)
 		{
-			Vector3 toTarget = m_CachedVision.VisibleTarget.position - transform.position;
+			Vector3 toTarget = m_CachedTargetSelector.SelectedTarget.position - transform.position;
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude > 0.01f)
 			{
@@ -5237,7 +5301,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 		m_HasWantedFacing = true;
 		m_WantedFacingAngle = yaw;
 		m_IsRotatingToFacing = true;
-		m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
 		return true;
 	}
 
@@ -5267,7 +5330,6 @@ public sealed class RtsUnitMember : MonoBehaviour
 			m_HasWantedFacing = true;
 			m_WantedFacingAngle = arrow.Angle;
 			m_IsRotatingToFacing = true;
-			m_WasReadyBeforeFacing = m_ReadyHands != null && m_ReadyHands.WantsReady;
 			return true;
 		}
 
@@ -5503,8 +5565,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		ResolveCachedVision();
-		if (m_CachedVision != null && m_CachedVision.VisibleTarget != null)
+		ResolveCachedTargetSelector();
+		if (m_CachedTargetSelector != null && m_CachedTargetSelector.SelectedTarget != null)
 		{
 			ClearOldTargetAngle("yellowReturning.targetVisible");
 			m_YellowDeferredActive = true;
@@ -5529,8 +5591,8 @@ public sealed class RtsUnitMember : MonoBehaviour
 			return;
 		}
 
-		ResolveCachedVision();
-		if (m_CachedVision != null && m_CachedVision.VisibleTarget != null)
+		ResolveCachedTargetSelector();
+		if (m_CachedTargetSelector != null && m_CachedTargetSelector.SelectedTarget != null)
 			return;
 
 		if (!HasActiveMovementIntent)
@@ -5555,11 +5617,11 @@ public sealed class RtsUnitMember : MonoBehaviour
 	private void UpdateBlueHoldPhase()
 	{
 		float centerAngle = m_FacingTurnTargetAngle;
-		ResolveCachedVision();
+		ResolveCachedTargetSelector();
 
-		if (m_CachedVision != null && m_CachedVision.VisibleTarget != null)
+		if (m_CachedTargetSelector != null && m_CachedTargetSelector.SelectedTarget != null)
 		{
-			Vector3 toTarget = m_CachedVision.VisibleTarget.position - transform.position;
+			Vector3 toTarget = m_CachedTargetSelector.SelectedTarget.position - transform.position;
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude > 0.01f)
 			{
@@ -5582,13 +5644,14 @@ public sealed class RtsUnitMember : MonoBehaviour
 
 		float centerAngle = Mathf.Atan2(toLook.x, toLook.z) * Mathf.Rad2Deg;
 		ResolveCachedVision();
+		ResolveCachedTargetSelector();
 		float halfFov = m_CachedVision != null
 			? m_CachedVision.ResolveHalfFovDegreesForScan()
 			: 60f;
 
-		if (m_CachedVision != null && m_CachedVision.VisibleTarget != null)
+		if (m_CachedTargetSelector != null && m_CachedTargetSelector.SelectedTarget != null)
 		{
-			Vector3 toTarget = m_CachedVision.VisibleTarget.position - unitPos;
+			Vector3 toTarget = m_CachedTargetSelector.SelectedTarget.position - unitPos;
 			toTarget.y = 0f;
 			if (toTarget.sqrMagnitude > 0.01f)
 			{
@@ -5714,6 +5777,13 @@ public sealed class RtsUnitMember : MonoBehaviour
 		if (m_CachedVision == null)
 			m_CachedVision = GetComponent<UnitVision>();
 		return m_CachedVision;
+	}
+
+	private TargetSelector ResolveCachedTargetSelector()
+	{
+		if (m_CachedTargetSelector == null)
+			m_CachedTargetSelector = GetComponent<TargetSelector>();
+		return m_CachedTargetSelector;
 	}
 
 	private bool IsNearYellowArrowPosition()
@@ -6346,6 +6416,18 @@ public sealed class RtsUnitMember : MonoBehaviour
 	{
 		if (m_Animator == null)
 			return;
+
+		if (!m_TriedResolveWeaponPoseTuner)
+		{
+			m_TriedResolveWeaponPoseTuner = true;
+			m_WeaponPoseTuner = GetComponent<UnitEquippedWeaponPoseRuntimeTuner>();
+		}
+
+		if (m_WeaponPoseTuner != null && m_WeaponPoseTuner.ShouldFreezeWalkAnimator)
+		{
+			m_Animator.speed = 0f;
+			return;
+		}
 
 		float playbackSync = 1f;
 		if (m_LocomotionDriver != null)

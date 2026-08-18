@@ -31,6 +31,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1432176539841908606}
   m_LocalEulerAnglesHint: {x: 15.003, y: 18.705, z: 118.157}
+--- !u!1 &466521516129702550
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 657791036997787289}
+  m_Layer: 0
+  m_Name: LeftHandGrip
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &657791036997787289
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 466521516129702550}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.29160252, y: 0.5770743, z: 0.6852777, w: 0.33518317}
+  m_LocalPosition: {x: -0.088, y: -0.031, z: -0.057}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1432176539841908606}
+  m_LocalEulerAnglesHint: {x: 356.40207, y: 355.88736, z: 75.40118}
 --- !u!1 &1007356145121795600
 GameObject:
   m_ObjectHideFlags: 0
@@ -40,6 +71,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1432176539841908606}
+  - component: {fileID: 668448226777397268}
   m_Layer: 0
   m_Name: Attachment_Visual_M4_ForeGrip4
   m_TagString: Untagged
@@ -63,8 +95,22 @@ Transform:
   - {fileID: 3231270725436205633}
   - {fileID: 8123456789012345708}
   - {fileID: 8799644183691554371}
+  - {fileID: 657791036997787289}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -0.265, y: 18.636, z: 102.025}
+--- !u!114 &668448226777397268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1007356145121795600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e4d2f30c8e5f7b0d1e3a5c7294f6b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponForeGrip
+  m_LeftHandGrip: {fileID: 657791036997787289}
 --- !u!1 &4829458803621823327
 GameObject:
   m_ObjectHideFlags: 0

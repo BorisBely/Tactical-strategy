@@ -15,19 +15,30 @@ MonoBehaviour:
   m_LocalizationKey: item.medkit.ifak
   m_Description: Individual First Aid Kit. Stabilizes wounds by spending medical
     resource; heavier injuries cost more.
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: 21300000, guid: bd5ed62cda6b4dd45906a252e8d00381, type: 3}
   m_BasePrice: 220
+  m_WeightKg: 0
   m_Category: 0
   m_DropWorldPrefab: {fileID: 578205961267695512, guid: 10bb9d1d61cf4054bad55d1b8101ef10, type: 3}
   m_EquippedVisualPrefab: {fileID: 8774004039058524131, guid: 3f9c4fd27ae63534294961ad1644afaf, type: 3}
   m_RightHandLocalPosition: {x: -0.02432698, y: -0.02872629, z: -0.02649663}
   m_RightHandLocalEulerAngles: {x: -263.574, y: 70.81, z: 332.043}
-  m_LeftHandIkTargetChildName: LeftHandIkTarget
+  m_RightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_RightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_CrouchRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandLocalEulerAngles: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalPosition: {x: 0, y: 0, z: 0}
+  m_VehicleRightHandReadyLocalEulerAngles: {x: 0, y: 0, z: 0}
   m_EquipmentKind: 0
   m_VisualProfile: {fileID: 0}
   m_HeadBulletBlockChance: 0
   m_BackpackCapacity: 0
   m_WeaponType: 0
+  m_TurretWeaponVariant: 0
   m_WeaponDefinition: {fileID: 0}
   m_AmmoDefinition: {fileID: 0}
   m_InitialAmmoCount: 0
@@ -35,6 +46,13 @@ MonoBehaviour:
   m_WeaponAttachmentDefinition: {fileID: 0}
   m_GrenadeType: 0
   m_AttachedBodyVisualPrefab: {fileID: 0}
+  m_RocketLauncherType: 0
+  m_RocketLauncherHandPrefab: {fileID: 0}
+  m_RocketProjectilePrefab: {fileID: 0}
+  m_RpgRocketItemDefinition: {fileID: 0}
+  m_RpgRocketHandPrefab: {fileID: 0}
+  m_RocketLauncherStartsLoaded: 0
+  m_IsRpgRocketAmmo: 0
   m_MedkitDefinition: {fileID: 11400000, guid: 60eac925514457c4eba767145f2a384a, type: 2}
   m_BagAddSounds:
     m_Clips:

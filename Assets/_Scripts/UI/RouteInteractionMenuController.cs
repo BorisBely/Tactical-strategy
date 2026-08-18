@@ -77,11 +77,11 @@ public sealed class RouteInteractionMenuController : MonoBehaviour
 		{
 			return new MenuVisualStyle
 			{
-				PanelBackground = new Color(0.31132078f, 0.31132078f, 0.31132078f, 0.9411765f),
-				ItemNormal = new Color(0.3372549f, 0.3529412f, 0.37254903f, 1f),
-				ItemHover = new Color(0.2f, 0.68f, 0.32f, 0.72f),
-				ItemPressed = new Color(0.254717f, 0.254717f, 0.254717f, 1f),
-				Text = Color.white,
+				PanelBackground = InventoryUiTheme.PanelBackground,
+				ItemNormal = InventoryUiTheme.CellBackground,
+				ItemHover = InventoryUiTheme.MenuItemHover,
+				ItemPressed = InventoryUiTheme.MenuItemPressed,
+				Text = InventoryUiTheme.PrimaryText,
 				FontSize = 16f
 			};
 		}
@@ -223,6 +223,8 @@ public sealed class RouteInteractionMenuController : MonoBehaviour
 	{
 		if (s_Instance != null)
 			return s_Instance;
+		if (!PlayModeSingleton.CanSpawn)
+			return null;
 
 		var rootObject = new GameObject(nameof(RouteInteractionMenuController));
 		s_Instance = rootObject.AddComponent<RouteInteractionMenuController>();
@@ -337,7 +339,8 @@ public sealed class RouteInteractionMenuController : MonoBehaviour
 		itemRect.sizeDelta = new Vector2(c_MenuMinWidth, c_ItemHeight);
 
 		Image itemBackground = itemObject.AddComponent<Image>();
-		ApplyPanelImageStyle(itemBackground, m_Style.ItemNormal);
+		// ColorTint multiplies Image.color × ColorBlock — keep Image white.
+		ApplyPanelImageStyle(itemBackground, Color.white);
 
 		Button button = itemObject.AddComponent<Button>();
 		UiInteractionAudioUtility.EnsureHoverSoundOn(itemObject);
@@ -347,6 +350,7 @@ public sealed class RouteInteractionMenuController : MonoBehaviour
 		colors.highlightedColor = m_Style.ItemHover;
 		colors.pressedColor = m_Style.ItemPressed;
 		colors.selectedColor = m_Style.ItemHover;
+		colors.colorMultiplier = 1f;
 		colors.fadeDuration = 0.08f;
 		button.colors = colors;
 

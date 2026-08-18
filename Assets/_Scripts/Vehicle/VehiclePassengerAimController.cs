@@ -11,7 +11,7 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private VehiclePassengerState m_State;
 	[SerializeField] private VehicleController m_Vehicle;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField, Range(0.5f, 10f)] private float m_AimYawSmoothTime = 0.15f;
 
@@ -46,8 +46,8 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 			m_State = GetComponent<VehiclePassengerState>();
 		if (m_Vehicle == null)
 			m_Vehicle = GetComponentInParent<VehicleController>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
 	}
@@ -123,30 +123,30 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 	#region Private Methods
 	private Vector3? ResolveAimTarget()
 	{
-		if (m_Vision == null)
+		if (m_TargetSelector == null)
 			return null;
 
-		Transform engageable = m_Vision.GetEngageableVisibleTarget();
+		Transform engageable = m_TargetSelector.GetEngageableSelectedTarget();
 		if (engageable != null)
 			return engageable.position;
 
-		Transform visible = m_Vision.VisibleTarget;
-		if (visible != null)
-			return visible.position;
+		Transform selected = m_TargetSelector.SelectedTarget;
+		if (selected != null)
+			return selected.position;
 
 		return null;
 	}
 
 	private Transform ResolveAimTargetTransform()
 	{
-		if (m_Vision == null)
+		if (m_TargetSelector == null)
 			return null;
 
-		Transform engageable = m_Vision.GetEngageableVisibleTarget();
+		Transform engageable = m_TargetSelector.GetEngageableSelectedTarget();
 		if (engageable != null)
 			return engageable;
 
-		return m_Vision.VisibleTarget;
+		return m_TargetSelector.SelectedTarget;
 	}
 
 	private float WorldDirectionToVehicleLocalAngle(

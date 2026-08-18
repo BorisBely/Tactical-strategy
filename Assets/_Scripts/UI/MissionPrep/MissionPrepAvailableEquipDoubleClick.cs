@@ -68,6 +68,12 @@ public sealed class MissionPrepAvailableEquipDoubleClick : MonoBehaviour, IPoint
 			return;
 		}
 
+		if (MissionPrepBackpackEquipUtility.CanEquipToBack(m_Slot.Data))
+		{
+			m_Coordinator.TryEquipAvailableSlotToBack(m_Slot);
+			return;
+		}
+
 		if (!MissionPrepWeaponEquipUtility.CanEquipToMainHand(m_Slot.Data))
 			return;
 

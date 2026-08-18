@@ -483,7 +483,7 @@ namespace VehicleNavigation
 			FilterTestCasesByVariant();
 			ApplyShardFilter();
 
-			Debug.Log($"[TestPlatform] Generated {m_TestCases.Count} test cases ({m_TestVariant} P{m_PlatformId})");
+			// Logged after OpenLogFile in RunAllTests (Awake runs before the file exists).
 		}
 
 		private void GenerateCalibrationTestCases()
@@ -591,6 +591,7 @@ namespace VehicleNavigation
 		{
 			EnterPerformanceRunMode();
 			OpenLogFile();
+			WriteLog($"[TestPlatform] Generated {m_TestCases.Count} test cases ({m_TestVariant} P{m_PlatformId})");
 
 			for (m_CurrentTestIndex = 0; m_CurrentTestIndex < m_TestCases.Count; m_CurrentTestIndex++)
 				yield return StartCoroutine(RunSingleTest(m_TestCases[m_CurrentTestIndex]));
@@ -1144,21 +1145,19 @@ namespace VehicleNavigation
 			}
 
 			string summary = sb.ToString();
-			Debug.Log(summary);
 			WriteLog(summary);
 			if (m_TestVariant != VehicleTestVariant.Variant5_KinematicsCalibration && m_PlatformId <= 1)
 				WriteBaselineComparison();
 			m_SummaryWritten = true;
 			FlushLog();
-			m_LogWriter?.Close();
-			m_LogWriter = null;
+			CloseLog();
 		}
 
 		private void SpawnVehicle()
 		{
 			if (m_VehiclePrefab == null)
 			{
-				Debug.LogError("[TestPlatform] Vehicle prefab not assigned!");
+				WriteLog("[TestPlatform] ERROR: Vehicle prefab not assigned!");
 				return;
 			}
 
@@ -1170,6 +1169,8 @@ namespace VehicleNavigation
 			               m_VehicleInstance.GetComponentInChildren<VehicleNavigation>();
 			m_Brain = m_VehicleInstance.GetComponent<VehicleBrain>();
 			m_VehicleController = m_VehicleInstance.GetComponent<VehicleController>();
+			if (m_VehicleController != null)
+				VehicleFileLog.BindTestVehicle(m_VehicleController);
 
 			if (m_Brain != null)
 			{
@@ -1179,13 +1180,16 @@ namespace VehicleNavigation
 			}
 
 			if (m_Navigation == null)
-				Debug.LogError("[TestPlatform] VehicleNavigation component not found on prefab!");
+				WriteLog("[TestPlatform] ERROR: VehicleNavigation component not found on prefab!");
 		}
 
 		private void DespawnVehicle()
 		{
 			if (m_VehicleController != null)
+			{
+				VehicleFileLog.UnbindTestVehicle(m_VehicleController);
 				m_VehicleController.SetExternalDriveHoldOverride(false);
+			}
 
 			if (m_Navigation != null)
 			{
@@ -1221,13 +1225,13 @@ namespace VehicleNavigation
 
 		private void OpenLogFile()
 		{
-			string dir = Path.Combine(Application.dataPath, "_Docs");
-			Directory.CreateDirectory(dir);
+			string dir = VehicleFileLog.GetTestsDirectory();
 			string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 			string variantSuffix = GetVariantLogSuffix();
 			string variantLabel = GetVariantLabel();
 			string path = Path.Combine(dir, $"VehicleTest_{stamp}{variantSuffix}.log");
 			m_LogWriter = new StreamWriter(path, false, Encoding.UTF8);
+			VehicleFileLog.AttachTestWriter(m_LogWriter);
 			WriteLog("==============================================================");
 			WriteLog("         VEHICLE TEST PLATFORM — DETAILED LOG");
 			WriteLog("==============================================================");
@@ -1277,6 +1281,7 @@ namespace VehicleNavigation
 		{
 			if (m_LogWriter == null)
 				return;
+			VehicleFileLog.DetachTestWriter(m_LogWriter);
 			try
 			{
 				m_LogWriter.Flush();
@@ -1619,7 +1624,10 @@ namespace VehicleNavigation
 
 		private void WriteBaselineComparisonFor(string _fileName, string _label)
 		{
-			string baselinePath = Path.Combine(Application.dataPath, "_Docs", _fileName);
+			string testsDir = VehicleFileLog.GetTestsDirectory();
+			string baselinePath = Path.Combine(testsDir, _fileName);
+			if (!File.Exists(baselinePath))
+				baselinePath = Path.Combine(Application.dataPath, "_Docs", _fileName);
 			if (!File.Exists(baselinePath))
 				return;
 
@@ -1637,13 +1645,11 @@ namespace VehicleNavigation
 			}
 
 			string report = sb.ToString();
-			Debug.Log(report);
 			WriteLog(report);
 			FlushLog();
 
 			string reportPath = Path.Combine(
-				Application.dataPath,
-				"_Docs",
+				testsDir,
 				$"ComparisonReport_{_label.Replace(' ', '_')}_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
 			File.WriteAllText(reportPath, report, Encoding.UTF8);
 		}

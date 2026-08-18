@@ -493,7 +493,7 @@ Transform:
   m_GameObject: {fileID: 1647905461634631498}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.1242, y: 0.1113, z: 0.464}
+  m_LocalPosition: {x: 0.1242, y: 0.0557, z: 0.464}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1337,7 +1337,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5122986070723188494
 Transform:
   m_ObjectHideFlags: 0
@@ -1632,6 +1632,7 @@ GameObject:
   - component: {fileID: 1407655973311626226}
   - component: {fileID: 3450792440793505923}
   - component: {fileID: 5708340606326756919}
+  - component: {fileID: 6728491038572619401}
   m_Layer: 11
   m_Name: Light_Armored_Car
   m_TagString: Untagged
@@ -1903,52 +1904,6 @@ MonoBehaviour:
   m_OpenClip: {fileID: 8300000, guid: e3f5b833487f4b04bace58c525dd788a, type: 3}
   m_CloseClip: {fileID: 8300000, guid: 05f85669e3c9ad54e8537f66ea8b52cc, type: 3}
   m_DoorVolume: 0.9
---- !u!114 &9123456789012345678
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3048653151834290230}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c8f4a2e1d7b94603a5f8c2d9e1b0a374, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VehicleEngineAudio
-  m_StartClip: {fileID: 8300000, guid: 77e53dab6effc9144a8bcda5a5dc1ec4, type: 3}
-  m_RpmLayers:
-  - Rpm: 600
-    Clip: {fileID: 8300000, guid: dfaa8d76e03348e4cbe743a5b2ef9607, type: 3}
-  - Rpm: 1000
-    Clip: {fileID: 8300000, guid: 2d88597bc61d8384a8a6d697a1064648, type: 3}
-  - Rpm: 1500
-    Clip: {fileID: 8300000, guid: 321a0f834129bbc4eb2956a98ff82146, type: 3}
-  - Rpm: 2000
-    Clip: {fileID: 8300000, guid: 827a0535abace824e824ca678cea9fd5, type: 3}
-  - Rpm: 2500
-    Clip: {fileID: 8300000, guid: 7a7797875226f0742832ecb115521705, type: 3}
-  - Rpm: 3000
-    Clip: {fileID: 8300000, guid: 3dd9ac11b049c3644a7477f8827379de, type: 3}
-  - Rpm: 3500
-    Clip: {fileID: 8300000, guid: 1d89777dfcad381419978d9ced4e4c05, type: 3}
-  - Rpm: 4000
-    Clip: {fileID: 8300000, guid: 454597a2464ad5e45bd9dbdb5df54293, type: 3}
-  - Rpm: 4500
-    Clip: {fileID: 8300000, guid: bdc5fc6daf4b6b64b8caa4d1f3a6432e, type: 3}
-  - Rpm: 5000
-    Clip: {fileID: 8300000, guid: 2d3a992c2d0f0b14c8699019bfa4b614, type: 3}
-  - Rpm: 5500
-    Clip: {fileID: 8300000, guid: 1832237a29a17bb4e934ce217f9de885, type: 3}
-  - Rpm: 6000
-    Clip: {fileID: 8300000, guid: 592f8c30cfb47f34c9f36319e91a8ffb, type: 3}
-  m_Volume: 1
-  m_SpatialBlend: 1
-  m_MinDistance: 30
-  m_MaxDistance: 180
-  m_LoopFadeSeconds: 0.35
-  m_RpmSmoothSpeed: 900
-  m_ThrottleInfluence: 0.35
-  m_SpeedInfluence: 0.65
 --- !u!114 &1254726012205483250
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2094,6 +2049,30 @@ MonoBehaviour:
   m_TrackedMotor: {fileID: 0}
   m_TurretAim: {fileID: 0}
   m_WeaponMount: {fileID: 0}
+--- !u!114 &9123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3048653151834290230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8f4a2e1d7b94603a5f8c2d9e1b0a374, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleEngineAudio
+  m_StartClip: {fileID: 8300000, guid: 77e53dab6effc9144a8bcda5a5dc1ec4, type: 3}
+  m_LoopClip: {fileID: 8300000, guid: dfaa8d76e03348e4cbe743a5b2ef9607, type: 3}
+  m_Volume: 1
+  m_SpatialBlend: 1
+  m_MinDistance: 30
+  m_MaxDistance: 180
+  m_LoopFadeSeconds: 0.35
+  m_LoadSmoothSpeed: 1.5
+  m_IdlePitch: 1
+  m_MaxPitch: 2
+  m_ThrottleInfluence: 0.35
+  m_SpeedInfluence: 0.65
 --- !u!114 &2503631656488479615
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2505,19 +2484,19 @@ MonoBehaviour:
   m_Bridge: {fileID: 0}
   m_Hierarchy: {fileID: 0}
   m_Equipment: {fileID: 0}
-  m_BarrelKickZ: -0.03
-  m_BarrelReturnSpeed: 0.15
-  m_GunKickZ: -0.025
-  m_GunMaxKickZ: -0.04
-  m_GunReturnSpeed: 0.04
-  m_PitchKickDeg: 0.4
-  m_YawKickDeg: 0.25
-  m_AngularReturnSpeed: 2
-  m_Mk19TremorZ: 0.015
-  m_Mk19TremorX: 0.008
-  m_Mk19TremorY: 0.005
-  m_Mk19TremorDuration: 0.12
-  m_Mk19ReturnSpeed: 0.3
+  m_BarrelKickZ: -0.028
+  m_BarrelReturnSpeed: 0.18
+  m_GunKickZ: -0.022
+  m_GunMaxKickZ: -0.035
+  m_GunReturnSpeed: 0.05
+  m_PitchKickDeg: 0.9
+  m_YawKickDeg: 0.35
+  m_AngularReturnSpeed: 3.5
+  m_Mk19TremorZ: 0.014
+  m_Mk19TremorX: 0.007
+  m_Mk19TremorY: 0.0045
+  m_Mk19TremorDuration: 0.14
+  m_Mk19ReturnSpeed: 0.35
 --- !u!114 &757707975370475230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2778,6 +2757,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e2de9a056ca435cb8b55388f3254778, type: 3}
   m_Name: 
   m_EditorClassIdentifier: _Scripts::VehicleDriveUnitPushIgnore
+--- !u!114 &6728491038572619401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3048653151834290230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7c3e91f2b4d4058a6e1c9d0f3b8a274, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleTireCompliance
+  m_MaxTireDeflection: 0.04
+  m_TireSpring: 12000
+  m_TireDamper: 1800
+  m_ActivationSpeed: 0.35
+  m_ReboundSpeed: 2.5
+  m_MaxForcePerWheel: 12000
+  m_ApplyVisualOffset: 1
 --- !u!1 &3353927365461275836
 GameObject:
   m_ObjectHideFlags: 0
@@ -5767,7 +5765,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &3393222764736406821
 Transform:
   m_ObjectHideFlags: 0

@@ -29,6 +29,8 @@ public sealed class VehiclePassengerState : MonoBehaviour
 	#endregion
 
 	#region Public Properties
+	public VehicleController Vehicle => m_Vehicle;
+	public bool IsAttached => m_Vehicle != null;
 	public VehicleSeatId Seat { get; private set; }
 	public bool WantsVehicleReady { get; private set; }
 	public bool IsVehicleReady { get; private set; }

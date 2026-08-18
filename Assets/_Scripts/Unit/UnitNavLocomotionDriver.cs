@@ -49,11 +49,15 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitAnimatorStance m_StanceSource;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitGrenadeThrowController m_GrenadeThrowController;
+	[SerializeField] private UnitWeaponAiming m_WeaponAiming;
+	[SerializeField] private UnitSpineHorizontalAim m_SpineHorizontalAim;
+	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitConsciousness m_Consciousness;
 	[SerializeField] private UnitSelfStabilizationController m_SelfStabilization;
 	[SerializeField] private UnitStabilizeOtherController m_StabilizeOther;
@@ -121,6 +125,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	[SerializeField, Range(0.4f, 1.5f)] private float m_PlaybackSyncMin = 0.55f;
 	[SerializeField, Range(0.5f, 2f)] private float m_PlaybackSyncMax = 1.45f;
 
+	[Header("Debug: facing")]
+	[Tooltip("Консоль [Facing]: корень, спина, barrel-centric, коррекция оружия. Только выбранный юнит.")]
+	[SerializeField] private bool m_LogFacingSystem;
+	[SerializeField, Min(0.05f)] private float m_LogFacingIntervalSeconds = 0.2f;
+
 	[Header("Engage pose settle")]
 	[Tooltip("If |body↔barrel| exceeds this, engage turns the root toward the target (not the bore) until the ready pose settles.")]
 	[SerializeField, Range(10f, 90f)] private float m_EngageRootFacingWhenBarrelOffsetExceeds = 25f;
@@ -146,11 +155,17 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private float m_TargetAgentSpeed;
 	public float FormationSpeedMultiplier = 1f;
 	public float StaminaSpeedMultiplier = 1f;
-	public float? OverrideFacingAngle;
+	[System.NonSerialized] public float? OverrideFacingAngle;
 	/// <summary>В high ready — world yaw линии огня (ствол); иначе yaw корня.</summary>
 	public bool SuppressEarlyArrivalStop { get; set; }
 	private bool m_StanceMovementWasBlocked;
 	private RtsUnitMember m_CachedRtsMember;
+	private UnitClickToMove m_ClickToMove;
+	private float m_NextFacingLogTime;
+	private string m_FacingLogMode = "none";
+	private string m_FacingLogDetail = "";
+	private float m_FacingLogRootDelta;
+	private string m_LastEmittedFacingMode;
 	#endregion
 
 	#region Public Properties
@@ -350,6 +365,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Agent = GetComponent<NavMeshAgent>();
 		if (m_Animator == null)
 			m_Animator = GetComponentInChildren<Animator>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
 		if (m_ReadyHands == null)
@@ -360,6 +377,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_GrenadeThrowController == null)
 			m_GrenadeThrowController = GetComponent<UnitGrenadeThrowController>();
+		if (m_SpineHorizontalAim == null)
+			m_SpineHorizontalAim = GetComponent<UnitSpineHorizontalAim>();
+		if (m_WeaponAiming == null)
+			m_WeaponAiming = GetComponent<UnitWeaponAiming>();
 		if (m_Consciousness == null)
 			m_Consciousness = GetComponent<UnitConsciousness>();
 		if (m_SelfStabilization == null)
@@ -379,6 +400,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		ApplyTierSpeed();
 		if (m_StanceSource != null)
 			m_LastStance = m_StanceSource.CurrentStance;
+	}
+
+	private void ResolveTargetSelector()
+	{
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 	}
 
 	private void Start()
@@ -430,6 +457,11 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		PushAnimator();
 		TryRestoreReadyAfterSprintWhenStopped();
 		TryRestoreReadyAfterRunWhenStopped();
+	}
+
+	private void LateUpdate()
+	{
+		LogFacingSystemIfNeeded();
 	}
 	#endregion
 
@@ -719,76 +751,184 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 	private void UpdateFacing()
 	{
-		if (m_GrenadeThrowController != null && (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
-			return;
-
-		if (m_CachedRtsMember != null && m_CachedRtsMember.IsRotatingToRouteFacing)
-			return;
-
-		if (ShouldApplyManualFacingOverride())
+		ResolveTargetSelector();
+		float yawBefore = transform.eulerAngles.y;
+		string mode = "none";
+		string detail = "";
+		try
 		{
-			m_EngageYawVelocity = 0f;
-			float bodyYaw = ResolveHorizontalFacingBodyYaw(OverrideFacingAngle.Value);
-			Vector3 overrideDir = UnitHorizontalFacingUtility.YawDegreesToForwardXZ(bodyYaw);
-			ApplyFacingDirection(overrideDir);
-			return;
-		}
-
-		if (IsRunActive() || IsSprintActive())
-		{
-			m_EngageYawVelocity = 0f;
-			if (TryGetMovementFacingDirection(out Vector3 moveDirection))
+			if (m_GrenadeThrowController != null && (m_GrenadeThrowController.IsAiming || m_GrenadeThrowController.IsThrowAnimPlaying))
 			{
-				ApplyFacingDirection(moveDirection);
+				mode = "blocked";
+				detail = "grenade";
+				return;
 			}
-			return;
-		}
 
-		if (IsEngagingVisibleTarget())
-		{
-			if (!TryResolveEngageFacing(out Vector3 origin, out Vector3 facingForwardXZ))
+			if (m_CachedRtsMember != null &&
+			    m_CachedRtsMember.IsRotatingToRouteFacing &&
+			    !m_CachedRtsMember.ShouldYieldRouteFacingToCombatTarget)
+			{
+				mode = "blocked";
+				detail = "routeFacing";
 				return;
+			}
 
-			Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
-			Vector3 toTarget = aimPoint - origin;
-			toTarget.y = 0f;
-			if (toTarget.sqrMagnitude < 1e-6f)
+			if (ShouldApplyManualFacingOverride())
+			{
+				m_EngageYawVelocity = 0f;
+				mode = "manual";
+				detail = $"arrowYaw={OverrideFacingAngle.Value:F1}";
+				float bodyYaw = ResolveHorizontalFacingBodyYaw(OverrideFacingAngle.Value);
+				Vector3 overrideDir = UnitHorizontalFacingUtility.YawDegreesToForwardXZ(bodyYaw);
+				ApplyFacingDirection(overrideDir);
 				return;
+			}
 
-			Vector3 engageDir = toTarget.normalized;
-			float yawError = Vector3.SignedAngle(facingForwardXZ, engageDir, Vector3.up);
-			HandleTurnReady(Mathf.Abs(yawError));
-			float currentYaw = transform.eulerAngles.y;
-			float targetYaw = currentYaw + yawError;
-			float newYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref m_EngageYawVelocity, m_FacingTargetYawSmoothTime);
-			transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
-			return;
-		}
-
-		m_EngageYawVelocity = 0f;
-
-		Vector3 direction = Vector3.zero;
-		Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
-		float planarSpeed = velocity.magnitude;
-
-		if (planarSpeed > m_StopVelocityEpsilon)
-			direction = velocity.normalized;
-		else if (NavAgentHasIncompletePath())
-		{
-			Vector3 toSteer = m_Agent.steeringTarget - transform.position;
-			toSteer.y = 0f;
-			if (toSteer.sqrMagnitude < 1e-6f)
+			if (IsRunActive() || IsSprintActive())
+			{
+				m_EngageYawVelocity = 0f;
+				mode = "move";
+				detail = IsSprintActive() ? "sprint" : "run";
+				if (TryGetMovementFacingDirection(out Vector3 moveDirection))
+					ApplyFacingDirection(moveDirection);
 				return;
-			direction = toSteer.normalized;
-		}
-		else
-		{
-			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
-			m_TurnSuppressedReady = false;
-			return;
-		}
+			}
 
-		ApplyFacingDirection(direction);
+			if (IsEngagingVisibleTarget())
+			{
+				if (TryApplyCombatWalkBarrelFacing(ref mode, ref detail))
+					return;
+
+				if (m_SpineHorizontalAim == null)
+					m_SpineHorizontalAim = GetComponent<UnitSpineHorizontalAim>();
+
+				if (m_SpineHorizontalAim != null && m_SpineHorizontalAim.IsActive)
+				{
+					if (!TryGetRootBodyToTargetYaw(out float bodyToTargetYaw))
+					{
+						mode = "engageSpine";
+						detail = "noBodyYaw";
+						return;
+					}
+
+					HandleTurnReady(Mathf.Abs(bodyToTargetYaw));
+
+					if (!m_SpineHorizontalAim.WantsRootRecenter)
+					{
+						m_EngageYawVelocity = 0f;
+						mode = "engageSpine";
+						detail = $"hold body↔target={bodyToTargetYaw:F1}° absorb={m_SpineHorizontalAim.CurrentAbsorbedYawDegrees:F1}°";
+						return;
+					}
+
+					mode = "engageSpine";
+					detail = $"recenter body↔target={bodyToTargetYaw:F1}°";
+					float currentYaw = transform.eulerAngles.y;
+					float targetYaw = currentYaw + bodyToTargetYaw;
+					float newYaw = Mathf.SmoothDampAngle(
+						currentYaw,
+						targetYaw,
+						ref m_EngageYawVelocity,
+						m_FacingTargetYawSmoothTime);
+					transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
+					return;
+				}
+
+				if (!TryResolveEngageFacing(out Vector3 origin, out Vector3 facingForwardXZ))
+				{
+					mode = "engageRoot";
+					detail = "noOrigin";
+					return;
+				}
+
+				Vector3 aimPoint = m_TargetSelector != null
+					? m_TargetSelector.GetEngageableAimPointWorld()
+					: Vector3.zero;
+				Vector3 toTarget = aimPoint - origin;
+				toTarget.y = 0f;
+				if (toTarget.sqrMagnitude < 1e-6f)
+				{
+					mode = "engageRoot";
+					detail = "noAimPoint";
+					return;
+				}
+
+				Vector3 engageDir = toTarget.normalized;
+				float yawError = Vector3.SignedAngle(facingForwardXZ, engageDir, Vector3.up);
+				HandleTurnReady(Mathf.Abs(yawError));
+				mode = "engageRoot";
+				detail = $"yawErr={yawError:F1}°";
+				float fallbackCurrentYaw = transform.eulerAngles.y;
+				float fallbackTargetYaw = fallbackCurrentYaw + yawError;
+				float fallbackNewYaw = Mathf.SmoothDampAngle(
+					fallbackCurrentYaw,
+					fallbackTargetYaw,
+					ref m_EngageYawVelocity,
+					m_FacingTargetYawSmoothTime);
+				transform.rotation = Quaternion.Euler(0f, fallbackNewYaw, 0f);
+				return;
+			}
+
+			string engageGate = UnitFacingDebugLog.DiagnoseEngageGate(
+				IsRunActive(),
+				IsSprintActive(),
+				false,
+				m_ReadyHands,
+				m_TargetSelector);
+			m_EngageYawVelocity = 0f;
+
+			bool readyIdleHoldFacing = m_ReadyHands != null && m_ReadyHands.WantsCombatTargetFacing();
+			Vector3 direction = Vector3.zero;
+			Vector3 velocity = new Vector3(m_Agent.velocity.x, 0f, m_Agent.velocity.z);
+			float planarSpeed = velocity.magnitude;
+
+			if (planarSpeed > m_StopVelocityEpsilon)
+			{
+				mode = "path";
+				detail = $"vel engage={engageGate}";
+				direction = velocity.normalized;
+			}
+			else if (NavAgentHasIncompletePath())
+			{
+				if (readyIdleHoldFacing)
+				{
+					m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+					m_TurnSuppressedReady = false;
+					mode = "idleHold";
+					detail = $"pathPending engage={engageGate}";
+					return;
+				}
+
+				Vector3 toSteer = m_Agent.steeringTarget - transform.position;
+				toSteer.y = 0f;
+				if (toSteer.sqrMagnitude < 1e-6f)
+				{
+					mode = "path";
+					detail = $"steerEmpty engage={engageGate}";
+					return;
+				}
+
+				mode = "path";
+				detail = $"steer engage={engageGate}";
+				direction = toSteer.normalized;
+			}
+			else
+			{
+				m_ReadyHands?.TryRestoreReadyAfterTurn(false);
+				m_TurnSuppressedReady = false;
+				mode = "idle";
+				detail = $"engage={engageGate}";
+				return;
+			}
+
+			ApplyFacingDirection(direction);
+		}
+		finally
+		{
+			m_FacingLogMode = mode;
+			m_FacingLogDetail = detail;
+			m_FacingLogRootDelta = Mathf.DeltaAngle(yawBefore, transform.eulerAngles.y);
+		}
 	}
 
 	private void HandleTurnReady(float _angleDegrees)
@@ -799,18 +939,129 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			{
 				m_ReadyHands?.SuppressReadyForTurnIfNeeded();
 				m_TurnSuppressedReady = true;
+				if (m_LogFacingSystem && UnitFacingDebugLog.ShouldLog(m_CachedRtsMember))
+				{
+					UnitFacingDebugLog.EmitEvent(
+						this,
+						"turnSuppress",
+						$"angle={_angleDegrees:F1}° pose={m_ReadyHands?.EffectivePoseState}");
+				}
 			}
 		}
 		else if (_angleDegrees < 20f && m_TurnSuppressedReady)
 		{
 			m_ReadyHands?.TryRestoreReadyAfterTurn(false);
 			m_TurnSuppressedReady = false;
+			if (m_LogFacingSystem && UnitFacingDebugLog.ShouldLog(m_CachedRtsMember))
+			{
+				UnitFacingDebugLog.EmitEvent(
+					this,
+					"turnRestore",
+					$"angle={_angleDegrees:F1}° pose={m_ReadyHands?.EffectivePoseState}");
+			}
 		}
+	}
+
+	private void LogFacingSystemIfNeeded()
+	{
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
+		if (m_ClickToMove != null && m_ClickToMove.enabled)
+			return;
+
+		if (!m_LogFacingSystem)
+			return;
+		if (!UnitFacingDebugLog.ShouldLog(m_CachedRtsMember))
+			return;
+
+		ResolveTargetSelector();
+
+		bool modeChanged = m_LastEmittedFacingMode != m_FacingLogMode;
+		if (!modeChanged && Time.unscaledTime < m_NextFacingLogTime)
+			return;
+
+		if (m_WeaponAiming == null)
+			m_WeaponAiming = GetComponent<UnitWeaponAiming>();
+
+		m_LastEmittedFacingMode = m_FacingLogMode;
+		m_NextFacingLogTime = Time.unscaledTime + Mathf.Max(0.05f, m_LogFacingIntervalSeconds);
+		UnitFacingDebugLog.EmitSnapshot(
+			this,
+			m_FacingLogMode,
+			m_FacingLogDetail,
+			m_FacingLogRootDelta,
+			m_TurnSuppressedReady,
+			m_ReadyHands,
+			m_SpineHorizontalAim,
+			m_Equipment,
+			m_WeaponAiming,
+			m_TargetSelector);
+	}
+
+	private bool TryApplyCombatWalkBarrelFacing(ref string _mode, ref string _detail)
+	{
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (!UnitHorizontalFacingUtility.IsCombatShootWalk(
+			    m_ReadyHands,
+			    m_Animator,
+			    IsRunActive() || IsSprintActive()))
+			return false;
+
+		if (m_ReloadController == null)
+			m_ReloadController = GetComponent<UnitWeaponReloadController>();
+		if (m_ReloadController != null && m_ReloadController.IsReloadBusy)
+			return false;
+
+		ResolveTargetSelector();
+		if (m_TargetSelector == null || m_TargetSelector.SelectedTarget == null)
+			return false;
+
+		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
+		if (!UnitHorizontalFacingUtility.TryGetTargetWorldYaw(transform, aimPoint, out float desiredBarrelYaw))
+			return false;
+
+		float bodyYaw = ResolveHorizontalFacingBodyYaw(desiredBarrelYaw);
+		float currentYaw = transform.eulerAngles.y;
+		float yawError = Mathf.DeltaAngle(currentYaw, bodyYaw);
+		HandleTurnReady(Mathf.Abs(yawError));
+		_mode = "engageAimWalk";
+		_detail = $"barrelYaw={desiredBarrelYaw:F1}° bodyYaw={bodyYaw:F1}° err={yawError:F1}°";
+		float newYaw = Mathf.SmoothDampAngle(
+			currentYaw,
+			bodyYaw,
+			ref m_EngageYawVelocity,
+			m_FacingTargetYawSmoothTime);
+		transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
+		return true;
 	}
 
 	private bool IsEngagingVisibleTarget()
 	{
-		return m_Vision != null && m_Vision.VisibleTarget != null && ShouldRotateRootTowardVisionTarget();
+		ResolveTargetSelector();
+		return m_TargetSelector != null && m_TargetSelector.SelectedTarget != null && ShouldRotateRootTowardVisionTarget();
+	}
+
+	private bool TryGetRootBodyToTargetYaw(out float _bodyToTargetYaw)
+	{
+		_bodyToTargetYaw = 0f;
+		ResolveTargetSelector();
+		if (m_TargetSelector == null || m_TargetSelector.SelectedTarget == null)
+			return false;
+
+		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
+		Vector3 toTarget = aimPoint - transform.position;
+		toTarget.y = 0f;
+		if (toTarget.sqrMagnitude < 1e-6f)
+			return false;
+
+		Vector3 bodyFwd = transform.forward;
+		bodyFwd.y = 0f;
+		if (bodyFwd.sqrMagnitude < 1e-6f)
+			return false;
+
+		_bodyToTargetYaw = Vector3.SignedAngle(bodyFwd.normalized, toTarget.normalized, Vector3.up);
+		return true;
 	}
 
 	private bool TryResolveEngageFacing(out Vector3 _origin, out Vector3 _facingForwardXZ)
@@ -848,10 +1099,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_CachedRtsMember != null)
 		{
 			RtsUnitMember.ArrowPriorityPhase phase = m_CachedRtsMember.CurrentArrowPriorityPhase;
-			if (phase == RtsUnitMember.ArrowPriorityPhase.Turning ||
-			    phase == RtsUnitMember.ArrowPriorityPhase.BlueHold ||
-			    phase == RtsUnitMember.ArrowPriorityPhase.GreenHold ||
-			    phase == RtsUnitMember.ArrowPriorityPhase.YellowReturning)
+			if (phase == RtsUnitMember.ArrowPriorityPhase.BlueHold ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.GreenHold)
 				return true;
 		}
 
@@ -859,6 +1108,14 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		// После потери/убийства цели OverrideFacingAngle остаётся и юнит возвращается к стрелке.
 		if (IsEngagingVisibleTarget())
 			return false;
+
+		if (m_CachedRtsMember != null)
+		{
+			RtsUnitMember.ArrowPriorityPhase phase = m_CachedRtsMember.CurrentArrowPriorityPhase;
+			if (phase == RtsUnitMember.ArrowPriorityPhase.Turning ||
+			    phase == RtsUnitMember.ArrowPriorityPhase.YellowReturning)
+				return true;
+		}
 
 		bool moving = IsPlanarMoving();
 		bool hasIntent = m_CachedRtsMember != null && m_CachedRtsMember.HasActiveMovementIntent;
@@ -907,7 +1164,7 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
-		return m_ReadyHands != null && m_ReadyHands.IsWeaponEquippedAndReady();
+		return m_ReadyHands != null && m_ReadyHands.WantsCombatTargetFacing();
 	}
 
 	private float ResolveHorizontalFacingBodyYaw(float _desiredWorldYaw)
@@ -1299,6 +1556,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	{
 		if (m_Animator == null || m_CachedRtsMember != null)
 			return;
+
+		if (TryGetComponent(out UnitEquippedWeaponPoseRuntimeTuner tuner) && tuner.ShouldFreezeWalkAnimator)
+		{
+			m_Animator.speed = 0f;
+			return;
+		}
 
 		m_Animator.speed = _multiplier;
 	}

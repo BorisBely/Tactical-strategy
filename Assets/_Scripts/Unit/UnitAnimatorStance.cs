@@ -10,6 +10,7 @@ using UnityEngine.InputSystem;
 /// Лёжа: клипы Prone_* в NavMeshLocomotion пока из RifleAnimsetPro_CrouchAndProne — плейсхолдер до отдельных безоружных.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(-5)]
 public sealed class UnitAnimatorStance : MonoBehaviour
 {
 	public const string ParamStance = "Stance";
@@ -69,6 +70,7 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 	#endregion
 
 	public LocomotionStance CurrentStance => m_Stance;
+	public bool IsKeyboardInputEnabled => m_EnableKeyboardInput;
 
 	/// <summary>Встать из приседа/лёжа без ожидания C/Z (например, заказ бега/спринта).</summary>
 	public void ForceStanding()
@@ -503,42 +505,48 @@ public sealed class UnitAnimatorStance : MonoBehaviour
 			return false;
 
 		if (m_Animator.IsInTransition(0))
-			return true;
-
-		AnimatorStateInfo info = m_Animator.GetCurrentAnimatorStateInfo(0);
-		if (info.fullPathHash == 0)
-			return false;
-
-		if (m_BlockStanceInputUntilEndOfState == null || m_BlockStanceInputUntilEndOfState.Length == 0)
-			return ShouldBlockByTransitionClipNamesFallback(info);
-
-		for (int i = 0; i < m_BlockStanceInputUntilEndOfState.Length; i++)
 		{
-			string stateName = m_BlockStanceInputUntilEndOfState[i];
-			if (string.IsNullOrEmpty(stateName))
-				continue;
-			// info.IsName(...) часто требует полный путь (особенно если стейт вложен в sub-state machine).
-			// Для наших переходных клипов достаточно совпадения по shortNameHash.
-			int shortHash = Animator.StringToHash(stateName);
-			if (info.shortNameHash != shortHash)
-				continue;
-
-			float nt = info.normalizedTime;
-			if (info.loop)
-				nt %= 1f;
-			return nt < 0.99f;
+			AnimatorStateInfo current = m_Animator.GetCurrentAnimatorStateInfo(0);
+			AnimatorStateInfo next = m_Animator.GetNextAnimatorStateInfo(0);
+			return IsStanceChangeAnimatorState(current, false) || IsStanceChangeAnimatorState(next, true);
 		}
 
-		// Фолбэк: если стейт переименован/не в списке — всё равно блокируем по имени клипа перехода.
-		return ShouldBlockByTransitionClipNamesFallback(info);
+		return IsStanceChangeAnimatorState(m_Animator.GetCurrentAnimatorStateInfo(0), false);
 	}
 
-	private bool ShouldBlockByTransitionClipNamesFallback(AnimatorStateInfo _info)
+	private bool IsStanceChangeAnimatorState(AnimatorStateInfo _info, bool _useNextClipInfo)
+	{
+		if (_info.fullPathHash == 0)
+			return false;
+
+		if (m_BlockStanceInputUntilEndOfState != null)
+		{
+			for (int i = 0; i < m_BlockStanceInputUntilEndOfState.Length; i++)
+			{
+				string stateName = m_BlockStanceInputUntilEndOfState[i];
+				if (string.IsNullOrEmpty(stateName))
+					continue;
+				if (_info.shortNameHash != Animator.StringToHash(stateName))
+					continue;
+
+				float nt = _info.normalizedTime;
+				if (_info.loop)
+					nt %= 1f;
+				return nt < 0.99f;
+			}
+		}
+
+		return ShouldBlockByTransitionClipNamesFallback(_info, _useNextClipInfo);
+	}
+
+	private bool ShouldBlockByTransitionClipNamesFallback(AnimatorStateInfo _info, bool _useNextClipInfo)
 	{
 		if (m_Animator == null)
 			return false;
 
-		AnimatorClipInfo[] clips = m_Animator.GetCurrentAnimatorClipInfo(0);
+		AnimatorClipInfo[] clips = _useNextClipInfo
+			? m_Animator.GetNextAnimatorClipInfo(0)
+			: m_Animator.GetCurrentAnimatorClipInfo(0);
 		if (clips == null || clips.Length == 0)
 			return false;
 

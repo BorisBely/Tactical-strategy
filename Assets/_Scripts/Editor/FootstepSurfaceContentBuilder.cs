@@ -332,7 +332,7 @@ public static class FootstepSurfaceContentBuilder
 
 	private static Transform FindSceneTransformByName(string _name)
 	{
-		Transform[] transforms = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		Transform[] transforms = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude);
 		for (int i = 0; i < transforms.Length; i++)
 		{
 			if (transforms[i].name == _name)

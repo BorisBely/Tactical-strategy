@@ -1,15 +1,15 @@
 using UnityEngine;
 
 /// <summary>
-/// Простейший ИИ врага: идёт по списку точек и включает ready, когда видит цель игрока.
-/// Стрельбу и более сложные решения можно наращивать поверх этого контроллера.
+/// Простейший ИИ врага: патруль + reaction/ready по выбранной боевой цели.
+/// Читает TargetSelector.SelectedTarget. Не владеет зрением.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class EnemyPatrolAI : MonoBehaviour
 {
 	#region Private Fields
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 
@@ -35,8 +35,8 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 	{
 		if (m_LocomotionDriver == null)
 			m_LocomotionDriver = GetComponent<UnitNavLocomotionDriver>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_CombatStats == null)
@@ -64,7 +64,7 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 		if (m_ReadyHands == null)
 			return;
 
-		bool seesTarget = m_Vision != null && m_Vision.VisibleTarget != null;
+		bool seesTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
 
 		if (seesTarget && !m_ReadyHands.WantsReady && !m_ReactionInProgress)
 		{
@@ -78,8 +78,9 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 		{
 			m_ReactionInProgress = false;
 			m_ReactionTimer = 0f;
-			if (m_ReadyHands.WantsReady)
-				m_ReadyHands.SetReadyWanted(false);
+			if (m_ReadyHands.WantedMode != WeaponPoseMode.LowReady &&
+			    m_ReadyHands.WantedMode != WeaponPoseMode.Auto)
+				m_ReadyHands.SetPoseModeWanted(WeaponPoseMode.Auto, false);
 			return;
 		}
 
@@ -91,8 +92,12 @@ public sealed class EnemyPatrolAI : MonoBehaviour
 
 			m_ReactionInProgress = false;
 			m_ReactionTimer = 0f;
-			m_ReadyHands.SetReadyWanted(true);
+			m_ReadyHands.SetPoseModeWanted(WeaponPoseMode.Auto, true);
+			return;
 		}
+
+		if (m_ReadyHands.WantedMode != WeaponPoseMode.Auto)
+			m_ReadyHands.SetPoseModeWanted(WeaponPoseMode.Auto, true);
 	}
 
 	private void UpdatePatrol()

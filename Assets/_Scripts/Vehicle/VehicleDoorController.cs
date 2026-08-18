@@ -63,6 +63,31 @@ public sealed class VehicleDoorController : MonoBehaviour
 		return false;
 	}
 
+	/// <summary>Ближайшая точка подхода к двери (для обмена с машиной).</summary>
+	public bool TryGetNearestApproachPoint(Vector3 _fromWorld, out Vector3 _point)
+	{
+		_point = Vector3.zero;
+		float bestSqr = float.MaxValue;
+		bool found = false;
+
+		for (int i = 0; i < m_Doors.Length; i++)
+		{
+			Transform approach = m_Doors[i].ApproachPoint;
+			if (approach == null)
+				continue;
+
+			float sqr = (approach.position - _fromWorld).sqrMagnitude;
+			if (sqr >= bestSqr)
+				continue;
+
+			bestSqr = sqr;
+			_point = approach.position;
+			found = true;
+		}
+
+		return found;
+	}
+
 	public IEnumerator OpenDoorRoutine(VehicleDoorId _doorId)
 	{
 		m_HoldOpen.Add(_doorId);

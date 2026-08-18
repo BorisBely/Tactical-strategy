@@ -80,11 +80,17 @@ public class CharacterInventory : MonoBehaviour
 	/// <summary>Добавить в сумку (не в слот оружия).</summary>
 	public bool TryAdd(InventorySlotRuntimeData _data)
 	{
+		return TryAdd(_data, false);
+	}
+
+	/// <summary>Добавить в сумку. <paramref name="_ignoreWeightLimit"/> — для тюнера, чтобы выдать гранатомёт даже при перегрузе.</summary>
+	public bool TryAdd(InventorySlotRuntimeData _data, bool _ignoreWeightLimit)
+	{
 		if (_data.IsEmpty)
 			return false;
 
 		float itemWeight = _data.Definition != null ? _data.Definition.WeightKg : 0f;
-		if (CargoWeightKg + itemWeight > MaxBagWeightKg)
+		if (!_ignoreWeightLimit && CargoWeightKg + itemWeight > MaxBagWeightKg)
 		{
 			Debug.LogWarning($"[Инвентарь] {name} | превышен лимит веса (груз {CargoWeightKg:F1} + {itemWeight:F1} > {MaxBagWeightKg:F1} кг), предмет не добавлен.");
 			return false;

@@ -885,13 +885,17 @@ namespace VehicleNavigation.Tests
 			var p = new VehicleParameters(
 				4.8f, 2.4f, 3.5f, 30f, 15f, 32f, 120f, 5.5f, null,
 				new VehicleKinematicsProfile(3.5f, 4.8f, 2.4f, 32f));
+			const float speedKmh = 4f;
 			var output = tracker.Tick(
-				new Vector3(0f, 0f, 1.95f), 0f, 4f, p, 1f);
+				new Vector3(0f, 0f, 1.95f), 0f, speedKmh, p, 1f);
 
 			Assert.IsTrue(output.RequestTerminalBrake);
 			Assert.IsFalse(output.NeedPathReplan);
 			Assert.IsFalse(output.IsComplete);
-			Assert.AreEqual(0f, output.Command.DesiredSpeedKmh, 0.01f);
+			Assert.AreEqual(StopIntent.Goal, output.Command.StopIntent);
+			// Soft settle: creep/slew down instead of DesiredSpeed=0 slam.
+			Assert.Less(output.Command.DesiredSpeedKmh, speedKmh);
+			Assert.LessOrEqual(output.Command.DesiredSpeedKmh, 2.01f);
 		}
 
 		[Test]

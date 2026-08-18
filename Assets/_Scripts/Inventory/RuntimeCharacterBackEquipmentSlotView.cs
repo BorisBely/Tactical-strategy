@@ -22,7 +22,10 @@ public sealed class RuntimeCharacterBackEquipmentSlotView : MonoBehaviour, IDrop
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureBackEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureBackEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();

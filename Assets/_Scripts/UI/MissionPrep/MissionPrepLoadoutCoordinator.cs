@@ -34,6 +34,8 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	#region Private Fields
 	private MissionPrepUnitPresetState m_BoundPresetState;
 	private CharacterInventory m_BoundInventory;
+	private VehicleController m_BoundVehicle;
+	private int m_UnitLeadingEquipmentSlotCount = -1;
 	private int m_EditingPresetCatalogIndex;
 	private MissionPrepRuntimePresetRegistry m_RuntimePresetRegistry;
 	private MissionPrepModificationUiState m_ModificationUiState;
@@ -99,13 +101,13 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 	private void OnDisable()
 	{
+		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
+		MissionPrepModificationDragContext.ResetAfterDrag();
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		MissionPrepModificationDragContext.Changed -= HandleModificationDragContextChanged;
 		InventoryEquipmentEquipHoverContext.Changed -= HandleEquipmentEquipHoverChanged;
 		TryUnsubscribeBoundUnitReloadCompletionHandler();
 		TryUnsubscribeBoundUnitRocketModificationCompletionHandler();
-		MissionPrepModificationSlotDrag.CleanupActiveDragVisual();
-		MissionPrepModificationDragContext.ResetAfterDrag();
-		InventoryEquipmentEquipHoverContext.ClearAll();
 		if (m_DeferredInlineRefreshCoroutine != null)
 		{
 			StopCoroutine(m_DeferredInlineRefreshCoroutine);
@@ -162,6 +164,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		EnsureSharedPresetStore();
 		MissionPrepPresetInventoryDropZone.EnsureOnPresetPanel(m_PresetInventoryPanel, this);
 		MissionPrepAvailableEquipmentDropZone.EnsureOnAvailablePanel(m_AvailableEquipmentPanel, this);
+		m_AvailableEquipmentPanel?.StabilizeListLayout();
 	}
 
 	/// <summary>Показать и подготовить редактирование пресета каталога (без выбора юнита).</summary>
@@ -197,9 +200,14 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		return m_SharedPresetStore.GetSnapshot(m_EditingPresetCatalogIndex);
 	}
 
+	public bool IsBoundToVehicle => m_BoundVehicle != null;
+	public VehicleController BoundVehicle => m_BoundVehicle;
+
 	/// <summary>Выбор юнита: превью его назначенного пресета на модели; панель остаётся на редактируемом пресете.</summary>
 	public void BindUnit(GameObject _unitRoot)
 	{
+		ClearVehicleBindingInternal();
+
 		m_BoundPresetState = _unitRoot != null
 			? MissionPrepUnitPresetState.GetOrCreate(_unitRoot, 0)
 			: null;
@@ -212,6 +220,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		TrySubscribeBoundUnitReloadCompletionHandler();
 
 		EnsureSharedPresetStoreInitialized();
+		RestoreUnitLeadingEquipmentSlotCount();
 
 		if (m_BoundPresetState != null)
 		{
@@ -220,11 +229,30 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			m_BoundPresetState.EnsureSnapshotDefaultsFromCatalog(m_EditingPresetCatalogIndex, m_PresetCatalog);
 			ApplyUnitAssignedPresetToRuntime();
 			SyncBoundUnitInventoryToSnapshotIfEditingSamePreset();
-		RepaintInventoryPanel();
-		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+			RepaintInventoryPanel();
+			MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+		}
+
+		RefreshModificationCompatibilityHighlights();
 	}
 
+	/// <summary>Выбор машины: панель пресета показывает инвентарь машины.</summary>
+	public void BindVehicle(VehicleController _vehicle)
+	{
+		TryUnsubscribeBoundUnitReloadCompletionHandler();
+		m_BoundPresetState = null;
+		m_BoundInventory = null;
+		m_BoundVehicle = _vehicle;
+
+		RememberUnitLeadingEquipmentSlotCount();
+		if (m_PresetInventoryPanel != null)
+			m_PresetInventoryPanel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
+
+		ClearModificationUiSelection();
+		MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
+		RepaintInventoryPanel();
 		RepaintAvailableEquipmentPanel();
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
 	}
 
 	public void ClearUnitBinding()
@@ -232,8 +260,36 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		TryUnsubscribeBoundUnitReloadCompletionHandler();
 		m_BoundPresetState = null;
 		m_BoundInventory = null;
+		ClearVehicleBindingInternal();
+		RestoreUnitLeadingEquipmentSlotCount();
 		RepaintInventoryPanel();
 		RepaintAvailableEquipmentPanel();
+	}
+
+	private void ClearVehicleBindingInternal()
+	{
+		if (m_BoundVehicle == null)
+			return;
+
+		m_BoundVehicle = null;
+		RestoreUnitLeadingEquipmentSlotCount();
+	}
+
+	private void RememberUnitLeadingEquipmentSlotCount()
+	{
+		if (m_PresetInventoryPanel == null)
+			return;
+
+		if (m_UnitLeadingEquipmentSlotCount < 0)
+			m_UnitLeadingEquipmentSlotCount = m_PresetInventoryPanel.LeadingEquipmentSlotCount;
+	}
+
+	private void RestoreUnitLeadingEquipmentSlotCount()
+	{
+		if (m_PresetInventoryPanel == null || m_UnitLeadingEquipmentSlotCount < 0)
+			return;
+
+		m_PresetInventoryPanel.SetLeadingEquipmentSlotCount(m_UnitLeadingEquipmentSlotCount);
 	}
 
 	/// <summary>Смена пресета в дропдауне: общий снимок + назначение выбранному юниту (если есть).</summary>
@@ -309,6 +365,9 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (m_AvailableEquipmentPanel == null || !m_AvailableEquipmentPanel.IsConfiguredForDynamicRepaint)
 			return;
 
+		m_AvailableEquipmentPanel.StabilizeListLayout();
+		m_AvailableEquipmentPanel.SetUseDefinitionIconsOnly(true);
+
 		if (m_AvailableEquipmentCatalog == null)
 		{
 			m_AvailableEquipmentPanel.ClearAllSlots();
@@ -316,9 +375,45 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		}
 
 		m_AvailableEquipmentCatalog.BuildSlotList(m_AvailableSlotBuffer);
+
+		MissionPrepAvailableEquipmentCategoryFilter categoryFilter = ResolveAvailableEquipmentCategoryFilter();
+		if (categoryFilter != null &&
+		    categoryFilter.TryGetEffectiveCategory(out MissionPrepAvailableEquipmentFilterCategory category))
+		{
+			MissionPrepAvailableEquipmentFilterClassifier.FilterInPlace(m_AvailableSlotBuffer, category);
+		}
+
 		m_AvailableEquipmentPanel.RepaintFromSlotList(m_AvailableSlotBuffer);
 		EnsureAvailableEquipmentDragComponents();
 		RefreshModificationCompatibilityHighlights();
+		categoryFilter?.SyncPaintedStateFromCurrent();
+
+		Transform availableRoot = m_AvailableEquipmentPanel.transform.parent != null
+			? m_AvailableEquipmentPanel.transform.parent
+			: m_AvailableEquipmentPanel.transform;
+		MissionPrepAvailableEquipmentHintsUi hints =
+			MissionPrepAvailableEquipmentHintsUi.EnsureOnPanelRoot(availableRoot);
+		if (hints != null)
+		{
+			hints.RefreshLocalizedText();
+			bool showEmpty = categoryFilter != null &&
+			                 categoryFilter.TryGetEffectiveCategory(out _) &&
+			                 m_AvailableSlotBuffer.Count == 0;
+			hints.SetEmptyVisible(showEmpty);
+		}
+	}
+
+	private MissionPrepAvailableEquipmentCategoryFilter ResolveAvailableEquipmentCategoryFilter()
+	{
+		if (m_AvailableEquipmentPanel == null)
+			return null;
+
+		MissionPrepAvailableEquipmentCategoryFilter filter =
+			m_AvailableEquipmentPanel.GetComponentInParent<MissionPrepAvailableEquipmentCategoryFilter>();
+		if (filter != null)
+			return filter;
+
+		return m_AvailableEquipmentPanel.GetComponentInChildren<MissionPrepAvailableEquipmentCategoryFilter>(true);
 	}
 
 	private void EnsureAvailableEquipmentDragComponents()
@@ -1548,6 +1643,21 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 		if (m_PresetInventoryPanel == null)
 			return;
 
+		if (m_BoundVehicle != null)
+		{
+			ClearModificationUiSelection();
+			MissionPrepInlineModificationBuilder.ClearAllRowsImmediate(m_PresetInventoryPanel);
+			m_PresetInventoryPanel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
+			VehicleInventory vehicleInventory = m_BoundVehicle.Inventory;
+			if (vehicleInventory != null)
+				vehicleInventory.RepaintInventoryPanel(m_PresetInventoryPanel);
+			else
+				m_PresetInventoryPanel.ClearAllSlots();
+
+			MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+			return;
+		}
+
 		EnsureSharedPresetStore();
 		if (m_SharedPresetStore == null)
 		{
@@ -1758,8 +1868,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 	private void AdjustAllUnitsAfterPresetDeletion(int _deletedIndex)
 	{
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -1777,8 +1886,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 			return;
 
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 		for (int i = 0; i < units.Length; i++)
 		{
 			MissionPrepUnitPresetState unit = units[i];
@@ -2055,8 +2163,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		bool startedAuthoritative = false;
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 
 		for (int i = 0; i < units.Length; i++)
 		{
@@ -2111,8 +2218,7 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		bool startedAuthoritative = false;
 		MissionPrepUnitPresetState[] units = FindObjectsByType<MissionPrepUnitPresetState>(
-			FindObjectsInactive.Exclude,
-			FindObjectsSortMode.None);
+			FindObjectsInactive.Exclude);
 
 		for (int i = 0; i < units.Length; i++)
 		{
@@ -3186,6 +3292,12 @@ public sealed class MissionPrepLoadoutCoordinator : MonoBehaviour
 
 		if (!m_ModificationUiState.HasSelection || m_ModificationUiState.DisplayState == _displayState)
 		{
+			if (_displayState == RuntimeModifiableWeaponDisplayState.Collapsed)
+			{
+				MissionPrepInlineModificationBuilder.RefreshHighlights(m_PresetInventoryPanel);
+				RefreshModificationCompatibilityHighlights();
+			}
+
 			return;
 		}
 
@@ -4193,15 +4305,16 @@ public sealed class MissionPrepAvailableEquipmentSlotHighlightView : MonoBehavio
 	public void RefreshHighlight()
 	{
 		EnsureBackgroundImage();
-		if (m_BackgroundImage == null || m_Slot == null || !m_Slot.HasItem)
+		if (m_BackgroundImage == null)
 			return;
 
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
-		bool compatible = m_Coordinator != null &&
+		bool compatible = m_Slot != null &&
+		                  m_Slot.HasItem &&
+		                  m_Coordinator != null &&
 		                  m_Coordinator.ShouldHighlightCompatibleWithModificationWeapon(m_Slot.Data);
-
 		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
 	}
 	#endregion
@@ -4249,15 +4362,16 @@ public sealed class MissionPrepPresetInventorySlotHighlightView : MonoBehaviour
 	public void RefreshHighlight()
 	{
 		EnsureBackgroundImage();
-		if (m_BackgroundImage == null || m_Slot == null || !m_Slot.HasItem)
+		if (m_BackgroundImage == null)
 			return;
 
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
 
-		bool compatible = m_Coordinator != null &&
+		bool compatible = m_Slot != null &&
+		                  m_Slot.HasItem &&
+		                  m_Coordinator != null &&
 		                  m_Coordinator.ShouldHighlightCompatibleWithModificationWeapon(m_Slot.Data);
-
 		m_BackgroundImage.color = compatible ? m_CompatibleColor : m_NormalColor;
 	}
 	#endregion
@@ -4300,6 +4414,9 @@ public sealed class MissionPrepWeaponProfileGraphHover : MonoBehaviour, IPointer
 	#region Event Handlers
 	public void OnPointerEnter(PointerEventData eventData)
 	{
+		if (eventData != null && eventData.dragging)
+			return;
+
 		if (m_Slot == null)
 			m_Slot = GetComponent<InventorySlotView>();
 		if (m_Coordinator == null)
@@ -4322,6 +4439,17 @@ public sealed class MissionPrepWeaponProfileGraphHover : MonoBehaviour, IPointer
 		m_IsHovering = false;
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+		m_Coordinator?.ClearHoveredWeaponGraphCandidate(m_Slot != null ? m_Slot.Data : default);
+	}
+	#endregion
+
+	#region Unity Lifecycle
+	private void OnDisable()
+	{
+		if (!m_IsHovering)
+			return;
+
+		m_IsHovering = false;
 		m_Coordinator?.ClearHoveredWeaponGraphCandidate(m_Slot != null ? m_Slot.Data : default);
 	}
 	#endregion
@@ -4353,6 +4481,9 @@ public sealed class MissionPrepModificationPreviewHover : MonoBehaviour, IPointe
 	#region Event Handlers
 	public void OnPointerEnter(PointerEventData eventData)
 	{
+		if (eventData != null && eventData.dragging)
+			return;
+
 		if (m_Slot == null)
 			m_Slot = GetComponent<InventorySlotView>();
 		if (m_Coordinator == null)
@@ -4372,6 +4503,17 @@ public sealed class MissionPrepModificationPreviewHover : MonoBehaviour, IPointe
 		m_IsHovering = false;
 		if (m_Coordinator == null)
 			m_Coordinator = MissionPrepLoadoutCoordinator.Instance;
+		m_Coordinator?.ClearHoveredModificationPreviewCandidate(m_Slot != null ? m_Slot.Data : default);
+	}
+	#endregion
+
+	#region Unity Lifecycle
+	private void OnDisable()
+	{
+		if (!m_IsHovering)
+			return;
+
+		m_IsHovering = false;
 		m_Coordinator?.ClearHoveredModificationPreviewCandidate(m_Slot != null ? m_Slot.Data : default);
 	}
 	#endregion

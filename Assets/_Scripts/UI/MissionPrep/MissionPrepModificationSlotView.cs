@@ -62,12 +62,6 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 	{
 		EnsureUi();
 
-		if (m_LabelText != null)
-		{
-			WeaponDefinition weapon = m_WeaponSlot.Definition != null ? m_WeaponSlot.Definition.WeaponDefinition : null;
-			m_LabelText.text = ItemModificationUtility.GetSlotLabel(m_Descriptor, weapon);
-		}
-
 		if (ItemModificationUtility.TryGetInstalledItem(m_Descriptor, m_WeaponSlot, out InventorySlotRuntimeData installedItem))
 			ApplyInstalledItem(installedItem);
 		else
@@ -140,6 +134,9 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 
 	public void OnPointerEnter(PointerEventData eventData)
 	{
+		if (eventData != null && eventData.dragging)
+			return;
+
 		if (!TryGetInstalledItem(out InventorySlotRuntimeData installedItem) ||
 		    !ItemModificationUtility.IsAttachmentItem(installedItem))
 			return;
@@ -162,6 +159,14 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 	}
 	#endregion
 
+	#region Unity Lifecycle
+	private void OnDisable()
+	{
+		if (m_IsGraphPreviewHovering)
+			ClearGraphPreviewHover();
+	}
+	#endregion
+
 	#region Private Methods
 	private void ClearGraphPreviewHover()
 	{
@@ -180,65 +185,16 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 		if (m_BackgroundImage != null)
 			return;
 
-		RectTransform rowRt = gameObject.GetComponent<RectTransform>();
-		if (rowRt == null)
-			rowRt = gameObject.AddComponent<RectTransform>();
-		rowRt.sizeDelta = new Vector2(400f, 30f);
-
-		m_BackgroundImage = gameObject.GetComponent<Image>();
-		if (m_BackgroundImage == null)
-			m_BackgroundImage = gameObject.AddComponent<Image>();
-		m_BackgroundImage.color = m_NormalColor;
-		m_BackgroundImage.raycastTarget = true;
-
-		HorizontalLayoutGroup layout = gameObject.GetComponent<HorizontalLayoutGroup>();
-		if (layout == null)
-			layout = gameObject.AddComponent<HorizontalLayoutGroup>();
-		layout.padding = new RectOffset(18, 6, 3, 3);
-		layout.spacing = 6f;
-		layout.childAlignment = TextAnchor.MiddleLeft;
-		layout.childControlWidth = false;
-		layout.childForceExpandWidth = false;
-		layout.childControlHeight = true;
-		layout.childForceExpandHeight = true;
-
-		m_LabelText = CreateText("SlotLabel", transform, 82f, TextAlignmentOptions.Left);
-		m_IconImage = CreateIcon("ItemIcon", transform);
-		m_ItemText = CreateText("ItemLabel", transform, 132f, TextAlignmentOptions.Left);
+		InventoryModificationSlotUiBuilder.BuildRow(
+			gameObject,
+			m_NormalColor,
+			out m_BackgroundImage,
+			out m_IconImage,
+			out m_LabelText,
+			out m_ItemText);
 
 		if (GetComponent<MissionPrepModificationSlotDrag>() == null)
 			gameObject.AddComponent<MissionPrepModificationSlotDrag>();
-	}
-
-	private TMP_Text CreateText(string _name, Transform _parent, float _preferredWidth, TextAlignmentOptions _alignment)
-	{
-		GameObject go = new GameObject(_name, typeof(RectTransform));
-		go.transform.SetParent(_parent, false);
-		TMP_Text text = go.AddComponent<TextMeshProUGUI>();
-		text.fontSize = 13f;
-		text.color = Color.white;
-		text.alignment = _alignment;
-		text.textWrappingMode = TextWrappingModes.NoWrap;
-		text.overflowMode = TextOverflowModes.Ellipsis;
-
-		LayoutElement layout = go.AddComponent<LayoutElement>();
-		layout.preferredWidth = _preferredWidth;
-		layout.flexibleWidth = _preferredWidth > 100f ? 1f : 0f;
-		return text;
-	}
-
-	private Image CreateIcon(string _name, Transform _parent)
-	{
-		GameObject go = new GameObject(_name, typeof(RectTransform));
-		go.transform.SetParent(_parent, false);
-		Image image = go.AddComponent<Image>();
-		image.preserveAspect = true;
-		image.raycastTarget = false;
-
-		LayoutElement layout = go.AddComponent<LayoutElement>();
-		layout.preferredWidth = 22f;
-		layout.preferredHeight = 22f;
-		return image;
 	}
 
 	private void ApplyInstalledItem(InventorySlotRuntimeData _item)
@@ -251,18 +207,22 @@ public sealed class MissionPrepModificationSlotView : MonoBehaviour, IDropHandle
 
 		Sprite icon = _item.Definition != null ? _item.Definition.Icon : null;
 		m_IconImage.sprite = icon;
-		m_IconImage.gameObject.SetActive(icon != null);
+		m_IconImage.enabled = icon != null;
+		m_IconImage.gameObject.SetActive(true);
 	}
 
 	private void ApplyEmptyItem()
 	{
 		if (m_ItemText != null)
-			m_ItemText.text = LocalizationManager.Get("weapon.mod_slot.empty", "Empty");
+		{
+			WeaponDefinition weapon = m_WeaponSlot.Definition != null ? m_WeaponSlot.Definition.WeaponDefinition : null;
+			m_ItemText.text = ItemModificationUtility.FormatEmptySlotLabel(m_Descriptor, weapon);
+		}
 
 		if (m_IconImage != null)
 		{
 			m_IconImage.sprite = null;
-			m_IconImage.gameObject.SetActive(false);
+			m_IconImage.enabled = false;
 		}
 	}
 

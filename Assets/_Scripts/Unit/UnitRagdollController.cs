@@ -124,6 +124,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 	private Vector3[] m_BonePositionsPrevious;
 	private bool m_HasBonePreviousPositions;
 	private bool m_KeepWeaponDetachedForAnimatedPose;
+	private float m_NextRootSyncTime;
+	private const float c_ActiveRagdollRootSyncInterval = 0.35f;
 	#endregion
 
 	#region Public Properties
@@ -143,7 +145,17 @@ public sealed class UnitRagdollController : MonoBehaviour
 
 	private void FixedUpdate()
 	{
-		if (!m_IsRagdollActive || m_IsRagdollSettled || m_SuppressAutoSettle)
+		if (!m_IsRagdollActive)
+			return;
+
+		// Keep unit root / SelectionBounds near the body while ragdoll flies or after settle.
+		if (Time.time >= m_NextRootSyncTime)
+		{
+			m_NextRootSyncTime = Time.time + c_ActiveRagdollRootSyncInterval;
+			SyncRootTransformToRootBone();
+		}
+
+		if (m_IsRagdollSettled || m_SuppressAutoSettle)
 			return;
 
 		UpdateTransitionBlend();
@@ -265,6 +277,7 @@ public sealed class UnitRagdollController : MonoBehaviour
 		{
 			m_RagdollActivatedAt = Time.time;
 			m_TransitionBlendStartedAt = Time.time;
+			m_NextRootSyncTime = 0f;
 			if (m_LogImpulse)
 				Debug.Log($"[Ragdoll] {name} | АКТИВАЦИЯ | time={Time.time:F2}", this);
 		}
@@ -1105,6 +1118,8 @@ public sealed class UnitRagdollController : MonoBehaviour
 		}
 
 		m_IsRagdollSettled = true;
+		SyncRootTransformToRootBone();
+		m_NextRootSyncTime = Time.time + c_ActiveRagdollRootSyncInterval;
 	}
 
 	private void UpdateTransitionBlend()

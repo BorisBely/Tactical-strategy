@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &550699732714072506
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 613346749617166794}
+  m_Layer: 0
+  m_Name: LeftHandGrip
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &613346749617166794
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 550699732714072506}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.3433563, y: 0.20516278, z: 0.8883658, w: 0.22543503}
+  m_LocalPosition: {x: -0.0658, y: -0.0439, z: -0.0609}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3325427109119305341}
+  m_LocalEulerAnglesHint: {x: 17.13892, y: 44.632248, z: 158.60068}
 --- !u!1 &8123456789012345680
 GameObject:
   m_ObjectHideFlags: 0
@@ -40,6 +71,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3325427109119305341}
+  - component: {fileID: 66577683065340645}
   m_Layer: 0
   m_Name: Attachment_Visual_M4_ForeGrip2
   m_TagString: Untagged
@@ -63,8 +95,22 @@ Transform:
   - {fileID: 722119296655594975}
   - {fileID: 8123456789012345688}
   - {fileID: 9181994831485702115}
+  - {fileID: 613346749617166794}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &66577683065340645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8252625000937661029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e4d2f30c8e5f7b0d1e3a5c7294f6b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponForeGrip
+  m_LeftHandGrip: {fileID: 613346749617166794}
 --- !u!1 &8573470494524565453
 GameObject:
   m_ObjectHideFlags: 0

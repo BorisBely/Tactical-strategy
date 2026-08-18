@@ -158,6 +158,9 @@ public static class M4PlatformWeaponsBuilder
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = _config.SemiAutoRecoilMultiplier;
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = _config.AutoRecoilMultiplier;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = _config.RecoilRecoveryPerSecond;
+		SerializedProperty visualKickScale = so.FindProperty("m_VisualRecoilKickScale");
+		if (visualKickScale != null)
+			visualKickScale.floatValue = WeaponVisualRecoilKickScaleTable.ForAsset(_config.WeaponAssetName);
 		so.FindProperty("m_Reliability").floatValue = _config.Reliability;
 		ApplyBalanceCurves(so, _config.CurveKind);
 		so.ApplyModifiedPropertiesWithoutUndo();
@@ -225,16 +228,6 @@ public static class M4PlatformWeaponsBuilder
 		so.FindProperty("m_RightHandLocalEulerAngles").vector3Value =
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		CopyReadyHandPoseFields(so, templateSo);
-		CopyRightHandIkFields(so, templateSo);
-		CopyLeftHandIkFields(so, templateSo);
-		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
-		so.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(item);
 		return item;
@@ -398,7 +391,8 @@ public static class M4PlatformWeaponsBuilder
 			true, SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			marksmanModes, WeaponFireMode.SemiAuto,
-			450f, 0.50f, 2.50f, 160f, 0.56f, 0.38f, 0.80f, 1.00f, 4.8f, 0.86f, 3600);
+			450f, 0.50f, 2.50f, 160f, 0.56f, 0.38f, 0.80f, 1.00f, 4.8f, 0.86f, 3600,
+			WeaponClassType.SniperRifle);
 
 		yield return Config(
 			"Equipped_MK18", "Weapon_MK18", "Item_Weapon_MK18",
@@ -431,7 +425,8 @@ public static class M4PlatformWeaponsBuilder
 		float _autoRecoil,
 		float _recoilRecovery,
 		float _reliability,
-		int _price)
+		int _price,
+		WeaponClassType _weaponClass = WeaponClassType.Rifle)
 	{
 		return new WeaponBuildConfig
 		{
@@ -446,7 +441,7 @@ public static class M4PlatformWeaponsBuilder
 			CurveKind = _curveKind,
 			FireModes = _fireModes,
 			DefaultFireMode = _defaultFireMode,
-			WeaponClass = WeaponClassType.Rifle,
+			WeaponClass = _weaponClass,
 			FireRateRpm = _fireRateRpm,
 			AimTimeSeconds = _aimTime,
 			ReloadTimeSeconds = _reloadTime,
@@ -551,28 +546,5 @@ public static class M4PlatformWeaponsBuilder
 		}
 	}
 
-	private static void CopyRightHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
-	}
-
-	private static void CopyLeftHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value;
-	}
 }
 #endif

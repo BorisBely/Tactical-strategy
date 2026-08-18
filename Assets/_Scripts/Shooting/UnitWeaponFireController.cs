@@ -2,7 +2,8 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Командный слой стрельбы юнита: start fire, stop fire и single shot attempt.
+/// Command-layer fire: start / stop / single-shot attempt and barrel/LOS gate.
+/// Does not write weapon local TRS, Hand_R, or animator IK — pose / recoil / IK own those.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(56)]
@@ -19,7 +20,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitEquipment m_Equipment;
 	[Tooltip("Проверка, что оружие действительно находится в состоянии ready.")]
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
-	[Tooltip("Текущая видимая цель, если выстрелы требуют target lock.")]
+	[Tooltip("Selected/engageable combat target (TargetSelector).")]
+	[SerializeField] private TargetSelector m_TargetSelector;
+	[Tooltip("Detection scan API only (LoF suppress rescan).")]
 	[SerializeField] private UnitVision m_Vision;
 	[Tooltip("Во время reload-команд выстрелы блокируются.")]
 	[SerializeField] private UnitBusyState m_BusyState;
@@ -60,14 +63,26 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private bool m_RequireFullAimToFire = true;
 	[Tooltip("Запрещать выстрел, пока визуальный ствол ещё не вернулся к точке цели после kick.")]
 	[SerializeField] private bool m_RequireBarrelAlignedToFire = true;
-	[Tooltip("Допуск угла ствола (градусы) при стоянии на месте без активного перемещения.")]
+	[Tooltip("Допуск угла ствола (градусы) при стоянии на месте без активного перемещения. Aiming idle.")]
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegrees = 3f;
-	[Tooltip("Допуск угла ствола (градусы) в приседе/лёжа. Сидячие позы чаще дают небольшой визуальный перекос оружия.")]
+	[Tooltip("Допуск угла ствола (градусы) в приседе/лёжа без хода. Aiming crouch idle.")]
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesCrouch = 9f;
-	[Tooltip("Допуск угла ствола (градусы) в приседе/лёжа при активном перемещении.")]
-	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesCrouchMoving = 10f;
-	[Tooltip("Допуск угла ствола (градусы) при активном перемещении (ходьба, бег, заказ пути).")]
+	[Tooltip("Допуск угла ствола (градусы) Aiming crouch walk.")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesCrouchMoving = 9f;
+	[Tooltip("Допуск угла ствола (градусы) Aiming walk.")]
 	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesMoving = 8f;
+
+	[Header("Aiming Gate — PointAim")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesPointAim = 5f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesPointAimMoving = 10f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesPointAimCrouch = 7f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesPointAimCrouchMoving = 11f;
+
+	[Header("Aiming Gate — HipFire")]
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesHipFire = 12f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesHipFireMoving = 16f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesHipFireCrouch = 14f;
+	[SerializeField, Range(0f, 30f)] private float m_MaxBarrelAimErrorDegreesHipFireCrouchMoving = 18f;
 
 	[Header("Debug")]
 	[SerializeField] private bool m_IsFiringCommandActive;
@@ -80,6 +95,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private WeaponFireMode m_DebugEffectiveFireMode = WeaponFireMode.SemiAuto;
 	[SerializeField, Range(0f, 1f)] private float m_DebugCurrentAimProgress;
 	[SerializeField, Min(0f)] private float m_DebugLastBarrelAimErrorDegrees;
+	[SerializeField] private string m_DebugLastAimGateFail = "ok";
 	#endregion
 
 	#region Private Fields
@@ -115,6 +131,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		set => m_TryReloadWhenOutOfAmmo = value;
 	}
 
+	/// <summary>
+	/// Production default: StopFiring snaps punch/climb. RecoilSweep sets false so decay can be measured.
+	/// </summary>
+	public bool ResetRecoilOnStopFiring { get; set; } = true;
+
+	public float DebugLastBarrelAimErrorDegrees => m_DebugLastBarrelAimErrorDegrees;
+	public string DebugLastAimGateFail => m_DebugLastAimGateFail;
+
 	/// <summary>Диагностика MK19 / турели в Console.</summary>
 	public int DebugSuccessfulShotCountForDiagnostics => m_DebugSuccessfulShotCount;
 
@@ -131,6 +155,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
 		if (m_BusyState == null)
@@ -168,16 +194,16 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private void OnEnable()
 	{
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged += HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged += HandleSelectedTargetChanged;
 
-		m_LastVisibleTargetForFire = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		m_LastVisibleTargetForFire = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 	}
 
 	private void OnDisable()
 	{
-		if (m_Vision != null)
-			m_Vision.VisibleTargetChanged -= HandleVisibleTargetChanged;
+		if (m_TargetSelector != null)
+			m_TargetSelector.SelectedTargetChanged -= HandleSelectedTargetChanged;
 	}
 
 	private void Update()
@@ -264,6 +290,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		WeaponRuntimeState rs = m_WeaponRuntime.RuntimeState;
 		bool canEventuallyFire = rs.HasRoundInChamber || (rs.HasMagazine && rs.HasAmmoInMagazine);
 		if (!canEventuallyFire)
+			return false;
+
+		if (!IsFireAllowedByWeaponPose())
 			return false;
 
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
@@ -406,6 +435,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (!IsConscious())
 			return WeaponShotAttemptResult.Busy;
 
+		if (!IsFireAllowedByWeaponPose())
+			return WeaponShotAttemptResult.NotReady;
+
 		if (m_RequireReady && (m_ReadyHands == null || !m_ReadyHands.IsWeaponReadyToFire()))
 			return WeaponShotAttemptResult.NotReady;
 
@@ -418,14 +450,27 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
 			return WeaponShotAttemptResult.NoVisibleTarget;
 
-		if (!IsAimedEnoughToFire())
+		if (!HasRequiredAimProgressForFire())
 		{
+			m_DebugLastAimGateFail = "progress";
+			return WeaponShotAttemptResult.NotAimedProgress;
+		}
+
+		if (!IsBarrelAlignedEnoughToFire())
+		{
+			m_DebugLastAimGateFail = "barrel";
 			return WeaponShotAttemptResult.NotAimed;
 		}
 
+		m_DebugLastAimGateFail = "ok";
+
 		if (IsLineOfFireBlocked())
 		{
-			m_Vision?.SuppressCurrentTargetForLineOfFire(m_LineOfFireBlockedRetrySeconds);
+			if (m_TargetSelector != null)
+			{
+				m_TargetSelector.SuppressCurrentTargetForLineOfFire(m_LineOfFireBlockedRetrySeconds);
+				m_Vision?.RequestImmediateScan();
+			}
 			return WeaponShotAttemptResult.LineOfFireBlocked;
 		}
 
@@ -440,7 +485,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_NextBurstWaveTime = 0f;
 		m_SemiShotConsumedForCurrentTrigger = false;
 		ResetBurstSpreadCounter();
-		ResetRecoilAfterStopFiring();
+		if (ResetRecoilOnStopFiring)
+			ResetRecoilAfterStopFiring();
 	}
 
 	private void ResetRecoilAfterStopFiring()
@@ -467,14 +513,28 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Жёсткий запрет выстрелов экипированного оружия: reload / throw / rocket / stabilize / proximity.
+	/// Огонь только из Aiming / HipFire / PointAim (и турель). PreAim запрещён.
+	/// Не зависит от <see cref="m_RequireReady"/>.
+	/// </summary>
+	private bool IsFireAllowedByWeaponPose()
+	{
+		if (m_Equipment != null && m_Equipment.IsOperatingVehicleTurret)
+			return true;
+		if (m_ReadyHands != null)
+			return m_ReadyHands.CanFireFromSettledCombatPose();
+		return false;
+	}
+
+	/// <summary>
+	/// Жёсткий запрет выстрелов экипированного оружия: смена стойки, reload / throw / rocket / stabilize / proximity.
 	/// </summary>
 	private bool IsFireBlockedByBusyState()
 	{
 		if (m_BusyState == null)
 			return false;
 
-		return m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
+		return m_BusyState.HasReason(UnitBusyState.BusyReason.StanceTransition) ||
+		       m_BusyState.HasReason(UnitBusyState.BusyReason.Reload) ||
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.Throw) ||
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.RocketLauncher) ||
 		       m_BusyState.HasReason(UnitBusyState.BusyReason.SelfStabilization) ||
@@ -488,13 +548,20 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		set => m_RequireBarrelAlignedToFire = value;
 	}
 
-	private bool IsAimedEnoughToFire()
+	private bool IsAimedEnoughToFire() =>
+		HasRequiredAimProgressForFire() && IsBarrelAlignedEnoughToFire();
+
+	private bool HasRequiredAimProgressForFire()
 	{
 		EquippedWeaponTransientState transientState = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState : null;
 		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
-		if (ShouldRequireAimProgressForNextShot() && !HasRequiredAimProgress(transientState))
-			return false;
+		if (!ShouldRequireAimProgressForNextShot())
+			return true;
+		return HasRequiredAimProgress(transientState);
+	}
 
+	private bool IsBarrelAlignedEnoughToFire()
+	{
 		if (!m_RequireBarrelAlignedToFire || !HasEngageableVisibleTarget())
 			return true;
 
@@ -506,9 +573,9 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (fireOrigin == null)
 			return false;
 
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
-			targetPoint = m_Vision.GetEngageableVisibleTarget().position;
+			targetPoint = m_TargetSelector.GetEngageableSelectedTarget().position;
 
 		Vector3 toTarget = targetPoint - fireOrigin.position;
 		if (toTarget.sqrMagnitude < 1e-6f)
@@ -517,14 +584,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return true;
 		}
 
-		float maxError = ResolveMaxBarrelAimErrorDegrees();
 		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, toTarget.normalized);
+		float maxError = ResolveMaxBarrelAimErrorDegrees();
 		return m_DebugLastBarrelAimErrorDegrees <= maxError;
 	}
 
 	private bool IsLineOfFireBlocked()
 	{
-		if (m_WeaponRuntime == null || m_Vision == null || m_Equipment == null)
+		if (m_WeaponRuntime == null || m_TargetSelector == null || m_Equipment == null)
 			return false;
 
 		EquippedWeapon weapon = m_Equipment.EquippedWeapon;
@@ -535,7 +602,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (fireOrigin == null)
 			return false;
 
-		Vector3 aimPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (aimPoint == Vector3.zero)
 			return false;
 
@@ -608,20 +675,35 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private float ResolveMaxBarrelAimErrorDegrees()
 	{
+		bool moving = IsMovingForBarrelAimGate();
 		LocomotionStance stance = m_Stance != null ? m_Stance.CurrentStance : LocomotionStance.Standing;
-		if (stance == LocomotionStance.Crouch || stance == LocomotionStance.Prone)
+		bool crouch = stance == LocomotionStance.Crouch || stance == LocomotionStance.Prone;
+		WeaponPoseState pose = m_ReadyHands != null
+			? m_ReadyHands.EffectivePoseState
+			: WeaponPoseState.Aiming;
+
+		if (pose.IsHipFireHold())
 		{
-			return IsMovingForBarrelAimGate()
-				? m_MaxBarrelAimErrorDegreesCrouchMoving
-				: m_MaxBarrelAimErrorDegreesCrouch;
+			if (crouch)
+				return moving ? m_MaxBarrelAimErrorDegreesHipFireCrouchMoving : m_MaxBarrelAimErrorDegreesHipFireCrouch;
+			return moving ? m_MaxBarrelAimErrorDegreesHipFireMoving : m_MaxBarrelAimErrorDegreesHipFire;
 		}
 
-		if (IsMovingForBarrelAimGate())
-			return m_MaxBarrelAimErrorDegreesMoving;
+		if (pose == WeaponPoseState.PointAim)
+		{
+			if (crouch)
+				return moving ? m_MaxBarrelAimErrorDegreesPointAimCrouchMoving : m_MaxBarrelAimErrorDegreesPointAimCrouch;
+			return moving ? m_MaxBarrelAimErrorDegreesPointAimMoving : m_MaxBarrelAimErrorDegreesPointAim;
+		}
 
-		return m_MaxBarrelAimErrorDegrees;
+		if (crouch)
+			return moving ? m_MaxBarrelAimErrorDegreesCrouchMoving : m_MaxBarrelAimErrorDegreesCrouch;
+		return moving ? m_MaxBarrelAimErrorDegreesMoving : m_MaxBarrelAimErrorDegrees;
 	}
 
+	/// <summary>
+	/// Selects the moving column of the pose×stance×move barrel table. Does not skip the barrel check.
+	/// </summary>
 	private bool IsMovingForBarrelAimGate()
 	{
 		if (m_FallenDragController != null && m_FallenDragController.IsDragging)
@@ -665,25 +747,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (_transientState == null || m_WeaponRuntime == null)
 			return false;
 
-		float distanceMeters = EstimateTargetDistanceMeters();
+		WeaponPoseState pose = m_ReadyHands != null
+			? m_ReadyHands.EffectivePoseState
+			: WeaponPoseState.Aiming;
+		float requiredProgress = PreAimPoseUtility.GetPoseFireThreshold01(pose);
 		if (m_FireDisciplineController != null &&
 		    m_FireDisciplineController.TryGetAimGateOverride(out float disciplineRequiredProgress, out _))
-		{
-			return _transientState.AimProgress01 >= disciplineRequiredProgress;
-		}
+			requiredProgress = Mathf.Max(requiredProgress, disciplineRequiredProgress);
 
-		WeaponAimMode effectiveAimMode = m_HitscanShooting != null &&
-			m_HitscanShooting.TrySelectAutoModes(out WeaponAutoModeSelectionResult selection)
-			? selection.EffectiveAimMode
-			: WeaponAimModeUtility.ResolveEffectiveMode(
-				WeaponFireDisciplineModeUtility.MapToAimMode(
-					m_WeaponRuntime.SelectedFireDisciplineMode,
-					distanceMeters),
-				distanceMeters);
-		float requiredProgress = WeaponAimModeUtility.GetRequiredAimProgress01(
-			effectiveAimMode,
-			distanceMeters,
-			EstimateFullAimTimeSeconds());
 		return _transientState.AimProgress01 >= requiredProgress;
 	}
 
@@ -719,13 +790,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return 0f;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : transform;
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 
@@ -774,6 +845,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			case WeaponShotAttemptResult.Busy:
 			case WeaponShotAttemptResult.NeedsBoltCycle:
 			case WeaponShotAttemptResult.NotAimed:
+			case WeaponShotAttemptResult.NotAimedProgress:
 			case WeaponShotAttemptResult.LineOfFireBlocked:
 				break;
 			default:
@@ -854,14 +926,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		m_WeaponRuntime?.TransientState.ResetBurstShotCounter();
 	}
 
-	private void HandleVisibleTargetChanged(Transform _newVisibleTarget)
+	private void HandleSelectedTargetChanged(Transform _newSelectedTarget)
 	{
 		TrySyncEngagementTarget();
 	}
 
 	private bool HasEngageableVisibleTarget()
 	{
-		return m_Vision != null && m_Vision.GetEngageableVisibleTarget() != null;
+		return m_TargetSelector != null && m_TargetSelector.GetEngageableSelectedTarget() != null;
 	}
 
 	private bool IsConscious()
@@ -871,7 +943,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private void TrySyncEngagementTarget()
 	{
-		Transform engageableTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform engageableTarget = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (engageableTarget == m_LastVisibleTargetForFire)
 			return;
 
@@ -880,7 +952,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		Transform previousTarget = m_LastVisibleTargetForFire;
 		m_LastVisibleTargetForFire = engageableTarget;
 
-		if (m_Vision != null && m_Vision.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget))
+		if (m_TargetSelector != null && m_TargetSelector.ShouldReacquireAimAfterSwitch(previousTarget, engageableTarget))
 			StopFiring();
 	}
 	#endregion

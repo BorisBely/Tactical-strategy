@@ -26,9 +26,6 @@ public static class EquippedWeaponHierarchySetup
 		"RailSocket_1",
 		"RailSocket_2",
 		"RailSocket_3",
-		"LeftHandIkTarget",
-		"RightHandIkTarget",
-		"RightHandIkTarget_NotReady",
 	};
 
 	[MenuItem("GameObject/Weapons/Apply Equipped Rig (M4 template)", false, 10)]
@@ -93,9 +90,6 @@ public static class EquippedWeaponHierarchySetup
 		var rail1 = EnsureSocket(rootTransform, templateRoot.transform, "RailSocket_1");
 		var rail2 = EnsureSocket(rootTransform, templateRoot.transform, "RailSocket_2");
 		var rail3 = EnsureSocket(rootTransform, templateRoot.transform, "RailSocket_3");
-		var leftHandIk = EnsureSocket(rootTransform, templateRoot.transform, "LeftHandIkTarget");
-		var rightHandIk = EnsureSocket(rootTransform, templateRoot.transform, "RightHandIkTarget");
-		EnsureSocket(rootTransform, templateRoot.transform, "RightHandIkTarget_NotReady");
 
 		var weapon = _root.GetComponent<EquippedWeapon>();
 		if (weapon == null)

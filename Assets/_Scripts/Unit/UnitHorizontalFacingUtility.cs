@@ -1,14 +1,69 @@
 using UnityEngine;
 
 /// <summary>
-/// Горизонтальный facing в high ready: desired world yaw задаёт направление ствола,
-/// корень компенсирует offset ready-позы.
+/// Горизонтальный facing в raised combat: desired world yaw задаёт направление ствола,
+/// корень компенсирует authored offset тела относительно ствола.
+/// Barrel offset is used only for desired body yaw — never for weapon-local correction.
 /// </summary>
 public static class UnitHorizontalFacingUtility
 {
+	/// <summary>Порог NavSpeed шага (idle &lt; 0.05, шаг &gt; 0.055).</summary>
+	public const float WalkNavSpeedThreshold = 0.055f;
+
+	private static readonly int s_NavSpeed = Animator.StringToHash(UnitClickToMove.ParamNavSpeed);
+
 	public static bool ShouldUseBarrelCentricFacing(UnitWeaponReadyHandsLayer _readyHands)
 	{
-		return _readyHands != null && _readyHands.IsWeaponEquippedAndReady();
+		return _readyHands != null && _readyHands.WantsCombatTargetFacing();
+	}
+
+	public static bool IsHipFirePose(UnitWeaponReadyHandsLayer _readyHands)
+	{
+		return _readyHands != null && _readyHands.EffectivePoseState.IsHipFireHold();
+	}
+
+	public static bool IsWalkLocomotion(Animator _animator, bool _runOrSprint)
+	{
+		if (_runOrSprint)
+			return false;
+		return _animator != null && _animator.GetFloat(s_NavSpeed) >= WalkNavSpeedThreshold;
+	}
+
+	public static bool IsHipFireWalk(
+		UnitWeaponReadyHandsLayer _readyHands,
+		Animator _animator,
+		bool _runOrSprint)
+	{
+		return IsHipFirePose(_readyHands) && IsWalkLocomotion(_animator, _runOrSprint);
+	}
+
+	/// <summary>
+	/// HipFire / PointAim / Aiming while walking (not run/sprint).
+	/// Root yaws so the bore tracks the target; spine does not also absorb that yaw.
+	/// </summary>
+	public static bool IsCombatShootWalk(
+		UnitWeaponReadyHandsLayer _readyHands,
+		Animator _animator,
+		bool _runOrSprint)
+	{
+		if (_readyHands == null || !_readyHands.EffectivePoseState.CanShootFromPose())
+			return false;
+		return IsWalkLocomotion(_animator, _runOrSprint);
+	}
+
+	public static bool TryGetTargetWorldYaw(Transform _body, Vector3 _aimPointWorld, out float _yawDegrees)
+	{
+		_yawDegrees = 0f;
+		if (_body == null)
+			return false;
+
+		Vector3 toTarget = _aimPointWorld - _body.position;
+		toTarget.y = 0f;
+		if (toTarget.sqrMagnitude < 1e-6f)
+			return false;
+
+		_yawDegrees = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+		return true;
 	}
 
 	public static bool TryGetBarrelForwardXZ(UnitEquipment _equipment, out Vector3 _forwardXZ)

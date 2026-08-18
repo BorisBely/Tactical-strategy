@@ -10,7 +10,7 @@ namespace VehicleNavigation
 		{
 			TurnSign = _turnSign;
 			AllowReverse = true;
-			SpeedScale = 0.28f;
+			SpeedScale = 0.36f;
 			LookAheadOverride = 1.8f;
 		}
 	}

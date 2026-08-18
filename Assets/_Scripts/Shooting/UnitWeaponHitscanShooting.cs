@@ -16,7 +16,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[SerializeField] private UnitClickToMove m_ClickToMove;
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
@@ -27,6 +27,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	[SerializeField] private UnitWeaponAimProgressController m_AimProgressController;
 	[SerializeField] private UnitWeaponFireDisciplineController m_FireDisciplineController;
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
+	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 
 	[Header("Hitscan")]
 	[Tooltip("Слои, по которым проверяем попадание. Создай слой Target и назначь мишеням.")]
@@ -135,8 +136,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_Equipment = GetComponent<UnitEquipment>();
 		if (m_WeaponRuntime == null)
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_Stance == null)
 			m_Stance = GetComponent<UnitAnimatorStance>();
 		if (m_ClickToMove == null)
@@ -155,6 +156,8 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			m_FireDisciplineController = GetComponent<UnitWeaponFireDisciplineController>();
 		if (m_RecoilController == null)
 			m_RecoilController = GetComponent<UnitWeaponRecoilController>();
+		if (m_ReadyHands == null)
+			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 
 		m_ShooterRoot = transform;
 		if (m_Team == null)
@@ -323,6 +326,31 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		    m_FireDisciplineController.TryGetAimGateOverride(out _, out WeaponAimMode plannedAimMode))
 			effectiveAimMode = plannedAimMode;
 
+		WeaponPoseState weaponPose = m_ReadyHands != null
+			? m_ReadyHands.EffectivePoseState
+			: WeaponPoseState.Aiming;
+		bool excludeOptics = weaponPose.IsHipFireHold()
+		                     || weaponPose == WeaponPoseState.PointAim
+		                     || weaponPose == WeaponPoseState.PreAim;
+		float poseSpread = 1f;
+		if (m_ReadyHands != null && m_ReadyHands.PoseCapabilityCache.IsValid)
+			poseSpread = m_ReadyHands.PoseCapabilityCache.GetSpreadMult(weaponPose);
+		else if (weaponPose.IsHipFireHold())
+			poseSpread = WeaponPoseAutoCapabilityBaker.DefaultHipFireSpreadMult;
+		else if (weaponPose == WeaponPoseState.PointAim)
+			poseSpread = WeaponPoseAutoCapabilityBaker.DefaultPointAimSpreadMult;
+		else if (weaponPose == WeaponPoseState.PreAim)
+			poseSpread = PreAimPoseUtility.SpreadMult;
+
+		poseSpread *= WeaponPoseDistanceCurves.GetAccuracyMultiplier(weaponPose, _targetDistanceMeters);
+		if (weaponPose == WeaponPoseState.PointAim)
+		{
+			WeaponAttachmentDefinition[] attachments = m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null
+				? m_WeaponRuntime.RuntimeState.EquippedAttachments
+				: null;
+			poseSpread *= WeaponLaserModifiers.GetPointAimSpreadProduct(attachments, _targetDistanceMeters);
+		}
+
 		return new WeaponShotAccuracyInput
 		{
 			WeaponDefinition = m_WeaponRuntime.CurrentWeaponDefinition,
@@ -358,7 +386,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			FireMode = effectiveFireMode,
 			BurstShotIndex = m_WeaponRuntime != null
 				? m_WeaponRuntime.TransientState.GetNextBurstShotIndex()
-				: 1
+				: 1,
+			WeaponPose = weaponPose,
+			PoseSpreadMultiplier = poseSpread,
+			ExcludeOpticAttachments = excludeOptics
 		};
 	}
 
@@ -413,7 +444,9 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	private float CalculateProceduralPatternYaw(int _shotIndex, float _pitchDegrees, float _yawFraction)
 	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
-		float seed = weaponDefinition != null ? Mathf.Abs(weaponDefinition.GetInstanceID() % 997) * 0.01f : 0f;
+		float seed = weaponDefinition != null
+			? Mathf.Abs(weaponDefinition.GetEntityId().GetHashCode() % 997) * 0.01f
+			: 0f;
 		float mainWave = Mathf.Sin(_shotIndex * 1.73f + seed);
 		float chaosWave = Mathf.Sin(_shotIndex * 0.47f + seed * 2.31f) * m_RecoilPatternChaosFraction;
 		return (mainWave + chaosWave) * _pitchDegrees * _yawFraction;
@@ -715,13 +748,13 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private float EstimateTargetDistanceMeters()
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return 0f;
 
 		EquippedWeapon weapon = m_Equipment != null ? m_Equipment.EquippedWeapon : null;
 		Transform fireOrigin = weapon != null ? weapon.FireOriginTransform : transform;
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 		return Vector3.Distance(fireOrigin.position, targetPoint);
@@ -729,18 +762,18 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private Vector3 GetGameplayShotDirection(Vector3 _origin, Transform _fireOrigin, AmmoDefinition _ammo)
 	{
-		Transform target = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform target = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (target == null)
 			return _fireOrigin != null ? _fireOrigin.forward : Vector3.forward;
 
-		Vector3 targetPoint = m_Vision.GetVisibleTargetAimPointWorld();
+		Vector3 targetPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (targetPoint == Vector3.zero)
 			targetPoint = target.position;
 
 		// Упреждение по скорости цели
-		if (m_TargetLeadFactor > 0.0001f && m_Vision != null)
+		if (m_TargetLeadFactor > 0.0001f && m_TargetSelector != null)
 		{
-			Vector3 targetVelocity = m_Vision.GetVisibleTargetVelocity();
+			Vector3 targetVelocity = m_TargetSelector.SelectedTargetVelocity;
 			if (targetVelocity.sqrMagnitude > 0.0001f)
 			{
 				float distance = Vector3.Distance(_origin, targetPoint);
@@ -779,7 +812,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 	private bool IsHitOnVisibleTarget(Collider _hitCollider)
 	{
-		Transform visibleTarget = m_Vision != null ? m_Vision.GetEngageableVisibleTarget() : null;
+		Transform visibleTarget = m_TargetSelector != null ? m_TargetSelector.GetEngageableSelectedTarget() : null;
 		if (visibleTarget == null || _hitCollider == null)
 			return false;
 
@@ -1010,7 +1043,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		{
 			unchecked
 			{
-				return ((m_Target != null ? m_Target.GetInstanceID() : 0) * 397) ^ (int)m_BodyPart;
+				return ((m_Target != null ? m_Target.GetEntityId().GetHashCode() : 0) * 397) ^ (int)m_BodyPart;
 			}
 		}
 	}

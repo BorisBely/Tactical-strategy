@@ -10,6 +10,78 @@
       "value": "Найдено"
     },
     {
+      "key": "inventory.exchange.title",
+      "value": "Обмен"
+    },
+    {
+      "key": "inventory.exchange.found",
+      "value": "Найдено"
+    },
+    {
+      "key": "inventory.exchange.vehicle",
+      "value": "Машина"
+    },
+    {
+      "key": "inventory.section.equipment",
+      "value": "Снаряжение"
+    },
+    {
+      "key": "inventory.section.bag",
+      "value": "Сумка"
+    },
+    {
+      "key": "inventory.equip_slot.empty.weapon",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty.helmet",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty.backpack",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty.turret_weapon",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty.gun_shield",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty.gunner_shield",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.empty",
+      "value": "Пусто"
+    },
+    {
+      "key": "inventory.equip_slot.title.weapon",
+      "value": "Оружие"
+    },
+    {
+      "key": "inventory.equip_slot.title.helmet",
+      "value": "Шлем"
+    },
+    {
+      "key": "inventory.equip_slot.title.backpack",
+      "value": "Рюкзак"
+    },
+    {
+      "key": "inventory.equip_slot.title.turret_weapon",
+      "value": "Вооружение"
+    },
+    {
+      "key": "inventory.equip_slot.title.gun_shield",
+      "value": "Пулемётный щит"
+    },
+    {
+      "key": "inventory.equip_slot.title.gunner_shield",
+      "value": "Бронещит стрелка"
+    },
+    {
       "key": "combat.rank.recruit",
       "value": "Рекрут"
     },
@@ -174,6 +246,10 @@
       "value": "Взрыв"
     },
     {
+      "key": "health.damage_source.blunt",
+      "value": "Удар"
+    },
+    {
       "key": "health.condition.moderate_bleeding",
       "value": "Среднее кровотечение"
     },
@@ -184,6 +260,62 @@
     {
       "key": "health.condition.internal",
       "value": "Внутренняя травма"
+    },
+    {
+      "key": "health.condition.bruise",
+      "value": "Ушиб"
+    },
+    {
+      "key": "health.condition.sprain",
+      "value": "Растяжение"
+    },
+    {
+      "key": "health.injury.vehicle_bruise",
+      "value": "Ушиб от удара машиной"
+    },
+    {
+      "key": "health.injury.vehicle_bruise.desc",
+      "value": "Лёгкий ушиб мягких тканей после слабого удара с машиной."
+    },
+    {
+      "key": "health.injury.vehicle_soft_tissue",
+      "value": "Ушиб мягких тканей"
+    },
+    {
+      "key": "health.injury.vehicle_soft_tissue.desc",
+      "value": "Синяк и боль после контакта с кузовом. Сознание сохранено."
+    },
+    {
+      "key": "health.injury.vehicle_limb_sprain",
+      "value": "Растяжение конечности"
+    },
+    {
+      "key": "health.injury.vehicle_limb_sprain.desc",
+      "value": "Резкий толчок машиной растянул связки. Бег затруднён."
+    },
+    {
+      "key": "health.injury.vehicle_impact_trauma",
+      "value": "Травма от наезда"
+    },
+    {
+      "key": "health.injury.vehicle_impact_trauma.desc",
+      "value": "Сильный удар машиной вызвал тяжёлую тупую травму. Потеря сознания."
+    },
+    {
+      "key": "health.injury.vehicle_crush_chest",
+      "value": "Размозжение груди"
+    },
+    {
+      "key": "health.injury.vehicle_crush_chest.desc",
+      "value": "Удар кузовом по груди нарушил дыхание. Требуется неотложная помощь."
+    },
+    {
+      "key": "health.injury.vehicle_polytrauma",
+      "value": "Политравма (наезд)"
+    },
+    {
+      "key": "health.injury.vehicle_polytrauma.desc",
+      "value": "Множественные повреждения от удара с машиной. Критическое состояние."
     },
     {
       "key": "health.injury.arm_bleeding",
@@ -1298,6 +1430,218 @@
       "value": "Доступное снаряжение"
     },
     {
+      "key": "mission_prep.equipment.filter.weapons",
+      "value": "Оружие"
+    },
+    {
+      "key": "mission_prep.equipment.filter.mods",
+      "value": "Модули"
+    },
+    {
+      "key": "mission_prep.equipment.filter.ammo",
+      "value": "Боеприпасы"
+    },
+    {
+      "key": "mission_prep.equipment.filter.equipment",
+      "value": "Экипировка"
+    },
+    {
+      "key": "mission_prep.equipment.filter.extra",
+      "value": "Доп. снаряжение"
+    },
+    {
+      "key": "mission_prep.equipment.empty_category",
+      "value": "Нет предметов в категории"
+    },
+    {
+      "key": "mission_prep.equipment.group.assault_rifles",
+      "value": "Штурмовые винтовки"
+    },
+    {
+      "key": "mission_prep.equipment.group.sniper_rifles",
+      "value": "Снайперские винтовки"
+    },
+    {
+      "key": "mission_prep.equipment.group.shotguns",
+      "value": "Дробовики"
+    },
+    {
+      "key": "mission_prep.equipment.group.machine_guns",
+      "value": "Пулемёты"
+    },
+    {
+      "key": "mission_prep.equipment.group.rocket_launchers",
+      "value": "Гранатомёты"
+    },
+    {
+      "key": "mission_prep.equipment.group.turret_weapons",
+      "value": "Вооружение турели"
+    },
+    {
+      "key": "mission_prep.equipment.group.optics",
+      "value": "Прицелы"
+    },
+    {
+      "key": "mission_prep.equipment.group.tactical_grips",
+      "value": "Тактические рукоятки"
+    },
+    {
+      "key": "mission_prep.equipment.group.muzzle",
+      "value": "Дуло"
+    },
+    {
+      "key": "mission_prep.equipment.group.laser_flashlight",
+      "value": "ЛЦУ/Фонарь"
+    },
+    {
+      "key": "mission_prep.equipment.group.stocks",
+      "value": "Приклады"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_545",
+      "value": "Магазины 5.45"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_762x39",
+      "value": "Магазины 7.62×39"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_556",
+      "value": "Магазины 5.56"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_762_long",
+      "value": "Магазины 7.62×51 / 7.62×54R"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_boxes",
+      "value": "Короба"
+    },
+    {
+      "key": "mission_prep.equipment.group.ammo_boxes",
+      "value": "Патроны"
+    },
+    {
+      "key": "mission_prep.equipment.group.rpg_rockets",
+      "value": "Ракеты"
+    },
+    {
+      "key": "mission_prep.equipment.group.helmets",
+      "value": "Шлемы"
+    },
+    {
+      "key": "mission_prep.equipment.group.backpacks",
+      "value": "Рюкзаки"
+    },
+    {
+      "key": "mission_prep.equipment.group.grenades",
+      "value": "Гранаты"
+    },
+    {
+      "key": "mission_prep.equipment.group.medkits",
+      "value": "Медицина"
+    },
+    {
+      "key": "mission_prep.equipment.group.turret_shields",
+      "value": "Щиты турели"
+    },
+    {
+      "key": "mission_prep.equipment.group.other",
+      "value": "Прочее"
+    },
+    {
+      "key": "mission_prep.vehicle.kind",
+      "value": "Машина"
+    },
+    {
+      "key": "mission_prep.vehicle.inventory_title",
+      "value": "Инвентарь машины"
+    },
+    {
+      "key": "mission_prep.vehicle.seats_count",
+      "value": "{0} мест"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.empty",
+      "value": "Пусто"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.driver",
+      "value": "Водитель"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.commander",
+      "value": "Командир"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.gunner",
+      "value": "Стрелок"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_left",
+      "value": "Зад. левый"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_center",
+      "value": "Зад. центр"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_right",
+      "value": "Зад. правый"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.litter1",
+      "value": "Носилки 1"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.litter2",
+      "value": "Носилки 2"
+    },
+    {
+      "key": "mission_prep.section.vehicle",
+      "value": "Машина"
+    },
+    {
+      "key": "mission_prep.section.boarding",
+      "value": "Посадочные места"
+    },
+    {
+      "key": "mission_prep.section.squad",
+      "value": "Отряд"
+    },
+    {
+      "key": "mission_prep.column.vehicles",
+      "value": "На базе"
+    },
+    {
+      "key": "mission_prep.column.units",
+      "value": "На задание"
+    },
+    {
+      "key": "mission_prep.column.base",
+      "value": "На базе"
+    },
+    {
+      "key": "mission_prep.column.mission",
+      "value": "На задание"
+    },
+    {
+      "key": "mission_prep.column.equipment",
+      "value": "Экипировка"
+    },
+    {
+      "key": "mission_prep.column.available",
+      "value": "Доступное"
+    },
+    {
+      "key": "mission_prep.column.stats",
+      "value": "Характеристики"
+    },
+    {
+      "key": "mission_prep.unit.assigned_vehicle",
+      "value": "{0} · {1}"
+    },
+    {
       "key": "mission_prep.stats.title",
       "value": "Характеристики"
     },
@@ -1327,7 +1671,7 @@
     },
     {
       "key": "weapon.mod_slot.underbarrel",
-      "value": "Подствольник"
+      "value": "Тактическая рукоятка"
     },
     {
       "key": "weapon.mod_slot.rail",
@@ -1335,15 +1679,15 @@
     },
     {
       "key": "weapon.mod_slot.rail_1",
-      "value": "Планка 1"
+      "value": "Тактический ЛЦУ"
     },
     {
       "key": "weapon.mod_slot.rail_2",
-      "value": "Планка 2"
+      "value": "Фонарь"
     },
     {
       "key": "weapon.mod_slot.rail_3",
-      "value": "Планка 3"
+      "value": "ЛЦУ"
     },
     {
       "key": "weapon.mod_slot.optic",
@@ -1364,6 +1708,10 @@
     {
       "key": "weapon.mod_slot.empty",
       "value": "Пусто"
+    },
+    {
+      "key": "weapon.mod_slot.empty_named",
+      "value": "{0} ({1})"
     },
     {
       "key": "item.backpack.1",
@@ -1391,7 +1739,7 @@
     },
     {
       "key": "item.shield.turret.frontal",
-      "value": "Лобовой щит турели"
+      "value": "Пулемётный щит"
     },
     {
       "key": "item.shield.turret.frontal.desc",
@@ -1399,11 +1747,11 @@
     },
     {
       "key": "item.shield.turret.surround",
-      "value": "Круговой щит турели"
+      "value": "Бронещит стрелка"
     },
     {
       "key": "item.shield.turret.surround.desc",
-      "value": "Броневой круговой щит для стрелка турели."
+      "value": "Круговой бронещит для стрелка турели."
     },
     {
       "key": "item.magazine.m2box",

@@ -59,6 +59,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		EnsureArmorDropdownDescriptionHover();
 		EnsureCamouflageDropdownDescriptionHover();
 		SyncPresetDropdownReferences();
+		LayoutEquipmentChrome();
 	}
 
 #if UNITY_EDITOR
@@ -95,6 +96,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_LoadoutCoordinator != null)
 			m_LoadoutCoordinator.BeginEditingPresets();
 
+		LayoutEquipmentChrome();
 		RefreshPresetEditingUi();
 	}
 
@@ -141,6 +143,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	public void BindToUnit(GameObject _unitRoot)
 	{
 		ResolveLoadoutCoordinatorReference();
+		SetUnitEditingChromeVisible(true);
 
 		m_BoundPresetState = _unitRoot != null
 			? MissionPrepUnitPresetState.GetOrCreate(_unitRoot, 0)
@@ -154,6 +157,43 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 			ApplyActivePresetForBoundUnitWithoutCoordinator();
 
 		RefreshPresetEditingUi();
+	}
+
+	public void BindToVehicle(VehicleController _vehicle)
+	{
+		ResolveLoadoutCoordinatorReference();
+		m_BoundPresetState = null;
+		SetUnitEditingChromeVisible(false);
+
+		if (m_LoadoutCoordinator != null)
+			m_LoadoutCoordinator.BindVehicle(_vehicle);
+	}
+
+	private void SetUnitEditingChromeVisible(bool _visible)
+	{
+		if (m_PresetDropdown != null)
+			m_PresetDropdown.gameObject.SetActive(_visible);
+		if (m_ArmorDropdown != null)
+			m_ArmorDropdown.gameObject.SetActive(_visible);
+		if (m_CamouflageDropdown != null)
+			m_CamouflageDropdown.gameObject.SetActive(_visible);
+
+		// Wrapper roots used by renamed Prep* dropdowns.
+		SetSiblingActiveIfPresent("PrepPresetDropdown", _visible);
+		SetSiblingActiveIfPresent("PrepArmorDropdown", _visible);
+		SetSiblingActiveIfPresent("PrepCamouflageDropdown", _visible);
+		SetSiblingActiveIfPresent("UnitPreset", _visible);
+		SetSiblingActiveIfPresent("UnitPreset (1)", _visible);
+		SetSiblingActiveIfPresent("UnitCamouflage", _visible);
+	}
+
+	private void SetSiblingActiveIfPresent(string _name, bool _visible)
+	{
+		Transform t = transform.Find(_name);
+		if (t == null && transform.parent != null)
+			t = transform.parent.Find(_name);
+		if (t != null)
+			t.gameObject.SetActive(_visible);
 	}
 
 	public void ClearUnitBinding()
@@ -268,7 +308,7 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_ArmorDropdown != null || !m_AutoResolveArmorDropdownInUi || m_PresetDropdown == null)
 			return;
 
-		m_ArmorDropdown = FindSiblingDropdownByRootName("UnitPreset (1)");
+		m_ArmorDropdown = FindSiblingDropdownByRootNames("PrepArmorDropdown", "UnitPreset (1)");
 		if (m_ArmorDropdown != null)
 			PrepareDropdownCaption(m_ArmorDropdown);
 	}
@@ -278,21 +318,40 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 		if (m_CamouflageDropdown != null)
 			return;
 
-		m_CamouflageDropdown = FindSiblingDropdownByRootName("UnitCamouflage");
+		m_CamouflageDropdown = FindSiblingDropdownByRootNames("PrepCamouflageDropdown", "UnitCamouflage");
 		if (m_CamouflageDropdown != null)
 			PrepareDropdownCaption(m_CamouflageDropdown);
 	}
 
-	private TMP_Dropdown FindSiblingDropdownByRootName(string _rootName)
+	private TMP_Dropdown FindSiblingDropdownByRootNames(params string[] _rootNames)
 	{
-		Transform layoutContent = transform.parent != null ? transform.parent.parent : null;
-		if (layoutContent == null || string.IsNullOrEmpty(_rootName))
+		if (_rootNames == null || _rootNames.Length == 0)
 			return null;
 
-		for (int i = 0; i < layoutContent.childCount; i++)
+		// Hierarchy: Dropdown(this) → Prep*Dropdown wrapper → PrepPresetEquipmentPanel
+		Transform panel = transform.parent != null ? transform.parent.parent : null;
+		if (panel == null)
+			panel = transform.parent;
+		if (panel == null)
+			return null;
+
+		for (int i = 0; i < panel.childCount; i++)
 		{
-			Transform section = layoutContent.GetChild(i);
-			if (section == null || section.name != _rootName)
+			Transform section = panel.GetChild(i);
+			if (section == null)
+				continue;
+
+			bool nameMatch = false;
+			for (int n = 0; n < _rootNames.Length; n++)
+			{
+				if (section.name == _rootNames[n])
+				{
+					nameMatch = true;
+					break;
+				}
+			}
+
+			if (!nameMatch)
 				continue;
 
 			TMP_Dropdown dropdown = section.GetComponentInChildren<TMP_Dropdown>(true);
@@ -693,6 +752,128 @@ public sealed class MissionPrepEquipmentPanelView : MonoBehaviour
 	private void EnsurePresetDropdownType()
 	{
 		MissionPrepPresetDropdownUtility.EnsureOn(gameObject, ref m_PresetDropdown);
+	}
+
+	/// <summary>
+	/// After ColumnContent reparent, dropdown wrappers kept old positive-Y offsets and floated away.
+	/// Pin preset/armor/camo + scroll under the collapse strip.
+	/// </summary>
+	private void LayoutEquipmentChrome()
+	{
+		const float dropdownHeight = 40f;
+		const float gap = 4f;
+		float top = gap;
+
+		RectTransform presetWrap = ResolveDropdownWrapper(m_PresetDropdown, "PrepPresetDropdown");
+		if (presetWrap != null)
+		{
+			PinTopStrip(presetWrap, top, dropdownHeight);
+			top += dropdownHeight + gap;
+		}
+
+		RectTransform armorWrap = ResolveDropdownWrapper(m_ArmorDropdown, "PrepArmorDropdown");
+		if (armorWrap != null)
+		{
+			PinTopStrip(armorWrap, top, dropdownHeight);
+			top += dropdownHeight + gap;
+		}
+
+		RectTransform camoWrap = ResolveDropdownWrapper(m_CamouflageDropdown, "PrepCamouflageDropdown");
+		if (camoWrap != null)
+		{
+			PinTopStrip(camoWrap, top, dropdownHeight);
+			top += dropdownHeight + gap;
+		}
+
+		Transform content = transform.Find("ColumnContent");
+		if (content == null)
+			content = transform;
+
+		// Duplicate of CollapseToggle title — hide floating Text (TMP) inside content.
+		for (int i = 0; i < content.childCount; i++)
+		{
+			Transform child = content.GetChild(i);
+			if (child != null && child.name == "Text (TMP)")
+				child.gameObject.SetActive(false);
+		}
+
+		RectTransform scroll = content.Find("PrepPresetEquipmentPanelScroll") as RectTransform;
+		if (scroll == null)
+		{
+			Transform deep = FindDeepChild(content, "PrepPresetEquipmentPanelScroll");
+			scroll = deep as RectTransform;
+		}
+
+		if (scroll != null)
+		{
+			scroll.anchorMin = Vector2.zero;
+			scroll.anchorMax = Vector2.one;
+			scroll.pivot = new Vector2(0.5f, 0.5f);
+			scroll.anchoredPosition = new Vector2(0f, -top * 0.5f);
+			scroll.sizeDelta = new Vector2(0f, -top);
+		}
+	}
+
+	private RectTransform ResolveDropdownWrapper(TMP_Dropdown _dropdown, string _wrapperName)
+	{
+		Transform content = transform.Find("ColumnContent") ?? transform;
+		Transform named = content.Find(_wrapperName) ?? FindDeepChild(content, _wrapperName);
+		if (named != null)
+			return named as RectTransform;
+
+		if (_dropdown == null)
+			return null;
+
+		Transform wrap = _dropdown.transform.parent;
+		if (wrap != null && wrap.name == _wrapperName)
+			return wrap as RectTransform;
+
+		return _dropdown.transform as RectTransform;
+	}
+
+	private static void PinTopStrip(RectTransform _rt, float _topInset, float _height)
+	{
+		if (_rt == null)
+			return;
+
+		_rt.anchorMin = new Vector2(0f, 1f);
+		_rt.anchorMax = new Vector2(1f, 1f);
+		_rt.pivot = new Vector2(0.5f, 1f);
+		_rt.anchoredPosition = new Vector2(0f, -_topInset);
+		_rt.sizeDelta = new Vector2(0f, _height);
+		_rt.localScale = Vector3.one;
+
+		// Inner TMP_Dropdown should fill the wrapper.
+		if (_rt.childCount > 0)
+		{
+			RectTransform inner = _rt.GetChild(0) as RectTransform;
+			if (inner != null && inner.GetComponent<TMP_Dropdown>() != null)
+			{
+				inner.anchorMin = Vector2.zero;
+				inner.anchorMax = Vector2.one;
+				inner.offsetMin = Vector2.zero;
+				inner.offsetMax = Vector2.zero;
+				inner.pivot = new Vector2(0.5f, 0.5f);
+			}
+		}
+	}
+
+	private static Transform FindDeepChild(Transform _parent, string _name)
+	{
+		if (_parent == null || string.IsNullOrEmpty(_name))
+			return null;
+
+		for (int i = 0; i < _parent.childCount; i++)
+		{
+			Transform child = _parent.GetChild(i);
+			if (child.name == _name)
+				return child;
+			Transform nested = FindDeepChild(child, _name);
+			if (nested != null)
+				return nested;
+		}
+
+		return null;
 	}
 
 	private void SyncPresetDropdownReferences()

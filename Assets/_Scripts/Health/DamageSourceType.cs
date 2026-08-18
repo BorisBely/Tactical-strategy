@@ -5,5 +5,6 @@ public enum DamageSourceType
 {
 	Bullet = 0,
 	Fragment = 1,
-	Explosive = 2
+	Explosive = 2,
+	Blunt = 3
 }

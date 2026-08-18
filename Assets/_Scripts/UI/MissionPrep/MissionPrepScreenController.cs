@@ -8,6 +8,7 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 {
 	#region Serialized Fields
 	[SerializeField] private MissionPrepUnitListView m_UnitList;
+	[SerializeField] private MissionPrepUnitListView m_VehicleList;
 	[SerializeField] private MissionPrepEquipmentPanelView m_EquipmentPanel;
 	[SerializeField] private MissionPrepEquipmentPresetCatalog m_PresetCatalog;
 	[SerializeField] private MissionPrepLoadoutCoordinator m_LoadoutCoordinator;
@@ -52,6 +53,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected += HandleUnitSelected;
+		if (m_VehicleList != null)
+			m_VehicleList.UnitCellSelected += HandleUnitSelected;
 
 		if (m_EquipmentPanel != null)
 		{
@@ -77,6 +80,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	{
 		if (m_UnitList != null)
 			m_UnitList.UnitCellSelected -= HandleUnitSelected;
+		if (m_VehicleList != null)
+			m_VehicleList.UnitCellSelected -= HandleUnitSelected;
 
 		if (m_EquipmentPanel != null)
 		{
@@ -161,6 +166,16 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
 	}
 
+	private void RefreshPresetInventoryPanel()
+	{
+		if (m_LoadoutCoordinator != null)
+			m_LoadoutCoordinator.RepaintInventoryPanel();
+		else if (m_PresetInventoryPanel != null)
+			m_PresetInventoryPanel.ClearAllSlots();
+
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
+	}
+
 	public MissionPrepPresetSnapshot GetCurrentPresetSnapshot()
 	{
 		return m_LoadoutCoordinator != null ? m_LoadoutCoordinator.GetEditingPresetSnapshot() : null;
@@ -223,10 +238,15 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 
 	private void HandleUnitSelected(MissionPrepUnitCellView _cell)
 	{
+		if (_cell != null && _cell.IsVehicleCell)
+			return;
+
 		m_CurrentUnitCell = _cell;
 
 		if (m_UnitList != null)
 			m_UnitList.SetSelectedCell(_cell);
+		if (m_VehicleList != null)
+			m_VehicleList.SetSelectedCell(_cell);
 
 		if (m_EquipmentPanel == null)
 			return;
@@ -241,19 +261,19 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 	private void HandlePresetSelected(MissionPrepUnitPresetState _state, int _presetIndex)
 	{
 		RefreshAllUnitCellPresetLabels();
-		RefreshInventoryPanel();
+		RefreshPresetInventoryPanel();
 	}
 
 	private void HandleArmorVisualSelected(MissionPrepUnitPresetState _state, int _armorIndex)
 	{
 		RefreshAllUnitCellPresetLabels();
-		RefreshInventoryPanel();
+		RefreshPresetInventoryPanel();
 	}
 
 	private void HandleCamouflageVisualSelected(MissionPrepUnitPresetState _state, int _camouflageIndex)
 	{
 		RefreshAllUnitCellPresetLabels();
-		RefreshInventoryPanel();
+		RefreshPresetInventoryPanel();
 	}
 
 	private void OnInventoryUnitBindingChanged(bool _hasBoundUnit)
@@ -263,7 +283,8 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		else
 			SetInventoryVisible(true);
 
-		RefreshInventoryPanel();
+		m_LoadoutCoordinator?.RefreshModificationCompatibilityHighlights();
+		MissionPrepScreenBindings.Instance?.RefreshEquipmentTitle();
 	}
 
 	private void RefreshUnitCellPresetLabel(MissionPrepUnitCellView _cell)
@@ -271,23 +292,42 @@ public sealed class MissionPrepScreenController : MonoBehaviour
 		if (_cell == null)
 			return;
 
+		if (_cell.IsVehicleCell)
+		{
+			VehicleCellDisplayBinder.Apply(_cell, _cell.BoundVehicle);
+			_cell.SetInteractionEnabled(true);
+			return;
+		}
+
 		UnitCellDisplayBinder.Apply(_cell, _cell.BoundUnitRoot);
 		_cell.SetInteractionEnabled(true);
+		// Re-apply boarding caption after binder refresh (own line under armor).
+		if (!string.IsNullOrWhiteSpace(_cell.VehicleAssignmentCaption))
+			_cell.SetVehicleAssignmentCaption(_cell.VehicleAssignmentCaption);
 	}
 
 	private void RefreshAllUnitCellPresetLabels()
 	{
-		if (m_UnitList == null)
-			return;
+		if (m_UnitList != null)
+		{
+			for (int i = 0; i < m_UnitList.UnitCellCount; i++)
+				RefreshUnitCellPresetLabel(m_UnitList.GetUnitCell(i));
+		}
 
-		for (int i = 0; i < m_UnitList.UnitCellCount; i++)
-			RefreshUnitCellPresetLabel(m_UnitList.GetUnitCell(i));
+		if (m_VehicleList != null)
+		{
+			for (int i = 0; i < m_VehicleList.UnitCellCount; i++)
+				RefreshUnitCellPresetLabel(m_VehicleList.GetUnitCell(i));
+			m_VehicleList.RefreshSeatSlots();
+		}
+
+		m_SquadSpawner?.RefreshVehicleAssignmentUi();
 	}
 
 	private void HandlePresetListChanged()
 	{
 		RefreshAllUnitCellPresetLabels();
-		RefreshInventoryPanel();
+		RefreshPresetInventoryPanel();
 	}
 
 	private void HandleCreateNewPresetRequested()

@@ -396,7 +396,9 @@ public enum WeaponClassType
 	/// <summary>Крупнокалиберный пулемёт / орудие турели.</summary>
 	HeavyMachineGun = 6,
 	/// <summary>Автоматический гранатомёт (MK19 и аналоги).</summary>
-	AutomaticGrenadeLauncher = 7
+	AutomaticGrenadeLauncher = 7,
+	/// <summary>Снайперская / marksman винтовка (SVD, Мосин, MK12).</summary>
+	SniperRifle = 8
 }
 
 /// <summary>
@@ -438,12 +440,15 @@ public enum WeaponAttachmentSlotProfile
 	/// <summary>M16A: дуло + оптика, без приклада и без rail/underbarrel.</summary>
 	M4BasicOpticNoStock = 3,
 	/// <summary>M16A4 tactical: дуло, оптика, underbarrel, rail x3; без приклада.</summary>
-	M4TacticalNoStock = 4
+	M4TacticalNoStock = 4,
+	/// <summary>Пулемёт / дробовик: верхняя планка выключена; слева фонарь, справа лазер/ЛЦУ.</summary>
+	MachineGunSideRails = 5
 }
 
 /// <summary>
 /// Слот под модуль на корпусе оружия. Магазин отдельно, не является слотом здесь.
-/// До трёх планок: три записи <see cref="WeaponAttachmentSlotType.Rail"/> в массиве слотов <c>WeaponDefinition</c>.
+/// До трёх планок: три записи <see cref="WeaponAttachmentSlotType.Rail"/> в массиве слотов <c>WeaponDefinition</c>
+/// (0 сверху — тактический ЛЦУ, 1 слева — фонарь, 2 справа — тактический или компактный ЛЦУ).
 /// </summary>
 public enum WeaponAttachmentSlotType
 {
@@ -451,7 +456,11 @@ public enum WeaponAttachmentSlotType
 	Muzzle = 0,
 	/// <summary>Под стволом: рукоятка / сошки / подствольный гранатомёт. Один слот.</summary>
 	UnderBarrel = 1,
-	/// <summary>Планка (над стволом / сбоку): фонарик, ЛЦУ или накладки. Повторяйте значение до 3 раз для трёх физических слотов.</summary>
+	/// <summary>
+	/// Планка. До трёх записей в <c>WeaponDefinition</c>, индексы RailSocket 0..2:
+	/// 0 сверху (тактический ЛЦУ), 1 слева (фонарь), 2 справа (тактический или компактный ЛЦУ).
+	/// На оружии только один лазерный модуль. На пулемёте и дробовике индекс 0 выключен.
+	/// </summary>
 	Rail = 2,
 	/// <summary>Прицел. Один слот.</summary>
 	Optic = 3,
@@ -504,10 +513,12 @@ public enum WeaponShotAttemptResult
 	MalfunctionOccurred = 10,
 	/// <summary>Оружие в окончательной неисправности (негодно к экипировке).</summary>
 	WeaponBroken = 11,
-	/// <summary>Прицеливание после отдачи/поворота ещё не завершено.</summary>
+	/// <summary>Прицеливание после отдачи/поворота ещё не завершено (ствол вне допуска).</summary>
 	NotAimed = 12,
 	/// <summary>Между стволом и целью находится союзник или нейтрал.</summary>
-	LineOfFireBlocked = 13
+	LineOfFireBlocked = 13,
+	/// <summary>AimProgress ниже порога. Ствол при этом может быть в допуске.</summary>
+	NotAimedProgress = 14
 }
 
 /// <summary>Тип текущего отказа (лёгкий / тяжёлый).</summary>

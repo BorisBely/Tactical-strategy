@@ -88,6 +88,14 @@ public static class StandaloneWeaponsBuilder
 		WeaponAttachmentSlotType.Optic
 	};
 
+	private static readonly WeaponAttachmentSlotType[] s_OpticSideRailsSlots =
+	{
+		WeaponAttachmentSlotType.Optic,
+		WeaponAttachmentSlotType.Rail,
+		WeaponAttachmentSlotType.Rail,
+		WeaponAttachmentSlotType.Rail
+	};
+
 	private static readonly WeaponAttachmentSlotType[] s_MuzzleOpticSlots =
 	{
 		WeaponAttachmentSlotType.Muzzle,
@@ -910,16 +918,6 @@ public static class StandaloneWeaponsBuilder
 		so.FindProperty("m_RightHandLocalEulerAngles").vector3Value =
 			templateSo.FindProperty("m_RightHandLocalEulerAngles").vector3Value;
 		CopyReadyHandPoseFields(so, templateSo);
-		CopyRightHandIkFields(so, templateSo);
-		CopyLeftHandIkFields(so, templateSo);
-		so.FindProperty("m_LeftHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetChildName").stringValue;
-		so.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_LeftHandIkTargetNotReadyChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetChildName").stringValue;
-		so.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue =
-			templateSo.FindProperty("m_RightHandIkTargetNotReadyChildName").stringValue;
 		so.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(item);
 		return item;
@@ -1049,7 +1047,7 @@ public static class StandaloneWeaponsBuilder
 			"Equipped_Mosin", "Weapon_Mosin", "Item_Weapon_Mosin",
 			c_SourceMosinPath, c_MagChildMosin, WeaponTemplateKind.Mosin,
 			"item.weapon.mosin", "7.62x54R bolt-action rifle.",
-			CaliberType.Seven62By54R, MagazineType.Bolt762x54R, WeaponClassType.Rifle,
+			CaliberType.Seven62By54R, MagazineType.Bolt762x54R, WeaponClassType.SniperRifle,
 			SlotLayout.OpticOnly, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
@@ -1062,7 +1060,7 @@ public static class StandaloneWeaponsBuilder
 			c_SourceBenelliPath, null, WeaponTemplateKind.Mk18,
 			"item.weapon.benelli_m4", "Benelli M4 semi-automatic 12 gauge shotgun.",
 			CaliberType.TwelveGauge, MagazineType.Internal, WeaponClassType.Shotgun,
-			SlotLayout.OpticOnly, WeaponAttachmentSlotProfile.Full,
+			SlotLayout.OpticSideRails, WeaponAttachmentSlotProfile.MachineGunSideRails,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.ShotgunCqb,
 			semiOnly, WeaponFireMode.SemiAuto,
 			180f, 0.32f, 0.85f, 40f, 2.80f,
@@ -1074,7 +1072,7 @@ public static class StandaloneWeaponsBuilder
 			c_SourceM249Path, c_MagChildM249, WeaponTemplateKind.Rpk74,
 			"item.weapon.m249", "M249 SAW light machine gun chambered in 5.56x45 NATO.",
 			CaliberType.Five56By45, MagazineType.M249Box, WeaponClassType.LightMachineGun,
-			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
+			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.MachineGunSideRails,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support545,
 			fullAutoOnly, WeaponFireMode.FullAuto,
 			750f, 0.48f, 4.50f, 140f, 1.05f,
@@ -1085,7 +1083,7 @@ public static class StandaloneWeaponsBuilder
 			"Equipped_Sniper762x51", "Weapon_Sniper762x51", "Item_Weapon_Sniper762x51",
 			c_SourceSniperPath, c_MagChildSniper, WeaponTemplateKind.Mk12,
 			"item.weapon.sniper_762x51", "Bolt-action precision rifle chambered in 7.62x51 NATO.",
-			CaliberType.Seven62By51, MagazineType.RifleStandard, WeaponClassType.Rifle,
+			CaliberType.Seven62By51, MagazineType.RifleStandard, WeaponClassType.SniperRifle,
 			SlotLayout.MuzzleOptic, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
@@ -1109,7 +1107,7 @@ public static class StandaloneWeaponsBuilder
 			"Equipped_SVD", "Weapon_SVD", "Item_Weapon_SVD",
 			c_SourceSvdPath, c_MagChildSvd, WeaponTemplateKind.Mk12,
 			"item.weapon.svd", "SVD semi-automatic marksman rifle chambered in 7.62x54R.",
-			CaliberType.Seven62By54R, MagazineType.Svd, WeaponClassType.Rifle,
+			CaliberType.Seven62By54R, MagazineType.Svd, WeaponClassType.SniperRifle,
 			SlotLayout.MuzzleOpticSideRail, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Marksman,
 			semiOnly, WeaponFireMode.SemiAuto,
@@ -1179,7 +1177,7 @@ public static class StandaloneWeaponsBuilder
 			SemiAutoRecoilMultiplier = _semiRecoil,
 			AutoRecoilMultiplier = _autoRecoil,
 			RecoilRecoveryPerSecond = _recoilRecovery,
-			VisualRecoilKickScale = _weaponAsset == "Weapon_BenelliM4" ? 0.48f : 1f,
+			VisualRecoilKickScale = WeaponVisualRecoilKickScaleTable.ForAsset(_weaponAsset),
 			Reliability = _reliability,
 			BasePrice = _price,
 			WeightKg = _weightKg,
@@ -1231,6 +1229,7 @@ public static class StandaloneWeaponsBuilder
 		WeaponAttachmentSlotType[] slotTypes = _layout switch
 		{
 			SlotLayout.OpticOnly => s_OpticOnlySlots,
+			SlotLayout.OpticSideRails => s_OpticSideRailsSlots,
 			SlotLayout.MuzzleOptic => s_MuzzleOpticSlots,
 			SlotLayout.MuzzleOpticSideRail => s_MuzzleOpticSideRailSlots,
 			SlotLayout.StockAk => s_StockAkSlots,
@@ -1431,6 +1430,7 @@ public static class StandaloneWeaponsBuilder
 	private enum SlotLayout
 	{
 		OpticOnly,
+		OpticSideRails,
 		MuzzleOptic,
 		MuzzleOpticSideRail,
 		StockAk,
@@ -1496,29 +1496,6 @@ public static class StandaloneWeaponsBuilder
 		}
 	}
 
-	private static void CopyRightHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_RightHandIkReadyLocalEulerAngles").vector3Value;
-	}
-
-	private static void CopyLeftHandIkFields(SerializedObject _so, SerializedObject _templateSo)
-	{
-		_so.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkNotReadyLocalEulerAngles").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalPosition").vector3Value;
-		_so.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value =
-			_templateSo.FindProperty("m_LeftHandIkReadyLocalEulerAngles").vector3Value;
-	}
 	#endregion
 }
 #endif

@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public sealed class HealthStatusSlotDescriptionHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
 {
 	#region Constants
-	private const float c_ShowDelaySeconds = 2f;
+	private const float c_ShowDelaySeconds = 0.35f;
 	#endregion
 
 	#region Private Fields

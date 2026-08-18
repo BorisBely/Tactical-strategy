@@ -10,6 +10,78 @@
       "value": "Found"
     },
     {
+      "key": "inventory.exchange.title",
+      "value": "Exchange"
+    },
+    {
+      "key": "inventory.exchange.found",
+      "value": "Found"
+    },
+    {
+      "key": "inventory.exchange.vehicle",
+      "value": "Vehicle"
+    },
+    {
+      "key": "inventory.section.equipment",
+      "value": "Equipment"
+    },
+    {
+      "key": "inventory.section.bag",
+      "value": "Bag"
+    },
+    {
+      "key": "inventory.equip_slot.empty.weapon",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty.helmet",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty.backpack",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty.turret_weapon",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty.gun_shield",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty.gunner_shield",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.empty",
+      "value": "Empty"
+    },
+    {
+      "key": "inventory.equip_slot.title.weapon",
+      "value": "Weapon"
+    },
+    {
+      "key": "inventory.equip_slot.title.helmet",
+      "value": "Helmet"
+    },
+    {
+      "key": "inventory.equip_slot.title.backpack",
+      "value": "Backpack"
+    },
+    {
+      "key": "inventory.equip_slot.title.turret_weapon",
+      "value": "Turret weapon"
+    },
+    {
+      "key": "inventory.equip_slot.title.gun_shield",
+      "value": "Gun shield"
+    },
+    {
+      "key": "inventory.equip_slot.title.gunner_shield",
+      "value": "Gunner shield"
+    },
+    {
       "key": "combat.rank.recruit",
       "value": "Recruit"
     },
@@ -172,6 +244,66 @@
     {
       "key": "health.damage_source.explosive",
       "value": "Explosive"
+    },
+    {
+      "key": "health.damage_source.blunt",
+      "value": "Blunt"
+    },
+    {
+      "key": "health.condition.bruise",
+      "value": "Bruise"
+    },
+    {
+      "key": "health.condition.sprain",
+      "value": "Sprain"
+    },
+    {
+      "key": "health.injury.vehicle_bruise",
+      "value": "Vehicle bruise"
+    },
+    {
+      "key": "health.injury.vehicle_bruise.desc",
+      "value": "Light soft-tissue bruise from a low-speed vehicle contact."
+    },
+    {
+      "key": "health.injury.vehicle_soft_tissue",
+      "value": "Soft-tissue trauma"
+    },
+    {
+      "key": "health.injury.vehicle_soft_tissue.desc",
+      "value": "Bruising and pain after body contact with a vehicle. Still conscious."
+    },
+    {
+      "key": "health.injury.vehicle_limb_sprain",
+      "value": "Limb sprain"
+    },
+    {
+      "key": "health.injury.vehicle_limb_sprain.desc",
+      "value": "A vehicle shove sprained a limb. Sprinting is difficult."
+    },
+    {
+      "key": "health.injury.vehicle_impact_trauma",
+      "value": "Vehicle impact trauma"
+    },
+    {
+      "key": "health.injury.vehicle_impact_trauma.desc",
+      "value": "A hard vehicle impact caused severe blunt trauma and loss of consciousness."
+    },
+    {
+      "key": "health.injury.vehicle_crush_chest",
+      "value": "Chest crush trauma"
+    },
+    {
+      "key": "health.injury.vehicle_crush_chest.desc",
+      "value": "A body impact crushed the chest and impaired breathing. Urgent care needed."
+    },
+    {
+      "key": "health.injury.vehicle_polytrauma",
+      "value": "Polytrauma (vehicle)"
+    },
+    {
+      "key": "health.injury.vehicle_polytrauma.desc",
+      "value": "Multiple injuries from a vehicle strike. Critical condition."
     },
     {
       "key": "item.generic",
@@ -1154,6 +1286,218 @@
       "value": "Available equipment"
     },
     {
+      "key": "mission_prep.equipment.filter.weapons",
+      "value": "Weapons"
+    },
+    {
+      "key": "mission_prep.equipment.filter.mods",
+      "value": "Mods"
+    },
+    {
+      "key": "mission_prep.equipment.filter.ammo",
+      "value": "Ammo"
+    },
+    {
+      "key": "mission_prep.equipment.filter.equipment",
+      "value": "Equipment"
+    },
+    {
+      "key": "mission_prep.equipment.filter.extra",
+      "value": "Extra gear"
+    },
+    {
+      "key": "mission_prep.equipment.empty_category",
+      "value": "No items in this category"
+    },
+    {
+      "key": "mission_prep.equipment.group.assault_rifles",
+      "value": "Assault rifles"
+    },
+    {
+      "key": "mission_prep.equipment.group.sniper_rifles",
+      "value": "Sniper rifles"
+    },
+    {
+      "key": "mission_prep.equipment.group.shotguns",
+      "value": "Shotguns"
+    },
+    {
+      "key": "mission_prep.equipment.group.machine_guns",
+      "value": "Machine guns"
+    },
+    {
+      "key": "mission_prep.equipment.group.rocket_launchers",
+      "value": "Launchers"
+    },
+    {
+      "key": "mission_prep.equipment.group.turret_weapons",
+      "value": "Turret weapons"
+    },
+    {
+      "key": "mission_prep.equipment.group.optics",
+      "value": "Optics"
+    },
+    {
+      "key": "mission_prep.equipment.group.tactical_grips",
+      "value": "Tactical grips"
+    },
+    {
+      "key": "mission_prep.equipment.group.muzzle",
+      "value": "Muzzle"
+    },
+    {
+      "key": "mission_prep.equipment.group.laser_flashlight",
+      "value": "Laser / flashlight"
+    },
+    {
+      "key": "mission_prep.equipment.group.stocks",
+      "value": "Stocks"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_545",
+      "value": "Magazines 5.45"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_762x39",
+      "value": "Magazines 7.62x39"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_556",
+      "value": "Magazines 5.56"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_762_long",
+      "value": "Magazines 7.62x51 / 7.62x54R"
+    },
+    {
+      "key": "mission_prep.equipment.group.mag_boxes",
+      "value": "Belts / boxes"
+    },
+    {
+      "key": "mission_prep.equipment.group.ammo_boxes",
+      "value": "Ammunition"
+    },
+    {
+      "key": "mission_prep.equipment.group.rpg_rockets",
+      "value": "Rockets"
+    },
+    {
+      "key": "mission_prep.equipment.group.helmets",
+      "value": "Helmets"
+    },
+    {
+      "key": "mission_prep.equipment.group.backpacks",
+      "value": "Backpacks"
+    },
+    {
+      "key": "mission_prep.equipment.group.grenades",
+      "value": "Grenades"
+    },
+    {
+      "key": "mission_prep.equipment.group.medkits",
+      "value": "Medical"
+    },
+    {
+      "key": "mission_prep.equipment.group.turret_shields",
+      "value": "Turret shields"
+    },
+    {
+      "key": "mission_prep.equipment.group.other",
+      "value": "Other"
+    },
+    {
+      "key": "mission_prep.vehicle.kind",
+      "value": "Vehicle"
+    },
+    {
+      "key": "mission_prep.vehicle.inventory_title",
+      "value": "Vehicle inventory"
+    },
+    {
+      "key": "mission_prep.vehicle.seats_count",
+      "value": "{0} seats"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.empty",
+      "value": "Empty"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.driver",
+      "value": "Driver"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.commander",
+      "value": "Commander"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.gunner",
+      "value": "Gunner"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_left",
+      "value": "Rear left"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_center",
+      "value": "Rear center"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.rear_right",
+      "value": "Rear right"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.litter1",
+      "value": "Litter 1"
+    },
+    {
+      "key": "mission_prep.vehicle.seat.litter2",
+      "value": "Litter 2"
+    },
+    {
+      "key": "mission_prep.section.vehicle",
+      "value": "Vehicle"
+    },
+    {
+      "key": "mission_prep.section.boarding",
+      "value": "Boarding seats"
+    },
+    {
+      "key": "mission_prep.section.squad",
+      "value": "Squad"
+    },
+    {
+      "key": "mission_prep.column.vehicles",
+      "value": "At base"
+    },
+    {
+      "key": "mission_prep.column.units",
+      "value": "On mission"
+    },
+    {
+      "key": "mission_prep.column.base",
+      "value": "At base"
+    },
+    {
+      "key": "mission_prep.column.mission",
+      "value": "On mission"
+    },
+    {
+      "key": "mission_prep.column.equipment",
+      "value": "Loadout"
+    },
+    {
+      "key": "mission_prep.column.available",
+      "value": "Available"
+    },
+    {
+      "key": "mission_prep.column.stats",
+      "value": "Weapon stats"
+    },
+    {
+      "key": "mission_prep.unit.assigned_vehicle",
+      "value": "{0} · {1}"
+    },
+    {
       "key": "mission_prep.stats.title",
       "value": "Characteristics"
     },
@@ -1183,7 +1527,7 @@
     },
     {
       "key": "weapon.mod_slot.underbarrel",
-      "value": "Underbarrel"
+      "value": "Tactical grip"
     },
     {
       "key": "weapon.mod_slot.rail",
@@ -1191,15 +1535,15 @@
     },
     {
       "key": "weapon.mod_slot.rail_1",
-      "value": "Rail 1"
+      "value": "Tactical LCU"
     },
     {
       "key": "weapon.mod_slot.rail_2",
-      "value": "Rail 2"
+      "value": "Flashlight"
     },
     {
       "key": "weapon.mod_slot.rail_3",
-      "value": "Rail 3"
+      "value": "LCU"
     },
     {
       "key": "weapon.mod_slot.optic",
@@ -1220,6 +1564,10 @@
     {
       "key": "weapon.mod_slot.empty",
       "value": "Empty"
+    },
+    {
+      "key": "weapon.mod_slot.empty_named",
+      "value": "{0} ({1})"
     },
     {
       "key": "item.backpack.1",
@@ -1247,7 +1595,7 @@
     },
     {
       "key": "item.shield.turret.frontal",
-      "value": "Frontal Turret Shield"
+      "value": "Gun shield"
     },
     {
       "key": "item.shield.turret.frontal.desc",
@@ -1255,11 +1603,11 @@
     },
     {
       "key": "item.shield.turret.surround",
-      "value": "Surround Turret Shield"
+      "value": "Gunner shield"
     },
     {
       "key": "item.shield.turret.surround.desc",
-      "value": "Surround armor shield for turret gunner."
+      "value": "Circular gunner shield for the turret gunner."
     },
     {
       "key": "item.magazine.m2box",

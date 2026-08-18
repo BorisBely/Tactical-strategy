@@ -14,7 +14,7 @@ namespace VehicleNavigation
 			Destination = _destination;
 			TargetHeadingYaw = _targetHeadingYaw;
 			AllowReverse = true;
-			SpeedScale = 0.28f;
+			SpeedScale = 0.35f;
 			LookAheadOverride = 2f;
 			IsArrivalManeuver = true;
 		}

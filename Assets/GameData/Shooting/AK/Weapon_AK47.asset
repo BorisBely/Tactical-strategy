@@ -252,6 +252,7 @@ MonoBehaviour:
   m_SemiAutoRecoilMultiplier: 0.86
   m_AutoRecoilMultiplier: 1.34
   m_RecoilRecoveryPerSecond: 3.2
+  m_VisualRecoilKickScale: 1.55
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12
   m_FireSoundProfile:

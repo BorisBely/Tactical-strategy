@@ -26,8 +26,8 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 	private VehicleTurretGunnerBridge m_GunnerBridge;
 	private VehicleTurretReloadController m_ReloadController;
 	private TurretWeaponVariant m_LastAppliedVariant = TurretWeaponVariant.None;
-	private static readonly System.Collections.Generic.HashSet<int> s_MissingEquippedWeaponPitchIds =
-		new System.Collections.Generic.HashSet<int>();
+	private static readonly System.Collections.Generic.HashSet<EntityId> s_MissingEquippedWeaponPitchIds =
+		new System.Collections.Generic.HashSet<EntityId>();
 	#endregion
 
 	#region Public Properties
@@ -239,7 +239,7 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 
 		if (!pitch.TryGetComponent(out EquippedWeapon equipped))
 		{
-			int pitchId = pitch.GetInstanceID();
+			EntityId pitchId = pitch.GetEntityId();
 			if (s_MissingEquippedWeaponPitchIds.Add(pitchId))
 			{
 				Debug.LogWarning(
@@ -251,7 +251,7 @@ public sealed class VehicleTurretEquipmentController : MonoBehaviour
 			return;
 		}
 
-		s_MissingEquippedWeaponPitchIds.Remove(pitch.GetInstanceID());
+		s_MissingEquippedWeaponPitchIds.Remove(pitch.GetEntityId());
 
 		if (_variant == TurretWeaponVariant.Mk19)
 		{

@@ -21,7 +21,7 @@ public static class WeaponShotAccuracyEvaluator
 			? weaponDefinition.GetDistanceDispersionMultiplier(_input.TargetDistanceMeters)
 			: 1f;
 		float attachmentDistance = weaponState != null
-			? weaponState.GetAttachmentDistanceDispersionProduct(_input.TargetDistanceMeters)
+			? GetAttachmentDistanceDispersionProduct(weaponState, _input.TargetDistanceMeters, !_input.ExcludeOpticAttachments)
 			: 1f;
 
 		float recoilFactor = 1f + recoil * _input.RecoilSpreadScale;
@@ -35,6 +35,7 @@ public static class WeaponShotAccuracyEvaluator
 			aimProgressForSpread,
 			_input.TargetDistanceMeters);
 		float autoBurstFactor = GetAutoBurstSpreadMultiplier(_input);
+		float poseFactor = _input.PoseSpreadMultiplier > 0.01f ? _input.PoseSpreadMultiplier : 1f;
 
 		float raw = baseDispersion *
 		            ammoSpread *
@@ -48,6 +49,7 @@ public static class WeaponShotAccuracyEvaluator
 		            conditionFactor *
 		            aimCompletionFactor *
 		            autoBurstFactor *
+		            poseFactor *
 		            _input.BaseSpreadToDegrees;
 
 		float autoSpreadMultiplier = _input.AutoSpreadMultiplier > 0f ? _input.AutoSpreadMultiplier : 1f;
@@ -145,6 +147,20 @@ public static class WeaponShotAccuracyEvaluator
 				return Mathf.Max(0.01f, _input.StandingSpreadMultiplier);
 		}
 	}
+
+	private static float GetAttachmentDistanceDispersionProduct(
+		WeaponRuntimeState _weaponState,
+		float _distanceMeters,
+		bool _includeOptics)
+	{
+		WeaponAttachmentDefinition[] attachments = _weaponState.EquippedAttachments;
+		if (_includeOptics)
+			return _weaponState.GetAttachmentDistanceDispersionProduct(_distanceMeters);
+		return WeaponPoseAutoCapabilityBaker.GetAttachmentDistanceDispersionProduct(
+			attachments,
+			_distanceMeters,
+			_includeOptics: false);
+	}
 	#endregion
 }
 
@@ -181,6 +197,12 @@ public struct WeaponShotAccuracyInput
 	public WeaponFireMode SelectedFireMode;
 	public WeaponFireMode FireMode;
 	public int BurstShotIndex;
+	/// <summary>Current visual weapon pose (HipFire/PointAim ignore optics).</summary>
+	public WeaponPoseState WeaponPose;
+	/// <summary>Baked pose spread multiplier (1 = Aiming baseline).</summary>
+	public float PoseSpreadMultiplier;
+	/// <summary>When true, optic attachments are excluded from distance dispersion.</summary>
+	public bool ExcludeOpticAttachments;
 }
 
 /// <summary>

@@ -13,7 +13,7 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 	[SerializeField] private VehiclePassengerState m_State;
 	[SerializeField] private VehicleController m_Vehicle;
 	[SerializeField] private VehicleGlassController m_GlassController;
-	[SerializeField] private UnitVision m_Vision;
+	[SerializeField] private TargetSelector m_TargetSelector;
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private LayerMask m_VehicleBodyMask = -1;
@@ -41,8 +41,8 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 			m_Vehicle = GetComponentInParent<VehicleController>();
 		if (m_GlassController == null && m_Vehicle != null)
 			m_GlassController = m_Vehicle.GlassController;
-		if (m_Vision == null)
-			m_Vision = GetComponent<UnitVision>();
+		if (m_TargetSelector == null)
+			m_TargetSelector = GetComponent<TargetSelector>();
 		if (m_FireController == null)
 			m_FireController = GetComponent<UnitWeaponFireController>();
 		if (m_Equipment == null)
@@ -138,6 +138,9 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 			case WeaponShotAttemptResult.NotAimed:
 				Debug.Log($"[VehPassFire] {name} SHOT FAIL: NotAimed", this);
 				break;
+			case WeaponShotAttemptResult.NotAimedProgress:
+				Debug.Log($"[VehPassFire] {name} SHOT FAIL: NotAimedProgress", this);
+				break;
 			case WeaponShotAttemptResult.EmptyMagazine:
 				Debug.Log($"[VehPassFire] {name} SHOT FAIL: EmptyMagazine", this);
 				break;
@@ -231,14 +234,14 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 
 	private Transform ResolveTarget()
 	{
-		if (m_Vision == null)
+		if (m_TargetSelector == null)
 			return null;
 
-		Transform engageable = m_Vision.GetEngageableVisibleTarget();
+		Transform engageable = m_TargetSelector.GetEngageableSelectedTarget();
 		if (engageable != null)
 			return engageable;
 
-		return m_Vision.VisibleTarget;
+		return m_TargetSelector.SelectedTarget;
 	}
 
 	private bool IsLineOfSightClear(Vector3 _targetPosition)

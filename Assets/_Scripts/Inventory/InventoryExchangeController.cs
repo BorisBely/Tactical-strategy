@@ -1,13 +1,19 @@
 using UnityEngine;
 
 /// <summary>
-/// Режим обмена с сражённым юнитом: панель «земля» показывает его инвентарь (заголовок «Найдено»).
+/// Режим обмена: панель «земля» показывает инвентарь партнёра (заголовок «Обмен» / «Машина»).
 /// </summary>
 public sealed class InventoryExchangeController
 {
 	#region Constants
-	private const string c_FoundTitleKey = "inventory.exchange.found";
-	private const string c_FoundTitleFallback = "Найдено";
+	private const string c_ExchangeTitleKey = "inventory.exchange.title";
+	private const string c_ExchangeTitleFallback = "Обмен";
+	private const string c_VehicleTitleKey = "inventory.exchange.vehicle";
+	private const string c_VehicleTitleFallback = "Машина";
+	public const float VehicleArriveDistanceMeters = 2.0f;
+	public const float VehicleMaxInteractDistanceMeters = 3.5f;
+	public const float VehicleStandoffMeters = 2.2f;
+	private const float c_VehicleMaxInteractDistanceMeters = VehicleMaxInteractDistanceMeters;
 	#endregion
 
 	#region Static Access
@@ -45,6 +51,14 @@ public sealed class InventoryExchangeController
 		if (_partnerUnit == null || _playerUnit == null || _partnerUnit == _playerUnit)
 		{
 			_failureMessage = "Не удалось начать обмен.";
+			return false;
+		}
+
+		Vector3 partnerFocus = UnitFallenApproachUtility.ResolveApproachFocusPosition(_partnerUnit.transform);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, partnerFocus);
+		if (!UnitFallenApproachUtility.IsWithinInteractRange(distance))
+		{
+			_failureMessage = "Слишком далеко для обмена.";
 			return false;
 		}
 
@@ -121,6 +135,14 @@ public sealed class InventoryExchangeController
 			return false;
 		}
 
+		Vector3 focus = ResolveVehicleExchangeFocus(_vehicle, _playerUnit);
+		float distance = UnitFallenApproachUtility.HorizontalDistance(_playerUnit.transform.position, focus);
+		if (distance > c_VehicleMaxInteractDistanceMeters)
+		{
+			_failureMessage = "Слишком далеко для обмена с машиной.";
+			return false;
+		}
+
 		VehicleInventory vehicleInventory = _vehicle.Inventory;
 		CharacterInventory playerInventory = ResolveCharacterInventory(_playerUnit);
 		if (vehicleInventory == null || playerInventory == null)
@@ -160,7 +182,7 @@ public sealed class InventoryExchangeController
 		m_SavedGroundLeadingSlotCount = groundPanel.LeadingEquipmentSlotCount;
 		groundPanel.SetLeadingEquipmentSlotCount(VehicleInventory.LeadingEquipmentSlotCount);
 
-		bindings.SetGroundPanelTitle("Машина");
+		bindings.SetGroundPanelTitle(LocalizationManager.Get(c_VehicleTitleKey, c_VehicleTitleFallback));
 		vehicleInventory.RepaintInventoryPanel(groundPanel);
 
 		RuntimeInventoryModificationCoordinator coordinator = RuntimeInventoryModificationCoordinator.Instance;
@@ -247,6 +269,19 @@ public sealed class InventoryExchangeController
 		return _unit.GetComponentInChildren<CharacterInventory>(true);
 	}
 
+	public static Vector3 ResolveVehicleExchangeFocus(VehicleController _vehicle, RtsUnitMember _playerUnit)
+	{
+		if (_vehicle == null)
+			return Vector3.zero;
+
+		Vector3 playerPos = _playerUnit != null ? _playerUnit.transform.position : Vector3.zero;
+		VehicleDoorController doors = _vehicle.GetComponent<VehicleDoorController>();
+		if (doors != null && doors.TryGetNearestApproachPoint(playerPos, out Vector3 nearest))
+			return nearest;
+
+		return _vehicle.transform.position;
+	}
+
 	private void EndExchange()
 	{
 		InventoryScreenBindings bindings = InventoryScreenBindings.Instance;
@@ -278,7 +313,7 @@ public sealed class InventoryExchangeController
 
 	private static void ApplyFoundTitle(InventoryScreenBindings _bindings)
 	{
-		_bindings.SetGroundPanelTitle(LocalizationManager.Get(c_FoundTitleKey, c_FoundTitleFallback));
+		_bindings.SetGroundPanelTitle(LocalizationManager.Get(c_ExchangeTitleKey, c_ExchangeTitleFallback));
 	}
 
 	private static void RestoreGroundTitle(InventoryScreenBindings _bindings)

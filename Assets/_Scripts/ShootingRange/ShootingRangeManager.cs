@@ -111,7 +111,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 		ResolveRegistry();
 
 #if UNITY_2023_1_OR_NEWER
-		Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude);
 #else
 		Transform[] transforms = FindObjectsOfType<Transform>();
 #endif
@@ -350,7 +350,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	public void ApplyPlayerVisionRange()
 	{
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif
@@ -629,7 +629,7 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	private void RequestVisionRescanForPlayers()
 	{
 #if UNITY_2023_1_OR_NEWER
-		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude);
 #else
 		UnitVision[] visions = FindObjectsOfType<UnitVision>();
 #endif

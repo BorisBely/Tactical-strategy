@@ -118,7 +118,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		var geo = m_Nav.Geometry;
 		m_Sb.AppendLine($"  Геометрия: фронт={geo.FrontClearance:F1}м зад={geo.RearClearance:F1}м лево={geo.LeftClearance:F1}м право={geo.RightClearance:F1}м");
 
-		Debug.Log(m_Sb.ToString(), this);
+		VehicleFileLog.Write(this, m_Sb.ToString());
 	}
 
 	private void LogManeuverChanges()
@@ -158,7 +158,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 				m_Sb.AppendLine($"  Дистанция манёвра (2D): {FlatDist(first, last):F1} м");
 			}
 
-			Debug.Log(m_Sb.ToString(), this);
+			VehicleFileLog.Write(this, m_Sb.ToString());
 		}
 	}
 
@@ -190,7 +190,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 			{
 				m_Sb.Append("ЗАСТРЯЛА — пытаюсь выбраться!");
 			}
-			Debug.Log(m_Sb.ToString(), this);
+			VehicleFileLog.Write(this, m_Sb.ToString());
 		}
 	}
 
@@ -227,7 +227,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		m_Sb.AppendLine($"  Реверс: {debug.IsReversing}, оставшаяся дистанция: {ctx.RemainingDistance:F1} м");
 		m_Sb.AppendLine($"  Газ: {m_Nav.ThrottleCommand:F2}, руль: {m_Nav.SteerCommand:F2}, задний ход: {m_Nav.IsReversing}");
 
-		Debug.Log(m_Sb.ToString(), this);
+		VehicleFileLog.Write(this, m_Sb.ToString());
 	}
 
 	private void LogGeometryPeriodic()
@@ -243,7 +243,7 @@ public sealed class VehicleNavigationDebugDrawer : MonoBehaviour
 		m_Sb.AppendLine($"  Перед: {geo.FrontClearance:F1}м | Зад: {geo.RearClearance:F1}м");
 		m_Sb.AppendLine($"  Лево: {geo.LeftClearance:F1}м | Право: {geo.RightClearance:F1}м");
 		m_Sb.AppendLine($"  Предпочитаемый поворот: {(geo.PreferredTurnSign < 0 ? "ЛЕВО" : geo.PreferredTurnSign > 0 ? "ПРАВО" : "НЕТ")}");
-		Debug.Log(m_Sb.ToString(), this);
+		VehicleFileLog.Write(this, m_Sb.ToString());
 	}
 	#endregion
 

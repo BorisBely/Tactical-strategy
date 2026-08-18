@@ -1,7 +1,9 @@
 {
     "name": "CombatVehicleSystem",
     "rootNamespace": "CombatVehicleSystem",
-    "references": [],
+    "references": [
+        "_Scripts"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

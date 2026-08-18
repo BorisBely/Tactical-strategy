@@ -120,21 +120,18 @@ public static class MissionPrepModificationDragContext
 
 	public static void Clear()
 	{
-		bool hadPayload = s_Current.HasItem;
 		s_Current = default;
-
-		if (hadPayload)
-			Changed?.Invoke();
+		s_DropConsumed = false;
+		InventoryEquipmentEquipHoverContext.ClearAll();
+		Changed?.Invoke();
 	}
 
 	public static void ResetAfterDrag()
 	{
-		bool hadPayload = s_Current.HasItem;
 		s_Current = default;
 		s_DropConsumed = false;
-
-		if (hadPayload)
-			Changed?.Invoke();
+		InventoryEquipmentEquipHoverContext.ClearAll();
+		Changed?.Invoke();
 	}
 	#endregion
 
@@ -143,6 +140,7 @@ public static class MissionPrepModificationDragContext
 	{
 		s_DropConsumed = false;
 		s_Current = IsPayloadValid(_payload) ? _payload : default;
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		Changed?.Invoke();
 	}
 

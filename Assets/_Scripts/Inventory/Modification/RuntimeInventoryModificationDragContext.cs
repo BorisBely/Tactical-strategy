@@ -153,22 +153,20 @@ public static class RuntimeInventoryModificationDragContext
 
 	public static void Clear()
 	{
-		bool hadPayload = s_Current.HasItem;
 		s_Current = default;
-
-		if (hadPayload)
-			Changed?.Invoke();
+		s_DropConsumed = false;
+		s_SourceSlotView = null;
+		InventoryEquipmentEquipHoverContext.ClearAll();
+		Changed?.Invoke();
 	}
 
 	public static void ResetAfterDrag()
 	{
-		bool hadPayload = s_Current.HasItem;
 		s_Current = default;
 		s_DropConsumed = false;
 		s_SourceSlotView = null;
-
-		if (hadPayload)
-			Changed?.Invoke();
+		InventoryEquipmentEquipHoverContext.ClearAll();
+		Changed?.Invoke();
 	}
 	#endregion
 
@@ -182,6 +180,7 @@ public static class RuntimeInventoryModificationDragContext
 	{
 		s_DropConsumed = false;
 		s_Current = IsPayloadValid(_payload) ? _payload : default;
+		InventoryEquipmentEquipHoverContext.ClearAll();
 		Changed?.Invoke();
 	}
 

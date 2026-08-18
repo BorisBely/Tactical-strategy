@@ -239,6 +239,16 @@ namespace VehicleNavigation
 			m_VehicleRoot = _root;
 		}
 
+		private void LogDebug(string _message)
+		{
+			if (!DebugLog)
+				return;
+			if (m_VehicleRoot != null && m_VehicleRoot.TryGetComponent(out VehicleController vehicle))
+				VehicleFileLog.Write(vehicle, _message);
+			else
+				VehicleFileLog.WriteActive(_message);
+		}
+
 		public void SetDestination(NavigationRequest _request)
 		{
 			m_Ctx.Request = _request;
@@ -627,6 +637,12 @@ namespace VehicleNavigation
 				return false;
 			if (m_ForceLocalHandoff)
 				return true;
+			// After a failed/timeout handoff, stay on coarse cruise until the vehicle moves.
+			if (m_LocalHandoffDeferred &&
+			    m_LocalHandoffDeferredDist > 0f &&
+			    _flatDist >= 3f &&
+			    Mathf.Abs(_flatDist - m_LocalHandoffDeferredDist) < 1.5f)
+				return false;
 			float localDist = m_Settings.LocalPlanningDistance > 0f
 				? m_Settings.LocalPlanningDistance
 				: 15f;
@@ -699,9 +715,11 @@ namespace VehicleNavigation
 			FeedbackState fb = m_Ctx.State;
 			float posDelta = BicycleKinematics.FlatDistance(fb.Position, m_LastSnapshotPos);
 			float yawDelta = Mathf.Abs(Mathf.DeltaAngle(fb.Yaw, m_LastSnapshotYaw));
+			// Reuse while stationary / same frame — rebuilding every FixedUpdate was log spam
+			// and burned physics queries during long Planning waits.
 			if (m_LastSnapshot != null && m_LastSnapshot.IsValid &&
-			    m_LastSnapshotFrame == Time.frameCount &&
-			    posDelta < 0.05f && yawDelta < 2f)
+			    posDelta < 0.08f && yawDelta < 3f &&
+			    (m_LastSnapshotFrame == Time.frameCount || m_PlanningActive))
 				return;
 
 			int rays = m_Settings != null ? m_Settings.DenseFanRayCount : 40;
@@ -715,7 +733,7 @@ namespace VehicleNavigation
 			m_LastSnapshotFrame = Time.frameCount;
 
 			if (DebugLog && m_LastSnapshot != null)
-				Debug.Log($"[DriverFSM] Planning snapshot rays={m_LastSnapshot.RayCount} queries={m_LastSnapshot.PhysicsQueries} front={m_LastSnapshot.FrontClearance:F1} rear={m_LastSnapshot.RearClearance:F1}");
+				LogDebug($"[DriverFSM] Planning snapshot rays={m_LastSnapshot.RayCount} queries={m_LastSnapshot.PhysicsQueries} front={m_LastSnapshot.FrontClearance:F1} rear={m_LastSnapshot.RearClearance:F1}");
 		}
 
 		private float GetPlanSliceBudgetMs() =>
@@ -747,20 +765,48 @@ namespace VehicleNavigation
 			       Time.realtimeSinceStartup - m_PlanningWallStartTime >= GetPlanWallTimeoutSec();
 		}
 
-		private void FailLocalPlanningTerminal(string _reason)
+		/// <returns>True when the order was terminated (Idle/Stop); false when deferred to cruise.</returns>
+		private bool FailLocalPlanningTerminal(string _reason)
 		{
 			m_PlanningActive = false;
 			m_PlanningSession = null;
 			m_PlanningWallStartTime = -1f;
-			m_PlanningWallExhausted = true;
 			m_LastFailedPlanSignature = null;
 			m_NextPlanRetryTime = Time.time + c_PlanRetryCooldownSec * 4f;
+			m_TrajectoryTracker.Deactivate();
+
+			FeedbackState fb = m_Ctx.State;
+			float flatDist = m_Ctx.HasRequest
+				? FlatDistance(fb.Position, m_Ctx.Request.Destination)
+				: 0f;
+
+			// Free-play: do not freeze the order on a local wall timeout far from the goal —
+			// defer handoff and keep coarse cruise (tests also recover better this way).
+			if (m_Ctx.HasRequest && flatDist >= 3f)
+			{
+				m_PlanningWallExhausted = false;
+				m_LocalRetryExpanded = false;
+				m_LocalRetryPositionOnly = false;
+				m_ForceLocalHandoff = false;
+				m_LocalHandoffDeferred = true;
+				m_LocalHandoffDeferredDist = flatDist;
+				Outcome = NavigationOutcome.InProgress;
+				CurrentState = State.Driving;
+				m_Ctx.ActiveStopReason = StopReason.None;
+				BuildGlobalCruisePlan(fb);
+				if (DebugLog)
+					LogDebug($"[DriverFSM] {_reason} → deferred cruise dist={flatDist:F1}");
+				ReplanTriggered?.Invoke($"{_reason} → deferred cruise");
+				return false;
+			}
+
+			m_PlanningWallExhausted = true;
 			Outcome = NavigationOutcome.NoFeasibleManeuver;
 			CurrentState = State.Idle;
 			m_Ctx.Plan = new DrivingPlan(new Maneuver[] { new StopManeuver() }, _reason);
-			m_TrajectoryTracker.Deactivate();
 			if (DebugLog)
-				Debug.LogWarning($"[DriverFSM] {_reason}");
+				LogDebug($"[DriverFSM] {_reason}");
+			return true;
 		}
 
 		private bool TryAdvancePlanningSlice(FeedbackState _fb, float _flatDist, bool _expanded, out PlanStepResult _result)
@@ -776,14 +822,13 @@ namespace VehicleNavigation
 					_result = m_LocalPlanner.ForceFinalize(m_PlanningSession, "wall timeout");
 					m_LastPlanningSliceFrame = Time.frameCount;
 					m_PlanningSession.PlanningFrameCount++;
-					if (DebugLog)
-						Debug.LogWarning(
-							$"[DriverFSM] Local planning wall timeout → finalize cpu={m_PlanningSession.TotalPlanCpuMs:F0}ms phase={m_PlanningSession.PhaseName} cand={m_PlanningSession.AnalyticCandidateCount}");
+					LogDebug(
+						$"[DriverFSM] Local planning wall timeout → finalize cpu={m_PlanningSession.TotalPlanCpuMs:F0}ms phase={m_PlanningSession.PhaseName} cand={m_PlanningSession.AnalyticCandidateCount}");
 					return true;
 				}
 
 				FailLocalPlanningTerminal("local pose wall timeout");
-				return false;
+				return false; // Outcome/state set by Fail*; callers must not assume Idle
 			}
 
 			if (m_LastPlanningSliceFrame == Time.frameCount)
@@ -881,8 +926,9 @@ namespace VehicleNavigation
 
 			if (m_PlanningWallExhausted)
 			{
-				FailLocalPlanningTerminal("local pose wall timeout — no feasible maneuver");
-				return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				if (FailLocalPlanningTerminal("local pose wall timeout — no feasible maneuver"))
+					return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				return TickDriving(_fb);
 			}
 
 			if (m_PlanningSession == null || !m_PlanningActive)
@@ -898,6 +944,8 @@ namespace VehicleNavigation
 			{
 				if (Outcome == NavigationOutcome.NoFeasibleManeuver)
 					return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				if (CurrentState == State.Driving)
+					return TickDriving(_fb);
 				return m_Motion.HoldInPlace();
 			}
 
@@ -920,15 +968,17 @@ namespace VehicleNavigation
 
 			if (wallFinalize)
 			{
-				FailLocalPlanningTerminal("local pose wall timeout — no feasible maneuver");
-				return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				if (FailLocalPlanningTerminal("local pose wall timeout — no feasible maneuver"))
+					return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				return TickDriving(_fb);
 			}
 
 			// Path-replan hang: fail terminal without synchronous Plan() restart.
 			if (m_PathReplanAttempts > 0)
 			{
-				FailLocalPlanningTerminal("path replan failed — no feasible maneuver");
-				return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				if (FailLocalPlanningTerminal("path replan failed — no feasible maneuver"))
+					return m_Motion.BrakeToStop(false, StopIntent.Goal);
+				return TickDriving(_fb);
 			}
 
 			m_LastFailedPlanSignature = ComputePlanSignature(_fb);
@@ -987,7 +1037,7 @@ namespace VehicleNavigation
 				return false;
 
 			if (DebugLog)
-				Debug.Log($"[DriverFSM] Side reposition fallback: dist={_flatDist:F1}m len={best.TotalLength:F1}m reason={best.DebugReason}");
+				LogDebug($"[DriverFSM] Side reposition fallback: dist={_flatDist:F1}m len={best.TotalLength:F1}m reason={best.DebugReason}");
 
 			ReplanTriggered?.Invoke($"side reposition fallback dist={_flatDist:F1}");
 			return ActivateLocalTrajectory(best, _fb, _flatDist);
@@ -1010,7 +1060,7 @@ namespace VehicleNavigation
 				return false;
 
 			if (DebugLog)
-				Debug.Log($"[DriverFSM] Direct creep fallback: dist={_flatDist:F1}m reason={traj.DebugReason}");
+				LogDebug($"[DriverFSM] Direct creep fallback: dist={_flatDist:F1}m reason={traj.DebugReason}");
 
 			ReplanTriggered?.Invoke($"direct creep fallback dist={_flatDist:F1}");
 			return ActivateLocalTrajectory(traj, _fb, _flatDist);
@@ -1055,7 +1105,7 @@ namespace VehicleNavigation
 			CurrentState = State.FollowingTrajectory;
 
 			if (DebugLog)
-				Debug.Log($"[DriverFSM] LocalPose plan: dist={_flatDist:F1}m len={traj.TotalLength:F1}m segs={traj.GearSegmentCount} expanded={m_LocalPlanner.LastStats.Expanded} tried={m_LocalPlanner.LastStats.CandidatesTried} colRej={m_LocalPlanner.LastStats.RejectedCollision} tolRej={m_LocalPlanner.LastStats.RejectedTolerance} rays={m_LocalPlanner.LastStats.SnapshotRays} colQ={m_LocalPlanner.LastStats.CollisionQueries} primQ={m_LocalPlanner.LastStats.PrimitiveCollisionQueries} trajQ={m_LocalPlanner.LastStats.TrajectoryCollisionQueries} planMs={m_LocalPlanner.LastStats.PlanDurationMs:F0} shots={m_LocalPlanner.LastStats.AnalyticShots} budget={m_LocalPlanner.LastStats.BudgetTerminated} reason={traj.DebugReason}");
+				LogDebug($"[DriverFSM] LocalPose plan: dist={_flatDist:F1}m len={traj.TotalLength:F1}m segs={traj.GearSegmentCount} expanded={m_LocalPlanner.LastStats.Expanded} tried={m_LocalPlanner.LastStats.CandidatesTried} colRej={m_LocalPlanner.LastStats.RejectedCollision} tolRej={m_LocalPlanner.LastStats.RejectedTolerance} rays={m_LocalPlanner.LastStats.SnapshotRays} colQ={m_LocalPlanner.LastStats.CollisionQueries} primQ={m_LocalPlanner.LastStats.PrimitiveCollisionQueries} trajQ={m_LocalPlanner.LastStats.TrajectoryCollisionQueries} planMs={m_LocalPlanner.LastStats.PlanDurationMs:F0} shots={m_LocalPlanner.LastStats.AnalyticShots} budget={m_LocalPlanner.LastStats.BudgetTerminated} reason={traj.DebugReason}");
 
 			ManeuverStarted?.Invoke(maneuver);
 			PathChanged?.Invoke();
@@ -1097,7 +1147,7 @@ namespace VehicleNavigation
 				}
 
 				if (DebugLog)
-					Debug.LogWarning("[DriverFSM] Path replan exhausted — braking");
+					LogDebug("[DriverFSM] Path replan exhausted — braking");
 				_cmd = m_Motion.BrakeToStop(false, StopIntent.Goal);
 				return true;
 			}
@@ -1125,7 +1175,7 @@ namespace VehicleNavigation
 				}
 
 				if (DebugLog)
-					Debug.LogWarning("[DriverFSM] Heading replan exhausted — holding at position");
+					LogDebug("[DriverFSM] Heading replan exhausted — holding at position");
 			}
 
 			return false;
@@ -1155,10 +1205,9 @@ namespace VehicleNavigation
 				return;
 			}
 
-			bool sameCruise = m_LastCruisePathLen > 0f &&
-			                  Mathf.Abs(m_LastCruisePathLen - m_Ctx.Path.Length) < 0.5f;
-			if (!sameCruise)
-				m_PathRevision++;
+			// Always bump revision when cruise path is (re)built. Skipping on similar length
+			// left PursuitController holding an exhausted path after a new move order.
+			m_PathRevision++;
 			m_LastCruisePathLen = m_Ctx.Path.Length;
 			m_NextCruiseRebuildTime = Time.time + c_CruiseRebuildInterval;
 
@@ -1213,7 +1262,7 @@ namespace VehicleNavigation
 				if (plan.Maneuvers != null)
 					for (int i = 0; i < plan.Maneuvers.Count; i++)
 						ml += $"[{i}]{plan.Maneuvers[i]?.Type} ";
-				Debug.Log($"[DriverFSM] RebuildPlan global: mode={plan.DrivingMode} maneuvers=[{ml}] cost={plan.TotalCost:F1} dist={plan.EstimatedDistance:F1}m reason={plan.Reason}");
+				LogDebug($"[DriverFSM] RebuildPlan global: mode={plan.DrivingMode} maneuvers=[{ml}] cost={plan.TotalCost:F1} dist={plan.EstimatedDistance:F1}m reason={plan.Reason}");
 			}
 
 			Maneuver next = m_Ctx.CurrentManeuver;
@@ -1264,13 +1313,7 @@ namespace VehicleNavigation
 				if (Time.time < m_SuppressPathReplanUntilTime)
 					return m_Motion.Convert(m_Ctx, output.Command);
 
-				if (m_PathReplanAttempts < c_MaxPathReplanAttempts && !m_PendingPathReplan &&
-				    Time.time - m_LastPathReplanTime >= c_ReplanCooldownSec)
-				{
-					m_PendingPathReplan = true;
-					ReplanTriggered?.Invoke($"path replan queued attempt {m_PathReplanAttempts + 1}");
-				}
-				else if (m_PathReplanAttempts >= c_MaxPathReplanAttempts)
+				if (m_PathReplanAttempts >= c_MaxPathReplanAttempts)
 				{
 					if (m_ReplanExhaustPos == Vector3.zero)
 						m_ReplanExhaustPos = fb.Position;
@@ -1279,11 +1322,18 @@ namespace VehicleNavigation
 					Outcome = NavigationOutcome.NoFeasibleManeuver;
 					CurrentState = State.Idle;
 					m_TrajectoryTracker.Deactivate();
+					LogDebug("[DriverFSM] Path replan exhausted — braking");
 					return m_Motion.BrakeToStop(false, StopIntent.Goal);
 				}
-				else if (DebugLog && m_PathReplanAttempts >= c_MaxPathReplanAttempts)
-					Debug.LogWarning("[DriverFSM] Path replan exhausted — braking");
-				return m_Motion.BrakeToStop(false, StopIntent.Goal);
+
+				// Queue replan but keep executing the current trajectory (do not hard-brake).
+				if (!m_PendingPathReplan && Time.time - m_LastPathReplanTime >= c_ReplanCooldownSec)
+				{
+					m_PendingPathReplan = true;
+					ReplanTriggered?.Invoke($"path replan queued attempt {m_PathReplanAttempts + 1}");
+				}
+
+				return m_Motion.Convert(m_Ctx, output.Command);
 			}
 
 			if (output.NeedHeadingReplan && m_ActiveGoal.RequiresPosePlanning)
@@ -1326,7 +1376,7 @@ namespace VehicleNavigation
 					return m_Motion.BrakeToStop(false, StopIntent.Goal);
 				}
 				else if (DebugLog)
-					Debug.LogWarning("[DriverFSM] Heading replan exhausted — holding at position");
+					LogDebug("[DriverFSM] Heading replan exhausted — holding at position");
 				return m_Motion.BrakeToStop(false, StopIntent.Goal);
 			}
 
@@ -1336,7 +1386,7 @@ namespace VehicleNavigation
 			if (output.IsComplete && TryValidateGoal(fb))
 			{
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] Trajectory COMPLETE → Holding dist={output.DistanceToEnd:F2}");
+					LogDebug($"[DriverFSM] Trajectory COMPLETE → Holding dist={output.DistanceToEnd:F2}");
 				return EnterSucceededHolding();
 			}
 
@@ -1439,10 +1489,7 @@ namespace VehicleNavigation
 				}
 
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] Reverse START — pos=({m_Ctx.State.Position.x:F2},{m_Ctx.State.Position.z:F2}) " +
-						$"fwd=({m_Ctx.State.Forward.x:F2},{m_Ctx.State.Forward.z:F2}) " +
-						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
-						$"speedFrac={speedFraction:F2}");
+					LogDebug($"[DriverFSM] Reverse START — pos=({m_Ctx.State.Position.x:F2},{m_Ctx.State.Position.z:F2}) fwd=({m_Ctx.State.Forward.x:F2},{m_Ctx.State.Forward.z:F2}) dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) speedFrac={speedFraction:F2}");
 			}
 
 			if (m_DriverCtx != null)
@@ -1493,7 +1540,7 @@ namespace VehicleNavigation
 			{
 				m_PrecisionArrival.Deactivate();
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m speed={fb.SpeedKmh:F1}");
+					LogDebug($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m speed={fb.SpeedKmh:F1}");
 				return EnterSucceededHolding();
 			}
 
@@ -1516,7 +1563,7 @@ namespace VehicleNavigation
 			    TryValidateGoal(fb))
 			{
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] GOAL LOCKED at dist={dist:F2}m speed={fb.SpeedKmh:F1}");
+					LogDebug($"[DriverFSM] GOAL LOCKED at dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return EnterSucceededHolding();
 			}
 
@@ -1524,7 +1571,7 @@ namespace VehicleNavigation
 			if (dist < 1.5f && fb.SpeedKmh > 5f)
 			{
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] Arrival crawl: dist={dist:F2}m speed={fb.SpeedKmh:F1} — forcing slow");
+					LogDebug($"[DriverFSM] Arrival crawl: dist={dist:F2}m speed={fb.SpeedKmh:F1} — forcing slow");
 				return m_Motion.BrakeToStop(_hard: false);
 			}
 
@@ -1532,7 +1579,7 @@ namespace VehicleNavigation
 			if (dist < 0.6f && fb.SpeedKmh > 2f)
 			{
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] Arrival slow-cap: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
+					LogDebug($"[DriverFSM] Arrival slow-cap: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return m_Motion.BrakeToStop(_hard: false);
 			}
 
@@ -1540,7 +1587,7 @@ namespace VehicleNavigation
 			if (dist < 0.5f && fb.SpeedKmh < 1f && TryValidateGoal(fb))
 			{
 				if (DebugLog)
-					Debug.Log($"[DriverFSM] Final latch → Holding: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
+					LogDebug($"[DriverFSM] Final latch → Holding: dist={dist:F2}m speed={fb.SpeedKmh:F1}");
 				return EnterSucceededHolding();
 			}
 
@@ -1561,7 +1608,7 @@ namespace VehicleNavigation
 				{
 					m_PrecisionArrival.Deactivate();
 					if (DebugLog)
-						Debug.Log($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m");
+						LogDebug($"[DriverFSM] PrecisionArrival COMPLETE → Holding. dist={output.DistanceToGoal:F2}m");
 					return EnterSucceededHolding();
 				}
 
@@ -1680,16 +1727,12 @@ namespace VehicleNavigation
 					m_PlanDirty = true;
 					ReplanCount++;
 					ReplanTriggered?.Invoke("reverse failed — replan");
-					if (DebugLog) Debug.LogWarning($"[DriverFSM] Reverse FAILED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) " +
-						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
-						$"dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m — triggering replan");
+					if (DebugLog) LogDebug($"[DriverFSM] Reverse FAILED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m — triggering replan");
 					return false;
 				}
 
 				if (current is ReverseIntentManeuver && DebugLog)
-					Debug.Log($"[DriverFSM] Reverse COMPLETED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) " +
-						$"dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) " +
-						$"dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m");
+					LogDebug($"[DriverFSM] Reverse COMPLETED at pos=({_fb.Position.x:F2},{_fb.Position.z:F2}) dest=({m_Ctx.Request.Destination.x:F2},{m_Ctx.Request.Destination.z:F2}) dist={FlatDistance(_fb.Position, m_Ctx.Request.Destination):F2}m");
 
 				ManeuverFinished?.Invoke(current);
 				m_Ctx.CurrentManeuverIndex++;

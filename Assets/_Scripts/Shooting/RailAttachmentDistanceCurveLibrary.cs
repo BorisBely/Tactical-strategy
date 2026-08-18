@@ -23,12 +23,20 @@ public static class RailAttachmentDistanceCurveLibrary
 	public readonly struct RailDistanceCurves
 	{
 		public readonly DistanceKeyframe[] DispersionKeyframes;
+		public readonly DistanceKeyframe[] AimTimeKeyframes;
 		public readonly string SweetSpotLabel;
+		public readonly bool IsImproved;
 
-		public RailDistanceCurves(string _sweetSpotLabel, DistanceKeyframe[] _dispersionKeyframes)
+		public RailDistanceCurves(
+			string _sweetSpotLabel,
+			DistanceKeyframe[] _dispersionKeyframes,
+			DistanceKeyframe[] _aimTimeKeyframes,
+			bool _isImproved)
 		{
 			SweetSpotLabel = _sweetSpotLabel;
 			DispersionKeyframes = _dispersionKeyframes;
+			AimTimeKeyframes = _aimTimeKeyframes;
+			IsImproved = _isImproved;
 		}
 	}
 	#endregion
@@ -53,19 +61,102 @@ public static class RailAttachmentDistanceCurveLibrary
 		RailDistanceCurves curves = GetCurvesForAttachment(_attachment);
 		return EvaluateKeyframes(curves.DispersionKeyframes, _distanceMeters);
 	}
+
+	public static float EvaluateAimTimeMultiplier(
+		WeaponAttachmentDefinition _attachment,
+		float _distanceMeters)
+	{
+		RailDistanceCurves curves = GetCurvesForAttachment(_attachment);
+		return EvaluateKeyframes(curves.AimTimeKeyframes, _distanceMeters);
+	}
+
+	public static bool IsImprovedLaser(WeaponAttachmentDefinition _attachment)
+	{
+		if (_attachment == null)
+			return false;
+		if (_attachment.IsImprovedLaser)
+			return true;
+		return GetCurvesForAttachment(_attachment).IsImproved;
+	}
+
+	/// <summary>Peak PointAim spread. Named assets only; unknown lasers return 1.</summary>
+	public static float EvaluatePointAimSpreadModifier(WeaponAttachmentDefinition _attachment)
+	{
+		if (!TryGetNamedCurves(_attachment, out RailDistanceCurves curves))
+			return 1f;
+		return curves.IsImproved ? 0.88f : 0.95f;
+	}
+
+	/// <summary>Peak PointAim aim-time. Named assets only.</summary>
+	public static float EvaluatePointAimAimTimeModifier(WeaponAttachmentDefinition _attachment)
+	{
+		if (!TryGetNamedCurves(_attachment, out RailDistanceCurves curves))
+			return 1f;
+		return curves.IsImproved ? 0.90f : 0.95f;
+	}
+
+	/// <summary>Small Aiming acquisition (aim-time) bonus. Named assets only.</summary>
+	public static float EvaluateAimingAcquisitionModifier(WeaponAttachmentDefinition _attachment)
+	{
+		if (!TryGetNamedCurves(_attachment, out RailDistanceCurves curves))
+			return 1f;
+		return curves.IsImproved ? 0.92f : 0.97f;
+	}
+
+	/// <summary>0..1 share of PointAim bonus remaining at distance (PLAN §42).</summary>
+	public static float EvaluatePointAimEffect01(WeaponAttachmentDefinition _attachment, float _distanceMeters)
+	{
+		if (!TryGetNamedCurves(_attachment, out RailDistanceCurves curves))
+			return EvaluateDefaultEffect01(_attachment != null && _attachment.IsImprovedLaser, _distanceMeters);
+
+		return EvaluateDefaultEffect01(curves.IsImproved, _distanceMeters);
+	}
+
+	private static bool TryGetNamedCurves(WeaponAttachmentDefinition _attachment, out RailDistanceCurves _curves)
+	{
+		_curves = s_FlatNeutral;
+		if (_attachment == null || _attachment.AttachmentType != WeaponAttachmentType.LaserDesignator)
+			return false;
+		string name = _attachment.name ?? string.Empty;
+		if (!s_NamedCurves.TryGetValue(name, out _curves))
+			return false;
+		return true;
+	}
+
+	private static float EvaluateDefaultEffect01(bool _improved, float _distanceMeters)
+	{
+		DistanceKeyframe[] keys = _improved ? s_ImprovedEffect : s_BasicEffect;
+		return EvaluateKeyframes(keys, _distanceMeters);
+	}
 	#endregion
 
 	#region Curve Data
 	private static readonly RailDistanceCurves s_FlatNeutral = Make("нейтральный",
-		new[] { K(0f, 1f), K(500f, 1f) });
+		new[] { K(0f, 1f), K(500f, 1f) },
+		new[] { K(0f, 1f), K(500f, 1f) },
+		false);
 
-	/// <summary>Компактный ЛЦУ: лёгкий бонус точности до 15 м.</summary>
-	private static readonly RailDistanceCurves s_CompactLaser = Make("0–75 м",
-		new[] { K(0f, 0.90f), K(75f, 0.92f), K(125f, 1.00f), K(500f, 1.00f) });
+	/// <summary>Improved / compact ЛЦУ: бонус PointAim дальше, лёгкий acquisition для Aiming.</summary>
+	private static readonly RailDistanceCurves s_CompactLaser = Make("0–150 м",
+		new[] { K(0f, 0.88f), K(75f, 0.90f), K(150f, 0.94f), K(250f, 1.00f), K(500f, 1.00f) },
+		new[] { K(0f, 0.94f), K(100f, 0.96f), K(200f, 1.00f), K(500f, 1.00f) },
+		true);
 
-	/// <summary>Тактический ЛЦУ: лёгкий бонус точности до 25 м.</summary>
-	private static readonly RailDistanceCurves s_TacticalLaser = Make("0–25 м",
-		new[] { K(0f, 0.90f), K(75f, 0.88f), K(125f, 0.92f), K(175f, 1.00f), K(500f, 1.00f) });
+	/// <summary>Basic / тактический ЛЦУ: бонус PointAim 0–50 м.</summary>
+	private static readonly RailDistanceCurves s_TacticalLaser = Make("0–50 м",
+		new[] { K(0f, 0.90f), K(50f, 0.92f), K(100f, 1.00f), K(500f, 1.00f) },
+		new[] { K(0f, 0.98f), K(75f, 1.00f), K(500f, 1.00f) },
+		false);
+
+	private static readonly DistanceKeyframe[] s_BasicEffect =
+	{
+		K(0f, 1f), K(10f, 1f), K(20f, 0.90f), K(30f, 0.70f), K(50f, 0.40f), K(100f, 0.10f), K(200f, 0f), K(500f, 0f)
+	};
+
+	private static readonly DistanceKeyframe[] s_ImprovedEffect =
+	{
+		K(0f, 1f), K(10f, 1f), K(20f, 0.95f), K(30f, 0.85f), K(50f, 0.60f), K(100f, 0.25f), K(200f, 0.05f), K(500f, 0f)
+	};
 
 	private static readonly Dictionary<string, RailDistanceCurves> s_NamedCurves = BuildNamedCurves();
 
@@ -121,7 +212,11 @@ public static class RailAttachmentDistanceCurveLibrary
 	private static DistanceKeyframe K(float _distanceMeters, float _value) =>
 		new DistanceKeyframe(_distanceMeters, _value);
 
-	private static RailDistanceCurves Make(string _label, DistanceKeyframe[] _dispersion) =>
-		new RailDistanceCurves(_label, _dispersion);
+	private static RailDistanceCurves Make(
+		string _label,
+		DistanceKeyframe[] _dispersion,
+		DistanceKeyframe[] _aimTime,
+		bool _improved) =>
+		new RailDistanceCurves(_label, _dispersion, _aimTime, _improved);
 	#endregion
 }

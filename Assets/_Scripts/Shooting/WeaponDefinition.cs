@@ -77,6 +77,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
 	[Tooltip("Множитель только визуального kick ствола (UnitWeaponRecoil). Не влияет на gameplay RecoilPenalty / разброс.")]
 	[SerializeField, Min(0f)] private float m_VisualRecoilKickScale = 1f;
+	[Tooltip("Множитель визуальной реакции правой руки (UnitWeaponArmRecoil). Не влияет на gameplay RecoilPenalty / разброс.")]
+	[SerializeField, Min(0f)] private float m_ArmRecoilMultiplier = 1f;
 	[Tooltip("Длина очереди в режиме Burst.")]
 	[SerializeField, Min(2)] private int m_BurstRounds = 3;
 	[Tooltip("Пауза между очередями в режиме Burst (сек).")]
@@ -166,6 +168,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
 	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
 	public float VisualRecoilKickScale => m_VisualRecoilKickScale;
+	public float ArmRecoilMultiplier => m_ArmRecoilMultiplier;
 	public int BurstRounds => m_BurstRounds;
 	public float BurstPauseSeconds => m_BurstPauseSeconds;
 	public WeaponFireSoundProfile FireSoundProfile => m_FireSoundProfile;

@@ -10,9 +10,9 @@ using UnityEngine.UI;
 public sealed class InventoryEquipmentSlotAppearance
 {
 	#region Serialized Fields
-	[SerializeField] private Color m_NormalBackgroundColor = new Color(0.302f, 0.302f, 0.302f, 1f);
+	[SerializeField] private Color m_NormalBackgroundColor = new Color(0.16470589f, 0.16470589f, 0.16470589f, 1f);
 	[SerializeField] private Sprite m_NormalBackgroundSprite;
-	[SerializeField] private Color m_HighlightBackgroundColor = new Color(0.2f, 0.68f, 0.32f, 0.72f);
+	[SerializeField] private Color m_HighlightBackgroundColor = new Color(0.29f, 0.42f, 0.33f, 0.50f);
 	[SerializeField] private Sprite m_HighlightBackgroundSprite;
 	#endregion
 

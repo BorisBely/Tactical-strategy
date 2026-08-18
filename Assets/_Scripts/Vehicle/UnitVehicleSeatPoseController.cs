@@ -6,7 +6,8 @@ using UnityEngine;
 /// у всех — скрыт декор оружия за спиной и рюкзак;
 /// у водителя — скрыто основное оружие (без drop), base layer weight 0;
 /// пассажиры — Driving + слой Vehicle_Passenger_Hands (Seat_relax или Seat_Aim_Blend) поверх.
-/// Состояние готов/не готов читает из <see cref="VehiclePassengerState"/>; сам не хранит.
+/// Тюнер поз оружия может включить то же сидячее превью без посадки в машину.
+/// Состояние готов/не готов в геймплее читает из <see cref="VehiclePassengerState"/>; сам не хранит.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(80)]
@@ -21,6 +22,8 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	public const string ParamVehicleAimSide = "VehicleAimSide";
 	public const string PassengerHandsLayerName = "Vehicle_Passenger_Hands";
 	public const string SeatRelaxState = "Seat_relax";
+	public const string DrivingState = "Driving";
+	public const string SeatAimRightState = "Seat_Aim_R_Blend";
 	#endregion
 
 	#region Private Fields
@@ -33,6 +36,8 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	private static readonly int s_VehicleAimYaw = Animator.StringToHash(ParamVehicleAimYaw);
 	private static readonly int s_VehicleAimSide = Animator.StringToHash(ParamVehicleAimSide);
 	private static readonly int s_SeatRelaxState = Animator.StringToHash(SeatRelaxState);
+	private static readonly int s_DrivingState = Animator.StringToHash(DrivingState);
+	private static readonly int s_SeatAimRightState = Animator.StringToHash(SeatAimRightState);
 
 	private Animator m_Animator;
 	private VehiclePassengerState m_PassengerState;
@@ -69,11 +74,37 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	private bool m_GunnerWeaponAimingWasEnabled;
 	private bool m_GunnerAimLayerWasZeroed;
 	private float m_GunnerAimLayerWeightBefore = 1f;
+	private bool m_TunerPreviewActive;
+	private bool m_TunerPreviewWantsReady;
 	#endregion
 
 	#region Public Properties
 	public bool IsPoseActive => m_PoseActive;
 	public bool IsPassengerHandsPoseActive => m_PoseActive && m_IsPassengerHandsPose;
+	public bool IsTunerPreviewActive => m_TunerPreviewActive;
+
+	/// <summary>
+	/// Tuner vehicle preview sits the unit in place: root still faces original yaw,
+	/// Seat_Aim_R looks out the right window. Look/fire axis is 90° to that root (right), plus VehicleAimYaw.
+	/// </summary>
+	public bool TryGetTunerLookForwardXZ(out Vector3 _forwardXZ)
+	{
+		_forwardXZ = default;
+		if (!m_TunerPreviewActive)
+			return false;
+
+		Vector3 right = transform.right;
+		right.y = 0f;
+		if (right.sqrMagnitude < 1e-6f)
+			return false;
+		right.Normalize();
+
+		int aimSide = m_Animator != null ? m_Animator.GetInteger(s_VehicleAimSide) : 1;
+		Vector3 perp = aimSide == 0 ? -right : right;
+		float yaw = m_Animator != null ? m_Animator.GetFloat(s_VehicleAimYaw) : 0f;
+		_forwardXZ = Quaternion.AngleAxis(-yaw, Vector3.up) * perp;
+		return _forwardXZ.sqrMagnitude > 1e-6f;
+	}
 	#endregion
 
 	#region Public Methods
@@ -156,7 +187,7 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 
 			SetPassengerHandsLayerActive(false);
 
-			if (m_IsDriverPose || m_IsLitterPose || m_IsPassengerHandsPose)
+			if (m_IsDriverPose || m_IsLitterPose || m_IsPassengerHandsPose || m_TunerPreviewActive)
 				m_Animator.SetLayerWeight(0, m_BaseLayerWeightBefore > 0f ? m_BaseLayerWeightBefore : 1f);
 		}
 
@@ -215,6 +246,8 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		m_GunnerWeaponAimingWasEnabled = false;
 		m_GunnerAimLayerWasZeroed = false;
 		m_GunnerAimLayerWeightBefore = 1f;
+		m_TunerPreviewActive = false;
+		m_TunerPreviewWantsReady = false;
 	}
 
 	public static UnitVehicleSeatPoseController GetOrAdd(GameObject _unitObject)
@@ -232,6 +265,30 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		if (m_Animator != null)
 			m_Animator.SetBool(s_IsGunnerCover, _cover);
 	}
+
+	/// <summary>
+	/// Play Mode tuner: sit as a fire-capable passenger without boarding a vehicle.
+	/// Skips if the unit is already mounted. Does not attach <see cref="VehiclePassengerState"/>.
+	/// </summary>
+	public void SetTunerPassengerPreview(bool _enable, bool _wantsReady)
+	{
+		CacheRefs();
+
+		if (HasRealSeatPose())
+			return;
+
+		if (!_enable)
+		{
+			if (m_TunerPreviewActive)
+				ClearSeatPose();
+			return;
+		}
+
+		if (!m_TunerPreviewActive)
+			BeginTunerPassengerPreview();
+
+		SyncTunerPassengerReady(_wantsReady);
+	}
 	#endregion
 
 	#region Unity Lifecycle
@@ -239,6 +296,9 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 	{
 		if (!m_PoseActive || m_Animator == null)
 			return;
+
+		if (m_TunerPreviewActive)
+			MaintainTunerPassengerPreview();
 
 		if (m_Animator.GetBool(s_IsVehicleGunner))
 		{
@@ -394,6 +454,127 @@ public sealed class UnitVehicleSeatPoseController : MonoBehaviour
 		m_ProximityReady = GetComponent<UnitProximityReadyController>();
 		if (m_ProximityReady != null)
 			m_ProximityReady.enabled = false;
+	}
+
+	private bool HasRealSeatPose()
+	{
+		if (TryGetComponent(out UnitVehicleMountState mount) && mount.IsMounted)
+			return true;
+		return m_PoseActive && !m_TunerPreviewActive;
+	}
+
+	private void BeginTunerPassengerPreview()
+	{
+		if (m_Animator == null || m_CarriedPoseLayerIndex < 0)
+			return;
+
+		if (m_ReadyHands != null)
+			m_HadKeyboardInputEnabled = m_ReadyHands.IsKeyboardInputEnabled;
+
+		m_Holster?.SetForcedHidden(true);
+		m_BackEquipment?.SetForcedHidden(true);
+
+		m_PoseActive = true;
+		m_TunerPreviewActive = true;
+		m_IsLitterPose = false;
+		m_IsDriverPose = false;
+		m_IsPassengerHandsPose = false;
+
+		m_SleepPose?.NotifyExternalPoseOverride(true);
+
+		if (!m_Animator.enabled)
+			m_Animator.enabled = true;
+		m_Animator.applyRootMotion = false;
+
+		m_Animator.SetBool(s_IsStabilizedSleeping, false);
+		m_Animator.SetBool(s_IsVehicleGunner, false);
+		m_Animator.SetBool(s_IsGunnerCover, false);
+		m_Animator.SetBool(s_IsVehicleDriving, true);
+		m_Animator.SetLayerWeight(m_CarriedPoseLayerIndex, 1f);
+		m_Animator.Play(s_DrivingState, m_CarriedPoseLayerIndex, 0f);
+
+		SetPassengerHandsLayerActive(true);
+		m_Animator.SetBool(s_VehicleReady, false);
+		m_Animator.SetFloat(s_VehicleAimYaw, 0f);
+		m_Animator.SetInteger(s_VehicleAimSide, 1);
+
+		m_BaseLayerWeightBefore = m_Animator.GetLayerWeight(0);
+		m_Animator.SetLayerWeight(0, 0f);
+
+		m_WasVehicleReady = false;
+		m_TunerPreviewWantsReady = false;
+
+		m_ReadyHands?.SetKeyboardInputEnabled(false);
+
+		m_ProximityReady = GetComponent<UnitProximityReadyController>();
+		if (m_ProximityReady != null)
+			m_ProximityReady.enabled = false;
+	}
+
+	private void SyncTunerPassengerReady(bool _wantsReady)
+	{
+		if (m_Animator == null)
+			return;
+
+		if (_wantsReady == m_TunerPreviewWantsReady)
+			return;
+
+		m_Animator.SetBool(s_VehicleReady, _wantsReady);
+
+		if (m_PassengerHandsLayerIndex < 0)
+			ResolvePassengerHandsLayerIndex();
+
+		if (!_wantsReady)
+		{
+			if (m_PassengerHandsLayerIndex >= 0)
+				m_Animator.Play(s_SeatRelaxState, m_PassengerHandsLayerIndex, 0f);
+
+			if (m_WeaponAiming != null && m_PassengerWeaponAimingWasEnabled)
+				m_WeaponAiming.enabled = true;
+
+			if (m_AimLayerIndex >= 0)
+				m_Animator.SetLayerWeight(m_AimLayerIndex, m_GunnerAimLayerWeightBefore > 0f
+					? m_GunnerAimLayerWeightBefore
+					: 1f);
+		}
+		else
+		{
+			if (m_PassengerHandsLayerIndex >= 0)
+				m_Animator.Play(s_SeatAimRightState, m_PassengerHandsLayerIndex, 0f);
+
+			if (m_WeaponAiming != null)
+			{
+				m_PassengerWeaponAimingWasEnabled = m_WeaponAiming.enabled;
+				m_WeaponAiming.enabled = false;
+			}
+
+			m_AimLayerIndex = m_Animator.GetLayerIndex("Aim_Point_U90-D90");
+			if (m_AimLayerIndex >= 0)
+			{
+				m_GunnerAimLayerWeightBefore = m_Animator.GetLayerWeight(m_AimLayerIndex);
+				m_Animator.SetLayerWeight(m_AimLayerIndex, 0f);
+			}
+		}
+
+		m_TunerPreviewWantsReady = _wantsReady;
+		m_WasVehicleReady = _wantsReady;
+	}
+
+	private void MaintainTunerPassengerPreview()
+	{
+		if (m_CarriedPoseLayerIndex >= 0 && m_Animator.GetLayerWeight(m_CarriedPoseLayerIndex) < 0.99f)
+			m_Animator.SetLayerWeight(m_CarriedPoseLayerIndex, 1f);
+
+		if (m_Animator.GetLayerWeight(0) > 0.01f)
+			m_Animator.SetLayerWeight(0, 0f);
+
+		if (m_TunerPreviewWantsReady)
+		{
+			if (m_AimLayerIndex < 0)
+				m_AimLayerIndex = m_Animator.GetLayerIndex("Aim_Point_U90-D90");
+			if (m_AimLayerIndex >= 0 && m_Animator.GetLayerWeight(m_AimLayerIndex) > 0f)
+				m_Animator.SetLayerWeight(m_AimLayerIndex, 0f);
+		}
 	}
 
 	private static bool IsLeftSideSeat(VehicleSeatId _seatId)

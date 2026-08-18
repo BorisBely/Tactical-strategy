@@ -266,6 +266,7 @@ MonoBehaviour:
   m_ShellEject: {fileID: 5026115782103948932}
   m_SightPivot: {fileID: 7014658188367459636}
   m_MagazineSocket: {fileID: 5210858472474816716}
+  m_SecondaryMagazineSocket: {fileID: 0}
   m_MuzzleModuleVisualSocket: {fileID: 3753082506274708393}
   m_OpticModuleVisualSocket: {fileID: 7014658188367459636}
   m_SideRailModuleVisualSocket: {fileID: 929312948657507422}
@@ -1470,6 +1471,11 @@ MonoBehaviour:
     m_MedkitState:
       m_Definition: {fileID: 0}
       m_CurrentResourcePoints: 0
+    m_RocketLauncherState:
+      m_IsLoaded: 0
+      m_LoadedRocketDefinition: {fileID: 0}
+      m_LoadedRocketDisplayName: 
+      m_LoadedRocketLocalizationKey: 
   m_EquippedAttachments: []
 --- !u!1 &4574896615313482288
 GameObject:

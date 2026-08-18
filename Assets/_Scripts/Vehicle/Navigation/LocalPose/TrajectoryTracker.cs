@@ -85,9 +85,9 @@ namespace VehicleNavigation
 		private const float c_StraightRevCrossTrackDeadband = 0.05f;
 		private const float c_LocalReverseMaxSpeedKmh = 12f;
 		/// <summary>Multi-gear / staging / high-κ local paths must stay calm.</summary>
-		private const float c_ComplexManeuverMaxKmh = 7.5f;
-		private const float c_ComplexReverseMaxKmh = 5.5f;
-		private const float c_ComplexCuspMaxKmh = 5f;
+		private const float c_ComplexManeuverMaxKmh = 14f;
+		private const float c_ComplexReverseMaxKmh = 10f;
+		private const float c_ComplexCuspMaxKmh = 6.5f;
 		private const float c_ManeuverComfortDecelMs2 = 0.95f;
 		private const float c_DesiredSpeedSlewDownKmhPerSec = 5.5f;
 		private const float c_DesiredSpeedSlewUpKmhPerSec = 4f;
@@ -347,16 +347,8 @@ namespace VehicleNavigation
 			float pathYaw = PathYawAtIndex;
 			float headingToPath = Mathf.Abs(Mathf.DeltaAngle(_yaw, pathYaw));
 			float pathCurvNow = m_Trajectory.Points[Mathf.Clamp(m_Index, 0, m_Trajectory.PointCount - 1)].Curvature;
-			if (UpdateEntryImproveAbort(crossTrack, headingToPath, pathCurvNow))
-			{
-				LastOutput = new Output(
-					new MotionCommand(0f, 0f, reverse, StopIntent.None),
-					Mathf.Min(distToEnd, distGoal),
-					signedCrossTrack, 0f, 0f,
-					m_Index, m_SegmentEndIndex, _position,
-					false, false, false, true, false, gear);
-				return LastOutput;
-			}
+			// Signal replan without zeroing motion — FSM continues Convert while replan is queued.
+			bool entryNeedReplan = UpdateEntryImproveAbort(crossTrack, headingToPath, pathCurvNow);
 
 			// Inside strict position tolerance: terminal only when path work is finished.
 			if (positionOk && !pendingPathWork)
@@ -450,6 +442,7 @@ namespace VehicleNavigation
 			bool approachingCusp = cusp >= 0 && distToCusp < brakeDistance + c_CuspApproachBuffer;
 			bool atCuspStop = cusp >= 0 && distToCusp <= c_CuspStopMargin + 0.05f;
 
+			bool justDepartedCusp = false;
 			if (m_WaitingStop || atCuspStop)
 			{
 				m_WaitingStop = true;
@@ -486,6 +479,7 @@ namespace VehicleNavigation
 
 				m_WaitingStop = false;
 				m_CuspPhase = CuspPhase.Depart;
+				justDepartedCusp = true;
 				gear = m_Trajectory.GearAt(m_Index);
 				reverse = gear == TrajectoryGear.Reverse;
 				UpdateSegmentBounds();
@@ -493,6 +487,23 @@ namespace VehicleNavigation
 				m_LastCommandedCurvature = m_Trajectory.Points[
 					Mathf.Clamp(m_Index, 0, m_Trajectory.PointCount - 1)].Curvature;
 				m_SmoothedDesiredSpeed = -1f;
+
+				// Refresh horizon after the gear jump — stale distToCusp≈0 would force stopSpeed=0.
+				distToEnd = m_Trajectory.RemainingDistance(m_Index);
+				pendingPathWork = HasPendingPathWork(distToEnd, distGoal);
+				cusp = m_Trajectory.FindNextCusp(m_Index);
+				distToCusp = cusp >= 0
+					? Mathf.Max(0f, m_Trajectory.Points[cusp].ArcLength - m_Trajectory.Points[m_Index].ArcLength)
+					: float.MaxValue;
+				stopHorizon = Mathf.Min(distToEnd, distToCusp);
+				approachingCusp = cusp >= 0 && distToCusp < brakeDistance + c_CuspApproachBuffer;
+				atCuspStop = false;
+			}
+			else if (m_CuspPhase == CuspPhase.Depart &&
+			         (cusp < 0 || distToCusp > c_CuspApproachBuffer + 0.5f) &&
+			         _speedKmh > c_CuspSwitchMaxSpeedKmh)
+			{
+				m_CuspPhase = CuspPhase.None;
 			}
 
 			Vector3 controlFwd = BicycleKinematics.YawToForward(_yaw);
@@ -655,8 +666,10 @@ namespace VehicleNavigation
 			float horizonDist = pendingPathWork ? stopHorizon : Mathf.Min(stopHorizon, distGoal);
 			float comfortStopDist = brakeDistance + c_BrakeMarginM;
 			float stopSpeed = Mathf.Sqrt(Mathf.Max(0f, 2f * comfortDecel * horizonDist)) * 3.6f;
-			if (horizonDist < comfortStopDist)
-				stopSpeed = Mathf.Min(stopSpeed, Mathf.Max(0f, _speedKmh - 1.5f));
+			// Only bleed speed while still rolling hot into a short horizon.
+			// At rest (speed≈0) Max(0, speed-1.5)=0 permanently stalls before the next cusp.
+			if (horizonDist < comfortStopDist && _speedKmh > c_CuspCrawlMaxSpeedKmh)
+				stopSpeed = Mathf.Min(stopSpeed, Mathf.Max(c_CreepMinKmh, _speedKmh - 1.5f));
 			float desired = Mathf.Min(cruiseDesired, stopSpeed);
 
 			if (m_TurnEntryGateActive)
@@ -671,6 +684,14 @@ namespace VehicleNavigation
 				else
 					desired = Mathf.Min(desired, Mathf.Max(cuspSpeed, c_CuspCrawlMaxSpeedKmh * 0.5f));
 			}
+
+			// Breakaway after gear change / crawl toward a nearby cusp while stopped.
+			bool needsCuspBreakaway =
+				justDepartedCusp ||
+				m_CuspPhase == CuspPhase.Depart ||
+				(cusp >= 0 && distToCusp > c_CuspStopMargin && _speedKmh < c_CuspSwitchMaxSpeedKmh);
+			if (needsCuspBreakaway && horizonDist > c_CuspStopMargin)
+				desired = Mathf.Max(desired, Mathf.Min(c_CuspCrawlMaxSpeedKmh * 0.75f, cruiseDesired));
 
 			StopIntent stopIntent = StopIntent.None;
 			if (approachingCusp && distToCusp > c_CuspStopMargin)
@@ -727,7 +748,7 @@ namespace VehicleNavigation
 				complete,
 				m_WaitingStop,
 				false,
-				false,
+				entryNeedReplan,
 				requestSteerReset,
 				gear);
 			return LastOutput;
@@ -844,7 +865,9 @@ namespace VehicleNavigation
 				return false;
 
 			bool multiSegment = m_Trajectory.GearSegmentCount > 1;
-			if (multiSegment && m_CuspPhase != CuspPhase.None && m_CuspPhase != CuspPhase.Depart)
+			// Hold replan across the whole cusp sequence including Depart — index jumps
+			// inflate cross-track and used to zero DesiredSpeed via NeedPathReplan.
+			if (multiSegment && m_CuspPhase != CuspPhase.None)
 				return true;
 
 			if (multiSegment && InNearGoalExecutionPhase(_distToEnd, _distGoal) &&
@@ -1092,6 +1115,13 @@ namespace VehicleNavigation
 			float arc = m_Trajectory.Points[Mathf.Clamp(m_Index, 0, m_Trajectory.PointCount - 1)].ArcLength;
 			bool earlyEntry = arc < 2.5f;
 			bool firstGearMonitor = m_Trajectory.GearSegmentCount == 1 || OnStagingSegment;
+			// Do not abort while intentionally holding for yaw align — xtrack can grow by design.
+			if (m_TurnEntryGateActive && m_TurnEntryGateTimer < c_EntryGateTimeoutSec)
+			{
+				m_EntryWorsenTimer = 0f;
+				return false;
+			}
+
 			bool monitor = firstGearMonitor &&
 			               (m_TurnEntryGateActive ||
 			                (Mathf.Abs(_pathCurv) > c_HighCurvThreshold && earlyEntry));

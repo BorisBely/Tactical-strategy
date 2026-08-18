@@ -66,16 +66,16 @@ public static class CombatAudioManager
 		public Category Category;
 		public VoiceGroup Group;
 		public int Priority;
-		public int OwnerInstanceId;
-		public int WeaponSignatureId;
+		public EntityId OwnerEntityId;
+		public EntityId WeaponSignatureId;
 		public float EndUnscaledTime;
 		public bool IsBulletWhiz;
 	}
 
 	private struct RecentGunshotRecord
 	{
-		public int OwnerId;
-		public int WeaponSignatureId;
+		public EntityId OwnerId;
+		public EntityId WeaponSignatureId;
 		public float Time;
 	}
 	#endregion
@@ -84,10 +84,10 @@ public static class CombatAudioManager
 	private static VoiceSlot[] s_VoiceSlots;
 	private static Transform s_PoolRoot;
 	private static AnimationCurve s_RolloffCurve;
-	private static readonly Dictionary<int, float> s_LastGunshotTimeByOwner = new Dictionary<int, float>(64);
-	private static readonly Dictionary<int, int> s_GunshotSkipCounterByWeaponSignature = new Dictionary<int, int>(32);
+	private static readonly Dictionary<EntityId, float> s_LastGunshotTimeByOwner = new Dictionary<EntityId, float>(64);
+	private static readonly Dictionary<EntityId, int> s_GunshotSkipCounterByWeaponSignature = new Dictionary<EntityId, int>(32);
 	private static readonly List<RecentGunshotRecord> s_RecentGunshots = new List<RecentGunshotRecord>(128);
-	private static readonly HashSet<int> s_TempDuplicateOwnerIds = new HashSet<int>(8);
+	private static readonly HashSet<EntityId> s_TempDuplicateOwnerIds = new HashSet<EntityId>(8);
 	#endregion
 
 	#region Public Methods
@@ -99,13 +99,13 @@ public static class CombatAudioManager
 		float _maxDistance,
 		Transform _ownerOrNull,
 		float _minDistance = c_DefaultSpatialMinDistance,
-		int _weaponSignatureId = 0)
+		EntityId _weaponSignatureId = default)
 	{
 		if (!TryValidatePlayRequest(_clip, _volume, _position, _maxDistance, Category.Gunshot, out float estimatedVolume))
 			return false;
 
-		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
-		int weaponSignatureId = _weaponSignatureId != 0 ? _weaponSignatureId : _clip.GetInstanceID();
+		EntityId ownerId = _ownerOrNull != null ? _ownerOrNull.GetEntityId() : default;
+		EntityId weaponSignatureId = _weaponSignatureId.IsValid() ? _weaponSignatureId : _clip.GetEntityId();
 		if (!TryPassGunshotThrottle(_ownerOrNull, _position, ownerId, weaponSignatureId))
 			return false;
 
@@ -149,7 +149,7 @@ public static class CombatAudioManager
 		if (!TryValidatePlayRequest(_clip, _volume, _position, clampedMaxDistance, Category.Impact, out float estimatedVolume))
 			return false;
 
-		int priority = ComputePriority(_position, null, Category.Impact, estimatedVolume, 0, 0);
+		int priority = ComputePriority(_position, null, Category.Impact, estimatedVolume, default, default);
 		return TryPlayInternal(
 			_clip,
 			_position,
@@ -159,8 +159,8 @@ public static class CombatAudioManager
 			c_NonFireSpatialMinDistance,
 			Category.Impact,
 			priority,
-			0,
-			0,
+			default,
+			default,
 			_nonSpatial: false);
 	}
 
@@ -182,8 +182,8 @@ public static class CombatAudioManager
 		if (!TryValidatePlayRequest(_clip, scaledVolume, _position, maxDistance, Category.CombatSecondary, out float estimatedVolume))
 			return false;
 
-		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
-		int priority = ComputePriority(_position, _ownerOrNull, Category.CombatSecondary, estimatedVolume, ownerId, 0);
+		EntityId ownerId = _ownerOrNull != null ? _ownerOrNull.GetEntityId() : default;
+		int priority = ComputePriority(_position, _ownerOrNull, Category.CombatSecondary, estimatedVolume, ownerId, default);
 		return TryPlayInternal(
 			_clip,
 			_position,
@@ -194,7 +194,7 @@ public static class CombatAudioManager
 			Category.CombatSecondary,
 			priority,
 			ownerId,
-			0,
+			default,
 			_nonSpatial: false);
 	}
 
@@ -204,7 +204,7 @@ public static class CombatAudioManager
 			return false;
 
 		Vector3 listenerPosition = GetListenerPosition();
-		int priority = ComputePriority(listenerPosition, null, Category.CombatSecondary, _volume, 0, 0);
+		int priority = ComputePriority(listenerPosition, null, Category.CombatSecondary, _volume, default, default);
 		return TryPlayInternal(
 			_clip,
 			listenerPosition,
@@ -214,8 +214,8 @@ public static class CombatAudioManager
 			_minDistance: 0.01f,
 			Category.CombatSecondary,
 			priority,
-			0,
-			0,
+			default,
+			default,
 			_nonSpatial: true,
 			_isBulletWhiz: true);
 	}
@@ -231,8 +231,8 @@ public static class CombatAudioManager
 			return false;
 
 		float scaledVolume = _volume * c_NonFireVolumeMultiplier;
-		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
-		int priority = ComputePriority(_position, _ownerOrNull, Category.NonFire, estimatedVolume, ownerId, 0);
+		EntityId ownerId = _ownerOrNull != null ? _ownerOrNull.GetEntityId() : default;
+		int priority = ComputePriority(_position, _ownerOrNull, Category.NonFire, estimatedVolume, ownerId, default);
 		return TryPlayInternal(
 			_clip,
 			_position,
@@ -243,7 +243,7 @@ public static class CombatAudioManager
 			Category.NonFire,
 			priority,
 			ownerId,
-			0,
+			default,
 			_nonSpatial: false);
 	}
 
@@ -269,7 +269,7 @@ public static class CombatAudioManager
 		if (estimatedVolume < c_MinAudibleVolume * 0.35f)
 			return false;
 
-		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
+		EntityId ownerId = _ownerOrNull != null ? _ownerOrNull.GetEntityId() : default;
 		int priority = ComputeRocketLauncherPriority(_position, _ownerOrNull, estimatedVolume, ownerId);
 		return TryPlayInternal(
 			_clip,
@@ -281,7 +281,7 @@ public static class CombatAudioManager
 			Category.RocketLauncher,
 			priority,
 			ownerId,
-			0,
+			default,
 			_nonSpatial: false,
 			_isBulletWhiz: false,
 			_forceMaximumPriority: true);
@@ -308,7 +308,7 @@ public static class CombatAudioManager
 			? _volume
 			: EstimateVolumeAtListener(_position, _volume, maxDistance);
 
-		int ownerId = _ownerOrNull != null ? _ownerOrNull.GetInstanceID() : 0;
+		EntityId ownerId = _ownerOrNull != null ? _ownerOrNull.GetEntityId() : default;
 		int priority = ComputeRocketLauncherPriority(_position, _ownerOrNull, estimatedVolume, ownerId);
 		return TryPlayInternal(
 			_clip,
@@ -320,7 +320,7 @@ public static class CombatAudioManager
 			Category.RocketLauncher,
 			priority,
 			ownerId,
-			0,
+			default,
 			_nonSpatial: _nonSpatial,
 			_isBulletWhiz: false,
 			_forceMaximumPriority: true);
@@ -354,20 +354,20 @@ public static class CombatAudioManager
 	private static bool TryPassGunshotThrottle(
 		Transform _ownerOrNull,
 		Vector3 _position,
-		int _ownerId,
-		int _weaponSignatureId)
+		EntityId _ownerId,
+		EntityId _weaponSignatureId)
 	{
 		bool isSelected = IsOwnerSelected(_ownerOrNull);
 		float now = Time.unscaledTime;
 
-		if (_ownerId != 0 &&
+		if (_ownerId.IsValid() &&
 		    s_LastGunshotTimeByOwner.TryGetValue(_ownerId, out float lastTime) &&
 		    now - lastTime < c_GunshotMinIntervalSeconds)
 		{
 			return isSelected;
 		}
 
-		if (isSelected || _weaponSignatureId == 0)
+		if (isSelected || !_weaponSignatureId.IsValid())
 			return true;
 
 		int gunshotPlaying = CountPlayingVoiceGroup(VoiceGroup.Gunshot);
@@ -402,7 +402,7 @@ public static class CombatAudioManager
 		return skipRate;
 	}
 
-	private static void RecordRecentGunshot(int _ownerId, int _weaponSignatureId)
+	private static void RecordRecentGunshot(EntityId _ownerId, EntityId _weaponSignatureId)
 	{
 		float now = Time.unscaledTime;
 		PruneRecentGunshots(now);
@@ -423,7 +423,7 @@ public static class CombatAudioManager
 		}
 	}
 
-	private static int CountRecentDuplicateWeaponOwners(int _weaponSignatureId, int _excludeOwnerId)
+	private static int CountRecentDuplicateWeaponOwners(EntityId _weaponSignatureId, EntityId _excludeOwnerId)
 	{
 		float now = Time.unscaledTime;
 		PruneRecentGunshots(now);
@@ -435,8 +435,8 @@ public static class CombatAudioManager
 			if (record.WeaponSignatureId != _weaponSignatureId)
 				continue;
 
-			int ownerId = record.OwnerId;
-			if (ownerId == 0 || ownerId == _excludeOwnerId)
+			EntityId ownerId = record.OwnerId;
+			if (!ownerId.IsValid() || ownerId == _excludeOwnerId)
 				continue;
 
 			s_TempDuplicateOwnerIds.Add(ownerId);
@@ -454,8 +454,8 @@ public static class CombatAudioManager
 		float _minDistance,
 		Category _category,
 		int _priority,
-		int _ownerInstanceId,
-		int _weaponSignatureId,
+		EntityId _ownerEntityId,
+		EntityId _weaponSignatureId,
 		bool _nonSpatial,
 		bool _isBulletWhiz = false,
 		bool _forceMaximumPriority = false)
@@ -490,7 +490,7 @@ public static class CombatAudioManager
 		slot.Category = _category;
 		slot.Group = group;
 		slot.Priority = _priority;
-		slot.OwnerInstanceId = _ownerInstanceId;
+		slot.OwnerEntityId = _ownerEntityId;
 		slot.WeaponSignatureId = _weaponSignatureId;
 		slot.EndUnscaledTime = Time.unscaledTime + duration;
 		slot.IsBulletWhiz = _isBulletWhiz;
@@ -816,8 +816,8 @@ public static class CombatAudioManager
 		Transform _ownerOrNull,
 		Category _category,
 		float _estimatedVolume,
-		int _ownerId,
-		int _weaponSignatureId)
+		EntityId _ownerId,
+		EntityId _weaponSignatureId)
 	{
 		int priority = ResolveCategoryTier(_category) * c_TierScoreMultiplier;
 		float listenerDistance = GetListenerDistance(_position);
@@ -827,7 +827,7 @@ public static class CombatAudioManager
 			priority += Mathf.RoundToInt(c_SelectedUnitPriorityBonus);
 
 		if (_category == Category.Gunshot &&
-		    _weaponSignatureId != 0 &&
+		    _weaponSignatureId.IsValid() &&
 		    CountRecentDuplicateWeaponOwners(_weaponSignatureId, _ownerId) == 0)
 			priority += 35;
 
@@ -855,7 +855,7 @@ public static class CombatAudioManager
 		Vector3 _position,
 		Transform _ownerOrNull,
 		float _estimatedVolume,
-		int _ownerId)
+		EntityId _ownerId)
 	{
 		int priority = c_TierRocketLauncher * c_TierScoreMultiplier + c_RocketLauncherPriorityBonus;
 		float listenerDistance = GetListenerDistance(_position);
@@ -864,7 +864,7 @@ public static class CombatAudioManager
 		if (IsOwnerSelected(_ownerOrNull))
 			priority += Mathf.RoundToInt(c_SelectedUnitPriorityBonus);
 
-		if (_ownerId != 0)
+		if (_ownerId.IsValid())
 			priority += 120;
 
 		return priority;

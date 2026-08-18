@@ -40,6 +40,18 @@ MonoBehaviour:
     ResourceCost: 45
   - InjuryStatusLocalizationKey: health.injury.generic_wound
     ResourceCost: 25
+  - InjuryStatusLocalizationKey: health.injury.vehicle_polytrauma
+    ResourceCost: 100
+  - InjuryStatusLocalizationKey: health.injury.vehicle_crush_chest
+    ResourceCost: 90
+  - InjuryStatusLocalizationKey: health.injury.vehicle_impact_trauma
+    ResourceCost: 75
+  - InjuryStatusLocalizationKey: health.injury.vehicle_soft_tissue
+    ResourceCost: 30
+  - InjuryStatusLocalizationKey: health.injury.vehicle_limb_sprain
+    ResourceCost: 35
+  - InjuryStatusLocalizationKey: health.injury.vehicle_bruise
+    ResourceCost: 20
   m_SeverityFallbackCosts:
   - MaxSortPriority: 10
     ResourceCost: 110

@@ -607,7 +607,7 @@ namespace VehicleNavigation
 					LastStats = BuildStats(_s.Session, 0, best.PointCount, best.Cost, 0f, 0f,
 						_s.Snapshot, _s.AnalyticShots, (float)_s.AccumulatedCpuMs, false, best.DebugReason);
 					if (DebugLog)
-						Debug.Log($"[LocalPosePlanner] analytic OK len={best.TotalLength:F1}m segs={best.GearSegmentCount} reason={best.DebugReason}");
+						VehicleFileLog.WriteActive($"[LocalPosePlanner] analytic OK len={best.TotalLength:F1}m segs={best.GearSegmentCount} reason={best.DebugReason}");
 					return best;
 				}
 			}
@@ -690,7 +690,7 @@ namespace VehicleNavigation
 				{
 					_session.RejectedInvalidGeometry++;
 					if (DebugLog && _session.CandidatesTried < 2)
-						Debug.Log($"[LocalPosePlanner] reject kinematic {c.DebugReason}: {kinReason}");
+						VehicleFileLog.WriteActive($"[LocalPosePlanner] reject kinematic {c.DebugReason}: {kinReason}");
 					continue;
 				}
 
@@ -1125,7 +1125,7 @@ namespace VehicleNavigation
 				_goal.RequiresPosePlanning ? Mathf.Abs(Mathf.DeltaAngle(_s.BestAny.Yaw, _goal.YawDegrees)) : 0f,
 				_s.Snapshot, analyticShots, (float)_s.AccumulatedCpuMs, _s.BudgetTerminated, failReason);
 			if (DebugLog)
-				Debug.LogWarning($"[LocalPosePlanner] FAIL expanded={_s.Expanded} bestPos={bestPos:F2}m {failReason}");
+				VehicleFileLog.WriteActive($"[LocalPosePlanner] FAIL expanded={_s.Expanded} bestPos={bestPos:F2}m {failReason}");
 			return VehicleTrajectory.Invalid(LastStats.Reason, _s.Expanded);
 		}
 
@@ -1608,7 +1608,11 @@ namespace VehicleNavigation
 			float lengthBudget = budgetBase < float.MaxValue
 				? budgetBase * 1.35f + Mathf.Max(2f, _dist * 0.5f)
 				: float.MaxValue;
-			float absoluteBudget = Mathf.Max(_dist * c_MaxDetourRatio, _turnRadius * Mathf.PI + _dist);
+			// Pose goals: tighter detour — 2.5× (17m for a 7m goal) is what produces multi-cusp crawls.
+			float detourRatio = _goal.RequiresPosePlanning && _dist <= 12f
+				? 1.9f
+				: c_MaxDetourRatio;
+			float absoluteBudget = Mathf.Max(_dist * detourRatio, _turnRadius * Mathf.PI + _dist);
 			lengthBudget = budgetBase < float.MaxValue
 				? Mathf.Min(lengthBudget, absoluteBudget)
 				: absoluteBudget;
@@ -1620,6 +1624,7 @@ namespace VehicleNavigation
 			var topSummary = new System.Text.StringBuilder();
 			bool frontOblique = align > 12f && align < 70f && !_goal.RequiresPosePlanning;
 			bool sideAlign = align >= 55f && align <= 125f;
+			bool posePreferForward = _goal.RequiresPosePlanning && align < 90f;
 
 			bool PassesLengthBudget(VehicleTrajectory traj, string reason)
 			{
@@ -1635,7 +1640,8 @@ namespace VehicleNavigation
 			bool hasForwardArcOrCs = false;
 			bool hasTwoStageSide = false;
 			bool hasUsableForwardFirst = false;
-			if (frontOblique || sideAlign)
+			bool hasCompactForward = false;
+			if (frontOblique || sideAlign || posePreferForward)
 			{
 				for (int i = 0; i < _valid.Count; i++)
 				{
@@ -1644,7 +1650,12 @@ namespace VehicleNavigation
 						continue;
 					if (_valid[i].traj.PointCount > 0 &&
 					    _valid[i].traj.Points[0].Gear == TrajectoryGear.Forward)
+					{
 						hasUsableForwardFirst = true;
+						if (_valid[i].traj.GearSegmentCount <= 2 &&
+						    _valid[i].traj.TotalLength <= _dist * 2.2f + 2f)
+							hasCompactForward = true;
+					}
 					if (frontOblique &&
 					    (r.Contains("arc-fwd") || r.Contains("cs-fwd") || r.Contains("csc") ||
 					     r.Contains("dubins") || r.StartsWith("straight-fwd") ||
@@ -1683,6 +1694,15 @@ namespace VehicleNavigation
 				// Side pose/position: keep compact two-stage over asymmetric RS / lattice leftovers.
 				if (sideAlign && hasTwoStageSide &&
 				    (reason.StartsWith("rs-") || reason.Contains("merged") || reason.Contains("lattice")))
+					continue;
+
+				// Pose goal with a compact forward path available: drop reverse-first multi-cusp RS
+				// (log: 6.8m → rs-lrlr2 17m segs=3, ~30 gear flips, crawl ≤4 km/h).
+				if (posePreferForward && hasCompactForward &&
+				    entry.traj.PointCount > 0 &&
+				    entry.traj.Points[0].Gear == TrajectoryGear.Reverse &&
+				    entry.traj.GearSegmentCount >= 3 &&
+				    reason.StartsWith("rs-"))
 					continue;
 
 				// Long side/rear position goals: reject short forward chord (arc/cs) that
@@ -1741,7 +1761,7 @@ namespace VehicleNavigation
 				_session.Reason = failDetail;
 
 			if (DebugLog && _logFailure && best == null)
-				Debug.LogWarning($"[LocalPosePlanner] {failDetail} dist={_dist:F2} r={_turnRadius:F2}");
+				VehicleFileLog.WriteActive($"[LocalPosePlanner] {failDetail} dist={_dist:F2} r={_turnRadius:F2}");
 
 			return best;
 		}
@@ -1787,7 +1807,7 @@ namespace VehicleNavigation
 				{
 					_session.RejectedInvalidGeometry++;
 					if (DebugLog && _session.CandidatesTried < 2)
-						Debug.Log($"[LocalPosePlanner] reject kinematic {c.DebugReason}: {kinReason}");
+						VehicleFileLog.WriteActive($"[LocalPosePlanner] reject kinematic {c.DebugReason}: {kinReason}");
 					continue;
 				}
 
@@ -1975,17 +1995,21 @@ namespace VehicleNavigation
 			}
 
 			// Heading goals ahead: prefer forward Dubins/CSC over reverse RS.
-			if (_goal.RequiresPosePlanning && align < 80f)
+			if (_goal.RequiresPosePlanning && align < 90f)
 			{
 				if (first == TrajectoryGear.Forward && segs <= 2)
-					cost -= 10f;
+					cost -= 16f;
 				if (first == TrajectoryGear.Reverse)
-					cost += 22f;
+					cost += 28f;
 				if (reason.StartsWith("rs-") && first == TrajectoryGear.Reverse)
-					cost += 18f;
+					cost += 28f;
+				if (segs >= 3)
+					cost += 24f;
 				if (reason.Contains("dubins") || reason.Contains("csc") || reason.Contains("asa-fwd") ||
-				    reason.Contains("arc-straight"))
-					cost -= 6f;
+				    reason.Contains("arc-straight") || reason.Contains("arc-fwd") || reason.Contains("cs-fwd"))
+					cost -= 12f;
+				if (direct <= 10f && _traj.TotalLength > direct * 1.85f)
+					cost += (_traj.TotalLength / Mathf.Max(0.5f, direct) - 1.85f) * 40f;
 			}
 
 			if (_goal.HasAdvisoryHeading)
@@ -2186,7 +2210,7 @@ namespace VehicleNavigation
 
 			_session.RejectedInvalidGeometry++;
 			if (DebugLog)
-				Debug.LogWarning($"[LocalPosePlanner] reject {_traj.DebugReason}: {reason}");
+				VehicleFileLog.WriteActive($"[LocalPosePlanner] reject {_traj.DebugReason}: {reason}");
 			return false;
 		}
 

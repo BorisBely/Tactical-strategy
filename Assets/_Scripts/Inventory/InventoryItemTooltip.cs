@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using TMPro;
 using UnityEngine;
@@ -15,8 +16,9 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 	private const float c_MinHeight = 56f;
 	private const float c_Padding = 10f;
 	private const float c_ScreenEdgePadding = 8f;
+	private const float c_FadeDuration = 0.08f;
 	private static readonly Vector2 s_CursorOffset = new Vector2(16f, -16f);
-	private static readonly Color s_BackgroundColor = new Color(0.12f, 0.12f, 0.12f, 0.96f);
+	private static readonly Color s_BackgroundColor = InventoryUiTheme.TooltipBackground;
 	private static readonly Color s_TitleColor = Color.white;
 	private static readonly Color s_DescriptionColor = new Color(0.86f, 0.86f, 0.86f, 1f);
 	#endregion
@@ -38,6 +40,7 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 	private InventorySlotView m_ActiveSource;
 	private bool m_IsVisible;
 	private Vector2 m_LastScreenPosition;
+	private Coroutine m_FadeCoroutine;
 	#endregion
 
 	#region Public Properties
@@ -147,7 +150,6 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 		m_TitleText.text = ResolveTitle(_source.Data);
 		m_DescriptionText.text = description;
 		m_IsVisible = true;
-		m_CanvasGroup.alpha = 1f;
 		m_CanvasGroup.blocksRaycasts = false;
 		m_CanvasGroup.interactable = false;
 		gameObject.SetActive(true);
@@ -157,6 +159,7 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 		EnsureMinimumSize();
 		UpdatePosition(_screenPosition);
 		transform.SetAsLastSibling();
+		StartFade(1f);
 		LogTooltipState("ShowForSlot success");
 	}
 
@@ -182,8 +185,42 @@ public sealed class InventoryItemTooltip : MonoBehaviour
 	{
 		m_IsVisible = false;
 		m_ActiveSource = null;
+		if (m_FadeCoroutine != null)
+		{
+			StopCoroutine(m_FadeCoroutine);
+			m_FadeCoroutine = null;
+		}
+
 		if (m_CanvasGroup != null)
 			m_CanvasGroup.alpha = 0f;
+	}
+	#endregion
+
+	#region Fade
+	private void StartFade(float _targetAlpha)
+	{
+		if (m_CanvasGroup == null)
+			return;
+
+		if (m_FadeCoroutine != null)
+			StopCoroutine(m_FadeCoroutine);
+
+		m_FadeCoroutine = StartCoroutine(CoFade(_targetAlpha));
+	}
+
+	private IEnumerator CoFade(float _targetAlpha)
+	{
+		float start = m_CanvasGroup.alpha;
+		float t = 0f;
+		while (t < c_FadeDuration)
+		{
+			t += Time.unscaledDeltaTime;
+			m_CanvasGroup.alpha = Mathf.Lerp(start, _targetAlpha, Mathf.Clamp01(t / c_FadeDuration));
+			yield return null;
+		}
+
+		m_CanvasGroup.alpha = _targetAlpha;
+		m_FadeCoroutine = null;
 	}
 	#endregion
 

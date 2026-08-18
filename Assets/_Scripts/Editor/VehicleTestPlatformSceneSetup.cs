@@ -108,7 +108,7 @@ namespace VehicleNavigation.Editor
 
 		static void RemoveLegacyPlatforms()
 		{
-			foreach (var go in Object.FindObjectsByType<VehicleTestPlatform>(FindObjectsSortMode.None))
+			foreach (var go in Object.FindObjectsByType<VehicleTestPlatform>())
 			{
 				if (go.name.StartsWith("VehicleTestPlatform V"))
 					continue;

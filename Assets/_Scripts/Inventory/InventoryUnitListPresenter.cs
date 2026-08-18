@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Показывает одну строку <see cref="MissionPrepUnitCellView"/> для активного юнита в окне инвентаря.
+/// Показывает одну строку <see cref="MissionPrepUnitCellView"/> для активного юнита/машины в окне инвентаря.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class InventoryUnitListPresenter : MonoBehaviour
@@ -34,7 +34,34 @@ public sealed class InventoryUnitListPresenter : MonoBehaviour
 		GameObject unitRoot = ResolveUnitRoot(_inventory);
 		UnitCellDisplayBinder.Apply(m_RuntimeCell, unitRoot);
 		m_RuntimeCell.SetInteractionEnabled(false);
-		m_RuntimeCell.SetSelected(true);
+		// Header row is informational only — no selection highlight in runtime inventory.
+		m_RuntimeCell.SetSelected(false);
+
+		if (m_UnitList != null)
+			m_UnitList.SetUnitCells(new[] { m_RuntimeCell });
+	}
+
+	public void RefreshForVehicle(VehicleInventory _inventory)
+	{
+		ClearRuntimeCell();
+
+		if (_inventory == null || m_UnitCellPrefab == null || m_CellsContentParent == null)
+		{
+			if (m_UnitList != null)
+				m_UnitList.SetUnitCells(System.Array.Empty<MissionPrepUnitCellView>());
+			return;
+		}
+
+		VehicleController vehicle = _inventory.Vehicle;
+		if (vehicle == null)
+			vehicle = _inventory.GetComponentInParent<VehicleController>(true);
+
+		m_RuntimeCell = Instantiate(m_UnitCellPrefab, m_CellsContentParent);
+		m_RuntimeCell.gameObject.name = m_UnitCellPrefab.name + "_Vehicle";
+
+		VehicleCellDisplayBinder.Apply(m_RuntimeCell, vehicle);
+		m_RuntimeCell.SetInteractionEnabled(false);
+		m_RuntimeCell.SetSelected(false);
 
 		if (m_UnitList != null)
 			m_UnitList.SetUnitCells(new[] { m_RuntimeCell });
@@ -49,7 +76,17 @@ public sealed class InventoryUnitListPresenter : MonoBehaviour
 
 	public void RefreshStatusSummaryForActiveCell()
 	{
-		if (m_RuntimeCell == null || m_RuntimeCell.BoundUnitRoot == null)
+		if (m_RuntimeCell == null)
+			return;
+
+		if (m_RuntimeCell.BoundVehicle != null)
+		{
+			VehicleCellDisplayBinder.Apply(m_RuntimeCell, m_RuntimeCell.BoundVehicle);
+			m_RuntimeCell.SetSelected(false);
+			return;
+		}
+
+		if (m_RuntimeCell.BoundUnitRoot == null)
 			return;
 
 		m_RuntimeCell.SetHealthStatusText(UnitCellDisplayBinder.ResolveHealthSummary(m_RuntimeCell.BoundUnitRoot));

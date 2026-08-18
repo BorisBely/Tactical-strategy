@@ -157,7 +157,7 @@ MonoBehaviour:
   m_ExplosionLifetime: 5.5
   m_ExplosionMaxDistanceMeters: 600
   m_ExplosionVfxScale: 2.15
-  m_ExplosionAudioMaxDistance: 220
+  m_ExplosionAudioMaxDistance: 600
   m_FlightLoopClips:
   - {fileID: 8300000, guid: 08cbb6f77a9c8a44996053adac857ea0, type: 3}
   - {fileID: 8300000, guid: 423187235e69e424f9154058abf56d2a, type: 3}
@@ -166,8 +166,8 @@ MonoBehaviour:
   m_FlightSoundVolume: 0.4
   m_MaxLifetimeSeconds: 25
   m_ExplosionSoundClips:
-  - {fileID: 8300000, guid: 8c63b28b49fd4cd5ba7898c4a2d39c8f, type: 3}
-  - {fileID: 8300000, guid: f323134f3eb7496aa45240c194e7859c, type: 3}
+  - {fileID: 8300000, guid: bff45f5795421f34c830f5d4512af1e6, type: 3}
+  - {fileID: 8300000, guid: 202db320cba9d52459b8008b883c169d, type: 3}
   m_ExplosionSoundVolume: 1
   m_MinAirborneTime: 0.15
   m_IgnoreCollisionLayers:
@@ -178,3 +178,4 @@ MonoBehaviour:
   m_SmokeLifetimeSeconds: 12
   m_GrenadeThrowData: {fileID: 11400000, guid: 38a5d38522c3e4543a4af33d01d4e616, type: 2}
   m_FragGrenadeDefinition: {fileID: 11400000, guid: 667d4df0d0f23c44ca3566ea9fa65612, type: 2}
+  m_RocketLauncherData: {fileID: 11400000, guid: b8d4f02a3c5e4f7b9a2d1e6f0c4b8d23, type: 2}

@@ -311,9 +311,9 @@ MonoBehaviour:
   m_HealthStatusText: {fileID: 7474080883091347761}
   m_ArmorStatusText: {fileID: 5583366974884203777}
   m_SelectionBackground: {fileID: 7978348466422646176}
-  m_NormalBackgroundColor: {r: 0.3018868, g: 0.3018868, b: 0.3018868, a: 0.85}
-  m_HoverBackgroundColor: {r: 0.39607844, g: 0.39607844, b: 0.39607844, a: 0.95}
-  m_SelectedBackgroundColor: {r: 0.25490198, g: 0.25490198, b: 0.25490198, a: 1}
+  m_NormalBackgroundColor: {r: 0.16470589, g: 0.16470589, b: 0.16470589, a: 1}
+  m_HoverBackgroundColor: {r: 0.20392157, g: 0.20392157, b: 0.20392157, a: 1}
+  m_SelectedBackgroundColor: {r: 0.27, g: 0.36, b: 0.31, a: 1}
 --- !u!1 &696852560352749291
 GameObject:
   m_ObjectHideFlags: 0
@@ -1034,10 +1034,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5481617685427681077}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0}
-  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: 0, y: 1.5}
-  m_SizeDelta: {x: 400, y: 3}
+  m_SizeDelta: {x: 0, y: 3}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8450227744251332899
 CanvasRenderer:
@@ -1060,8 +1060,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_Color: {r: 1, g: 1, b: 1, a: 0.08}
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

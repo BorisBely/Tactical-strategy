@@ -1,11 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Накопление и восстановление штрафа отдачи для экипированного оружия.
-/// Единственный источник истины для Hitscan и визуала.
-/// Никаких визуальных величин — только геймплейные:
-/// RecoilPenalty, SpreadHalfAngle, Stability01.
-/// Визуальная отдача (UnitWeaponRecoil) подписывается на ShotFired напрямую.
+/// Gameplay recoil penalty for the equipped weapon (hitscan spread / stability).
+/// Does not write bones or weapon local TRS.
+/// RecoilPenalty, SpreadHalfAngle, Stability01 only.
+/// Visual recoil (<see cref="UnitWeaponRecoil"/>) subscribes to ShotFired directly.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(58)]

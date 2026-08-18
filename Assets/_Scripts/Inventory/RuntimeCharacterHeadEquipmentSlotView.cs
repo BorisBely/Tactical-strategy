@@ -22,7 +22,10 @@ public sealed class RuntimeCharacterHeadEquipmentSlotView : MonoBehaviour, IDrop
 
 		InventoryPanelView panel = m_Slot.GetComponentInParent<InventoryPanelView>();
 		if (panel != null)
-			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(m_Slot, panel.EquipmentSlotAppearance);
+		{
+			InventorySlotUiUtility.ConfigureHeadEquipmentSlot(
+				m_Slot, panel.EquipmentSlotAppearance, panel.LeadingEquipmentUsesVehicleLabels);
+		}
 
 		InventorySlotUiUtility.EnsureEquipmentSlotDropReceiver(this);
 		RefreshHighlight();

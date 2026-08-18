@@ -16,7 +16,10 @@ public sealed class UnitConsciousnessRules : MonoBehaviour
 		"health.injury.lung_damage",
 		"health.injury.internal_bleeding",
 		"health.injury.head_wound",
-		"health.injury.concussion"
+		"health.injury.concussion",
+		"health.injury.vehicle_impact_trauma",
+		"health.injury.vehicle_crush_chest",
+		"health.injury.vehicle_polytrauma"
 	};
 	#endregion
 
