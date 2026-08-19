@@ -13,7 +13,8 @@ public sealed class ShootingRangeManager : MonoBehaviour
 	#region Serialized Fields
 	[SerializeField] private ShootingRangeTargetRegistry m_TargetRegistry;
 	[SerializeField] private string m_TargetNamePattern = @"^Sphere(50|100|150|200|250|300|350|400|450|500)$";
-	[SerializeField, Min(10f)] private float m_PlayerVisionRange = 550f;
+	[SerializeField, Min(10f), Tooltip("Must match Unit.prefab VisionRange (500 m). Padding past 500 (e.g. 550) leaks perception beyond the contract cap.")]
+	private float m_PlayerVisionRange = 500f;
 	[SerializeField] private bool m_AutoDiscoverTargetsOnAwake = true;
 	[SerializeField] private bool m_StartWithTargetsEnabled = true;
 	[SerializeField] private int m_TargetLayer = 8;
@@ -349,6 +350,9 @@ public sealed class ShootingRangeManager : MonoBehaviour
 
 	public void ApplyPlayerVisionRange()
 	{
+		if (DetectionHarnessPlayMode.IsCalibrationPlay)
+			return;
+
 #if UNITY_2023_1_OR_NEWER
 		UnitVision[] visions = FindObjectsByType<UnitVision>(FindObjectsInactive.Exclude);
 #else

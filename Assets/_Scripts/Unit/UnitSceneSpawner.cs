@@ -58,6 +58,44 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
 	}
 
+	/// <summary>
+	/// Spawns only the first player + first enemy entry (ignores m_SpawnEnemies / other entries).
+	/// Used by DetectionTestController for a clean 1v1 G1 harness.
+	/// </summary>
+	public bool TrySpawnDetectionTestPair(out GameObject _player, out GameObject _enemy)
+	{
+		_player = null;
+		_enemy = null;
+
+		if (m_UnitPrefab == null)
+		{
+			Debug.LogWarning($"{nameof(UnitSceneSpawner)} on {name}: assign Unit Prefab.", this);
+			return false;
+		}
+
+		_player = SpawnFirstEntry(m_PlayerSpawns, "DetectionObserver");
+		_enemy = SpawnFirstEntry(m_EnemySpawns, "DetectionTarget");
+		if (_player == null || _enemy == null)
+		{
+			Debug.LogWarning(
+				$"{nameof(UnitSceneSpawner)}: detection test pair spawn failed " +
+				$"(player={_player != null}, enemy={_enemy != null}).",
+				this);
+			return false;
+		}
+
+		RtsUnitSelectionManager.Instance?.EnsurePlayerUnitSelected();
+		return true;
+	}
+
+	/// <summary>Spawns first player entry again (extra observer for dual-observer G2 tests).</summary>
+	public GameObject SpawnAdditionalPlayer(string _displayName = "DetectionObserverB")
+	{
+		if (m_UnitPrefab == null)
+			return null;
+		return SpawnFirstEntry(m_PlayerSpawns, _displayName);
+	}
+
 	[ContextMenu("Toggle Enemy Spawn")]
 	private void ToggleEnemySpawn()
 	{
@@ -133,6 +171,44 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 
 			m_SpawnedInstances.Add(instance);
 		}
+	}
+
+	private GameObject SpawnFirstEntry(UnitSceneSpawnEntry[] _entries, string _fallbackDisplayName)
+	{
+		if (_entries == null || _entries.Length == 0)
+			return null;
+
+		UnitSceneSpawnEntry entry = _entries[0];
+		if (entry == null || entry.SpawnPoint == null)
+			return null;
+
+		Transform parent = m_SpawnedUnitsParent != null ? m_SpawnedUnitsParent : transform;
+		UnitSpawnConfig config = entry.ToConfig();
+		if (string.IsNullOrWhiteSpace(config.DisplayName))
+		{
+			config = new UnitSpawnConfig(
+				config.Team,
+				config.Loadout,
+				config.StartReady,
+				_fallbackDisplayName,
+				config.ArmorVisualIndex,
+				config.CamouflageVisualIndex,
+				_bodyMeshArchetype: config.BodyMeshArchetype);
+		}
+
+		GameObject instance = Instantiate(
+			m_UnitPrefab,
+			entry.SpawnPoint.position,
+			entry.SpawnPoint.rotation,
+			parent);
+
+		if (!instance.TryGetComponent(out UnitFactionConfigurator configurator))
+			configurator = instance.AddComponent<UnitFactionConfigurator>();
+
+		configurator.Configure(config);
+		configurator.ApplyConfiguration();
+		m_SpawnedInstances.Add(instance);
+		return instance;
 	}
 
 	private void DestroySpawnedInstances()

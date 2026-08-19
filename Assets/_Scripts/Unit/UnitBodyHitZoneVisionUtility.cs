@@ -42,6 +42,16 @@ public static class UnitBodyHitZoneVisionUtility
 		}
 	}
 
+	public static bool IsUsableVisionZone(UnitBodyHitZone _zone, out Collider _collider)
+	{
+		_collider = null;
+		if (_zone == null || !_zone.IncludeInVision || !_zone.gameObject.activeInHierarchy)
+			return false;
+		if (!_zone.TryGetComponent(out _collider) || _collider == null || !_collider.enabled)
+			return false;
+		return true;
+	}
+
 	public static bool TryGetCombinedBounds(IReadOnlyList<UnitBodyHitZone> _zones, out Bounds _bounds)
 	{
 		_bounds = default;
@@ -49,8 +59,7 @@ public static class UnitBodyHitZoneVisionUtility
 
 		for (int i = 0; i < _zones.Count; i++)
 		{
-			UnitBodyHitZone zone = _zones[i];
-			if (zone == null || !zone.IncludeInVision || !zone.TryGetComponent(out Collider col) || !col.enabled)
+			if (!IsUsableVisionZone(_zones[i], out Collider col))
 				continue;
 
 			if (!hasBounds)
@@ -72,7 +81,7 @@ public static class UnitBodyHitZoneVisionUtility
 		for (int i = 0; i < _zones.Count; i++)
 		{
 			UnitBodyHitZone zone = _zones[i];
-			if (zone == null || !zone.IncludeInVision || zone.BodyPart != _preferredPart || !zone.TryGetComponent(out Collider col) || !col.enabled)
+			if (zone == null || zone.BodyPart != _preferredPart || !IsUsableVisionZone(zone, out Collider col))
 				continue;
 
 			return col;
@@ -85,8 +94,7 @@ public static class UnitBodyHitZoneVisionUtility
 	{
 		for (int i = 0; i < _zones.Count; i++)
 		{
-			UnitBodyHitZone zone = _zones[i];
-			if (zone != null && zone.IncludeInVision && zone.TryGetComponent(out Collider col) && col.enabled)
+			if (IsUsableVisionZone(_zones[i], out Collider col))
 				return col;
 		}
 

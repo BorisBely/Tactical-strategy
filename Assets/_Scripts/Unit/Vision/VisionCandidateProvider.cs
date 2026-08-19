@@ -53,10 +53,24 @@ public sealed class VisionCandidateProvider
 	/// <summary>Fill <paramref name="_out"/> with alive/targetable candidates for the current viewer.</summary>
 	public void Collect(List<Candidate> _out, Func<Transform, bool> _shouldSkip)
 	{
+		Collect(_out, _shouldSkip, Vector3.zero, -1f);
+	}
+
+	/// <summary>
+	/// Same as Collect, plus optional coarse distance cull after registry opponents.
+	/// <paramref name="_maxDistanceSq"/> &lt; 0 disables the spatial filter.
+	/// </summary>
+	public void Collect(
+		List<Candidate> _out,
+		Func<Transform, bool> _shouldSkip,
+		Vector3 _origin,
+		float _maxDistanceSq)
+	{
 		_out.Clear();
 		if (m_Registry == null || m_Team == null || m_Self == null)
 			return;
 
+		bool cullDistance = _maxDistanceSq >= 0f;
 		m_Registry.GetOpponents(m_Team.Team, m_OpponentBuffer);
 		for (int i = 0; i < m_OpponentBuffer.Count; i++)
 		{
@@ -68,6 +82,9 @@ public sealed class VisionCandidateProvider
 			if (other.TryGetComponent(out DamageableTarget damageable) && !damageable.IsAlive)
 				continue;
 			if (_shouldSkip != null && _shouldSkip(other.transform))
+				continue;
+			if (cullDistance &&
+			    VisionGeometry.HorizontalDistanceSq(_origin, other.transform.position) > _maxDistanceSq)
 				continue;
 
 			UnitBodyHitZone[] zones = other.GetBodyHitZonesArray();
@@ -93,6 +110,9 @@ public sealed class VisionCandidateProvider
 				if (rangeTarget == null || !rangeTarget.IsAvailableForTargeting)
 					continue;
 				if (_shouldSkip != null && _shouldSkip(rangeTarget.transform))
+					continue;
+				if (cullDistance &&
+				    VisionGeometry.HorizontalDistanceSq(_origin, rangeTarget.transform.position) > _maxDistanceSq)
 					continue;
 
 				Collider targetCol = rangeTarget.TargetCollider;

@@ -7913,6 +7913,9 @@ GameObject:
   - component: {fileID: 7912499842099294816}
   - component: {fileID: 1100000875000488401}
   - component: {fileID: 7085333448395688764}
+  - component: {fileID: 7085333448395688800}
+  - component: {fileID: 7085333448395688802}
+  - component: {fileID: 7085333448395688801}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -8067,7 +8070,7 @@ MonoBehaviour:
   m_RayCamera: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_StanceSource: {fileID: 3741241907743255212}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Vision: {fileID: 0}
   m_ReadyHands: {fileID: 0}
   m_Equipment: {fileID: 0}
@@ -8191,7 +8194,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitNavLocomotionDriver
   m_Animator: {fileID: 5771954729034314130}
   m_StanceSource: {fileID: 3741241907743255212}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Vision: {fileID: 1773384317962348157}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_Equipment: {fileID: 0}
@@ -8534,7 +8537,7 @@ MonoBehaviour:
   m_EquippedWeaponPose: {fileID: 731500000000000200}
   m_BusyState: {fileID: 0}
   m_WeaponRuntime: {fileID: 0}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_CombatStats: {fileID: 0}
   m_IndividualTraits: {fileID: 0}
   m_CombatCondition: {fileID: 0}
@@ -8588,7 +8591,7 @@ MonoBehaviour:
   m_CombatStats: {fileID: 0}
   m_ObservationSource: {fileID: 1100000875000488401}
   m_Perception: {fileID: 0}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_VisionRange: 500
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
@@ -8596,6 +8599,13 @@ MonoBehaviour:
   m_ScanIntervalMin: 0.25
   m_ScanIntervalMax: 0.45
   m_ImmediateRescanAngleDegrees: 2.5
+  m_CoarseFovPadDegrees: 8
+  m_CoarseRangePadMeters: 4
+  m_DetailQueueDelaySeconds: 0.35
+  m_DiscoverIntervalSeconds: 0.5
+  m_MembershipIntervalSeconds: 1.5
+  m_LosCacheTtlSeconds: 0.3
+  m_LosCacheMoveEpsilonMeters: 0.35
   m_LayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8630,7 +8640,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponAiming
   m_UnitEquipment: {fileID: 5322687323565292150}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_UnitForwardSource: {fileID: 6544963493894048048}
   m_Animator: {fileID: 5771954729034314130}
   m_ReadyHands: {fileID: 1703047740406568110}
@@ -8738,7 +8748,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitSpineHorizontalAim
   m_Animator: {fileID: 5771954729034314130}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_Stance: {fileID: 3741241907743255212}
   m_BusyState: {fileID: 383407823447829567}
@@ -8793,7 +8803,7 @@ MonoBehaviour:
   m_ClickToMove: {fileID: 4256334534260426623}
   m_LocomotionDriver: {fileID: 6826918016596314260}
   m_Equipment: {fileID: 0}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Spine01: {fileID: 3770988348980524466}
   m_Spine02: {fileID: 5583257052563532237}
   m_StandingDegrees:
@@ -8939,7 +8949,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponHitscanShooting
   m_Equipment: {fileID: 5322687323565292150}
   m_WeaponRuntime: {fileID: 1512094426153763378}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Stance: {fileID: 0}
   m_ClickToMove: {fileID: 0}
   m_LocomotionDriver: {fileID: 0}
@@ -9014,7 +9024,8 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_Equipment: {fileID: 5322687323565292150}
   m_ReadyHands: {fileID: 1703047740406568110}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
+  m_EngagementDecision: {fileID: 7085333448395688801}
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
@@ -9093,7 +9104,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitWeaponAimProgressController
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_ReadyHands: {fileID: 1703047740406568110}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Vision: {fileID: 1773384317962348157}
   m_BusyState: {fileID: 383407823447829567}
   m_ReloadController: {fileID: 4859917004016156609}
@@ -9146,7 +9157,7 @@ MonoBehaviour:
   m_FireController: {fileID: 8854059317223957988}
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_Equipment: {fileID: 5322687323565292150}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_CombatStats: {fileID: 3408199974750778793}
   m_IndividualTraits: {fileID: 1889259709996966414}
   m_DebugSelectedDiscipline: 3
@@ -10486,7 +10497,7 @@ MonoBehaviour:
   m_BusyState: {fileID: 0}
   m_Animator: {fileID: 0}
   m_ReadyLayer: {fileID: 0}
-  m_TargetSelector: {fileID: 0}
+  m_TargetSelector: {fileID: 7085333448395688802}
   m_Data: {fileID: 11400000, guid: b8d4f02a3c5e4f7b9a2d1e6f0c4b8d23, type: 2}
   m_RpgHandler: {fileID: 647898583761294422}
   m_DisposableHandler: {fileID: 647898583761294423}
@@ -10589,6 +10600,101 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 570ddcacd39ee9c4e94896d08918dc5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: _Scripts::UnitPerception
+--- !u!114 &7085333448395688800
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c2e9a1f4b8d4e6a9c0d1e2f3a4b5c6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::DetectionProcessor
+  m_AcquireTimeSeconds: 0.35
+  m_LossTimeSeconds: 2.5
+  m_AcquireThreshold: 0.25
+  m_LoseThreshold: 0.2
+  m_RecentlyLostDurationSeconds: 5
+  m_RemoveContactWhenUndetectedAndLost: 0
+  m_IdentifyTimeSeconds: 4
+  m_MemoryHorizonSeconds: 30
+  m_MemoryStaleThreshold: 0.25
+  m_MemoryShapeExponent: 1.5
+  m_SoundHorizonSeconds: 3
+  m_SoundShapeExponent: 1.5
+  m_SharedHorizonSeconds: 8
+  m_SharedShapeExponent: 1.5
+  m_DistanceNearMeters: 20
+  m_DistanceFarMeters: 500
+  m_DistanceFarFactor: 0.08
+  m_FovHalfReferenceDegrees: 60
+  m_FovEdgeFactor: 0.15
+  m_WalkSpeedThreshold: 0.6
+  m_RunSpeedThreshold: 3.2
+  m_WalkMovementMultiplier: 1.15
+  m_RunMovementMultiplier: 1.35
+  m_MovementMultiplierCap: 1.5
+  m_DrawDebugHud: 1
+  m_LogFactorBreakdown: 0
+--- !u!114 &7085333448395688802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfe7ecffde478d34e86ccfb43eae0d34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::TargetSelector
+  m_Perception: {fileID: 7085333448395688764}
+  m_Team: {fileID: 7069730870354710805}
+  m_Equipment: {fileID: 5322687323565292150}
+  m_ReloadController: {fileID: 4859917004016156609}
+  m_WeaponRuntime: {fileID: 1512094426153763378}
+  m_ObservationSource: {fileID: 1100000875000488401}
+  m_ContactRegistry: {fileID: 7085333448395688800}
+  m_ExcludeFriendly: 1
+  m_ExcludeNeutralIdentity: 1
+  m_AllowUnknownIdentity: 1
+  m_StaleEligible: 1
+  m_MemoryStaleThreshold: 0.25
+  m_ObservedBonus: 10
+  m_ConfidenceWeight: 2
+  m_ThreatWeight: 1
+  m_DistanceWeight: 1
+  m_StalePenalty: 3
+  m_HostileBonus: 0.5
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_QueryTriggerInteraction: 1
+  m_MaxEngageRange: 18
+  m_RetainTargetDuringReloadOrMalfunction: 1
+  m_LineOfFireSafetyRadius: 0.35
+  m_LineOfFireBlockedRetrySeconds: 0.15
+  m_LogLineOfFireSuppression: 0
+  m_AimPointVelocitySmoothTime: 0.15
+  m_AimPointMaxProjectionSeconds: 0.5
+--- !u!114 &7085333448395688801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d3f0b2a5c9e4f7b8d1e2f3a4b5c6d7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::EngagementDecisionController
+  m_TargetSelector: {fileID: 7085333448395688802}
+  m_ContactRegistry: {fileID: 7085333448395688800}
+  m_FireController: {fileID: 8854059317223957988}
+  m_DebugDecision: 0
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Periodic vision detection orchestrator: range → FOV → LOS → <see cref="VisionObservation"/> frame → Perception.
-/// Does not choose combat targets. TargetSelector reacts to Perception frames independently.
+/// Periodic vision detection orchestrator: cheap range/FOV → optional LOS/hit-zones → <see cref="VisionObservation"/> frame → Perception.
+/// G8 LOD only changes when expensive work runs. Does not choose combat targets.
+/// TargetSelector reacts to Perception frames independently.
 ///
 /// Responsibility map:
 /// - Scan scheduling / immediate rescan → UnitVision
@@ -56,6 +57,15 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField, Min(0.02f)] private float m_ScanIntervalMax = 0.45f;
 	[Tooltip("При повороте прицела сильнее этого угла (град.) — внеочередной скан.")]
 	[SerializeField, Range(0.5f, 15f)] private float m_ImmediateRescanAngleDegrees = 2.5f;
+
+	[Header("G8 LOD / cheap-before-expensive")]
+	[SerializeField, Range(0f, 20f)] private float m_CoarseFovPadDegrees = 8f;
+	[SerializeField, Min(0f)] private float m_CoarseRangePadMeters = 4f;
+	[SerializeField, Min(0.05f)] private float m_DetailQueueDelaySeconds = 0.35f;
+	[SerializeField, Min(0.05f)] private float m_DiscoverIntervalSeconds = 0.5f;
+	[SerializeField, Min(0.05f)] private float m_MembershipIntervalSeconds = 1.5f;
+	[SerializeField, Min(0.02f)] private float m_LosCacheTtlSeconds = 0.3f;
+	[SerializeField, Min(0.01f)] private float m_LosCacheMoveEpsilonMeters = 0.35f;
 
 	[Header("Физика")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
@@ -117,6 +127,15 @@ public sealed class UnitVision : MonoBehaviour
 
 	private VisionCandidateProvider m_CandidateProvider;
 	private VisibilityChecker m_VisibilityChecker;
+	private DetectionProcessor m_DetectionProcessor;
+	private readonly VisionScanStats m_ScanStats = new VisionScanStats();
+	private readonly VisionLosCache m_LosCache = new VisionLosCache();
+	private readonly Dictionary<Transform, float> m_DetailDue = new Dictionary<Transform, float>(32);
+	private VisionScanTier m_CurrentScanTier = VisionScanTier.RangeFov;
+	private bool m_ForceDetailThisScan;
+	private bool m_BypassLosCacheThisScan;
+	private float m_LastDetailScanTime = -999f;
+	private float m_LastMembershipScanTime = -999f;
 	#endregion
 
 	#region Body / Hit Zones
@@ -128,6 +147,11 @@ public sealed class UnitVision : MonoBehaviour
 
 	private Transform SelectedCombatTarget =>
 		m_TargetSelector != null ? m_TargetSelector.SelectedTarget : null;
+
+	public VisionScanStats ScanStats => m_ScanStats;
+	public string DebugLastLosBlocker => m_VisibilityChecker != null ? m_VisibilityChecker.LastLosBlocker : null;
+	public VisionScanTier CurrentScanTier => m_CurrentScanTier;
+	public float VisionRange => m_VisionRange;
 	#endregion
 
 	#region Engage Facing / Scan API
@@ -169,13 +193,18 @@ public sealed class UnitVision : MonoBehaviour
 		ScheduleNextScan(0f);
 	}
 
+	/// <summary>
+	/// Promote this observer to Detail (T3) and run the same cheap→expensive pipeline.
+	/// Does not scan every observer in the world.
+	/// </summary>
 	public void RequestImmediateScan()
 	{
 		if (!isActiveAndEnabled || m_Registry == null || m_Team == null)
 			return;
 
-		RunVisionScan();
-		ScheduleNextScan(0f);
+		m_ForceDetailThisScan = true;
+		m_BypassLosCacheThisScan = true;
+		RunScheduledScan(true);
 	}
 
 	public bool TryFindTargetInDirection(float _worldAngle, float _halfAngleDegrees, out Transform _bestTarget)
@@ -244,7 +273,24 @@ public sealed class UnitVision : MonoBehaviour
 
 	public void RefreshBodyHitZones()
 	{
-		m_BodyHitZones = GetComponentsInChildren<UnitBodyHitZone>(true);
+		UnitBodyHitZone[] all = GetComponentsInChildren<UnitBodyHitZone>(true);
+		int count = 0;
+		for (int i = 0; i < all.Length; i++)
+		{
+			if (all[i] != null && all[i].gameObject.activeInHierarchy)
+				count++;
+		}
+
+		m_BodyHitZones = count == all.Length ? all : new UnitBodyHitZone[count];
+		if (count != all.Length)
+		{
+			int w = 0;
+			for (int i = 0; i < all.Length; i++)
+			{
+				if (all[i] != null && all[i].gameObject.activeInHierarchy)
+					m_BodyHitZones[w++] = all[i];
+			}
+		}
 	}
 
 	/// <summary>
@@ -317,6 +363,7 @@ public sealed class UnitVision : MonoBehaviour
 
 		m_CandidateProvider = new VisionCandidateProvider(this);
 		m_VisibilityChecker = new VisibilityChecker(transform, m_Hits, m_AimCandidateScratch, m_DebugRays);
+		m_DetectionProcessor = GetComponent<DetectionProcessor>();
 		SyncObservationSourceConfig();
 		ConfigureHelpers();
 	}
@@ -348,11 +395,17 @@ public sealed class UnitVision : MonoBehaviour
 		if (Application.isPlaying)
 			UpdateSmoothedVisionForward();
 
-		if (Time.time < m_NextScanTime && !ShouldImmediateRescanForAimMotion())
+		bool due = Time.time >= m_NextScanTime;
+		bool aimMotion = false;
+		if (!due)
+			aimMotion = ShouldImmediateRescanForAimMotion();
+		if (!due && !aimMotion && !m_ForceDetailThisScan)
 			return;
 
-		RunVisionScan();
-		ScheduleNextScan(0f);
+		bool immediate = m_ForceDetailThisScan || aimMotion;
+		if (immediate)
+			m_BypassLosCacheThisScan = true;
+		RunScheduledScan(immediate);
 	}
 
 	private void LateUpdate()
@@ -384,9 +437,12 @@ public sealed class UnitVision : MonoBehaviour
 			m_ObservationSource = GetComponent<UnitObservationSource>() ?? gameObject.AddComponent<UnitObservationSource>();
 		if (m_Perception == null)
 			m_Perception = GetComponent<UnitPerception>() ?? gameObject.AddComponent<UnitPerception>();
-		// TargetSelector is owned beside Perception; detect path only reads it for FOV tracking / LoF filter.
+		if (GetComponent<DetectionProcessor>() == null)
+			gameObject.AddComponent<DetectionProcessor>();
 		if (m_TargetSelector == null)
-			m_TargetSelector = GetComponent<TargetSelector>();
+			m_TargetSelector = GetComponent<TargetSelector>() ?? gameObject.AddComponent<TargetSelector>();
+		if (GetComponent<EngagementDecisionController>() == null)
+			gameObject.AddComponent<EngagementDecisionController>();
 	}
 
 	private void SyncObservationSourceConfig()
@@ -405,7 +461,10 @@ public sealed class UnitVision : MonoBehaviour
 			m_CandidateProvider.Bind(m_Team, m_Registry, m_RangeTargetRegistry);
 
 		if (m_VisibilityChecker != null)
+		{
 			m_VisibilityChecker.Configure(m_LayerMask, m_QueryTriggerInteraction, m_VisionRange, m_DrawVisionGizmos);
+			m_VisibilityChecker.BindStats(m_ScanStats);
+		}
 	}
 
 	private void ResolveRegistryIfNeeded()
@@ -434,9 +493,15 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void ScheduleNextScan(float _delayOffset)
 	{
+		ScheduleNextScan(_delayOffset, m_CurrentScanTier);
+	}
+
+	private void ScheduleNextScan(float _delayOffset, VisionScanTier _tier)
+	{
 		float min = ResolveScanIntervalMinSeconds();
 		float max = ResolveScanIntervalMaxSeconds();
-		m_NextScanTime = Time.time + _delayOffset + UnityEngine.Random.Range(min, max);
+		float scale = VisionLodMath.IntervalScale(_tier);
+		m_NextScanTime = Time.time + _delayOffset + UnityEngine.Random.Range(min, max) * scale;
 	}
 
 	private float ResolveScanIntervalMinSeconds()
@@ -456,12 +521,174 @@ public sealed class UnitVision : MonoBehaviour
 	}
 
 	#region Detection Pipeline (candidates → geometry → LOS → observation → perception)
-	private void RunVisionScan()
+	private void RunScheduledScan(bool _immediate)
+	{
+		m_ScanStats.BeginFrame(Time.frameCount);
+		float started = Time.realtimeSinceStartup;
+		m_CurrentScanTier = ResolveObserverTier(_immediate);
+
+		if (m_CurrentScanTier == VisionScanTier.Idle && !_immediate)
+		{
+			ScheduleNextScan(0f, VisionScanTier.Idle);
+			m_ForceDetailThisScan = false;
+			return;
+		}
+
+		if (m_CurrentScanTier == VisionScanTier.Cheap && !_immediate)
+		{
+			RunCheapMembershipPass();
+			ScheduleNextScan(0f, VisionScanTier.Cheap);
+			m_ForceDetailThisScan = false;
+			m_ScanStats.AddFrameMilliseconds((Time.realtimeSinceStartup - started) * 1000f);
+			return;
+		}
+
+		if (m_CurrentScanTier == VisionScanTier.RangeFov && !_immediate)
+		{
+			RunRangeFovPass();
+			ScheduleNextScan(0f, VisionScanTier.RangeFov);
+			m_ForceDetailThisScan = false;
+			m_ScanStats.AddFrameMilliseconds((Time.realtimeSinceStartup - started) * 1000f);
+			return;
+		}
+
+		if (!VisionScanScheduler.TryAcquireDetailSlot(_immediate))
+		{
+			m_NextScanTime = Time.time + 0.02f;
+			m_ForceDetailThisScan = false;
+			return;
+		}
+
+		m_ForceDetailThisScan = false;
+		RunVisionScan();
+		m_LastDetailScanTime = Time.time;
+		m_BypassLosCacheThisScan = false;
+		ScheduleNextScan(0f, VisionScanTier.Detail);
+		m_ScanStats.AddFrameMilliseconds((Time.realtimeSinceStartup - started) * 1000f);
+	}
+
+	private VisionScanTier ResolveObserverTier(bool _immediate)
+	{
+		float now = Time.time;
+		bool queuedDue = false;
+		foreach (KeyValuePair<Transform, float> pair in m_DetailDue)
+		{
+			if (pair.Key != null && pair.Value <= now)
+			{
+				queuedDue = true;
+				break;
+			}
+		}
+
+		if (m_DetectionProcessor == null)
+			m_DetectionProcessor = GetComponent<DetectionProcessor>();
+
+		VisionLodObserverContext ctx = new VisionLodObserverContext
+		{
+			ImmediateScan = _immediate,
+			HasSelectedTarget = SelectedCombatTarget != null,
+			HasRecentlyLostContact = m_DetectionProcessor != null && m_DetectionProcessor.HasRecentlyLostContact,
+			HasQueuedDetailDue = queuedDue,
+			SecondsSinceLastDetailScan = now - m_LastDetailScanTime,
+			SecondsSinceLastMembershipScan = now - m_LastMembershipScanTime,
+			DiscoverIntervalSeconds = m_DiscoverIntervalSeconds,
+			MembershipIntervalSeconds = m_MembershipIntervalSeconds
+		};
+		return VisionLodMath.ResolveObserverTier(ctx);
+	}
+
+	private float CoarseCullDistanceSq()
+	{
+		float range = m_VisionRange + m_CoarseRangePadMeters;
+		return range * range;
+	}
+
+	private void EnsureScanHelpers()
 	{
 		if (m_CandidateProvider == null)
 			m_CandidateProvider = new VisionCandidateProvider(this);
 		if (m_VisibilityChecker == null)
-			m_VisibilityChecker = new VisibilityChecker(transform, m_Hits ?? (m_Hits = new RaycastHit[c_RaycastHitBuffer]), m_AimCandidateScratch, m_DebugRays);
+			m_VisibilityChecker = new VisibilityChecker(
+				transform,
+				m_Hits ?? (m_Hits = new RaycastHit[c_RaycastHitBuffer]),
+				m_AimCandidateScratch,
+				m_DebugRays);
+		ConfigureHelpers();
+	}
+
+	private void CollectCulledCandidates(Vector3 _origin)
+	{
+		EnsureScanHelpers();
+		m_CandidateProvider.Collect(m_CandidateScratch, null, _origin, CoarseCullDistanceSq());
+	}
+
+	private void RunCheapMembershipPass()
+	{
+		m_ScanStats.BeginScan();
+		Vector3 origin = GetVisionConeOriginWorld();
+		CollectCulledCandidates(origin);
+		m_ScanStats.AddCandidates(m_CandidateScratch.Count);
+		for (int i = 0; i < m_CandidateScratch.Count; i++)
+		{
+			Transform root = m_CandidateScratch[i].Root;
+			if (root == null)
+				continue;
+			m_ScanStats.AddCandidateDistance(Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(origin, root.position)));
+		}
+
+		m_LastMembershipScanTime = Time.time;
+		m_ScanStats.EndScan();
+	}
+
+	private void RunRangeFovPass()
+	{
+		m_ScanStats.BeginScan();
+		Vector3 origin = GetVisionConeOriginWorld();
+		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
+		float rangeSq = CoarseCullDistanceSq();
+		float halfFov = ResolveHalfFovDegreesForScan() + m_CoarseFovPadDegrees;
+		CollectCulledCandidates(origin);
+		m_ScanStats.AddCandidates(m_CandidateScratch.Count);
+
+		float due = Time.time + m_DetailQueueDelaySeconds;
+		for (int i = 0; i < m_CandidateScratch.Count; i++)
+		{
+			VisionCandidateProvider.Candidate candidate = m_CandidateScratch[i];
+			if (candidate.Root == null)
+				continue;
+
+			m_ScanStats.AddCandidateDistance(
+				Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(origin, candidate.Root.position)));
+			TryGetCandidateBounds(candidate, out bool hasBounds, out Bounds bounds);
+			bool inside = VisionGeometry.IsWithinCoarseRangeAndFov(
+				origin,
+				forwardXZ,
+				candidate.Root.position,
+				hasBounds,
+				bounds,
+				rangeSq,
+				halfFov,
+				out _,
+				out bool rangePass,
+				out bool fovPass);
+			if (rangePass)
+				m_ScanStats.AddRangePass();
+			if (fovPass)
+				m_ScanStats.AddFovPass();
+			if (!inside)
+				continue;
+
+			if (!m_DetailDue.ContainsKey(candidate.Root))
+				m_DetailDue[candidate.Root] = due;
+		}
+
+		m_LastMembershipScanTime = Time.time;
+		m_ScanStats.EndScan();
+	}
+
+	private void RunVisionScan()
+	{
+		EnsureScanHelpers();
 
 		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
 		if (m_VisibilityChecker != null)
@@ -469,26 +696,35 @@ public sealed class UnitVision : MonoBehaviour
 		else
 			m_DebugRays.Clear();
 
-		ConfigureHelpers();
-
 		Vector3 origin = GetVisionConeOriginWorld();
 		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
 		float rangeSq = m_VisionRange * m_VisionRange;
 		float halfFov = ResolveHalfFovDegreesForScan();
 
+		m_ScanStats.BeginScan();
 		m_ObservationScratch.Clear();
-		m_CandidateProvider.Collect(m_CandidateScratch, _shouldSkip: null);
+		CollectCulledCandidates(origin);
+		m_ScanStats.AddCandidates(m_CandidateScratch.Count);
 
 		for (int i = 0; i < m_CandidateScratch.Count; i++)
 		{
 			VisionCandidateProvider.Candidate candidate = m_CandidateScratch[i];
+			if (candidate.Root != null)
+			{
+				m_ScanStats.AddCandidateDistance(
+					Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(origin, candidate.Root.position)));
+				m_DetailDue.Remove(candidate.Root);
+			}
+
 			if (TryBuildObservation(origin, forwardXZ, rangeSq, halfFov, candidate, out VisionObservation observation))
 				m_ObservationScratch.Add(observation);
 		}
 
 		if (m_Perception != null)
 			m_Perception.ApplyVisionFrame(m_ObservationScratch);
-		// TargetSelector selects via PerceptionFrameApplied — Vision does not call it.
+
+		m_LastMembershipScanTime = Time.time;
+		m_ScanStats.EndScan();
 	}
 
 	private bool TryBuildObservation(
@@ -500,48 +736,171 @@ public sealed class UnitVision : MonoBehaviour
 		out VisionObservation _observation)
 	{
 		_observation = default;
-		if (m_VisibilityChecker == null)
+		if (m_VisibilityChecker == null || _candidate.Root == null)
 			return false;
 
-		Vector3 aimPoint;
-		bool hasAim;
-		float distSq;
+		TryGetCandidateBounds(_candidate, out bool hasBounds, out Bounds bounds);
+		float coarseRangeSq = CoarseCullDistanceSq();
+		float coarseHalfFov = _halfFov + m_CoarseFovPadDegrees;
+		bool coarseInside = VisionGeometry.IsWithinCoarseRangeAndFov(
+			_origin,
+			_forwardXZ,
+			_candidate.Root.position,
+			hasBounds,
+			bounds,
+			coarseRangeSq,
+			coarseHalfFov,
+			out _,
+			out bool rangePass,
+			out bool fovPass);
+		if (rangePass)
+			m_ScanStats.AddRangePass();
+		if (fovPass)
+			m_ScanStats.AddFovPass();
+		if (!coarseInside)
+			return false;
 
+		float now = Time.time;
+		Vector3 targetPos = _candidate.Root.position;
+		if (!m_BypassLosCacheThisScan &&
+		    m_LosCache.TryGetValid(
+			    _candidate.Root,
+			    now,
+			    _origin,
+			    _forwardXZ,
+			    targetPos,
+			    m_LosCacheTtlSeconds,
+			    m_LosCacheMoveEpsilonMeters,
+			    2.5f,
+			    out VisionLosCache.Entry cached))
+		{
+			if (!cached.HasLos)
+				return false;
+			if (!VisionGeometry.IsWithinRangeAndFov(
+				    _origin, _forwardXZ, cached.AimPoint, _rangeSq, _halfFov, out float cachedDistSq))
+				return false;
+
+			_observation = BuildVisibleObservation(
+				_candidate.Root, cached.AimPoint, cachedDistSq, _forwardXZ, _origin, cached.Exposure01);
+			return true;
+		}
+
+		bool forceDetail = ShouldForceHitZoneDetail(_candidate.Root) || m_BypassLosCacheThisScan;
+		Collider primary = ResolvePrimaryCollider(_candidate);
+		if (!forceDetail && hasBounds)
+		{
+			if (!m_VisibilityChecker.TryCoarseLineOfSightToBounds(
+				    _origin, bounds, _candidate.Root, primary, out _) &&
+			    m_VisibilityChecker.LastLosWasBlocked)
+			{
+				m_LosCache.Store(_candidate.Root, false, Vector3.zero, 0f, now, _origin, _forwardXZ, targetPos);
+				return false;
+			}
+		}
+
+		Vector3 aimPoint;
+		float exposure01;
+		float distSq;
 		if (_candidate.HasHitZones)
 		{
 			if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromHitZones(
-				    _origin, _candidate.HitZones, _candidate.Root, out aimPoint))
+				    _origin, _candidate.HitZones, _candidate.Root, out aimPoint, out exposure01))
+			{
+				m_LosCache.Store(_candidate.Root, false, Vector3.zero, 0f, now, _origin, _forwardXZ, targetPos);
 				return false;
-
-			if (!VisionGeometry.IsWithinRangeAndFov(_origin, _forwardXZ, aimPoint, _rangeSq, _halfFov, out distSq))
-				return false;
-			hasAim = true;
+			}
 		}
 		else
 		{
-			if (_candidate.LegacyCollider == null)
+			if (primary == null)
 				return false;
-
-			Vector3 targetCenter = _candidate.LegacyCollider.bounds.center;
-			if (!VisionGeometry.IsWithinRangeAndFov(_origin, _forwardXZ, targetCenter, _rangeSq, _halfFov, out distSq))
-				return false;
-
 			if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromCollider(
-				    _origin, _candidate.LegacyCollider, _candidate.Root, out aimPoint))
+				    _origin, primary, _candidate.Root, out aimPoint, out exposure01))
+			{
+				m_LosCache.Store(_candidate.Root, false, Vector3.zero, 0f, now, _origin, _forwardXZ, targetPos);
 				return false;
-			hasAim = true;
+			}
 		}
 
-		_observation = new VisionObservation
-		{
-			Target = _candidate.Root,
-			Position = _candidate.Root.position,
-			AimPoint = aimPoint,
-			HasAimPoint = hasAim,
-			DistanceSq = distSq,
-			IsVisible = true
-		};
+		if (!VisionGeometry.IsWithinRangeAndFov(_origin, _forwardXZ, aimPoint, _rangeSq, _halfFov, out distSq))
+			return false;
+
+		m_LosCache.Store(_candidate.Root, true, aimPoint, exposure01, now, _origin, _forwardXZ, targetPos);
+		_observation = BuildVisibleObservation(_candidate.Root, aimPoint, distSq, _forwardXZ, _origin, exposure01);
 		return true;
+	}
+
+	private static VisionObservation BuildVisibleObservation(
+		Transform _root,
+		Vector3 _aimPoint,
+		float _distanceSq,
+		Vector3 _forwardXZ,
+		Vector3 _origin,
+		float _exposure01)
+	{
+		return new VisionObservation
+		{
+			Target = _root,
+			Position = _root.position,
+			AimPoint = _aimPoint,
+			HasAimPoint = true,
+			DistanceSq = _distanceSq,
+			IsVisible = true,
+			FovOffsetDegrees = VisionGeometry.HorizontalAngleDegrees(_forwardXZ, _aimPoint - _origin),
+			Exposure01 = _exposure01
+		};
+	}
+
+	private bool ShouldForceHitZoneDetail(Transform _root)
+	{
+		if (_root == null)
+			return false;
+		if (SelectedCombatTarget == _root)
+			return true;
+		if (m_DetectionProcessor != null &&
+		    m_DetectionProcessor.TryGetContact(_root, out PerceivedContact contact) &&
+		    contact != null &&
+		    (contact.ObservationState == ObservationState.Observed ||
+		     contact.ObservationState == ObservationState.RecentlyLost))
+			return true;
+		return false;
+	}
+
+	private static void TryGetCandidateBounds(
+		VisionCandidateProvider.Candidate _candidate,
+		out bool _hasBounds,
+		out Bounds _bounds)
+	{
+		_bounds = default;
+		_hasBounds = false;
+		if (_candidate.HasHitZones &&
+		    UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(_candidate.HitZones, out _bounds))
+		{
+			_hasBounds = true;
+			return;
+		}
+
+		if (_candidate.LegacyCollider != null)
+		{
+			_bounds = _candidate.LegacyCollider.bounds;
+			_hasBounds = true;
+		}
+	}
+
+	private static Collider ResolvePrimaryCollider(VisionCandidateProvider.Candidate _candidate)
+	{
+		if (_candidate.LegacyCollider != null)
+			return _candidate.LegacyCollider;
+		if (!_candidate.HasHitZones)
+			return null;
+		for (int i = 0; i < _candidate.HitZones.Length; i++)
+		{
+			if (!UnitBodyHitZoneVisionUtility.IsUsableVisionZone(_candidate.HitZones[i], out Collider col))
+				continue;
+			return col;
+		}
+
+		return null;
 	}
 	#endregion
 

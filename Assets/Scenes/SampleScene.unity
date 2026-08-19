@@ -14354,7 +14354,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1032073189
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -17217,6 +17217,8 @@ GameObject:
   - component: {fileID: 1243261174}
   - component: {fileID: 1243261175}
   - component: {fileID: 1243261176}
+  - component: {fileID: 1243261177}
+  - component: {fileID: 1243261178}
   m_Layer: 7
   m_Name: EnemyPatrolUnit
   m_TagString: Untagged
@@ -17333,7 +17335,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitAnimatorWeaponMode
   m_Animator: {fileID: 1243261171}
   m_Equipment: {fileID: 1243261164}
+  m_StanceSource: {fileID: 0}
+  m_ReadyHands: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_WeaponModeCrossFadeSeconds: 0.22
+  m_RelaxedReadyWalkCrossFadeSeconds: 0.18
+  m_LogCrouchTransitions: 1
 --- !u!114 &1243261163
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17358,12 +17365,19 @@ MonoBehaviour:
   m_LeftHandIk: {fileID: 0}
   m_EquippedWeaponPose: {fileID: 0}
   m_BusyState: {fileID: 0}
+  m_WeaponRuntime: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
+  m_CombatStats: {fileID: 0}
+  m_IndividualTraits: {fileID: 0}
+  m_CombatCondition: {fileID: 0}
+  m_RuntimeTuner: {fileID: 0}
   m_EnableKeyboardInput: 0
   m_ToggleReadyKey: 19
-  m_EnterReadyClip: {fileID: 0}
-  m_EnterNotReadyClip: {fileID: 0}
+  m_EnterLowReadyClip: {fileID: 0}
   m_ReadyTransitionVolume: 0.55
   m_ReadyTransitionSpatialMaxDistance: 18
+  m_AcceptableHitRadiusMeters: 0.35
+  m_LogPoseTransitions: 0
 --- !u!114 &1243261164
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17579,12 +17593,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitNavLocomotionDriver
   m_Animator: {fileID: 0}
   m_StanceSource: {fileID: 0}
+  m_TargetSelector: {fileID: 0}
   m_Vision: {fileID: 0}
   m_ReadyHands: {fileID: 0}
   m_Equipment: {fileID: 0}
   m_FireController: {fileID: 0}
   m_GrenadeThrowController: {fileID: 0}
+  m_WeaponAiming: {fileID: 0}
   m_SpineHorizontalAim: {fileID: 0}
+  m_ReloadController: {fileID: 0}
   m_Consciousness: {fileID: 0}
   m_SelfStabilization: {fileID: 0}
   m_StabilizeOther: {fileID: 0}
@@ -17623,6 +17640,8 @@ MonoBehaviour:
   m_SyncAnimatorPlaybackToGroundSpeed: 1
   m_PlaybackSyncMin: 0.55
   m_PlaybackSyncMax: 1.45
+  m_LogFacingSystem: 0
+  m_LogFacingIntervalSeconds: 0.2
   m_EngageRootFacingWhenBarrelOffsetExceeds: 25
   FormationSpeedMultiplier: 1
   StaminaSpeedMultiplier: 1
@@ -17820,6 +17839,18 @@ MonoBehaviour:
   m_ReloadController: {fileID: 0}
   m_WeaponRuntime: {fileID: 0}
   m_ObservationSource: {fileID: 1243261174}
+  m_ContactRegistry: {fileID: 1243261177}
+  m_ExcludeFriendly: 1
+  m_ExcludeNeutralIdentity: 1
+  m_AllowUnknownIdentity: 1
+  m_StaleEligible: 1
+  m_MemoryStaleThreshold: 0.25
+  m_ObservedBonus: 10
+  m_ConfidenceWeight: 2
+  m_ThreatWeight: 1
+  m_DistanceWeight: 1
+  m_StalePenalty: 3
+  m_HostileBonus: 0.5
   m_LayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -17831,6 +17862,56 @@ MonoBehaviour:
   m_LogLineOfFireSuppression: 0
   m_AimPointVelocitySmoothTime: 0.15
   m_AimPointMaxProjectionSeconds: 0.5
+--- !u!114 &1243261177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1243261158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c2e9a1f4b8d4e6a9c0d1e2f3a4b5c6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::DetectionProcessor
+  m_AcquireTimeSeconds: 0.35
+  m_LossTimeSeconds: 2.5
+  m_AcquireThreshold: 0.25
+  m_LoseThreshold: 0.2
+  m_RecentlyLostDurationSeconds: 5
+  m_RemoveContactWhenUndetectedAndLost: 0
+  m_IdentifyTimeSeconds: 4
+  m_MemoryHorizonSeconds: 30
+  m_MemoryStaleThreshold: 0.25
+  m_MemoryShapeExponent: 1.5
+  m_DistanceNearMeters: 20
+  m_DistanceFarMeters: 500
+  m_DistanceFarFactor: 0.08
+  m_FovHalfReferenceDegrees: 60
+  m_FovEdgeFactor: 0.15
+  m_WalkSpeedThreshold: 0.6
+  m_RunSpeedThreshold: 3.2
+  m_WalkMovementMultiplier: 1.15
+  m_RunMovementMultiplier: 1.35
+  m_MovementMultiplierCap: 1.5
+  m_DrawDebugHud: 1
+  m_LogFactorBreakdown: 0
+--- !u!114 &1243261178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1243261158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d3f0b2a5c9e4f7b8d1e2f3a4b5c6d7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::EngagementDecisionController
+  m_TargetSelector: {fileID: 1243261176}
+  m_ContactRegistry: {fileID: 1243261177}
+  m_FireController: {fileID: 0}
+  m_DebugDecision: 0
 --- !u!1 &1253069181
 GameObject:
   m_ObjectHideFlags: 0
@@ -22194,7 +22275,7 @@ MonoBehaviour:
   m_CellsContentParent: {fileID: 1867400361}
   m_VehicleCellsContentParent: {fileID: 1765406176}
   m_DestroyRuntimeUiCellsWhenDisabled: 1
-  m_SpawnOnStart: 1
+  m_SpawnOnStart: 0
   m_ClearCellBindingsBeforeSpawn: 1
   m_AssignPresetByUnitIndex: 1
   m_DestroySpawnedWhenDisabled: 0
@@ -25171,7 +25252,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1717102755
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -28937,7 +29018,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022201
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29049,7 +29130,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022211
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29161,7 +29242,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022221
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29273,7 +29354,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022231
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29385,7 +29466,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022241
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29497,7 +29578,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022251
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29609,7 +29690,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022261
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29721,7 +29802,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &1992022271
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -29876,9 +29957,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShootingRangeManager
   m_TargetRegistry: {fileID: 1992023002}
   m_TargetNamePattern: ^Sphere(50|100|150|200|250|300|350|400|450|500)$
-  m_PlayerVisionRange: 550
+  m_PlayerVisionRange: 500
   m_AutoDiscoverTargetsOnAwake: 1
-  m_StartWithTargetsEnabled: 1
+  m_StartWithTargetsEnabled: 0
   m_TargetLayer: 8
   m_RankCycleOrder:
   - {fileID: 11400000, guid: c1a2b3d4e5f60718293a4b5c6d7e8f90, type: 2}
@@ -34451,6 +34532,7 @@ MonoBehaviour:
     m_TargetGraphic: {fileID: 9108001183}
   m_ButtonsRow: {fileID: 9108001001}
   m_ListZone: {fileID: 1992022144}
+  m_HoldZone: {fileID: 0}
   m_Coordinator: {fileID: 1971120519}
   m_NormalColor: {r: 0.22, g: 0.22, b: 0.22, a: 1}
   m_PreviewColor: {r: 0.32, g: 0.42, b: 0.52, a: 1}
@@ -35861,6 +35943,286 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedTextMeshProUGUI
   m_LocalizationKey: mission_prep.equipment.filter.extra
   m_Text: {fileID: 9108001188}
+--- !u!1 &9109100001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9109100002}
+  - component: {fileID: 9109100003}
+  - component: {fileID: 9109100004}
+  - component: {fileID: 9109100005}
+  - component: {fileID: 9109100006}
+  - component: {fileID: 9109100007}
+  - component: {fileID: 9109100008}
+  - component: {fileID: 9109100009}
+  - component: {fileID: 9109100010}
+  - component: {fileID: 9109100011}
+  - component: {fileID: 9109100012}
+  - component: {fileID: 9109100013}
+  - component: {fileID: 9109100014}
+  m_Layer: 0
+  m_Name: DetectionG1Harness
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9109100002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9109100003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d3f0b2a5c9e4f7b0d1e2f3a4b5c6d7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionTestController
+  m_Observer: {fileID: 0}
+  m_Target: {fileID: 0}
+  m_DetectionProcessor: {fileID: 0}
+  m_UnitSpawner: {fileID: 2100000003}
+  m_AutoSpawnPairIfMissing: 1
+  m_ForceDisableRangeTargetsOnStart: 1
+  m_AssertMissionSpawnerOff: 1
+  m_KeepEnemyPatrolUnitDisabled: 1
+  m_Presets:
+  - Id: A
+    DistanceMeters: 10
+    FovOffsetDegrees: 0
+    Movement: 0
+    ExpectedBodyExposure01: 1
+  - Id: B
+    DistanceMeters: 30
+    FovOffsetDegrees: 0
+    Movement: 0
+    ExpectedBodyExposure01: 1
+  - Id: C
+    DistanceMeters: 80
+    FovOffsetDegrees: 15
+    Movement: 1
+    ExpectedBodyExposure01: 0.5
+  - Id: D
+    DistanceMeters: 100
+    FovOffsetDegrees: 50
+    Movement: 1
+    ExpectedBodyExposure01: 0.5
+  - Id: E
+    DistanceMeters: 200
+    FovOffsetDegrees: 0
+    Movement: 0
+    ExpectedBodyExposure01: 0.2
+  - Id: F
+    DistanceMeters: 400
+    FovOffsetDegrees: 50
+    Movement: 0
+    ExpectedBodyExposure01: 0.1
+  - Id: G
+    DistanceMeters: 400
+    FovOffsetDegrees: 50
+    Movement: 2
+    ExpectedBodyExposure01: 0.1
+  m_WalkSpeed: 1.4
+  m_RunSpeed: 4.5
+--- !u!114 &9109100004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9e43290bf628e4478c7316541a8d02f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG1AutoSmoke
+  m_RunOnStart: 0
+  m_ExitPlayModeWhenDone: 0
+  m_SampleWaitSeconds: 0.35
+  m_SoftLoseProbeSeconds: 0.2
+--- !u!114 &9109100005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4d5e6f7a8b94c0d9e1f2a3b4c5d6e7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG2AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 5
+  m_SampleWaitSeconds: 0.35
+  m_RecentlyLostProbeSeconds: 0.25
+  m_GraceWaitSeconds: 3.2
+  m_ReacquireWaitSeconds: 0.35
+--- !u!114 &9109100006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8e9f0a1b2c34d5e6f708192a3b4c5d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG3AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 12
+  m_ShortObserveSeconds: 0.4
+  m_LongObserveSeconds: 3
+  m_DualObserveSeconds: 2.5
+--- !u!114 &9109100007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1f2a3b4c5d6478901234567890abcde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG4AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 22
+  m_ObserveSeconds: 2.2
+  m_RecentlyLostProbeSeconds: 0.25
+  m_GraceWaitSeconds: 3.2
+  m_MidDecayWaitSeconds: 4
+  m_ReacquireWaitSeconds: 0.35
+--- !u!114 &9109100008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1a2b3c4d5e6478901234567890abcde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG5AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 40
+  m_ObserveSeconds: 2.2
+  m_RecentlyLostProbeSeconds: 0.25
+  m_ReacquireWaitSeconds: 0.35
+--- !u!114 &9109100009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2c4e6f8091b3d5e7f0a1b2c3d4e5f60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG6AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 60
+  m_ObserveSeconds: 2.2
+  m_RecentlyLostProbeSeconds: 0.25
+  m_ReacquireWaitSeconds: 0.35
+--- !u!114 &9109100010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3b4c5d6e7f8091a2b3c4d5e6f708192, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG7AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 80
+  m_ObserveSeconds: 2.2
+  m_RecentlyLostProbeSeconds: 0.25
+  m_ReacquireWaitSeconds: 0.35
+--- !u!114 &9109100011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4b5c6d7e8f9012a3b4c5d6e7f8091a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG8AutoSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 100
+  m_ObserveSeconds: 2.2
+  m_RecentlyLostProbeSeconds: 0.25
+--- !u!114 &9109100012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4b5c6d7e8f9012a3b4c5d6e7f8091a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionG8StressSmoke
+  m_RunOnStart: 0
+  m_WarmupSeconds: 120
+  m_SampleSeconds: 1.2
+--- !u!114 &9109100013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5b6c7d8e9f0123a4b5c6d7e8f9012a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionCalibrationAutoSmoke
+  m_RunOnStart: 0
+--- !u!114 &9109100014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9109100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9f0123a4b5c6d7e8f9012a8b3c4d5e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionCalibrationRuntimeSmoke
+  m_RunOnStart: 1
+  m_ExitPlayModeWhenDone: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -35898,3 +36260,4 @@ SceneRoots:
   - {fileID: 352597058}
   - {fileID: 1905904393}
   - {fileID: 271912972}
+  - {fileID: 9109100002}

@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Chooses an engage target from <see cref="UnitPerception"/> observations.
-/// Owns: nearest selection, ForcedPriority, LoF suppress, reload/malfunction retain, selected velocity.
-/// Runs automatically on <see cref="UnitPerception.PerceptionFrameApplied"/> — does not need UnitVision.
-/// Allowed deps: UnitPerception, TargetEngageability, own VisibilityChecker, UnitObservationSource, UnitTeam/Equipment/reload.
-/// Forbidden deps: UnitVision as orchestrator / FOV / detect scan ownership.
+/// Chooses a combat target from observer-local <see cref="PerceivedContact"/> knowledge (G5).
+/// Owns: eligibility/priority, ForcedPriority, LoF suppress, reload/malfunction retain, selected velocity.
+/// Candidate list is <see cref="IPerceivedContactRegistry"/> — not <see cref="UnitPerception.Observations"/>.
+/// LastKnown is never a fire aim point. Selected ≠ Engageable ≠ Fire.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(20)]
 [RequireComponent(typeof(UnitPerception))]
 [RequireComponent(typeof(UnitObservationSource))]
+[RequireComponent(typeof(DetectionProcessor))]
 public sealed class TargetSelector : MonoBehaviour
 {
 	#region Constants
@@ -26,6 +27,20 @@ public sealed class TargetSelector : MonoBehaviour
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitObservationSource m_ObservationSource;
+	[SerializeField] private DetectionProcessor m_ContactRegistry;
+
+	[Header("G5 selection policy")]
+	[SerializeField] private bool m_ExcludeFriendly = true;
+	[SerializeField] private bool m_ExcludeNeutralIdentity = true;
+	[SerializeField] private bool m_AllowUnknownIdentity = true;
+	[SerializeField] private bool m_StaleEligible = true;
+	[SerializeField, Range(0.01f, 1f)] private float m_MemoryStaleThreshold = 0.25f;
+	[SerializeField, Min(0f)] private float m_ObservedBonus = 10f;
+	[SerializeField, Min(0f)] private float m_ConfidenceWeight = 2f;
+	[SerializeField, Min(0f)] private float m_ThreatWeight = 1f;
+	[SerializeField, Min(0f)] private float m_DistanceWeight = 1f;
+	[SerializeField, Min(0f)] private float m_StalePenalty = 3f;
+	[SerializeField, Min(0f)] private float m_HostileBonus = 0.5f;
 
 	[Header("Physics / retain LOS")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
@@ -87,39 +102,22 @@ public sealed class TargetSelector : MonoBehaviour
 	public float LastAimPointUpdateTime => m_LastAimPointUpdateTime;
 	public Transform VelocityTrackedTarget => m_VelocityTrackedTarget;
 
-	/// <summary>Selected target if it is currently engageable (alive / available).</summary>
+	/// <summary>Selected target if it is currently engageable and has a LOS-confirmed aim point.</summary>
 	public Transform GetEngageableSelectedTarget()
 	{
+		if (m_SelectedTarget == null || !m_HasSelectedAimPoint)
+			return null;
 		return TargetEngageability.IsEngageable(m_SelectedTarget) ? m_SelectedTarget : null;
 	}
 
-	/// <summary>World aim point for the engageable selected target (with velocity extrapolation).</summary>
+	/// <summary>World aim point for the engageable selected target. No LastKnown / collider fallback.</summary>
 	public Vector3 GetEngageableAimPointWorld()
 	{
 		Transform selected = GetEngageableSelectedTarget();
-		if (selected == null)
+		if (selected == null || !m_HasSelectedAimPoint)
 			return Vector3.zero;
 
-		Vector3 basePoint;
-		if (m_HasSelectedAimPoint)
-			basePoint = m_SelectedAimPointWorld;
-		else if (selected.TryGetComponent(out ShootingRangeTarget rangeTarget))
-			basePoint = rangeTarget.GetAimPointWorld();
-		else
-		{
-			UnitBodyHitZone[] zones = selected.GetComponentsInChildren<UnitBodyHitZone>(true);
-			if (zones != null && zones.Length > 0 &&
-			    UnitBodyHitZoneVisionUtility.TryGetCombinedBounds(zones, out Bounds combined))
-				basePoint = combined.center;
-			else
-			{
-				Collider body = UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(zones, BodyPartType.Chest)
-					?? UnitBodyHitZoneVisionUtility.TryGetFirstCollider(zones)
-					?? selected.GetComponentInChildren<Collider>();
-				basePoint = body != null ? body.bounds.center : selected.position;
-			}
-		}
-
+		Vector3 basePoint = m_SelectedAimPointWorld;
 		if (m_VelocityTrackedTarget == selected && m_TargetVelocityEstimate.sqrMagnitude > 0.0001f)
 		{
 			float dt = Mathf.Min(Time.time - m_LastAimPointUpdateTime, m_AimPointMaxProjectionSeconds);
@@ -194,6 +192,8 @@ public sealed class TargetSelector : MonoBehaviour
 			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_ObservationSource == null)
 			m_ObservationSource = GetComponent<UnitObservationSource>() ?? gameObject.AddComponent<UnitObservationSource>();
+		if (m_ContactRegistry == null)
+			m_ContactRegistry = GetComponent<DetectionProcessor>();
 
 		m_VisibilityChecker = new VisibilityChecker(transform, m_Hits, m_AimCandidateScratch, m_DebugRays);
 		RefreshVisibilityCheckerConfig();
@@ -201,36 +201,50 @@ public sealed class TargetSelector : MonoBehaviour
 
 	private void OnEnable()
 	{
-		if (m_Perception == null)
-			m_Perception = GetComponent<UnitPerception>();
-		if (m_Perception != null)
-			m_Perception.PerceptionFrameApplied += HandlePerceptionFrameApplied;
+		if (m_ContactRegistry == null)
+			m_ContactRegistry = GetComponent<DetectionProcessor>();
+		if (m_ContactRegistry != null)
+			m_ContactRegistry.ContactsChanged += HandleContactsChanged;
 	}
 
 	private void OnDisable()
 	{
-		if (m_Perception != null)
-			m_Perception.PerceptionFrameApplied -= HandlePerceptionFrameApplied;
+		if (m_ContactRegistry != null)
+			m_ContactRegistry.ContactsChanged -= HandleContactsChanged;
 	}
 	#endregion
 
 	#region Public Methods
-	/// <summary>Run selection against the current perception frame using ObservationSource origin.</summary>
+	/// <summary>Run selection from perceived contacts using ObservationSource origin.</summary>
 	public void SelectFromPerception()
 	{
 		Vector3 origin = m_ObservationSource != null
 			? m_ObservationSource.GetOriginWorld()
 			: transform.position + Vector3.up * 1.6f;
-		SelectFromPerception(origin);
+		SelectFromContacts(origin);
 	}
 
-	/// <summary>Run selection against the current perception frame.</summary>
+	/// <summary>Run selection against observer-local perceived contacts.</summary>
 	public void SelectFromPerception(Vector3 _visionOrigin)
+	{
+		SelectFromContacts(_visionOrigin);
+	}
+
+	public void SelectFromContacts()
+	{
+		Vector3 origin = m_ObservationSource != null
+			? m_ObservationSource.GetOriginWorld()
+			: transform.position + Vector3.up * 1.6f;
+		SelectFromContacts(origin);
+	}
+
+	public void SelectFromContacts(Vector3 _visionOrigin)
 	{
 		CleanupExpiredSuppressedTargets();
 		RefreshVisibilityCheckerConfig();
+		ContactSelectionPolicy policy = BuildPolicy();
 
-		if (!TargetEngageability.IsEngageable(m_SelectedTarget))
+		if (m_SelectedTarget != null && !TargetEngageability.IsEngageable(m_SelectedTarget))
 		{
 			m_SelectedTarget = null;
 			m_HasSelectedAimPoint = false;
@@ -240,31 +254,36 @@ public sealed class TargetSelector : MonoBehaviour
 		Transform newTarget = null;
 		bool hasAim = false;
 		Vector3 aimPoint = Vector3.zero;
-		float bestDistSq = float.MaxValue;
+		float bestScore = float.MinValue;
 
-		IReadOnlyList<VisionObservation> observations = m_Perception != null
-			? m_Perception.Observations
-			: Array.Empty<VisionObservation>();
-
-		for (int i = 0; i < observations.Count; i++)
+		IPerceivedContactRegistry registry = m_ContactRegistry;
+		if (registry != null)
 		{
-			VisionObservation obs = observations[i];
-			if (obs.Target == null || !obs.IsVisible)
-				continue;
-			if (IsLineOfFireSuppressed(obs.Target))
-				continue;
-			if (!TryRevalidateSuppressedTarget(obs.Target, _visionOrigin))
-				continue;
-			if (obs.DistanceSq >= bestDistSq)
-				continue;
+			foreach (KeyValuePair<Transform, PerceivedContact> pair in registry.Contacts)
+			{
+				PerceivedContact contact = pair.Value;
+				if (contact == null || contact.Target == null)
+					continue;
+				if (IsLineOfFireSuppressed(contact.Target))
+					continue;
+				if (!TryRevalidateSuppressedTarget(contact.Target, _visionOrigin))
+					continue;
 
-			bestDistSq = obs.DistanceSq;
-			newTarget = obs.Target;
-			hasAim = obs.HasAimPoint;
-			aimPoint = obs.AimPoint;
+				bool worldOk = TargetEngageability.IsEngageable(contact.Target);
+				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out _))
+					continue;
+
+				float score = TargetSelectionMath.Score(contact, _visionOrigin, policy);
+				if (score <= bestScore)
+					continue;
+
+				bestScore = score;
+				newTarget = contact.Target;
+				hasAim = TargetSelectionMath.TryGetObservedAimPoint(contact, out aimPoint);
+			}
 		}
 
-		if (newTarget != null)
+		if (newTarget != null && hasAim)
 		{
 			Vector3 fireOrigin = GetFireOriginForLofCheck(_visionOrigin);
 			if (CheckAndSuppressBlockedTarget(ref newTarget, ref aimPoint, ref hasAim, fireOrigin))
@@ -329,12 +348,36 @@ public sealed class TargetSelector : MonoBehaviour
 
 		return false;
 	}
+
+	/// <summary>Harness / interrupt reset. Production combat uses timed retry, not this.</summary>
+	public void ClearLineOfFireSuppression()
+	{
+		m_LineOfFireSuppressedTargets.Clear();
+	}
 	#endregion
 
 	#region Private Methods
-	private void HandlePerceptionFrameApplied()
+	private void HandleContactsChanged()
 	{
-		SelectFromPerception();
+		SelectFromContacts();
+	}
+
+	private ContactSelectionPolicy BuildPolicy()
+	{
+		return new ContactSelectionPolicy
+		{
+			ExcludeFriendly = m_ExcludeFriendly,
+			ExcludeNeutralIdentity = m_ExcludeNeutralIdentity,
+			AllowUnknown = m_AllowUnknownIdentity,
+			StaleEligible = m_StaleEligible,
+			StaleThreshold = m_MemoryStaleThreshold,
+			ObservedBonus = m_ObservedBonus,
+			ConfidenceWeight = m_ConfidenceWeight,
+			ThreatWeight = m_ThreatWeight,
+			DistanceWeight = m_DistanceWeight,
+			StalePenalty = m_StalePenalty,
+			HostileBonus = m_HostileBonus
+		};
 	}
 
 	private void RefreshVisibilityCheckerConfig()
@@ -380,6 +423,7 @@ public sealed class TargetSelector : MonoBehaviour
 			dist,
 			m_LayerMask,
 			m_QueryTriggerInteraction);
+		SortRaycastHitsByDistance(m_Hits, hitCount);
 
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
 		var seenRoots = new HashSet<Transform>();
@@ -410,6 +454,25 @@ public sealed class TargetSelector : MonoBehaviour
 		}
 
 		return false;
+	}
+
+	private static void SortRaycastHitsByDistance(RaycastHit[] _hits, int _count)
+	{
+		if (_hits == null || _count <= 1)
+			return;
+
+		for (int i = 1; i < _count; i++)
+		{
+			RaycastHit key = _hits[i];
+			int j = i - 1;
+			while (j >= 0 && _hits[j].distance > key.distance)
+			{
+				_hits[j + 1] = _hits[j];
+				j--;
+			}
+
+			_hits[j + 1] = key;
+		}
 	}
 
 	private void CleanupExpiredSuppressedTargets()
@@ -531,6 +594,9 @@ public sealed class TargetSelector : MonoBehaviour
 		if (!m_RetainTargetDuringReloadOrMalfunction || !IsWeaponMaintenanceActive() || m_SelectedTarget == null)
 			return false;
 
+		if (!IsContactEligibleForSelection(m_SelectedTarget))
+			return false;
+
 		if (!TryRevalidateRetainedEngageTarget(m_SelectedTarget, _origin, out Vector3 retainedAim, out bool retainedHasAim))
 			return false;
 
@@ -576,7 +642,7 @@ public sealed class TargetSelector : MonoBehaviour
 		if (zones != null && zones.Length > 0)
 		{
 			if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromHitZones(
-				    _origin, zones, _targetRoot, out Vector3 aimPoint))
+				    _origin, zones, _targetRoot, out Vector3 aimPoint, out _))
 				return false;
 
 			Vector3 toAim = aimPoint - _origin;
@@ -603,7 +669,7 @@ public sealed class TargetSelector : MonoBehaviour
 			return false;
 
 		if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromCollider(
-			    _origin, legacyTargetCol, _targetRoot, out Vector3 legacyAimPoint))
+			    _origin, legacyTargetCol, _targetRoot, out Vector3 legacyAimPoint, out _))
 			return false;
 
 		_aimPoint = legacyAimPoint;
@@ -621,45 +687,39 @@ public sealed class TargetSelector : MonoBehaviour
 			return;
 
 		Transform forcedRoot = m_ForcedPriorityTarget;
-		bool forcedValid = false;
-		Vector3 forcedAimPoint = Vector3.zero;
-
-		bool isLiveUnitCandidate =
-			forcedRoot.gameObject.activeInHierarchy &&
-			forcedRoot.TryGetComponent(out UnitTeam _) &&
-			UnitConsciousness.IsTargetableTarget(forcedRoot) &&
-			!(forcedRoot.TryGetComponent(out DamageableTarget forcedDmg) && !forcedDmg.IsAlive);
-
-		if (isLiveUnitCandidate &&
-		    !IsLineOfFireSuppressed(forcedRoot) &&
-		    TryRevalidateSuppressedTarget(forcedRoot, _origin))
-		{
-			forcedAimPoint = GetCandidateRoughCenter(forcedRoot);
-			forcedValid = true;
-		}
-		else if (forcedRoot.TryGetComponent(out ShootingRangeTarget rangeTarget) &&
-		         rangeTarget.IsAvailableForTargeting &&
-		         !IsLineOfFireSuppressed(forcedRoot) &&
-		         TryRevalidateSuppressedTarget(forcedRoot, _origin))
-		{
-			forcedAimPoint = rangeTarget.GetAimPointWorld();
-			forcedValid = true;
-		}
-
-		if (!forcedValid)
+		if (!IsContactEligibleForSelection(forcedRoot))
+			return;
+		if (IsLineOfFireSuppressed(forcedRoot))
+			return;
+		if (!TryRevalidateSuppressedTarget(forcedRoot, _origin))
 			return;
 
-		Vector3 eyePos = m_ObservationSource != null
-			? m_ObservationSource.GetEyeWorldPosition()
-			: transform.position + Vector3.up * 1.6f;
-		Vector3 rayDir = (forcedAimPoint - eyePos).normalized;
-		float rayDist = Vector3.Distance(eyePos, forcedAimPoint);
-		if (!Physics.Raycast(eyePos, rayDir, rayDist, m_LayerMask, m_QueryTriggerInteraction))
+		_newTarget = forcedRoot;
+		if (m_ContactRegistry != null &&
+		    m_ContactRegistry.TryGetContact(forcedRoot, out PerceivedContact forcedContact) &&
+		    TargetSelectionMath.TryGetObservedAimPoint(forcedContact, out Vector3 observedAim))
 		{
-			_newTarget = forcedRoot;
-			_aimPoint = forcedAimPoint;
+			_aimPoint = observedAim;
 			_hasAimPoint = true;
 		}
+		else
+		{
+			_hasAimPoint = false;
+			_aimPoint = Vector3.zero;
+		}
+	}
+
+	private bool IsContactEligibleForSelection(Transform _target)
+	{
+		if (_target == null || m_ContactRegistry == null)
+			return false;
+		if (!m_ContactRegistry.TryGetContact(_target, out PerceivedContact contact) || contact == null)
+			return false;
+		return ContactSelectionEligibility.Evaluate(
+			contact,
+			TargetEngageability.IsEngageable(_target),
+			BuildPolicy(),
+			out _);
 	}
 
 	private void UpdateTargetVelocityEstimate(Transform _newTarget, Vector3 _newAimPoint, bool _hasValidAimPoint)

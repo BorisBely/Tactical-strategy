@@ -81,6 +81,9 @@ public sealed class UnitBodyMeshSelector : MonoBehaviour
 		m_CurrentArchetype = _archetype;
 		m_CurrentGender = _gender;
 		m_CurrentMeshName = meshName;
+
+		if (TryGetComponent(out UnitVision vision))
+			vision.RefreshBodyHitZones();
 	}
 	#endregion
 

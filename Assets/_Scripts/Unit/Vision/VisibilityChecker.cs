@@ -16,6 +16,9 @@ public sealed class VisibilityChecker
 	private QueryTriggerInteraction m_QueryTriggerInteraction;
 	private float m_VisionRange;
 	private bool m_DrawVisionGizmos;
+	private VisionScanStats m_Stats;
+	public bool LastLosWasBlocked { get; private set; }
+	public string LastLosBlocker { get; private set; }
 	#endregion
 
 	#region Construction
@@ -41,6 +44,11 @@ public sealed class VisibilityChecker
 		m_DrawVisionGizmos = _drawGizmos;
 	}
 
+	public void BindStats(VisionScanStats _stats)
+	{
+		m_Stats = _stats;
+	}
+
 	public void ClearDebugRays()
 	{
 		m_DebugRays.Clear();
@@ -50,26 +58,39 @@ public sealed class VisibilityChecker
 		Vector3 _eye,
 		UnitBodyHitZone[] _hitZones,
 		Transform _opponentRoot,
-		out Vector3 _aimPoint)
+		out Vector3 _aimPoint,
+		out float _exposure01)
 	{
 		_aimPoint = Vector3.zero;
+		_exposure01 = 0f;
 		bool found = false;
 		float bestWeight = float.MinValue;
+		float totalWeight = 0f;
+		float visibleWeight = 0f;
 
 		for (int z = 0; z < _hitZones.Length; z++)
 		{
 			UnitBodyHitZone zone = _hitZones[z];
-			if (zone == null || !zone.IncludeInVision || !zone.TryGetComponent(out Collider zoneCol) || !zoneCol.enabled)
+			if (!UnitBodyHitZoneVisionUtility.IsUsableVisionZone(zone, out Collider zoneCol))
 				continue;
 
 			UnitBodyHitZoneVisionUtility.BuildAimCandidates(zone.BodyPart, zoneCol, m_AimCandidateScratch);
 			for (int i = 0; i < m_AimCandidateScratch.Count; i++)
 			{
+				m_Stats?.AddHitZoneCheck();
 				UnitBodyHitZoneVisionUtility.VisionAimCandidate candidate = m_AimCandidateScratch[i];
+				float weight = Mathf.Max(0.0001f, candidate.Weight);
+				totalWeight += weight;
+
 				bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, zoneCol, out Vector3 rayEnd, out bool hitTarget);
 				if (m_DrawVisionGizmos)
 					m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));
-				if (!ok || candidate.Weight <= bestWeight)
+
+				if (!ok)
+					continue;
+
+				visibleWeight += weight;
+				if (candidate.Weight <= bestWeight)
 					continue;
 
 				bestWeight = candidate.Weight;
@@ -78,6 +99,7 @@ public sealed class VisibilityChecker
 			}
 		}
 
+		_exposure01 = totalWeight > 0.0001f ? Mathf.Clamp01(visibleWeight / totalWeight) : 0f;
 		return found;
 	}
 
@@ -85,9 +107,11 @@ public sealed class VisibilityChecker
 		Vector3 _eye,
 		Collider _targetCol,
 		Transform _opponentRoot,
-		out Vector3 _aimPoint)
+		out Vector3 _aimPoint,
+		out float _exposure01)
 	{
 		_aimPoint = Vector3.zero;
+		_exposure01 = 0f;
 		bool found = false;
 		float bestWeight = float.MinValue;
 
@@ -106,6 +130,8 @@ public sealed class VisibilityChecker
 			found = true;
 		}
 
+		// Legacy collider path: full exposure if any LOS sample succeeds.
+		_exposure01 = found ? 1f : 0f;
 		return found;
 	}
 
@@ -117,7 +143,10 @@ public sealed class VisibilityChecker
 		out Vector3 _rayEndDebug,
 		out bool _hitTargetCollider)
 	{
+		LastLosWasBlocked = false;
+		LastLosBlocker = null;
 		_hitTargetCollider = false;
+		m_Stats?.AddLosCheck();
 		Vector3 dir = (_worldPoint - _eye);
 		float dist = dir.magnitude;
 		if (dist < 0.02f)
@@ -136,29 +165,69 @@ public sealed class VisibilityChecker
 			m_Hits,
 			castMax - 0.08f,
 			m_LayerMask,
-			m_QueryTriggerInteraction);
+			QueryTriggerInteraction.Collide);
 
 		_rayEndDebug = origin + dir * (castMax - 0.08f);
+		if (hitCount <= 0)
+			return false;
+
+		for (int i = 1; i < hitCount; i++)
+		{
+			RaycastHit key = m_Hits[i];
+			int j = i - 1;
+			while (j >= 0 && m_Hits[j].distance > key.distance)
+			{
+				m_Hits[j + 1] = m_Hits[j];
+				j--;
+			}
+			m_Hits[j + 1] = key;
+		}
 
 		for (int h = 0; h < hitCount; h++)
 		{
 			RaycastHit hit = m_Hits[h];
 			Collider hc = hit.collider;
-			if (hc != null && hc.transform.IsChildOf(m_SelfRoot))
+			if (hc == null)
+				continue;
+			if (hc.transform.IsChildOf(m_SelfRoot))
+				continue;
+			if (hc.isTrigger && !hc.transform.IsChildOf(_opponentRoot) && hc != _primaryTargetCollider)
 				continue;
 
-			if (hc != null && (hc == _primaryTargetCollider || hc.transform.IsChildOf(_opponentRoot)))
+			if (hc == _primaryTargetCollider || hc.transform.IsChildOf(_opponentRoot))
 			{
 				_hitTargetCollider = true;
 				_rayEndDebug = hit.point;
 				return true;
 			}
 
+			LastLosWasBlocked = true;
+			LastLosBlocker = hc.name;
 			_rayEndDebug = hit.point;
 			return false;
 		}
 
 		return false;
+	}
+
+	public bool TryCoarseLineOfSightToBounds(
+		Vector3 _eye,
+		Bounds _bounds,
+		Transform _opponentRoot,
+		Collider _primaryTargetCollider,
+		out Vector3 _samplePoint)
+	{
+		_samplePoint = _bounds.ClosestPoint(_eye);
+		if ((_samplePoint - _eye).sqrMagnitude < 0.0001f)
+			_samplePoint = _bounds.center;
+
+		return HasLineOfSightToPoint(
+			_eye,
+			_samplePoint,
+			_opponentRoot,
+			_primaryTargetCollider,
+			out _,
+			out _);
 	}
 
 	public bool TryGetLosBlocker(

@@ -1,14 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-	/// <summary>
-	/// Глобальный реестр наблюдаемых сущностей по командам.
-	/// Tech-debt: GetOpponents currently mixes “who exists” with “who is an opponent”.
-	/// Relationship filtering belongs later in CandidateProvider — do not expand here yet.
-	/// </summary>
-	[DisallowMultipleComponent]
-	public sealed class UnitVisionRegistry : MonoBehaviour
-	{
+/// <summary>
+/// Глобальный реестр юнитов для зрения: игрок и остальные (враги + нейтралы).
+/// Ссылки задаются при спавне/расстановке; не ищет объекты по сцене.
+/// Tech-debt: GetOpponents currently mixes “who exists” with “who is an opponent”.
+/// Spatial / relationship filters belong after GetOpponents (CandidateProvider) — do not expand mix here.
+/// </summary>
+[DisallowMultipleComponent]
+public sealed class UnitVisionRegistry : MonoBehaviour
+{
 	#region Private Fields
 	[Header("Runtime Debug")]
 	[SerializeField] private List<UnitVision> m_PlayerUnits = new List<UnitVision>(24);

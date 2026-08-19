@@ -4,11 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Current perception state for a unit. Accepts observation frames from any producer
-/// (today: UnitVision; later: sound / shared info) via <see cref="ApplyVisionFrame"/>.
-/// Does not depend on UnitVision — Vision pushes data here, Perception does not require Vision.
-///
-/// Today stores only the current scan frame (CurrentlyObserved).
-/// Later may add LastObserved / memory without changing Vision API — do not implement here yet.
+/// (Vision, Sound, Shared) via typed Apply* APIs. Does not depend on UnitVision.
+/// Vision, sound, and shared lists stay separate — Sound does not pretend to be Vision.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-200)]
@@ -16,10 +13,16 @@ public sealed class UnitPerception : MonoBehaviour
 {
 	#region Private Fields
 	private readonly List<VisionObservation> m_Observations = new List<VisionObservation>(32);
+	private readonly List<SoundObservation> m_SoundEvents = new List<SoundObservation>(8);
+	private readonly List<SharedObservation> m_SharedEvents = new List<SharedObservation>(8);
 	#endregion
 
 	#region Public Properties
 	public IReadOnlyList<VisionObservation> Observations => m_Observations;
+
+	public IReadOnlyList<SoundObservation> SoundEvents => m_SoundEvents;
+
+	public IReadOnlyList<SharedObservation> SharedEvents => m_SharedEvents;
 
 	public int ObservationCount => m_Observations.Count;
 
@@ -32,12 +35,15 @@ public sealed class UnitPerception : MonoBehaviour
 
 	/// <summary>Fired on every <see cref="ApplyVisionFrame"/> call (even if content unchanged).</summary>
 	public event Action PerceptionFrameApplied;
+
+	public event Action SoundEventsApplied;
+
+	public event Action SharedEventsApplied;
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
-		// TargetSelector lives beside Perception and selects from PerceptionFrameApplied.
 		if (GetComponent<TargetSelector>() == null)
 			gameObject.AddComponent<TargetSelector>();
 	}
@@ -60,6 +66,30 @@ public sealed class UnitPerception : MonoBehaviour
 			PerceptionChanged?.Invoke();
 
 		PerceptionFrameApplied?.Invoke();
+	}
+
+	public void ApplySoundEvents(IReadOnlyList<SoundObservation> _events)
+	{
+		m_SoundEvents.Clear();
+		if (_events != null)
+		{
+			for (int i = 0; i < _events.Count; i++)
+				m_SoundEvents.Add(_events[i]);
+		}
+
+		SoundEventsApplied?.Invoke();
+	}
+
+	public void ApplySharedEvents(IReadOnlyList<SharedObservation> _events)
+	{
+		m_SharedEvents.Clear();
+		if (_events != null)
+		{
+			for (int i = 0; i < _events.Count; i++)
+				m_SharedEvents.Add(_events[i]);
+		}
+
+		SharedEventsApplied?.Invoke();
 	}
 
 	public bool TryGetObservation(Transform _target, out VisionObservation _observation)

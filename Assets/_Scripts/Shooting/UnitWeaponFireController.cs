@@ -22,6 +22,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[Tooltip("Selected/engageable combat target (TargetSelector).")]
 	[SerializeField] private TargetSelector m_TargetSelector;
+	[Tooltip("G6 named intent. Shots require Fire; contact-without-aim uses Aim.")]
+	[SerializeField] private EngagementDecisionController m_EngagementDecision;
 	[Tooltip("Detection scan API only (LoF suppress rescan).")]
 	[SerializeField] private UnitVision m_Vision;
 	[Tooltip("Во время reload-команд выстрелы блокируются.")]
@@ -157,6 +159,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_TargetSelector == null)
 			m_TargetSelector = GetComponent<TargetSelector>();
+		if (m_EngagementDecision == null)
+			m_EngagementDecision = GetComponent<EngagementDecisionController>();
 		if (m_Vision == null)
 			m_Vision = GetComponent<UnitVision>();
 		if (m_BusyState == null)
@@ -275,8 +279,25 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	/// <summary>
 	/// Базовые условия для вступления в огневой контакт без проверки порога прицела.
 	/// Используется огневой дисциплиной, чтобы копить AimProgress между сериями.
+	/// G6: Aim or Fire counts as contact; Fire-only is the shot gate.
 	/// </summary>
 	public bool ShouldHoldVirtualTriggerIgnoringAim()
+	{
+		if (!EvaluateWeaponCanFireEventually())
+			return false;
+
+		if (m_RequireVisibleTarget && !HasFireContactIntent())
+			return false;
+
+		EquippedWeaponTransientState transientState = m_WeaponRuntime != null ? m_WeaponRuntime.TransientState : null;
+		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
+		return true;
+	}
+
+	/// <summary>
+	/// Weapon / pose / ammo / busy gates only. Does not read target or EngagementDecision.
+	/// </summary>
+	public bool EvaluateWeaponCanFireEventually()
 	{
 		if (m_WeaponRuntime == null || m_WeaponRuntime.RuntimeState == null)
 			return false;
@@ -304,12 +325,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		if (IsWeaponReloadBusy())
 			return false;
 
-		if (m_RequireVisibleTarget && !HasEngageableVisibleTarget())
-			return false;
-
-		EquippedWeaponTransientState transientState = m_WeaponRuntime.TransientState;
-		m_DebugCurrentAimProgress = transientState != null ? transientState.AimProgress01 : 0f;
 		return true;
+	}
+
+	/// <summary>AimProgress gate only. Barrel alignment remains a shot-execution check.</summary>
+	public bool EvaluateAimReadyToFire()
+	{
+		return HasRequiredAimProgressForFire();
 	}
 
 	public void ConfigureDisciplineBurstOverride(int _burstRounds, float _burstPauseSeconds)
@@ -933,6 +955,15 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private bool HasEngageableVisibleTarget()
 	{
+		if (m_EngagementDecision != null)
+			return m_EngagementDecision.CurrentDecision == EngagementDecision.Fire;
+		return m_TargetSelector != null && m_TargetSelector.GetEngageableSelectedTarget() != null;
+	}
+
+	private bool HasFireContactIntent()
+	{
+		if (m_EngagementDecision != null)
+			return m_EngagementDecision.IsFireContact;
 		return m_TargetSelector != null && m_TargetSelector.GetEngageableSelectedTarget() != null;
 	}
 
