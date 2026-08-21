@@ -240,6 +240,7 @@ public static class SvdSniperContentBuilder
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = 0.82f;
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = 1f;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = 4.2f;
+		WeaponRecoilAssetDefaults.Write(so, _weapon != null ? _weapon.name : "Weapon_SVD");
 		so.FindProperty("m_Reliability").floatValue = 0.88f;
 		so.FindProperty("m_HasBoltHoldOpenDelay").boolValue = false;
 
@@ -266,6 +267,7 @@ public static class SvdSniperContentBuilder
 		so.FindProperty("m_RecoilPerShot").floatValue = 0.42f;
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = 0.74f;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = 4.3f;
+		WeaponRecoilAssetDefaults.Write(so, _weapon != null ? _weapon.name : "Weapon_Sniper762x51");
 		so.FindProperty("m_Reliability").floatValue = 0.91f;
 
 		WeaponDistanceCurveLibrary.WeaponBalanceCurves curves =

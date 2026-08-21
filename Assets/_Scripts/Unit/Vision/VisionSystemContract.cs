@@ -18,7 +18,7 @@
 /// After G8: LOD / scan tiers are a compute budget, not DetectionProgress and not a Q penalty.
 /// Skip-scan must not ApplyVisionFrame(empty). Not scanning this frame ≠ unseen.
 /// Coarse range/FOV (with pad) runs before any LOS. Only Detail (T3) may apply a vision frame.
-/// Unit.prefab VisionRange = 500 m (perception). MaxEngageRange stays 18 m. Do not merge them.
+/// Unit.prefab VisionRange = 150 m eye (perception; optic may extend to 300 in Aiming). MaxEngageRange stays 18 m. Do not merge them.
 /// This vision contract is closed at G8. Search / hunt AI is a separate system.
 ///
 /// Allowed combat flow (G6+G7+G8):
@@ -30,7 +30,7 @@
 ///
 /// LastObservation / LastSeen* update only on real VisionObservation evidence — never on empty frames.
 /// CurrentEvaluation is a frame snapshot, not long-term memory.
-/// Identity evidence is ObservableAffiliation (appearance / per-observer cue), never UnitTeam.
+/// Identity evidence is VisualIdentityEvidence (world look) mapped by observer side, or a per-observer cue; never target UnitTeam.
 /// LastSeenConfidence decays only while not Observed; IdentityConfidence does not decay in G4.
 /// SoundConfidence / SharedConfidence decay on their own horizons and do not stop G4.
 /// Sound/Shared never write LastObservation, never set ObservationState.Observed,
@@ -46,7 +46,7 @@
 /// LOD / VisionScanTier / LOS cache on TargetSelector or EngagementDecision;
 /// LOD → confidence / Q / DetectionProgress penalty;
 /// skip-scan applying an empty vision frame (fake RecentlyLost);
-/// treating VisionRange 500 m as MaxEngageRange;
+/// treating VisionRange 150 m as MaxEngageRange;
 /// EngagementDecision inside Vision / DetectionProcessor / TargetSelector;
 /// EngagementDecisionController calling Fire / StartFiring / hitscan;
 /// LastKnown as fire aim; mutating UnitTeam from perception or engagement.

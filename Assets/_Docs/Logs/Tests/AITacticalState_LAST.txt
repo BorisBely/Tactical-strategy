@@ -1,0 +1,80 @@
+﻿AI-1 — TACTICAL STATE RUNTIME
+=============================
+stamp=2026-08-20 00:08:24
+explicit orders change state; Perception sets action; Search from LastKnown; no Nav / Combat
+---
+PASS Harness_Observer | observer missing
+PASS S0_Idle | Idle
+PASS S1_Defense_Applied | rejected
+PASS S1_Defense_State | Defense
+PASS S1_Context | (0.00, 0.58, 0.00)
+PASS S1_EnterExit | Exit:Idle > Enter:Defense
+PASS S2_Attack_Applied | rejected
+PASS S2_Attack_State | Attack
+PASS S2_Context | (0.00, 0.58, 12.00)
+PASS S2_EnterExit | Exit:Idle > Enter:Defense > Exit:Defense > Enter:Attack
+PASS S3_Retreat_Applied | rejected
+PASS S3_Retreat_State | Retreat
+PASS S3_Context | (8.00, 0.58, 0.00)
+PASS S4_Defense_Applied | rejected
+PASS S4_Defense_State | Defense
+PASS S4_ContextReplaced | (0.00, 0.58, -6.00)
+PASS S5_Search_Applied | rejected
+PASS S5_Search_State | Search
+PASS S5_Context | (0.00, 0.58, -6.00)
+PASS S6_Attack_Applied | rejected
+PASS S6_Attack_State | Attack
+PASS S7_Flee_Applied | rejected
+PASS S7_Flee_State | Flee
+PASS S7_Context | (-1.00, 0.00, 0.00)
+PASS S8_Idle_Applied | rejected
+PASS S8_Idle_State | Idle
+PASS S9_SameStateApplied | Idle command rejected
+PASS S9_SameStateNoEnter | 
+PASS S10_NoSelectorDrive | TargetSelector not invoked
+PASS S10_NoNavDrive | locomotion not invoked
+---
+AI-1.10 Search: LastKnown from Perception; Search does not write Memory
+PASS P0_Processor | DetectionProcessor missing
+PASS P0_Target | Target missing
+PASS P0_SixStates | 6
+PASS P0_EngageIsNotAState | Engage must not be a UnitAIState
+PASS P1_IdleHostile_State | Idle
+PASS P1_IdleHostile_Action | None
+PASS P1_IdleHostile_Visible | expected HostileVisible
+PASS P1_IdleHostile_NoTransition | 
+PASS P2_Defense_Applied | rejected
+PASS P2_Defense_State | Defense
+PASS P2_DefenseHostile_Action | Engage
+PASS P2_DefenseHostile_Target | Unit(Clone)
+PASS P2_DefenseHostile_NoExtraTransition | 
+PASS P3_LostHasMemory | vis=False useful=True conf=0,998
+PASS P3_Search_State | Search
+PASS P3_Search_LastKnown | (9.62, 0.15, 6.60)
+PASS P3_Search_Enter | Exit:Defense > Enter:Search
+PASS P3_StillSearch | Search
+PASS P3_Memory_Confidence | 0,9975
+PASS P3_Memory_LastKnown | (9.62, 0.15, 6.60)
+PASS P3_Memory_LastSeenTime | 4,3500
+PASS P3_VisionDecayedWithoutSearchWrite | stale=True useful=False conf=0,191
+PASS P3_StaleResume_State | Defense
+PASS P3_StaleResume_LastKnownHeld | (9.62, 0.15, 6.60)
+PASS P4_Attack_Applied | rejected
+PASS P4_Attack_State | Attack
+PASS P4_AttackHostile_Action | Engage
+PASS P4_AttackHostile_State | Attack
+PASS P4_AttackHostile_NoTransition | 
+PASS P5_DefenseUnknown_Applied | rejected
+PASS P5_DefenseUnknown_State | Defense
+PASS P5_Unknown_Action | Hold hostile=False
+PASS P5_Unknown_NotEngage | Unknown must not Engage
+PASS P6_Friendly_State | Defense
+PASS P6_Friendly_Action | Hold
+PASS P7_Idle_Applied | rejected
+PASS P7_Idle_State | Idle
+PASS P7_IdleTicks_State | Idle
+PASS P7_IdleTicks_Action | None
+PASS P7_IdleTicks_NoTransition | 
+PASS P8_WorldTeamRestored | Enemy
+---
+RESULT=PASS pass=71 fail=0

@@ -2,6 +2,9 @@
 
 **Статус: FROZEN** (2026-08-19)  
 **Калибровка:** Block A / B / C **CLOSED / VERIFIED**.  
+**Этап 1 look:** **FROZEN** — `Identity_World_Evidence.md`. Play C13 **PASS 49/0** (2026-08-20 10:23). Не ретюнить IdentifyTime / commit.  
+**Этап 2 CombatIntent:** **FROZEN** — `Combat_Engage_Execution.md`. Play **PASS 31/0** (10:56). EditMode **14/0**. Не класть AI на prefab.  
+**Этап 3 Search locomotion:** **FROZEN** — `Search_Navigation_Execution.md`. Play **PASS 45/0** (12:06). EditMode **18/0**.  
 **Контракт AI:** **FROZEN** — `AIPerceptionFrame` (`AI_Perception_Contract.md`). Play **PASS 41/0** (23:10). Vision knowledge на `PerceivedContact`; AI не читает Q / DetectionProgress / UnitTeam.  
 **Архитектура:** `Vision_Current_Architecture_And_Future_Philosophy.md` (G0–G8 CLOSED).  
 **Калибровочные числа:** `Vision_Gameplay_Calibration.md`.
@@ -53,7 +56,7 @@ IdentifyTime    = 4 s      (conf=1 при Q=1)
 Commit          = 0.50     (Hostile ≈ 2.0 с при Q=1)
 ```
 
-`PerceivedIdentity` — affiliation-класс: Unknown / Friendly / Neutral / Hostile. Не Soldier / Military. Evidence = `ObservableAffiliation` / `IdentityAppearance`, **never** `UnitTeam`.
+`PerceivedIdentity` — affiliation-класс: Unknown / Friendly / Neutral / Hostile. Не Soldier / Military. World look = `VisualAffiliation` на цели; наблюдатель маппит в `ObservableAffiliation`. **Never** `UnitTeam` цели.
 
 ### Threat
 

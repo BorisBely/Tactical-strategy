@@ -662,56 +662,32 @@ public sealed class WeaponDistanceAimProfile
 	#endregion
 }
 
-/// <summary>Снимок отдачи и процедурного паттерна для лога выстрела (штраф до добавления за текущий выстрел).</summary>
+/// <summary>Снимок gameplay RecoilOffset для лога выстрела (offset до kick текущего выстрела).</summary>
 public readonly struct WeaponShotRecoilLogInfo
 {
-	public readonly float RecoilPenaltyBeforeShot;
-	public readonly float MaxRecoilPenalty;
+	public readonly Vector2 OffsetBeforeShot;
+	public readonly Vector2 KickDelta;
+	public readonly float MaxOffsetDegrees;
 	public readonly bool IsAtCap;
-	public readonly bool PatternApplied;
-	public readonly float PatternPitchDegrees;
-	public readonly float PatternYawDegrees;
-	public readonly float PatternVerticalOffsetMeters;
-	public readonly float RecoilAddedPerShot;
 	public readonly float RecoveryPerSecond;
 	public readonly bool IsRecoveringWhileFiring;
-	public readonly float EstimatedNetPenaltyPerSecond;
-	public readonly float PitchDegreesPerPenaltyUnit;
-	public readonly float RecoilSpreadScale;
-	public readonly float RecoilSpreadMultiplier;
 
-	public bool HasPatternData => PatternApplied || RecoilPenaltyBeforeShot > 0.0001f;
+	public bool HasPatternData => OffsetBeforeShot.sqrMagnitude > 1e-6f || KickDelta.sqrMagnitude > 1e-6f;
 
 	public WeaponShotRecoilLogInfo(
-		float _recoilPenaltyBeforeShot,
-		float _maxRecoilPenalty,
+		Vector2 _offsetBeforeShot,
+		Vector2 _kickDelta,
+		float _maxOffsetDegrees,
 		bool _isAtCap,
-		bool _patternApplied,
-		float _patternPitchDegrees,
-		float _patternYawDegrees,
-		float _patternVerticalOffsetMeters,
-		float _recoilAddedPerShot,
 		float _recoveryPerSecond,
-		bool _isRecoveringWhileFiring,
-		float _estimatedNetPenaltyPerSecond,
-		float _pitchDegreesPerPenaltyUnit,
-		float _recoilSpreadScale,
-		float _recoilSpreadMultiplier)
+		bool _isRecoveringWhileFiring)
 	{
-		RecoilPenaltyBeforeShot = _recoilPenaltyBeforeShot;
-		MaxRecoilPenalty = _maxRecoilPenalty;
+		OffsetBeforeShot = _offsetBeforeShot;
+		KickDelta = _kickDelta;
+		MaxOffsetDegrees = _maxOffsetDegrees;
 		IsAtCap = _isAtCap;
-		PatternApplied = _patternApplied;
-		PatternPitchDegrees = _patternPitchDegrees;
-		PatternYawDegrees = _patternYawDegrees;
-		PatternVerticalOffsetMeters = _patternVerticalOffsetMeters;
-		RecoilAddedPerShot = _recoilAddedPerShot;
 		RecoveryPerSecond = _recoveryPerSecond;
 		IsRecoveringWhileFiring = _isRecoveringWhileFiring;
-		EstimatedNetPenaltyPerSecond = _estimatedNetPenaltyPerSecond;
-		PitchDegreesPerPenaltyUnit = _pitchDegreesPerPenaltyUnit;
-		RecoilSpreadScale = _recoilSpreadScale;
-		RecoilSpreadMultiplier = _recoilSpreadMultiplier;
 	}
 }
 

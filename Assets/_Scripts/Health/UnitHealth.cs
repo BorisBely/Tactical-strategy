@@ -216,6 +216,13 @@ public sealed class UnitHealth : MonoBehaviour
 		m_IsDead = true;
 		m_OverallStatusLocalizationKey = "health.status.dead";
 		m_OverallStatusDisplayName = LocalizationManager.Get("health.status.dead", "Погиб");
+		if (UnitActionLog.Enabled)
+		{
+			string payload = "dead=1 pos=" + UnitActionLog.Vec(transform.position);
+			UnitActionLog.Write(this, UnitActionLog.Death, payload);
+			UnitActionLog.Timeline(UnitActionLog.Death, "actor=" + UnitActionLog.Slot(this) + " " + payload);
+		}
+
 		NotifyChanged();
 	}
 

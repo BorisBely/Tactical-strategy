@@ -1,0 +1,25 @@
+﻿DetectionG8 AutoSmoke 2026-08-19 20:46:46
+---
+[MATH]
+PASS Math_IdleSkip | Idle
+PASS Math_ImmediateDetail | Immediate → T3
+PASS Math_RangeFovNoLos | T2 has no rays
+PASS Math_CacheTtlExpires | TTL
+PASS G8_Processor | DetectionProcessor missing
+PASS G8_Target | target missing
+PASS G8_Selector | TargetSelector missing
+PASS G8_Engagement | EngagementDecisionController missing
+PASS Isolation_SelectorNoLodTypes | Selector must not store LOD types
+PASS Isolation_EngagementNoLodTypes | Engagement must not store LOD types
+PASS G8_ObserveAimOrFire | sel=Unit(Clone) (UnityEngine.Transform) d=Aim
+PASS G8_HiddenIsTrack | d=Track aim=False
+PASS G8_SoundStillTrackNotFire | Track
+PASS G8_ImmediateScanRunsDetail | tier=Detail scans=1
+[BASELINE] harness ImmediateScan scans=1 candidates=1 range=1 fov=0 los=0 hitZones=0
+PASS G8_ImmediateScanFindsVisible | obs=1 los=5 tier=Detail
+PASS G8_OutOfFovHadCandidate | candidates=1
+PASS G8_OutOfFovZeroLos | los=0 (FOV-before-LOS: out-of-cone decoy must not raycast)
+PASS G8_OutOfFovNoFakeVisible | obs=0
+PASS G8_SkipScanDoesNotMeanEmptyFrame | Idle skip does not ApplyVisionFrame(empty) — enforced in UnitVision.RunScheduledScan
+---
+RESULT=PASS pass=19 fail=0

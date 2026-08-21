@@ -85,6 +85,9 @@ public sealed class DetectionTestController : MonoBehaviour
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		if (DetectionHarnessPlayMode.RunVisionEnvelope &&
+		    GetComponent<VisionEnvelopeRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionEnvelopeRuntimeSmoke>();
 		if (DetectionHarnessPlayMode.RunCalibrationStrict &&
 		    GetComponent<DetectionCalibrationRuntimeStrictSmoke>() == null)
 			gameObject.AddComponent<DetectionCalibrationRuntimeStrictSmoke>();
@@ -103,6 +106,27 @@ public sealed class DetectionTestController : MonoBehaviour
 		if (DetectionHarnessPlayMode.RunUseOfForcePolicy &&
 		    GetComponent<UseOfForcePolicyRuntimeSmoke>() == null)
 			gameObject.AddComponent<UseOfForcePolicyRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		    GetComponent<CombatEngageExecutionRuntimeSmoke>() == null)
+			gameObject.AddComponent<CombatEngageExecutionRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunSearchExecution &&
+		    GetComponent<SearchExecutionRuntimeSmoke>() == null)
+			gameObject.AddComponent<SearchExecutionRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		    GetComponent<TacticalNavigationRuntimeSmoke>() == null)
+			gameObject.AddComponent<TacticalNavigationRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		    GetComponent<TacticalCommandContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<TacticalCommandContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunGameCommandSource &&
+		    GetComponent<GameCommandSourceRuntimeSmoke>() == null)
+			gameObject.AddComponent<GameCommandSourceRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunGameCommandInput &&
+		    GetComponent<GameCommandInputRuntimeSmoke>() == null)
+			gameObject.AddComponent<GameCommandInputRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunGameCommandLayer &&
+		    GetComponent<GameCommandLayerRuntimeSmoke>() == null)
+			gameObject.AddComponent<GameCommandLayerRuntimeSmoke>();
 		if (DetectionHarnessPlayMode.RunGStage == DetectionHarnessPlayMode.AllGStages &&
 		    GetComponent<DetectionGRegressionPlaySmoke>() == null)
 			gameObject.AddComponent<DetectionGRegressionPlaySmoke>();
@@ -130,15 +154,31 @@ public sealed class DetectionTestController : MonoBehaviour
 		AIPerceptionHandoffSmoke aiPerceptionSmoke = GetComponent<AIPerceptionHandoffSmoke>();
 		AITacticalStateRuntimeSmoke aiTacticalSmoke = GetComponent<AITacticalStateRuntimeSmoke>();
 		UseOfForcePolicyRuntimeSmoke useOfForceSmoke = GetComponent<UseOfForcePolicyRuntimeSmoke>();
+		CombatEngageExecutionRuntimeSmoke combatEngageSmoke = GetComponent<CombatEngageExecutionRuntimeSmoke>();
+		SearchExecutionRuntimeSmoke searchExecutionSmoke = GetComponent<SearchExecutionRuntimeSmoke>();
+		TacticalNavigationRuntimeSmoke tacticalNavigationSmoke = GetComponent<TacticalNavigationRuntimeSmoke>();
+		TacticalCommandContractRuntimeSmoke tacticalCommandSmoke = GetComponent<TacticalCommandContractRuntimeSmoke>();
+		GameCommandSourceRuntimeSmoke gameCommandSmoke = GetComponent<GameCommandSourceRuntimeSmoke>();
+		GameCommandInputRuntimeSmoke gameCommandInputSmoke = GetComponent<GameCommandInputRuntimeSmoke>();
+		GameCommandLayerRuntimeSmoke gameCommandLayerSmoke = GetComponent<GameCommandLayerRuntimeSmoke>();
+		VisionEnvelopeRuntimeSmoke envelopeSmoke = GetComponent<VisionEnvelopeRuntimeSmoke>();
 		bool harnessOwnsPlay =
 			DetectionHarnessPlayMode.IsGRegressionPlay ||
 			(runtimeSmoke != null && runtimeSmoke.WillRunOnStart) ||
 			(strictSmoke != null && strictSmoke.WillRunOnStart) ||
+			(envelopeSmoke != null && envelopeSmoke.WillRunOnStart) ||
 			(memorySmoke != null && memorySmoke.WillRunOnStart) ||
 			(identitySmoke != null && identitySmoke.WillRunOnStart) ||
 			(aiPerceptionSmoke != null && aiPerceptionSmoke.WillRunOnStart) ||
 			(aiTacticalSmoke != null && aiTacticalSmoke.WillRunOnStart) ||
-			(useOfForceSmoke != null && useOfForceSmoke.WillRunOnStart);
+			(useOfForceSmoke != null && useOfForceSmoke.WillRunOnStart) ||
+			(combatEngageSmoke != null && combatEngageSmoke.WillRunOnStart) ||
+			(searchExecutionSmoke != null && searchExecutionSmoke.WillRunOnStart) ||
+			(tacticalNavigationSmoke != null && tacticalNavigationSmoke.WillRunOnStart) ||
+			(tacticalCommandSmoke != null && tacticalCommandSmoke.WillRunOnStart) ||
+			(gameCommandSmoke != null && gameCommandSmoke.WillRunOnStart) ||
+			(gameCommandInputSmoke != null && gameCommandInputSmoke.WillRunOnStart) ||
+			(gameCommandLayerSmoke != null && gameCommandLayerSmoke.WillRunOnStart);
 		if (!harnessOwnsPlay)
 			ApplyPreset(0);
 	}

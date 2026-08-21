@@ -4,7 +4,7 @@
 **Проверено по коду:** 2026-08-19  
 **Папка закрытых систем:** `Assets/_Docs/Closed/`  
 **Расположение кода (справочно):** `Assets/_Scripts/Unit/Vision/`  
-**Статус:** система зрения **заморожена** — Stage F + **G0–G8 CLOSED / VERIFIED** + калибровка A/B/C CLOSED. **AI Perception Contract FROZEN** (`AI_Perception_Contract.md`, Play PASS 41/0). **AI-1 FROZEN** (`AI_Tactical_State_Model.md`, Play PASS 71/0). **AI-1A FROZEN** (`AI_UseOfForce_Policy.md`, Play PASS 107/0). Search / high-level AI — **другая система**, читает `AIPerceptionFrame`, не roadmap этого документа.  
+**Статус:** система зрения **заморожена** — Stage F + **G0–G8 CLOSED / VERIFIED** + калибровка A/B/C CLOSED. **Identity World Evidence FROZEN** (`Identity_World_Evidence.md`, Play PASS 49/0). **Combat Engage Execution FROZEN** (`Combat_Engage_Execution.md`, Play PASS 31/0, EditMode 14/0). **Search Navigation Execution FROZEN** (`Search_Navigation_Execution.md`, Play PASS 45/0, EditMode 18/0). **AI Perception Contract FROZEN** (`AI_Perception_Contract.md`, Play PASS 41/0). **AI-1 FROZEN** (`AI_Tactical_State_Model.md`, Play PASS 71/0). **AI-1A FROZEN** (`AI_UseOfForce_Policy.md`, Play PASS 107/0). Search / high-level AI — **другая система**, читает `AIPerceptionFrame`, не roadmap этого документа.  
 **Автотесты:** EditMode `VisionFreezeTests`, `DetectionQualityMathTests`, `PerceivedContactLifecycleTests`, `IdentityKnowledgeMathTests`, `PerceivedIdentityTests`, `MemoryDecayMathTests`, `PerceivedMemoryTests`, `ContactSelectionEligibilityTests`, `TargetSelectionMathTests`, `TargetSelectorContactTests`, `EngagementDecisionMathTests`, `DefaultCombatEngagementPolicyTests`, `SoundPerceptionTests`, `SharedPerceptionTests`, `PerceptionFusionTests`, `VisionLodPolicyTests`. Play **2026-08-19 20:45** one-Play V1.9.5: G1 **20/0**, G2 **20/0**, G3 **30/0**, G4 **32/0**, G5 **21/0**, G6 **26/0**, G7 **29/0**, G8 **19/0**, G8 Stress **24/0** (`DetectionG_Regression_LAST.txt` PASS 9/0). Calibration Strict V1.9.4 **83/0**. Math menus G3–G8 as before. `*_LAST.txt` **не в git**. Каждый автотест **обязан** закончиться логом `RESULT=...` в Console (§9.2 п.7).
 
 **Источник правды по статусу:** §0 и шапка. §9 — закрытый roadmap **G0–G8**. **Контракт для AI:** `AI_Perception_Contract.md` (FROZEN). Этапы другой системы сюда не добавлять. Не ретюнить зрение во время разработки AI.
@@ -15,6 +15,8 @@
 
 | Раздел | Для кого |
 |--------|----------|
+| **`Combat_Engage_Execution.md`** | **Этап 2 FROZEN: CombatIntent Hold/Engage → существующий боевой контур** |
+| **`Identity_World_Evidence.md`** | **Этап 1 FROZEN: look на цели ≠ Identity ≠ UnitTeam** |
 | **`AI_Perception_Contract.md`** | **AI: FROZEN snapshot (AIPerceptionFrame)** |
 | **`AI_Tactical_State_Model.md`** | **AI-1: FROZEN (6 states, Hold/Engage, Search from LastKnown)** |
 | **`Vision_AI_Handoff.md`** | **Vision numbers freeze** |
@@ -50,6 +52,8 @@
 | **AI Perception Contract** | ✅ **FROZEN 2026-08-19 23:10** | Play **PASS 41/0**. AI читает `AIPerceptionFrame`, не Q / DetectionProgress / UnitTeam |
 | **AI-1 Tactical States** | ✅ **FROZEN 2026-08-20 00:08** | Play **PASS 71/0**. Search from LastKnown; Search does not write Memory |
 | **AI-1A Use of Force** | ✅ **FROZEN 2026-08-20 00:38** | Play **PASS 107/0**. ForcePermission из Relationship; G6 math не трогать |
+| **Combat Engage Execution** | ✅ **FROZEN 2026-08-20 10:56** | Play **PASS 31/0**, EditMode **14/0**. CombatIntent; AI не на prefab |
+| **Search Navigation Execution** | ✅ **FROZEN 2026-08-20 12:06** | Play **PASS 45/0**, EditMode **18/0**. Walk к snapshot LastKnown; не пишет Memory |
 
 **Правило состояний (уже в архитектуре):**
 
@@ -113,15 +117,15 @@ UnitObservationSource
 - `VisionScanTier`, `VisionLodMath`, `VisionScanStats`, `VisionScanScheduler`, `VisionLosCache` (G8 compute budget)
 - `VisionObservation` (struct DTO; + FovOffsetDegrees / Exposure01)
 - `DetectionState`, `ObservationState`, `PerceivedContact`, `DetectionEvaluation`
-- `PerceivedIdentity`, `PerceivedRelationship`, `ThreatLevel`, `ObservableAffiliation`
-- `DetectionQualityMath`, `IdentityKnowledgeMath`, `MemoryDecayMath`, `ContactSelectionEligibility`, `TargetSelectionMath`, `EngagementDecisionMath` (pure math)
+- `PerceivedIdentity`, `PerceivedRelationship`, `ThreatLevel`, `ObservableAffiliation`, `VisualAffiliation`
+- `DetectionQualityMath`, `IdentityKnowledgeMath`, `VisualAffiliationMapping`, `MemoryDecayMath`, `ContactSelectionEligibility`, `TargetSelectionMath`, `EngagementDecisionMath` (pure math)
 - `TargetEngageability` (static; world viability only)
 - `EngagementDecision`, `EngagementDecisionContext`, `IEngagementPolicy`, `DefaultCombatEngagementPolicy`
 - `VisionSystemContract` (internal empty class — только XML-контракт)
 - `IObservationSource` (interface)
 
 `DetectionProcessor` — MonoBehaviour, см. таблицу wiring выше (G5: на юнитах).  
-`IdentityAppearance` — optional MonoBehaviour на цели («как выглядит»); **не** на `Unit.prefab`; не `UnitTeam`.
+`VisualIdentityEvidence` — world look (Player/Enemy/Civilian) на цели; на `Unit.prefab` default Unknown. Наблюдатель маппит относительно своей стороны. Не `UnitTeam` цели.
 
 Команды:
 
@@ -658,7 +662,7 @@ Lighting / camouflage / fatigue / attention — **не цель системы**
 |-------|--------|--------|
 | Selector читает Identity/Threat | ✅ G5 priority | Не fire gate; Unknown всё ещё selectable |
 | Ошибка восприятия влияет на fire | ❌ G6 | Иначе G3/G5 смешается с решением стрелять |
-| IdentityAppearance на всех юнитах | ❌ | Opt-in, как DetectionProcessor; без cue Identity остаётся Unknown |
+| VisualIdentityEvidence на юнитах | ✅ этап 1 **FROZEN** | look ≠ Identity; без look Identity остаётся Unknown |
 
 Полная цепочка identify → threat → **decide ≠ fire** — decide это G6.
 
@@ -1163,7 +1167,7 @@ PerceivedIdentity ≠ world UnitTeam
 Evidence **не** копирует `UnitTeam`. Входы:
 
 - per-observer `DetectionProcessor.SetAffiliationCue` (тесты / override)
-- optional `IdentityAppearance` на цели (world look; не на `Unit.prefab`)
+- `VisualIdentityEvidence` на цели (Player/Enemy/Civilian look; маппит наблюдатель)
 
 `IdentityKnowledgeMath`: identity растёт только при Observed + cue≠Unknown; IdentifyTime **4 с** ≫ AcquireTime 0.35 с; commit 0.50 (Hostile ≈ **2 с** при Q=1, conf=1 ≈ **4 с**); Lost/RecentlyLost **hold IdentityConfidence**. Смена **валидного** cue, конфликтующего с committed Identity: confidence сбрасывается, Identity→Unknown, накопление заново (не мгновенный remap). Missing/Unknown cue по-прежнему hold. G4 decays **LastSeenConfidence** only (не Identity). Threat = f(Relationship, distance). Block C **CLOSED / VERIFIED** (2026-08-19 22:37): `Vision_Gameplay_Calibration.md` §13.
 
@@ -1173,7 +1177,7 @@ Evidence **не** копирует `UnitTeam`. Входы:
 |------|------|
 | `PerceivedIdentity.cs` / `PerceivedRelationship.cs` / `ThreatLevel.cs` / `ObservableAffiliation.cs` | enums |
 | `IdentityKnowledgeMath.cs` | pure math (нет UnitTeam) |
-| `IdentityAppearance.cs` | optional look cue |
+| `VisualIdentityEvidence.cs` | world look cue |
 | `PerceivedContact.cs` | Identity / IdentityConfidence / Relationship / Threat |
 | `DetectionProcessor.cs` | TickIdentity + per-observer cues |
 | `DetectionG3AutoSmoke.cs` | Play → `DetectionG3_LAST.txt` |
@@ -1265,7 +1269,7 @@ LastKnown ≠ combat AimPoint
 - Menu: `Tools/Tests/Run DetectionG5 Selection Smoke (no Play)` → **PASS 5/0**
   - Unknown selectable; Friendly/forgotten out; observe → Selected + engageable aim; hide → Selected remains, HasSelectedAimPoint false; horizon → deselect; reacquire restores aim; ForcedPriority needs contact; ClearContacts deselects; LastKnown ≠ aim
 
-**Этап G5 закрыт.** G6 EngagementDecision добавлен отдельным слоем. Search / Sound **не** добавлялись. IdentityAppearance на префабы **не** ставился (Unknown остаётся валидным).
+**Этап G5 закрыт.** G6 EngagementDecision добавлен отдельным слоем. Search / Sound **не** добавлялись. Identity на префабе остаётся Unknown, пока спавн не запишет `VisualIdentityEvidence`.
 
 ---
 

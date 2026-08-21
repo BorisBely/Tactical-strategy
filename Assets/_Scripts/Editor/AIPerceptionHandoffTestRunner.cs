@@ -20,6 +20,13 @@ public static class AIPerceptionHandoffTestRunner
 		DetectionHarnessPlayMode.RunAIPerceptionHandoff = true;
 		DetectionHarnessPlayMode.RunAITacticalState = false;
 		DetectionHarnessPlayMode.RunUseOfForcePolicy = false;
+		DetectionHarnessPlayMode.RunCombatEngageExecution = false;
+		DetectionHarnessPlayMode.RunSearchExecution = false;
+		DetectionHarnessPlayMode.RunTacticalNavigationExecution = false;
+		DetectionHarnessPlayMode.RunTacticalCommandContract = false;
+		DetectionHarnessPlayMode.RunGameCommandSource = false;
+		DetectionHarnessPlayMode.RunGameCommandInput = false;
+		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 
 		if (EditorApplication.isPlaying)
 		{

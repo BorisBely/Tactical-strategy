@@ -299,6 +299,12 @@ public sealed class WeaponRuntimeState
 		return ProductAttachmentFloat(static a => a.EffectiveRangeModifier);
 	}
 
+	/// <summary>Raw optic vision meters (0 / 150 = no bonus). Not EffectiveRangeModifier.</summary>
+	public float GetOpticScopeVisionRangeMeters()
+	{
+		return UnitVisionProfile.ReadRawScopeRange(m_EquippedAttachments);
+	}
+
 	public float GetAttachmentDistanceDispersionProduct(float _distanceMeters)
 	{
 		return ProductAttachmentFloat(a => a.GetDistanceDispersionMultiplier(_distanceMeters));
@@ -696,7 +702,9 @@ public sealed class EquippedWeaponTransientState
 {
 	#region Private Fields
 	[SerializeField, Range(0f, 1f)] private float m_AimProgress01;
-	[SerializeField, Min(0f)] private float m_RecoilPenalty;
+	[SerializeField] private Vector2 m_RecoilOffset;
+	[SerializeField] private float m_RecoilPatternValue;
+	[SerializeField, Min(0)] private int m_RecoilShotIndex;
 	[SerializeField, Min(0)] private int m_ConsecutiveBurstShotsFired;
 	[SerializeField] private float m_NextAllowedShotTime;
 	[SerializeField] private WeaponMalfunctionKind m_MalfunctionKind;
@@ -710,7 +718,9 @@ public sealed class EquippedWeaponTransientState
 	public const float FullAimProgress01 = 1f;
 	public float AimProgress01 => m_AimProgress01;
 	public bool IsFullyAimed => m_AimProgress01 >= FullAimProgress01;
-	public float RecoilPenalty => m_RecoilPenalty;
+	public Vector2 RecoilOffset => m_RecoilOffset;
+	public float RecoilPatternValue => m_RecoilPatternValue;
+	public int RecoilShotIndex => m_RecoilShotIndex;
 	public int ConsecutiveBurstShotsFired => m_ConsecutiveBurstShotsFired;
 	public float NextAllowedShotTime => m_NextAllowedShotTime;
 	public WeaponMalfunctionKind MalfunctionKind => m_MalfunctionKind;
@@ -725,7 +735,9 @@ public sealed class EquippedWeaponTransientState
 	public void Clear()
 	{
 		m_AimProgress01 = 0f;
-		m_RecoilPenalty = 0f;
+		m_RecoilOffset = Vector2.zero;
+		m_RecoilPatternValue = 0f;
+		m_RecoilShotIndex = 0;
 		m_ConsecutiveBurstShotsFired = 0;
 		m_NextAllowedShotTime = 0f;
 		ClearMalfunction();
@@ -770,9 +782,16 @@ public sealed class EquippedWeaponTransientState
 		m_AimProgress01 = Mathf.Clamp01(_value);
 	}
 
-	public void SetRecoilPenalty(float _value)
+	public void SetRecoilOffset(Vector2 _offset, float _patternValue, int _shotIndex)
 	{
-		m_RecoilPenalty = Mathf.Max(0f, _value);
+		m_RecoilOffset = _offset;
+		m_RecoilPatternValue = _patternValue;
+		m_RecoilShotIndex = Mathf.Max(0, _shotIndex);
+	}
+
+	public void SetRecoilOffset(Vector2 _offset)
+	{
+		m_RecoilOffset = _offset;
 	}
 
 	public int GetNextBurstShotIndex() => m_ConsecutiveBurstShotsFired + 1;

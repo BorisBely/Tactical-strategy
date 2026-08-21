@@ -322,6 +322,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("no_agent", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "no_agent");
 			return false;
 		}
 		if (!IsConscious())
@@ -329,6 +330,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("unconscious", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "unconscious");
 			return false;
 		}
 
@@ -340,6 +342,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("navmesh_sample_failed", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "SamplePosition");
 			return false;
 		}
 
@@ -348,6 +351,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_HasPendingRightClick = false;
 			m_PendingRightClickTime = -1f;
 			IssueNavOrderInternal(hit.position, _mode);
+			if (UnitActionLogSession.ShouldLogMove(this, hit.position, false))
+				LogActionMove("issue", _worldPosition, hit.position, _mode, true, null);
 			return true;
 		}
 
@@ -360,10 +365,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug($"deferred_walk currentMode={m_Mode}", hit.position);
 #endif
+			LogActionMove("defer", _worldPosition, hit.position, _mode, true, "waitDoubleClick");
 			return true;
 		}
 
 		IssueNavOrderInternal(hit.position, _mode);
+		if (UnitActionLogSession.ShouldLogMove(this, hit.position, false))
+			LogActionMove("issue", _worldPosition, hit.position, _mode, true, null);
 		return true;
 	}
 
@@ -374,6 +382,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("no_agent_continuous", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "no_agent");
 			return false;
 		}
 		if (!IsConscious())
@@ -381,6 +390,7 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("unconscious_continuous", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "unconscious");
 			return false;
 		}
 
@@ -392,10 +402,13 @@ public sealed class UnitClickToMove : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			LogNavDebug("navmesh_sample_failed_continuous", _worldPosition);
 #endif
+			LogActionMove("fail", _worldPosition, _worldPosition, _mode, false, "SamplePosition");
 			return false;
 		}
 
 		IssueNavOrderContinuousInternal(hit.position, _mode);
+		if (UnitActionLogSession.ShouldLogMove(this, hit.position, true))
+			LogActionMove("continuous", _worldPosition, hit.position, _mode, true, null);
 		return true;
 	}
 
@@ -616,6 +629,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 	public void HardStop()
 	{
+		bool hadMove = m_HasPendingNavOrder ||
+		               (m_Agent != null && m_Agent.enabled && m_Agent.isOnNavMesh && m_Agent.hasPath && !m_Agent.isStopped);
 		m_HasPendingNavOrder = false;
 		m_HasPendingRightClick = false;
 		m_PendingRightClickTime = -1f;
@@ -628,6 +643,8 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		m_ReadyHands?.TryRestoreReadyAfterRun(false);
+		if (hadMove)
+			LogActionMove("stop", transform.position, transform.position, m_Mode, true, null);
 	}
 
 	private void TryEarlyArrivalStop()
@@ -654,8 +671,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 		m_CachedRtsMember?.NotifyRouteDebugEarlyStop(m_Agent.remainingDistance);
 #endif
 
+		Vector3 reachedDest = m_Agent.destination;
+		float reachedRem = m_Agent.remainingDistance;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+		LogActionMove("reached", reachedDest, reachedDest, m_Mode, true, "earlyArrival rem=" + UnitActionLog.F2(reachedRem));
 	}
 
 	private void TickPendingSingleRightClick()
@@ -780,6 +800,28 @@ public sealed class UnitClickToMove : MonoBehaviour
 			m_ReadyHands?.TryRestoreReadyAfterRun(false);
 	}
 
+	private void LogActionMove(string _verb, Vector3 _dest, Vector3 _snapped, MoveTier _tier, bool _ok, string _fail)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+		string rem = UnitActionLog.AgentRemaining(m_Agent);
+		string payload =
+			_verb +
+			" dest=" + UnitActionLog.Vec(_dest) +
+			" snapped=" + UnitActionLog.Vec(_snapped) +
+			" tier=" + _tier +
+			" reason=Rts" +
+			" ok=" + (_ok ? "1" : "0") +
+			" remaining=" + rem +
+			" path=" + UnitActionLog.AgentPath(m_Agent) +
+			" source=ClickToMove";
+		if (!string.IsNullOrEmpty(_fail))
+			payload += " fail=" + _fail;
+		UnitActionLog.Write(this, UnitActionLog.Move, payload);
+		if (_verb == "issue" || _verb == "stop" || _verb == "reached" || !_ok)
+			UnitActionLog.Timeline(UnitActionLog.Move, "actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 	private void LogNavDebug(string _reason, Vector3 _destination)
 	{
@@ -795,6 +837,11 @@ public sealed class UnitClickToMove : MonoBehaviour
 	private void TryRightClick()
 	{
 		if (Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame)
+			return;
+
+		if (TacticalDebugOrderSession.IsPicking ||
+		    TacticalDebugOrderSession.IsCommandPointPending ||
+		    TacticalDebugOrderSession.DidConsumeRightClickThisFrame)
 			return;
 
 		if (m_BlockClicksOverUi && UiPointerUtility.IsPointerOverUi())
@@ -922,10 +969,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 			return false;
 		if (m_Agent.pathPending)
 			return true;
+		if (m_Agent.pathStatus == NavMeshPathStatus.PathPartial)
+			return true;
 		if (!m_Agent.hasPath)
 			return false;
 		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
-			return false;
+			return true;
 		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 
@@ -937,10 +986,12 @@ public sealed class UnitClickToMove : MonoBehaviour
 
 		if (m_Agent.pathPending)
 			return true;
+		if (m_Agent.pathStatus == NavMeshPathStatus.PathPartial)
+			return true;
 		if (!m_Agent.hasPath)
 			return false;
 		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
-			return false;
+			return true;
 		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 

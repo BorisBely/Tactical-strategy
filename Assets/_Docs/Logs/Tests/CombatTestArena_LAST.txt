@@ -1,0 +1,13 @@
+﻿CombatTestArena wire spawner 2026-08-21 13:43:25
+UnitSceneSpawner.m_SpawnOnStart = false
+MissionPrepSquadSpawner.m_SpawnOnStart = false
+ArenaSpawner prefab=Unit playerUnique=5 playerFill=5 enemyUnique=3 enemyFill=12 grenades=5 helmets=4 neutrals=1
+PASS ArenaSpawnerPrefab | Unit prefab
+PASS PlayerUniqueKits | count=5
+PASS PlayerFillKits | count=5
+PASS EnemyUniqueKits | count=3
+PASS EnemyFillKits | count=12
+PASS ArenaGrenades | count=5
+PASS PlayerHelmets | count=4
+PASS ArenaLoadoutBake | baker
+PASS CivilianTemplate | count=1

@@ -1,0 +1,50 @@
+﻿VISION FREEZE / AI HANDOFF
+==========================
+stamp=2026-08-19 22:52:39
+Vision = perception
+Vision ≠ orders
+Vision ≠ search
+Vision ≠ tactics
+AI reads PerceivedContact via IPerceivedContactRegistry
+---
+FROZEN DETECTION
+  FOV half     = 60°
+  FOV edge     = 0,15
+  Acquire      = 0,25
+  AcquireTime  = 0,35 s
+FROZEN MEMORY
+  RecentlyLost = 5 s
+  Horizon      = 30 s
+  Shape        = 1,5
+  Stale        = 0,25
+FROZEN IDENTITY
+  IdentifyTime = 4 s
+  Commit       = 0,50
+FROZEN THREAT
+  High         <= 25 m
+  Medium       <= 80 m
+  Low          >  80 m
+---
+PASS Freeze_FovHalf | math=60
+PASS Freeze_FovEdge | math=0,15
+PASS Freeze_Acquire | math=0,25
+PASS Freeze_AcquireTime | math=0,35
+PASS Freeze_RecentlyLost | math=5
+PASS Freeze_Horizon | math=30
+PASS Freeze_Shape | math=1,5
+PASS Freeze_Stale | math=0,25
+PASS Freeze_IdentifyTime | math=4
+PASS Freeze_Commit | math=0,50
+PASS Freeze_ThreatHigh | math=25
+PASS Freeze_ThreatMedium | math=80
+PASS Companion_LoseThreshold | math=0,20
+PASS Companion_LossTime | math=2,50
+PASS Companion_DistanceNear | math=20
+PASS Companion_DistanceFar | math=500
+PASS Companion_DistanceFarFactor | math=0,08
+PASS Contract_IdentityIsAffiliationClass | Unknown/Friendly/Neutral/Hostile only
+PASS Contract_UnknownIsNotFriendly | Unknown ≠ Friendly
+PASS Contract_HostileFarIsLow | 100 m Hostile → Low
+PASS Contract_FriendlyThreatNone | Friendly → None
+---
+RESULT=PASS pass=21 fail=0

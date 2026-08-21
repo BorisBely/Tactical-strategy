@@ -7,19 +7,40 @@ using UnityEngine;
 /// </summary>
 public static class AIPerceptionFrameBuilder
 {
+	#region Public Methods
+	/// <summary>
+	/// Allocates new arrays. Tests and one-shot callers use this so consecutive builds do not alias.
+	/// </summary>
 	public static AIPerceptionFrame Build(IPerceivedContactRegistry _registry)
 	{
+		var scratch = new AIPerceptionFrameScratch();
+		return Build(_registry, scratch, true);
+	}
+
+	/// <summary>
+	/// Fills <paramref name="_scratch"/> and returns a frame wrapping those lists. No per-tick arrays.
+	/// Caller must not keep the previous frame after the next <see cref="Build(IPerceivedContactRegistry, AIPerceptionFrameScratch)"/>.
+	/// </summary>
+	public static AIPerceptionFrame Build(IPerceivedContactRegistry _registry, AIPerceptionFrameScratch _scratch)
+	{
+		return Build(_registry, _scratch, false);
+	}
+	#endregion
+
+	#region Private Methods
+	private static AIPerceptionFrame Build(
+		IPerceivedContactRegistry _registry,
+		AIPerceptionFrameScratch _scratch,
+		bool _copyToArrays)
+	{
+		if (_scratch == null)
+			return AIPerceptionFrame.Empty;
+
+		_scratch.Clear();
 		if (_registry == null || _registry.Contacts == null || _registry.Contacts.Count == 0)
 			return AIPerceptionFrame.Empty;
 
-		var all = new List<AIContactKnowledge>(_registry.Contacts.Count);
-		var visible = new List<AIContactKnowledge>();
-		var remembered = new List<AIContactKnowledge>();
-		var stale = new List<AIContactKnowledge>();
-		var hostile = new List<AIContactKnowledge>();
-		var unknown = new List<AIContactKnowledge>();
 		ThreatLevel strongest = ThreatLevel.None;
-
 		foreach (KeyValuePair<Transform, PerceivedContact> pair in _registry.Contacts)
 		{
 			PerceivedContact contact = pair.Value;
@@ -27,31 +48,44 @@ public static class AIPerceptionFrameBuilder
 				continue;
 
 			AIContactKnowledge knowledge = AIContactKnowledge.From(contact);
-			all.Add(knowledge);
+			_scratch.All.Add(knowledge);
 
 			if (knowledge.VisibleNow)
-				visible.Add(knowledge);
+				_scratch.Visible.Add(knowledge);
 			else if (knowledge.HasUsefulMemory)
-				remembered.Add(knowledge);
+				_scratch.Remembered.Add(knowledge);
 
 			if (knowledge.MemoryStale)
-				stale.Add(knowledge);
+				_scratch.Stale.Add(knowledge);
 			if (knowledge.Hostile)
-				hostile.Add(knowledge);
+				_scratch.Hostile.Add(knowledge);
 			if (knowledge.IdentityUnknown)
-				unknown.Add(knowledge);
+				_scratch.Unknown.Add(knowledge);
 
 			if ((int)knowledge.Threat > (int)strongest)
 				strongest = knowledge.Threat;
 		}
 
+		if (_copyToArrays)
+		{
+			return new AIPerceptionFrame(
+				_scratch.All.ToArray(),
+				_scratch.Visible.ToArray(),
+				_scratch.Remembered.ToArray(),
+				_scratch.Stale.ToArray(),
+				_scratch.Hostile.ToArray(),
+				_scratch.Unknown.ToArray(),
+				strongest);
+		}
+
 		return new AIPerceptionFrame(
-			all.ToArray(),
-			visible.ToArray(),
-			remembered.ToArray(),
-			stale.ToArray(),
-			hostile.ToArray(),
-			unknown.ToArray(),
+			_scratch.All,
+			_scratch.Visible,
+			_scratch.Remembered,
+			_scratch.Stale,
+			_scratch.Hostile,
+			_scratch.Unknown,
 			strongest);
 	}
+	#endregion
 }

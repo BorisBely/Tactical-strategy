@@ -1,0 +1,68 @@
+﻿STAGE 3 — SEARCH NAVIGATION EXECUTION
+=====================================
+stamp=2026-08-20 12:06:17
+Search walks Walk to snapshotted SearchPosition. Stop at 15 m is not Found.
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Harness_Observer | observer missing
+PASS NavDriver_Present | UnitNavLocomotionDriver missing
+PASS EngagementNav_Enabled | driver disabled
+---
+[T1] Defense + lost useful Hostile → Search Walk toward snapshotted LastKnown
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T1_Search | Search
+PASS T1_Hold | None/Hold
+PASS T1_Radius | 15,0
+PASS T1_StartOutsideRadius | 22,00
+PASS T1_NavIssuedOrIntent | issued=True intent=True reason=Search
+PASS T1_Walked | start=22,00 now=21,63 intent=True
+PASS T1_SearchPositionFrozen | (0.00, 0.08, 22.00)
+PASS T1_StillSearch | Search
+---
+[T2] planar dist ≤ 15 m → HardStop, stay Search, keep observing
+PASS T2_ReachedArea | reached=True dist=14,98
+PASS T2_StillSearch | Search
+PASS T2_Hold | Hold
+PASS T2_Stopped | intent=False
+PASS T2_SearchPositionFrozen | (0.00, 0.08, 22.00)
+---
+[T3] Hostile VisibleNow on the way → ReturnState + Engage (CombatIntent)
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T3_ReturnState | Defense
+PASS T3_Engage | Engage
+PASS T3_IntentEngage | Engage
+PASS T3_NavStopped | intent=False
+---
+[T4] Hostile VisibleNow in the 15 m area → ReturnState + Engage
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T4_ReturnState | Defense
+PASS T4_Engage | Engage
+PASS T4_IntentEngage | Engage
+---
+[T5] memory stale → Resume Defense, LastKnown not rewritten by Search
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T5_ResumeDefense | Defense
+PASS T5_NavStopped | intent=False
+PASS T5_LastKnownHeld | (0.00, 0.08, 22.00)
+PASS T5_SearchDidNotChase | (0.00, 0.08, 22.00)
+---
+[T6] LastSeenConfidence = 0 → Resume, Search did not write memory
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T6_ResumeDefense | Defense
+PASS T6_ConfStaysZero | 0,000
+PASS T6_LastKnownHeld | (0.00, 0.08, 22.00)
+PASS T6_NavStopped | intent=False
+---
+[T7] external Retreat cancels Search nav; Retreat still does not walk
+PASS Prepare_Search | Search dist=22,0 pos=(0.00, 0.08, 22.00)
+PASS T7_RetreatApplied | Search→Retreat rejected
+PASS T7_StateRetreat | Retreat
+PASS T7_NavStopped | intent=False
+PASS T7_ActionNone | None
+---
+[T8] Defense without useful memory does not start Search
+PASS T8_Empty_Defense | Defense
+PASS T8_Stale_NoSearch | Defense conf=0,10
+---
+RESULT=PASS pass=45 fail=0

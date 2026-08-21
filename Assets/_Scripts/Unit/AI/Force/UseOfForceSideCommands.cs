@@ -11,16 +11,18 @@ public static class UseOfForceSideCommands
 	private static UseOfForceLevel s_LastEnemy = UseOfForceLevel.SelfDefense;
 	private static bool s_HasLastPlayer;
 	private static bool s_HasLastEnemy;
+	private static readonly System.Collections.Generic.List<UnitTeam> s_Teams =
+		new System.Collections.Generic.List<UnitTeam>(64);
 	#endregion
 
 	#region Public Methods
 	public static int Count(UnitTeamId _side)
 	{
 		int count = 0;
-		UnitTeam[] teams = FindTeams();
-		for (int i = 0; i < teams.Length; i++)
+		CopyTeams();
+		for (int i = 0; i < s_Teams.Count; i++)
 		{
-			UnitTeam team = teams[i];
+			UnitTeam team = s_Teams[i];
 			if (team != null && team.Team == _side)
 				count++;
 		}
@@ -46,10 +48,10 @@ public static class UseOfForceSideCommands
 	{
 		Remember(_side, _level);
 		int count = 0;
-		UnitTeam[] teams = FindTeams();
-		for (int i = 0; i < teams.Length; i++)
+		CopyTeams();
+		for (int i = 0; i < s_Teams.Count; i++)
 		{
-			UnitTeam team = teams[i];
+			UnitTeam team = s_Teams[i];
 			if (team == null || team.Team != _side)
 				continue;
 			if (!TryGetOrAddController(team.gameObject, out UnitAIController controller))
@@ -90,17 +92,17 @@ public static class UseOfForceSideCommands
 		}
 	}
 
-	private static UnitTeam[] FindTeams()
+	private static void CopyTeams()
 	{
-		return Object.FindObjectsByType<UnitTeam>(FindObjectsInactive.Exclude);
+		UnitTeam.CopyActive(s_Teams);
 	}
 
 	private static UnitAIController FindFirst(UnitTeamId _side)
 	{
-		UnitTeam[] teams = FindTeams();
-		for (int i = 0; i < teams.Length; i++)
+		CopyTeams();
+		for (int i = 0; i < s_Teams.Count; i++)
 		{
-			UnitTeam team = teams[i];
+			UnitTeam team = s_Teams[i];
 			if (team == null || team.Team != _side)
 				continue;
 			if (team.TryGetComponent(out UnitAIController controller) && controller != null)

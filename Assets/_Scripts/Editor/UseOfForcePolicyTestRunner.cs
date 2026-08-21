@@ -20,6 +20,13 @@ public static class UseOfForcePolicyTestRunner
 		DetectionHarnessPlayMode.RunAITacticalState = false;
 		DetectionHarnessPlayMode.RunGStage = string.Empty;
 		DetectionHarnessPlayMode.RunUseOfForcePolicy = true;
+		DetectionHarnessPlayMode.RunCombatEngageExecution = false;
+		DetectionHarnessPlayMode.RunSearchExecution = false;
+		DetectionHarnessPlayMode.RunTacticalNavigationExecution = false;
+		DetectionHarnessPlayMode.RunTacticalCommandContract = false;
+		DetectionHarnessPlayMode.RunGameCommandSource = false;
+		DetectionHarnessPlayMode.RunGameCommandInput = false;
+		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 
 		if (EditorApplication.isPlaying)
 		{

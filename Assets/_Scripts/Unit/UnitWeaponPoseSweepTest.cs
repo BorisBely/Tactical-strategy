@@ -767,7 +767,7 @@ public sealed class UnitWeaponPoseSweepTest : MonoBehaviour
 	{
 		m_BurstShotsFired = 0;
 		m_HasPendingShotCapture = false;
-		m_LastFramePenalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
+		m_LastFramePenalty = m_RecoilController != null ? m_RecoilController.RecoilOffsetMagnitude : 0f;
 		m_FireController.ShotFired += HandleSweepShotFired;
 		try
 		{
@@ -860,7 +860,7 @@ public sealed class UnitWeaponPoseSweepTest : MonoBehaviour
 			: WeaponFireMode.SemiAuto;
 		m_ShotLogBurstIndex = m_BurstShotsFired;
 		m_ShotLogRecoilAdded = m_RecoilController != null
-			? m_RecoilController.ComputeRecoilAddedPerShot(_ammo)
+			? m_RecoilController.ComputeVisualImpulsePerShot(_ammo)
 			: 0f;
 		m_ShotLogPenaltyBefore = m_LastFramePenalty;
 		m_ShotLogKickScale = ResolveVisualKickScale();
@@ -916,8 +916,8 @@ public sealed class UnitWeaponPoseSweepTest : MonoBehaviour
 		WeaponVisualRecoilState kick = m_WeaponRecoil != null ? m_WeaponRecoil.CurrentState : default;
 		bool overlayApplied = m_RecoilApplicator != null && m_RecoilApplicator.AppliedThisFrame;
 		bool canApply = m_WeaponRecoil != null && m_WeaponRecoil.ShouldApplyOverlayThisFrame();
-		float penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
-		float maxPenalty = m_RecoilController != null ? m_RecoilController.MaxRecoilPenalty : 0f;
+		float penalty = m_RecoilController != null ? m_RecoilController.RecoilOffsetMagnitude : 0f;
+		float maxPenalty = m_RecoilController != null ? m_RecoilController.MaxRecoilOffsetDegrees : 0f;
 		float tau = ResolveVisualDecayTau();
 		float impulse = m_WeaponRecoil != null ? m_WeaponRecoil.ShotImpulse : 0f;
 
@@ -1076,7 +1076,7 @@ public sealed class UnitWeaponPoseSweepTest : MonoBehaviour
 
 	private void SnapRecoilForNextCell()
 	{
-		m_RecoilController?.ResetRecoilPenalty();
+		m_RecoilController?.ResetRecoilOffset();
 		m_WeaponRecoil?.ResetVisualKick();
 	}
 
@@ -1100,7 +1100,7 @@ public sealed class UnitWeaponPoseSweepTest : MonoBehaviour
 			VisualYawErr = visYaw,
 			Punch = kick.punchPitch,
 			Climb = kick.climbPitch,
-			Penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f,
+			Penalty = m_RecoilController != null ? m_RecoilController.RecoilOffsetMagnitude : 0f,
 			WalkComp = m_Aiming != null ? m_Aiming.WalkPitchCompensationDegrees : 0f,
 			AimQuality = m_Aiming != null ? m_Aiming.AimQuality01 : 0f,
 			KickActive = kick.isActive

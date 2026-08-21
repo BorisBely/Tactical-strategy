@@ -36,12 +36,13 @@ public static class WeaponAutoModeSelectionUtility
 			{
 				WeaponAimMode aimMode = aimCandidates[aimIndex];
 				WeaponShotAccuracyContext accuracy = EvaluateCandidate(_input, fireMode, aimMode);
+				float groupDiameter = EvaluateGroupDiameterMeters(_input, fireMode, accuracy);
 				WeaponAutoModeSelectionResult result = new WeaponAutoModeSelectionResult(
 					fireMode,
 					aimMode,
 					accuracy,
 					AcceptableSpreadDiameterMeters,
-					accuracy.SpreadDiameterMeters <= AcceptableSpreadDiameterMeters);
+					groupDiameter <= AcceptableSpreadDiameterMeters);
 
 				if (result.IsAcceptable)
 					return result;
@@ -70,6 +71,23 @@ public static class WeaponAutoModeSelectionUtility
 			fullAimTimeSeconds);
 		accuracyInput.BurstShotIndex = GetRepresentativeShotIndex(_fireMode);
 		return WeaponShotAccuracyEvaluator.Evaluate(accuracyInput);
+	}
+
+	private static float EvaluateGroupDiameterMeters(
+		WeaponAutoModeSelectionInput _input,
+		WeaponFireMode _fireMode,
+		WeaponShotAccuracyContext _accuracy)
+	{
+		WeaponAttachmentDefinition[] attachments = _input.AccuracyInput.WeaponState != null
+			? _input.AccuracyInput.WeaponState.EquippedAttachments
+			: null;
+		float predictedOffset = WeaponRecoilMath.PredictOffsetMagnitudeBeforeShot(
+			_input.AccuracyInput.WeaponDefinition,
+			attachments,
+			_fireMode,
+			GetRepresentativeShotIndex(_fireMode));
+		float groupHalfAngle = _accuracy.HalfAngleDegrees + predictedOffset;
+		return WeaponRecoilMath.SpreadDiameterMeters(_input.TargetDistanceMeters, groupHalfAngle);
 	}
 
 	private static float EstimateFullAimTimeSeconds(WeaponShotAccuracyInput _accuracyInput, float _targetDistanceMeters)
@@ -102,12 +120,13 @@ public static class WeaponAutoModeSelectionUtility
 			_input.TargetDistanceMeters,
 			_input.AvailableFireModes);
 		WeaponShotAccuracyContext accuracy = EvaluateCandidate(_input, fireMode, aimMode);
+		float groupDiameter = EvaluateGroupDiameterMeters(_input, fireMode, accuracy);
 		return new WeaponAutoModeSelectionResult(
 			fireMode,
 			aimMode,
 			accuracy,
 			AcceptableSpreadDiameterMeters,
-			accuracy.SpreadDiameterMeters <= AcceptableSpreadDiameterMeters);
+			groupDiameter <= AcceptableSpreadDiameterMeters);
 	}
 
 	private static WeaponFireMode[] BuildFireCandidates(WeaponFireMode _selectedFireMode)

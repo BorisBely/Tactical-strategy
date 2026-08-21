@@ -36,9 +36,9 @@ public static class VisionFreezeBaseline
 	#region Companion freeze (Block A, not AI knobs)
 	public const float LoseThreshold = 0.20f;
 	public const float LossTimeSeconds = 2.5f;
-	public const float DistanceNearMeters = 20f;
-	public const float DistanceFarMeters = 500f;
-	public const float DistanceFarFactor = 0.08f;
+	public const float DistanceCurvePlateauT = 0.10f;
+	public const float DistanceCurveEdgeFactor = 0.08f;
+	public const float DistanceDefaultRangeMeters = 150f;
 	#endregion
 
 	public struct ReportResult
@@ -146,15 +146,15 @@ public static class VisionFreezeBaseline
 		Check("Companion_LossTime",
 			Near(DetectionQualityMath.DefaultLossTime, LossTimeSeconds),
 			$"math={DetectionQualityMath.DefaultLossTime:0.00}");
-		Check("Companion_DistanceNear",
-			Near(DetectionQualityMath.DefaultNearMeters, DistanceNearMeters),
-			$"math={DetectionQualityMath.DefaultNearMeters:0}");
-		Check("Companion_DistanceFar",
-			Near(DetectionQualityMath.DefaultFarMeters, DistanceFarMeters),
+		Check("Companion_DistancePlateau",
+			Near(DetectionQualityMath.EvaluateDistanceCurve(DistanceCurvePlateauT), 1f),
+			$"math={DetectionQualityMath.EvaluateDistanceCurve(DistanceCurvePlateauT):0.00}");
+		Check("Companion_DistanceEdge",
+			Near(DetectionQualityMath.EvaluateDistanceCurve(1f), DistanceCurveEdgeFactor),
+			$"math={DetectionQualityMath.EvaluateDistanceCurve(1f):0.00}");
+		Check("Companion_DistanceDefaultRange",
+			Near(DetectionQualityMath.DefaultFarMeters, DistanceDefaultRangeMeters),
 			$"math={DetectionQualityMath.DefaultFarMeters:0}");
-		Check("Companion_DistanceFarFactor",
-			Near(DetectionQualityMath.DefaultFarFactor, DistanceFarFactor),
-			$"math={DetectionQualityMath.DefaultFarFactor:0.00}");
 
 		Check("Contract_IdentityIsAffiliationClass",
 			System.Enum.GetNames(typeof(PerceivedIdentity)).Length == 4,

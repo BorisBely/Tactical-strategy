@@ -45,6 +45,8 @@ namespace AI.Tests
 				Assert.AreEqual(UnitAIState.Attack, controller.CurrentState);
 				Assert.IsTrue(controller.TryApplyCommand(UnitAICommand.Search(SearchCtx(Vector3.one))));
 				Assert.AreEqual(UnitAIState.Search, controller.CurrentState);
+				Assert.IsTrue(controller.TryApplyCommand(UnitAICommand.Retreat(UnitAIStateContext.ForRetreat(Vector3.right))));
+				Assert.AreEqual(UnitAIState.Retreat, controller.CurrentState);
 			}
 			finally
 			{

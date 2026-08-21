@@ -31,6 +31,30 @@ public sealed class UnitSpawnLoadout
 	public AmmoDefinition AmmoForMagazines => m_AmmoForMagazines;
 	public int RoundsPerMagazine => m_RoundsPerMagazine;
 	public bool LoadMagazineIntoWeapon => m_LoadMagazineIntoWeapon;
+
+	public UnitSpawnLoadout()
+	{
+	}
+
+	public UnitSpawnLoadout(
+		ItemDefinition _mainHandWeapon,
+		ItemDefinition _headItem,
+		ItemDefinition _backItem,
+		ItemDefinition[] _bagItems,
+		ItemDefinition[] _grenadeItems,
+		AmmoDefinition _ammoForMagazines,
+		int _roundsPerMagazine = -1,
+		bool _loadMagazineIntoWeapon = true)
+	{
+		m_MainHandWeapon = _mainHandWeapon;
+		m_HeadItem = _headItem;
+		m_BackItem = _backItem;
+		m_BagItems = _bagItems ?? Array.Empty<ItemDefinition>();
+		m_GrenadeItems = _grenadeItems ?? Array.Empty<ItemDefinition>();
+		m_AmmoForMagazines = _ammoForMagazines;
+		m_RoundsPerMagazine = _roundsPerMagazine;
+		m_LoadMagazineIntoWeapon = _loadMagazineIntoWeapon;
+	}
 }
 
 /// <summary>
@@ -40,6 +64,8 @@ public sealed class UnitSpawnLoadout
 public sealed class UnitSpawnConfig
 {
 	[SerializeField] private UnitTeamId m_Team = UnitTeamId.Player;
+	[SerializeField] private VisualAffiliation m_VisualAffiliation = VisualAffiliation.Unknown;
+	[SerializeField] private bool m_HasExplicitVisualAffiliation;
 	[SerializeField] private UnitSpawnLoadout m_Loadout = new UnitSpawnLoadout();
 	[SerializeField] private bool m_StartReady;
 	[SerializeField] private string m_DisplayName;
@@ -53,12 +79,34 @@ public sealed class UnitSpawnConfig
 	[SerializeField] private UnitBodyMeshArchetype m_BodyMeshArchetype = UnitBodyMeshArchetype.Soldier;
 
 	public UnitTeamId Team => m_Team;
+	public VisualAffiliation VisualAffiliation => m_VisualAffiliation;
+	public bool HasExplicitVisualAffiliation => m_HasExplicitVisualAffiliation;
+
+	public VisualAffiliation ResolvedVisualAffiliation
+	{
+		get
+		{
+			if (m_HasExplicitVisualAffiliation)
+				return m_VisualAffiliation;
+			if (m_BodyMeshArchetype == UnitBodyMeshArchetype.Civilian)
+				return VisualAffiliation.Civilian;
+			return VisualAffiliationMapping.DefaultLookForTeam(m_Team);
+		}
+	}
+
 	public UnitSpawnLoadout Loadout => m_Loadout;
 
 	public void SetTeam(UnitTeamId _team)
 	{
 		m_Team = _team;
 	}
+
+	public void SetVisualAffiliation(VisualAffiliation _affiliation)
+	{
+		m_VisualAffiliation = _affiliation;
+		m_HasExplicitVisualAffiliation = true;
+	}
+
 	public bool StartReady => m_StartReady;
 	public string DisplayName => m_DisplayName;
 	public int ArmorVisualIndex => m_ArmorVisualIndex;
@@ -78,7 +126,8 @@ public sealed class UnitSpawnConfig
 		int _armorVisualIndex = MissionPrepUnitArmorVisualController.LightArmorIndex,
 		int _camouflageVisualIndex = 0,
 		float _femaleSpawnChance = UnitCharacterAppearance.DefaultFemaleSpawnChance,
-		UnitBodyMeshArchetype _bodyMeshArchetype = UnitBodyMeshArchetype.Soldier)
+		UnitBodyMeshArchetype _bodyMeshArchetype = UnitBodyMeshArchetype.Soldier,
+		VisualAffiliation? _visualAffiliation = null)
 	{
 		m_Team = _team;
 		m_Loadout = _loadout ?? new UnitSpawnLoadout();
@@ -88,6 +137,11 @@ public sealed class UnitSpawnConfig
 		m_CamouflageVisualIndex = _camouflageVisualIndex < 0 ? _camouflageVisualIndex : UnitCamouflagePatternUtility.ClampIndex(_camouflageVisualIndex);
 		m_FemaleSpawnChance = Mathf.Clamp01(_femaleSpawnChance);
 		m_BodyMeshArchetype = _bodyMeshArchetype;
+		if (_visualAffiliation.HasValue)
+		{
+			m_VisualAffiliation = _visualAffiliation.Value;
+			m_HasExplicitVisualAffiliation = true;
+		}
 	}
 }
 
@@ -99,6 +153,8 @@ public sealed class UnitSceneSpawnEntry
 {
 	[SerializeField] private Transform m_SpawnPoint;
 	[SerializeField] private UnitTeamId m_Team = UnitTeamId.Player;
+	[SerializeField] private VisualAffiliation m_VisualAffiliation = VisualAffiliation.Unknown;
+	[SerializeField] private bool m_HasExplicitVisualAffiliation;
 	[SerializeField] private UnitSpawnLoadout m_Loadout = new UnitSpawnLoadout();
 	[SerializeField] private bool m_StartReady;
 	[SerializeField] private string m_DisplayName;
@@ -112,10 +168,19 @@ public sealed class UnitSceneSpawnEntry
 	[SerializeField, Min(1)] private int m_SpawnCount = 1;
 
 	public Transform SpawnPoint => m_SpawnPoint;
+	public string DisplayName => m_DisplayName;
 	public int SpawnCount => m_SpawnCount;
 
 	public UnitSpawnConfig ToConfig()
 	{
-		return new UnitSpawnConfig(m_Team, m_Loadout, m_StartReady, m_DisplayName, m_ArmorVisualIndex, m_CamouflageVisualIndex, _bodyMeshArchetype: m_BodyMeshArchetype);
+		return new UnitSpawnConfig(
+			m_Team,
+			m_Loadout,
+			m_StartReady,
+			m_DisplayName,
+			m_ArmorVisualIndex,
+			m_CamouflageVisualIndex,
+			_bodyMeshArchetype: m_BodyMeshArchetype,
+			_visualAffiliation: m_HasExplicitVisualAffiliation ? m_VisualAffiliation : (VisualAffiliation?)null);
 	}
 }

@@ -19,6 +19,12 @@ public sealed class VisionScanStats
 	public int LastScanFovPassCount;
 	public int LastScanLosCheckCount;
 	public int LastScanHitZoneCheckCount;
+	public int ScopeDetailedQueryCount;
+	public int LastScanScopeDetailedQueryCount;
+	public int SkippedDuplicateCount;
+	public int LastScanSkippedDuplicateCount;
+	public int QualityEvalCount;
+	public int LastScanQualityEvalCount;
 
 	public int MaxLosCheckCount;
 	public int MaxHitZoneCheckCount;
@@ -53,6 +59,9 @@ public sealed class VisionScanStats
 		LastScanFovPassCount = 0;
 		LastScanLosCheckCount = 0;
 		LastScanHitZoneCheckCount = 0;
+		LastScanScopeDetailedQueryCount = 0;
+		LastScanSkippedDuplicateCount = 0;
+		LastScanQualityEvalCount = 0;
 	}
 
 	public void EndScan()
@@ -64,6 +73,9 @@ public sealed class VisionScanStats
 		FovPassCount += LastScanFovPassCount;
 		LosCheckCount += LastScanLosCheckCount;
 		HitZoneCheckCount += LastScanHitZoneCheckCount;
+		ScopeDetailedQueryCount += LastScanScopeDetailedQueryCount;
+		SkippedDuplicateCount += LastScanSkippedDuplicateCount;
+		QualityEvalCount += LastScanQualityEvalCount;
 		FrameLosCheckCount += LastScanLosCheckCount;
 		if (LastScanLosCheckCount > MaxLosCheckCount)
 			MaxLosCheckCount = LastScanLosCheckCount;
@@ -96,6 +108,21 @@ public sealed class VisionScanStats
 	public void AddHitZoneCheck()
 	{
 		LastScanHitZoneCheckCount++;
+	}
+
+	public void AddScopeDetailedQuery()
+	{
+		LastScanScopeDetailedQueryCount++;
+	}
+
+	public void AddSkippedDuplicate()
+	{
+		LastScanSkippedDuplicateCount++;
+	}
+
+	public void AddQualityEval()
+	{
+		LastScanQualityEvalCount++;
 	}
 
 	public void AddCandidateDistance(float _distanceMeters)
@@ -140,6 +167,12 @@ public sealed class VisionScanStats
 		LastScanFovPassCount = 0;
 		LastScanLosCheckCount = 0;
 		LastScanHitZoneCheckCount = 0;
+		ScopeDetailedQueryCount = 0;
+		LastScanScopeDetailedQueryCount = 0;
+		SkippedDuplicateCount = 0;
+		LastScanSkippedDuplicateCount = 0;
+		QualityEvalCount = 0;
+		LastScanQualityEvalCount = 0;
 		MaxLosCheckCount = 0;
 		MaxHitZoneCheckCount = 0;
 		MaxCandidateCount = 0;

@@ -52,6 +52,14 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
 		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer &&
+		!DetectionHarnessPlayMode.RunVisionEnvelope &&
 		!DetectionHarnessPlayMode.IsGRegressionPlay;
 	#endregion
 
@@ -281,10 +289,10 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		EndContract("N1 FOV");
 
 		BeginContract("N2");
-		yield return SampleCustom("N2", 510f, 0f, 1f, 0f, _processor, _vision, _observer, _target, c_NegativeTimeoutSeconds,
+		yield return SampleCustom("N2", 151f, 0f, 1f, 0f, _processor, _vision, _observer, _target, c_NegativeTimeoutSeconds,
 			sample =>
 			{
-				AppendLine($"N2 RANGE>500 dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation} det={sample.Detected} range={F(_vision.VisionRange, 0)}");
+				AppendLine($"N2 RANGE>150 dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation} det={sample.Detected} range={F(_vision.VisionRange, 0)}");
 				Check("N2_NoObservation", !sample.HasObservation,
 					sample.HasObservation
 						? $"perception present range={F(_vision.VisionRange, 0)} obsDist={F(sample.Distance, 1)}"
@@ -368,34 +376,34 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		EndContract(null, false);
 		m_Summary.AppendLine($"FOV 59/60/61 {(ContractPassed("FOV59") && ContractPassed("FOV60") && ContractPassed("FOV61") ? "PASS" : "FAIL")}");
 
-		BeginContract("Range499");
-		yield return SampleCustom("B_R499", 499f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
+		BeginContract("Range149");
+		yield return SampleCustom("B_R149", 149f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
 			sample =>
 			{
-				Check("Boundary_Range499_Observation", sample.HasObservation, $"dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation}");
+				Check("Boundary_Range149_Observation", sample.HasObservation, $"dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation}");
 			});
 		EndContract(null, false);
 
-		BeginContract("Range500");
-		yield return SampleCustom("B_R500", 500f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
+		BeginContract("Range150");
+		yield return SampleCustom("B_R150", 150f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
 			sample =>
 			{
-				Check("Boundary_Range500_Observation", sample.HasObservation, $"dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation}");
+				Check("Boundary_Range150_Observation", sample.HasObservation, $"dist={F(sample.WorldDistance, 1)} visible={sample.HasObservation}");
 			});
 		EndContract(null, false);
 
-		BeginContract("Range501");
-		yield return SampleCustom("B_R501", 501f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
+		BeginContract("Range151");
+		yield return SampleCustom("B_R151", 151f, 0f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
 			sample =>
 			{
-				Check("Boundary_Range501_NoObservation", !sample.HasObservation,
+				Check("Boundary_Range151_NoObservation", !sample.HasObservation,
 					sample.HasObservation
-						? $"perception beyond 500 range={F(_vision.VisionRange, 0)} dist={F(sample.WorldDistance, 1)}"
+						? $"perception beyond 150 range={F(_vision.VisionRange, 0)} dist={F(sample.WorldDistance, 1)}"
 						: "beyond VisionRange");
-				Check("Boundary_Range501_NoDetect", !sample.Detected, sample.Detected ? "Detected" : "Undetected");
+				Check("Boundary_Range151_NoDetect", !sample.Detected, sample.Detected ? "Detected" : "Undetected");
 			});
 		EndContract(null, false);
-		m_Summary.AppendLine($"Range 499/500/501 {(ContractPassed("Range499") && ContractPassed("Range500") && ContractPassed("Range501") ? "PASS" : "FAIL")}");
+		m_Summary.AppendLine($"Range 149/150/151 {(ContractPassed("Range149") && ContractPassed("Range150") && ContractPassed("Range151") ? "PASS" : "FAIL")}");
 
 		BeginContract("Exp0");
 		yield return SampleCustom("B_E0", 10f, 0f, 0f, 0f, _processor, _vision, _observer, _target, 2.5f,

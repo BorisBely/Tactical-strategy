@@ -1,0 +1,32 @@
+﻿DetectionG1.1 AutoSmoke 2026-08-19 10:21:51
+unity=6000.5.7f1 scene=SampleScene
+---
+[MATH]
+PASS Invariant_Distance | near.Qfactor=1,000 far=0,183
+PASS Invariant_FOV | center=1,000 edge=0,150
+PASS Invariant_Exposure | full=1,000 partial=0,300
+PASS Invariant_Movement | idle=0,003 run=0,004 movIdle=1,000
+PASS Invariant_HysteresisHold | midQ=0,275 held=0,550
+PASS Invariant_AcquireFasterThanLose | acq=0,286 loseDelta=0,040
+PASS Harness_ProcessorPresent | DetectionProcessor missing
+PASS Harness_PerceptionPresent | UnitPerception missing
+PASS Harness_TargetPresent | Target missing
+PASS Isolation_SelectorHasNoPerceivedContactFields | TargetSelector must not hold PerceivedContact
+[RUNTIME]
+  Distance: near.Q=1,000 far.Q=-1,000
+PASS Runtime_Distance | near=1,000 far=-1,000
+  FOV: center.Q=0,960 edge.Q=-1,000
+PASS Runtime_FOV | center=0,960 edge=-1,000
+  Exposure: full.Q=0,960 partial.Q=-1,000
+PASS Runtime_Exposure | full=0,960 partial=-1,000
+PASS Runtime_ContactCreated | missing contact
+  sample P=1,000 Obs=Observed Det=Detected
+PASS Runtime_ContactSurvives | contact deleted
+  SoftLose: before.P=1,000 after.P=0,918 Q=0,000
+PASS Runtime_SoftLose | before=1,000 after=0,918
+PASS Runtime_EmptySetsQ0 | Q=0,000
+PASS Runtime_LastObservationPreserved | LastObservation must not be wiped on empty frame
+PASS Runtime_ObservationStateRecentlyLostOrObserved | state=RecentlyLost
+PASS Isolation_ClearContactsDoesNotChangeSelectedTarget | before=null after=null
+---
+RESULT=PASS pass=20 fail=0

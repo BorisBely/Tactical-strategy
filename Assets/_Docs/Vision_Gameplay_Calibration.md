@@ -1,6 +1,6 @@
 # Зрение как игровой инструмент: спецификация калибровки
 
-**Статус: Block A CLOSED; Block B CLOSED; Block C CLOSED; Vision FROZEN; AI Perception Contract FROZEN**  
+**Статус: Block A CLOSED; Block B CLOSED; Block C CLOSED; Vision FROZEN; Identity World Evidence FROZEN; Combat Engage Execution FROZEN; AI Perception Contract FROZEN; Search Navigation FROZEN; Tactical Navigation FROZEN**  
 **Block A — Detection: CLOSED / VERIFIED** (2026-08-19). Формула Q **заморожена**.  
 **Block B — Memory: CLOSED / VERIFIED** (2026-08-19 22:03). B13 **5 / 30 / 1.5 / 0.25**.  
 **Block C — Identity: CLOSED / VERIFIED** (2026-08-19 22:37). C15 **4.0 / 0.50**. Threat High≤25 / Medium≤80.  
@@ -13,7 +13,12 @@
 **Приёмка B:** G1–G8 one Play **PASS 9/0** (22:03) → тот же файл, B13 5/30/1.5/0.25 не ретюнит Q.  
 **Калибровка A:** math — `Tools/Tests/Run Detection Calibration Math (no Play)`. Runtime A–H — `Tools/Tests/Run Detection Calibration Runtime (Play)`. Strict — `Tools/Tests/Run Detection Calibration Strict (Play)`. G-регрессия — `Tools/Tests/Run Detection G1–G8 (Play)`.  
 **Калибровка B:** math **PASS 14/0** (21:08). Runtime M1–M10 **PASS 105/0** (21:38). B13 locked 5/30/1.5/0.25. B15/B16: G1–G8 **PASS 9/0** (22:03).  
-**Калибровка C:** math **PASS 36/0** (22:38). Runtime C3–C14 **PASS 48/0** (22:37). C15/C16 **4.0 / 0.50**.  
+**Калибровка C:** math **PASS 36/0** (22:38). Runtime C3–C14 **PASS 49/0** (10:23, C13). C15/C16 **4.0 / 0.50**.  
+**Этап 1 Identity World Evidence FROZEN:** `Closed/Identity_World_Evidence.md`. Play **PASS 49/0** (10:23). Mapping **13/13**.  
+**Этап 2 Combat Engage Execution FROZEN:** `Closed/Combat_Engage_Execution.md`. Play **PASS 31/0** (10:56). EditMode **14/0** (11:25).  
+**Этап 3 Search Navigation Execution FROZEN:** `Closed/Search_Navigation_Execution.md`. Play **PASS 45/0** (12:06). EditMode **18/0**. Не ретюнит A/B/C.  
+**Этап 4 Tactical Navigation Execution FROZEN:** `Closed/Tactical_Navigation_Execution.md`. Play **PASS 36/0** (14:46). EditMode **31/0**.  
+**Дорожная карта FROZEN:** `Closed/Tactical_AI_Roadmap.md`. Следующее — **#6 Real game commands**.  
 **Vision Freeze:** `Tools/Tests/Verify Vision Freeze` → `VisionFreeze_LAST.txt`.  
 **AI-0:** `Tools/Tests/Run AI Perception Handoff (Play)` → `AIPerceptionHandoff_LAST.txt` **PASS 41/0** (23:10).  
 **AI-1:** `Tools/Tests/Run AI Tactical State (Play)` → `AITacticalState_LAST.txt` **PASS 71/0**.  
@@ -40,7 +45,7 @@ physical evidence → confidence → knowledge → decision
 
 Шкала A/B/C зафиксирована. Крутить коэффициенты во время AI нельзя: иначе снова нельзя отличить «плохо обнаружил» от «плохо понял / выбрал / решил стрелять / плохо ищет».
 
-**Текущая фаза:** зрение **заморожено**. AI Perception Contract **FROZEN**. AI-1 **FROZEN** (`AI_Tactical_State_Model.md`, Play PASS 71/0). AI-1A **FROZEN** (`AI_UseOfForce_Policy.md`, Play PASS 107/0). Дальше Navigation / Combat. Block D **не открыт**.
+**Текущая фаза:** зрение **заморожено**. Identity World Evidence **FROZEN**. Combat Engage Execution **FROZEN**. AI Perception Contract **FROZEN**. AI-1 **FROZEN**. AI-1A **FROZEN**. Search locomotion **FROZEN**. Attack/Retreat/Flee **FROZEN**. Следующее — **#6 Real game commands** (`Tactical_AI_Roadmap.md`). Block D разобран по номерам карты, не открывать пачкой.
 
 ---
 
@@ -165,6 +170,8 @@ C15 production defaults (не крутить без нового блока ка
 `PerceivedIdentity` сейчас affiliation-класс (Friendly/Neutral/Hostile/Unknown), не роль Soldier/Military. Relationship — отдельное поле, выводится из committed Identity. Hostile+far = Threat Low.
 
 Запрещено: читать `UnitTeam` как знание AI; мгновенно менять committed identity при смене cue; открывать Selector/Fire из этого блока.
+
+World look: `VisualIdentityEvidence` (Player/Enemy/Civilian) на цели. Наблюдатель маппит в Friendly/Hostile/Neutral. IdentifyTime / commit **не** менялись.
 
 ### Блок D — Выбор и действие (закрыт до конца фазы 1)
 
@@ -824,7 +831,7 @@ Detection → Observed → Identity evidence → IdentityConfidence → Perceive
 Detected + Identity=Unknown          валидно
 Unknown ≠ Friendly
 Relationship=Unknown, Threat=None    пока нет commit
-Evidence = ObservableAffiliation / IdentityAppearance, never UnitTeam
+Evidence = VisualAffiliation (world look) mapped by observer side, never target UnitTeam
 LOS loss holds IdentityConfidence    (Memory не трогает Identity)
 Cue conflict ≠ instant remap         reset + новое накопление
 Hostile + far → Threat Low           валидно
@@ -859,12 +866,15 @@ C9  LOS loss holds Identity
 C10 reacquire
 C11 cue change (не телепорт команды)
 C12 dual observers
-C13 IdentityAppearance
+C13 VisualIdentityEvidence
 C14 отчёт IdentityCalibration_LAST.txt
 C15 IdentifyTime LOCKED 4.0 / 0.50
-C16 runtime VERIFIED PASS 48/0
+C16 runtime VERIFIED PASS 49/0 (10:23, C13)
 C17 не трогать Selector / Engagement / Combat / Search
-C18 Identity CLOSED / VERIFIED       ← math 36/0 (22:38), Play 48/0 (22:37)
+C18 Identity CLOSED / VERIFIED       ← math 36/0 (22:38), Play 49/0 (10:23)
+C19 Identity World Evidence FROZEN   ← look на цели; не огонь, не Engage
+C20 Combat Engage Execution FROZEN   ← CombatIntent Hold/Engage; Play 31/0, EditMode 14/0
+C21 Search Navigation Execution FROZEN ← Walk к snapshot LastKnown; Play 45/0, EditMode 18/0
 ```
 
 C15 IdentifyTime sweep в math-отчёте — diagnostic dump, не FAIL.
@@ -890,7 +900,7 @@ C3 Hostile, Q=1, IdentifyTime=2.0:
 | 1.50 | 0.750 | Hostile | Hostile | High |
 | 2.00 | 1.000 | Hostile | Hostile | High |
 
-Detected при t=0.50 (P=1) при Identity ещё Unknown. Dual observers независимы. Cue flip: Hostile→Friendly через Unknown, не мгновенный remap. IdentityAppearance работает без `SetAffiliationCue`. UnitTeam цели остался Neutral.
+Detected при t=0.50 (P=1) при Identity ещё Unknown. Dual observers независимы. Cue flip: Hostile→Friendly через Unknown, не мгновенный remap. VisualIdentityEvidence даёт world-look без `SetAffiliationCue`. UnitTeam цели остался Neutral.
 
 Threat (Hostile): 10/25 High, 50/80 Medium, 100+ Low.
 
@@ -926,12 +936,21 @@ C3 Hostile, Q=1, IdentifyTime=4.0:
 | 2.50 | 0.625 | Hostile | Hostile | High |
 | 4.00 | 1.000 | Hostile | Hostile | High |
 
-Detected при t=0.50 при Identity ещё Unknown. Dual observers независимы. Cue flip: Hostile→Friendly через Unknown, не мгновенный remap. IdentityAppearance работает без `SetAffiliationCue`. UnitTeam цели остался Neutral.
+Detected при t=0.50 при Identity ещё Unknown. Dual observers независимы. Cue flip: Hostile→Friendly через Unknown, не мгновенный remap. VisualIdentityEvidence даёт world-look без `SetAffiliationCue`. UnitTeam цели остался Neutral.
 
 Threat (Hostile): 10/25 High, 50 Medium, 100/400 Low. Friendly/Neutral → None.
 
 Commit на границе 0.50: `CommitFloatSlack=0.001` (40×0.05 с). IdentifyTime не ретюнить из-за float. 0.49 остаётся Unknown.
 
 **Block C — Identity CLOSED / VERIFIED.** Не читать `UnitTeam` как знание AI. Не открывать Selector / Fire из identity.
+
+**Этап 1 — Identity World Evidence FROZEN** (Play 2026-08-20 10:23).  
+Runtime: `IdentityCalibrationRuntime_LAST.txt` **PASS 49/0** (C13 Hostile / Unknown / UnitTeam цели Neutral).  
+EditMode mapping: `VisualAffiliationMappingTests` **13/13**.  
+Контракт: `Assets/_Docs/Closed/Identity_World_Evidence.md`. Слой не ретюнить.
+
+**Этап 2 — Combat Engage Execution FROZEN** (Play 2026-08-20 10:56:57).  
+Play: `CombatEngageExecution_LAST.txt` **PASS 31/0**. EditMode **14/0**.  
+Контракт: `Assets/_Docs/Closed/Combat_Engage_Execution.md`. Слой не ретюнить. AI не на `Unit.prefab`.
 
 **Vision FROZEN / AI Handoff.** Контракт: `Assets/_Docs/Closed/Vision_AI_Handoff.md`. Проверка: `Tools/Tests/Verify Vision Freeze`.

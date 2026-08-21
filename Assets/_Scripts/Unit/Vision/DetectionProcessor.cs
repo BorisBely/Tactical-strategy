@@ -8,7 +8,7 @@ using UnityEngine.AI;
 /// Produces <see cref="PerceivedContact"/>; does not issue orders, search, or fire.
 /// Contact is promoted when DetectionProgress > 0, or created from sound/shared (G7).
 /// G5: TargetSelector reads Contacts via <see cref="IPerceivedContactRegistry"/>.
-/// Identity uses ObservableAffiliation cues / IdentityAppearance — never UnitTeam.
+/// Identity uses per-observer cues or VisualIdentityEvidence mapped by observer side — never target UnitTeam.
 /// G4 decays LastSeenConfidence only; G7 decays SoundConfidence / SharedConfidence separately.
 /// Baseline numbers: <see cref="VisionFreezeBaseline"/>.
 /// </summary>
@@ -30,6 +30,39 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		public Vector3 LastSeenPosition;
 		public float LastSeenTime;
 		public bool HasEvidenceThisFrame;
+	}
+
+	private struct ContactLogFingerprint : System.IEquatable<ContactLogFingerprint>
+	{
+		public ObservationState Observation;
+		public DetectionState Detection;
+		public PerceivedIdentity Identity;
+		public ThreatLevel Threat;
+		public bool HasSound;
+		public bool HasShared;
+
+		public static ContactLogFingerprint From(PerceivedContact _contact)
+		{
+			return new ContactLogFingerprint
+			{
+				Observation = _contact.ObservationState,
+				Detection = _contact.State,
+				Identity = _contact.Identity,
+				Threat = _contact.Threat,
+				HasSound = _contact.SoundConfidence > 0f,
+				HasShared = _contact.SharedConfidence > 0f
+			};
+		}
+
+		public bool Equals(ContactLogFingerprint _other)
+		{
+			return Observation == _other.Observation &&
+			       Detection == _other.Detection &&
+			       Identity == _other.Identity &&
+			       Threat == _other.Threat &&
+			       HasSound == _other.HasSound &&
+			       HasShared == _other.HasShared;
+		}
 	}
 	#endregion
 
@@ -60,9 +93,12 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	[SerializeField, Min(0.01f)] private float m_SharedShapeExponent = 1.5f;
 
 	[Header("Distance factor")]
+	[SerializeField, Min(1f)] private float m_DistanceFarMeters = 150f;
+	// Prefab leftovers: DistanceFactor is t = d / ResolvedMaxRange, not near/far SmoothStep.
+#pragma warning disable CS0414
 	[SerializeField, Min(1f)] private float m_DistanceNearMeters = 20f;
-	[SerializeField, Min(1f)] private float m_DistanceFarMeters = 500f;
 	[SerializeField, Range(0f, 1f)] private float m_DistanceFarFactor = 0.08f;
+#pragma warning restore CS0414
 
 	[Header("FOV factor")]
 	[SerializeField, Min(1f)] private float m_FovHalfReferenceDegrees = 60f;
@@ -76,12 +112,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	[SerializeField, Min(1f)] private float m_MovementMultiplierCap = 1.5f;
 
 	[Header("Debug")]
-	[SerializeField] private bool m_DrawDebugHud = true;
+	[SerializeField] private bool m_DrawDebugHud;
 	[SerializeField] private bool m_LogFactorBreakdown;
 	#endregion
 
 	#region Private Fields
 	private UnitPerception m_Perception;
+	private UnitVision m_Vision;
+	private UnitTeam m_ObserverTeam;
 	private readonly Dictionary<Transform, PerceivedContact> m_Contacts = new Dictionary<Transform, PerceivedContact>(16);
 	private readonly Dictionary<Transform, PendingTrack> m_Pending = new Dictionary<Transform, PendingTrack>(8);
 	private readonly Dictionary<Transform, Vector3> m_LastKnownPositions = new Dictionary<Transform, Vector3>(16);
@@ -91,11 +129,16 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		new Dictionary<Transform, ObservableAffiliation>(8);
 	private readonly List<Transform> m_ScratchKeys = new List<Transform>(16);
 	private readonly HashSet<Transform> m_ObservedThisScan = new HashSet<Transform>();
+	private readonly Dictionary<EntityId, ContactLogFingerprint> m_LoggedContacts =
+		new Dictionary<EntityId, ContactLogFingerprint>(16);
 
 	private PerceivedContact m_DebugFocus;
 	private float m_SimulatedTime = -1f;
 	private bool m_HasSimulatedClock;
+	private bool m_PerceptionEventsBound;
 	private VisionScanStats m_ScanStats;
+	private bool m_ContactsDirty;
+	private bool m_HasRecentlyLostContact;
 	#endregion
 
 	#region Public Properties
@@ -115,50 +158,25 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	public float SoundHorizonSeconds => m_SoundHorizonSeconds;
 	public float SharedHorizonSeconds => m_SharedHorizonSeconds;
 
-	public bool HasRecentlyLostContact
-	{
-		get
-		{
-			foreach (KeyValuePair<Transform, PerceivedContact> pair in m_Contacts)
-			{
-				if (pair.Value != null && pair.Value.ObservationState == ObservationState.RecentlyLost)
-					return true;
-			}
-
-			return false;
-		}
-	}
+	public bool HasRecentlyLostContact => m_HasRecentlyLostContact;
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
-		m_Perception = GetComponent<UnitPerception>();
+		EnsurePerceptionBound();
+		TryGetComponent(out m_ObserverTeam);
+		TryGetComponent(out m_Vision);
 	}
 
 	private void OnEnable()
 	{
-		if (m_Perception == null)
-			m_Perception = GetComponent<UnitPerception>();
-		if (m_Perception != null)
-		{
-			m_Perception.PerceptionFrameApplied -= OnPerceptionFrameApplied;
-			m_Perception.SoundEventsApplied -= OnSoundEventsApplied;
-			m_Perception.SharedEventsApplied -= OnSharedEventsApplied;
-			m_Perception.PerceptionFrameApplied += OnPerceptionFrameApplied;
-			m_Perception.SoundEventsApplied += OnSoundEventsApplied;
-			m_Perception.SharedEventsApplied += OnSharedEventsApplied;
-		}
+		EnsurePerceptionBound();
 	}
 
 	private void OnDisable()
 	{
-		if (m_Perception != null)
-		{
-			m_Perception.PerceptionFrameApplied -= OnPerceptionFrameApplied;
-			m_Perception.SoundEventsApplied -= OnSoundEventsApplied;
-			m_Perception.SharedEventsApplied -= OnSharedEventsApplied;
-		}
+		UnbindPerceptionEvents();
 	}
 
 	private void Update()
@@ -212,7 +230,10 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		m_LastPositionSampleTime.Clear();
 		m_LostSinceTime.Clear();
 		m_ObservedThisScan.Clear();
+		m_LoggedContacts.Clear();
 		m_DebugFocus = null;
+		m_HasRecentlyLostContact = false;
+		m_ContactsDirty = false;
 		ContactsChanged?.Invoke();
 	}
 
@@ -277,6 +298,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		float _exposure01,
 		Vector3 _worldPosition)
 	{
+		EnsurePerceptionBound();
 		if (m_Perception == null || _target == null)
 			return;
 
@@ -298,6 +320,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 	public void ApplyEmptyObservationFrame()
 	{
+		EnsurePerceptionBound();
 		if (m_Perception == null)
 			return;
 		m_Perception.ApplyVisionFrame(System.Array.Empty<VisionObservation>());
@@ -309,6 +332,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		float _confidence,
 		SoundEventType _type = SoundEventType.Gunshot)
 	{
+		EnsurePerceptionBound();
 		if (m_Perception == null || _source == null)
 			return;
 
@@ -332,6 +356,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		float _confidence,
 		Transform _sourceUnit = null)
 	{
+		EnsurePerceptionBound();
 		if (m_Perception == null || _subject == null)
 			return;
 
@@ -353,17 +378,49 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	#region Private Methods
 	private float NowTime => m_HasSimulatedClock ? m_SimulatedTime : Time.time;
 
+	private void EnsurePerceptionBound()
+	{
+		if (m_Perception == null)
+			TryGetComponent(out m_Perception);
+		if (m_Perception == null || m_PerceptionEventsBound)
+			return;
+
+		m_Perception.PerceptionFrameApplied -= OnPerceptionFrameApplied;
+		m_Perception.SoundEventsApplied -= OnSoundEventsApplied;
+		m_Perception.SharedEventsApplied -= OnSharedEventsApplied;
+		m_Perception.PerceptionFrameApplied += OnPerceptionFrameApplied;
+		m_Perception.SoundEventsApplied += OnSoundEventsApplied;
+		m_Perception.SharedEventsApplied += OnSharedEventsApplied;
+		m_PerceptionEventsBound = true;
+	}
+
+	private void UnbindPerceptionEvents()
+	{
+		if (m_Perception != null)
+		{
+			m_Perception.PerceptionFrameApplied -= OnPerceptionFrameApplied;
+			m_Perception.SoundEventsApplied -= OnSoundEventsApplied;
+			m_Perception.SharedEventsApplied -= OnSharedEventsApplied;
+		}
+
+		m_PerceptionEventsBound = false;
+	}
+
 	private void Tick(float _dt, float _nowTime)
 	{
-		float dt = Mathf.Max(0f, _dt);
-		float acquire = Mathf.Max(m_LoseThreshold, m_AcquireThreshold);
-		float lose = Mathf.Min(m_LoseThreshold, m_AcquireThreshold);
+		using (InfantryProfilerMarkers.DetectionTick.Auto())
+		{
+			float dt = Mathf.Max(0f, _dt);
+			float acquire = Mathf.Max(m_LoseThreshold, m_AcquireThreshold);
+			float lose = Mathf.Min(m_LoseThreshold, m_AcquireThreshold);
 
-		if (dt > 0f)
-			PromotePending(dt, _nowTime, acquire, lose);
-		TickContacts(dt, _nowTime, acquire, lose);
-		RefreshDebugFocus();
-		ContactsChanged?.Invoke();
+			if (dt > 0f)
+				PromotePending(dt, _nowTime, acquire, lose);
+			TickContacts(dt, _nowTime, acquire, lose);
+			RefreshRecentlyLostCache();
+			RefreshDebugFocus();
+			RaiseContactsChangedIfDirty();
+		}
 	}
 
 	private void PromotePending(float _dt, float _nowTime, float _acquire, float _lose)
@@ -416,6 +473,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 			m_Contacts[key] = contact;
 			m_Pending.Remove(key);
+			MarkContactsChanged();
 			ResolveScanStats()?.NotifyContactCreated();
 		}
 	}
@@ -436,6 +494,12 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			}
 
 			PerceivedContact contact = m_Contacts[key];
+			ObservationState prevObservation = contact.ObservationState;
+			DetectionState prevState = contact.State;
+			PerceivedIdentity prevIdentity = contact.Identity;
+			PerceivedRelationship prevRelationship = contact.Relationship;
+			ThreatLevel prevThreat = contact.Threat;
+
 			contact.DetectionProgress = DetectionQualityMath.IntegrateProgress(
 				contact.DetectionProgress,
 				contact.CurrentEvaluation.VisibilityQuality,
@@ -472,6 +536,16 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			TickSound(contact, _nowTime);
 			TickShared(contact, _nowTime);
 			m_Contacts[key] = contact;
+			if (prevObservation != contact.ObservationState ||
+			    prevState != contact.State ||
+			    prevIdentity != contact.Identity ||
+			    prevRelationship != contact.Relationship ||
+			    prevThreat != contact.Threat)
+			{
+				MarkContactsChanged();
+			}
+
+			LogContactIfChanged(contact, false);
 		}
 	}
 
@@ -482,6 +556,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 		float now = NowTime;
 		m_ObservedThisScan.Clear();
+		bool changed = false;
 
 		// Clear evidence flags on pending; contacts cleared via missing-scan pass.
 		foreach (KeyValuePair<Transform, PendingTrack> pair in m_Pending)
@@ -496,6 +571,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 			DetectionEvaluation eval = BuildEvaluation(obs);
 			m_ObservedThisScan.Add(obs.Target);
+			changed = true;
 
 			if (m_Contacts.TryGetValue(obs.Target, out PerceivedContact contact) && contact != null)
 			{
@@ -551,10 +627,15 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			{
 				contact.ObservationState = ObservationState.RecentlyLost;
 				m_LostSinceTime[key] = now;
+				changed = true;
 			}
 
 			m_Contacts[key] = contact;
 		}
+
+		if (changed)
+			MarkContactsChanged();
+		RefreshRecentlyLostCache();
 	}
 
 	private void OnSoundEventsApplied()
@@ -564,6 +645,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 		float now = NowTime;
 		IReadOnlyList<SoundObservation> events = m_Perception.SoundEvents;
+		bool changed = false;
 		for (int i = 0; i < events.Count; i++)
 		{
 			SoundObservation obs = events[i];
@@ -582,8 +664,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			if (contact.ObservationState != ObservationState.Observed)
 				contact.LastKnownPosition = obs.Position;
 			m_Contacts[obs.Source] = contact;
+			changed = true;
 		}
 
+		if (!changed)
+			return;
+
+		RefreshRecentlyLostCache();
+		m_ContactsDirty = false;
 		ContactsChanged?.Invoke();
 	}
 
@@ -594,6 +682,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 		float now = NowTime;
 		IReadOnlyList<SharedObservation> events = m_Perception.SharedEvents;
+		bool changed = false;
 		for (int i = 0; i < events.Count; i++)
 		{
 			SharedObservation obs = events[i];
@@ -612,8 +701,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			if (contact.ObservationState != ObservationState.Observed)
 				contact.LastKnownPosition = obs.Position;
 			m_Contacts[obs.Subject] = contact;
+			changed = true;
 		}
 
+		if (!changed)
+			return;
+
+		RefreshRecentlyLostCache();
+		m_ContactsDirty = false;
 		ContactsChanged?.Invoke();
 	}
 
@@ -721,32 +816,90 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		if (m_AffiliationCues.TryGetValue(_target, out ObservableAffiliation cue))
 			return cue;
 
-		if (_target.TryGetComponent(out IdentityAppearance appearance) && appearance != null)
-			return appearance.Affiliation;
+		if (!_target.TryGetComponent(out VisualIdentityEvidence evidence) || evidence == null)
+			return ObservableAffiliation.Unknown;
 
-		return ObservableAffiliation.Unknown;
+		if (m_ObserverTeam == null)
+			TryGetComponent(out m_ObserverTeam);
+
+		UnitTeamId observerSide = m_ObserverTeam != null ? m_ObserverTeam.Team : UnitTeamId.Neutral;
+		return VisualAffiliationMapping.ToCue(evidence.PrimaryAffiliation, observerSide);
 	}
 
 	private void RemoveContact(Transform _key)
 	{
+		if (_key != null && UnitActionLog.Enabled)
+		{
+			UnitActionLog.Write(this, UnitActionLog.Vision, "tgt=" + UnitActionLog.Slot(_key) + " gone=1");
+			m_LoggedContacts.Remove(_key.GetEntityId());
+		}
+
 		m_Contacts.Remove(_key);
 		m_Pending.Remove(_key);
 		m_LastKnownPositions.Remove(_key);
 		m_LastPositionSampleTime.Remove(_key);
 		m_LostSinceTime.Remove(_key);
+		MarkContactsChanged();
+	}
+
+	private void LogContactIfChanged(PerceivedContact _contact, bool _force)
+	{
+		if (!UnitActionLog.Enabled || _contact == null || _contact.Target == null)
+			return;
+
+		EntityId id = _contact.Target.GetEntityId();
+		ContactLogFingerprint next = ContactLogFingerprint.From(_contact);
+		bool created = !m_LoggedContacts.TryGetValue(id, out ContactLogFingerprint prev);
+		if (!created && !_force && prev.Equals(next))
+			return;
+
+		m_LoggedContacts[id] = next;
+		string line = UnitActionLog.ContactLine(_contact);
+		if (created)
+			line += " new=1";
+		else if (prev.Identity != next.Identity)
+			line += " idWas=" + prev.Identity;
+		if (!created && prev.Observation != next.Observation)
+			line += " obsWas=" + prev.Observation;
+		UnitActionLog.Write(this, UnitActionLog.Vision, line);
+
+		if (created || (next.Observation == ObservationState.Observed && prev.Observation != ObservationState.Observed))
+		{
+			UnitActionLog.Timeline(
+				UnitActionLog.Vision,
+				"observer=" + UnitActionLog.Slot(this) + " " + line);
+		}
 	}
 
 	private DetectionEvaluation BuildEvaluation(in VisionObservation _obs)
 	{
 		float distance = Mathf.Sqrt(Mathf.Max(0f, _obs.DistanceSq));
-		float distanceFactor = DetectionQualityMath.DistanceFactor(
-			distance, m_DistanceNearMeters, m_DistanceFarMeters, m_DistanceFarFactor);
+		if (m_Vision == null)
+			TryGetComponent(out m_Vision);
+
+		float resolvedMax = m_DistanceFarMeters;
+		if (m_Vision != null)
+			resolvedMax = m_Vision.ResolvedMaxRange;
+
+		float distanceFactor = DetectionQualityMath.DistanceFactor(distance, resolvedMax);
+
+		float fovHalf = m_FovHalfReferenceDegrees;
+		if (m_Vision != null)
+		{
+			ResolvedVisionProfile profile = m_Vision.CurrentVisionProfile;
+			fovHalf = _obs.Source == VisionObservationSource.Optic
+				? profile.ScopeHalfFovDegrees
+				: profile.EyeHalfFovDegrees;
+		}
+
 		float fovFactor = DetectionQualityMath.FovFactor(
-			_obs.FovOffsetDegrees, m_FovHalfReferenceDegrees, m_FovEdgeFactor);
+			_obs.FovOffsetDegrees, fovHalf, m_FovEdgeFactor);
 		float exposureFactor = Mathf.Clamp01(_obs.Exposure01);
 		float movementFactor = EvaluateMovementFactor(_obs.Target, _obs.Position);
 		float q = DetectionQualityMath.VisibilityQuality(
 			distanceFactor, fovFactor, exposureFactor, movementFactor);
+
+		ResolveScanStats()?.AddQualityEval();
 
 		return new DetectionEvaluation
 		{
@@ -797,6 +950,33 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		m_LastKnownPositions[_target] = _position;
 		m_LastPositionSampleTime[_target] = now;
 		return 0f;
+	}
+
+	private void MarkContactsChanged()
+	{
+		m_ContactsDirty = true;
+	}
+
+	private void RaiseContactsChangedIfDirty()
+	{
+		if (!m_ContactsDirty)
+			return;
+
+		m_ContactsDirty = false;
+		ContactsChanged?.Invoke();
+	}
+
+	private void RefreshRecentlyLostCache()
+	{
+		m_HasRecentlyLostContact = false;
+		foreach (KeyValuePair<Transform, PerceivedContact> pair in m_Contacts)
+		{
+			if (pair.Value != null && pair.Value.ObservationState == ObservationState.RecentlyLost)
+			{
+				m_HasRecentlyLostContact = true;
+				return;
+			}
+		}
 	}
 
 	private VisionScanStats ResolveScanStats()

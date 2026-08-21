@@ -1,0 +1,26 @@
+﻿DetectionG5 AutoSmoke 2026-08-19 21:45:08
+---
+[MATH]
+PASS Math_UnknownEligible | Unknown must be selectable
+PASS Math_FriendlyRejected | Friendly must not be selected
+PASS Math_ForgottenRejected | Forgotten must not be selected
+PASS Math_ObservedBeatsStale | Observed must beat stale
+PASS G5_Processor | DetectionProcessor missing
+PASS G5_Target | target missing
+PASS G5_Selector | TargetSelector missing
+PASS Isolation_SelectorHasNoPerceivedContactFields | TargetSelector must not store PerceivedContact fields
+PASS Isolation_SelectorDoesNotCallDetectionMath | Selector must not own decay/identity math types
+PASS G5_HasContact | contact missing after observe
+PASS G5_SelectsFromContact | Unit(Clone)
+PASS G5_ObservedHasAim | aim=True engage=Unit(Clone) (UnityEngine.Transform)
+PASS G5_UnknownAllowed | Hostile
+PASS G5_HiddenKeepsSelection | Unit(Clone)
+PASS G5_HiddenNoEngageableAim | aim=False engage=
+PASS G5_LastKnownNotAim | known=(49.62, 0.19, 6.60) aim=(0.00, 0.00, 0.00)
+PASS G5_ForgottenDeselects | null
+PASS G5_ReacquireSelects | sel=Unit(Clone) (UnityEngine.Transform) aim=True
+PASS G5_ForcedWithoutContactIgnored | Unit(Clone)
+PASS G5_ForcedWithContactWins | Unit(Clone)
+PASS G5_ClearContactsDeselects | null
+---
+RESULT=PASS pass=21 fail=0

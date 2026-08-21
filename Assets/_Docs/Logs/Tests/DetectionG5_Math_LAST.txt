@@ -1,0 +1,9 @@
+﻿DetectionG5 SelectionMathSmoke 2026-08-19 10:54:01
+---
+PASS Math_UnknownEligible | Unknown selectable
+PASS Math_FriendlyRejected | Friendly out
+PASS Math_ForgottenRejected | Forgotten out
+PASS Math_ObservedBeatsStale | Observed > stale
+PASS Math_AimFalseWhenLost | LastKnown is not aim
+---
+RESULT=PASS pass=5 fail=0

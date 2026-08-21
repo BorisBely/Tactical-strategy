@@ -1,0 +1,14 @@
+﻿DetectionG6 EngagementMathSmoke 2026-08-19 11:23:07
+---
+PASS Math_NoTargetNone | No target → None
+PASS Math_UnknownCanFire | Unknown may Fire
+PASS Math_FriendlyIgnore | Friendly → Ignore
+PASS Math_ForgottenIgnore | Forgotten → Ignore
+PASS Math_MemoryTrack | Memory → Track
+PASS Math_MemoryNotFire | LastKnown is not Fire
+PASS Math_AimWhenProgressLow | LOS without aim progress → Aim
+PASS Math_FireWhenGatesPass | Gates pass → Fire
+PASS Policy_MatchesMath | DefaultCombatPolicy Fire
+PASS Policy_NoReserved | Reserved unused
+---
+RESULT=PASS pass=10 fail=0

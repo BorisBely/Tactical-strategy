@@ -126,6 +126,7 @@ public static class DetectionCalibrationScenarios
 				new Scenario("C", 80f, 0.5f, 0f, 0f, "F"),
 				new Scenario("D", 80f, 0.5f, 30f, WalkSpeedMeters, "F-M"),
 				new Scenario("E", 150f, 0.3f, 0f, 0f, "M"),
+				// F/G/H stay as Q-math samples past the eye cap. Runtime without optic: no observation.
 				new Scenario("F", 250f, 0.3f, 50f, 0f, "S"),
 				new Scenario("G", 400f, 0.1f, 50f, RunSpeedMeters, "VS"),
 				new Scenario("H", 500f, 0.05f, 60f, 0f, "N")
@@ -264,9 +265,8 @@ public static class DetectionCalibrationScenarios
 		sb.AppendLine("pass=V1.8c Q→time (AcquireThreshold=0.25; AcquireTime=0.35)");
 		sb.AppendLine("---");
 		sb.AppendLine("Defaults:");
-		sb.AppendLine($"DistanceNear={F(DetectionQualityMath.DefaultNearMeters, 0)}");
-		sb.AppendLine($"DistanceFar={F(DetectionQualityMath.DefaultFarMeters, 0)}");
-		sb.AppendLine($"DistanceFarFactor={F(DetectionQualityMath.DefaultFarFactor, 3)}");
+		sb.AppendLine($"DistanceCurve=normalized t=d/ResolvedMaxRange edge={F(DetectionQualityMath.DefaultFarFactor, 3)}");
+		sb.AppendLine($"DistanceDefaultRange={F(DetectionQualityMath.DefaultFarMeters, 0)}");
 		sb.AppendLine($"FovHalfReference={F(DetectionQualityMath.DefaultFovHalfDegrees, 0)}");
 		sb.AppendLine($"FovEdgeFactor={F(DetectionQualityMath.DefaultFovEdgeFactor, 3)}");
 		sb.AppendLine($"AcquireThreshold={F(DetectionQualityMath.DefaultAcquireThreshold, 2)}");

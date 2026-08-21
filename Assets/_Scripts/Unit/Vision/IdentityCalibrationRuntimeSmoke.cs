@@ -53,7 +53,14 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.IsGRegressionPlay &&
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
-		!DetectionHarnessPlayMode.RunUseOfForcePolicy;
+		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer;
 	#endregion
 
 	#region Unity Lifecycle
@@ -71,7 +78,7 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 	private void OnDestroy()
 	{
 		DestroyObserverB();
-		StripAppearance();
+		ResetWorldEvidence();
 		if (DetectionHarnessPlayMode.RunIdentityCalibration)
 			DetectionHarnessPlayMode.ResetFlags();
 	}
@@ -145,6 +152,8 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 			m_WorldTeamAtStart = m_WorldTeam.Team;
 		}
 
+		ResetWorldEvidence();
+
 		m_VisionWasEnabled = m_Vision != null && m_Vision.enabled;
 		if (m_Vision != null)
 			m_Vision.enabled = false;
@@ -175,7 +184,7 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 			m_Vision.enabled = m_VisionWasEnabled;
 		m_Processor.ClearSimulatedTime();
 		m_Processor.ClearAffiliationCue(m_Target);
-		StripAppearance();
+		ResetWorldEvidence();
 		DestroyObserverB();
 		Finish();
 	}
@@ -297,7 +306,7 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 		AppendLine("[C5] Unknown cue — see someone, not know who");
 		ResetSim();
 		m_Processor.ClearAffiliationCue(m_Target);
-		StripAppearance();
+		ResetWorldEvidence();
 		Observe(m_Target.position, c_ObserveSeconds);
 		m_Processor.TryGetContact(m_Target, out PerceivedContact contact);
 		Check("C5_HasContact", contact != null, "detected contact missing");
@@ -493,29 +502,33 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 
 	private void RunC13Appearance()
 	{
-		AppendLine("[C13] IdentityAppearance world-look cue");
+		AppendLine("[C13] VisualIdentityEvidence world-look cue");
 		ResetSim();
 		m_Processor.ClearAffiliationCue(m_Target);
-		IdentityAppearance appearance = m_Target.GetComponent<IdentityAppearance>();
-		if (appearance == null)
-			appearance = m_Target.gameObject.AddComponent<IdentityAppearance>();
-		appearance.SetAffiliation(ObservableAffiliation.Hostile);
+		UnitTeamId observerSideBefore = ReadObserverSide();
+		EnsureObserverSide(UnitTeamId.Player);
+		VisualIdentityEvidence evidence = VisualIdentityEvidence.GetOrCreate(m_Target.gameObject);
+		evidence.SetPrimaryAffiliation(VisualAffiliation.Enemy);
 		Observe(m_Target.position, c_ObserveSeconds);
 		m_Processor.TryGetContact(m_Target, out PerceivedContact contact);
 		Check("C13_AppearanceHostile",
 			contact != null && contact.Identity == PerceivedIdentity.Hostile,
 			contact != null ? contact.Identity.ToString() : "null");
+		Check("C13_WorldTeamUnchanged",
+			m_WorldTeam != null && m_WorldTeam.Team == UnitTeamId.Neutral,
+			m_WorldTeam != null ? m_WorldTeam.Team.ToString() : "null");
 
 		ResetSim();
 		m_Processor.ClearAffiliationCue(m_Target);
-		appearance.SetAffiliation(ObservableAffiliation.Unknown);
+		evidence.SetPrimaryAffiliation(VisualAffiliation.Unknown);
 		Observe(m_Target.position, c_ObserveSeconds);
 		m_Processor.TryGetContact(m_Target, out contact);
 		Check("C13_AppearanceUnknown",
 			contact != null && contact.Identity == PerceivedIdentity.Unknown &&
 			contact.IdentityConfidence <= 0.0001f,
 			contact != null ? $"id={contact.Identity} conf={F(contact.IdentityConfidence, 3)}" : "null");
-		StripAppearance();
+		ResetWorldEvidence();
+		EnsureObserverSide(observerSideBefore);
 	}
 
 	private void LockObserverClock()
@@ -643,12 +656,28 @@ public sealed class IdentityCalibrationRuntimeSmoke : MonoBehaviour
 		m_ObserverBRoot = null;
 	}
 
-	private void StripAppearance()
+	private void ResetWorldEvidence()
 	{
 		if (m_Target == null)
 			return;
-		if (m_Target.TryGetComponent(out IdentityAppearance appearance) && appearance != null)
-			Destroy(appearance);
+		if (m_Target.TryGetComponent(out VisualIdentityEvidence evidence) && evidence != null)
+			evidence.SetPrimaryAffiliation(VisualAffiliation.Unknown);
+	}
+
+	private UnitTeamId ReadObserverSide()
+	{
+		if (m_Processor != null && m_Processor.TryGetComponent(out UnitTeam observerTeam) && observerTeam != null)
+			return observerTeam.Team;
+		return UnitTeamId.Neutral;
+	}
+
+	private void EnsureObserverSide(UnitTeamId _side)
+	{
+		if (m_Processor == null)
+			return;
+		if (!m_Processor.TryGetComponent(out UnitTeam observerTeam) || observerTeam == null)
+			observerTeam = m_Processor.gameObject.AddComponent<UnitTeam>();
+		observerTeam.SetTeam(_side);
 	}
 
 	private void Finish()

@@ -18,4 +18,13 @@ public struct VisionObservation
 
 	/// <summary>Fraction of hit-zone aim samples with LOS (0..1). Legacy collider LOS → 1.</summary>
 	public float Exposure01;
+
+	/// <summary>Which filter produced this observation. Knowledge does not branch on this.</summary>
+	public VisionObservationSource Source;
+}
+
+public enum VisionObservationSource
+{
+	Eye = 0,
+	Optic = 1
 }

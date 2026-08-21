@@ -101,4 +101,4 @@ Play: `Tools/Tests/Run AI Use of Force (Play)` (`m_RunOnStart = false`).
 SelfDefense → RestrictedDefense → MissionCombat → FullEngagement → NoFriendlyFire → SelfDefense
 ```
 
-**AI-1A FROZEN.** Дальше Navigation / Combat execution — не этот документ.
+**AI-1A FROZEN.** Combat execution **FROZEN**: `Combat_Engage_Execution.md`. Search locomotion **FROZEN**: `Search_Navigation_Execution.md`.

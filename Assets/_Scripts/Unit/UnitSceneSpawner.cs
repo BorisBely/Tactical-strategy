@@ -27,6 +27,13 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 	private readonly List<GameObject> m_SpawnedInstances = new List<GameObject>(64);
 	#endregion
 
+	#region Public Properties
+	public GameObject UnitPrefab => m_UnitPrefab;
+	public UnitSceneSpawnEntry[] PlayerSpawns => m_PlayerSpawns;
+	public UnitSceneSpawnEntry[] EnemySpawns => m_EnemySpawns;
+	public UnitSceneSpawnEntry[] CivilianSpawns => m_CivilianSpawns;
+	#endregion
+
 	#region Unity Lifecycle
 	private void Start()
 	{
@@ -150,7 +157,8 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 					$"{baseConfig.DisplayName}_{i + 1}",
 					baseConfig.ArmorVisualIndex,
 					baseConfig.CamouflageVisualIndex,
-					_bodyMeshArchetype: baseConfig.BodyMeshArchetype);
+					_bodyMeshArchetype: baseConfig.BodyMeshArchetype,
+					_visualAffiliation: baseConfig.ResolvedVisualAffiliation);
 			}
 
 			Vector3 offset = count > 1
@@ -193,7 +201,8 @@ public sealed class UnitSceneSpawner : MonoBehaviour
 				_fallbackDisplayName,
 				config.ArmorVisualIndex,
 				config.CamouflageVisualIndex,
-				_bodyMeshArchetype: config.BodyMeshArchetype);
+				_bodyMeshArchetype: config.BodyMeshArchetype,
+				_visualAffiliation: config.ResolvedVisualAffiliation);
 		}
 
 		GameObject instance = Instantiate(

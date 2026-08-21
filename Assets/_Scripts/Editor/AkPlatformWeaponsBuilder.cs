@@ -152,6 +152,7 @@ public static class AkPlatformWeaponsBuilder
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = _config.SemiAutoRecoilMultiplier;
 		so.FindProperty("m_AutoRecoilMultiplier").floatValue = _config.AutoRecoilMultiplier;
 		so.FindProperty("m_RecoilRecoveryPerSecond").floatValue = _config.RecoilRecoveryPerSecond;
+		WeaponRecoilAssetDefaults.Write(so, _config.WeaponAssetName);
 		SerializedProperty visualKickScale = so.FindProperty("m_VisualRecoilKickScale");
 		if (visualKickScale != null)
 			visualKickScale.floatValue = WeaponVisualRecoilKickScaleTable.ForAsset(_config.WeaponAssetName);

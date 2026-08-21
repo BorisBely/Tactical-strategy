@@ -54,6 +54,13 @@ public sealed class UseOfForcePolicyRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunIdentityCalibration &&
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer &&
 		!DetectionHarnessPlayMode.IsGRegressionPlay;
 	#endregion
 

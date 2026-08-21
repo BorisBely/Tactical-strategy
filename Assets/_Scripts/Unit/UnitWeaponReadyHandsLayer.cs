@@ -221,6 +221,20 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		ApplyPoseModeWanted(clamped, _forceWalkIfNeeded, true);
 	}
 
+	/// <summary>
+	/// Game default: armed units enter Aiming. Unarmed stay in peaceful NotReady.
+	/// </summary>
+	public void ApplyDefaultEquippedPose()
+	{
+		if (IsWeaponEquipped())
+		{
+			SetPoseModeWanted(WeaponPoseMode.Aiming, false);
+			return;
+		}
+
+		ApplyPeacefulCarry(WeaponPoseState.NotReady);
+	}
+
 	/// <summary>Ctrl+E / non-combat menu: NotReady ↔ NotReadyPatrol. From combat (including LowReady) enters NotReady.</summary>
 	public void TogglePeacefulNotReady()
 	{
@@ -523,10 +537,6 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 	private void OnEnable()
 	{
-		m_WantedMode = WeaponPoseMode.LowReady;
-		m_EffectivePose = WeaponPoseState.NotReady;
-		m_IsPeacefulNotReady = true;
-		m_PeacefulCarryPose = WeaponPoseState.NotReady;
 		m_LastEquipped = null;
 		m_RestoreReadyAfterSprint = false;
 		m_RestoreReadyAfterRun = false;
@@ -534,7 +544,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_Equipment != null)
 			m_Equipment.EquipmentChanged += HandleEquipmentChanged;
 		RebuildPoseCapabilityCache();
-		PushAnimatorPoseParameters();
+		ApplyDefaultEquippedPose();
 		if (m_HasStarted)
 			ArmReadyTransitionAudioBaseline();
 	}
@@ -566,12 +576,9 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 						debounce: false);
 				}
 
-				m_WantedMode = WeaponPoseMode.LowReady;
-				m_IsPeacefulNotReady = true;
-				m_PeacefulCarryPose = WeaponPoseState.NotReady;
-				m_EffectivePose = WeaponPoseState.NotReady;
 				m_RestoreReadyAfterSprint = false;
 				m_RestoreReadyAfterRun = false;
+				ApplyDefaultEquippedPose();
 			}
 
 			RebuildPoseCapabilityCache();

@@ -73,7 +73,7 @@ public static class IdentityCalibrationScenarios
 		sb.AppendLine("C0 CONTRACT");
 		sb.AppendLine("Detected + Identity=Unknown is valid");
 		sb.AppendLine("Unknown ≠ Friendly; Relationship=Unknown Threat=None until commit");
-		sb.AppendLine("Evidence = ObservableAffiliation / IdentityAppearance, never UnitTeam");
+		sb.AppendLine("Evidence = VisualAffiliation mapped by observer side, never target UnitTeam");
 		sb.AppendLine("LOS loss holds IdentityConfidence (Memory decays LastSeenConfidence only)");
 		sb.AppendLine("PerceivedIdentity is affiliation-class (Friendly/Neutral/Hostile/Unknown), not Soldier/Military");
 		sb.AppendLine("Relationship is a separate field, derived from committed Identity");

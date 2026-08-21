@@ -1,0 +1,57 @@
+﻿STAGE 6.4 — GAME COMMAND LAYER
+==============================
+stamp=2026-08-21 19:23:42
+GameCommandInput.ConfirmPoint. Walk + mass isolation. No SHOT criterion.
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Harness_Observer | observer missing
+PASS Input | GameCommandInput ready
+PASS NavDriver_Present | UnitNavLocomotionDriver missing
+PASS EngagementNav_Enabled | driver disabled
+---
+[W1] ConfirmPoint Attack → Walk reason=Attack
+PASS W1_Accepted | accepted=1
+PASS W1_Attack | Attack
+PASS W1_Dest | (-17.40, 0.05, 1.50)
+PASS W1_Issued | issued=True reason=Attack
+PASS W1_NoFire | Hold
+PASS W1_NoCombatTarget | engage target set
+PASS W1_Walked | start=17,40 now=17,03 state=Attack scale=1,00 stopped=False path=True pending=False onNav=True rem=17,03
+[W2] Defense → anchor, nav stop, no Walk
+PASS W2_Accepted | accepted=1
+PASS W2_Defense | Defense
+PASS W2_Anchor | (11.63, 0.05, 1.50)
+PASS W2_NavStop | intent=False
+[W3] Retreat then Cancel → Idle
+PASS W3_Retreat | Retreat
+PASS W3_Cancel | Idle
+PASS W3_Hold | Hold
+---
+[M] 5 Player + 5 Enemy + Neutral. Live collect / death / Cancel.
+PASS M_PlayerAttack_Count | accepted=2
+PASS M_P0_Attack | state=Attack dest=(9.57, 0.05, 11.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_P1_Attack | state=Attack dest=(9.57, 0.05, 11.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_P2_Idle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_Neutral_Idle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_NotFire | Hold
+PASS M_EnemyDefense_Accepted | accepted=6
+PASS M_E0_Defense | state=Defense dest=(0.00, 0.00, 0.00) anchor=(19.57, 0.05, 6.50) intent=Hold
+PASS M_E1_Defense | state=Defense dest=(0.00, 0.00, 0.00) anchor=(19.57, 0.05, 6.50) intent=Hold
+PASS M_E2_Defense | state=Defense dest=(0.00, 0.00, 0.00) anchor=(19.57, 0.05, 6.50) intent=Hold
+PASS M_E3_Defense | state=Defense dest=(0.00, 0.00, 0.00) anchor=(19.57, 0.05, 6.50) intent=Hold
+PASS M_E4_Defense | state=Defense dest=(0.00, 0.00, 0.00) anchor=(19.57, 0.05, 6.50) intent=Hold
+PASS M_P0_StillAttack | state=Attack dest=(9.57, 0.05, 11.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_Neutral_StillIdle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_EnemyAttack_LiveCollect | accepted=7
+PASS M_E5_Attack | state=Attack dest=(9.57, 0.05, 11.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_EnemyRetreat_Accepted | accepted=6
+PASS M_E0_DeadSkipped | state=Attack dest=(9.57, 0.05, 11.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_E1_Retreat | state=Retreat dest=(-8.43, 0.05, 5.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_E5_Retreat | state=Retreat dest=(-8.43, 0.05, 5.50) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_PlayerCancel | cancelled=2
+PASS M_P0_Idle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_P1_Idle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+PASS M_P2_StillIdle | state=Idle dest=(0.00, 0.00, 0.00) anchor=(0.00, 0.00, 0.00) intent=Hold
+---
+RESULT=PASS pass=44 fail=0

@@ -1,0 +1,108 @@
+﻿VISION DETECTION CALIBRATION RUNTIME V1.9.1
+===========================================
+stamp=2026-08-19 19:54:47
+path=UnitVision → VisionObservation → UnitPerception → DetectionProcessor → PerceivedContact
+defaults unchanged (FOV 60/0.15 AcquireThreshold=0.25 AcquireTime=0.35)
+LOD/skip is not a Q penalty; no synthetic ApplySyntheticObservation
+V1.9.1/V1.9.2: physical cover staging + yaw mirror if scene fully blocks LOS
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Vision | UnitVision missing or disabled
+PASS Harness_Perception | UnitPerception missing
+PASS Harness_Target | Target missing
+PASS Harness_RegistryEnemy | EnemyUnitCount=1
+RT A
+expected dist=10.0 fov=0.0 exp=1.00 move=1.00 Q=1.0000 tDetect=0.36
+runtime   dist=9.9 fov=0.3 exp=1.00 move=1.00 Q=0.9999 tDetect=0.34
+factors   D=1.000 F=1.000 E=1.000 M=1.000 (math D=1.000 F=1.000 E=1.000 M=1.000)
+state=Detected progress=1.000 obs=Observed visible=1
+scan scans=3 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=10.0 lookAngle=0.0 losBlocker=none staging=open-field (design Exposure=1) cover=none
+PASS Runtime_A_Distance | expected=10.0 actual=9.9
+PASS Runtime_A_Fov | expected=0.0 actual=0.3
+PASS Runtime_A_Exposure | design=1.00 hit-zones=1.00 (do not retune AcquireThreshold if this fails)
+PASS Runtime_A_Detected | tDetect=0.34
+PASS Runtime_A_Time | math=0.36 runtime=0.34 tol=0.45
+
+RT B
+expected dist=30.0 fov=0.0 exp=1.00 move=1.15 Q=1.0000 tDetect=0.36
+runtime   dist=29.8 fov=0.6 exp=1.00 move=1.00 Q=0.9986 tDetect=0.35
+factors   D=0.999 F=1.000 E=1.000 M=1.000 (math D=0.999 F=1.000 E=1.000 M=1.150)
+state=Detected progress=1.000 obs=Observed visible=1
+scan scans=2 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=30.0 lookAngle=1.0 losBlocker=none staging=open-field (design Exposure=1); open-field (design Exposure=1) cover=none
+PASS Runtime_B_Distance | expected=30.0 actual=29.8
+PASS Runtime_B_Fov | expected=0.0 actual=0.6
+PASS Runtime_B_Exposure | design=1.00 hit-zones=1.00 (do not retune AcquireThreshold if this fails)
+PASS Runtime_B_Detected | tDetect=0.35
+PASS Runtime_B_Time | math=0.36 runtime=0.35 tol=0.45
+
+RT C
+expected dist=80.0 fov=0.0 exp=0.50 move=1.00 Q=0.4802 tDetect=0.74
+runtime   dist=79.8 fov=0.0 exp=0.50 move=1.00 Q=0.4842 tDetect=0.72
+factors   D=0.961 F=1.000 E=0.504 M=1.000 (math D=0.960 F=1.000 E=0.500 M=1.000)
+state=Detected progress=1.000 obs=Observed visible=1
+scan scans=3 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=80.0 lookAngle=0.0 losBlocker=CalibrationExposureCover staging=open-field (design Exposure=1); open-field (design Exposure=1); cover h=1,20m designE=0,50 stagedE=0,50 cover=CalibrationExposureCover
+PASS Runtime_C_Distance | expected=80.0 actual=79.8
+PASS Runtime_C_Fov | expected=0.0 actual=0.0
+PASS Runtime_C_Exposure | design=0.50 hit-zones=0.50 (do not retune AcquireThreshold if this fails)
+PASS Runtime_C_Detected | tDetect=0.72
+PASS Runtime_C_Time | math=0.74 runtime=0.72 tol=0.45
+
+RT D
+expected dist=80.0 fov=30.0 exp=0.50 move=1.15 Q=0.3176 tDetect=1.12
+runtime   dist=79.8 fov=31.2 exp=0.50 move=1.00 Q=0.2657 tDetect=1.28
+factors   D=0.961 F=0.549 E=0.504 M=1.000 (math D=0.960 F=0.575 E=0.500 M=1.150)
+state=Detected progress=1.000 obs=Observed visible=1
+scan scans=6 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=80.0 lookAngle=31.3 losBlocker=CalibrationExposureCover staging=open-field (design Exposure=1); open-field (design Exposure=1); cover h=1,20m designE=0,50 stagedE=0,50; cover h=1,20m designE=0,50 stagedE=0,50 cover=CalibrationExposureCover
+PASS Runtime_D_Distance | expected=80.0 actual=79.8
+PASS Runtime_D_Fov | expected=30.0 actual=31.2
+PASS Runtime_D_Exposure | design=0.50 hit-zones=0.50 (do not retune AcquireThreshold if this fails)
+PASS Runtime_D_Detected | tDetect=1.28
+PASS Runtime_D_Time | math=1.12 runtime=1.28 tol=0.45
+
+RT E
+expected dist=150.0 fov=0.0 exp=0.30 move=1.00 Q=0.2502 tDetect=1.40
+runtime   dist=149.8 fov=0.0 exp=0.31 move=1.00 Q=0.2617 tDetect=1.33
+factors   D=0.834 F=1.000 E=0.314 M=1.000 (math D=0.834 F=1.000 E=0.300 M=1.000)
+state=Detected progress=1.000 obs=Observed visible=1
+scan scans=6 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=150.0 lookAngle=0.0 losBlocker=CalibrationExposureCover staging=open-field (design Exposure=1); open-field (design Exposure=1); cover h=1,20m designE=0,50 stagedE=0,50; cover h=1,20m designE=0,50 stagedE=0,50; cover h=1,30m designE=0,30 stagedE=0,31 cover=CalibrationExposureCover
+PASS Runtime_E_Distance | expected=150.0 actual=149.8
+PASS Runtime_E_Fov | expected=0.0 actual=0.0
+PASS Runtime_E_Exposure | design=0.30 hit-zones=0.31 (do not retune AcquireThreshold if this fails)
+PASS Runtime_E_Detected | tDetect=1.33
+PASS Runtime_E_Time | math=1.40 runtime=1.33 tol=0.56
+
+RT F
+expected dist=250.0 fov=50.0 exp=0.30 move=1.00 Q=0.0363 tDetect=timeout
+runtime   dist=249.8 fov=50.0 exp=0.31 move=0.00 Q=0.0000 tDetect=timeout
+factors   D=0.000 F=0.000 E=0.000 M=0.000 (math D=0.569 F=0.213 E=0.300 M=1.000)
+state=Undetected progress=0.000 obs=Lost visible=1
+scan scans=48 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=250.0 lookAngle=50.0 losBlocker=CalibrationExposureCover staging=yaw mirrored to clear scene LOS; cover h=1,30m designE=0,30 stagedE=0,31 cover=CalibrationExposureCover
+PASS Runtime_F_Distance | expected=250.0 actual=249.8
+PASS Runtime_F_Fov | expected=50.0 actual=50.0
+PASS Runtime_F_Exposure | design=0.30 hit-zones=0.31 (do not retune AcquireThreshold if this fails)
+PASS Runtime_F_NoDetect | timeout as math
+
+RT G
+expected dist=400.0 fov=50.0 exp=0.10 move=1.35 Q=0.0053 tDetect=timeout
+runtime   dist=399.8 fov=42.4 exp=0.09 move=0.00 Q=0.0000 tDetect=timeout
+factors   D=0.000 F=0.000 E=0.000 M=0.000 (math D=0.183 F=0.213 E=0.100 M=1.350)
+state=Undetected progress=0.000 obs=Lost visible=1
+scan scans=48 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=403.6 lookAngle=42.3 losBlocker=CalibrationExposureCover staging=yaw mirrored to clear scene LOS; cover h=1,61m designE=0,10 stagedE=0,09 cover=CalibrationExposureCover
+PASS Runtime_G_Distance | expected=400.0 actual=399.8
+PASS Runtime_G_Fov | expected=50.0 actual=42.4
+PASS Runtime_G_Exposure | design=0.10 hit-zones=0.09 (do not retune AcquireThreshold if this fails)
+PASS Runtime_G_NoDetect | timeout as math
+
+RT H
+expected dist=500.0 fov=60.0 exp=0.05 move=1.00 Q=0.0006 tDetect=timeout
+runtime   dist=499.8 fov=60.0 exp=0.05 move=0.00 Q=0.0000 tDetect=timeout
+factors   D=0.000 F=0.000 E=0.000 M=0.000 (math D=0.080 F=0.150 E=0.050 M=1.000)
+state=Undetected progress=0.000 obs=Lost visible=1
+scan scans=48 cand=1 range=1 fov=1 los=35 hitZones=35 perception=1 registryP/E=1/1 worldDist=500.0 lookAngle=60.0 losBlocker=CalibrationExposureCover staging=yaw mirrored to clear scene LOS; cover h=1,61m designE=0,10 stagedE=0,09; cover h=1,65m designE=0,05 stagedE=0,05 cover=CalibrationExposureCover
+PASS Runtime_H_Distance | expected=500.0 actual=499.8
+PASS Runtime_H_Fov | expected=60.0 actual=60.0
+PASS Runtime_H_Exposure | design=0.05 hit-zones=0.05 (do not retune AcquireThreshold if this fails)
+PASS Runtime_H_NoDetect | timeout as math
+
+---
+RESULT=PASS pass=42 fail=0

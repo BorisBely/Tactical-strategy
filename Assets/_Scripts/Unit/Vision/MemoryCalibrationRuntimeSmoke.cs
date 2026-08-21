@@ -51,6 +51,13 @@ public sealed class MemoryCalibrationRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
 		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer &&
 		!DetectionHarnessPlayMode.IsGRegressionPlay;
 	#endregion
 

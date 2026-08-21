@@ -17,6 +17,45 @@ namespace Vision.Tests
 			Assert.GreaterOrEqual(d50, d100);
 			Assert.GreaterOrEqual(d100, d400);
 			Assert.AreEqual(1f, d10, 0.0001f);
+			Assert.AreEqual(DetectionQualityMath.DefaultFarFactor, d400, 0.0001f);
+		}
+
+		[Test]
+		public void DistanceCurve_KeysMatchContract()
+		{
+			Assert.AreEqual(1f, DetectionQualityMath.EvaluateDistanceCurve(0f), 0.001f);
+			Assert.AreEqual(1f, DetectionQualityMath.EvaluateDistanceCurve(0.10f), 0.001f);
+			Assert.AreEqual(0.98f, DetectionQualityMath.EvaluateDistanceCurve(0.25f), 0.001f);
+			Assert.AreEqual(0.82f, DetectionQualityMath.EvaluateDistanceCurve(0.55f), 0.001f);
+			Assert.AreEqual(0.50f, DetectionQualityMath.EvaluateDistanceCurve(0.82f), 0.001f);
+			Assert.AreEqual(0.08f, DetectionQualityMath.EvaluateDistanceCurve(1f), 0.001f);
+			Assert.AreEqual(0.08f, DetectionQualityMath.EvaluateDistanceCurve(2f), 0.001f);
+		}
+
+		[Test]
+		public void DistanceFactor_RelativeDistanceMatchesAcrossRanges()
+		{
+			float eyeHalf = DetectionQualityMath.DistanceFactor(75f, 150f);
+			float scopeHalf = DetectionQualityMath.DistanceFactor(150f, 300f);
+			Assert.AreEqual(eyeHalf, scopeHalf, 0.001f);
+
+			float eyeEdge = DetectionQualityMath.DistanceFactor(150f, 150f);
+			float scopeEdge = DetectionQualityMath.DistanceFactor(300f, 300f);
+			Assert.AreEqual(eyeEdge, scopeEdge, 0.001f);
+			Assert.AreEqual(0.08f, eyeEdge, 0.001f);
+		}
+
+		[Test]
+		public void DistanceCurve_IsMonotonic()
+		{
+			float prev = 2f;
+			for (int i = 0; i <= 100; i++)
+			{
+				float t = i / 100f;
+				float value = DetectionQualityMath.EvaluateDistanceCurve(t);
+				Assert.LessOrEqual(value, prev + 0.0001f);
+				prev = value;
+			}
 		}
 
 		[Test]

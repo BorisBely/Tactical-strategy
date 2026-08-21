@@ -1,0 +1,59 @@
+﻿AI-0 — PERCEPTION HANDOFF RUNTIME
+=================================
+stamp=2026-08-20 00:08:12
+Vision → PerceivedContact → AIPerceptionFrame
+simulated time; UnitVision disabled; no Q/Memory/Identity retune; no Selector/Combat
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Contract_NoDetectionProgressOnKnowledge | AIContactKnowledge must omit DetectionProgress
+PASS Contract_NoSelectedTargetOnFrame | AIPerceptionFrame must not include TargetSelector
+PASS Isolation_FrameHasNoUnitTeam | AI snapshot must not carry UnitTeam
+PASS C0_WorldTeamPresent | target has no UnitTeam
+[H1] visible hostile
+PASS H1_VisibleNow | VisibleNow=True obs=Observed
+PASS H1_IdentityKnown | id=Hostile rel=Hostile
+PASS H1_ThreatHigh | threat=High
+PASS H1_NotUnknown | unknown=False
+[H2] recently lost hostile
+PASS H2_NotVisible | VisibleNow=False
+PASS H2_RecentlyLost | obs=RecentlyLost
+PASS H2_UsefulMemory | useful=True stale=False conf=0.998
+PASS H2_StillHostile | rel=Hostile
+[H3] lost with useful memory
+PASS H3_Lost | obs=Lost
+PASS H3_NotVisible | VisibleNow=False
+PASS H3_UsefulMemory | useful=True stale=False conf=0.713
+PASS H3_IdentityHeld | id=Hostile rel=Hostile
+[H4] stale memory
+PASS H4_Lost | obs=Lost
+PASS H4_MemoryStale | stale=True useful=False conf=0.191
+PASS H4_IdentityHeld | rel=Hostile
+[H5] unknown target
+PASS H5_VisibleNow | VisibleNow=True det=Detected
+PASS H5_IdentityUnknown | id=Unknown known=False
+PASS H5_NotHostile | rel=Unknown threat=None
+[H6] friendly
+PASS H6_Friendly | id=Friendly rel=Friendly
+PASS H6_ThreatNone | threat=None
+PASS H6_NotHostile | hostile=False
+[H7] neutral
+PASS H7_Neutral | id=Neutral rel=Neutral
+PASS H7_ThreatNone | threat=None
+[H8] threat levels
+PASS H8_High10m | threat=High dist=10 (want High)
+PASS H8_Medium50m | threat=Medium dist=50 (want Medium)
+PASS H8_Low100m | threat=Low dist=100 (want Low)
+[H9] reacquire
+PASS H9_WasLost | obs=Lost
+PASS H9_VisibleAgain | VisibleNow=True obs=Observed
+PASS H9_IdentityPreserved | id=Hostile
+[H10] two observers
+PASS H10_ObserverB | failed to create observer B
+PASS H10_A_Hostile | id=Hostile vis=True
+PASS H10_B_Unknown | id=Unknown rel=Unknown
+PASS H10_FramesDiffer | A=Hostile B=Unknown
+PASS H10_WorldStillNeutral | Neutral
+PASS C0_WorldTeamUntouched | Neutral
+---
+RESULT=PASS pass=41 fail=0

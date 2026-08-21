@@ -7914,6 +7914,7 @@ GameObject:
   - component: {fileID: 1100000875000488401}
   - component: {fileID: 7085333448395688764}
   - component: {fileID: 7085333448395688800}
+  - component: {fileID: 7085333448395688803}
   - component: {fileID: 7085333448395688802}
   - component: {fileID: 7085333448395688801}
   m_Layer: 7
@@ -8187,7 +8188,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9176879924895076622}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4c3df3bb56684cb18f3591c718fb719b, type: 3}
   m_Name: 
@@ -8568,7 +8569,7 @@ MonoBehaviour:
   m_RuntimeTuner: {fileID: 0}
   m_WeaponModeCrossFadeSeconds: 0.22
   m_RelaxedReadyWalkCrossFadeSeconds: 0.18
-  m_LogCrouchTransitions: 1
+  m_LogCrouchTransitions: 0
 --- !u!114 &1773384317962348157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8587,12 +8588,13 @@ MonoBehaviour:
   m_BodyCollider: {fileID: 0}
   m_Animator: {fileID: 5771954729034314130}
   m_Equipment: {fileID: 5322687323565292150}
+  m_WeaponRuntime: {fileID: 0}
   m_ReadyHands: {fileID: 1703047740406568110}
   m_CombatStats: {fileID: 0}
   m_ObservationSource: {fileID: 1100000875000488401}
   m_Perception: {fileID: 0}
   m_TargetSelector: {fileID: 7085333448395688802}
-  m_VisionRange: 500
+  m_VisionRange: 150
   m_FieldOfViewDegrees: 120
   m_TrackingHalfFovExtraDegrees: 15
   m_EyeHeight: 1.6
@@ -8623,7 +8625,7 @@ MonoBehaviour:
   m_DrawVisionGizmos: 0
   m_GizmoRayHitColor: {r: 1, g: 0.3, b: 0.1, a: 0.9}
   m_GizmoRayMissColor: {r: 0.4, g: 0.4, b: 0.9, a: 0.6}
-  m_DrawEyeLookDebugRay: 1
+  m_DrawEyeLookDebugRay: 0
   m_EyeLookDebugRayLength: 5
   m_EyeLookDebugRayColor: {r: 1, g: 0.35, b: 0.9, a: 1}
   m_LogReadyForwardShift: 0
@@ -8719,7 +8721,7 @@ MonoBehaviour:
   m_DebugSmoothedPitch01: 0
   m_DebugWalkPitchCompensationDegrees: 0
   m_DebugAimLayerWeight: 0
-  m_DrawBarrelForwardRay: 1
+  m_DrawBarrelForwardRay: 0
   m_BarrelForwardRayLength: 120
   m_BarrelForwardRayColor: {r: 1, g: 0.85, b: 0, a: 0.95}
 --- !u!114 &731500000000000410
@@ -8843,7 +8845,9 @@ MonoBehaviour:
   m_CharacterInventory: {fileID: 6875159727817653897}
   m_TransientState:
     m_AimProgress01: 0
-    m_RecoilPenalty: 0
+    m_RecoilOffset: {x: 0, y: 0}
+    m_RecoilPatternValue: 0
+    m_RecoilShotIndex: 0
     m_ConsecutiveBurstShotsFired: 0
     m_NextAllowedShotTime: 0
     m_MalfunctionKind: 0
@@ -8961,6 +8965,7 @@ MonoBehaviour:
   m_FireDisciplineController: {fileID: 4829173650182746501}
   m_RecoilController: {fileID: 0}
   m_ReadyHands: {fileID: 0}
+  m_Vision: {fileID: 0}
   m_HitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -8969,20 +8974,8 @@ MonoBehaviour:
   m_TriggerInteraction: 1
   m_TargetLeadFactor: 1
   m_BaseSpreadToDegrees: 0.35
-  m_RecoilSpreadScale: 0.22
   m_MinHalfAngleDegrees: 0.04
   m_MaxHalfAngleDegrees: 12
-  m_AutoSpreadMultiplier: 0.869565
-  m_RecoilPatternPitchDegreesPerPenaltyUnit: 0.09
-  m_RecoilPatternYawFraction: 0.55
-  m_RecoilPatternChaosFraction: 0.22
-  m_FullAutoRecoilControlStartShot: 5
-  m_FullAutoRecoilControlEndShot: 10
-  m_FullAutoControlledPitchScale: 0.38
-  m_FullAutoControlledYawReferenceScale: 1
-  m_FullAutoControlledYawBoost: 1.2
-  m_FullAutoControlledYawFraction: 1.05
-  m_FullAutoRecoilControlSkillInfluence: 0.65
   m_StandingSpreadMultiplier: 1
   m_CrouchSpreadMultiplier: 0.9
   m_ProneSpreadMultiplier: 0.75
@@ -8990,7 +8983,7 @@ MonoBehaviour:
   m_SprintSpreadMultiplier: 2
   m_UseDistanceFalloff: 1
   m_FalloffZeroRangeMultiplier: 2
-  m_DrawDebugRays: 1
+  m_DrawDebugRays: 0
   m_DebugRayDuration: 10
   m_DebugLastHitName: 
   m_DebugLastDamage: 0
@@ -9005,10 +8998,8 @@ MonoBehaviour:
   m_DebugLastAimProgress: 1
   m_DebugLastSpreadDiameterMeters: 0
   m_DebugAcceptableSpreadDiameterMeters: 0
-  m_DebugLastRecoilPenalty: 0
-  m_DebugLastPatternPitchDegrees: 0
-  m_DebugLastPatternVerticalOffsetMeters: 0
-  m_DebugLastFullAutoRecoilControlBlend: 0
+  m_DebugLastRecoilOffset: {x: 0, y: 0}
+  m_DebugLastRecoilOffsetMeters: 0
 --- !u!114 &8854059317223957988
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9189,11 +9180,10 @@ MonoBehaviour:
   m_IndividualTraits: {fileID: 0}
   m_CombatCondition: {fileID: 0}
   m_StanceCombatModifiers: {fileID: 0}
-  m_MaxRecoilPenalty: 30
-  m_RecoilSpreadScale: 0.15
+  m_MaxRecoilOffsetDegrees: 12
   m_RecoveryWhileFiringMultiplier: 0.7
   m_RecoveryWhenNotReadyMultiplier: 1.2
-  m_DebugLastRecoilAdded: 0
+  m_DebugLastKick: {x: 0, y: 0}
   m_DebugLastRecoveryPerSecond: 0
   m_DebugSkillRecoilAddedMultiplier: 1
   m_DebugConditionRecoilAddedMultiplier: 1
@@ -9525,8 +9515,8 @@ MonoBehaviour:
   m_UseLeftElbowHint: 0
   m_LeftElbowHint: {fileID: 0}
   m_LeftElbowHintWeight: 1
-  m_DrawIkTargetGizmo: 1
-  m_LogProximityIk: 1
+  m_DrawIkTargetGizmo: 0
+  m_LogProximityIk: 0
 --- !u!114 &731500000000000301
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9831,6 +9821,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitFactionConfigurator
   m_RuntimeConfig:
     m_Team: 0
+    m_VisualAffiliation: 0
+    m_HasExplicitVisualAffiliation: 0
     m_Loadout:
       m_MainHandWeapon: {fileID: 0}
       m_HeadItem: {fileID: 0}
@@ -9878,7 +9870,7 @@ MonoBehaviour:
   m_DamageableTarget: {fileID: 731300000000000010}
   m_ConsciousnessRules: {fileID: 7912499842099294813}
   m_DefaultDamageSource: 0
-  m_LogInjuries: 1
+  m_LogInjuries: 0
 --- !u!114 &8255661167163231764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10345,7 +10337,7 @@ MonoBehaviour:
   m_DelayedKnockoutMaxSeconds: 3
   m_HitImpulse: 1.2
   m_HitUpImpulse: 0
-  m_LogConsciousness: 1
+  m_LogConsciousness: 0
 --- !u!114 &7912499842099294814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10378,7 +10370,7 @@ MonoBehaviour:
   m_VictimGripLocalOffsetInHand: {x: -0.42, y: 0.44, z: 0.09}
   m_VictimGripLocalRotationOffsetInHand: {x: 124.3, y: 43.8, z: -173}
   m_AttachAnimatorSettleFrames: 2
-  m_LogFallenDrag: 1
+  m_LogFallenDrag: 0
   m_DebugLastFailureReason: 
 --- !u!114 &7912499842099294815
 MonoBehaviour:
@@ -10517,7 +10509,7 @@ MonoBehaviour:
   m_FireDisciplineController: {fileID: 0}
   m_WeaponAiming: {fileID: 0}
   m_AnimatorWeaponMode: {fileID: 0}
-  m_DrawAimTrajectoryGizmo: 1
+  m_DrawAimTrajectoryGizmo: 0
   m_AimTrajectoryColor: {r: 1, g: 0.55, b: 0.1, a: 0.95}
   m_AimImpactColor: {r: 1, g: 0.2, b: 0.15, a: 0.9}
   m_AimTargetColor: {r: 0.25, g: 0.95, b: 0.35, a: 0.9}
@@ -10626,8 +10618,8 @@ MonoBehaviour:
   m_SoundShapeExponent: 1.5
   m_SharedHorizonSeconds: 8
   m_SharedShapeExponent: 1.5
+  m_DistanceFarMeters: 150
   m_DistanceNearMeters: 20
-  m_DistanceFarMeters: 500
   m_DistanceFarFactor: 0.08
   m_FovHalfReferenceDegrees: 60
   m_FovEdgeFactor: 0.15
@@ -10636,8 +10628,23 @@ MonoBehaviour:
   m_WalkMovementMultiplier: 1.15
   m_RunMovementMultiplier: 1.35
   m_MovementMultiplierCap: 1.5
-  m_DrawDebugHud: 1
+  m_DrawDebugHud: 0
   m_LogFactorBreakdown: 0
+--- !u!114 &7085333448395688803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b8e2c4a1f934d70b6c8e0a2d4f6b193, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::VisualIdentityEvidence
+  m_PrimaryAffiliation: 0
+  m_EvidenceStrength: 1
+  m_EvidenceType: 0
 --- !u!114 &7085333448395688802
 MonoBehaviour:
   m_ObjectHideFlags: 0

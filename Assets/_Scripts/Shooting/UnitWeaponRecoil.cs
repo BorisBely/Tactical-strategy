@@ -7,7 +7,7 @@ using UnityEngine;
 ///   Back  = primary translation
 ///   Up    = secondary translation
 ///   Pitch = secondary rotation
-///   Climb = PitchCurve(RecoilPenalty) — sustained secondary rotation (rotation only, no translation)
+///   Climb = RecoilOffset.y — sustained secondary rotation (rotation only, no translation)
 ///   Yaw   = small variation
 ///
 /// Punch — per-shot value: one shared visual impulse (normalized visual recoil strength,
@@ -22,7 +22,7 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	#region Serialized Fields
 	[Tooltip("Снаряжение: корень оружия в руке.")]
 	[SerializeField] private UnitEquipment m_Equipment;
-	[Tooltip("Геймплейный контроллер отдачи — источник RecoilPenalty.")]
+	[Tooltip("Геймплейный контроллер отдачи — источник RecoilOffset.")]
 	[SerializeField] private UnitWeaponRecoilController m_RecoilController;
 	[Tooltip("Контроллер стрельбы — источник ShotFired.")]
 	[SerializeField] private UnitWeaponFireController m_FireController;
@@ -35,8 +35,8 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	[Tooltip("Базовая поза оружия (relaxed↔ready).")]
 	[SerializeField] private UnitEquippedWeaponPose m_EquippedWeaponPose;
 
-	[Header("Climb — устойчивый подъём от накопленной отдачи")]
-	[Tooltip("Кривая: ось X = RecoilPenalty (абсолютный), ось Y = визуальный pitch (градусы). Первые выстрелы почти не поднимают ствол — очередь уводит выше постепенно.")]
+	[Header("Climb — устойчивый подъём от RecoilOffset.y")]
+	[Tooltip("Не используется gameplay recoil. Оставлено на префабе.")]
 	[SerializeField] private AnimationCurve m_PitchCurve = new AnimationCurve(
 		new Keyframe(0f, 0f),
 		new Keyframe(15f, 0.6f),
@@ -46,7 +46,7 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_VisualOffsetScale = 1f;
 
 	[Header("Punch — удар выстрела (единый impulse → pitch/back/up)")]
-	[Tooltip("Градусы pitch на единицу визуальной силы отдачи. Impulse = RecoilAddedPerShot x VisualRecoilKickScale — нормализованная визуальная сила, не физический импульс.")]
+	[Tooltip("Градусы pitch на единицу визуальной силы отдачи. Impulse = kick×VisualRecoilKickScale.")]
 	[SerializeField, Min(0f)] private float m_ShotPitch = 2.5f;
 	[Tooltip("Доля pitch для амплитуды yaw-импульса.")]
 	[SerializeField, Range(0f, 1f)] private float m_ShotYawScale = 0.3f;
@@ -282,8 +282,9 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 	private void RebuildCurrentState()
 	{
 		float kickScale = ResolveVisualRecoilKickScale();
-		float penalty = m_RecoilController != null ? m_RecoilController.RecoilPenalty : 0f;
-		float climbPitch = m_PitchCurve.Evaluate(penalty) * m_VisualOffsetScale * kickScale;
+		float climbPitch = 0f;
+		if (m_RecoilController != null)
+			climbPitch = m_RecoilController.RecoilOffset.y * m_VisualOffsetScale * kickScale;
 
 		float impulse = m_ShotImpulse;
 		float punchPitch = impulse * m_ShotPitch;
@@ -353,11 +354,11 @@ public sealed class UnitWeaponRecoil : MonoBehaviour
 		if (!HasEquippedWeaponForVisualKick())
 			return;
 
-		float recoilPerShot = m_RecoilController != null
-			? m_RecoilController.ComputeRecoilAddedPerShot(_ammoDefinition)
+		float recoilImpulse = m_RecoilController != null
+			? m_RecoilController.ComputeVisualImpulsePerShot(_ammoDefinition)
 			: 1f;
 		float kickScale = ResolveVisualRecoilKickScale();
-		float impulse = recoilPerShot * kickScale;
+		float impulse = recoilImpulse * kickScale;
 		LastAddedVisualImpulse = impulse;
 		float shotPitch = impulse * m_ShotPitch;
 

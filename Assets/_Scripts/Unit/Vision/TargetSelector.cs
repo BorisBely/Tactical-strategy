@@ -63,6 +63,9 @@ public sealed class TargetSelector : MonoBehaviour
 	private readonly List<(Vector3 from, Vector3 to, bool hitTarget)> m_DebugRays =
 		new List<(Vector3, Vector3, bool)>(16);
 
+	private readonly HashSet<Transform> m_LineOfFireSeenRoots = new HashSet<Transform>();
+	private readonly List<Transform> m_ExpiredSuppressedKeys = new List<Transform>(8);
+
 	private RaycastHit[] m_Hits;
 	private VisibilityChecker m_VisibilityChecker;
 
@@ -76,6 +79,9 @@ public sealed class TargetSelector : MonoBehaviour
 	private Vector3 m_TargetVelocityEstimate;
 	private Vector3 m_LastVelocityRaw;
 	private float m_LastAimPointUpdateTime;
+	private Transform m_LastLoggedSelected;
+	private float m_LastLoggedScore = float.MinValue;
+	private readonly System.Text.StringBuilder m_SelectLogScratch = new System.Text.StringBuilder(256);
 	#endregion
 
 	#region Public Properties
@@ -240,6 +246,14 @@ public sealed class TargetSelector : MonoBehaviour
 
 	public void SelectFromContacts(Vector3 _visionOrigin)
 	{
+		using (InfantryProfilerMarkers.TargetSelect.Auto())
+		{
+			SelectFromContactsUnguarded(_visionOrigin);
+		}
+	}
+
+	private void SelectFromContactsUnguarded(Vector3 _visionOrigin)
+	{
 		CleanupExpiredSuppressedTargets();
 		RefreshVisibilityCheckerConfig();
 		ContactSelectionPolicy policy = BuildPolicy();
@@ -255,6 +269,11 @@ public sealed class TargetSelector : MonoBehaviour
 		bool hasAim = false;
 		Vector3 aimPoint = Vector3.zero;
 		float bestScore = float.MinValue;
+		Transform runnerUp = null;
+		float runnerUpScore = float.MinValue;
+		bool logSelect = UnitActionLog.Enabled;
+		if (logSelect)
+			m_SelectLogScratch.Length = 0;
 
 		IPerceivedContactRegistry registry = m_ContactRegistry;
 		if (registry != null)
@@ -265,17 +284,38 @@ public sealed class TargetSelector : MonoBehaviour
 				if (contact == null || contact.Target == null)
 					continue;
 				if (IsLineOfFireSuppressed(contact.Target))
+				{
+					if (logSelect)
+						AppendReject(contact.Target, "LoFSuppressed");
 					continue;
+				}
 				if (!TryRevalidateSuppressedTarget(contact.Target, _visionOrigin))
 					continue;
 
 				bool worldOk = TargetEngageability.IsEngageable(contact.Target);
-				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out _))
+				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out ContactSelectionRejectReason reason))
+				{
+					if (logSelect)
+						AppendReject(contact.Target, reason.ToString());
 					continue;
+				}
 
 				float score = TargetSelectionMath.Score(contact, _visionOrigin, policy);
 				if (score <= bestScore)
+				{
+					if (score > runnerUpScore)
+					{
+						runnerUpScore = score;
+						runnerUp = contact.Target;
+					}
 					continue;
+				}
+
+				if (newTarget != null)
+				{
+					runnerUp = newTarget;
+					runnerUpScore = bestScore;
+				}
 
 				bestScore = score;
 				newTarget = contact.Target;
@@ -304,6 +344,9 @@ public sealed class TargetSelector : MonoBehaviour
 
 		if (changed)
 			SelectedTargetChanged?.Invoke(m_SelectedTarget);
+
+		if (UnitActionLog.Enabled)
+			LogSelectionIfNeeded(changed, newTarget, bestScore, hasAim, aimPoint, runnerUp, runnerUpScore);
 
 		UpdateTargetVelocityEstimate(newTarget, aimPoint, hasAim);
 	}
@@ -334,6 +377,8 @@ public sealed class TargetSelector : MonoBehaviour
 
 		if (m_LogLineOfFireSuppression)
 			Debug.Log($"[LoFSup] {name}: SUPPRESS '{currentTarget.name}' for {_seconds:F2}s (expire={expireTime:F2})", this);
+		if (UnitActionLog.Enabled)
+			UnitActionLog.Write(this, UnitActionLog.Select, "lofSuppress tgt=" + UnitActionLog.Slot(currentTarget) + " sec=" + UnitActionLog.F2(_seconds));
 
 		ClearSelection(true);
 	}
@@ -357,6 +402,49 @@ public sealed class TargetSelector : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void AppendReject(Transform _target, string _reason)
+	{
+		if (m_SelectLogScratch.Length > 180)
+			return;
+		if (m_SelectLogScratch.Length > 0)
+			m_SelectLogScratch.Append(',');
+		m_SelectLogScratch.Append(UnitActionLog.Slot(_target)).Append(':').Append(_reason);
+	}
+
+	private void LogSelectionIfNeeded(
+		bool _changed,
+		Transform _newTarget,
+		float _bestScore,
+		bool _hasAim,
+		Vector3 _aimPoint,
+		Transform _runnerUp,
+		float _runnerUpScore)
+	{
+		bool scoreShift = _newTarget != null &&
+		                  _newTarget == m_LastLoggedSelected &&
+		                  m_LastLoggedScore > float.MinValue / 4f &&
+		                  Mathf.Abs(_bestScore - m_LastLoggedScore) >= 1f;
+		if (!_changed && !scoreShift)
+			return;
+
+		m_LastLoggedSelected = _newTarget;
+		m_LastLoggedScore = _bestScore;
+		bool engageable = _newTarget != null && _hasAim && TargetEngageability.IsEngageable(_newTarget);
+		string payload = "selected=" + (_newTarget != null ? UnitActionLog.Slot(_newTarget) : "none") +
+		                 " score=" + (_newTarget != null ? UnitActionLog.F2(_bestScore) : "-") +
+		                 " engageable=" + (engageable ? "1" : "0") +
+		                 " aim=" + (_hasAim ? "1" : "0");
+		if (_hasAim)
+			payload += " aimPt=" + UnitActionLog.Vec(_aimPoint);
+		if (_runnerUp != null)
+			payload += " runnerUp=" + UnitActionLog.Slot(_runnerUp) + ":" + UnitActionLog.F2(_runnerUpScore);
+		if (m_SelectLogScratch.Length > 0)
+			payload += " rejected=" + m_SelectLogScratch;
+		UnitActionLog.Write(this, UnitActionLog.Select, payload);
+		if (_changed)
+			UnitActionLog.Timeline(UnitActionLog.Select, "actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
 	private void HandleContactsChanged()
 	{
 		SelectFromContacts();
@@ -426,7 +514,7 @@ public sealed class TargetSelector : MonoBehaviour
 		SortRaycastHitsByDistance(m_Hits, hitCount);
 
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
-		var seenRoots = new HashSet<Transform>();
+		m_LineOfFireSeenRoots.Clear();
 
 		for (int h = 0; h < hitCount; h++)
 		{
@@ -444,7 +532,7 @@ public sealed class TargetSelector : MonoBehaviour
 			UnitTeam hitTeam = hc.GetComponentInParent<UnitTeam>();
 			if (hitTeam == null)
 				continue;
-			if (!seenRoots.Add(hitTeam.transform))
+			if (!m_LineOfFireSeenRoots.Add(hitTeam.transform))
 				continue;
 			if (hitTeam.Team != myTeam && hitTeam.Team != UnitTeamId.Neutral)
 				continue;
@@ -481,15 +569,15 @@ public sealed class TargetSelector : MonoBehaviour
 			return;
 
 		float now = Time.time;
-		var expiredKeys = new List<Transform>();
+		m_ExpiredSuppressedKeys.Clear();
 		foreach (var kvp in m_LineOfFireSuppressedTargets)
 		{
 			if (kvp.Key == null || kvp.Value <= now)
-				expiredKeys.Add(kvp.Key);
+				m_ExpiredSuppressedKeys.Add(kvp.Key);
 		}
 
-		foreach (var key in expiredKeys)
-			m_LineOfFireSuppressedTargets.Remove(key);
+		for (int i = 0; i < m_ExpiredSuppressedKeys.Count; i++)
+			m_LineOfFireSuppressedTargets.Remove(m_ExpiredSuppressedKeys[i]);
 	}
 
 	private bool TryRevalidateSuppressedTarget(Transform _candidate, Vector3 _origin)
@@ -522,7 +610,7 @@ public sealed class TargetSelector : MonoBehaviour
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
 		float closestDist = float.MaxValue;
 		Collider closestCollider = null;
-		var seenUnitRoots = new HashSet<Transform>();
+		m_LineOfFireSeenRoots.Clear();
 
 		for (int h = 0; h < hitCount; h++)
 		{
@@ -533,7 +621,7 @@ public sealed class TargetSelector : MonoBehaviour
 				continue;
 
 			UnitTeam hitTeamRoot = hc.GetComponentInParent<UnitTeam>();
-			if (hitTeamRoot != null && !seenUnitRoots.Add(hitTeamRoot.transform))
+			if (hitTeamRoot != null && !m_LineOfFireSeenRoots.Add(hitTeamRoot.transform))
 				continue;
 
 			if (m_Hits[h].distance < closestDist)

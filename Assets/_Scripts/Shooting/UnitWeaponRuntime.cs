@@ -272,9 +272,14 @@ public sealed class UnitWeaponRuntime : MonoBehaviour
 		m_TransientState.SetAimProgress(_value);
 	}
 
-	public void SetRecoilPenalty(float _value)
+	public void SetRecoilOffset(Vector2 _offset, float _patternValue, int _shotIndex)
 	{
-		m_TransientState.SetRecoilPenalty(_value);
+		m_TransientState.SetRecoilOffset(_offset, _patternValue, _shotIndex);
+	}
+
+	public void SetRecoilOffset(Vector2 _offset)
+	{
+		m_TransientState.SetRecoilOffset(_offset);
 	}
 
 	public void SetWear(float _value)

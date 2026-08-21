@@ -6,10 +6,6 @@ using UnityEngine;
 /// </summary>
 public static class WeaponDistanceAimEvaluator
 {
-	#region Constants
-	private const float c_RecoilGraphRecoveryWhileFiringMultiplier = 0.45f;
-	#endregion
-
 	#region Public Methods
 	public static float GetDistanceDispersionMultiplier(
 		WeaponDefinition _weaponDefinition,
@@ -92,7 +88,7 @@ public static class WeaponDistanceAimEvaluator
 	}
 
 	/// <summary>
-	/// Базовый контроль отдачи для UI-графика: 1 / (RecoilPerShot оружия × ∏ RecoilModifier модулей).
+	/// Базовый контроль отдачи для UI-графика: 1 / (VerticalRecoil × ∏ RecoilModifier модулей).
 	/// Не зависит от дистанции и не учитывает накопление серии.
 	/// </summary>
 	public static float EvaluateRecoilControlQuality(
@@ -108,16 +104,16 @@ public static class WeaponDistanceAimEvaluator
 		WeaponFireMode _fireMode)
 	{
 		float recoilAccumulation = _weaponDefinition != null
-			? Mathf.Max(0.01f, _weaponDefinition.RecoilPerShot)
+			? Mathf.Max(0.01f, _weaponDefinition.VerticalRecoil)
 			: 1f;
 		recoilAccumulation *= GetAttachmentRecoilProduct(_attachments, _fireMode);
+		recoilAccumulation *= WeaponRecoilMath.ResolveFireModeMultiplier(_weaponDefinition, _fireMode);
 		return 1f / Mathf.Max(0.01f, recoilAccumulation);
 	}
 
 	/// <summary>
 	/// Контроль отдачи по мере продолжения очереди. Ось X графика трактуется как номер выстрела.
-	/// Модель повторяет runtime-накопление: между выстрелами отдача частично восстанавливается.
-	/// Дробный номер выстрела сглаживается интерполяцией между соседними целыми выстрелами.
+	/// Модель: накопленный |RecoilOffset| после предыдущих выстрелов (с recovery между ними).
 	/// </summary>
 	public static float EvaluateSustainedRecoilControlQuality(
 		WeaponDefinition _weaponDefinition,
@@ -150,29 +146,14 @@ public static class WeaponDistanceAimEvaluator
 		int _shotIndex)
 	{
 		int shotIndex = Mathf.Max(1, _shotIndex);
-		float attachmentRecoilProduct = GetAttachmentRecoilProduct(_attachments, WeaponFireMode.FullAuto);
-		float recoilAdded = WeaponDefinition.ComputeAddedRecoilPenalty(
+		float offsetMagnitude = WeaponRecoilMath.PredictOffsetMagnitudeBeforeShot(
 			_weaponDefinition,
+			_attachments,
 			WeaponFireMode.FullAuto,
-			ammoDefinition: null,
-			attachmentRecoilModifier: attachmentRecoilProduct);
-		if (recoilAdded <= 0f)
-			return 1f;
-
-		float fireIntervalSeconds = 60f / Mathf.Max(1f, _weaponDefinition.FireRateRpm);
-		float recoveryPerShot = _weaponDefinition.RecoilRecoveryPerSecond *
-		                        c_RecoilGraphRecoveryWhileFiringMultiplier *
-		                        fireIntervalSeconds;
-		float accumulatedPenalty = 0f;
-		for (int i = 1; i < shotIndex; i++)
-		{
-			accumulatedPenalty += recoilAdded;
-			accumulatedPenalty = Mathf.Max(0f, accumulatedPenalty - recoveryPerShot);
-		}
-
-		float burstSpread = _weaponDefinition.GetAutoBurstSpreadMultiplier(shotIndex);
-		float sustainedBurden = (1f + accumulatedPenalty) * Mathf.Max(0.01f, burstSpread);
-		return EvaluateRecoilControlQuality(_weaponDefinition, _attachments, WeaponFireMode.FullAuto) / sustainedBurden;
+			shotIndex);
+		float sustainedBurden = 1f + offsetMagnitude;
+		return EvaluateRecoilControlQuality(_weaponDefinition, _attachments, WeaponFireMode.FullAuto) /
+		       Mathf.Max(0.01f, sustainedBurden);
 	}
 
 	public static float GetAttachmentRecoilProduct(WeaponAttachmentDefinition[] _attachments)

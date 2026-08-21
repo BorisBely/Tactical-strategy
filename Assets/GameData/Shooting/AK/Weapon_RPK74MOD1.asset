@@ -249,9 +249,12 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   m_RecoilPerShot: 0.38
+  m_VerticalRecoil: 0.08
+  m_HorizontalRecoil: 0.085
+  m_RecoilPatternSeed: 4.8500000000000005
   m_SemiAutoRecoilMultiplier: 0.83
   m_AutoRecoilMultiplier: 0.96
-  m_RecoilRecoveryPerSecond: 5.5
+  m_RecoilRecoveryPerSecond: 0.8
   m_VisualRecoilKickScale: 1.05
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12

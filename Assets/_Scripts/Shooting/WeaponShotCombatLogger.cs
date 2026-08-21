@@ -143,40 +143,19 @@ public static class WeaponShotCombatLogger
 
 	private static string FormatRecoilLabel(WeaponShotRecoilLogInfo _recoil, WeaponShotAccuracyContext _accuracy)
 	{
-		if (!_recoil.HasPatternData && _recoil.RecoilAddedPerShot <= 0.0001f && _recoil.MaxRecoilPenalty <= 0.0001f)
+		if (!_recoil.HasPatternData)
 			return "—";
 
-		float penaltyAfterShot = _recoil.RecoilPenaltyBeforeShot + _recoil.RecoilAddedPerShot;
-		if (_recoil.MaxRecoilPenalty > 0.0001f)
-			penaltyAfterShot = Mathf.Min(penaltyAfterShot, _recoil.MaxRecoilPenalty);
-
-		string capLabel = _recoil.MaxRecoilPenalty > 0.0001f
-			? $"{_recoil.RecoilPenaltyBeforeShot:F2}→{penaltyAfterShot:F2}/{_recoil.MaxRecoilPenalty:F1}"
-			: $"{_recoil.RecoilPenaltyBeforeShot:F2}→{penaltyAfterShot:F2}";
+		Vector2 after = _recoil.OffsetBeforeShot + _recoil.KickDelta;
+		string capLabel = $"{_recoil.OffsetBeforeShot.y:F2}→{after.y:F2}° pitch, yaw {_recoil.OffsetBeforeShot.x:F2}→{after.x:F2}°";
 		if (_recoil.IsAtCap)
 			capLabel += " (лимит)";
 
-		string patternLabel = _recoil.PatternApplied
-			? $"паттерн: pitch={_recoil.PatternPitchDegrees:F2}° yaw={_recoil.PatternYawDegrees:F2}° | смещение≈{_recoil.PatternVerticalOffsetMeters:F2} м на {_accuracy.TargetDistanceMeters:F0} м"
-			: _recoil.RecoilPenaltyBeforeShot <= 0.0001f
-				? "паттерн: нет (штраф=0)"
-				: "паттерн: нет (режим без подъёма)";
-
-		string balanceLabel = FormatRecoilBalanceLabel(_recoil);
+		float offsetMeters = _accuracy.TargetDistanceMeters * Mathf.Tan(after.magnitude * Mathf.Deg2Rad);
 		return
-			$"штраф={capLabel} | {patternLabel} | +за выстрел={_recoil.RecoilAddedPerShot:F2} | " +
-			$"восст.={_recoil.RecoveryPerSecond:F2}/с{(_recoil.IsRecoveringWhileFiring ? " (при огне)" : "")} | " +
-			$"баланс≈{balanceLabel} | разброс-штраф=×{_recoil.RecoilSpreadMultiplier:F2} (scale={_recoil.RecoilSpreadScale:F2})";
-	}
-
-	private static string FormatRecoilBalanceLabel(WeaponShotRecoilLogInfo _recoil)
-	{
-		float net = _recoil.EstimatedNetPenaltyPerSecond;
-		if (Mathf.Abs(net) <= 0.05f)
-			return "0/с (равновесие)";
-
-		string sign = net > 0f ? "+" : "";
-		return $"{sign}{net:F2}/с";
+			$"offset={capLabel} | kick=({_recoil.KickDelta.x:F3},{_recoil.KickDelta.y:F3})° | " +
+			$"смещение≈{offsetMeters:F2} м на {_accuracy.TargetDistanceMeters:F0} м | " +
+			$"восст.={_recoil.RecoveryPerSecond:F2}°/с{(_recoil.IsRecoveringWhileFiring ? " (при огне)" : "")}";
 	}
 
 	private static string FormatHitResult(WeaponShotHitResult _hitResult, int _projectileCount)

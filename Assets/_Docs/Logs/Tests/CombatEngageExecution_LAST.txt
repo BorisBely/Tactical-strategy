@@ -1,0 +1,54 @@
+﻿STAGE 2 — COMBAT ENGAGE EXECUTION
+=================================
+stamp=2026-08-20 10:56:57
+AI publishes CombatIntent; Combat shoots. Engage ≠ Fire. ROE veto remains.
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Harness_Observer | observer missing
+PASS Engagement_Present | EngagementDecisionController missing
+PASS Selector_Present | TargetSelector missing
+PASS Readiness_Present | CombatReadinessController missing
+---
+[T1] Defense + Hostile + MissionCombat → Engage → existing shooter
+PASS T1_ActionEngage | Engage
+PASS T1_IntentEngage | Engage
+PASS T1_ReadinessRequested | Engage
+PASS T1_PoseAuto | Auto
+PASS T1_Selected | Unit(Clone)
+PASS T1_DecisionAimOrFire | Aim
+PASS T1_AiDidNotStartTrigger | NoWeapon
+PASS T1_Shot | shots=1 last=Success
+---
+[T2] Defense + no Hostile → Hold, no fire
+PASS T2_Hold | Hold
+PASS T2_NoFire | None
+---
+[T3] Engage + SelfDefense + no ImmediateThreat → ROE blocks Aim/Fire
+PASS T3_IntentEngage | Engage
+PASS T3_NoAimFire | Ignore
+PASS T3_NoShot | NoVisibleTarget
+---
+[T4] Hostile gone → Hold, fire closed
+PASS T4_StartedEngage | Engage
+PASS T4_Hold | Search/None/Hold
+PASS T4_NoAimFire | Track
+---
+[T5] VisibleNow + Unknown → AI not Engage
+PASS T5_Hold | Hold id=Unknown
+---
+[T6] Friendly → AI not Engage
+PASS T6_Hold | Hold id=Friendly
+---
+[T7] AI EngageTarget A, Combat Selected B — observed, not auto-fixed
+PASS T7_Mismatch | expected mismatch flag
+PASS T7_CombatKeepsB | selector overwritten
+PASS T7_AiKeepsA | AI target overwritten
+PASS T7_StillEngage | Engage
+---
+[T8] two observers, same Hostile: Engage vs Hold
+PASS T8_ObserverB | failed to create observer B
+PASS T8_A_Engage | Engage
+PASS T8_B_Hold | None
+---
+RESULT=PASS pass=31 fail=0

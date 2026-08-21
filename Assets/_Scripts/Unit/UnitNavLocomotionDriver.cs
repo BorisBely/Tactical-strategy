@@ -289,38 +289,64 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	public bool IssueNavOrder(Vector3 _worldPosition, MoveTier _moveTier)
 	{
 		if (m_Agent == null)
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "no_agent");
 			return false;
+		}
 		if (!IsConscious())
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "unconscious");
 			return false;
+		}
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "SamplePosition");
 			return false;
+		}
 
 		IssueNavOrderInternal(hit.position, _moveTier);
+		if (UnitActionLogSession.ShouldLogMove(this, hit.position, false))
+			LogNavMove("issue", _worldPosition, hit.position, _moveTier, true, null);
 		return true;
 	}
 
 	public bool IssueNavOrderContinuous(Vector3 _worldPosition, MoveTier _moveTier)
 	{
 		if (m_Agent == null)
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "no_agent");
 			return false;
+		}
 		if (!IsConscious())
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "unconscious");
 			return false;
+		}
 
 		if (!NavMesh.SamplePosition(_worldPosition, out NavMeshHit hit, m_NavMeshSampleRadius, NavMesh.AllAreas))
+		{
+			LogNavMove("fail", _worldPosition, _worldPosition, _moveTier, false, "SamplePosition");
 			return false;
+		}
 
 		IssueNavOrderContinuousInternal(hit.position, _moveTier);
+		if (UnitActionLogSession.ShouldLogMove(this, hit.position, true))
+			LogNavMove("continuous", _worldPosition, hit.position, _moveTier, true, null);
 		return true;
 	}
 
 	public void HardStop()
 	{
+		bool hadMove = m_HasPendingNavOrder ||
+		               (IsNavAgentOperational() && m_Agent.hasPath && !m_Agent.isStopped);
 		m_HasPendingNavOrder = false;
 		if (!IsNavAgentOperational())
 		{
 			m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 			m_ReadyHands?.TryRestoreReadyAfterRun(false);
+			if (hadMove)
+				LogNavMove("stop", transform.position, transform.position, m_Mode, true, "no_agent");
 			return;
 		}
 
@@ -328,6 +354,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_Agent.ResetPath();
 		m_ReadyHands?.TryRestoreReadyAfterSprint(false);
 		m_ReadyHands?.TryRestoreReadyAfterRun(false);
+		if (hadMove)
+			LogNavMove("stop", transform.position, transform.position, m_Mode, true, null);
 	}
 
 	private void TryEarlyArrivalStop()
@@ -354,8 +382,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		m_CachedRtsMember?.NotifyRouteDebugEarlyStop(m_Agent.remainingDistance);
 #endif
 
+		Vector3 reachedDest = m_Agent.destination;
+		float reachedRem = m_Agent.remainingDistance;
 		m_Agent.isStopped = true;
 		m_Agent.ResetPath();
+		if (UnitActionLog.Enabled)
+			LogNavMove("reached", reachedDest, reachedDest, m_Mode, true, "earlyArrival rem=" + UnitActionLog.F2(reachedRem));
 	}
 	#endregion
 
@@ -388,6 +420,8 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_StabilizeOther == null)
 			m_StabilizeOther = GetComponent<UnitStabilizeOtherController>();
 		m_CachedRtsMember = GetComponent<RtsUnitMember>();
+		if (m_ClickToMove == null)
+			m_ClickToMove = GetComponent<UnitClickToMove>();
 
 		m_Agent.updatePosition = true;
 		m_Agent.updateRotation = false;
@@ -440,6 +474,9 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		if (m_HasPendingNavOrder && !IsStanceTransitionMovementBlocked())
 			ConsumePendingNavOrder();
 
+		if (IsClickToMoveDrivingAgent())
+			return;
+
 		bool stanceMovementBlocked = IsStanceTransitionMovementBlocked();
 		if (stanceMovementBlocked)
 			m_Agent.isStopped = true;
@@ -466,6 +503,31 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void LogNavMove(string _verb, Vector3 _dest, Vector3 _snapped, MoveTier _tier, bool _ok, string _fail)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+		string reason = "None";
+		if (TryGetComponent(out IUnitMoveCommand move) && move != null && move.Reason != UnitNavigationReason.None)
+			reason = move.Reason.ToString();
+		string rem = UnitActionLog.AgentRemaining(m_Agent);
+		string payload =
+			_verb +
+			" dest=" + UnitActionLog.Vec(_dest) +
+			" snapped=" + UnitActionLog.Vec(_snapped) +
+			" tier=" + _tier +
+			" reason=" + reason +
+			" ok=" + (_ok ? "1" : "0") +
+			" remaining=" + rem +
+			" path=" + UnitActionLog.AgentPath(m_Agent) +
+			" source=NavDriver";
+		if (!string.IsNullOrEmpty(_fail))
+			payload += " fail=" + _fail;
+		UnitActionLog.Write(this, UnitActionLog.Move, payload);
+		if (_verb == "issue" || _verb == "stop" || _verb == "reached" || !_ok)
+			UnitActionLog.Timeline(UnitActionLog.Move, "actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
 	private void IssueNavOrderInternal(Vector3 _destination, MoveTier _moveTier)
 	{
 		if (!IsConscious())
@@ -668,10 +730,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return false;
 		if (m_Agent.pathPending)
 			return true;
+		if (m_Agent.pathStatus == NavMeshPathStatus.PathPartial)
+			return true;
 		if (!m_Agent.hasPath)
 			return false;
 		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
-			return false;
+			return true;
 		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 
@@ -682,10 +746,12 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 
 		if (m_Agent.pathPending)
 			return true;
+		if (m_Agent.pathStatus == NavMeshPathStatus.PathPartial)
+			return true;
 		if (!m_Agent.hasPath)
 			return false;
 		if (float.IsPositiveInfinity(m_Agent.remainingDistance))
-			return false;
+			return true;
 		return m_Agent.remainingDistance > m_Agent.stoppingDistance + 0.02f;
 	}
 
@@ -962,11 +1028,16 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 		}
 	}
 
-	private void LogFacingSystemIfNeeded()
+	private bool IsClickToMoveDrivingAgent()
 	{
 		if (m_ClickToMove == null)
 			m_ClickToMove = GetComponent<UnitClickToMove>();
-		if (m_ClickToMove != null && m_ClickToMove.enabled)
+		return m_ClickToMove != null && m_ClickToMove.isActiveAndEnabled;
+	}
+
+	private void LogFacingSystemIfNeeded()
+	{
+		if (IsClickToMoveDrivingAgent())
 			return;
 
 		if (!m_LogFacingSystem)

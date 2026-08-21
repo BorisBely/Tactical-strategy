@@ -1,5 +1,6 @@
 /// <summary>
 /// Explicit order-driven transitions. Search may also be requested by UnitAIController from LastKnown.
+/// Search → Retreat is allowed so an external cancel can HardStop Search locomotion before Retreat Walk.
 /// </summary>
 public static class UnitAITransitionTable
 {
@@ -31,6 +32,7 @@ public static class UnitAITransitionTable
 				return _to == UnitAIState.Attack ||
 				       _to == UnitAIState.Defense ||
 				       _to == UnitAIState.Idle ||
+				       _to == UnitAIState.Retreat ||
 				       _to == UnitAIState.Flee;
 			case UnitAIState.Retreat:
 				return _to == UnitAIState.Defense ||

@@ -48,6 +48,14 @@ public static class DetectionGPlayTestRunner
 		DetectionHarnessPlayMode.RunAIPerceptionHandoff = false;
 		DetectionHarnessPlayMode.RunAITacticalState = false;
 		DetectionHarnessPlayMode.RunUseOfForcePolicy = false;
+		DetectionHarnessPlayMode.RunCombatEngageExecution = false;
+		DetectionHarnessPlayMode.RunSearchExecution = false;
+		DetectionHarnessPlayMode.RunTacticalNavigationExecution = false;
+		DetectionHarnessPlayMode.RunTacticalCommandContract = false;
+		DetectionHarnessPlayMode.RunGameCommandSource = false;
+		DetectionHarnessPlayMode.RunGameCommandInput = false;
+		DetectionHarnessPlayMode.RunGameCommandLayer = false;
+		DetectionHarnessPlayMode.RunVisionEnvelope = false;
 		DetectionHarnessPlayMode.RunGStage = _stage;
 
 		if (EditorApplication.isPlaying)

@@ -64,6 +64,8 @@ ACCURACY_FACTORS = {
     "Weapon_Mosin": 1.15,
     "Weapon_M249": 0.78,
     "Weapon_PKM": 0.72,
+    "Weapon_M2Browning_127": 0.50,
+    "Weapon_MK19": 0.42,
 }
 
 ACCURACY_REFERENCE_BY_DISTANCE: dict[float, float] = {}
@@ -84,6 +86,8 @@ ACCURACY_PROFILE_PLATEAUS = {
     "Dmr": (45, 60, 100, 100, 0.040),
     "Support762": (25, 35, 75, 95, 0.045),
     "Support545": (30, 40, 80, 100, 0.045),
+    "HeavySupport": (20, 30, 70, 90, 0.030),
+    "GrenadeSupport": (15, 25, 60, 80, 0.025),
 }
 
 WEAPON_ORDER = [
@@ -111,6 +115,8 @@ WEAPON_ORDER = [
     "Weapon_Sniper762x51",
     "Weapon_M249",
     "Weapon_PKM",
+    "Weapon_M2Browning_127",
+    "Weapon_MK19",
 ]
 
 WEAPON_ROLE = {
@@ -138,6 +144,8 @@ WEAPON_ROLE = {
     "Weapon_Sniper762x51": "Dmr",
     "Weapon_M249": "Support545",
     "Weapon_PKM": "Support762",
+    "Weapon_M2Browning_127": "HeavySupport",
+    "Weapon_MK19": "GrenadeSupport",
 }
 
 ROLE_AIM = {
@@ -155,6 +163,8 @@ ROLE_AIM = {
     "Dmr": [(0, 1.80), (25, 1.60), (50, 1.74), (75, 1.65), (100, 1.84)],
     "Support762": [(0, 1.55), (25, 1.35), (50, 1.69), (75, 2.00), (100, 2.59)],
     "Support545": [(0, 1.50), (25, 1.28), (50, 1.61), (75, 1.86), (100, 2.37)],
+    "HeavySupport": [(0, 1.80), (25, 1.55), (50, 1.90), (75, 2.30), (100, 3.10)],
+    "GrenadeSupport": [(0, 2.20), (25, 1.90), (50, 2.40), (75, 3.00), (100, 4.20)],
 }
 
 ROLE_DISP = {
@@ -172,6 +182,8 @@ ROLE_DISP = {
     "Dmr": [(0, 1.15), (25, 1.00), (50, 0.70), (75, 0.50), (100, 0.62)],
     "Support762": [(0, 1.05), (25, 0.90), (50, 0.74), (75, 0.82), (100, 1.30)],
     "Support545": [(0, 1.00), (25, 0.85), (50, 0.66), (75, 0.70), (100, 1.05)],
+    "HeavySupport": [(0, 1.40), (25, 1.20), (50, 1.05), (75, 1.15), (100, 1.80)],
+    "GrenadeSupport": [(0, 1.80), (25, 1.50), (50, 1.35), (75, 1.55), (100, 2.40)],
 }
 
 ROLE_BURST = {
@@ -189,6 +201,8 @@ ROLE_BURST = {
     "Dmr": [(1, 1.00), (3, 1.08), (6, 1.32), (10, 1.90)],
     "Support762": [(1, 1.00), (3, 1.18), (6, 1.55), (10, 2.50)],
     "Support545": [(1, 1.00), (3, 1.12), (6, 1.42), (10, 2.20)],
+    "HeavySupport": [(1, 1.00), (3, 1.25), (6, 1.80), (10, 3.20)],
+    "GrenadeSupport": [(1, 1.00), (3, 1.40), (6, 2.20), (10, 4.00)],
 }
 
 WEAPON_LABEL = {
@@ -216,6 +230,8 @@ WEAPON_LABEL = {
     "Weapon_Sniper762x51": "Sniper 7.62x51",
     "Weapon_M249": "M249",
     "Weapon_PKM": "PKM",
+    "Weapon_M2Browning_127": "M2 Browning 12.7",
+    "Weapon_MK19": "MK19",
 }
 
 
@@ -261,8 +277,12 @@ def parse_weapon(path: Path) -> dict:
         "aim_base": get_float("m_AimTimeSeconds"),
         "disp_base": get_float("m_BaseShotDispersion"),
         "recoil_per_shot": get_float("m_RecoilPerShot", 1.0),
+        "vertical_recoil": get_float("m_VerticalRecoil", 0.0),
+        "horizontal_recoil": get_float("m_HorizontalRecoil", 0.0),
+        "pattern_seed": get_float("m_RecoilPatternSeed", 0.0),
+        "semi_recoil_mult": get_float("m_SemiAutoRecoilMultiplier", 0.85),
         "auto_recoil_mult": get_float("m_AutoRecoilMultiplier", 1.25),
-        "recovery": get_float("m_RecoilRecoveryPerSecond", 3.5),
+        "recovery": get_float("m_RecoilRecoveryPerSecond", 0.7),
         "rpm": get_float("m_FireRateRpm", 600.0),
         "disp_curve": parse_curve_block(content, "m_DispersionMultiplierByDistance"),
         "aim_curve": parse_curve_block(content, "m_AimTimeMultiplierByDistance"),
@@ -641,7 +661,8 @@ def write_description_sheet(wb: Workbook) -> None:
         ["Лист", "Что показывает"],
         ["Точность", "Качество точности из Unity assets (1 / dispersion multiplier). Без модулей."],
         ["Прицеливание", "Время полного прицеливания, сек. Меньше = быстрее. Без модулей."],
-        ["Отдача", "Контроль отдачи в очереди (как на графике в Mission Prep). Без модулей."],
+        ["Отдача (УСТАРЕЛО)", "Старая модель RecoilPerShot / P. Не использовать для калибровки offset-отдачи. Ждём новую таблицу."],
+        ["Параметры", "Сырые поля каждого Weapon_*.asset, включая новые Vertical/Horizontal/Recovery °/с. Сюда вносить обновлённые данные."],
         ["Моды", "Плоские множители и дистанционные кривые каждого модуля. Range× = EffectiveRangeModifier. Δ — изменение vs эталонное оружие."],
         ["M4 точность / прицел / отдача", "M4 ModA1 + по одному модулю в столбце. График = влияние модов."],
         ["AK точность / прицел / отдача", "AK-74 + по одному модулю в столбце. График = влияние модов."],
@@ -651,6 +672,7 @@ def write_description_sheet(wb: Workbook) -> None:
         ["Столбцы", "Оружие в фиксированном порядке"],
         ["Графики", "Линейные графики под каждой таблицей"],
         ["Benelli M4", "Роль ShotgunCqb: 0–15 лучший, 15–25 сильный, 25–40 рабочий, 40–60 хуже АК, 60+ почти бесполезен. Эффективность дроби = паттерн + falloff, не только лист Точность."],
+        ["M2 / MK19", "Турельные стволы добавлены 2026-08-21. Раньше в книге их не было."],
         ["", ""],
         ["Важно", "Точность и прицеливание читаются из Unity assets. Перезапекание: python Tools/bake_weapon_combat_balance.py"],
         ["Обновление", "python Tools/export_combat_balance_excel.py"],
@@ -659,6 +681,47 @@ def write_description_sheet(wb: Workbook) -> None:
         ws.append(row)
     ws["A1"].font = Font(bold=True, size=14)
     autosize_columns(ws, 70)
+
+
+def write_weapon_params_sheet(wb: Workbook, weapons: list[dict]) -> None:
+    ws = wb.create_sheet("Параметры")
+    headers = [
+        "Asset",
+        "Название",
+        "Роль",
+        "RPM",
+        "AimTime с",
+        "BaseDispersion",
+        "RecoilPerShot (legacy)",
+        "VerticalRecoil °",
+        "HorizontalRecoil °",
+        "PatternSeed",
+        "Recovery °/с",
+        "SemiRecoil×",
+        "AutoRecoil×",
+        "Нужна новая калибровка",
+    ]
+    ws.append(headers)
+    style_header_row(ws)
+    for weapon in weapons:
+        needs_new = "да — offset-модель, значения стартовые"
+        ws.append([
+            weapon["name"],
+            weapon["label"],
+            weapon["role"],
+            weapon["rpm"],
+            weapon["aim_base"],
+            weapon["disp_base"],
+            weapon["recoil_per_shot"],
+            weapon.get("vertical_recoil", 0.0),
+            weapon.get("horizontal_recoil", 0.0),
+            weapon.get("pattern_seed", 0.0),
+            weapon["recovery"],
+            weapon.get("semi_recoil_mult", 0.0),
+            weapon["auto_recoil_mult"],
+            needs_new,
+        ])
+    autosize_columns(ws, 28)
 
 
 def main() -> None:
@@ -670,6 +733,7 @@ def main() -> None:
 
     wb = Workbook()
     write_description_sheet(wb)
+    write_weapon_params_sheet(wb, weapons)
     write_attachment_params_sheet(wb, weapons_by_name, DISTANCES, RECOIL_SHOTS)
 
     write_matrix_sheet(

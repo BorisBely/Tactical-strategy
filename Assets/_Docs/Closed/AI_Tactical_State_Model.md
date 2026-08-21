@@ -93,20 +93,21 @@ Search не вызывает decay и не меняет `LastSeenConfidence` / `
 Idle    → Defense, Attack, Search, Flee
 Defense → Attack, Retreat, Idle, Search, Flee
 Attack  → Defense, Retreat, Idle, Search, Flee
-Search  → Attack, Defense, Idle, Flee
+Search  → Attack, Defense, Idle, Retreat, Flee
 Retreat → Defense, Idle, Flee
 Flee    → Idle
 ```
 
 Тот же state повторным приказом: без Exit/Enter. Контекст на месте: `TrySetContext`.
 
-`* → Flee` — явная команда, не auto-threat.
+`* → Flee` — явная команда, не auto-threat.  
+Этап 3: **Search → Retreat** разрешён (отмена поиска). Решение Search (AI-1.10) не ретюнилось.
 
 ---
 
 ## 4. Проверки
 
-EditMode: `UnitAIStateMachineTests`, `UnitAIPerceptionActionTests`, `UnitAISearchTests`.  
+EditMode: `UnitAIStateMachineTests`, `UnitAIPerceptionActionTests`, `UnitAISearchTests`, `UnitAISearchExecutionTests`.  
 Play: `Tools/Tests/Run AI Tactical State (Play)` (`m_RunOnStart = false`).
 
 `UnitAIController` на `Unit.prefab` **не** ставится. Smoke добавляет компонент на observer в Play.
@@ -133,11 +134,15 @@ Idle + HostileVisible → Idle + None. Unknown/Friendly → Hold. Lost contact �
 Defense + lost useful memory (`conf≈0.998`) → Search, `SearchPosition = LastKnown`.  
 8 тиков Search без Advance: Memory не сдвинулась. Vision Advance 20 s → stale (`conf≈0.191`), Search resume **Defense**, LastKnown на месте.
 
-**AI-1.10 FROZEN.** Дальше Navigation / Combat execution — не этот документ.
+**AI-1.10 FROZEN.** Combat execution **FROZEN**: `Combat_Engage_Execution.md`. Search locomotion **FROZEN**: `Search_Navigation_Execution.md`.
 
 ---
 
 ## 5. Следующий слой
 
 Use of Force (AI-1A) — **отдельный** слой, FROZEN: `AI_UseOfForce_Policy.md` (Play PASS 107/0).  
-Навигация / Combat execution. Squad, commander, utility, BT, auto-retreat, morale, cover, formations — не открывать.
+Combat execution — **FROZEN**: `Combat_Engage_Execution.md` (Play PASS 31/0).  
+Search locomotion — **FROZEN**: `Search_Navigation_Execution.md` (Play PASS 45/0, EditMode 18/0).  
+Tactical navigation (Attack / Retreat / Flee) — **FROZEN**: `Tactical_Navigation_Execution.md` (Play PASS 36/0, EditMode 31/0).  
+Дорожная карта — **FROZEN**: `Tactical_AI_Roadmap.md`. Следующее — **#6 Real game commands**.  
+Squad, commander, utility, BT, auto-retreat, morale, cover, formations — не открывать раньше своих номеров.

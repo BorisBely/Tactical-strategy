@@ -1,10 +1,11 @@
+using System;
 using UnityEngine;
 
 /// <summary>
-/// Optional world-look cue on a target. What observers can try to identify — not UnitTeam.
-/// Not placed on Unit.prefab (opt-in, same rule as DetectionProcessor).
-/// Per-observer overrides on DetectionProcessor take precedence.
+/// Legacy observer-relative look on a target. DetectionProcessor no longer reads this.
+/// Use <see cref="VisualIdentityEvidence"/> (Player/Enemy/Civilian) instead.
 /// </summary>
+[Obsolete("Use VisualIdentityEvidence. DetectionProcessor maps world look by observer side.")]
 [DisallowMultipleComponent]
 public sealed class IdentityAppearance : MonoBehaviour
 {

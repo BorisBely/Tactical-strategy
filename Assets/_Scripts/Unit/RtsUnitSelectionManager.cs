@@ -383,6 +383,11 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		if (PauseMenuController.IsPaused)
 			return;
 
+		bool tacticalPick = TacticalDebugOrderSession.IsPicking ||
+		                    TacticalDebugOrderSession.DidConsumeLeftClickThisFrame;
+		bool commandPointPending = TacticalDebugOrderSession.IsCommandPointPending ||
+		                           TacticalDebugOrderSession.DidConsumeRightClickThisFrame;
+
 		if (m_IsGrenadeThrowMode)
 		{
 			UpdateGrenadeThrowAiming();
@@ -396,9 +401,11 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 			return;
 		}
 
-		HandleLeftMouseSelection();
+		if (!tacticalPick)
+			HandleLeftMouseSelection();
 		UpdatePathInteractions();
-		HandleRightMouseCommand();
+		if (!tacticalPick && !commandPointPending)
+			HandleRightMouseCommand();
 		UpdatePreviewCtrlFormationLatch();
 		UpdatePreviewShiftEnqueueLatch();
 		HandleFormationKeyInput();
@@ -433,6 +440,23 @@ public sealed partial class RtsUnitSelectionManager : MonoBehaviour
 		ClearAllPathInteractions();
 		ClearSelectedVehicle();
 		SetSelection(new List<RtsUnitMember>(0));
+	}
+
+	public void CopyValidSelectedUnits(List<RtsUnitMember> _buffer)
+	{
+		if (_buffer == null)
+			return;
+
+		_buffer.Clear();
+		if (m_SelectedUnits == null)
+			return;
+
+		for (int i = 0; i < m_SelectedUnits.Count; i++)
+		{
+			RtsUnitMember unit = m_SelectedUnits[i];
+			if (unit != null && UnitFallenStateUtility.IsRtsControllable(unit))
+				_buffer.Add(unit);
+		}
 	}
 
 	public void CommandSelectedStanding()

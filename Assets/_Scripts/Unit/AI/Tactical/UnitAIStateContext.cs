@@ -11,7 +11,9 @@ public struct UnitAIStateContext
 	public float AreaRadius;
 	public Vector3 Facing;
 
+	/// <summary>Attack / Defense / Retreat / Flee point. Search uses <see cref="SearchPosition"/>.</summary>
 	public Vector3 Destination;
+	public bool HasDestination;
 	public Transform TargetEntity;
 	public Vector3 AttackDirection;
 
@@ -28,6 +30,8 @@ public struct UnitAIStateContext
 		return new UnitAIStateContext
 		{
 			AnchorPosition = _anchor,
+			Destination = _anchor,
+			HasDestination = true,
 			AreaCenter = _areaCenter,
 			AreaRadius = Mathf.Max(0f, _areaRadius),
 			Facing = _facing
@@ -44,6 +48,7 @@ public struct UnitAIStateContext
 		return new UnitAIStateContext
 		{
 			Destination = _destination,
+			HasDestination = true,
 			AttackDirection = _attackDirection,
 			TargetEntity = _targetEntity,
 			AreaCenter = _areaCenter,
@@ -70,15 +75,25 @@ public struct UnitAIStateContext
 
 	public static UnitAIStateContext ForRetreat(Vector3 _destination)
 	{
-		return new UnitAIStateContext { Destination = _destination };
+		return new UnitAIStateContext
+		{
+			Destination = _destination,
+			HasDestination = true
+		};
 	}
 
-	public static UnitAIStateContext ForFlee(Vector3 _escapeDirection, Vector3 _destination = default)
+	public static UnitAIStateContext ForFlee(Vector3 _escapeDirection)
+	{
+		return new UnitAIStateContext { EscapeDirection = _escapeDirection };
+	}
+
+	public static UnitAIStateContext ForFlee(Vector3 _escapeDirection, Vector3 _destination)
 	{
 		return new UnitAIStateContext
 		{
 			EscapeDirection = _escapeDirection,
-			Destination = _destination
+			Destination = _destination,
+			HasDestination = true
 		};
 	}
 }

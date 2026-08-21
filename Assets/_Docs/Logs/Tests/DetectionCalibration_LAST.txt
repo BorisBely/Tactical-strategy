@@ -1,0 +1,193 @@
+﻿VISION DETECTION CALIBRATION
+============================
+stamp=2026-08-19 16:22:16
+pass=V1.8c Q→time (AcquireThreshold=0.25; AcquireTime=0.35)
+---
+Defaults:
+DistanceNear=20
+DistanceFar=500
+DistanceFarFactor=0.080
+FovHalfReference=60
+FovEdgeFactor=0.150
+AcquireThreshold=0.25
+LoseThreshold=0.20
+AcquireTime=0.35
+LossTime=2.50
+---
+FOV CURVE
+---------
+offset=0 before=1.000 after=1.000
+offset=30 before=0.370 after=0.575
+offset=50 before=0.150 after=0.213
+offset=60 before=0.150 after=0.150
+---
+BEFORE vs AFTER (V1.3 frozen vs current)
+----------------------------------------
+A  Q 1.0000 -> 1.0000  fov 1.000 -> 1.000  tDetect 0.36 -> 0.36  state Detected -> Detected
+B  Q 1.0000 -> 1.0000  fov 1.000 -> 1.000  tDetect 0.36 -> 0.36  state Detected -> Detected
+C  Q 0.4802 -> 0.4802  fov 1.000 -> 1.000  tDetect 0.74 -> 0.74  state Detected -> Detected
+D  Q 0.2045 -> 0.3176  fov 0.370 -> 0.575  tDetect timeout -> 1.12  state Undetected -> Detected
+E  Q 0.2502 -> 0.2502  fov 1.000 -> 1.000  tDetect timeout -> 1.40  state Undetected -> Detected
+F  Q 0.0256 -> 0.0363  fov 0.150 -> 0.213  tDetect timeout -> timeout  state Undetected -> Undetected
+G  Q 0.0037 -> 0.0053  fov 0.150 -> 0.213  tDetect timeout -> timeout  state Undetected -> Undetected
+H  Q 0.0006 -> 0.0006  fov 0.150 -> 0.150  tDetect timeout -> timeout  state Undetected -> Undetected
+---
+SCENARIOS
+---------
+CAL A
+dist=10.0 fov=0.0 exp=1.00 move=1.00 q=1.00
+distanceFactor=1.000 fovFactor=1.000 exposureFactor=1.000 movementFactor=1.000
+state=Detected progress=1.000 tDetect=0.36 thresholdA=0.25 thresholdL=0.20
+expected=I actual=VF (category bins diagnostic only)
+[A]
+[A] START Q=1.000
+[A] Q=1.000 state=Undetected progress=0.000 t=0.00
+[A] STATE Undetected -> Detecting t=0.02
+[A] progress=0.286 t=0.10
+[A] progress=0.514 t=0.18
+[A] progress=0.800 t=0.28
+[A] STATE Detecting -> Detected t=0.36
+[A] DETECTED t=0.36 progress=1.000
+[A] END
+
+CAL B
+dist=30.0 fov=0.0 exp=1.00 move=1.15 q=1.00
+distanceFactor=0.999 fovFactor=1.000 exposureFactor=1.000 movementFactor=1.150
+state=Detected progress=1.000 tDetect=0.36 thresholdA=0.25 thresholdL=0.20
+expected=VF actual=VF (category bins diagnostic only)
+[B]
+[B] START Q=1.000
+[B] Q=1.000 state=Undetected progress=0.000 t=0.00
+[B] STATE Undetected -> Detecting t=0.02
+[B] progress=0.286 t=0.10
+[B] progress=0.514 t=0.18
+[B] progress=0.800 t=0.28
+[B] STATE Detecting -> Detected t=0.36
+[B] DETECTED t=0.36 progress=1.000
+[B] END
+
+CAL C
+dist=80.0 fov=0.0 exp=0.50 move=1.00 q=0.48
+distanceFactor=0.960 fovFactor=1.000 exposureFactor=0.500 movementFactor=1.000
+state=Detected progress=1.000 tDetect=0.74 thresholdA=0.25 thresholdL=0.20
+expected=F actual=F (category bins diagnostic only)
+[C]
+[C] START Q=0.480
+[C] Q=0.480 state=Undetected progress=0.000 t=0.00
+[C] STATE Undetected -> Detecting t=0.02
+[C] progress=0.274 t=0.20
+[C] progress=0.521 t=0.38
+[C] progress=0.768 t=0.56
+[C] STATE Detecting -> Detected t=0.74
+[C] DETECTED t=0.74 progress=1.000
+[C] END
+
+CAL D
+dist=80.0 fov=30.0 exp=0.50 move=1.15 q=0.32
+distanceFactor=0.960 fovFactor=0.575 exposureFactor=0.500 movementFactor=1.150
+state=Detected progress=1.000 tDetect=1.12 thresholdA=0.25 thresholdL=0.20
+expected=F-M actual=M (category bins diagnostic only)
+[D]
+[D] START Q=0.318
+[D] Q=0.318 state=Undetected progress=0.000 t=0.00
+[D] STATE Undetected -> Detecting t=0.02
+[D] progress=0.254 t=0.28
+[D] progress=0.508 t=0.56
+[D] progress=0.762 t=0.84
+[D] STATE Detecting -> Detected t=1.12
+[D] DETECTED t=1.12 progress=1.000
+[D] END
+
+CAL E
+dist=150.0 fov=0.0 exp=0.30 move=1.00 q=0.25
+distanceFactor=0.834 fovFactor=1.000 exposureFactor=0.300 movementFactor=1.000
+state=Detected progress=1.000 tDetect=1.40 thresholdA=0.25 thresholdL=0.20
+expected=M actual=M (category bins diagnostic only)
+[E]
+[E] START Q=0.250
+[E] Q=0.250 state=Undetected progress=0.000 t=0.00
+[E] STATE Undetected -> Detecting t=0.02
+[E] progress=0.257 t=0.36
+[E] progress=0.500 t=0.70
+[E] progress=0.758 t=1.06
+[E] STATE Detecting -> Detected t=1.40
+[E] DETECTED t=1.40 progress=1.000
+[E] END
+
+CAL F
+dist=250.0 fov=50.0 exp=0.30 move=1.00 q=0.04
+distanceFactor=0.569 fovFactor=0.213 exposureFactor=0.300 movementFactor=1.000
+state=Undetected progress=0.000 tDetect=timeout thresholdA=0.25 thresholdL=0.20
+expected=S actual=N (category bins diagnostic only)
+[F]
+[F] START Q=0.036
+[F] Q=0.036 state=Undetected progress=0.000 t=0.00
+[F] TIMEOUT t=12.00 state=Undetected progress=0.000
+[F] END
+
+CAL G
+dist=400.0 fov=50.0 exp=0.10 move=1.35 q=0.01
+distanceFactor=0.183 fovFactor=0.213 exposureFactor=0.100 movementFactor=1.350
+state=Undetected progress=0.000 tDetect=timeout thresholdA=0.25 thresholdL=0.20
+expected=VS actual=N (category bins diagnostic only)
+[G]
+[G] START Q=0.005
+[G] Q=0.005 state=Undetected progress=0.000 t=0.00
+[G] TIMEOUT t=12.00 state=Undetected progress=0.000
+[G] END
+
+CAL H
+dist=500.0 fov=60.0 exp=0.05 move=1.00 q=0.00
+distanceFactor=0.080 fovFactor=0.150 exposureFactor=0.050 movementFactor=1.000
+state=Undetected progress=0.000 tDetect=timeout thresholdA=0.25 thresholdL=0.20
+expected=N actual=N (category bins diagnostic only)
+[H]
+[H] START Q=0.001
+[H] Q=0.001 state=Undetected progress=0.000 t=0.00
+[H] TIMEOUT t=12.00 state=Undetected progress=0.000
+[H] END
+
+RELATIVE ORDER
+--------------
+Q A=1.0000
+Q B=1.0000
+Q C=0.4802
+Q D=0.3176
+Q E=0.2502
+Q F=0.0363
+Q G=0.0053
+Q H=0.0006
+PASS Order_A_ge_B | A=1.0000 B=1.0000
+PASS Order_B_gt_C | B=1.0000 C=0.4802
+PASS Order_E_gt_F | E=0.2502 F=0.0363
+PASS Order_F_gt_G | F=0.0363 G=0.0053
+PASS Order_G_ge_H | G=0.0053 H=0.0006
+PASS Order_D_not_unlogical_vs_C | C=0.4802 D=0.3176 (walk vs 30° FOV may be close; fail only if D > C×1,5)
+---
+Q TIME SWEEP V1.8c
+------------------
+AcquireThreshold=0.25 AcquireTime=0.35
+branch=grow if Q>thr; hold if lose<Q<=thr; decay if Q<=lose
+
+Q=1.00 thr=0.25 tAcq=0.35 tDetect=0.36 state=Detected maxProgress=1.000 branch=grow
+Q=0.90 thr=0.25 tAcq=0.35 tDetect=0.40 state=Detected maxProgress=1.000 branch=grow
+Q=0.80 thr=0.25 tAcq=0.35 tDetect=0.44 state=Detected maxProgress=1.000 branch=grow
+Q=0.70 thr=0.25 tAcq=0.35 tDetect=0.50 state=Detected maxProgress=1.000 branch=grow
+Q=0.60 thr=0.25 tAcq=0.35 tDetect=0.60 state=Detected maxProgress=1.000 branch=grow
+Q=0.50 thr=0.25 tAcq=0.35 tDetect=0.70 state=Detected maxProgress=1.000 branch=grow
+Q=0.40 thr=0.25 tAcq=0.35 tDetect=0.88 state=Detected maxProgress=1.000 branch=grow
+Q=0.30 thr=0.25 tAcq=0.35 tDetect=1.18 state=Detected maxProgress=1.000 branch=grow
+Q=0.25 thr=0.25 tAcq=0.35 tDetect=timeout state=Undetected maxProgress=0.000 branch=hold
+PASS Time_Monotone_Q1_to_Q30 | tDetect non-decreasing as Q 1.00→0.30
+
+GATE 0.25
+---------
+expect Q=0.251 grow/Detected; Q=0.250 hold/timeout; Q=0.249 hold/timeout
+Q=0.251 thr=0.25 tDetect=1.40 state=Detected maxProgress=1.000 branch=grow
+Q=0.250 thr=0.25 tDetect=timeout state=Undetected maxProgress=0.000 branch=hold
+Q=0.249 thr=0.25 tDetect=timeout state=Undetected maxProgress=0.000 branch=hold
+PASS Gate_Q251_Detected | Q=0.251 tDetect=1.40
+PASS Gate_Q250_NotDetected | Q=0.250 state=Undetected maxProgress=0.000
+PASS Gate_Q249_NotDetected | Q=0.249 state=Undetected maxProgress=0.000
+---
+RESULT=PASS pass=10 fail=0

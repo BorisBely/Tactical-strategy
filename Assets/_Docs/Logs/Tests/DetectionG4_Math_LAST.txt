@@ -1,0 +1,15 @@
+﻿DetectionG4 MemoryMathSmoke 2026-08-19 10:21:16
+---
+PASS Math_ZeroTimeInitial | t=0 → 1
+PASS Math_NegativeElapsedInitial | elapsed<0
+PASS Math_HorizonZero | horizon
+PASS Math_PastHorizonZero | t>>horizon
+PASS Math_Monotone | t↑ ⇒ conf↓
+PASS Math_EarlyGreaterLate | 1s=0,854 7s=0,164
+PASS Math_InitialHalf | half=0,293
+PASS Math_InitialLow | low=0,117
+PASS Math_ClampInitial | initial>1
+PASS Math_Stale | stale band
+PASS Math_Forgotten | forgotten
+---
+RESULT=PASS pass=11 fail=0

@@ -16,7 +16,7 @@ public enum ContactSelectionRejectReason
 
 /// <summary>
 /// G5 selection policy. Identity/Relationship/Threat are modifiers, not a Hostile gate.
-/// Unknown is selectable by default (production has no IdentityAppearance).
+/// Unknown is selectable by default until VisualIdentityEvidence is committed.
 /// </summary>
 [Serializable]
 public struct ContactSelectionPolicy

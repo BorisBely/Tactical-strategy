@@ -65,19 +65,25 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_BaseShotDispersion = 1f;
 	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..500 м.")]
 	[SerializeField] private WeaponDistanceAimProfile m_DistanceAimProfile = new WeaponDistanceAimProfile();
-	[Tooltip("Множитель разброса по номеру выстрела в непрерывной автоматической очереди. Ось X = номер выстрела (1 = без штрафа).")]
+	[Tooltip("Множитель разброса по номеру выстрела в непрерывной автоматической очереди. Ось X = номер выстрела (1 = без штрафа). Больше не входит в конус hitscan.")]
 	[SerializeField] private AnimationCurve m_AutoBurstSpreadMultiplierByShot = AnimationCurve.Linear(1f, 1f, 10f, 1f);
-	[Tooltip("Базовое накопление штрафа отдачи после одного выстрела.")]
+	[Tooltip("Устаревшее безразмерное накопление P. Не используется gameplay recoil; оставлено для старых ассетов.")]
 	[SerializeField, Min(0f)] private float m_RecoilPerShot = 1f;
-	[Tooltip("Множитель накопления отдачи при одиночной стрельбе.")]
+	[Tooltip("Подъём очереди за выстрел, градусы (до множителей режима/модулей/навыка).")]
+	[SerializeField, Min(0f)] private float m_VerticalRecoil = 0.09f;
+	[Tooltip("Боковой kick за выстрел, градусы (модулируется паттерном −1…1).")]
+	[SerializeField, Min(0f)] private float m_HorizontalRecoil = 0.035f;
+	[Tooltip("Фаза детерминированного горизонтального паттерна. К ней добавляется хэш экземпляра юнита.")]
+	[SerializeField] private float m_RecoilPatternSeed;
+	[Tooltip("Множитель kick при одиночной стрельбе.")]
 	[SerializeField, Min(0f)] private float m_SemiAutoRecoilMultiplier = 0.85f;
-	[Tooltip("Множитель накопления отдачи при автоматическом огне.")]
+	[Tooltip("Множитель kick при автоматическом огне.")]
 	[SerializeField, Min(0f)] private float m_AutoRecoilMultiplier = 1.25f;
-	[Tooltip("Сколько единиц накопленной отдачи оружие восстанавливает за секунду.")]
-	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 3.5f;
-	[Tooltip("Множитель только визуального kick ствола (UnitWeaponRecoil). Не влияет на gameplay RecoilPenalty / разброс.")]
+	[Tooltip("Скорость возврата RecoilOffset к нулю, градусы в секунду.")]
+	[SerializeField, Min(0f)] private float m_RecoilRecoveryPerSecond = 0.7f;
+	[Tooltip("Множитель только визуального kick ствола (UnitWeaponRecoil). Не влияет на gameplay RecoilOffset.")]
 	[SerializeField, Min(0f)] private float m_VisualRecoilKickScale = 1f;
-	[Tooltip("Множитель визуальной реакции правой руки (UnitWeaponArmRecoil). Не влияет на gameplay RecoilPenalty / разброс.")]
+	[Tooltip("Множитель визуальной реакции правой руки (UnitWeaponArmRecoil). Не влияет на gameplay RecoilOffset.")]
 	[SerializeField, Min(0f)] private float m_ArmRecoilMultiplier = 1f;
 	[Tooltip("Длина очереди в режиме Burst.")]
 	[SerializeField, Min(2)] private int m_BurstRounds = 3;
@@ -164,6 +170,9 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float BaseShotDispersion => m_BaseShotDispersion;
 	public WeaponDistanceAimProfile DistanceAimProfile => m_DistanceAimProfile;
 	public float RecoilPerShot => m_RecoilPerShot;
+	public float VerticalRecoil => m_VerticalRecoil;
+	public float HorizontalRecoil => m_HorizontalRecoil;
+	public float RecoilPatternSeed => m_RecoilPatternSeed;
 	public float SemiAutoRecoilMultiplier => m_SemiAutoRecoilMultiplier;
 	public float AutoRecoilMultiplier => m_AutoRecoilMultiplier;
 	public float RecoilRecoveryPerSecond => m_RecoilRecoveryPerSecond;
@@ -267,29 +276,21 @@ public sealed class WeaponDefinition : ScriptableObject
 	#endregion
 
 	#region Static Helpers
-	/// <summary>
-	/// Тот же вклад в <see cref="EquippedWeaponTransientState.RecoilPenalty"/>, что и после одного выстрела
-	/// (совпадает с логикой <see cref="UnitWeaponRecoilController"/> при том же модификаторе обвесов).
-	/// </summary>
-	public static float ComputeAddedRecoilPenalty(
+	public static float ComputeRecoilImpulseMultiplier(
 		WeaponDefinition weaponDefinition,
 		WeaponFireMode fireMode,
 		AmmoDefinition ammoDefinition,
 		float attachmentRecoilModifier = 1f)
 	{
-		if (weaponDefinition == null)
-			return 0f;
-
-		float fireModeMultiplier = fireMode switch
-		{
-			WeaponFireMode.FullAuto => weaponDefinition.AutoRecoilMultiplier,
-			WeaponFireMode.Burst => weaponDefinition.AutoRecoilMultiplier,
-			WeaponFireMode.Auto => weaponDefinition.AutoRecoilMultiplier,
-			_ => weaponDefinition.SemiAutoRecoilMultiplier
-		};
-
-		float ammoModifier = ammoDefinition != null ? ammoDefinition.RecoilModifier : 1f;
-		return weaponDefinition.RecoilPerShot * fireModeMultiplier * ammoModifier * attachmentRecoilModifier;
+		return WeaponRecoilMath.ComposeImpulseMultiplier(
+			weaponDefinition,
+			fireMode,
+			ammoDefinition,
+			attachmentRecoilModifier,
+			1f,
+			1f,
+			1f,
+			1f);
 	}
 	#endregion
 }

@@ -1,0 +1,16 @@
+﻿DetectionG3 IdentityMathSmoke 2026-08-19 09:37:19
+---
+PASS Math_IdentitySlowerThanDetection | id=0,175 det=1,000
+PASS Math_HoldWhenLost | held=0,550
+PASS Math_NoCueDoesNotGrow | c=0,200
+PASS Math_UnknownBelowCommit | 0.49 must stay Unknown
+PASS Math_CommitHostile | 0.5 Hostile cue
+PASS Math_HoldCommittedWithoutCue | missing cue holds previous
+PASS Math_RelationshipFollowsIdentity | Hostile→Hostile
+PASS Math_UnknownRelationship | Unknown→Unknown
+PASS Math_HostileFarLow | 400m Hostile
+PASS Math_HostileNearHigh | 10m Hostile
+PASS Math_FriendlyNone | Friendly near
+PASS Math_NeutralNone | Neutral near
+---
+RESULT=PASS pass=12 fail=0

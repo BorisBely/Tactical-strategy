@@ -45,6 +45,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 	private int m_ShotsFiredInSeries;
 	private float m_PauseUntilTime;
 	private Transform m_LastTarget;
+	private Phase m_LastLoggedPhase = (Phase)(-1);
 	#endregion
 
 	#region Public Properties
@@ -114,6 +115,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 				ResetPlanState();
 			}
 
+			LogPhaseIfChanged();
 			return;
 		}
 
@@ -134,6 +136,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 		}
 
 		RefreshDebug();
+		LogPhaseIfChanged();
 	}
 	#endregion
 
@@ -349,6 +352,28 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 		m_DebugSeriesShotCount = m_CurrentPlan.SeriesShotCount;
 		m_DebugShotsFiredInSeries = m_ShotsFiredInSeries;
 		m_DebugSeriesPauseSeconds = m_CurrentPlan.SeriesPauseSeconds;
+	}
+
+	private void LogPhaseIfChanged()
+	{
+		if (!UnitActionLog.Enabled || m_Phase == m_LastLoggedPhase)
+			return;
+		m_LastLoggedPhase = m_Phase;
+		string plan = "none";
+		if (m_HasPlan)
+		{
+			plan = "mode=" + m_CurrentPlan.EffectiveFireMode +
+			       " aim=" + m_CurrentPlan.EffectiveAimMode +
+			       " needAim=" + UnitActionLog.F2(m_CurrentPlan.RequiredAimProgress01) +
+			       " series=" + m_CurrentPlan.SeriesShotCount +
+			       " pause=" + UnitActionLog.F2(m_CurrentPlan.SeriesPauseSeconds) +
+			       " fired=" + m_ShotsFiredInSeries;
+		}
+
+		string tgt = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null
+			? UnitActionLog.Slot(m_TargetSelector.SelectedTarget)
+			: "none";
+		UnitActionLog.Write(this, UnitActionLog.Disc, "phase=" + m_Phase + " tgt=" + tgt + " " + plan);
 	}
 	#endregion
 }

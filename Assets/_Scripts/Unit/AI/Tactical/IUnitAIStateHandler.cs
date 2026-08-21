@@ -1,5 +1,5 @@
 /// <summary>
-/// Per-state enter / tick / exit. Navigation / Combat stay later actions, not new states.
+/// Per-state enter / tick / exit. Navigation uses <see cref="IUnitMoveCommand"/>; Combat stays on CombatIntent.
 /// </summary>
 public interface IUnitAIStateHandler
 {

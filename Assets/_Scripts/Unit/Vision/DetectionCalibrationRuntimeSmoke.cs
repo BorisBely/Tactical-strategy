@@ -49,7 +49,15 @@ public sealed class DetectionCalibrationRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunIdentityCalibration &&
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
-		!DetectionHarnessPlayMode.RunUseOfForcePolicy;
+		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer &&
+		!DetectionHarnessPlayMode.RunVisionEnvelope;
 	#endregion
 
 	#region Unity Lifecycle
@@ -241,8 +249,20 @@ public sealed class DetectionCalibrationRuntimeSmoke : MonoBehaviour
 		if (hasObs && runtime.Q <= 0.0001f)
 		{
 			float obsDist = Mathf.Sqrt(Mathf.Max(0f, lastObs.DistanceSq));
-			runtime.DistanceFactor = DetectionQualityMath.DistanceFactor(obsDist);
-			runtime.FovFactor = DetectionQualityMath.FovFactor(lastObs.FovOffsetDegrees);
+			float resolvedRange = _vision != null
+				? _vision.ResolvedMaxRange
+				: DetectionQualityMath.DefaultFarMeters;
+			runtime.DistanceFactor = DetectionQualityMath.DistanceFactor(obsDist, resolvedRange);
+			float fovHalf = DetectionQualityMath.DefaultFovHalfDegrees;
+			if (_vision != null)
+			{
+				ResolvedVisionProfile profile = _vision.CurrentVisionProfile;
+				fovHalf = lastObs.Source == VisionObservationSource.Optic
+					? profile.ScopeHalfFovDegrees
+					: profile.EyeHalfFovDegrees;
+			}
+
+			runtime.FovFactor = DetectionQualityMath.FovFactor(lastObs.FovOffsetDegrees, fovHalf);
 			runtime.ExposureFactor = Mathf.Clamp01(lastObs.Exposure01);
 			if (runtime.MovementFactor < 1f)
 				runtime.MovementFactor = 1f;

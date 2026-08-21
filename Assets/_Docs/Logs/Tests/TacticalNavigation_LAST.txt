@@ -1,0 +1,57 @@
+﻿STAGE 4 — TACTICAL NAVIGATION EXECUTION
+=======================================
+stamp=2026-08-20 14:46:26
+Attack/Retreat/Flee Walk through existing UnitNavLocomotionDriver. Search unchanged.
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Harness_Observer | observer missing
+PASS NavDriver_Present | UnitNavLocomotionDriver missing
+PASS EngagementNav_Enabled | driver disabled
+---
+[T1] Attack + destination → Walk, remains Attack
+PASS Prepare_Attack | Attack dest=(0.00, 0.08, 20.00)
+PASS T1_Attack | Attack
+PASS T1_Hold | Hold/Hold
+PASS T1_Issued | issued=True reason=Attack
+PASS T1_Walked | start=20,00 now=19,63
+PASS T1_StillAttack | Attack
+---
+[T2] Attack reached → HardStop, remains Attack
+PASS T2_Reached | not reached
+PASS T2_StillAttack | Attack
+PASS T2_Stopped | intent=False
+PASS T2_Hold | Hold
+---
+[T3] Attack + Hostile VisibleNow → Engage, Walk continues, state stays Attack
+PASS Prepare_Attack | Attack dest=(0.00, 0.08, 20.00)
+PASS T3_Attack | Attack
+PASS T3_Engage | Engage
+PASS T3_IntentEngage | Engage
+PASS T3_StillHasMoveOrIssued | intent=True issued=True
+---
+[T4] Retreat + destination → Walk, reached → HardStop, remains Retreat
+PASS T4_RetreatApplied | Retreat
+PASS T4_Issued | Retreat
+PASS T4_StillRetreat | Retreat
+PASS T4_Stopped | intent=False
+---
+[T5] Flee + destination → Walk, reached → HardStop → Idle
+PASS T5_FleeApplied | Flee
+PASS T5_Idle | Idle
+PASS T5_Stopped | intent=False
+---
+[T6] Attack Walk(A) → Retreat Walk(B), A cancelled
+PASS Prepare_Attack | Attack dest=(0.00, 0.08, 20.00)
+PASS T6_RetreatApplied | Attack→Retreat
+PASS T6_StateRetreat | Retreat
+PASS T6_ReasonRetreat | Retreat
+PASS T6_NotAttackDest | A=(0.00, 0.08, 20.00) B=(-20.00, 0.56, 0.00)
+---
+[T7] Attack Walk does not rewrite LastKnown / Identity and does not leave Attack
+PASS T7_StillAttack | Attack
+PASS T7_LastKnownHeld | (9.62, 0.15, 6.60)
+PASS T7_IdentityHeld | Hostile
+PASS T7_ConfHeld | 1,000
+---
+RESULT=PASS pass=36 fail=0

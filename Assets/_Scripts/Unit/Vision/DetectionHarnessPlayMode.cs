@@ -15,6 +15,14 @@ public static class DetectionHarnessPlayMode
 	private const string c_RunAIPerceptionKey = "DetectionCalib.RunAIPerception";
 	private const string c_RunAITacticalKey = "DetectionCalib.RunAITactical";
 	private const string c_RunUseOfForceKey = "DetectionCalib.RunUseOfForce";
+	private const string c_RunCombatEngageKey = "DetectionCalib.RunCombatEngage";
+	private const string c_RunSearchExecutionKey = "DetectionCalib.RunSearchExecution";
+	private const string c_RunTacticalNavKey = "DetectionCalib.RunTacticalNav";
+	private const string c_RunTacticalCommandKey = "DetectionCalib.RunTacticalCommand";
+	private const string c_RunGameCommandKey = "DetectionCalib.RunGameCommand";
+	private const string c_RunGameCommandInputKey = "DetectionCalib.RunGameCommandInput";
+	private const string c_RunGameCommandLayerKey = "DetectionCalib.RunGameCommandLayer";
+	private const string c_RunVisionEnvelopeKey = "DetectionCalib.RunVisionEnvelope";
 	public const string AllGStages = "All";
 	#endregion
 
@@ -99,6 +107,86 @@ public static class DetectionHarnessPlayMode
 		}
 	}
 
+	public static bool RunCombatEngageExecution
+	{
+		get => PlayerPrefs.GetInt(c_RunCombatEngageKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCombatEngageKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunSearchExecution
+	{
+		get => PlayerPrefs.GetInt(c_RunSearchExecutionKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunSearchExecutionKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunTacticalNavigationExecution
+	{
+		get => PlayerPrefs.GetInt(c_RunTacticalNavKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunTacticalNavKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunTacticalCommandContract
+	{
+		get => PlayerPrefs.GetInt(c_RunTacticalCommandKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunTacticalCommandKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunGameCommandSource
+	{
+		get => PlayerPrefs.GetInt(c_RunGameCommandKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunGameCommandKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunGameCommandInput
+	{
+		get => PlayerPrefs.GetInt(c_RunGameCommandInputKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunGameCommandInputKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVisionEnvelope
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionEnvelopeKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionEnvelopeKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunGameCommandLayer
+	{
+		get => PlayerPrefs.GetInt(c_RunGameCommandLayerKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunGameCommandLayerKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
 	/// <summary>G1, G2, … G8, G8Stress, or All. Empty = not a dedicated G Play.</summary>
 	public static string RunGStage
 	{
@@ -113,12 +201,53 @@ public static class DetectionHarnessPlayMode
 	public static bool IsCalibrationPlay =>
 		RunCalibrationStrict || RunCalibrationRuntime || RunMemoryCalibration ||
 		RunIdentityCalibration || RunAIPerceptionHandoff || RunAITacticalState ||
-		RunUseOfForcePolicy;
+		RunUseOfForcePolicy || RunCombatEngageExecution || RunSearchExecution ||
+		RunTacticalNavigationExecution || RunTacticalCommandContract || RunGameCommandSource ||
+		RunGameCommandInput || RunGameCommandLayer || RunVisionEnvelope;
 
 	public static bool IsGRegressionPlay => !string.IsNullOrEmpty(RunGStage);
 	#endregion
 
+	#region Unity Lifecycle
+	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+	private static void ActivateHarnessAfterSceneLoad()
+	{
+		if (!IsCalibrationPlay && !IsGRegressionPlay)
+			return;
+
+		DetectionTestController harness = EnsureHarnessActive();
+		if (harness == null)
+		{
+			Debug.LogError(
+				"[DetectionHarnessPlayMode] DetectionTestController not in the loaded scene. " +
+				"Open SampleScene before Tools/Tests Play.");
+		}
+	}
+	#endregion
+
 	#region Public Methods
+	/// <summary>
+	/// SampleScene keeps DetectionG1Harness inactive for normal Play.
+	/// Dedicated Tools/Tests Play must wake it so the smoke can attach.
+	/// </summary>
+	public static DetectionTestController EnsureHarnessActive()
+	{
+		DetectionTestController harness =
+			UnityEngine.Object.FindAnyObjectByType<DetectionTestController>(FindObjectsInactive.Include);
+		if (harness == null)
+			return null;
+
+		if (!harness.gameObject.activeSelf)
+		{
+			harness.gameObject.SetActive(true);
+			Debug.Log(
+				$"[DetectionHarnessPlayMode] Activated '{harness.gameObject.name}' for Play test.",
+				harness);
+		}
+
+		return harness;
+	}
+
 	public static bool ShouldRunGAutoSmoke(bool _runOnStart, string _stageId)
 	{
 		if (!string.IsNullOrEmpty(RunGStage))
@@ -145,6 +274,14 @@ public static class DetectionHarnessPlayMode
 		RunAIPerceptionHandoff = false;
 		RunAITacticalState = false;
 		RunUseOfForcePolicy = false;
+		RunCombatEngageExecution = false;
+		RunSearchExecution = false;
+		RunTacticalNavigationExecution = false;
+		RunTacticalCommandContract = false;
+		RunGameCommandSource = false;
+		RunGameCommandInput = false;
+		RunGameCommandLayer = false;
+		RunVisionEnvelope = false;
 		RunGStage = string.Empty;
 	}
 

@@ -1,0 +1,285 @@
+﻿AI-1A — USE OF FORCE POLICY
+===========================
+stamp=2026-08-20 00:38:44
+ForcePermission from Relationship; G6 math untouched; no Weapon
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Harness_Observer | observer missing
+PASS Engagement_Present | EngagementDecisionController missing
+PASS Selector_Present | TargetSelector missing
+---
+PASS SelfDefense_Hostile_NoThreat_HasContact | Unit(Clone)
+PASS SelfDefense_Hostile_NoThreat_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=SelfDefense
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=False
+reason=SelfDefenseNoImmediateThreat
+PASS SelfDefense_Hostile_NoThreat_Allowed | allowed=False want=False reason=SelfDefenseNoImmediateThreat
+PASS SelfDefense_Hostile_NoThreat_Reason | reason=SelfDefenseNoImmediateThreat want=SelfDefenseNoImmediateThreat
+PASS SelfDefense_Hostile_NoThreat_StateUnchanged | Idle
+PASS SelfDefense_Hostile_NoThreat_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS SelfDefense_Hostile_NoThreat_G6_PermissionMatch | eng=Denied/SelfDefenseNoImmediateThreat ai=Denied/SelfDefenseNoImmediateThreat
+PASS SelfDefense_Hostile_NoThreat_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS SelfDefense_Hostile_Threat_HasContact | Unit(Clone)
+PASS SelfDefense_Hostile_Threat_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=SelfDefense
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=True
+reason=SelfDefenseImmediateThreat
+PASS SelfDefense_Hostile_Threat_Allowed | allowed=True want=True reason=SelfDefenseImmediateThreat
+PASS SelfDefense_Hostile_Threat_Reason | reason=SelfDefenseImmediateThreat want=SelfDefenseImmediateThreat
+PASS SelfDefense_Hostile_Threat_StateUnchanged | Idle
+PASS SelfDefense_Hostile_Threat_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS SelfDefense_Hostile_Threat_G6_PermissionMatch | eng=Allowed/SelfDefenseImmediateThreat ai=Allowed/SelfDefenseImmediateThreat
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS RestrictedDefense_Hostile_HasContact | Unit(Clone)
+PASS RestrictedDefense_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=RestrictedDefense
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=True
+reason=PolicyAllowsHostile
+PASS RestrictedDefense_Hostile_Allowed | allowed=True want=True reason=PolicyAllowsHostile
+PASS RestrictedDefense_Hostile_Reason | reason=PolicyAllowsHostile want=PolicyAllowsHostile
+PASS RestrictedDefense_Hostile_StateUnchanged | Idle
+PASS RestrictedDefense_Hostile_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS RestrictedDefense_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS MissionCombat_Hostile_HasContact | Unit(Clone)
+PASS MissionCombat_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=MissionCombat
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=True
+reason=PolicyAllowsHostile
+PASS MissionCombat_Hostile_Allowed | allowed=True want=True reason=PolicyAllowsHostile
+PASS MissionCombat_Hostile_Reason | reason=PolicyAllowsHostile want=PolicyAllowsHostile
+PASS MissionCombat_Hostile_StateUnchanged | Idle
+PASS MissionCombat_Hostile_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS MissionCombat_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS FullEngagement_Hostile_HasContact | Unit(Clone)
+PASS FullEngagement_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=FullEngagement
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=True
+reason=PolicyAllowsHostile
+PASS FullEngagement_Hostile_Allowed | allowed=True want=True reason=PolicyAllowsHostile
+PASS FullEngagement_Hostile_Reason | reason=PolicyAllowsHostile want=PolicyAllowsHostile
+PASS FullEngagement_Hostile_StateUnchanged | Idle
+PASS FullEngagement_Hostile_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS FullEngagement_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS NoFriendlyFire_Hostile_HasContact | Unit(Clone)
+PASS NoFriendlyFire_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
+POLICY
+state=Idle
+policy=NoFriendlyFire
+CONTACT
+identity=Hostile
+relationship=Hostile
+threat=High
+DECISION
+forceAllowed=True
+reason=NonFriendly
+PASS NoFriendlyFire_Hostile_Allowed | allowed=True want=True reason=NonFriendly
+PASS NoFriendlyFire_Hostile_Reason | reason=NonFriendly want=NonFriendly
+PASS NoFriendlyFire_Hostile_StateUnchanged | Idle
+PASS NoFriendlyFire_Hostile_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS NoFriendlyFire_Hostile_G6_PermissionMatch | eng=Allowed/NonFriendly ai=Allowed/NonFriendly
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS NoFriendlyFire_Neutral_HasContact | Unit(Clone)
+PASS NoFriendlyFire_Neutral_Relationship | got=Neutral want=Neutral identity=Neutral
+POLICY
+state=Idle
+policy=NoFriendlyFire
+CONTACT
+identity=Neutral
+relationship=Neutral
+threat=None
+DECISION
+forceAllowed=True
+reason=NonFriendly
+PASS NoFriendlyFire_Neutral_Allowed | allowed=True want=True reason=NonFriendly
+PASS NoFriendlyFire_Neutral_Reason | reason=NonFriendly want=NonFriendly
+PASS NoFriendlyFire_Neutral_StateUnchanged | Idle
+PASS NoFriendlyFire_Neutral_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS NoFriendlyFire_Neutral_G6_PermissionMatch | eng=Allowed/NonFriendly ai=Allowed/NonFriendly
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS NoFriendlyFire_Unknown_HasContact | Unit(Clone)
+PASS NoFriendlyFire_Unknown_Relationship | got=Unknown want=Unknown identity=Unknown
+POLICY
+state=Idle
+policy=NoFriendlyFire
+CONTACT
+identity=Unknown
+relationship=Unknown
+threat=None
+DECISION
+forceAllowed=True
+reason=NonFriendly
+PASS NoFriendlyFire_Unknown_Allowed | allowed=True want=True reason=NonFriendly
+PASS NoFriendlyFire_Unknown_Reason | reason=NonFriendly want=NonFriendly
+PASS NoFriendlyFire_Unknown_StateUnchanged | Idle
+PASS NoFriendlyFire_Unknown_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS NoFriendlyFire_Unknown_G6_PermissionMatch | eng=Allowed/NonFriendly ai=Allowed/NonFriendly
+G6_OBSERVE decision=Aim (not AI-1A acceptance)
+---
+PASS Friendly_SelfDefense_HasContact | Unit(Clone)
+PASS Friendly_SelfDefense_Relationship | got=Friendly want=Friendly identity=Friendly
+POLICY
+state=Idle
+policy=SelfDefense
+CONTACT
+identity=Friendly
+relationship=Friendly
+threat=None
+DECISION
+forceAllowed=False
+reason=FriendlyProtected
+PASS Friendly_SelfDefense_Allowed | allowed=False want=False reason=FriendlyProtected
+PASS Friendly_SelfDefense_Reason | reason=FriendlyProtected want=FriendlyProtected
+PASS Friendly_SelfDefense_StateUnchanged | Idle
+PASS Friendly_SelfDefense_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS Friendly_SelfDefense_G6_PermissionMatch | eng=Denied/FriendlyProtected ai=Denied/FriendlyProtected
+PASS Friendly_SelfDefense_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS Friendly_RestrictedDefense_HasContact | Unit(Clone)
+PASS Friendly_RestrictedDefense_Relationship | got=Friendly want=Friendly identity=Friendly
+POLICY
+state=Idle
+policy=RestrictedDefense
+CONTACT
+identity=Friendly
+relationship=Friendly
+threat=None
+DECISION
+forceAllowed=False
+reason=FriendlyProtected
+PASS Friendly_RestrictedDefense_Allowed | allowed=False want=False reason=FriendlyProtected
+PASS Friendly_RestrictedDefense_Reason | reason=FriendlyProtected want=FriendlyProtected
+PASS Friendly_RestrictedDefense_StateUnchanged | Idle
+PASS Friendly_RestrictedDefense_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS Friendly_RestrictedDefense_G6_PermissionMatch | eng=Denied/FriendlyProtected ai=Denied/FriendlyProtected
+PASS Friendly_RestrictedDefense_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS Friendly_MissionCombat_HasContact | Unit(Clone)
+PASS Friendly_MissionCombat_Relationship | got=Friendly want=Friendly identity=Friendly
+POLICY
+state=Idle
+policy=MissionCombat
+CONTACT
+identity=Friendly
+relationship=Friendly
+threat=None
+DECISION
+forceAllowed=False
+reason=FriendlyProtected
+PASS Friendly_MissionCombat_Allowed | allowed=False want=False reason=FriendlyProtected
+PASS Friendly_MissionCombat_Reason | reason=FriendlyProtected want=FriendlyProtected
+PASS Friendly_MissionCombat_StateUnchanged | Idle
+PASS Friendly_MissionCombat_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS Friendly_MissionCombat_G6_PermissionMatch | eng=Denied/FriendlyProtected ai=Denied/FriendlyProtected
+PASS Friendly_MissionCombat_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS Friendly_FullEngagement_HasContact | Unit(Clone)
+PASS Friendly_FullEngagement_Relationship | got=Friendly want=Friendly identity=Friendly
+POLICY
+state=Idle
+policy=FullEngagement
+CONTACT
+identity=Friendly
+relationship=Friendly
+threat=None
+DECISION
+forceAllowed=False
+reason=FriendlyProtected
+PASS Friendly_FullEngagement_Allowed | allowed=False want=False reason=FriendlyProtected
+PASS Friendly_FullEngagement_Reason | reason=FriendlyProtected want=FriendlyProtected
+PASS Friendly_FullEngagement_StateUnchanged | Idle
+PASS Friendly_FullEngagement_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS Friendly_FullEngagement_G6_PermissionMatch | eng=Denied/FriendlyProtected ai=Denied/FriendlyProtected
+PASS Friendly_FullEngagement_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+PASS Friendly_NoFriendlyFire_HasContact | Unit(Clone)
+PASS Friendly_NoFriendlyFire_Relationship | got=Friendly want=Friendly identity=Friendly
+POLICY
+state=Idle
+policy=NoFriendlyFire
+CONTACT
+identity=Friendly
+relationship=Friendly
+threat=None
+DECISION
+forceAllowed=False
+reason=FriendlyProtected
+PASS Friendly_NoFriendlyFire_Allowed | allowed=False want=False reason=FriendlyProtected
+PASS Friendly_NoFriendlyFire_Reason | reason=FriendlyProtected want=FriendlyProtected
+PASS Friendly_NoFriendlyFire_StateUnchanged | Idle
+PASS Friendly_NoFriendlyFire_G6_Handoff | gate not applied
+G6_Handoff=received
+PASS Friendly_NoFriendlyFire_G6_PermissionMatch | eng=Denied/FriendlyProtected ai=Denied/FriendlyProtected
+PASS Friendly_NoFriendlyFire_G6_NoFire | Ignore
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
+---
+[TwoObservers] independent policies
+PASS TwoObs_ObserverB | failed to create observer B
+PASS TwoObs_A_Denied | Denied/SelfDefenseNoImmediateThreat
+PASS TwoObs_B_Allowed | Allowed/PolicyAllowsHostile
+PASS TwoObs_Independent | A=Denied/SelfDefenseNoImmediateThreat B=Allowed/PolicyAllowsHostile
+PASS TwoObs_StateUntouched | Idle/Idle
+---
+RESULT=PASS pass=107 fail=0

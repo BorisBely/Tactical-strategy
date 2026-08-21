@@ -18,6 +18,13 @@ public static class AITacticalStateTestRunner
 		DetectionHarnessPlayMode.RunIdentityCalibration = false;
 		DetectionHarnessPlayMode.RunAIPerceptionHandoff = false;
 		DetectionHarnessPlayMode.RunUseOfForcePolicy = false;
+		DetectionHarnessPlayMode.RunCombatEngageExecution = false;
+		DetectionHarnessPlayMode.RunSearchExecution = false;
+		DetectionHarnessPlayMode.RunTacticalNavigationExecution = false;
+		DetectionHarnessPlayMode.RunTacticalCommandContract = false;
+		DetectionHarnessPlayMode.RunGameCommandSource = false;
+		DetectionHarnessPlayMode.RunGameCommandInput = false;
+		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 		DetectionHarnessPlayMode.RunGStage = string.Empty;
 		DetectionHarnessPlayMode.RunAITacticalState = true;
 

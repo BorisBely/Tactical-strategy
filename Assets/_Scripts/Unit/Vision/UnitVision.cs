@@ -5,6 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// Periodic vision detection orchestrator: cheap range/FOV → optional LOS/hit-zones → <see cref="VisionObservation"/> frame → Perception.
+/// One sensor, two filters: eye 150 m / 120° and optic 150–300 m / 8° (Aiming only). One knowledge frame.
 /// G8 LOD only changes when expensive work runs. Does not choose combat targets.
 /// TargetSelector reacts to Perception frames independently.
 ///
@@ -29,6 +30,7 @@ public sealed class UnitVision : MonoBehaviour
 	#region Constants
 	private const int c_RaycastHitBuffer = 16;
 	private const int c_AimCandidateCapacity = 32;
+	private const int c_MaxScopeFarLosPerScan = 6;
 	#endregion
 
 	#region Private Fields
@@ -39,6 +41,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private Collider m_BodyCollider;
 	[SerializeField] private Animator m_Animator;
 	[SerializeField] private UnitEquipment m_Equipment;
+	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[SerializeField] private UnitCombatStats m_CombatStats;
 	[SerializeField] private UnitObservationSource m_ObservationSource;
@@ -46,7 +49,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField] private TargetSelector m_TargetSelector;
 
 	[Header("Зрение")]
-	[SerializeField, Min(0.5f)] private float m_VisionRange = 18f;
+	[SerializeField, Min(0.5f)] private float m_VisionRange = 150f;
 	[SerializeField, Range(1f, 179f)] private float m_FieldOfViewDegrees = 120f;
 	[Tooltip("Пока в прошлом кадре уже была цель, к половине FOV добавляется этот угол — реже теряем цель на краю конуса.")]
 	[SerializeField, Range(0f, 30f)] private float m_TrackingHalfFovExtraDegrees = 15f;
@@ -95,7 +98,7 @@ public sealed class UnitVision : MonoBehaviour
 	[SerializeField, Range(0f, 10f)] private float m_MinReadyBoreRootTurnDegrees = 0.5f;
 
 	[Header("Отладка")]
-	[SerializeField] private bool m_DrawVisionGizmos = true;
+	[SerializeField] private bool m_DrawVisionGizmos;
 	[SerializeField] private Color m_GizmoRayHitColor = new Color(1f, 0.3f, 0.1f, 0.9f);
 	[SerializeField] private Color m_GizmoRayMissColor = new Color(0.4f, 0.4f, 0.9f, 0.6f);
 
@@ -110,6 +113,8 @@ public sealed class UnitVision : MonoBehaviour
 	private readonly List<VisionCandidateProvider.Candidate> m_CandidateScratch =
 		new List<VisionCandidateProvider.Candidate>(128);
 	private readonly List<VisionObservation> m_ObservationScratch = new List<VisionObservation>(32);
+	private readonly HashSet<Transform> m_EyeObservedScratch = new HashSet<Transform>();
+	private readonly List<int> m_ScopeIndexScratch = new List<int>(32);
 	private readonly List<UnitBodyHitZoneVisionUtility.VisionAimCandidate> m_AimCandidateScratch =
 		new List<UnitBodyHitZoneVisionUtility.VisionAimCandidate>(c_AimCandidateCapacity);
 	private UnitBodyHitZone[] m_BodyHitZones = Array.Empty<UnitBodyHitZone>();
@@ -132,10 +137,19 @@ public sealed class UnitVision : MonoBehaviour
 	private readonly VisionLosCache m_LosCache = new VisionLosCache();
 	private readonly Dictionary<Transform, float> m_DetailDue = new Dictionary<Transform, float>(32);
 	private VisionScanTier m_CurrentScanTier = VisionScanTier.RangeFov;
+	private VisionScanTier m_LastLoggedScanTier = (VisionScanTier)(-1);
 	private bool m_ForceDetailThisScan;
 	private bool m_BypassLosCacheThisScan;
 	private float m_LastDetailScanTime = -999f;
 	private float m_LastMembershipScanTime = -999f;
+	private ScopeScanController m_ScopeScan;
+	private ResolvedVisionProfile m_CachedProfile;
+	private int m_ProfileFingerprint = int.MinValue;
+	private bool m_TurretAlwaysAimed;
+	private bool m_HasPoseOverride;
+	private WeaponPoseState m_PoseOverride;
+	private WeaponAttachmentDefinition m_OpticOverride;
+	private WeaponAttachmentDefinition[] m_OpticOverrideBuffer;
 	#endregion
 
 	#region Body / Hit Zones
@@ -152,6 +166,11 @@ public sealed class UnitVision : MonoBehaviour
 	public string DebugLastLosBlocker => m_VisibilityChecker != null ? m_VisibilityChecker.LastLosBlocker : null;
 	public VisionScanTier CurrentScanTier => m_CurrentScanTier;
 	public float VisionRange => m_VisionRange;
+	public float ResolvedMaxRange => m_CachedProfile.MaxRangeMeters > 0.5f
+		? m_CachedProfile.MaxRangeMeters
+		: m_VisionRange;
+	public ResolvedVisionProfile CurrentVisionProfile => m_CachedProfile;
+	public ScopeScanController ScopeScan => m_ScopeScan;
 	#endregion
 
 	#region Engage Facing / Scan API
@@ -180,7 +199,41 @@ public sealed class UnitVision : MonoBehaviour
 	public void SetVisionRange(float _range)
 	{
 		m_VisionRange = Mathf.Max(0.5f, _range);
+		RefreshResolvedProfile();
 		ConfigureHelpers();
+	}
+
+	public Vector3 GetGameplayVisionOriginWorld() => GetVisionConeOriginWorld();
+
+	public Vector3 GetGameplayVisionForwardXZ() => GetVisionForwardXZForGameplay();
+
+	public void NotifyVisionProfileDirty()
+	{
+		m_ProfileFingerprint = int.MinValue;
+		if (!isActiveAndEnabled)
+			return;
+		RefreshResolvedProfile();
+		RequestImmediateScan();
+	}
+
+	public void DebugSetVisionPoseOverride(WeaponPoseState _pose, bool _enabled)
+	{
+		m_HasPoseOverride = _enabled;
+		m_PoseOverride = _pose;
+		NotifyVisionProfileDirty();
+	}
+
+	public void DebugSetVisionOpticOverride(WeaponAttachmentDefinition _optic)
+	{
+		m_OpticOverride = _optic;
+		NotifyVisionProfileDirty();
+	}
+
+	public void DebugClearVisionOverrides()
+	{
+		m_HasPoseOverride = false;
+		m_OpticOverride = null;
+		NotifyVisionProfileDirty();
 	}
 
 	/// <summary>
@@ -219,7 +272,7 @@ public sealed class UnitVision : MonoBehaviour
 			Mathf.Cos(_worldAngle * Mathf.Deg2Rad));
 
 		Vector3 origin = GetVisionConeOriginWorld();
-		float rangeSq = m_VisionRange * m_VisionRange;
+		float rangeSq = ResolvedMaxRange * ResolvedMaxRange;
 		float bestDistSq = float.MaxValue;
 
 		m_CandidateProvider.CollectOpponentsRaw(m_OpponentBuffer);
@@ -257,7 +310,7 @@ public sealed class UnitVision : MonoBehaviour
 		return _bestTarget != null;
 	}
 
-	/// <summary>Called from <see cref="UnitWeaponReadyHandsLayer"/> on high‑ready / low‑ready change.</summary>
+	/// <summary>Called from <see cref="UnitWeaponReadyHandsLayer"/> on pose / ready change.</summary>
 	public void NotifyWeaponReadyChanged(bool _ready)
 	{
 		if (!isActiveAndEnabled)
@@ -266,7 +319,7 @@ public sealed class UnitVision : MonoBehaviour
 		m_HasReadyTransitionDesiredBoreForwardXZ = false;
 		if (m_ObservationSource != null)
 			m_ObservationSource.InvalidateSightCache();
-		RequestImmediateScan();
+		NotifyVisionProfileDirty();
 		if (m_LogReadyForwardShift)
 			LogReadyForwardShift(_ready);
 	}
@@ -354,6 +407,8 @@ public sealed class UnitVision : MonoBehaviour
 			m_Animator = GetComponentInChildren<Animator>();
 		if (m_Equipment == null)
 			m_Equipment = GetComponent<UnitEquipment>();
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
 		if (m_ReadyHands == null)
 			m_ReadyHands = GetComponent<UnitWeaponReadyHandsLayer>();
 		if (m_CombatStats == null)
@@ -364,7 +419,10 @@ public sealed class UnitVision : MonoBehaviour
 		m_CandidateProvider = new VisionCandidateProvider(this);
 		m_VisibilityChecker = new VisibilityChecker(transform, m_Hits, m_AimCandidateScratch, m_DebugRays);
 		m_DetectionProcessor = GetComponent<DetectionProcessor>();
+		m_ScopeScan = GetComponent<ScopeScanController>() ?? gameObject.AddComponent<ScopeScanController>();
+		m_TurretAlwaysAimed = GetComponent<VehicleTurretGunnerBridge>() != null;
 		SyncObservationSourceConfig();
+		RefreshResolvedProfile();
 		ConfigureHelpers();
 	}
 
@@ -394,6 +452,12 @@ public sealed class UnitVision : MonoBehaviour
 
 		if (Application.isPlaying)
 			UpdateSmoothedVisionForward();
+
+		RefreshResolvedProfile();
+		bool scopeRequest = m_ScopeScan != null &&
+			m_ScopeScan.Tick(Time.deltaTime, m_CachedProfile.IsScopeActive, false);
+		if (scopeRequest)
+			m_ForceDetailThisScan = true;
 
 		bool due = Time.time >= m_NextScanTime;
 		bool aimMotion = false;
@@ -439,6 +503,8 @@ public sealed class UnitVision : MonoBehaviour
 			m_Perception = GetComponent<UnitPerception>() ?? gameObject.AddComponent<UnitPerception>();
 		if (GetComponent<DetectionProcessor>() == null)
 			gameObject.AddComponent<DetectionProcessor>();
+		if (m_ScopeScan == null)
+			m_ScopeScan = GetComponent<ScopeScanController>() ?? gameObject.AddComponent<ScopeScanController>();
 		if (m_TargetSelector == null)
 			m_TargetSelector = GetComponent<TargetSelector>() ?? gameObject.AddComponent<TargetSelector>();
 		if (GetComponent<EngagementDecisionController>() == null)
@@ -462,9 +528,89 @@ public sealed class UnitVision : MonoBehaviour
 
 		if (m_VisibilityChecker != null)
 		{
-			m_VisibilityChecker.Configure(m_LayerMask, m_QueryTriggerInteraction, m_VisionRange, m_DrawVisionGizmos);
+			m_VisibilityChecker.Configure(
+				m_LayerMask,
+				m_QueryTriggerInteraction,
+				ResolvedMaxRange,
+				m_DrawVisionGizmos);
 			m_VisibilityChecker.BindStats(m_ScanStats);
 		}
+	}
+
+	private void RefreshResolvedProfile()
+	{
+		if (m_ScopeScan == null)
+			m_ScopeScan = GetComponent<ScopeScanController>() ?? gameObject.AddComponent<ScopeScanController>();
+
+		WeaponPoseState pose = ResolveVisionPose();
+		WeaponAttachmentDefinition[] attachments = ResolveVisionAttachments();
+		m_CachedProfile = UnitVisionProfile.Resolve(
+			m_VisionRange,
+			m_FieldOfViewDegrees,
+			pose,
+			attachments,
+			m_TurretAlwaysAimed);
+
+		int fingerprint = ComputeProfileFingerprint(pose, attachments);
+		if (fingerprint == m_ProfileFingerprint)
+			return;
+
+		m_ProfileFingerprint = fingerprint;
+		m_ForceDetailThisScan = true;
+		if (m_ScopeScan != null && !m_CachedProfile.IsScopeActive && !m_ScopeScan.IsFrozenForTest)
+			m_ScopeScan.ResetSweep();
+		if (m_VisibilityChecker != null)
+		{
+			m_VisibilityChecker.Configure(
+				m_LayerMask,
+				m_QueryTriggerInteraction,
+				m_CachedProfile.MaxRangeMeters,
+				m_DrawVisionGizmos);
+		}
+	}
+
+	private WeaponPoseState ResolveVisionPose()
+	{
+		if (m_HasPoseOverride)
+			return m_PoseOverride;
+		if (m_ReadyHands != null)
+			return m_ReadyHands.EffectivePoseState;
+		return WeaponPoseState.NotReady;
+	}
+
+	private WeaponAttachmentDefinition[] ResolveVisionAttachments()
+	{
+		if (m_OpticOverride != null)
+		{
+			if (m_OpticOverrideBuffer == null || m_OpticOverrideBuffer.Length != 1)
+				m_OpticOverrideBuffer = new WeaponAttachmentDefinition[1];
+			m_OpticOverrideBuffer[0] = m_OpticOverride;
+			return m_OpticOverrideBuffer;
+		}
+
+		if (m_WeaponRuntime == null)
+			m_WeaponRuntime = GetComponent<UnitWeaponRuntime>();
+		if (m_WeaponRuntime != null && m_WeaponRuntime.RuntimeState != null)
+			return m_WeaponRuntime.RuntimeState.EquippedAttachments;
+		return null;
+	}
+
+	private int ComputeProfileFingerprint(WeaponPoseState _pose, WeaponAttachmentDefinition[] _attachments)
+	{
+		int optic = 0;
+		if (_attachments != null)
+		{
+			for (int i = 0; i < _attachments.Length; i++)
+			{
+				if (_attachments[i] != null)
+					optic ^= _attachments[i].GetEntityId().GetHashCode();
+			}
+		}
+
+		return ((int)_pose * 397)
+			^ optic
+			^ (m_CachedProfile.IsScopeActive ? 17 : 0)
+			^ Mathf.RoundToInt(m_VisionRange * 10f);
 	}
 
 	private void ResolveRegistryIfNeeded()
@@ -523,9 +669,23 @@ public sealed class UnitVision : MonoBehaviour
 	#region Detection Pipeline (candidates → geometry → LOS → observation → perception)
 	private void RunScheduledScan(bool _immediate)
 	{
+		using (InfantryProfilerMarkers.VisionScan.Auto())
+		{
+			RunScheduledScanUnguarded(_immediate);
+		}
+	}
+
+	private void RunScheduledScanUnguarded(bool _immediate)
+	{
 		m_ScanStats.BeginFrame(Time.frameCount);
 		float started = Time.realtimeSinceStartup;
 		m_CurrentScanTier = ResolveObserverTier(_immediate);
+
+		if (UnitActionLog.Enabled && m_CurrentScanTier != m_LastLoggedScanTier)
+		{
+			m_LastLoggedScanTier = m_CurrentScanTier;
+			UnitActionLog.Write(this, UnitActionLog.Scan, "tier=" + m_CurrentScanTier + " immediate=" + (_immediate ? "1" : "0"));
+		}
 
 		if (m_CurrentScanTier == VisionScanTier.Idle && !_immediate)
 		{
@@ -556,6 +716,8 @@ public sealed class UnitVision : MonoBehaviour
 		{
 			m_NextScanTime = Time.time + 0.02f;
 			m_ForceDetailThisScan = false;
+			if (UnitActionLog.Enabled)
+				UnitActionLog.Write(this, UnitActionLog.Scan, "skip=DetailSlot notALoss=1");
 			return;
 		}
 
@@ -599,7 +761,7 @@ public sealed class UnitVision : MonoBehaviour
 
 	private float CoarseCullDistanceSq()
 	{
-		float range = m_VisionRange + m_CoarseRangePadMeters;
+		float range = ResolvedMaxRange + m_CoarseRangePadMeters;
 		return range * range;
 	}
 
@@ -642,11 +804,19 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void RunRangeFovPass()
 	{
+		RefreshResolvedProfile();
 		m_ScanStats.BeginScan();
 		Vector3 origin = GetVisionConeOriginWorld();
-		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
-		float rangeSq = CoarseCullDistanceSq();
-		float halfFov = ResolveHalfFovDegreesForScan() + m_CoarseFovPadDegrees;
+		Vector3 eyeForward = GetVisionForwardXZForGameplay();
+		Vector3 scopeForward = m_ScopeScan != null
+			? m_ScopeScan.GetSweepForwardXZ(eyeForward)
+			: eyeForward;
+		float eyeRangeSq = (m_CachedProfile.EyeRangeMeters + m_CoarseRangePadMeters) *
+			(m_CachedProfile.EyeRangeMeters + m_CoarseRangePadMeters);
+		float eyeHalf = m_CachedProfile.EyeHalfFovDegrees + m_CoarseFovPadDegrees;
+		float scopeRangeSq = (m_CachedProfile.MaxRangeMeters + m_CoarseRangePadMeters) *
+			(m_CachedProfile.MaxRangeMeters + m_CoarseRangePadMeters);
+		float scopeHalf = m_CachedProfile.ScopeHalfFovDegrees + 1f;
 		CollectCulledCandidates(origin);
 		m_ScanStats.AddCandidates(m_CandidateScratch.Count);
 
@@ -660,22 +830,40 @@ public sealed class UnitVision : MonoBehaviour
 			m_ScanStats.AddCandidateDistance(
 				Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(origin, candidate.Root.position)));
 			TryGetCandidateBounds(candidate, out bool hasBounds, out Bounds bounds);
-			bool inside = VisionGeometry.IsWithinCoarseRangeAndFov(
+			bool insideEye = VisionGeometry.IsWithinCoarseRangeAndFov(
 				origin,
-				forwardXZ,
+				eyeForward,
 				candidate.Root.position,
 				hasBounds,
 				bounds,
-				rangeSq,
-				halfFov,
+				eyeRangeSq,
+				eyeHalf,
 				out _,
 				out bool rangePass,
 				out bool fovPass);
+			bool insideScope = false;
+			if (m_CachedProfile.IsScopeActive)
+			{
+				insideScope = VisionGeometry.IsWithinCoarseRangeAndFov(
+					origin,
+					scopeForward,
+					candidate.Root.position,
+					hasBounds,
+					bounds,
+					scopeRangeSq,
+					scopeHalf,
+					out _,
+					out bool scopeRangePass,
+					out bool scopeFovPass);
+				rangePass = rangePass || scopeRangePass;
+				fovPass = fovPass || scopeFovPass;
+			}
+
 			if (rangePass)
 				m_ScanStats.AddRangePass();
 			if (fovPass)
 				m_ScanStats.AddFovPass();
-			if (!inside)
+			if (!insideEye && !insideScope)
 				continue;
 
 			if (!m_DetailDue.ContainsKey(candidate.Root))
@@ -689,6 +877,7 @@ public sealed class UnitVision : MonoBehaviour
 	private void RunVisionScan()
 	{
 		EnsureScanHelpers();
+		RefreshResolvedProfile();
 
 		m_LastScanForwardXZ = GetVisionForwardXZForGameplay();
 		if (m_VisibilityChecker != null)
@@ -697,12 +886,20 @@ public sealed class UnitVision : MonoBehaviour
 			m_DebugRays.Clear();
 
 		Vector3 origin = GetVisionConeOriginWorld();
-		Vector3 forwardXZ = GetVisionForwardXZForGameplay();
-		float rangeSq = m_VisionRange * m_VisionRange;
-		float halfFov = ResolveHalfFovDegreesForScan();
+		Vector3 eyeForward = GetVisionForwardXZForGameplay();
+		Vector3 scopeForward = m_ScopeScan != null
+			? m_ScopeScan.GetSweepForwardXZ(eyeForward)
+			: eyeForward;
+		float eyeRange = m_CachedProfile.EyeRangeMeters;
+		float eyeHalf = ResolveHalfFovDegreesForScan();
+		float eyeRangeSq = eyeRange * eyeRange;
+		float scopeRange = m_CachedProfile.ScopeRangeMeters;
+		float scopeHalf = m_CachedProfile.ScopeHalfFovDegrees;
+		float scopeRangeSq = scopeRange * scopeRange;
 
 		m_ScanStats.BeginScan();
 		m_ObservationScratch.Clear();
+		m_EyeObservedScratch.Clear();
 		CollectCulledCandidates(origin);
 		m_ScanStats.AddCandidates(m_CandidateScratch.Count);
 
@@ -716,8 +913,78 @@ public sealed class UnitVision : MonoBehaviour
 				m_DetailDue.Remove(candidate.Root);
 			}
 
-			if (TryBuildObservation(origin, forwardXZ, rangeSq, halfFov, candidate, out VisionObservation observation))
+			if (!TryBuildObservation(
+				    origin,
+				    eyeForward,
+				    eyeRangeSq,
+				    eyeHalf,
+				    candidate,
+				    VisionObservationSource.Eye,
+				    false,
+				    out VisionObservation observation))
+				continue;
+
+			observation.Source = VisionObservationSource.Eye;
+			m_ObservationScratch.Add(observation);
+			if (candidate.Root != null)
+				m_EyeObservedScratch.Add(candidate.Root);
+		}
+
+		bool scopeContact = false;
+		float lockYaw = 0f;
+		if (m_CachedProfile.IsScopeActive)
+		{
+			m_ScopeIndexScratch.Clear();
+			for (int i = 0; i < m_CandidateScratch.Count; i++)
+			{
+				VisionCandidateProvider.Candidate candidate = m_CandidateScratch[i];
+				if (candidate.Root == null)
+					continue;
+				if (m_EyeObservedScratch.Contains(candidate.Root))
+				{
+					m_ScanStats.AddSkippedDuplicate();
+					continue;
+				}
+
+				m_ScopeIndexScratch.Add(i);
+			}
+
+			SortScopeIndices(origin, scopeForward, eyeRange);
+			int farLosLeft = c_MaxScopeFarLosPerScan;
+			for (int s = 0; s < m_ScopeIndexScratch.Count; s++)
+			{
+				VisionCandidateProvider.Candidate candidate = m_CandidateScratch[m_ScopeIndexScratch[s]];
+				float dist = Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(origin, candidate.Root.position));
+				bool far = dist > eyeRange + 0.01f;
+				if (far && farLosLeft <= 0)
+					continue;
+
+				m_ScanStats.AddScopeDetailedQuery();
+				if (!TryBuildObservation(
+					    origin,
+					    scopeForward,
+					    scopeRangeSq,
+					    scopeHalf,
+					    candidate,
+					    VisionObservationSource.Optic,
+					    far,
+					    out VisionObservation observation))
+					continue;
+
+				observation.Source = VisionObservationSource.Optic;
 				m_ObservationScratch.Add(observation);
+				if (far)
+					farLosLeft--;
+
+				scopeContact = true;
+				lockYaw = VisionGeometry.HorizontalAngleDegrees(eyeForward, observation.AimPoint - origin);
+			}
+		}
+
+		if (m_ScopeScan != null)
+		{
+			m_ScopeScan.NotifyScopeContact(scopeContact, lockYaw);
+			m_ScopeScan.MarkScanEmitted();
 		}
 
 		if (m_Perception != null)
@@ -727,21 +994,67 @@ public sealed class UnitVision : MonoBehaviour
 		m_ScanStats.EndScan();
 	}
 
+	private void SortScopeIndices(Vector3 _origin, Vector3 _scopeForward, float _eyeRange)
+	{
+		Transform selected = SelectedCombatTarget;
+		m_ScopeIndexScratch.Sort((a, b) =>
+		{
+			int sa = ScopePriority(m_CandidateScratch[a], _origin, _scopeForward, _eyeRange, selected);
+			int sb = ScopePriority(m_CandidateScratch[b], _origin, _scopeForward, _eyeRange, selected);
+			return sa.CompareTo(sb);
+		});
+	}
+
+	private static int ScopePriority(
+		VisionCandidateProvider.Candidate _candidate,
+		Vector3 _origin,
+		Vector3 _scopeForward,
+		float _eyeRange,
+		Transform _selected)
+	{
+		if (_candidate.Root == null)
+			return 1000;
+		if (_selected != null && _candidate.Root == _selected)
+			return 0;
+
+		float ang = Mathf.Abs(VisionGeometry.HorizontalAngleDegrees(
+			_scopeForward, _candidate.Root.position - _origin));
+		float dist = Mathf.Sqrt(VisionGeometry.HorizontalDistanceSq(_origin, _candidate.Root.position));
+		if (ang <= 1.5f)
+			return 1;
+		if (dist <= _eyeRange)
+			return 2;
+		return 3 + Mathf.RoundToInt(dist);
+	}
+
 	private bool TryBuildObservation(
 		Vector3 _origin,
 		Vector3 _forwardXZ,
 		float _rangeSq,
 		float _halfFov,
 		VisionCandidateProvider.Candidate _candidate,
+		VisionObservationSource _source,
+		bool _cheapLos,
 		out VisionObservation _observation)
 	{
 		_observation = default;
 		if (m_VisibilityChecker == null || _candidate.Root == null)
 			return false;
 
+		if (_source == VisionObservationSource.Optic)
+		{
+			float rootAng = VisionGeometry.HorizontalAngleDegrees(
+				_forwardXZ, _candidate.Root.position - _origin);
+			if (rootAng > _halfFov + 0.05f)
+				return false;
+		}
+
 		TryGetCandidateBounds(_candidate, out bool hasBounds, out Bounds bounds);
-		float coarseRangeSq = CoarseCullDistanceSq();
-		float coarseHalfFov = _halfFov + m_CoarseFovPadDegrees;
+		float coarseRange = Mathf.Sqrt(Mathf.Max(0.01f, _rangeSq)) + m_CoarseRangePadMeters;
+		float coarseRangeSq = coarseRange * coarseRange;
+		float coarseHalfFov = _source == VisionObservationSource.Optic
+			? _halfFov + 0.05f
+			: _halfFov + m_CoarseFovPadDegrees;
 		bool coarseInside = VisionGeometry.IsWithinCoarseRangeAndFov(
 			_origin,
 			_forwardXZ,
@@ -781,7 +1094,7 @@ public sealed class UnitVision : MonoBehaviour
 				return false;
 
 			_observation = BuildVisibleObservation(
-				_candidate.Root, cached.AimPoint, cachedDistSq, _forwardXZ, _origin, cached.Exposure01);
+				_candidate.Root, cached.AimPoint, cachedDistSq, _forwardXZ, _origin, cached.Exposure01, _source);
 			return true;
 		}
 
@@ -803,8 +1116,12 @@ public sealed class UnitVision : MonoBehaviour
 		float distSq;
 		if (_candidate.HasHitZones)
 		{
-			if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromHitZones(
-				    _origin, _candidate.HitZones, _candidate.Root, out aimPoint, out exposure01))
+			bool losOk = _cheapLos
+				? m_VisibilityChecker.TryFindFirstVisibleAimPointCheap(
+					_origin, _candidate.HitZones, _candidate.Root, out aimPoint, out exposure01)
+				: m_VisibilityChecker.TryFindBestVisibleAimPointFromHitZones(
+					_origin, _candidate.HitZones, _candidate.Root, out aimPoint, out exposure01);
+			if (!losOk)
 			{
 				m_LosCache.Store(_candidate.Root, false, Vector3.zero, 0f, now, _origin, _forwardXZ, targetPos);
 				return false;
@@ -826,7 +1143,8 @@ public sealed class UnitVision : MonoBehaviour
 			return false;
 
 		m_LosCache.Store(_candidate.Root, true, aimPoint, exposure01, now, _origin, _forwardXZ, targetPos);
-		_observation = BuildVisibleObservation(_candidate.Root, aimPoint, distSq, _forwardXZ, _origin, exposure01);
+		_observation = BuildVisibleObservation(
+			_candidate.Root, aimPoint, distSq, _forwardXZ, _origin, exposure01, _source);
 		return true;
 	}
 
@@ -836,7 +1154,8 @@ public sealed class UnitVision : MonoBehaviour
 		float _distanceSq,
 		Vector3 _forwardXZ,
 		Vector3 _origin,
-		float _exposure01)
+		float _exposure01,
+		VisionObservationSource _source)
 	{
 		return new VisionObservation
 		{
@@ -847,7 +1166,8 @@ public sealed class UnitVision : MonoBehaviour
 			DistanceSq = _distanceSq,
 			IsVisible = true,
 			FovOffsetDegrees = VisionGeometry.HorizontalAngleDegrees(_forwardXZ, _aimPoint - _origin),
-			Exposure01 = _exposure01
+			Exposure01 = _exposure01,
+			Source = _source
 		};
 	}
 
@@ -1260,7 +1580,7 @@ public sealed class UnitVision : MonoBehaviour
 			return;
 
 		float halfFov = ResolveHalfFovDegreesForScan();
-		float range = m_VisionRange;
+		float range = ResolvedMaxRange;
 		Vector3 forwardFlat = forward.normalized;
 
 		Quaternion leftRot = Quaternion.Euler(0f, -halfFov, 0f);

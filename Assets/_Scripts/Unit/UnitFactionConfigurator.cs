@@ -58,6 +58,10 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		if (m_Team != null)
 			m_Team.SetTeam(team);
 
+		VisualIdentityEvidence evidence = VisualIdentityEvidence.GetOrCreate(gameObject);
+		if (evidence != null)
+			evidence.SetPrimaryAffiliation(m_RuntimeConfig.ResolvedVisualAffiliation);
+
 		ApplyFactionComponentStates();
 		ApplyCharacterGender();
 		ApplyCharacterSkinTone();
@@ -71,12 +75,16 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 		ApplyRoleComponents(isPlayer);
 
 		if (m_ReadyHands != null)
-			m_ReadyHands.SetReadyWanted(m_RuntimeConfig.StartReady, false);
+			m_ReadyHands.ApplyDefaultEquippedPose();
 
 		if (!string.IsNullOrWhiteSpace(m_RuntimeConfig.DisplayName))
 			UnitRosterDisplayState.GetOrCreate(gameObject)?.SetCallsign(m_RuntimeConfig.DisplayName);
 
 		RefreshVisionRegistry();
+
+		UnitActionLogBinder logBinder = UnitActionLogSession.EnsureBinder(gameObject);
+		if (logBinder != null)
+			logBinder.NotifyConfigured(m_RuntimeConfig);
 	}
 
 	/// <summary>Готовый конфиг для игрока (RTS, без прямого ввода).</summary>
@@ -425,7 +433,9 @@ public sealed class UnitFactionConfigurator : MonoBehaviour
 	{
 		SetBehaviourEnabled(m_RtsMember, _isPlayer);
 		SetBehaviourEnabled(m_ClickToMove, _isPlayer);
-		SetBehaviourEnabled(m_LocomotionDriver, !_isPlayer);
+		SetBehaviourEnabled(m_LocomotionDriver, true);
+		if (GetComponent<UnitNavMoveCommand>() == null)
+			gameObject.AddComponent<UnitNavMoveCommand>();
 		SetBehaviourEnabled(m_PickupZone, _isPlayer);
 		SetBehaviourEnabled(m_Stance, true);
 		SetBehaviourEnabled(m_ReadyHands, true);

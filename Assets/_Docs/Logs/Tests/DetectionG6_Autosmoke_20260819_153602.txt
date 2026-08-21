@@ -1,0 +1,31 @@
+﻿DetectionG6 AutoSmoke 2026-08-19 15:35:48
+---
+[MATH]
+PASS Math_NoTargetNone | No target → None
+PASS Math_UnknownCanFire | Unknown may Fire
+PASS Math_FriendlyIgnore | Friendly → Ignore
+PASS Math_ForgottenIgnore | Forgotten → Ignore
+PASS Math_MemoryTrack | Memory → Track
+PASS Math_MemoryNotFire | Memory must not Fire
+PASS Math_NoAimProgressAim | LOS without aim progress → Aim
+PASS Math_FireWhenGatesPass | Gates pass → Fire
+PASS G6_Processor | DetectionProcessor missing
+PASS G6_Target | target missing
+PASS G6_Selector | TargetSelector missing
+PASS G6_Engagement | EngagementDecisionController missing
+PASS Isolation_NoPerceivedContactFields | EngagementDecisionController must not store PerceivedContact fields
+PASS Isolation_DoesNotOwnDetectionMath | Engagement must not own decay/identity math types
+PASS Isolation_DoesNotReferenceHitscan | Engagement must not own hitscan
+PASS G6_NoneWhenNoTarget | None
+PASS G6_ObserveAimOrFire | sel=Unit(Clone) (UnityEngine.Transform) aim=True d=Aim
+PASS G6_UnknownAllowed | Hostile
+PASS G6_ObservedNotTrack | Aim
+PASS G6_HiddenKeepsSelection | Unit(Clone)
+PASS G6_HiddenIsTrack | Track
+PASS G6_HiddenNoFire | d=Track engage=
+PASS G6_LastKnownNotAim | known=(40.00, 0.16, 10.00) aim=(0.00, 0.00, 0.00)
+PASS G6_ForgottenIsNone | sel= d=None
+PASS G6_ReacquireAimOrFire | sel=Unit(Clone) (UnityEngine.Transform) aim=True d=Aim
+PASS G6_ClearContactsNone | sel= d=None
+---
+RESULT=PASS pass=26 fail=0

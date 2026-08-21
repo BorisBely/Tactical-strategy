@@ -40,6 +40,7 @@ public sealed class UnitVisionRegistry : MonoBehaviour
 			return;
 
 		list.Add(_unit);
+		UnitActionLogSession.EnsureBinder(_unit.gameObject);
 	}
 
 	public void Unregister(UnitVision _unit)

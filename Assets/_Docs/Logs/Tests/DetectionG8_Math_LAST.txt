@@ -1,0 +1,12 @@
+﻿DetectionG8 LodMathSmoke 2026-08-19 13:39:36
+---
+PASS Math_Idle | Idle
+PASS Math_ImmediateDetail | Immediate → T3
+PASS Math_T2NoLos | T2 no rays / no vision frame
+PASS Math_IdleLongerThanDetail | Idle interval scale
+PASS Math_BehindFailsFov | Behind observer
+PASS Math_AheadPassesFov | Ahead
+PASS Math_CacheExpired | TTL
+PASS Math_500mIsBucketNotEngage | Distance buckets
+---
+RESULT=PASS pass=8 fail=0

@@ -1,0 +1,244 @@
+﻿BLOCK B — MEMORY CALIBRATION MATH
+=================================
+stamp=2026-08-19 22:06:49
+B1 CONTRACT
+RecentlyLost = 5.0 s
+MemoryHorizon = 30.0 s
+Shape = 1.5
+Stale = 0.25
+World State ≠ Perception State ≠ Decision State
+LastKnownPosition = LastSeenPosition (frozen, no velocity extrapolation)
+Forgotten ≠ Deleted
+Memory ≠ DetectionProgress ≠ IdentityConfidence
+---
+PASS B1_RecentlyLost | default=5,0
+PASS B1_Horizon | default=30,0
+PASS B1_Shape | default=1,5
+PASS B1_Stale | default=0,25
+PASS B3_Evaluate0 | conf=1.000
+PASS B3_EvaluateHorizon | conf=0.000
+PASS B3_EvaluateHorizonPlus | conf=0.000
+PASS B3_NeverIncreases | t↑ ⇒ conf↓
+PASS B3_Clamp01 | 0 ≤ conf ≤ 1
+PASS B3_StaleAbove | conf > 0.25 → not stale
+PASS B3_StaleAt | conf = 0.25 → stale
+PASS B3_StaleBelow | 0 < conf ≤ 0.25 → stale
+PASS B3_ForgottenNotStale | conf = 0 → forgotten, not stale (production)
+PASS B3_StaleCrossingInverts | t=18.09 conf=0.250
+---
+MEMORY_DECAY  H=30  shape=1.5
+stale column = production IsStale (forgotten at conf=0 is stale=false)
+t=0.0  conf=1.000 stale=false forgotten=false zone=VERY_FRESH
+t=2.0  conf=0.902 stale=false forgotten=false zone=VERY_FRESH
+t=5.0  conf=0.761 stale=false forgotten=false zone=FRESH_MEMORY
+t=8.0  conf=0.628 stale=false forgotten=false zone=FRESH_MEMORY
+t=10.0  conf=0.544 stale=false forgotten=false zone=FRESH_MEMORY
+t=12.0  conf=0.465 stale=false forgotten=false zone=UNCERTAIN_MEMORY
+t=15.0  conf=0.354 stale=false forgotten=false zone=UNCERTAIN_MEMORY
+t=20.0  conf=0.192 stale=true forgotten=false zone=STALE_APPROACH
+t=25.0  conf=0.068 stale=true forgotten=false zone=STALE_APPROACH
+t=30.0  conf=0.000 stale=false forgotten=true zone=FORGOTTEN
+t=35.0  conf=0.000 stale=false forgotten=true zone=FORGOTTEN
+---
+FEEL ZONES (gameplay labels, not extra production states)
+0–5s   VERY_FRESH        RecentlyLost  high confidence
+5–12s  FRESH_MEMORY      Lost          high confidence
+12–20s UNCERTAIN_MEMORY  Lost          medium confidence
+20–30s STALE_APPROACH    Lost          low / stale
+30s+   FORGOTTEN         conf=0        contact remains
+stale crossing ≈ 18.09 s (conf=0.25)
+---
+B11 RecentlyLost sweep (horizon fixed 30s, diagnostic, not FAIL)
+RecentlyLost=2.0s  t<2.0→RecentlyLost  t>=2.0→Lost
+RecentlyLost=3.0s  t<3.0→RecentlyLost  t>=3.0→Lost
+RecentlyLost=5.0s  t<5.0→RecentlyLost  t>=5.0→Lost
+RecentlyLost=7.0s  t<7.0→RecentlyLost  t>=7.0→Lost
+RecentlyLost=10.0s  t<10.0→RecentlyLost  t>=10.0→Lost
+---
+B12 Horizon sweep (shape=1.5, diagnostic, not FAIL)
+H=20
+  t=0.0  conf=1.000 stale=false
+  t=2.0  conf=0.854 stale=false
+  t=5.0  conf=0.650 stale=false
+  t=8.0  conf=0.465 stale=false
+  t=10.0  conf=0.354 stale=false
+  t=12.0  conf=0.253 stale=false
+  t=15.0  conf=0.125 stale=true
+  t=20.0  conf=0.000 stale=false
+  t=25.0  conf=0.000 stale=false
+  t=30.0  conf=0.000 stale=false
+  t=35.0  conf=0.000 stale=false
+H=30
+  t=0.0  conf=1.000 stale=false
+  t=2.0  conf=0.902 stale=false
+  t=5.0  conf=0.761 stale=false
+  t=8.0  conf=0.628 stale=false
+  t=10.0  conf=0.544 stale=false
+  t=12.0  conf=0.465 stale=false
+  t=15.0  conf=0.354 stale=false
+  t=20.0  conf=0.192 stale=true
+  t=25.0  conf=0.068 stale=true
+  t=30.0  conf=0.000 stale=false
+  t=35.0  conf=0.000 stale=false
+H=45
+  t=0.0  conf=1.000 stale=false
+  t=2.0  conf=0.934 stale=false
+  t=5.0  conf=0.838 stale=false
+  t=8.0  conf=0.746 stale=false
+  t=10.0  conf=0.686 stale=false
+  t=12.0  conf=0.628 stale=false
+  t=15.0  conf=0.544 stale=false
+  t=20.0  conf=0.414 stale=false
+  t=25.0  conf=0.296 stale=false
+  t=30.0  conf=0.192 stale=true
+  t=35.0  conf=0.105 stale=true
+H=60
+  t=0.0  conf=1.000 stale=false
+  t=2.0  conf=0.950 stale=false
+  t=5.0  conf=0.878 stale=false
+  t=8.0  conf=0.807 stale=false
+  t=10.0  conf=0.761 stale=false
+  t=12.0  conf=0.716 stale=false
+  t=15.0  conf=0.650 stale=false
+  t=20.0  conf=0.544 stale=false
+  t=25.0  conf=0.446 stale=false
+  t=30.0  conf=0.354 stale=false
+  t=35.0  conf=0.269 stale=false
+---
+RESULT=PASS pass=14 fail=0
+
+===== RUNTIME =====
+BLOCK B — MEMORY CALIBRATION RUNTIME
+====================================
+stamp=2026-08-19 22:06:49
+B1 CONTRACT RecentlyLost=5 Horizon=30 Shape=1.5 Stale=0.25
+simulated time; UnitVision disabled; no Q retune; no Search/Hunt
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS B1_RuntimeRecentlyLost | RecentlyLost=5,00
+PASS B1_RuntimeHorizon | Horizon=30,00
+PASS B1_RuntimeShape | Shape=1,50
+PASS B1_RuntimeStale | Stale=0,25
+[M1/M2] Observed → RecentlyLost → Lost
+PASS M1_HasContactBeforeLoss | observe failed
+PASS M1_Observed | obs=Observed conf=1.000
+PASS M1_RecentlyLostImmediate | RecentlyLost
+PASS M1_ConfidenceNearOne | conf=0.998
+PASS M1_LastKnownEqualsLastSeen | known=(9.62, 0.15, 6.60) seen=(9.62, 0.15, 6.60)
+PASS M1_LostSinceStamped | lostSince missing after LOS
+PASS M1_LostSinceOnSimClock | lostSince=2.400 sim=2.400 unity=0.079
+PASS M2_Before5s_RecentlyLost | t=4.95 obs=RecentlyLost
+PASS M2_At5s_Lost | t=5.00 obs=Lost
+[M5] LastKnown frozen while target moves P0→P3
+PASS M5_ContactKept | contact missing
+PASS M5_LastKnownFrozenAtP0 | known=(9.62, 0.15, 6.60) p0=(9.62, 0.15, 6.60) live=(9.62, 0.15, 18.60)
+PASS M5_LastSeenFrozenAtP0 | (9.62, 0.15, 6.60)
+PASS M5_NotLiveTransform | known=(9.62, 0.15, 6.60) live=(9.62, 0.15, 18.60)
+[M6] 0–60 s memory timeline (main Block B sheet)
+time  ObsState  DetState  conf  HasMemory  IsMemoryStale  LastKnown  zone
+PASS M6_t0_SameContact | identity must survive timeline
+PASS M6_t0.0_Obs | expected=RecentlyLost actual=RecentlyLost
+PASS M6_t0.0_Conf | expected=1.000 actual=0.998
+PASS M6_t0.0_LastKnown | (9.62, 0.15, 6.60)
+0.0  RecentlyLost  Detecting  0.998  True  False  (9.62, 0.15, 6.60)  VERY_FRESH
+PASS M6_t2_SameContact | identity must survive timeline
+PASS M6_t2.0_Obs | expected=RecentlyLost actual=RecentlyLost
+PASS M6_t2.0_Conf | expected=0.902 actual=0.899
+PASS M6_t2.0_LastKnown | (9.62, 0.15, 6.60)
+2.0  RecentlyLost  Detecting  0.899  True  False  (9.62, 0.15, 6.60)  VERY_FRESH
+PASS M6_t5_SameContact | identity must survive timeline
+PASS M6_t5.0_Obs | expected=Lost actual=Lost
+PASS M6_t5.0_Conf | expected=0.761 actual=0.758
+PASS M6_t5.0_LastKnown | (9.62, 0.15, 6.60)
+5.0  Lost  Undetected  0.758  True  False  (9.62, 0.15, 6.60)  FRESH_MEMORY
+PASS M6_t8_SameContact | identity must survive timeline
+PASS M6_t8.0_Obs | expected=Lost actual=Lost
+PASS M6_t8.0_Conf | expected=0.628 actual=0.626
+PASS M6_t8.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t8.0_MemoryNeDetection | mem=0.626 det=0.000
+8.0  Lost  Undetected  0.626  True  False  (9.62, 0.15, 6.60)  FRESH_MEMORY
+PASS M6_t10_SameContact | identity must survive timeline
+PASS M6_t10.0_Obs | expected=Lost actual=Lost
+PASS M6_t10.0_Conf | expected=0.544 actual=0.542
+PASS M6_t10.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t10.0_MemoryNeDetection | mem=0.542 det=0.000
+10.0  Lost  Undetected  0.542  True  False  (9.62, 0.15, 6.60)  FRESH_MEMORY
+PASS M6_t12_SameContact | identity must survive timeline
+PASS M6_t12.0_Obs | expected=Lost actual=Lost
+PASS M6_t12.0_Conf | expected=0.465 actual=0.463
+PASS M6_t12.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t12.0_MemoryNeDetection | mem=0.463 det=0.000
+12.0  Lost  Undetected  0.463  True  False  (9.62, 0.15, 6.60)  UNCERTAIN_MEMORY
+PASS M6_t15_SameContact | identity must survive timeline
+PASS M6_t15.0_Obs | expected=Lost actual=Lost
+PASS M6_t15.0_Conf | expected=0.354 actual=0.352
+PASS M6_t15.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t15.0_MemoryNeDetection | mem=0.352 det=0.000
+15.0  Lost  Undetected  0.352  True  False  (9.62, 0.15, 6.60)  UNCERTAIN_MEMORY
+PASS M6_t20_SameContact | identity must survive timeline
+PASS M6_t20.0_Obs | expected=Lost actual=Lost
+PASS M6_t20.0_Conf | expected=0.192 actual=0.191
+PASS M6_t20.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t20.0_MemoryNeDetection | mem=0.191 det=0.000
+20.0  Lost  Undetected  0.191  True  True  (9.62, 0.15, 6.60)  STALE_APPROACH
+PASS M6_t25_SameContact | identity must survive timeline
+PASS M6_t25.0_Obs | expected=Lost actual=Lost
+PASS M6_t25.0_Conf | expected=0.068 actual=0.067
+PASS M6_t25.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t25.0_MemoryNeDetection | mem=0.067 det=0.000
+25.0  Lost  Undetected  0.067  True  True  (9.62, 0.15, 6.60)  STALE_APPROACH
+PASS M6_t30_SameContact | identity must survive timeline
+PASS M6_t30.0_Obs | expected=Lost actual=Lost
+PASS M6_t30.0_Conf | expected=0.000 actual=0.000
+PASS M6_t30.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t30.0_MemoryNeDetection | mem=0.000 det=0.000
+30.0  Lost  Undetected  0.000  False  False  (9.62, 0.15, 6.60)  FORGOTTEN
+PASS M6_t35_SameContact | identity must survive timeline
+PASS M6_t35.0_Obs | expected=Lost actual=Lost
+PASS M6_t35.0_Conf | expected=0.000 actual=0.000
+PASS M6_t35.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t35.0_MemoryNeDetection | mem=0.000 det=0.000
+35.0  Lost  Undetected  0.000  False  False  (9.62, 0.15, 6.60)  FORGOTTEN
+PASS M6_t45_SameContact | identity must survive timeline
+PASS M6_t45.0_Obs | expected=Lost actual=Lost
+PASS M6_t45.0_Conf | expected=0.000 actual=0.000
+PASS M6_t45.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t45.0_MemoryNeDetection | mem=0.000 det=0.000
+45.0  Lost  Undetected  0.000  False  False  (9.62, 0.15, 6.60)  FORGOTTEN
+PASS M6_t60_SameContact | identity must survive timeline
+PASS M6_t60.0_Obs | expected=Lost actual=Lost
+PASS M6_t60.0_Conf | expected=0.000 actual=0.000
+PASS M6_t60.0_LastKnown | (9.62, 0.15, 6.60)
+PASS M6_t60.0_MemoryNeDetection | mem=0.000 det=0.000
+60.0  Lost  Undetected  0.000  False  False  (9.62, 0.15, 6.60)  FORGOTTEN
+[M7] Reacquire after 15 s Lost
+PASS M7_LostBeforeReacquire | Lost conf=0.352
+PASS M7_IdentityHeldWhileLost | id=Hostile C=1.000
+PASS M7_SameContact | reacquire must keep instance
+PASS M7_ConfidenceRestored | conf=1.000
+PASS M7_LastSeenUpdated | (15.62, 0.15, 6.60)
+PASS M7_LastKnownUpdated | (15.62, 0.15, 6.60)
+PASS M7_IdentityPreserved | Hostile
+[M8] Long-loss / Forgotten ≠ Deleted
+PASS M8_t30_ContactKept | present
+PASS M8_t30_ConfidenceZero | conf=0.000
+PASS M8_t30_Forgotten | forgotten=True
+PASS M8_t45_ContactKept | present
+PASS M8_t45_ConfidenceZero | conf=0.000
+PASS M8_t45_Forgotten | forgotten=True
+PASS M8_t60_ContactKept | present
+PASS M8_t60_ConfidenceZero | conf=0.000
+PASS M8_t60_Forgotten | forgotten=True
+[M9] Dual observers — memory belongs to the observer
+PASS M9_ObserverB | failed to create observer B
+PASS M9_A_HasMemory | obs=RecentlyLost conf=0.899
+PASS M9_B_NoContact | B empty
+PASS M9_IndependentInstances | A/B contacts must not be shared
+[M10] Reacquire at t=60 after forgotten
+PASS M10_ForgottenBeforeReacquire | conf=0.000
+PASS M10_SameContact | forgotten must not allocate a new contact
+PASS M10_ConfidenceRestored | conf=1.000
+PASS M10_LastKnownUpdated | (9.62, 0.15, 11.60)
+---
+RESULT=PASS pass=105 fail=0

@@ -1,0 +1,9 @@
+PASS Math_DistanceMonotone | d10=1.000 d100=0.932 d400=0.183
+PASS Math_FovMonotone | f0=1.000 f50=0.150
+PASS Math_ExposureMonotone | qFull=0.932 qLow=0.093
+PASS Math_MovementHelpsButNotMagic | idle=0.003 run=0.004
+PASS Math_AcquireFasterThanLose | acqDelta=0.286 loseDelta=0.040
+PASS Math_SoftLoseKeepsProgress | before=1.000 afterGap=0.940
+PASS Math_PresetA_BetterThanF | A=1.000 F=0.027
+---
+RESULT=PASS pass=7 fail=0

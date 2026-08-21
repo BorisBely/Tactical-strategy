@@ -26,6 +26,8 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_AimTimeModifier = 1f;
 	[Tooltip("Как модуль меняет эффективную дальность оружия.")]
 	[SerializeField, Min(0f)] private float m_EffectiveRangeModifier = 1f;
+	[Tooltip("Абсолютная дальность обзора через кратную оптику (м). 0 или 150 = без бонуса. Clamp 150…300. Не EffectiveRangeModifier.")]
+	[SerializeField, Min(0f)] private float m_ScopeVisionRangeMeters;
 	[Tooltip("Как модуль меняет накопление отдачи.")]
 	[SerializeField, Min(0f)] private float m_RecoilModifier = 1f;
 	[Tooltip("Дополнительный множитель отдачи только для одиночного огня. 1 = использовать общий Recoil Modifier без изменений.")]
@@ -79,6 +81,7 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public int[] CompatibleRailSocketIndices => m_CompatibleRailSocketIndices;
 	public float AimTimeModifier => m_AimTimeModifier;
 	public float EffectiveRangeModifier => m_EffectiveRangeModifier;
+	public float ScopeVisionRangeMeters => m_ScopeVisionRangeMeters;
 	public float RecoilModifier => m_RecoilModifier;
 	public float SemiAutoRecoilModifier => m_SemiAutoRecoilModifier;
 	public float AutomaticRecoilModifier => m_AutomaticRecoilModifier;
@@ -99,6 +102,11 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	#endregion
 
 	#region Public Methods
+	public void SetScopeVisionRangeMeters(float _meters)
+	{
+		m_ScopeVisionRangeMeters = Mathf.Max(0f, _meters);
+	}
+
 	public bool SupportsWeapon(WeaponDefinition _weaponDefinition)
 	{
 		if (_weaponDefinition == null)

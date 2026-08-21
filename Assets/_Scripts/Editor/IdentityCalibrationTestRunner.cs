@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Block C CLOSED / VERIFIED. Identity calibration.
+/// Block C CLOSED / VERIFIED. Identity World Evidence FROZEN (Play 49/0, C13).
 /// Math (no Play): Tools/Tests/Run Identity Calibration
 /// Runtime C3–C14: Tools/Tests/Run Identity Calibration (Play)
 /// Report: Assets/_Docs/Logs/Tests/IdentityCalibration_LAST.txt
@@ -38,6 +38,13 @@ public static class IdentityCalibrationTestRunner
 		DetectionHarnessPlayMode.RunAIPerceptionHandoff = false;
 		DetectionHarnessPlayMode.RunAITacticalState = false;
 		DetectionHarnessPlayMode.RunUseOfForcePolicy = false;
+		DetectionHarnessPlayMode.RunCombatEngageExecution = false;
+		DetectionHarnessPlayMode.RunSearchExecution = false;
+		DetectionHarnessPlayMode.RunTacticalNavigationExecution = false;
+		DetectionHarnessPlayMode.RunTacticalCommandContract = false;
+		DetectionHarnessPlayMode.RunGameCommandSource = false;
+		DetectionHarnessPlayMode.RunGameCommandInput = false;
+		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 
 		if (EditorApplication.isPlaying)
 		{

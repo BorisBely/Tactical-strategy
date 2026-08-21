@@ -103,6 +103,60 @@ public sealed class VisibilityChecker
 		return found;
 	}
 
+	/// <summary>
+	/// Scope / far path: chest → head → pelvis, stop on the first LOS. Not the G1 exposure grid.
+	/// </summary>
+	public bool TryFindFirstVisibleAimPointCheap(
+		Vector3 _eye,
+		UnitBodyHitZone[] _hitZones,
+		Transform _opponentRoot,
+		out Vector3 _aimPoint,
+		out float _exposure01)
+	{
+		_aimPoint = Vector3.zero;
+		_exposure01 = 0f;
+		if (_hitZones == null || _hitZones.Length == 0)
+			return false;
+
+		if (TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Chest, out _aimPoint) ||
+		    TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Head, out _aimPoint) ||
+		    TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Abdomen, out _aimPoint))
+		{
+			_exposure01 = 1f;
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryCheapZone(
+		Vector3 _eye,
+		UnitBodyHitZone[] _hitZones,
+		Transform _opponentRoot,
+		BodyPartType _part,
+		out Vector3 _aimPoint)
+	{
+		_aimPoint = Vector3.zero;
+		Collider zoneCol = UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(_hitZones, _part);
+		if (zoneCol == null)
+			return false;
+
+		UnitBodyHitZoneVisionUtility.BuildAimCandidates(_part, zoneCol, m_AimCandidateScratch);
+		if (m_AimCandidateScratch.Count == 0)
+			return false;
+
+		m_Stats?.AddHitZoneCheck();
+		UnitBodyHitZoneVisionUtility.VisionAimCandidate candidate = m_AimCandidateScratch[0];
+		bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, zoneCol, out Vector3 rayEnd, out bool hitTarget);
+		if (m_DrawVisionGizmos)
+			m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));
+		if (!ok)
+			return false;
+
+		_aimPoint = candidate.Point;
+		return true;
+	}
+
 	public bool TryFindBestVisibleAimPointFromCollider(
 		Vector3 _eye,
 		Collider _targetCol,

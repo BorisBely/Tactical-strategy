@@ -30,6 +30,8 @@ ACCURACY_FACTORS = {
     "Weapon_Mosin": 1.15,
     "Weapon_M249": 0.78,
     "Weapon_PKM": 0.72,
+    "Weapon_M2Browning_127": 0.50,
+    "Weapon_MK19": 0.42,
 }
 
 WEAPON_ROLE = {
@@ -57,6 +59,8 @@ WEAPON_ROLE = {
     "Weapon_Sniper762x51": "Dmr",
     "Weapon_M249": "Support545",
     "Weapon_PKM": "Support762",
+    "Weapon_M2Browning_127": "HeavySupport",
+    "Weapon_MK19": "GrenadeSupport",
 }
 
 ACCURACY_PROFILE_PLATEAUS = {
@@ -74,6 +78,8 @@ ACCURACY_PROFILE_PLATEAUS = {
     "Dmr": (45, 60, 100, 100, 0.040),
     "Support762": (25, 35, 75, 95, 0.045),
     "Support545": (30, 40, 80, 100, 0.045),
+    "HeavySupport": (20, 30, 70, 90, 0.030),
+    "GrenadeSupport": (15, 25, 60, 80, 0.025),
 }
 
 DISTANCE_KEYFRAMES = tuple(range(0, 101, 10))

@@ -1,0 +1,165 @@
+﻿BLOCK C — IDENTITY CALIBRATION MATH
+===================================
+stamp=2026-08-20 10:23:27
+C0 CONTRACT
+Detected + Identity=Unknown is valid
+Unknown ≠ Friendly; Relationship=Unknown Threat=None until commit
+Evidence = VisualAffiliation mapped by observer side, never target UnitTeam
+LOS loss holds IdentityConfidence (Memory decays LastSeenConfidence only)
+PerceivedIdentity is affiliation-class (Friendly/Neutral/Hostile/Unknown), not Soldier/Military
+Relationship is a separate field, derived from committed Identity
+Hostile + far Threat=Low is valid
+C1 BASELINE
+IdentifyTime = 4.0 s
+CommitThreshold = 0.50
+Threat High ≤ 25 m
+Threat Medium ≤ 80 m
+---
+PASS C1_IdentifyTime | default=4,0
+PASS C1_Commit | default=0,50
+PASS C1_IdentifySlowerThanAcquire | identify=4.0 acquire=0.35
+PASS C2_UnknownCueDoesNotGrow | conf=0.000
+PASS C2_HoldWhenNotObserved | conf=0.700
+PASS C2_ValidCueGrows | 0.5s conf=0.125
+PASS C2_BelowCommitUnknown | 0.49 → Unknown
+PASS C2_AtCommitHostile | 0.50 → Hostile
+PASS C2_NeverAboveOne | conf=1.000
+PASS C2_NeverBelowZero | conf=0.000
+PASS C2_MonotoneWhileEvidenceStable | t↑ ⇒ conf↑ while Observed+Hostile
+PASS C2_Clamp01 | 0 ≤ conf ≤ 1
+PASS C2_DetectionFullIdentityZeroValid | DetectionProgress=1 IdentityConfidence=0 is a valid pair (independent fields)
+PASS C3_CommitAtTwoSeconds | Q=1 commit t=2.00 s (IdentifyTime×0.5)
+---
+HOSTILE CUE TIMELINE  IdentifyTime=4.0  Q=1
+t=0.00  conf=0.000  identity=Unknown  rel=Unknown  threat=None
+t=0.50  conf=0.125  identity=Unknown  rel=Unknown  threat=None
+t=1.00  conf=0.250  identity=Unknown  rel=Unknown  threat=None
+t=1.50  conf=0.375  identity=Unknown  rel=Unknown  threat=None
+t=2.00  conf=0.500  identity=Hostile  rel=Hostile  threat=High
+t=2.50  conf=0.625  identity=Hostile  rel=Hostile  threat=High
+t=3.00  conf=0.750  identity=Hostile  rel=Hostile  threat=High
+t=4.00  conf=1.000  identity=Hostile  rel=Hostile  threat=High
+t=5.00  conf=1.000  identity=Hostile  rel=Hostile  threat=High
+PASS C3_T1StillUnknown | t=1.0 still Unknown
+PASS C3_T2CommitHostile | t=2.0 commit Hostile
+PASS C3_StepwiseTicksReachCommit | 40×0.05s conf=0.500000
+PASS C3_T4FullConfidence | t=4 conf=1.000
+---
+C4 CUES (Q=1, t=4 s)
+cue=Hostile  conf=1.000  identity=Hostile  rel=Hostile
+cue=Friendly  conf=1.000  identity=Friendly  rel=Friendly
+cue=Neutral  conf=1.000  identity=Neutral  rel=Neutral
+cue=Unknown  conf=0.000  identity=Unknown  rel=Unknown
+PASS C4_HostileCommits | Hostile
+PASS C4_FriendlyCommits | Friendly
+PASS C4_NeutralCommits | Neutral
+PASS C4_UnknownStaysUnknown | Unknown cue
+PASS C5_UnknownMeansUnknownRelThreat | Unknown → rel Unknown, threat None
+PASS C6_IdentityAndRelationshipAreSeparateTypes | separate enums
+PASS C6_RelationshipFollowsCommittedIdentity | derived from Identity, not UnitTeam
+PASS C6_HostileFarIsNotHighThreat | Identity Hostile ≠ Threat High
+PASS C7_HostileCloseHigh | 10 m
+PASS C7_HostileAtHighBand | 25 m
+PASS C7_HostileMidMedium | 50 m
+PASS C7_FriendlyNone | Friendly → None
+PASS C7_NeutralNone | Neutral → None (not Low)
+---
+C8 / C16 THREAT SWEEP  Relationship=Hostile  (baseline High≤25 Medium≤80)
+  10 m  High
+  25 m  High
+  50 m  Medium
+  80 m  Medium
+  100 m  Low
+  200 m  Low
+  400 m  Low
+PASS C8_ThreatMonotoneWithDistance | closer ≥ farther
+PASS C8_100mIsLowOnBaseline | 100 m > 80 m → Low (hypothesis Medium is C16, not C1)
+PASS C11_CueFlipNotInstantHostile | after 0.05s id=Unknown conf=0.013
+PASS C11_CueFlipReaccumulates | after +2s id=Hostile conf=0.513
+PASS C11_UnknownCueHoldsCommitted | missing cue keeps previous
+---
+C15 IdentifyTime sweep (diagnostic, not FAIL)  Q=1  commit = IdentifyTime × 0.50
+IdentifyTime=1.0 s  commit≈0.50 s
+IdentifyTime=1.5 s  commit≈0.75 s
+IdentifyTime=2.0 s  commit≈1.00 s
+IdentifyTime=3.0 s  commit≈1.50 s
+IdentifyTime=4.0 s  commit≈2.00 s
+---
+RESULT=PASS pass=36 fail=0
+
+===== RUNTIME =====
+BLOCK C — IDENTITY CALIBRATION RUNTIME
+======================================
+stamp=2026-08-20 10:23:27
+C1 IdentifyTime=4.0 Commit=0.50  Threat High≤25 Medium≤80
+simulated time; UnitVision disabled; no Q/Memory retune; no Selector/Combat
+---
+PASS Harness_Processor | DetectionProcessor missing
+PASS Harness_Target | Target missing
+PASS Isolation_SelectorHasNoIdentityFields | TargetSelector must not hold G3 identity types
+PASS Isolation_ObservationHasNoKnowledgeFields | VisionObservation must stay physical-only
+PASS C1_RuntimeIdentifyTime | IdentifyTime=4,00
+PASS C0_WorldTeamPresent | target has no UnitTeam
+[C3] Hostile cue timeline
+  t=0.00  conf=0.000  identity=Unknown  rel=Unknown  threat=None
+  t=0.50  conf=0.125  identity=Unknown  rel=Unknown  threat=None  detP=1.000
+PASS C3_T0_5StillUnknown | id=Unknown conf=0.125
+PASS C3_DetectionAheadOfIdentity | P=1.000 C=0.125
+  t=1.00  conf=0.250  identity=Unknown  rel=Unknown  threat=None  detP=1.000
+PASS C3_T1StillUnknown | id=Unknown conf=0.250
+  t=1.50  conf=0.375  identity=Unknown  rel=Unknown  threat=None  detP=1.000
+  t=2.00  conf=0.500  identity=Hostile  rel=Hostile  threat=High  detP=1.000
+PASS C3_T2NearCommitBand | id=Hostile conf=0.500 (commit at 0.50 ≈ 2.0 s)
+  t=2.50  conf=0.625  identity=Hostile  rel=Hostile  threat=High  detP=1.000
+PASS C3_T2_5Hostile | id=Hostile conf=0.625
+  t=3.00  conf=0.750  identity=Hostile  rel=Hostile  threat=High  detP=1.000
+  t=4.00  conf=1.000  identity=Hostile  rel=Hostile  threat=High  detP=1.000
+PASS C3_T4Full | id=Hostile conf=1.000 rel=Hostile
+  t=5.00  conf=1.000  identity=Hostile  rel=Hostile  threat=High  detP=1.000
+[C4] cues
+PASS C4_Hostile_Identity | id=Hostile rel=Hostile conf=1.000
+PASS C4_Friendly_Identity | id=Friendly rel=Friendly conf=1.000
+PASS C4_Neutral_Identity | id=Neutral rel=Neutral conf=1.000
+[C5] Unknown cue — see someone, not know who
+PASS C5_HasContact | detected contact missing
+PASS C5_IdentityUnknown | Unknown
+PASS C5_ConfidenceZero | conf=0.000
+PASS C5_RelationshipUnknown | Unknown
+PASS C5_ThreatNone | None
+PASS C5_DetectedWithoutIdentity | P=1.000 id=Unknown
+[C7/C8] Threat vs distance (Hostile)
+PASS C7_10mHigh | threat=High dist=10 (want High at 10)
+PASS C7_25mHigh | threat=High dist=25 (want High at 25)
+PASS C8_50mMedium | threat=Medium dist=50 (want Medium at 50)
+PASS C8_100mLow | threat=Low dist=100 (want Low at 100)
+PASS C8_400mLow | threat=Low dist=400 (want Low at 400)
+PASS C7_FriendlyThreatNone | id=Friendly threat=None
+[C9] LOS loss holds Identity
+PASS C9_SameContact | loss must not allocate
+PASS C9_IdentityHeld | Hostile
+PASS C9_ConfidenceHeld | before=1.000 after=1.000
+PASS C9_RelationshipHeld | Hostile
+PASS C9_ThreatNotCleared | High
+PASS C9_ObservationNotObserved | RecentlyLost
+[C10] Reacquire preserves Identity
+PASS C10_SameContact | reacquire must not allocate
+PASS C10_IdentityPreserved | Hostile
+PASS C10_ConfidenceHigh | conf=1.000
+PASS C10_RelationshipPreserved | Hostile
+[C11] cue change is not an instant team teleport
+PASS C11_StartedHostile | Hostile
+PASS C11_NotInstantFriendly | id=Unknown conf=0.038
+PASS C11_ReaccumulatedFriendly | id=Friendly rel=Friendly conf=1.000
+[C12] dual observers, same world object
+PASS C12_ObserverB | failed to create observer B
+PASS C12_A_Hostile | Hostile
+PASS C12_B_Unknown | id=Unknown conf=0.000
+PASS C12_IdentitiesDiffer | A=Hostile B=Unknown
+PASS C12_WorldStillNeutral | Neutral
+[C13] VisualIdentityEvidence world-look cue
+PASS C13_AppearanceHostile | Hostile
+PASS C13_WorldTeamUnchanged | Neutral
+PASS C13_AppearanceUnknown | id=Unknown conf=0.000
+PASS C0_WorldTeamUntouched | Neutral
+---
+RESULT=PASS pass=49 fail=0

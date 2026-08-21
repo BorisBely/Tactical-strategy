@@ -11,6 +11,7 @@ public sealed class AIPerceptionSensor : MonoBehaviour
 {
 	#region Private Fields
 	[SerializeField] private DetectionProcessor m_Registry;
+	private readonly AIPerceptionFrameScratch m_Scratch = new AIPerceptionFrameScratch();
 	private AIPerceptionFrame m_CurrentFrame;
 	#endregion
 
@@ -37,7 +38,7 @@ public sealed class AIPerceptionSensor : MonoBehaviour
 	{
 		if (m_Registry == null)
 			TryGetComponent(out m_Registry);
-		m_CurrentFrame = AIPerceptionFrameBuilder.Build(m_Registry);
+		m_CurrentFrame = AIPerceptionFrameBuilder.Build(m_Registry, m_Scratch);
 	}
 	#endregion
 }

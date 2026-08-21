@@ -10,12 +10,10 @@ public static class WeaponShotAccuracyEvaluator
 	{
 		WeaponDefinition weaponDefinition = _input.WeaponDefinition;
 		WeaponRuntimeState weaponState = _input.WeaponState;
-		EquippedWeaponTransientState transientState = _input.TransientState;
 		AmmoDefinition ammoDefinition = _input.AmmoDefinition;
 
 		float baseDispersion = weaponDefinition != null ? weaponDefinition.BaseShotDispersion : 1f;
 		float ammoSpread = ammoDefinition != null ? ammoDefinition.SpreadModifier : 1f;
-		float recoil = transientState != null ? transientState.RecoilPenalty : 0f;
 
 		float weaponDistance = weaponDefinition != null
 			? weaponDefinition.GetDistanceDispersionMultiplier(_input.TargetDistanceMeters)
@@ -24,7 +22,7 @@ public static class WeaponShotAccuracyEvaluator
 			? GetAttachmentDistanceDispersionProduct(weaponState, _input.TargetDistanceMeters, !_input.ExcludeOpticAttachments)
 			: 1f;
 
-		float recoilFactor = 1f + recoil * _input.RecoilSpreadScale;
+		const float recoilFactor = 1f;
 		float stanceFactor = GetPostureDispersionMultiplier(_input);
 		float movementFactor = 1f;
 		float skillFactor = _input.CombatStats != null ? _input.CombatStats.GetDispersionMultiplier() : 1f;
@@ -34,7 +32,7 @@ public static class WeaponShotAccuracyEvaluator
 		float aimCompletionFactor = WeaponAimModeUtility.GetIncompleteAimSpreadMultiplier(
 			aimProgressForSpread,
 			_input.TargetDistanceMeters);
-		float autoBurstFactor = GetAutoBurstSpreadMultiplier(_input);
+		const float autoBurstFactor = 1f;
 		float poseFactor = _input.PoseSpreadMultiplier > 0.01f ? _input.PoseSpreadMultiplier : 1f;
 
 		float raw = baseDispersion *
@@ -51,12 +49,6 @@ public static class WeaponShotAccuracyEvaluator
 		            autoBurstFactor *
 		            poseFactor *
 		            _input.BaseSpreadToDegrees;
-
-		float autoSpreadMultiplier = _input.AutoSpreadMultiplier > 0f ? _input.AutoSpreadMultiplier : 1f;
-		if (autoSpreadMultiplier < 0.999f &&
-		    WeaponFireModeUtility.IsAutomaticEffectiveMode(_input.FireMode) &&
-		    !WeaponFireModeUtility.IsFirstShotInAutomaticSeries(_input.FireMode, _input.BurstShotIndex))
-			raw *= autoSpreadMultiplier;
 
 		float halfAngle = Mathf.Clamp(raw, _input.MinHalfAngleDegrees, _input.MaxHalfAngleDegrees);
 		float spreadRadiusMeters = CalculateSpreadRadiusMeters(_input.TargetDistanceMeters, halfAngle);
@@ -94,21 +86,6 @@ public static class WeaponShotAccuracyEvaluator
 		float distance = Mathf.Max(0f, _distanceMeters);
 		float halfAngleRadians = Mathf.Max(0f, _halfAngleDegrees) * Mathf.Deg2Rad;
 		return distance * Mathf.Tan(halfAngleRadians);
-	}
-
-	private static float GetAutoBurstSpreadMultiplier(WeaponShotAccuracyInput _input)
-	{
-		if (WeaponFireModeUtility.IsFirstShotInAutomaticSeries(_input.FireMode, _input.BurstShotIndex))
-			return 1f;
-
-		if (_input.FireMode != WeaponFireMode.FullAuto && _input.FireMode != WeaponFireMode.Burst)
-			return 1f;
-
-		if (_input.WeaponDefinition == null)
-			return 1f;
-
-		int shotIndex = Mathf.Max(1, _input.BurstShotIndex);
-		return _input.WeaponDefinition.GetAutoBurstSpreadMultiplier(shotIndex);
 	}
 
 	/// <summary>Auto/Burst: неполное прицеливание влияет только на 1-й выстрел серии.</summary>

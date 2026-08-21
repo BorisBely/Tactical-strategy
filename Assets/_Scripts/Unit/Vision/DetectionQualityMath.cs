@@ -4,11 +4,13 @@ using UnityEngine;
 /// Pure detection math (G1/G1.1). Frozen AI handoff — do not retune for Search / tactics.
 /// MovementFactor is always >= 1 (idle=1); movement only helps visibility.
 /// Progress uses dual-threshold hysteresis (AcquireThreshold > LoseThreshold).
+/// Distance uses one normalized curve: t = distance / resolvedVisionRange.
 /// </summary>
 public static class DetectionQualityMath
 {
+	#region Constants
 	public const float DefaultNearMeters = 20f;
-	public const float DefaultFarMeters = 500f;
+	public const float DefaultFarMeters = 150f;
 	public const float DefaultFarFactor = 0.08f;
 	public const float DefaultFovHalfDegrees = 60f;
 	public const float DefaultFovEdgeFactor = 0.15f;
@@ -22,24 +24,52 @@ public static class DetectionQualityMath
 	public const float DefaultAcquireThreshold = 0.25f;
 	public const float DefaultLoseThreshold = 0.20f;
 
-	public static float DistanceFactor(
-		float _distanceMeters,
-		float _nearMeters = DefaultNearMeters,
-		float _farMeters = DefaultFarMeters,
-		float _farFactor = DefaultFarFactor)
+	private static readonly float[] s_DistanceCurveT =
 	{
-		float near = Mathf.Max(0.1f, _nearMeters);
-		float far = Mathf.Max(near + 0.1f, _farMeters);
-		if (_distanceMeters <= near)
-			return 1f;
-		if (_distanceMeters >= far)
-			return _farFactor;
+		0.00f, 0.10f, 0.25f, 0.40f, 0.55f, 0.70f, 0.82f, 0.90f, 0.96f, 1.00f
+	};
 
-		float t = Mathf.InverseLerp(near, far, _distanceMeters);
-		float shaped = SmoothStep01(t);
-		return Mathf.Lerp(1f, _farFactor, shaped);
+	private static readonly float[] s_DistanceCurveFactor =
+	{
+		1.00f, 1.00f, 0.98f, 0.92f, 0.82f, 0.68f, 0.50f, 0.32f, 0.16f, 0.08f
+	};
+	#endregion
+
+	#region Distance
+	/// <summary>Normalized distance curve. t &gt; 1 clamps to <see cref="DefaultFarFactor"/>.</summary>
+	public static float EvaluateDistanceCurve(float _normalizedDistance)
+	{
+		if (_normalizedDistance <= 0f)
+			return 1f;
+		if (_normalizedDistance >= 1f)
+			return DefaultFarFactor;
+
+		for (int i = 0; i < s_DistanceCurveT.Length - 1; i++)
+		{
+			float t0 = s_DistanceCurveT[i];
+			float t1 = s_DistanceCurveT[i + 1];
+			if (_normalizedDistance <= t1 + 1e-6f)
+			{
+				float u = Mathf.InverseLerp(t0, t1, _normalizedDistance);
+				return Mathf.Lerp(s_DistanceCurveFactor[i], s_DistanceCurveFactor[i + 1], u);
+			}
+		}
+
+		return DefaultFarFactor;
 	}
 
+	/// <summary>Distance factor from meters and current resolved vision range (eye 150 or optic up to 300).</summary>
+	public static float DistanceFactor(
+		float _distanceMeters,
+		float _resolvedVisionRange = DefaultFarMeters)
+	{
+		float range = Mathf.Max(0.5f, _resolvedVisionRange);
+		float t = Mathf.Max(0f, _distanceMeters) / range;
+		return EvaluateDistanceCurve(t);
+	}
+	#endregion
+
+	#region FOV / Movement / Q
 	public static float FovFactor(
 		float _fovOffsetDegrees,
 		float _halfReferenceDegrees = DefaultFovHalfDegrees,
@@ -82,7 +112,9 @@ public static class DetectionQualityMath
 		float movement = Mathf.Max(1f, _movementFactor);
 		return Mathf.Clamp01(_distanceFactor * _fovFactor * _exposureFactor * movement);
 	}
+	#endregion
 
+	#region Progress
 	/// <summary>
 	/// Dual-threshold hysteresis:
 	/// Q &gt; acquire → grow; lose &lt; Q ≤ acquire → hold; Q ≤ lose → decay.
@@ -122,9 +154,12 @@ public static class DetectionQualityMath
 			return DetectionState.Detected;
 		return DetectionState.Detecting;
 	}
+	#endregion
 
+	#region Private Methods
 	private static float SmoothStep01(float _t)
 	{
 		return _t * _t * (3f - 2f * _t);
 	}
+	#endregion
 }

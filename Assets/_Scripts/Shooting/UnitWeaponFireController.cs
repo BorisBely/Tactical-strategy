@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -114,8 +115,10 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	private float m_DisciplineBurstPauseOverrideSeconds;
 	private RaycastHit[] m_LineOfFireHits;
 	private const int c_LofHitBufferSize = 16;
+	private readonly HashSet<Transform> m_LineOfFireSeenRoots = new HashSet<Transform>();
 	private float m_NextLineOfFireCheckTime;
 	private bool m_LastLineOfFireBlocked;
+	private WeaponShotAttemptResult m_LastLoggedGate = (WeaponShotAttemptResult)(-1);
 	#endregion
 
 	#region Public Properties
@@ -134,7 +137,8 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Production default: StopFiring snaps punch/climb. RecoilSweep sets false so decay can be measured.
+	/// Production default: StopFiring snaps visual punch only. Gameplay RecoilOffset is not cleared
+	/// (discipline pause = recovery). RecoilSweep can set false to measure visual decay.
 	/// </summary>
 	public bool ResetRecoilOnStopFiring { get; set; } = true;
 
@@ -420,6 +424,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		WeaponShotAttemptResult result = TryFireSingleShotInternal(Time.time, out firedAmmoDefinition);
 		m_LastShotAttemptResult = result;
 		m_LastFiredAmmoDefinition = firedAmmoDefinition;
+		LogGate(result);
 
 		if (result == WeaponShotAttemptResult.Success)
 		{
@@ -447,6 +452,37 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	#endregion
 
 	#region Private Methods
+	private void LogGate(WeaponShotAttemptResult _result)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+		bool success = _result == WeaponShotAttemptResult.Success;
+		if (_result == WeaponShotAttemptResult.FireRateLimited)
+			return;
+		if (!success && _result == m_LastLoggedGate)
+			return;
+		m_LastLoggedGate = _result;
+
+		string tgt = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null
+			? UnitActionLog.Slot(m_TargetSelector.SelectedTarget)
+			: "none";
+		string pose = m_ReadyHands != null ? m_ReadyHands.EffectivePoseState.ToString() : "?";
+		string g6 = m_EngagementDecision != null ? m_EngagementDecision.CurrentDecision.ToString() : "n/a";
+		float aim = m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
+			? m_WeaponRuntime.TransientState.AimProgress01
+			: 0f;
+		string payload =
+			"result=" + _result +
+			" tgt=" + tgt +
+			" g6=" + g6 +
+			" pose=" + pose +
+			" aimProg=" + UnitActionLog.F2(aim) +
+			" fail=" + m_DebugLastAimGateFail;
+		UnitActionLog.Write(this, UnitActionLog.Gate, payload);
+		if (success)
+			UnitActionLog.Timeline(UnitActionLog.Gate, "actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
 	private WeaponShotAttemptResult TryFireSingleShotInternal(float _currentTime, out AmmoDefinition _firedAmmoDefinition)
 	{
 		_firedAmmoDefinition = null;
@@ -513,7 +549,6 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private void ResetRecoilAfterStopFiring()
 	{
-		m_RecoilController?.ResetRecoilPenalty();
 		m_WeaponRecoil?.ResetVisualKick();
 	}
 
@@ -613,6 +648,14 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 	private bool IsLineOfFireBlocked()
 	{
+		using (InfantryProfilerMarkers.LineOfFire.Auto())
+		{
+			return IsLineOfFireBlockedUnguarded();
+		}
+	}
+
+	private bool IsLineOfFireBlockedUnguarded()
+	{
 		if (m_WeaponRuntime == null || m_TargetSelector == null || m_Equipment == null)
 			return false;
 
@@ -654,8 +697,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 		UnitTeamId myTeam = m_Team != null ? m_Team.Team : UnitTeamId.Player;
 
 		bool blocked = false;
-		string blockerName = null;
-		var seenRoots = new System.Collections.Generic.HashSet<Transform>();
+		m_LineOfFireSeenRoots.Clear();
 		for (int h = 0; h < hitCount; h++)
 		{
 			RaycastHit hit = m_LineOfFireHits[h];
@@ -671,7 +713,7 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 				continue;
 
 			UnitVision hitVision = hitTransform.GetComponentInParent<UnitVision>();
-			if (hitVision != null && !seenRoots.Add(hitVision.transform))
+			if (hitVision != null && !m_LineOfFireSeenRoots.Add(hitVision.transform))
 				continue;
 
 			UnitTeam hitTeam = hc.GetComponentInParent<UnitTeam>();
@@ -684,7 +726,6 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 					continue;
 
 				blocked = true;
-				blockerName = hc.name;
 				break;
 			}
 		}

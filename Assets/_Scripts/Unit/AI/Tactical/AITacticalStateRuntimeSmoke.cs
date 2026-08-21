@@ -52,6 +52,13 @@ public sealed class AITacticalStateRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunIdentityCalibration &&
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSearchExecution &&
+		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		!DetectionHarnessPlayMode.RunGameCommandSource &&
+		!DetectionHarnessPlayMode.RunGameCommandInput &&
+		!DetectionHarnessPlayMode.RunGameCommandLayer &&
 		!DetectionHarnessPlayMode.IsGRegressionPlay;
 	#endregion
 

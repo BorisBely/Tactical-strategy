@@ -1,6 +1,6 @@
 /// <summary>
-/// How a target <em>looks</em> to observers (world cue). Not world <see cref="UnitTeam"/> and not
-/// committed <see cref="PerceivedIdentity"/>.
+/// Observer-relative identity cue after mapping world look.
+/// Not world <see cref="UnitTeam"/>, not <see cref="VisualAffiliation"/>, not committed <see cref="PerceivedIdentity"/>.
 /// </summary>
 public enum ObservableAffiliation
 {
