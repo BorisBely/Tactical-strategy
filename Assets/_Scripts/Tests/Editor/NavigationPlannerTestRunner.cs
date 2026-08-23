@@ -12,7 +12,7 @@ namespace VehicleNavigation.Tests.Editor
 			RunInternal(true);
 		}
 
-		[MenuItem("Tools/Tests/Run NavigationPlannerTests")]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run NavigationPlannerTests", false, 144)]
 		public static void RunFromMenu()
 		{
 			RunInternal(false);

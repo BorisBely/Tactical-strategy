@@ -203,6 +203,7 @@ public sealed class DetectionG2AutoSmoke : MonoBehaviour
 			m_SpawnedObserverB = spawner.SpawnAdditionalPlayer("G2_ObserverB");
 			if (m_SpawnedObserverB != null)
 			{
+				DetectionTestController.DisableLethalFire(m_SpawnedObserverB.transform);
 				if (!m_SpawnedObserverB.TryGetComponent(out DetectionProcessor dp))
 					dp = m_SpawnedObserverB.AddComponent<DetectionProcessor>();
 				return dp;

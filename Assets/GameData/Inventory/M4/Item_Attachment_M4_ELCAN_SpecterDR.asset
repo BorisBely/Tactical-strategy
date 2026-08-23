@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_ELCAN_SpecterDR
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_elcan_specterdr
-  m_Description: "\u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 \u043F\u0440\u0438\u0446\u0435\u043B
-    \u0434\u043B\u044F 0-50 \u043C \u0441 \u0437\u0430\u043C\u0435\u0434\u043B\u0435\u043D\u043D\u044B\u043C
-    \u043D\u0430\u0432\u0435\u0434\u0435\u043D\u0438\u0435\u043C."
+  m_Description: "Два режима: 1x и 4x. Не плавный зум."
   m_Icon: {fileID: 21300000, guid: 8c68a999c9938314aa14ff82bfaeb21b, type: 3}
   m_BasePrice: 900
   m_WeightKg: 0

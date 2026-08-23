@@ -86,7 +86,10 @@ def patch_weapon(path: Path, role: str) -> None:
 
 
 def main() -> None:
-    patched = 0
+    raise SystemExit(
+        "patch_weapon_dispersion_curves.py is retired. "
+        "Stage 10 owner: python Tools/bake_accuracy_aim_curves.py"
+    )
     for rel, role in WEAPON_ROLES.items():
         matches = list(SHOOTING.rglob(rel))
         if not matches:

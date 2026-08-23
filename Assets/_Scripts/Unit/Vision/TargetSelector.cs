@@ -28,6 +28,7 @@ public sealed class TargetSelector : MonoBehaviour
 	[SerializeField] private UnitWeaponRuntime m_WeaponRuntime;
 	[SerializeField] private UnitObservationSource m_ObservationSource;
 	[SerializeField] private DetectionProcessor m_ContactRegistry;
+	[SerializeField] private UnitVision m_Vision;
 
 	[Header("G5 selection policy")]
 	[SerializeField] private bool m_ExcludeFriendly = true;
@@ -45,9 +46,8 @@ public sealed class TargetSelector : MonoBehaviour
 	[Header("Physics / retain LOS")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
 	[SerializeField] private QueryTriggerInteraction m_QueryTriggerInteraction = QueryTriggerInteraction.Ignore;
-	[SerializeField, Min(0.5f)] private float m_MaxEngageRange = 18f;
 
-	[Tooltip("While reload / bolt / malfunction — keep current engage target without FOV (range + LOS still required).")]
+	[Tooltip("While reload / bolt / malfunction — keep current engage target without FOV (ResolvedMaxRange + LOS still required).")]
 	[SerializeField] private bool m_RetainTargetDuringReloadOrMalfunction = true;
 
 	[SerializeField, Range(0.05f, 1f)] private float m_LineOfFireSafetyRadius = 0.35f;
@@ -107,6 +107,9 @@ public sealed class TargetSelector : MonoBehaviour
 
 	public float LastAimPointUpdateTime => m_LastAimPointUpdateTime;
 	public Transform VelocityTrackedTarget => m_VelocityTrackedTarget;
+
+	/// <summary>Reload/misfire retain envelope: current VisionSource ResolvedMaxRange. Not SELECT ranking.</summary>
+	public float RetainRangeMeters => ResolveRetainRangeMeters();
 
 	/// <summary>Selected target if it is currently engageable and has a LOS-confirmed aim point.</summary>
 	public Transform GetEngageableSelectedTarget()
@@ -200,6 +203,8 @@ public sealed class TargetSelector : MonoBehaviour
 			m_ObservationSource = GetComponent<UnitObservationSource>() ?? gameObject.AddComponent<UnitObservationSource>();
 		if (m_ContactRegistry == null)
 			m_ContactRegistry = GetComponent<DetectionProcessor>();
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
 
 		m_VisibilityChecker = new VisibilityChecker(transform, m_Hits, m_AimCandidateScratch, m_DebugRays);
 		RefreshVisibilityCheckerConfig();
@@ -434,6 +439,8 @@ public sealed class TargetSelector : MonoBehaviour
 		                 " score=" + (_newTarget != null ? UnitActionLog.F2(_bestScore) : "-") +
 		                 " engageable=" + (engageable ? "1" : "0") +
 		                 " aim=" + (_hasAim ? "1" : "0");
+		if (_changed)
+			payload += " retainRange=" + UnitActionLog.F1(ResolveRetainRangeMeters());
 		if (_hasAim)
 			payload += " aimPt=" + UnitActionLog.Vec(_aimPoint);
 		if (_runnerUp != null)
@@ -472,7 +479,15 @@ public sealed class TargetSelector : MonoBehaviour
 	{
 		if (m_VisibilityChecker == null)
 			return;
-		m_VisibilityChecker.Configure(m_LayerMask, m_QueryTriggerInteraction, m_MaxEngageRange, false);
+		m_VisibilityChecker.Configure(m_LayerMask, m_QueryTriggerInteraction, ResolveRetainRangeMeters(), false);
+	}
+
+	private float ResolveRetainRangeMeters()
+	{
+		if (m_Vision == null)
+			m_Vision = GetComponent<UnitVision>();
+		float resolved = m_Vision != null ? m_Vision.ResolvedMaxRange : UnitVisionProfile.BaseRangeMeters;
+		return CombatRetainMath.ResolveRetainRangeMeters(resolved);
 	}
 
 	private Vector3 GetFireOriginForLofCheck(Vector3 _fallbackOrigin)
@@ -710,15 +725,19 @@ public sealed class TargetSelector : MonoBehaviour
 		if (!TryRevalidateSuppressedTarget(_targetRoot, _origin))
 			return false;
 
-		float rangeSq = m_MaxEngageRange * m_MaxEngageRange;
+		RefreshVisibilityCheckerConfig();
+		float retainRange = ResolveRetainRangeMeters();
 
 		if (m_Perception != null &&
 		    m_Perception.TryGetObservation(_targetRoot, out VisionObservation observed) &&
 		    observed.IsVisible)
 		{
-			if (observed.DistanceSq > rangeSq || observed.DistanceSq < 0.0001f)
+			float distance = Mathf.Sqrt(Mathf.Max(0f, observed.DistanceSq));
+			if (!CombatRetainMath.CanRetainAtDistance(distance, retainRange))
 				return false;
-			_aimPoint = observed.HasAimPoint ? observed.AimPoint : GetCandidateRoughCenter(_targetRoot);
+			if (!observed.HasAimPoint)
+				return false;
+			_aimPoint = observed.AimPoint;
 			_hasAimPoint = true;
 			return true;
 		}
@@ -733,9 +752,7 @@ public sealed class TargetSelector : MonoBehaviour
 				    _origin, zones, _targetRoot, out Vector3 aimPoint, out _))
 				return false;
 
-			Vector3 toAim = aimPoint - _origin;
-			toAim.y = 0f;
-			if (toAim.sqrMagnitude > rangeSq || toAim.sqrMagnitude < 0.0001f)
+			if (!CombatRetainMath.CanRetainAtDistance(Vector3.Distance(_origin, aimPoint), retainRange))
 				return false;
 
 			_aimPoint = aimPoint;
@@ -751,9 +768,7 @@ public sealed class TargetSelector : MonoBehaviour
 			return false;
 
 		Vector3 targetCenter = legacyTargetCol.bounds.center;
-		Vector3 toTarget = targetCenter - _origin;
-		toTarget.y = 0f;
-		if (toTarget.sqrMagnitude > rangeSq || toTarget.sqrMagnitude < 0.0001f)
+		if (!CombatRetainMath.CanRetainAtDistance(Vector3.Distance(_origin, targetCenter), retainRange))
 			return false;
 
 		if (!m_VisibilityChecker.TryFindBestVisibleAimPointFromCollider(

@@ -1,6 +1,6 @@
 ﻿DETECTION G1–G8 REGRESSION (one Play)
 ====================================
-stamp=2026-08-19 22:03:54
+stamp=2026-08-22 14:57:11
 V1.9.5 — sequential AutoSmoke, no Q retune
 ---
 PASS G1 | RESULT=PASS pass=20 fail=0

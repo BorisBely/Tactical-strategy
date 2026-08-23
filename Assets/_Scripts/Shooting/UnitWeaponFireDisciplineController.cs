@@ -46,6 +46,12 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 	private float m_PauseUntilTime;
 	private Transform m_LastTarget;
 	private Phase m_LastLoggedPhase = (Phase)(-1);
+	private WeaponDefinition m_LastWeapon;
+	private WeaponFireDisciplineDistanceBand m_LastDistanceBand;
+	private bool m_HasDistanceBand;
+	private WeaponPoseState m_LastPose;
+	private bool m_LoggedPlan;
+	private UnitEquippedWeaponPose m_EquippedPose;
 	#endregion
 
 	#region Public Properties
@@ -74,6 +80,8 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			m_CombatStats = GetComponent<UnitCombatStats>();
 		if (m_IndividualTraits == null)
 			m_IndividualTraits = GetComponent<UnitIndividualTraits>();
+		if (m_EquippedPose == null)
+			m_EquippedPose = GetComponent<UnitEquippedWeaponPose>();
 	}
 
 	private void OnEnable()
@@ -108,16 +116,20 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 
 		if (!CanEngage())
 		{
-			if (m_Phase != Phase.Idle)
+			if (m_Phase != Phase.Idle || m_HasPlan || m_HasDistanceBand)
 			{
 				m_FireController.StopFiring();
 				m_FireController.ClearDisciplineBurstOverride();
+				m_HasDistanceBand = false;
 				ResetPlanState();
 			}
 
 			LogPhaseIfChanged();
 			return;
 		}
+
+		if (HasSignificantContextChanged())
+			InvalidateCurrentSeries();
 
 		switch (m_Phase)
 		{
@@ -197,10 +209,36 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			selectedDiscipline,
 			distance,
 			m_CombatStats,
-			m_IndividualTraits);
+			m_IndividualTraits,
+			m_HasDistanceBand ? m_LastDistanceBand : null,
+			false);
+		int ammo = CountReadyRounds();
+		if (ammo > 0 && m_CurrentPlan.SeriesShotCount > ammo)
+		{
+			m_CurrentPlan = new WeaponFireDisciplinePlan(
+				m_CurrentPlan.SelectedDiscipline,
+				m_CurrentPlan.EffectiveDiscipline,
+				m_CurrentPlan.EffectiveFireMode,
+				m_CurrentPlan.EffectiveAimMode,
+				m_CurrentPlan.RequiredAimProgress01,
+				ammo,
+				m_CurrentPlan.SeriesPauseSeconds,
+				m_CurrentPlan.TargetDistanceMeters,
+				m_CurrentPlan.Profile,
+				m_CurrentPlan.DistanceBand,
+				m_CurrentPlan.NormalizedDistance01,
+				m_CurrentPlan.WorkingRangeMeters);
+		}
+
 		m_HasPlan = true;
+		m_LastDistanceBand = m_CurrentPlan.DistanceBand;
+		m_HasDistanceBand = true;
+		m_LastWeapon = weaponDefinition;
+		m_LastPose = ReadPose();
 		m_ShotsFiredInSeries = 0;
 		m_Phase = Phase.Aiming;
+		m_LoggedPlan = false;
+		LogPlanIfNeeded();
 
 		if (m_CurrentPlan.EffectiveFireMode == WeaponFireMode.Burst)
 		{
@@ -306,6 +344,7 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			return;
 
 		m_LastTarget = engageable;
+		m_HasDistanceBand = false;
 		InvalidateCurrentSeries();
 	}
 
@@ -334,6 +373,80 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 		m_PauseUntilTime = 0f;
 		m_DebugPauseRemainingSeconds = 0f;
 		m_DebugPhase = "Idle";
+		m_LoggedPlan = false;
+	}
+
+	private bool HasSignificantContextChanged()
+	{
+		WeaponDefinition weapon = m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null;
+		if (weapon != m_LastWeapon && m_LastWeapon != null)
+		{
+			m_HasDistanceBand = false;
+			return true;
+		}
+
+		WeaponPoseState pose = ReadPose();
+		if (m_HasPlan && PoseBand(pose) != PoseBand(m_LastPose))
+			return true;
+
+		if (!m_HasPlan || !m_HasDistanceBand || weapon == null)
+			return false;
+
+		float distance = EstimateTargetDistanceMeters();
+		float working = m_CurrentPlan.WorkingRangeMeters;
+		float n = WeaponFireDisciplineProfile.NormalizeDistance(distance, working);
+		WeaponFireDisciplineDistanceBand band =
+			WeaponFireDisciplineProfile.ResolveBand(n, m_LastDistanceBand);
+		return band != m_LastDistanceBand;
+	}
+
+	private int CountReadyRounds()
+	{
+		WeaponRuntimeState rs = m_WeaponRuntime != null ? m_WeaponRuntime.RuntimeState : null;
+		if (rs == null)
+			return 0;
+		int ammo = rs.CurrentAmmoCount;
+		if (rs.HasRoundInChamber)
+			ammo += 1;
+		return Mathf.Max(0, ammo);
+	}
+
+	private WeaponPoseState ReadPose()
+	{
+		return m_EquippedPose != null ? m_EquippedPose.CurrentPose : WeaponPoseState.Aiming;
+	}
+
+	private static int PoseBand(WeaponPoseState _pose)
+	{
+		if (_pose.IsHipFireHold())
+			return 0;
+		if (_pose == WeaponPoseState.PointAim || _pose == WeaponPoseState.PreAim)
+			return 1;
+		return 2;
+	}
+
+	private void LogPlanIfNeeded()
+	{
+		if (!UnitActionLog.Enabled || m_LoggedPlan || !m_HasPlan)
+			return;
+		m_LoggedPlan = true;
+		m_LastLoggedPhase = m_Phase;
+		string tgt = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null
+			? UnitActionLog.Slot(m_TargetSelector.SelectedTarget)
+			: "none";
+		UnitActionLog.Write(
+			this,
+			UnitActionLog.Disc,
+			"phase=" + m_Phase +
+			" tgt=" + tgt +
+			" profile=" + m_CurrentPlan.Profile +
+			" distanceBand=" + m_CurrentPlan.DistanceBand +
+			" n=" + UnitActionLog.F2(m_CurrentPlan.NormalizedDistance01) +
+			" range=" + UnitActionLog.F2(m_CurrentPlan.WorkingRangeMeters) +
+			" mode=" + m_CurrentPlan.EffectiveFireMode +
+			" needAim=" + UnitActionLog.F2(m_CurrentPlan.RequiredAimProgress01) +
+			" series=" + m_CurrentPlan.SeriesShotCount +
+			" pause=" + UnitActionLog.F2(m_CurrentPlan.SeriesPauseSeconds));
 	}
 
 	private void RefreshDebug()

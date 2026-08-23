@@ -37,7 +37,8 @@ public static class VisionFreezeBaseline
 	public const float LoseThreshold = 0.20f;
 	public const float LossTimeSeconds = 2.5f;
 	public const float DistanceCurvePlateauT = 0.10f;
-	public const float DistanceCurveEdgeFactor = 0.08f;
+	public const float DistanceCurveEdgeFactor = 0.30f;
+	public const float AcquisitionExponent = 3.8f;
 	public const float DistanceDefaultRangeMeters = 150f;
 	#endregion
 
@@ -87,6 +88,7 @@ public static class VisionFreezeBaseline
 		sb.AppendLine($"  FOV edge     = {FovEdgeFactor:0.00}");
 		sb.AppendLine($"  Acquire      = {AcquireThreshold:0.00}");
 		sb.AppendLine($"  AcquireTime  = {AcquireTimeSeconds:0.00} s");
+		sb.AppendLine($"  AcquireExp   = {AcquisitionExponent:0.0}");
 		sb.AppendLine("FROZEN MEMORY");
 		sb.AppendLine($"  RecentlyLost = {RecentlyLostSeconds:0} s");
 		sb.AppendLine($"  Horizon      = {MemoryHorizonSeconds:0} s");
@@ -113,6 +115,9 @@ public static class VisionFreezeBaseline
 		Check("Freeze_AcquireTime",
 			Near(DetectionQualityMath.DefaultAcquireTime, AcquireTimeSeconds),
 			$"math={DetectionQualityMath.DefaultAcquireTime:0.00}");
+		Check("Freeze_AcquisitionExponent",
+			Near(DetectionQualityMath.DefaultAcquisitionExponent, AcquisitionExponent),
+			$"math={DetectionQualityMath.DefaultAcquisitionExponent:0.0}");
 
 		Check("Freeze_RecentlyLost",
 			Near(MemoryDecayMath.DefaultRecentlyLostSeconds, RecentlyLostSeconds),

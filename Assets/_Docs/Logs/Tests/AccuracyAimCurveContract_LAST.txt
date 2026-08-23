@@ -1,0 +1,76 @@
+Vision Stage 10 AccuracyAimCurveContract
+2026-08-22 21:35:32
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  HeavySlower  aim×
+PASS  CQB_SweetClose  cqb
+PASS  Scope4_SweetIn260  scope4
+PASS  Scope9_SweetIn300  scope9
+PASS  Sniper_SweetFar  sniper
+
+MATRIX CQB+1x V=150
+      0  disp=0,528  aim=0,866  in
+     25  disp=0,566  aim=0,900  in
+     50  disp=0,605  aim=0,935  in
+     75  disp=0,644  aim=0,975  in
+    100  disp=0,703  aim=1,019  in
+    125  disp=0,838  aim=1,186  in
+    150  disp=0,970  aim=1,369  in
+    175  disp=1,166  aim=1,666  OUTSIDE_VISION
+    200  disp=1,363  aim=1,962  OUTSIDE_VISION
+    225  disp=1,572  aim=2,261  OUTSIDE_VISION
+    250  disp=1,831  aim=2,570  OUTSIDE_VISION
+    275  disp=2,091  aim=2,879  OUTSIDE_VISION
+    300  disp=2,350  aim=3,189  OUTSIDE_VISION
+
+MATRIX Assault iron V=150
+      0  disp=0,730  aim=0,870  in
+     25  disp=0,757  aim=0,923  in
+     50  disp=0,783  aim=0,977  in
+     75  disp=0,810  aim=1,030  in
+    100  disp=0,837  aim=1,123  in
+    125  disp=0,863  aim=1,217  in
+    150  disp=0,890  aim=1,310  in
+    175  disp=0,922  aim=1,499  OUTSIDE_VISION
+    200  disp=0,954  aim=1,689  OUTSIDE_VISION
+    225  disp=0,986  aim=1,881  OUTSIDE_VISION
+    250  disp=1,018  aim=2,088  OUTSIDE_VISION
+    275  disp=1,049  aim=2,294  OUTSIDE_VISION
+    300  disp=1,080  aim=2,500  OUTSIDE_VISION
+
+MATRIX DMR+Scope4 V=260
+      0  disp=1,472  aim=3,679  in
+     25  disp=1,404  aim=3,530  in
+     50  disp=1,338  aim=3,384  in
+     75  disp=1,273  aim=3,240  in
+    100  disp=1,155  aim=3,144  in
+    125  disp=1,027  aim=3,062  in
+    150  disp=0,904  aim=2,984  in
+    175  disp=0,797  aim=2,908  in
+    200  disp=0,694  aim=2,832  in
+    225  disp=0,544  aim=2,586  in
+    250  disp=0,451  aim=2,388  in
+    275  disp=0,451  aim=2,444  OUTSIDE_VISION
+    300  disp=0,479  aim=2,556  OUTSIDE_VISION
+
+MATRIX Sniper+Scope9 V=300
+      0  disp=1,610  aim=3,878  in
+     25  disp=1,524  aim=3,715  in
+     50  disp=1,441  aim=3,555  in
+     75  disp=1,360  aim=3,398  in
+    100  disp=1,223  aim=3,292  in
+    125  disp=1,078  aim=3,191  in
+    150  disp=0,940  aim=3,063  in
+    175  disp=0,821  aim=2,937  in
+    200  disp=0,707  aim=2,813  in
+    225  disp=0,584  aim=2,653  in
+    250  disp=0,494  aim=2,543  in
+    275  disp=0,466  aim=2,522  in
+    300  disp=0,473  aim=2,556  in
+
+RESULT=PASS  PASS=11 FAIL=0

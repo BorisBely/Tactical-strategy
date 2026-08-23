@@ -1,0 +1,50 @@
+Vision Stage 15 AttentionFacingContract
+2026-08-23 09:42:24
+OPEN / BAKED — CLOSED only after this Play PASS
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_E_MK19  300
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_Pose_0.35  0.35
+PASS  Frozen_Pose_0.68  0.68
+PASS  Frozen_Pose_1.00  1.00
+PASS  Frozen_Rpg_115_12  115/12
+PASS  Frozen_Mk19_240_25  240/25
+PASS  Frozen_M2_Optic_0  0
+PASS  Frozen_Acquire_0.25  0.25
+PASS  Frozen_Lose_0.20  0.20
+PASS  Frozen_Exponent_3.8  3.8
+PASS  Frozen_AcquireTime_0.35  0.35
+PASS  Frozen_Q_DxFxExM  0.40
+PASS  Gate_Q24_mul3_hold  0.0000
+PASS  Gate_Q26_mul_faster  rate
+PASS  Curve_0_gt_30  2.50
+PASS  Curve_30_gt_1  1.12
+PASS  Curve_45_eq_1  1.00
+PASS  Curve_60_eq_1  1.00
+PASS  Curve_0_le_Max  2.50
+PASS  Band_0_High  High
+PASS  Band_60_Low  Low
+PASS  Attention_not_in_Q  D×F×E×M
+PASS  Peek_0_0.10_miss  not instant
+PASS  Peek_0_0.20_hit  center
+PASS  Peek_60_0.10_miss  edge
+PASS  Peek_60_0.30_miss  baseline
+PASS  Peek_60_0.50_hit  1.0s band
+PASS  Peek_A_0_vs_B_45  same peek
+PASS  Peek_0_faster_30  facing
+PASS  Peek_5_faster_30  5°
+PASS  Peek_10_faster_45  10°
+PASS  Peek_20_gt_1mul  20°
+PASS  Fairness_8_slots  8/frame
+PASS  Fairness_no_starve_8  maxSkip=6
+PASS  Slots_still_8  8
+PASS  Architecture_NoWatchingWindow  none
+PASS  Architecture_NoSecondVision  0
+PASS  Architecture_No18Field  field gone
+
+RESULT=PASS  PASS=44 FAIL=0

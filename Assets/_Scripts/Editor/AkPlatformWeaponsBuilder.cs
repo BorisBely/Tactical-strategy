@@ -221,7 +221,7 @@ public static class AkPlatformWeaponsBuilder
 		ammoSo.FindProperty("m_ArmorDamage").floatValue = 9f;
 		ammoSo.FindProperty("m_ProjectileCount").intValue = 1;
 		ammoSo.FindProperty("m_Velocity").floatValue = 900f;
-		ammoSo.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
+		ammoSo.FindProperty("m_EffectiveRangeMeters").floatValue = 250f;
 		ammoSo.FindProperty("m_SpreadModifier").floatValue = 1f;
 		ammoSo.FindProperty("m_RecoilModifier").floatValue = 0.96f;
 		ammoSo.ApplyModifiedPropertiesWithoutUndo();
@@ -466,84 +466,84 @@ public static class AkPlatformWeaponsBuilder
 			"item.weapon.ak47", "AK-47 rifle chambered in 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.BattleRifle762Default,
-			600f, 0.33f, 2.45f, 95f, 1.18f, 0.54f, 0.86f, 1.34f, 3.2f, 0.86f, 2400);
+			600f, 0.33f, 2.45f, 140f, 1.18f, 0.54f, 0.86f, 1.34f, 3.2f, 0.86f, 2400);
 
 		yield return Config(
 			"Equipped_AK47_1", "Weapon_AK47_1", "Item_Weapon_AK47_1",
 			"item.weapon.ak47_1", "AK-47 with wooden handguard, chambered in 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.BattleRifle762WoodHandguard,
-			600f, 0.35f, 2.45f, 105f, 1.10f, 0.50f, 0.84f, 1.24f, 3.6f, 0.87f, 2500);
+			600f, 0.35f, 2.45f, 145f, 1.10f, 0.50f, 0.84f, 1.24f, 3.6f, 0.87f, 2500);
 
 		yield return Config(
 			"Equipped_AK47MOD1", "Weapon_AK47MOD1", "Item_Weapon_AK47MOD1",
 			"item.weapon.ak47mod1", "Tactical AK-47 Mod.1 with M4-style optic rails and side mount, 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.Mod1Ak,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.BattleRifle762Mod1,
-			600f, 0.37f, 2.45f, 110f, 1.08f, 0.49f, 0.84f, 1.20f, 3.8f, 0.84f, 2800);
+			600f, 0.37f, 2.45f, 150f, 1.08f, 0.49f, 0.84f, 1.20f, 3.8f, 0.84f, 2800);
 
 		yield return Config(
 			"Equipped_AK47S", "Weapon_AK47S", "Item_Weapon_AK47S",
 			"item.weapon.ak47s", "AK-47S with folding stock, chambered in 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.CqbControlled,
-			600f, 0.26f, 2.20f, 75f, 1.25f, 0.56f, 0.90f, 1.45f, 3.0f, 0.83f, 2300);
+			600f, 0.26f, 2.20f, 115f, 1.25f, 0.56f, 0.90f, 1.45f, 3.0f, 0.83f, 2300);
 
 		yield return Config(
 			"Equipped_AK74", "Weapon_AK74", "Item_Weapon_AK74",
 			"item.weapon.ak74", "AK-74 rifle chambered in 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Intermediate545,
-			650f, 0.30f, 2.30f, 105f, 1.00f, 0.42f, 0.84f, 1.12f, 4.1f, 0.86f, 2600);
+			650f, 0.30f, 2.30f, 145f, 1.00f, 0.42f, 0.84f, 1.12f, 4.1f, 0.86f, 2600);
 
 		yield return Config(
 			"Equipped_AK74MOD1", "Weapon_AK74MOD1", "Item_Weapon_AK74MOD1",
 			"item.weapon.ak74mod1", "Tactical AK-74 Mod.1 with rails and side mount, 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.Mod1Ak,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Intermediate545,
-			650f, 0.33f, 2.30f, 115f, 0.96f, 0.40f, 0.83f, 1.08f, 4.3f, 0.84f, 2900);
+			650f, 0.33f, 2.30f, 155f, 0.96f, 0.40f, 0.83f, 1.08f, 4.3f, 0.84f, 2900);
 
 		yield return Config(
 			"Equipped_AK74U", "Weapon_AK74U", "Item_Weapon_AK74U",
 			"item.weapon.ak74u", "Compact AK-74U chambered in 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.CqbShort,
-			650f, 0.26f, 1.95f, 55f, 1.45f, 0.58f, 0.92f, 1.55f, 2.8f, 0.81f, 2200);
+			650f, 0.26f, 1.95f, 100f, 1.45f, 0.58f, 0.92f, 1.55f, 2.8f, 0.81f, 2200);
 
 		yield return Config(
 			"Equipped_AK74UMOD1", "Weapon_AK74UMOD1", "Item_Weapon_AK74UMOD1",
 			"item.weapon.ak74umod1", "Tactical AK-74U Mod.1 with rails and side mount, 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.Rifle, WeaponAttachmentSlotProfile.Mod1Ak,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.CqbControlled,
-			650f, 0.28f, 2.00f, 65f, 1.35f, 0.55f, 0.90f, 1.45f, 3.1f, 0.80f, 2500);
+			650f, 0.28f, 2.00f, 110f, 1.35f, 0.55f, 0.90f, 1.45f, 3.1f, 0.80f, 2500);
 
 		yield return Config(
 			"Equipped_RPK47", "Weapon_RPK47", "Item_Weapon_RPK47",
 			"item.weapon.rpk47", "RPK-47 light machine gun chambered in 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.LightMachineGun, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support762,
-			600f, 0.44f, 2.95f, 125f, 1.02f, 0.46f, 0.86f, 1.08f, 4.7f, 0.88f, 3200);
+			600f, 0.44f, 2.95f, 150f, 1.02f, 0.46f, 0.86f, 1.08f, 4.7f, 0.88f, 3200);
 
 		yield return Config(
 			"Equipped_RPK47MOD1", "Weapon_RPK47MOD1", "Item_Weapon_RPK47MOD1",
 			"item.weapon.rpk47mod1", "Tactical RPK-47 Mod.1 with rails and side mount, 7.62x39.",
 			CaliberType.Seven62By39, WeaponClassType.LightMachineGun, WeaponAttachmentSlotProfile.Mod1Ak,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support762,
-			600f, 0.47f, 2.95f, 135f, 0.98f, 0.45f, 0.85f, 1.04f, 5.0f, 0.86f, 3500);
+			600f, 0.47f, 2.95f, 155f, 0.98f, 0.45f, 0.85f, 1.04f, 5.0f, 0.86f, 3500);
 
 		yield return Config(
 			"Equipped_RPK74", "Weapon_RPK74", "Item_Weapon_RPK74",
 			"item.weapon.rpk74", "RPK-74 light machine gun chambered in 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.LightMachineGun, WeaponAttachmentSlotProfile.StockAk,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support545,
-			650f, 0.41f, 2.85f, 135f, 0.92f, 0.39f, 0.84f, 1.00f, 5.2f, 0.88f, 3400);
+			650f, 0.41f, 2.85f, 155f, 0.92f, 0.39f, 0.84f, 1.00f, 5.2f, 0.88f, 3400);
 
 		yield return Config(
 			"Equipped_RPK74MOD1", "Weapon_RPK74MOD1", "Item_Weapon_RPK74MOD1",
 			"item.weapon.rpk74mod1", "Tactical RPK-74 Mod.1 with rails and side mount, 5.45x39.",
 			CaliberType.Five45By39, WeaponClassType.LightMachineGun, WeaponAttachmentSlotProfile.Mod1Ak,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support545,
-			650f, 0.44f, 2.85f, 145f, 0.88f, 0.38f, 0.83f, 0.96f, 5.5f, 0.86f, 3700);
+			650f, 0.44f, 2.85f, 160f, 0.88f, 0.38f, 0.83f, 0.96f, 5.5f, 0.86f, 3700);
 	}
 
 	private static WeaponBuildConfig Config(

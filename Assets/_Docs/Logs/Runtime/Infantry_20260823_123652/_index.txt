@@ -1,0 +1,10 @@
+﻿# Infantry action log session 2026-08-23 12:36:52
+# folder=D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260823_123652
+# columns: slot team look callsign iid go file ai
+P01  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213703496 go=Unit(Clone) file=Player/P01_Unit(Clone).log ai=none
+P02  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213702258 go=Unit(Clone) file=Player/P02_Unit(Clone).log ai=none
+Tgt_S18SmObs  team=None look=? callsign=S18SmObs iid=568105589213699360 go=S18SmObs file=Other/Tgt_S18SmObs_S18SmObs.log ai=none
+P04  team=Player look=? callsign=S18SmB iid=568105589213699222 go=S18SmB file=Player/P04_S18SmB.log ai=none
+P05  team=Player look=? callsign=S18LiveA iid=568105589213699144 go=S18LiveA file=Player/P05_S18LiveA.log ai=none
+P06  team=Player look=? callsign=S18LiveB iid=568105589213699128 go=S18LiveB file=Player/P06_S18LiveB.log ai=none
+P03  team=Player look=? callsign=S18SmA iid=568105589213699206 go=S18SmA file=Player/P03_S18SmA.log ai=none

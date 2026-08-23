@@ -60,6 +60,21 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunGameCommandInput &&
 		!DetectionHarnessPlayMode.RunGameCommandLayer &&
 		!DetectionHarnessPlayMode.RunVisionEnvelope &&
+		!DetectionHarnessPlayMode.RunVisionDetectionCalibration &&
+		!DetectionHarnessPlayMode.RunVisionExposureFovContract &&
+		!DetectionHarnessPlayMode.RunVisionDetectionBalance &&
+		!DetectionHarnessPlayMode.RunVisionContactLifecycle &&
+		!DetectionHarnessPlayMode.RunVisionOpticRangeContract &&
+		!DetectionHarnessPlayMode.RunWeaponRangeContract &&
+		!DetectionHarnessPlayMode.RunAccuracyAimCurveContract &&
+		!DetectionHarnessPlayMode.RunFireDisciplineContract &&
+		!DetectionHarnessPlayMode.RunProjectileVisionContract &&
+		!DetectionHarnessPlayMode.RunVehicleVisionContract &&
+		!DetectionHarnessPlayMode.RunCombatRetainContract &&
+		!DetectionHarnessPlayMode.RunAttentionFacingContract &&
+		!DetectionHarnessPlayMode.RunSoundPerceptionContract &&
+		!DetectionHarnessPlayMode.RunAllyReportContract &&
+		!DetectionHarnessPlayMode.RunFinalPerceptionContract &&
 		!DetectionHarnessPlayMode.IsGRegressionPlay;
 	#endregion
 
@@ -130,6 +145,10 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		}
 
 		vision.SetVisionRange(DetectionQualityMath.DefaultFarMeters);
+		DetectionTestController.RestoreFixtureActor(observer);
+		DetectionTestController.RestoreFixtureActor(target);
+		DetectionTestController.PrepareCalibrationUnit(observer);
+		DetectionTestController.PrepareCalibrationUnit(target);
 
 		yield return RunDefaults(processor, vision);
 		AppendLine("");
@@ -203,6 +222,10 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 			Mathf.Abs(DetectionQualityMath.DefaultAcquireTime - 0.35f) < 0.001f &&
 			Mathf.Abs(_processor.AcquireTimeSeconds - 0.35f) < 0.001f,
 			$"math={DetectionQualityMath.DefaultAcquireTime:0.00} runtime={_processor.AcquireTimeSeconds:0.00}");
+		Check("Defaults_AcquisitionExponent",
+			Mathf.Abs(DetectionQualityMath.DefaultAcquisitionExponent - 3.8f) < 0.001f &&
+			Mathf.Abs(_processor.AcquisitionExponent - 3.8f) < 0.001f,
+			$"math={DetectionQualityMath.DefaultAcquisitionExponent:0.0} runtime={_processor.AcquisitionExponent:0.0}");
 		Check("Defaults_LossTime",
 			Mathf.Abs(DetectionQualityMath.DefaultLossTime - 2.5f) < 0.001f &&
 			Mathf.Abs(_processor.LossTimeSeconds - 2.5f) < 0.001f,
@@ -220,8 +243,8 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 	{
 		BeginContract(_scenario.Id);
 		DetectionCalibrationScenarios.QSnapshot math = DetectionCalibrationScenarios.EvaluateQ(_scenario);
-		DetectionCalibrationScenarios.ProgressRun mathRun = DetectionCalibrationScenarios.SimulateProgress(math.Q);
-		bool expectDetected = mathRun.Detected;
+		DetectionCalibrationScenarios.ProgressRun mathRun = DetectionCalibrationScenarios.SimulateProgress(_scenario);
+		bool expectDetected = DetectionCalibrationScenarios.ExpectsRuntimeDetected(_scenario);
 
 		Sample sample = default;
 		yield return SampleLayout(_scenario, _processor, _vision, _observer, _target,
@@ -356,7 +379,14 @@ public sealed class DetectionCalibrationRuntimeStrictSmoke : MonoBehaviour
 		yield return SampleCustom("B_FOV60", 30f, 60f, 1f, 0f, _processor, _vision, _observer, _target, 2f,
 			sample =>
 			{
-				Check("Boundary_Fov60_Observation", sample.HasObservation, $"look={F(sample.LookAngle, 1)} visible={sample.HasObservation}");
+				float half = _vision.ResolveHalfFovDegreesForScan();
+				bool expectObs = 60f < half - 0.05f;
+				Check("Boundary_Fov60_MatchesLiveCone",
+					sample.HasObservation == expectObs,
+					$"half={F(half, 1)} look={F(sample.LookAngle, 1)} visible={sample.HasObservation} expectObs={expectObs}");
+				Check("Boundary_Fov60_NoDetectRequired",
+					expectObs || !sample.Detected,
+					sample.Detected ? "Detected" : "Undetected");
 			});
 		EndContract(null, false);
 

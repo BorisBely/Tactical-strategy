@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG5TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG5 Selection Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG5 Selection Smoke (no Play)", false, 133)]
 	public static void RunSelectionSmokeFromMenu()
 	{
 		string report = BuildSelectionSmokeReport();

@@ -1,0 +1,34 @@
+﻿DetectionG7 AutoSmoke 2026-08-22 14:21:12
+---
+[MATH]
+PASS Math_SoundHorizonZero | Sound TTL → 0
+PASS Math_SharedHorizonZero | Shared TTL → 0
+PASS Math_SoundOnlyEligible | Sound-only selectable
+PASS Math_SoundOnlyNoAim | Sound is not aim
+PASS Math_ForgottenRejected | No channel → forgotten
+PASS Math_KnowledgeTrackNotFire | Non-visual knowledge → Track
+PASS G7_Processor | DetectionProcessor missing
+PASS G7_Target | target missing
+PASS G7_Selector | TargetSelector missing
+PASS G7_Engagement | EngagementDecisionController missing
+PASS Isolation_SelectorNoSoundFields | TargetSelector must not store sound/shared types
+PASS Isolation_EngagementNoSoundFields | Engagement must not store sound/shared types
+PASS Isolation_SelectorNoSoundMath | Selector must not own sound/shared math types
+FAIL G7_ObserveAimOrFire | sel= aim=False d=None
+FAIL G7_HiddenIsTrack | d=None aim=False
+PASS G7_HiddenMemoryLive | conf=0,98
+FAIL G7_SoundKeepsContact | sound=1,00
+PASS G7_SoundNotObserved | RecentlyLost
+PASS G7_SoundNoAim | aim=False
+FAIL G7_SoundDecisionTrackNotFire | None
+PASS G7_SoundDoesNotResetVisionMemory | seen=(0.00, -68.43, 26.00) conf=0,98
+PASS G7_SoundTtlExpired | sound=0,00
+PASS G7_G4MemoryStillDecaying | lastSeen=0,82
+FAIL G7_AfterSoundTtlStillTrack | sel= d=None
+FAIL G7_ReacquireAimOrFire | sel= aim=False obs=Observed conf=1,00 know=True lof=False engage=False d=None
+FAIL G7_SoundOnlySelectedTrack | sel= aim=False obs=NotObserved conf=0,00 know=True lof=False engage=False d=None
+PASS G7_SoundOnlyNotFire | None
+PASS G7_SoundOnlyUnknownIdentity | Unknown
+PASS G7_FusionOneContact | count=1 sound=True shared=True
+---
+RESULT=FAIL pass=22 fail=7

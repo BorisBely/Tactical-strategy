@@ -137,6 +137,13 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			body = _config.BodyMeshArchetype.ToString();
 
 		string weapon = ResolveWeaponLabel(_config);
+		string visionSource = "InfantryEye";
+		string resolvedRange = "150";
+		if (TryGetComponent(out UnitVision vision) && vision != null)
+		{
+			visionSource = vision.CurrentVisionSource.ToString();
+			resolvedRange = vision.ResolvedMaxRange.ToString("0");
+		}
 		bool hasAi = m_Ai != null || TryGetComponent(out m_Ai);
 		m_AiAttachedLogged = hasAi;
 		bool isNeutral = team == UnitTeamId.Neutral;
@@ -150,6 +157,8 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			" look=" + look +
 			" body=" + body +
 			" weapon=" + weapon +
+			" source=" + visionSource +
+			" resolvedRange=" + resolvedRange +
 			" ai=" + (hasAi ? "UnitAIController" : "none") +
 			" scanCandidates=" + scan +
 			" pos=" + UnitActionLog.Vec(transform.position) +

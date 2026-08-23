@@ -24,6 +24,8 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 	[SerializeField, Min(0.1f)] private float m_FlightSoundVolume = 0.4f;
 	[SerializeField, Min(0.1f)] private float m_MaxLifetimeSeconds = 25f;
 
+	public float MaxLifetimeSeconds => m_MaxLifetimeSeconds;
+
 	[Header("Impact")]
 	[SerializeField] private AudioClip[] m_ExplosionSoundClips;
 	[SerializeField, Min(0.1f)] private float m_ExplosionSoundVolume = 1f;
@@ -50,6 +52,7 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 	private float m_LaunchTime;
 	private bool m_LaunchDataCaptured;
 	private int m_DiagnosticShotIndex;
+	private Transform m_Shooter;
 
 	private void Awake()
 	{
@@ -68,6 +71,7 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		m_LaunchTime = Time.time;
 		m_HasExploded = false;
 		m_LaunchDataCaptured = false;
+		m_Shooter = null;
 
 		m_LaunchPosition = transform.position;
 
@@ -139,6 +143,11 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		Detonate();
 	}
 
+	public void BindShooter(Transform _shooter)
+	{
+		m_Shooter = _shooter;
+	}
+
 	public void ConfigureDiagnostics(int _shotIndex)
 	{
 		m_DiagnosticShotIndex = _shotIndex;
@@ -191,6 +200,7 @@ public sealed class VehicleTurretGrenadeProjectile : MonoBehaviour
 		}
 
 		PlayExplosionSound(pos);
+		WorldSoundHub.PublishExplosion(m_Shooter, pos);
 
 		if (m_Rigidbody != null)
 		{

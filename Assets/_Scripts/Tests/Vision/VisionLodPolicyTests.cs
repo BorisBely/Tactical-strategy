@@ -111,6 +111,26 @@ namespace Vision.Tests
 		}
 
 		[Test]
+		public void Scheduler_RequestFlush_FairnessCapsAtEight()
+		{
+			VisionScanScheduler.ResetForTests();
+			VisionScanScheduler.DetailSlotsPerFrame = 8;
+			VisionScanScheduler.BeginFrameForTests(0);
+			for (int i = 0; i < 20; i++)
+				VisionScanScheduler.RequestDetailSlot(i, 1f);
+			VisionScanScheduler.FlushPendingDetailIfNeeded();
+			int granted = 0;
+			for (int i = 0; i < 20; i++)
+			{
+				if (VisionScanScheduler.WasGranted(i))
+					granted++;
+			}
+
+			Assert.AreEqual(8, granted);
+			VisionScanScheduler.ResetForTests();
+		}
+
+		[Test]
 		public void CoarseFov_BehindObserver_FailsWithoutNeedingLos()
 		{
 			Vector3 origin = Vector3.zero;

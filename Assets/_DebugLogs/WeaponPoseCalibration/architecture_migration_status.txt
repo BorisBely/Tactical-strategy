@@ -1,0 +1,37 @@
+# Weapon Pose + Grip + IK architecture — migration status
+
+## Done
+
+### Phase 1 — Pose foundation
+- `WeaponPoseDefinition` SO + enums/entries under `Assets/_Scripts/Inventory/WeaponPose/`
+- 24 assets in `Assets/GameData/WeaponPoses/` linked from Item_Weapon_*
+- `UnitEquippedWeaponPose` = sole final writer (order 70) with Aim/Recoil composition APIs
+
+### Phase 2 — Right targets
+- `WeaponGripRig` RightHand/{Standing|Crouch|Vehicle}/{Ready|NotReady}
+- Seeded on 24 Equipped prefabs from legacy RightHandIk YAML
+- `WeaponHandTargetResolver` caches targets at equip
+
+### Phase 3 — Left
+- Single LeftHandGrip / ForeGrip.LeftHandGrip (live Transform)
+- ForeGrip1–5 validated present
+
+### Phase 4 — IK
+- `AnimatorHandIk` consumes Resolver; soft right IK (weight 0.35); left LateUpdate snap only
+
+### Phase 5 — Tools
+- `Polygone/Weapons/Architecture/Migrate…`
+- `Polygone/Weapons/Architecture/Validate…`
+- Pose Tuner / Grip Tuner menus
+
+### Phase 7 — Cleanup
+- Orphaned *HandIk* YAML stripped from 24 Item_Weapon assets
+- Flat Hand_R fields kept as LEGACY fallback when SO missing
+
+## Verify in Editor
+
+1. Let Unity reimport (scripts + WeaponPoses + prefabs)
+2. Menu: **Polygone → Weapons → Architecture → Validate GripRig + Pose Definitions**
+3. Play → press **L** — expect Lerr≈0; soft right IK; Ready blend from PoseDefinition
+
+Do not run align_weapon_aim_eye / calibrate_ready_from_log.

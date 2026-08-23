@@ -1,0 +1,36 @@
+Vision Stage 14 CombatRetainContract
+2026-08-22 23:18:15
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_E_MK19  300
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_Pose_0.35  0.35
+PASS  Frozen_Pose_0.68  0.68
+PASS  Frozen_Pose_1.00  1.00
+PASS  Frozen_Rpg_115_12  115/12
+PASS  Frozen_Mk19_240_25  240/25
+PASS  Frozen_M2_Optic_0  0
+PASS  Stage13_PassengerNot100  150
+PASS  Infantry_20  retain
+PASS  Infantry_80  retain
+PASS  Infantry_149  retain
+PASS  Infantry_151  no retain
+PASS  Not18  150
+PASS  Scope9_250  retain
+PASS  Scope9_300  retain
+PASS  Scope9_301  no retain
+PASS  Passenger_80  retain
+PASS  Turret_149  retain
+PASS  Turret_151  no retain
+PASS  TurretOptic_250  retain
+PASS  LastKnown_NoFire  fireDenied=NoAimPoint
+PASS  Mk19_permit_inside  Launch
+PASS  Rpg_permit_outside  OutsideVision
+PASS  Architecture_No18Field  field gone
+PASS  Architecture_NoSecondVision  0
+
+RESULT=PASS  PASS=31 FAIL=0

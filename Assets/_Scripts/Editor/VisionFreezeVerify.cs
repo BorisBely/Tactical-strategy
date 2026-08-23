@@ -11,7 +11,7 @@ using UnityEngine;
 /// </summary>
 public static class VisionFreezeVerify
 {
-	[MenuItem("Tools/Tests/Verify Vision Freeze", false, 141)]
+	[MenuItem("Tools/Tests/Verify Vision Freeze", false, 41)]
 	public static void RunFromMenu()
 	{
 		VisionFreezeBaseline.ReportResult result = VisionFreezeBaseline.BuildReport();

@@ -42,22 +42,39 @@ public sealed class DetectionCalibrationRuntimeSmoke : MonoBehaviour
 
 	#region Public Properties
 	public bool WillRunOnStart =>
-		(m_RunOnStart || DetectionHarnessPlayMode.RunCalibrationRuntime) &&
-		!DetectionHarnessPlayMode.RunCalibrationStrict &&
-		!DetectionHarnessPlayMode.IsGRegressionPlay &&
-		!DetectionHarnessPlayMode.RunMemoryCalibration &&
-		!DetectionHarnessPlayMode.RunIdentityCalibration &&
-		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
-		!DetectionHarnessPlayMode.RunAITacticalState &&
-		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
-		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
-		!DetectionHarnessPlayMode.RunSearchExecution &&
-		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
-		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
-		!DetectionHarnessPlayMode.RunGameCommandSource &&
-		!DetectionHarnessPlayMode.RunGameCommandInput &&
-		!DetectionHarnessPlayMode.RunGameCommandLayer &&
-		!DetectionHarnessPlayMode.RunVisionEnvelope;
+		DetectionHarnessPlayMode.RunCalibrationRuntime ||
+		(m_RunOnStart &&
+		 !DetectionHarnessPlayMode.SkipClosedGStages &&
+		 !DetectionHarnessPlayMode.RunCalibrationStrict &&
+		 !DetectionHarnessPlayMode.IsGRegressionPlay &&
+		 !DetectionHarnessPlayMode.RunMemoryCalibration &&
+		 !DetectionHarnessPlayMode.RunIdentityCalibration &&
+		 !DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
+		 !DetectionHarnessPlayMode.RunAITacticalState &&
+		 !DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		 !DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		 !DetectionHarnessPlayMode.RunSearchExecution &&
+		 !DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
+		 !DetectionHarnessPlayMode.RunTacticalCommandContract &&
+		 !DetectionHarnessPlayMode.RunGameCommandSource &&
+		 !DetectionHarnessPlayMode.RunGameCommandInput &&
+		 !DetectionHarnessPlayMode.RunGameCommandLayer &&
+		 !DetectionHarnessPlayMode.RunVisionEnvelope &&
+		 !DetectionHarnessPlayMode.RunVisionDetectionCalibration &&
+		 !DetectionHarnessPlayMode.RunVisionExposureFovContract &&
+		 !DetectionHarnessPlayMode.RunVisionDetectionBalance &&
+		 !DetectionHarnessPlayMode.RunVisionContactLifecycle &&
+		 !DetectionHarnessPlayMode.RunVisionOpticRangeContract &&
+		 !DetectionHarnessPlayMode.RunWeaponRangeContract &&
+		 !DetectionHarnessPlayMode.RunAccuracyAimCurveContract &&
+		 !DetectionHarnessPlayMode.RunFireDisciplineContract &&
+		 !DetectionHarnessPlayMode.RunProjectileVisionContract &&
+		 !DetectionHarnessPlayMode.RunVehicleVisionContract &&
+		 !DetectionHarnessPlayMode.RunCombatRetainContract &&
+		!DetectionHarnessPlayMode.RunAttentionFacingContract &&
+		!DetectionHarnessPlayMode.RunSoundPerceptionContract &&
+		!DetectionHarnessPlayMode.RunAllyReportContract &&
+		!DetectionHarnessPlayMode.RunFinalPerceptionContract);
 	#endregion
 
 	#region Unity Lifecycle
@@ -152,8 +169,8 @@ public sealed class DetectionCalibrationRuntimeSmoke : MonoBehaviour
 		Transform _target)
 	{
 		DetectionCalibrationScenarios.QSnapshot math = DetectionCalibrationScenarios.EvaluateQ(_scenario);
-		DetectionCalibrationScenarios.ProgressRun mathRun = DetectionCalibrationScenarios.SimulateProgress(math.Q);
-		bool expectDetected = mathRun.Detected;
+		DetectionCalibrationScenarios.ProgressRun mathRun = DetectionCalibrationScenarios.SimulateProgress(_scenario);
+		bool expectDetected = DetectionCalibrationScenarios.ExpectsRuntimeDetected(_scenario);
 
 		m_Harness.ApplyCalibrationScenario(_scenario);
 		yield return new WaitForFixedUpdate();

@@ -68,22 +68,7 @@ public static class WeaponPoseAutoCapabilityBaker
 		cache.PreAimAimTimeMult = Mathf.Max(0.05f, unitAimProduct * aimFlatNoOptic * PreAimPoseUtility.AimTimeMult);
 
 		float hitRadius = Mathf.Max(0.05f, _acceptableHitRadiusMeters);
-		float maxScan = c_MaxScanMeters;
-		if (_weapon != null)
-		{
-			float rangeProduct = 1f;
-			if (_attachments != null)
-			{
-				for (int i = 0; i < _attachments.Length; i++)
-				{
-					if (_attachments[i] != null)
-						rangeProduct *= Mathf.Max(0.01f, _attachments[i].EffectiveRangeModifier);
-				}
-			}
-
-			// Prefer weapon distance curve span; fall back to 300m if unknown
-			maxScan = Mathf.Clamp(300f * rangeProduct, 50f, c_MaxScanMeters);
-		}
+		float maxScan = ResolveMaxScanMeters(_weapon);
 
 		cache.HipFireMaxMeters = FindMaxAcceptableDistance(
 			_weapon,
@@ -134,6 +119,13 @@ public static class WeaponPoseAutoCapabilityBaker
 
 	public static float EvaluateLaserAimingAimTimeMult(WeaponAttachmentDefinition[] _attachments) =>
 		WeaponLaserModifiers.GetAimingAimTimeProduct(_attachments);
+
+	public static float ResolveMaxScanMeters(WeaponDefinition _weapon)
+	{
+		return _weapon != null
+			? WeaponDamageRangeMath.MaxHitscanEnvelopeMeters
+			: c_MaxScanMeters;
+	}
 
 	public static float FindMaxAcceptableDistance(
 		WeaponDefinition _weapon,

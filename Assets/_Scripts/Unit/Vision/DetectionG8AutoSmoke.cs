@@ -98,6 +98,18 @@ public sealed class DetectionG8AutoSmoke : MonoBehaviour
 			yield break;
 		}
 
+		m_Harness.ResetPairToIdleCalibrationPad();
+		processor = m_Harness.DetectionProcessor;
+		target = m_Harness.Target;
+		selector = processor != null ? processor.GetComponent<TargetSelector>() : null;
+		engagement = processor != null ? processor.GetComponent<EngagementDecisionController>() : null;
+		vision = processor != null ? processor.GetComponent<UnitVision>() : null;
+		if (processor == null || target == null || selector == null || engagement == null)
+		{
+			Finish();
+			yield break;
+		}
+
 		bool visionWas = vision != null && vision.enabled;
 		if (vision != null)
 			vision.enabled = false;
@@ -105,6 +117,7 @@ public sealed class DetectionG8AutoSmoke : MonoBehaviour
 		processor.ClearContacts();
 		selector.ForcedPriorityTarget = null;
 		selector.ClearSelection(true);
+		selector.ClearLineOfFireSuppression();
 		yield return null;
 
 		Vector3 seenPos = target.position;

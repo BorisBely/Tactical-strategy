@@ -238,6 +238,19 @@ public sealed class UnitHealth : MonoBehaviour
 		NotifyChanged();
 	}
 
+	/// <summary>Play-harness revive: clear wounds and death without changing injury rules.</summary>
+	public void ResetToHealthy()
+	{
+		if (m_Injuries.Count == 0 && !m_IsDead)
+			return;
+
+		m_Injuries.Clear();
+		m_IsDead = false;
+		m_OverallStatusLocalizationKey = "health.status.ok";
+		m_OverallStatusDisplayName = LocalizationManager.Get("health.status.ok", "В норме");
+		NotifyChanged();
+	}
+
 	public void AddInjury(InjuryUiEntry _entry)
 	{
 		m_Injuries.Add(_entry);

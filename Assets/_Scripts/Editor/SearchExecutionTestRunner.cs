@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class SearchExecutionTestRunner
 {
-	[MenuItem("Tools/Tests/Run Search Execution (Play)", false, 148)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run Search Execution (Play)", false, 124)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

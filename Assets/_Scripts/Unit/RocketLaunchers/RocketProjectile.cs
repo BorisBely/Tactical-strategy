@@ -18,6 +18,7 @@ public sealed class RocketProjectile : MonoBehaviour
 	private bool m_HasExploded;
 	private bool m_FlybyPlayed;
 	private Vector3 m_SpawnPosition;
+	private Transform m_Shooter;
 	#endregion
 
 	#region Unity Lifecycle
@@ -70,6 +71,11 @@ public sealed class RocketProjectile : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Properties
+	public float LifetimeSeconds => m_LifetimeSeconds;
+	public bool IsLaunched => m_Launched;
+	#endregion
+
 	#region Public Methods
 	public void Launch(
 		Vector3 _direction,
@@ -91,6 +97,7 @@ public sealed class RocketProjectile : MonoBehaviour
 		m_HasExploded = false;
 		m_FlybyPlayed = false;
 
+		m_Shooter = _ignoreCollisionsWith != null ? _ignoreCollisionsWith.transform : null;
 		EnsureImpactCollider();
 		IgnoreCollisionsWith(_ignoreCollisionsWith);
 
@@ -123,6 +130,7 @@ public sealed class RocketProjectile : MonoBehaviour
 
 		m_HasExploded = true;
 		RocketLauncherAudioUtility.PlayExplosion(m_Data, m_LauncherType, _position);
+		WorldSoundHub.PublishExplosion(m_Shooter, _position);
 		SpawnExplosionVfx(_position);
 		Destroy(gameObject);
 	}

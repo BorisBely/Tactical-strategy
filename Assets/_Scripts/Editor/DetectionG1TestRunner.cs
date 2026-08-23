@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG1TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG1 Math Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG1 Math Smoke (no Play)", false, 130)]
 	public static void RunMathSmokeFromMenu()
 	{
 		string report = BuildMathSmokeReport();

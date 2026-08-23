@@ -61,6 +61,8 @@ public sealed class WeaponDefinition : ScriptableObject
 	[SerializeField, Min(0.1f)] private float m_ReloadTimeSeconds = 2.2f;
 	[Tooltip("Дистанция, до которой дальность сама по себе не даёт дополнительный штраф к стрельбе.")]
 	[SerializeField, Min(0.1f)] private float m_EffectiveRangeMeters = 100f;
+	[Tooltip("Турельная оптика в метрах. 0 = нет (обзор 150). Если > 150 — clamp 150…300, независимо от Aiming. Не путать с Effective Range.")]
+	[SerializeField, Min(0f)] private float m_OpticVisionRangeMeters;
 	[Tooltip("Базовый разброс оружейной платформы до модификаторов патрона, стойки, движения и отдачи.")]
 	[SerializeField, Min(0f)] private float m_BaseShotDispersion = 1f;
 	[Tooltip("Как сама оружейная платформа меняет точность и скорость прицеливания на дистанции 0..500 м.")]
@@ -167,6 +169,7 @@ public sealed class WeaponDefinition : ScriptableObject
 	public float AimTimeSeconds => m_AimTimeSeconds;
 	public float ReloadTimeSeconds => m_ReloadTimeSeconds;
 	public float EffectiveRangeMeters => m_EffectiveRangeMeters;
+	public float OpticVisionRangeMeters => m_OpticVisionRangeMeters;
 	public float BaseShotDispersion => m_BaseShotDispersion;
 	public WeaponDistanceAimProfile DistanceAimProfile => m_DistanceAimProfile;
 	public float RecoilPerShot => m_RecoilPerShot;
@@ -272,6 +275,16 @@ public sealed class WeaponDefinition : ScriptableObject
 
 		m_DistanceAimProfile.SetCurves(_dispersionByDistance, _aimTimeByDistance);
 		m_AutoBurstSpreadMultiplierByShot = _autoBurstSpreadByShot;
+	}
+
+	public void SetEffectiveRangeMeters(float _meters)
+	{
+		m_EffectiveRangeMeters = Mathf.Max(0.1f, _meters);
+	}
+
+	public void SetOpticVisionRangeMeters(float _meters)
+	{
+		m_OpticVisionRangeMeters = Mathf.Max(0f, _meters);
 	}
 	#endregion
 

@@ -1,0 +1,55 @@
+Vision Stage 18 FinalPerceptionContract
+2026-08-23 12:36:53
+CLOSED / VERIFIED — FinalPerceptionContract
+---
+PASS  Assets  load
+PASS  Frozen_Acquire_0.25  0.25
+PASS  Frozen_Lose_0.20  0.20
+PASS  Frozen_Exponent_3.8  3.8
+PASS  Frozen_AcquireTime_0.35  0.35
+PASS  Frozen_Q_DxFxExM  0.40
+PASS  Frozen_SoundHorizon_3  3s
+PASS  Frozen_SharedHorizon_8  8s
+PASS  Frozen_AllyRange_80  80
+PASS  Frozen_Memory_5  5
+PASS  Frozen_Memory_30  30
+PASS  Frozen_Attention_NotInQ  1
+PASS  Shared_NotVisualConfirm  id
+PASS  Merge_OneContact  1
+PASS  Merge_Visual  obs
+PASS  Merge_Sound  snd
+PASS  Merge_Shared  sh
+PASS  Merge_LastKnownVisual  lk
+PASS  Conflict_LastKnownStays  A
+PASS  Conflict_SoundB  B
+PASS  Conflict_SharedC  C
+PASS  Conflict_NoAim  aim
+PASS  Id_Unknown  id
+PASS  Id_SharedHostile  shId
+PASS  Id_NotObserved  obs
+PASS  Combat_Select  sel
+PASS  Combat_Track  g6
+PASS  Combat_NoAim  aim
+PASS  Combat_NoFire  fire
+PASS  Combat_NotEngageable  gate
+PASS  Rpg_NoLaunch  rpg
+PASS  Attention_NoDetect  att
+PASS  Live_A_Observed  a
+PASS  Live_B_Shared  b
+PASS  Live_B_Track  track
+PASS  Live_B_Reacquired  obs
+PASS  Live_B_Aim  aim
+PASS  Live_B_Fire  fire
+PASS  Architecture_NoSecondVision  0
+PASS  Architecture_Detail8  8
+PASS  Architecture_GunshotRange  300
+PASS  Architecture_AllyRange  80
+PASS  Architecture_NoRaycastSound  snd
+PASS  Architecture_NoRaycastShared  sh
+PASS  Architecture_QFourFactors  D×F×E×M
+PASS  Snapshot_SoundPresent  snd
+PASS  Snapshot_SharedPresent  sh
+PASS  Snapshot_NotVisible  vis
+PASS  Snapshot_NotHostileCommit  id
+
+RESULT=PASS  PASS=49 FAIL=0

@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_RDC
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_rdc
-  m_Description: "\u041A\u043E\u043B\u043B\u0438\u043C\u0430\u0442\u043E\u0440 \u0441
-    \u043B\u0443\u0447\u0448\u0435\u0439 \u0441\u0442\u0430\u0431\u0438\u043B\u044C\u043D\u043E\u0441\u0442\u044C\u044E
-    \u043D\u0430 10-20 \u043C."
+  m_Description: "Коллиматор без увеличения. Обзор как у глаз."
   m_Icon: {fileID: 21300000, guid: b5fcd21b0b87adc4e86de499c201054c, type: 3}
   m_BasePrice: 300
   m_WeightKg: 0

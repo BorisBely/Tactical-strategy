@@ -18,7 +18,8 @@
 /// After G8: LOD / scan tiers are a compute budget, not DetectionProgress and not a Q penalty.
 /// Skip-scan must not ApplyVisionFrame(empty). Not scanning this frame ≠ unseen.
 /// Coarse range/FOV (with pad) runs before any LOS. Only Detail (T3) may apply a vision frame.
-/// Unit.prefab VisionRange = 150 m eye (perception; optic may extend to 300 in Aiming). MaxEngageRange stays 18 m. Do not merge them.
+/// Unit.prefab VisionRange = 150 m eye (perception; optic may extend to 300 in Aiming).
+/// Reload/misfire retain uses UnitVision.ResolvedMaxRange. Do not bake 18 m as a combat cap.
 /// This vision contract is closed at G8. Search / hunt AI is a separate system.
 ///
 /// Allowed combat flow (G6+G7+G8):
@@ -46,7 +47,8 @@
 /// LOD / VisionScanTier / LOS cache on TargetSelector or EngagementDecision;
 /// LOD → confidence / Q / DetectionProgress penalty;
 /// skip-scan applying an empty vision frame (fake RecentlyLost);
-/// treating VisionRange 150 m as MaxEngageRange;
+/// baking 18 m as a combat retain cap;
+/// treating LastKnown as fire AimPoint;
 /// EngagementDecision inside Vision / DetectionProcessor / TargetSelector;
 /// EngagementDecisionController calling Fire / StartFiring / hitscan;
 /// LastKnown as fire aim; mutating UnitTeam from perception or engagement.

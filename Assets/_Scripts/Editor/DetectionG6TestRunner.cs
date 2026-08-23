@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG6TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG6 Engagement Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG6 Engagement Smoke (no Play)", false, 134)]
 	public static void RunEngagementSmokeFromMenu()
 	{
 		string report = BuildEngagementSmokeReport();

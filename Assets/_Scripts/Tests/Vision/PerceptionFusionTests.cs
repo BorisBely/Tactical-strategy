@@ -94,7 +94,8 @@ namespace Vision.Tests
 			Assert.AreEqual(seen, afterSound.LastSeenPosition);
 			Assert.Less(afterSound.LastSeenConfidence, memoryBefore + 0.0001f);
 			Assert.AreNotEqual(1f, afterSound.LastSeenConfidence);
-			Assert.AreEqual(heard, afterSound.LastKnownPosition);
+			Assert.AreEqual(seen, afterSound.LastKnownPosition);
+			Assert.AreEqual(heard, afterSound.SoundPosition);
 			Assert.IsFalse(m_Selector.HasSelectedAimPoint);
 			Assert.AreEqual(EngagementDecision.Track, m_Engagement.CurrentDecision);
 			Assert.AreNotEqual(EngagementDecision.Fire, m_Engagement.CurrentDecision);

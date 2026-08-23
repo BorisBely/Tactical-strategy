@@ -131,7 +131,7 @@ namespace Vision.Tests
 				LastSeenConfidence = 0f,
 				SoundConfidence = 0.9f,
 				SoundPosition = new Vector3(4f, 0f, 0f),
-				LastKnownPosition = new Vector3(4f, 0f, 0f)
+				LastKnownPosition = Vector3.zero
 			};
 			Assert.IsFalse(TargetSelectionMath.TryGetObservedAimPoint(heard, out Vector3 aim));
 			Assert.AreEqual(Vector3.zero, aim);

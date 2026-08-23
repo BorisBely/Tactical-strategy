@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -10,7 +11,7 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// Play smoke A–L (+ M–P Q distance) for the unified eye + optic sensor. Writes VisionEnvelope_LAST.txt.
+/// Play smoke A–P plus stage-3 sweep Q–W for the unified eye + optic sensor. Writes VisionEnvelope_LAST.txt.
 /// Does not retune acquire/loss thresholds or FOV edge.
 /// </summary>
 [DefaultExecutionOrder(61)]
@@ -85,7 +86,7 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		Append("VISION ENVELOPE");
 		Append("===============");
 		Append("stamp=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
-		Append("eye=150/120  scope=150-300/8  aiming-only");
+		Append("eye=150/120  scope=150-300/8  assignedSector=120  aiming-only");
 		Append("---");
 
 		m_Harness = GetComponent<DetectionTestController>();
@@ -110,8 +111,7 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		ResetWorld(vision);
 		FreezeScopeYaw(vision, 0f);
 
-		Append("");
-		Append("A EYE");
+		BeginGroup("A EYE");
 		yield return Probe("A_50", vision, observer, target, 50f, 0f, false, 0f, true);
 		yield return Probe("A_149", vision, observer, target, 149f, 0f, false, 0f, true);
 		yield return Probe("A_150", vision, observer, target, 150f, 0f, false, 0f, true);
@@ -119,15 +119,13 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		yield return Probe("A_FOV59", vision, observer, target, 50f, 59f, false, 0f, true);
 		yield return Probe("A_FOV61", vision, observer, target, 50f, 61f, false, 0f, false);
 
-		Append("");
-		Append("B OPTIC AIMING");
+		BeginGroup("B OPTIC AIMING");
 		yield return Probe("B_Hip250", vision, observer, target, 250f, 0f, true, 300f, false, WeaponPoseState.HipFire);
 		yield return Probe("B_Aim250", vision, observer, target, 250f, 0f, true, 300f, true, WeaponPoseState.Aiming);
 		yield return Probe("B_Aim301", vision, observer, target, 301f, 0f, true, 300f, false, WeaponPoseState.Aiming);
 		yield return Probe("B_Scope150_200", vision, observer, target, 200f, 0f, true, 150f, false, WeaponPoseState.Aiming);
 
-		Append("");
-		Append("C 8 DEG");
+		BeginGroup("C 8 DEG");
 		FreezeScopeYaw(vision, 0f);
 
 		yield return Probe("C_0", vision, observer, target, 200f, 0f, true, 300f, true, WeaponPoseState.Aiming);
@@ -135,10 +133,10 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		yield return Probe("C_4", vision, observer, target, 200f, 4f, true, 300f, true, WeaponPoseState.Aiming);
 		yield return Probe("C_5", vision, observer, target, 200f, 5f, true, 300f, false, WeaponPoseState.Aiming);
 
-		Append("");
-		Append("D SWEEP");
+		BeginGroup("D SWEEP");
 		if (vision.ScopeScan != null)
 		{
+			vision.ScopeScan.SetAssignedSector(0f, 4f);
 			vision.ScopeScan.SetFrozenForTest(false);
 			vision.ScopeScan.ResetSweep();
 			vision.ScopeScan.SetScanYawForTest(-4f);
@@ -147,24 +145,19 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 
 		yield return RunSweepD(vision, observer, target);
 
-		Append("");
-		Append("E LOS");
+		BeginGroup("E LOS");
 		yield return RunLosBlocked(vision, observer, target);
 
-		Append("");
-		Append("F NO DUPLICATE");
+		BeginGroup("F NO DUPLICATE");
 		yield return RunNoDuplicate(vision, observer, target);
 
-		Append("");
-		Append("G OPTIC PATH");
+		BeginGroup("G OPTIC PATH");
 		yield return RunOpticPath(vision, observer, target);
 
-		Append("");
-		Append("H FIRE");
+		BeginGroup("H FIRE");
 		yield return RunFireCap(vision, observer, target);
 
-		Append("");
-		Append("I CLAMP");
+		BeginGroup("I CLAMP");
 		Check("I_0", Near(UnitVisionProfile.ClampScopeRange(0f), 150f), "0→150");
 		Check("I_149", Near(UnitVisionProfile.ClampScopeRange(149f), 150f), "149→150");
 		Check("I_300", Near(UnitVisionProfile.ClampScopeRange(300f), 300f), "300");
@@ -174,13 +167,11 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		Check("I_Bonus150", !UnitVisionProfile.HasMagnifiedScopeBonus(150f), "150 no bonus");
 		Check("I_Bonus300", UnitVisionProfile.HasMagnifiedScopeBonus(300f), "300 bonus");
 
-		Append("");
-		Append("J COLLIMATOR");
+		BeginGroup("J COLLIMATOR");
 		yield return Probe("J_0_200", vision, observer, target, 200f, 0f, true, 0f, false, WeaponPoseState.Aiming);
 		yield return Probe("J_150_200", vision, observer, target, 200f, 0f, true, 150f, false, WeaponPoseState.Aiming);
 
-		Append("");
-		Append("K DIRTY POSE");
+		BeginGroup("K DIRTY POSE");
 		vision.DebugSetVisionOpticOverride(m_TestOptic300);
 		vision.DebugSetVisionPoseOverride(WeaponPoseState.Aiming, true);
 		yield return null;
@@ -191,25 +182,40 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		vision.RequestImmediateScan();
 		Check("K_HipInactive", !vision.CurrentVisionProfile.IsScopeActive, "HipFire must not keep 300");
 
-		Append("");
-		Append("M Q DISTANCE");
+		BeginGroup("M Q DISTANCE");
 		RunQDistanceDiagnostics();
 
-		Append("");
-		Append("N Q RELATIVE");
+		BeginGroup("N Q RELATIVE");
 		RunQRelativeChecks();
 
-		Append("");
-		Append("O Q BOUNDARY");
+		BeginGroup("O Q BOUNDARY");
 		yield return RunQBoundary(vision, observer, target);
 
-		Append("");
-		Append("P Q POSE");
+		BeginGroup("P Q POSE");
 		yield return RunQPose(vision, observer, target);
 
-		Append("");
-		Append("L PERF");
-		vision.ScanStats.Reset();
+		BeginGroup("Q R SWEEP GRID");
+		yield return RunSweepQR(vision, observer, target);
+
+		BeginGroup("S HOLD CONTACT");
+		yield return RunHoldContactS(vision, observer, target);
+
+		BeginGroup("T SECTOR 20 DEG");
+		yield return RunSectorPlus20(vision, observer, target);
+
+		BeginGroup("U RESUME AFTER LOST");
+		yield return RunResumeAfterLost(vision, observer, target);
+
+		BeginGroup("V CACHE DUP");
+		yield return RunCachedLos(vision, observer, target);
+
+		BeginGroup("W BUDGET AND TWO TARGETS");
+		yield return RunBudgetAndTwoTargets(vision, observer, target);
+
+		BeginGroup("X EYE VS SWEEP");
+		yield return RunEyeDoesNotSpendScopeLos(vision, observer, target);
+
+		BeginGroup("L PERF");
 		if (m_Harness.DetectionProcessor != null)
 			m_Harness.DetectionProcessor.ClearContacts();
 		FreezeScopeYaw(vision, 0f);
@@ -217,13 +223,22 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		PlaceOnVisionAxis(vision, observer, target, 250f, 0f);
 		vision.RequestImmediateScan();
 		yield return null;
-		vision.RequestImmediateScan();
-		yield return null;
+		vision.ScanStats.Reset();
+		float perfT0 = Time.time;
+		while (Time.time - perfT0 < 0.7f)
+			yield return null;
 		VisionScanStats stats = vision.ScanStats;
 		Append($"[PERF] scans={stats.VisionScanCount} scopeQuery={stats.LastScanScopeDetailedQueryCount} skipDup={stats.SkippedDuplicateCount} los={stats.LosCheckCount} qEval={stats.QualityEvalCount} avgMs={stats.AverageFrameMs:F2} maxMs={stats.MaxFrameMs:F2}");
-		Check("L_StatsPresent", stats.VisionScanCount > 0, $"scans={stats.VisionScanCount}");
+		Append($"[SCOPE PERF] frames={Time.frameCount} scopeTicks={stats.ScopeSweepScanCount} candidateQueries={stats.ScopeDetailedQueryCount} LOSQueries={stats.ScopeLiveLosCount} cachedObservations={stats.CachedLosCount} skippedDuplicateLOS={stats.SkippedDuplicateCount} maxLOSPerFrame={stats.MaxScopeLiveLosCount}");
+		Check("L_StatsPresent", stats.VisionScanCount + stats.ScopeSweepScanCount > 0,
+			$"scans={stats.VisionScanCount} sweeps={stats.ScopeSweepScanCount}");
 		Check("L_QEvalPresent", stats.QualityEvalCount > 0, $"qEval={stats.QualityEvalCount}");
-		Check("L_LosNotInflated", stats.LosCheckCount < 20, $"los={stats.LosCheckCount} qEval={stats.QualityEvalCount}");
+		Check("L_LosNotInflated",
+			stats.MaxScopeLiveLosCount <= 6 &&
+			(stats.CachedLosCount > 0 || stats.SkippedDuplicateCount > 0) &&
+			stats.ScopeLiveLosCount <= 6,
+			$"live={stats.ScopeLiveLosCount} max={stats.MaxScopeLiveLosCount} los={stats.LosCheckCount} cache={stats.CachedLosCount} skip={stats.SkippedDuplicateCount}");
+		Check("W_ScopePerfBudget", stats.MaxScopeLiveLosCount <= 6, $"maxLiveLos={stats.MaxScopeLiveLosCount}");
 
 		vision.DebugClearVisionOverrides();
 		if (vision.ScopeScan != null)
@@ -302,7 +317,7 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 	{
 		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
 		ResetWorld(_vision);
-		PlaceOnVisionAxis(_vision, _observer, _target, 200f, 3f);
+		PlaceOnBodyAxis(_vision, _observer, _target, 200f, 3f);
 		if (_vision.ScopeScan != null)
 		{
 			_vision.ScopeScan.SetFrozenForTest(false);
@@ -334,7 +349,10 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 
 		Check("D_SweepFindsPlus3", seen, $"yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1}");
 		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, ScopeScanController.DefaultAssignedSectorHalfDegrees);
 			_vision.ScopeScan.SetFrozenForTest(true);
+		}
 	}
 
 	private IEnumerator RunLosBlocked(UnitVision _vision, Transform _observer, Transform _target)
@@ -517,7 +535,7 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 			$"150={edgeA:F3} 300={edgeB:F3}");
 
 		Check("N_CurveKey0", Mathf.Abs(DetectionQualityMath.EvaluateDistanceCurve(0f) - 1f) < 0.001f, "t=0");
-		Check("N_CurveKey1", Mathf.Abs(DetectionQualityMath.EvaluateDistanceCurve(1f) - 0.08f) < 0.001f, "t=1");
+		Check("N_CurveKey1", Mathf.Abs(DetectionQualityMath.EvaluateDistanceCurve(1f) - DetectionQualityMath.DefaultFarFactor) < 0.001f, "t=1");
 	}
 
 	private IEnumerator RunQBoundary(UnitVision _vision, Transform _observer, Transform _target)
@@ -613,6 +631,398 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 			Check(_id, !seen, seen ? $"Q={q:F3}" : "gone");
 	}
 
+	private IEnumerator RunSweepQR(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, 4f);
+			_vision.ScopeScan.SetFrozenForTest(false);
+			_vision.ScopeScan.ResetSweep();
+			_vision.ScopeScan.SetScanYawForTest(-4f);
+			_vision.ScopeScan.SetDirectionForTest(1);
+			_vision.ScopeScan.SetFrozenForTest(false);
+		}
+
+		PlaceOnBodyAxis(_vision, _observer, _target, 400f, 0f);
+		var seen = new HashSet<int>();
+		float t0 = Time.time;
+		while (Time.time - t0 < 0.9f && _vision.ScopeScan != null)
+		{
+			seen.Add(Mathf.RoundToInt(_vision.ScopeScan.ScanYawDegrees));
+			yield return null;
+		}
+
+		Check("Q_VisitedMinus4", HasYaw(seen, -4), "yaw set=" + FormatYawSet(seen));
+		Check("Q_VisitedMinus2", HasYaw(seen, -2), "yaw set=" + FormatYawSet(seen));
+		Check("Q_Visited0", HasYaw(seen, 0), "yaw set=" + FormatYawSet(seen));
+		Check("Q_VisitedPlus2", HasYaw(seen, 2), "yaw set=" + FormatYawSet(seen));
+		Check("Q_VisitedPlus4", HasYaw(seen, 4), "yaw set=" + FormatYawSet(seen));
+
+		bool reversed = false;
+		t0 = Time.time;
+		while (Time.time - t0 < 0.5f && _vision.ScopeScan != null)
+		{
+			if (_vision.ScopeScan.Direction < 0 && _vision.ScopeScan.ScanYawDegrees < 3.5f)
+			{
+				reversed = true;
+				break;
+			}
+
+			yield return null;
+		}
+
+		Check("R_ReversedAfterPlus4", reversed, $"dir={(_vision.ScopeScan != null ? _vision.ScopeScan.Direction : 0)} yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1}");
+		if (_vision.ScopeScan != null)
+			_vision.ScopeScan.SetAssignedSector(0f, ScopeScanController.DefaultAssignedSectorHalfDegrees);
+	}
+
+	private IEnumerator RunHoldContactS(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, 4f);
+			_vision.ScopeScan.SetFrozenForTest(false);
+			_vision.ScopeScan.ResetSweep();
+			_vision.ScopeScan.SetScanYawForTest(-4f);
+		}
+
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 200f, 3f);
+		if (m_Harness.DetectionProcessor != null)
+		{
+			m_Harness.DetectionProcessor.ClearContacts();
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		}
+
+		UnitPerception perception = _observer.GetComponent<UnitPerception>();
+		bool seen = false;
+		float t0 = Time.time;
+		while (Time.time - t0 < 2.5f)
+		{
+			if (perception != null &&
+			    perception.TryGetObservation(_target, out VisionObservation obs) &&
+			    obs.IsVisible)
+			{
+				seen = true;
+				break;
+			}
+
+			yield return null;
+		}
+
+		Check("S_FoundPlus3", seen, $"mode={(_vision.ScopeScan != null ? _vision.ScopeScan.Mode.ToString() : "?")}");
+		int sweepsAtLock = _vision.ScanStats.ScopeSweepScanCount;
+		float yawAtLock = _vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f;
+		yield return new WaitForSeconds(0.35f);
+		bool held = _vision.ScopeScan != null && _vision.ScopeScan.Mode == ScopeScanMode.TrackTarget;
+		bool yawStable = _vision.ScopeScan != null && Mathf.Abs(_vision.ScopeScan.ScanYawDegrees - yawAtLock) < 2.5f;
+		Check("S_HoldStopsSweep", held && yawStable,
+			$"held={held} yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1} lockYaw={yawAtLock:F1} extraSweeps={_vision.ScanStats.ScopeSweepScanCount - sweepsAtLock}");
+		if (_vision.ScopeScan != null)
+			_vision.ScopeScan.SetAssignedSector(0f, ScopeScanController.DefaultAssignedSectorHalfDegrees);
+	}
+
+	private IEnumerator RunSectorPlus20(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, 60f);
+			_vision.ScopeScan.SetFrozenForTest(false);
+			_vision.ScopeScan.ResetSweep();
+			_vision.ScopeScan.SetScanYawForTest(-4f);
+			_vision.ScopeScan.SetDirectionForTest(1);
+		}
+
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 250f, 20f);
+		if (m_Harness.DetectionProcessor != null)
+		{
+			m_Harness.DetectionProcessor.ClearContacts();
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		}
+
+		UnitPerception perception = _observer.GetComponent<UnitPerception>();
+		bool seenEarly = false;
+		float t0 = Time.time;
+		while (Time.time - t0 < 2.5f && _vision.ScopeScan != null && _vision.ScopeScan.ScanYawDegrees < 15f)
+		{
+			if (perception != null &&
+			    perception.TryGetObservation(_target, out VisionObservation early) &&
+			    early.IsVisible)
+			{
+				seenEarly = true;
+				break;
+			}
+
+			yield return null;
+		}
+
+		Check("T_NotSeenBeforeSector", !seenEarly,
+			$"early={seenEarly} yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1}");
+
+		bool seenLate = seenEarly;
+		t0 = Time.time;
+		while (Time.time - t0 < 3.5f)
+		{
+			if (perception != null &&
+			    perception.TryGetObservation(_target, out VisionObservation obs) &&
+			    obs.IsVisible)
+			{
+				seenLate = true;
+				break;
+			}
+
+			yield return null;
+		}
+
+		Check("T_SeenAtPlus20", seenLate, $"yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1}");
+	}
+
+	private IEnumerator RunResumeAfterLost(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, 60f);
+			_vision.ScopeScan.SetFrozenForTest(false);
+			_vision.ScopeScan.ResetSweep();
+			_vision.ScopeScan.SetScanYawForTest(-4f);
+			_vision.ScopeScan.SetDirectionForTest(1);
+		}
+
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 250f, 6f);
+		if (m_Harness.DetectionProcessor != null)
+		{
+			m_Harness.DetectionProcessor.ClearContacts();
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		}
+
+		UnitPerception perception = _observer.GetComponent<UnitPerception>();
+		float t0 = Time.time;
+		while (Time.time - t0 < 2.5f)
+		{
+			if (_vision.ScopeScan != null && _vision.ScopeScan.Mode == ScopeScanMode.TrackTarget)
+				break;
+			yield return null;
+		}
+
+		float yawAtContact = _vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f;
+		PlaceOnBodyAxis(_vision, _observer, _target, 400f, 80f);
+		if (m_Harness.DetectionProcessor != null)
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		yield return null;
+		yield return null;
+
+		t0 = Time.time;
+		while (Time.time - t0 < 2.2f)
+		{
+			if (_vision.ScopeScan != null && _vision.ScopeScan.Mode == ScopeScanMode.Sweep)
+				break;
+			yield return null;
+		}
+
+		bool resumedSweep = _vision.ScopeScan != null && _vision.ScopeScan.Mode == ScopeScanMode.Sweep;
+		bool notResetToEdge = _vision.ScopeScan != null && Mathf.Abs(_vision.ScopeScan.ScanYawDegrees + 60f) > 5f;
+		Check("U_ResumeNotFromMinus60", resumedSweep && notResetToEdge,
+			$"mode={(_vision.ScopeScan != null ? _vision.ScopeScan.Mode.ToString() : "?")} yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1} lockYaw={yawAtContact:F1}");
+	}
+
+	private IEnumerator RunCachedLos(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		FreezeScopeYaw(_vision, 0f);
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 250f, 0f);
+		if (m_Harness.DetectionProcessor != null)
+		{
+			m_Harness.DetectionProcessor.ClearContacts();
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		}
+
+		_vision.RequestImmediateScan();
+		yield return null;
+		_vision.ScanStats.Reset();
+		if (_vision.ScopeScan != null)
+			_vision.ScopeScan.SetFrozenForTest(true);
+
+		float t0 = Time.time;
+		while (Time.time - t0 < 1.2f)
+			yield return null;
+
+		VisionScanStats stats = _vision.ScanStats;
+		Check("V_CachedOrSkippedGrows",
+			stats.CachedLosCount > 0 || stats.SkippedDuplicateCount > 0,
+			$"cache={stats.CachedLosCount} skip={stats.SkippedDuplicateCount} liveLos={stats.ScopeLiveLosCount}");
+		Check("V_LiveLosNotLinear",
+			stats.ScopeLiveLosCount < 40,
+			$"liveLos={stats.ScopeLiveLosCount} sweeps={stats.ScopeSweepScanCount}");
+		if (_vision.ScopeScan != null)
+			_vision.ScopeScan.SetFrozenForTest(true);
+	}
+
+	private IEnumerator RunBudgetAndTwoTargets(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		FreezeScopeYaw(_vision, 0f);
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 250f, 2f);
+
+		var dummies = new List<GameObject>(24);
+		try
+		{
+			for (int i = 0; i < 24; i++)
+			{
+				float yaw = -3f + i * 0.25f;
+				dummies.Add(SpawnDummyEnemy(_vision, _observer, 230f + i * 1.5f, yaw, "EnvDummy_" + i));
+			}
+
+			yield return null;
+			Physics.SyncTransforms();
+			_vision.ScanStats.Reset();
+			_vision.RequestImmediateScan();
+			yield return null;
+			Check("W_BudgetMax6",
+				_vision.ScanStats.MaxScopeLiveLosCount <= 6,
+				$"maxLive={_vision.ScanStats.MaxScopeLiveLosCount} last={_vision.ScanStats.LastScanScopeLiveLosCount} cand={_vision.ScanStats.LastScanCandidateCount}");
+		}
+		finally
+		{
+			for (int i = 0; i < dummies.Count; i++)
+			{
+				if (dummies[i] != null)
+					Destroy(dummies[i]);
+			}
+		}
+
+		GameObject extraA = SpawnDummyEnemy(_vision, _observer, 250f, -20f, "EnvTargetA");
+		try
+		{
+			if (_vision.ScopeScan != null)
+			{
+				_vision.ScopeScan.SetAssignedSector(0f, 60f);
+				_vision.ScopeScan.SetFrozenForTest(false);
+				_vision.ScopeScan.ResetSweep();
+				_vision.ScopeScan.SetScanYawForTest(-4f);
+				_vision.ScopeScan.SetDirectionForTest(1);
+			}
+
+			PlaceOnBodyAxis(_vision, _observer, _target, 250f, 2f);
+			if (m_Harness.DetectionProcessor != null)
+			{
+				m_Harness.DetectionProcessor.ClearContacts();
+				m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+			}
+
+			UnitPerception perception = _observer.GetComponent<UnitPerception>();
+			bool seenB = false;
+			bool seenADuringB = false;
+			float t0 = Time.time;
+			while (Time.time - t0 < 2.5f)
+			{
+				bool b = perception != null &&
+					perception.TryGetObservation(_target, out VisionObservation obsB) &&
+					obsB.IsVisible;
+				bool a = extraA != null &&
+					perception != null &&
+					perception.TryGetObservation(extraA.transform, out VisionObservation obsA) &&
+					obsA.IsVisible;
+				if (b)
+				{
+					seenB = true;
+					seenADuringB = a;
+					break;
+				}
+
+				yield return null;
+			}
+
+			Check("W_BFoundFirst", seenB && !seenADuringB, $"B={seenB} A={seenADuringB}");
+
+			PlaceOnBodyAxis(_vision, _observer, _target, 400f, 80f);
+			t0 = Time.time;
+			bool seenALater = false;
+			while (Time.time - t0 < 8f)
+			{
+				if (extraA != null &&
+				    perception != null &&
+				    perception.TryGetObservation(extraA.transform, out VisionObservation obsA) &&
+				    obsA.IsVisible)
+				{
+					seenALater = true;
+					break;
+				}
+
+				yield return null;
+			}
+
+			Check("W_AFoundAfterSweep", seenALater,
+				$"yaw={(_vision.ScopeScan != null ? _vision.ScopeScan.ScanYawDegrees : 0f):F1}");
+		}
+		finally
+		{
+			if (extraA != null)
+				Destroy(extraA);
+			if (_vision.ScopeScan != null)
+				_vision.ScopeScan.SetAssignedSector(0f, ScopeScanController.DefaultAssignedSectorHalfDegrees);
+		}
+	}
+
+	private IEnumerator RunEyeDoesNotSpendScopeLos(UnitVision _vision, Transform _observer, Transform _target)
+	{
+		ApplyOptic(_vision, true, 300f, WeaponPoseState.Aiming);
+		if (_vision.ScopeScan != null)
+		{
+			_vision.ScopeScan.SetAssignedSector(0f, 60f);
+			_vision.ScopeScan.SetFrozenForTest(false);
+			_vision.ScopeScan.ResetSweep();
+			_vision.ScopeScan.SetScanYawForTest(0f);
+		}
+
+		ResetWorld(_vision);
+		PlaceOnBodyAxis(_vision, _observer, _target, 100f, 0f);
+		if (m_Harness.DetectionProcessor != null)
+		{
+			m_Harness.DetectionProcessor.ClearContacts();
+			m_Harness.DetectionProcessor.ApplyEmptyObservationFrame();
+		}
+
+		UnitPerception perception = _observer.GetComponent<UnitPerception>();
+		bool eyeSeen = false;
+		VisionObservationSource source = VisionObservationSource.Optic;
+		float t0 = Time.time;
+		while (Time.time - t0 < c_WaitYes)
+		{
+			if (perception != null &&
+			    perception.TryGetObservation(_target, out VisionObservation obs) &&
+			    obs.IsVisible &&
+			    obs.Source == VisionObservationSource.Eye)
+			{
+				eyeSeen = true;
+				source = obs.Source;
+				break;
+			}
+
+			yield return null;
+		}
+
+		Check("X_EyeSees100", eyeSeen && source == VisionObservationSource.Eye,
+			eyeSeen ? source.ToString() : "missing");
+		_vision.ScanStats.Reset();
+		t0 = Time.time;
+		while (Time.time - t0 < 0.6f)
+			yield return null;
+
+		Check("X_ScopeLosSkippedDuringSweep",
+			_vision.ScanStats.SkippedDuplicateCount > 0,
+			$"skip={_vision.ScanStats.SkippedDuplicateCount} scopeLive={_vision.ScanStats.ScopeLiveLosCount} sweeps={_vision.ScanStats.ScopeSweepScanCount}");
+		if (_vision.ScopeScan != null)
+			_vision.ScopeScan.SetFrozenForTest(true);
+	}
+
 	private static float EvaluateObservationQ(UnitVision _vision, in VisionObservation _obs)
 	{
 		float distance = Mathf.Sqrt(Mathf.Max(0f, _obs.DistanceSq));
@@ -689,6 +1099,8 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 
 	private static void PrepareUnits(Transform _observer, Transform _target)
 	{
+		DetectionTestController.PrepareCalibrationUnit(_observer);
+		DetectionTestController.PrepareCalibrationUnit(_target);
 		DisableLocomotion(_observer);
 		DisableLocomotion(_target);
 	}
@@ -712,6 +1124,27 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		float _distance,
 		float _yawDegrees)
 	{
+		PlaceRelative(_vision, _observer, _target, _distance, _yawDegrees, true);
+	}
+
+	private static void PlaceOnBodyAxis(
+		UnitVision _vision,
+		Transform _observer,
+		Transform _target,
+		float _distance,
+		float _yawDegrees)
+	{
+		PlaceRelative(_vision, _observer, _target, _distance, _yawDegrees, false);
+	}
+
+	private static void PlaceRelative(
+		UnitVision _vision,
+		Transform _observer,
+		Transform _target,
+		float _distance,
+		float _yawDegrees,
+		bool _useSweepForward)
+	{
 		DisableLocomotion(_observer);
 		DisableLocomotion(_target);
 		Physics.SyncTransforms();
@@ -719,7 +1152,11 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		for (int pass = 0; pass < 2; pass++)
 		{
 			Vector3 origin = _vision.GetGameplayVisionOriginWorld();
-			Vector3 fwd = ResolvePlaceForward(_vision);
+			Vector3 fwd = _useSweepForward ? ResolvePlaceForward(_vision) : _vision.GetGameplayVisionForwardXZ();
+			fwd.y = 0f;
+			if (fwd.sqrMagnitude < 1e-6f)
+				fwd = Vector3.forward;
+			fwd.Normalize();
 			Vector3 dir = Quaternion.AngleAxis(_yawDegrees, Vector3.up) * fwd;
 			Vector3 pos = origin + dir * _distance;
 			pos.y = _target.position.y;
@@ -739,18 +1176,69 @@ public sealed class VisionEnvelopeRuntimeSmoke : MonoBehaviour
 		return fwd.normalized;
 	}
 
+	private static bool HasYaw(HashSet<int> _seen, int _yaw)
+	{
+		return _seen.Contains(_yaw) || _seen.Contains(_yaw - 1) || _seen.Contains(_yaw + 1);
+	}
+
+	private static string FormatYawSet(HashSet<int> _seen)
+	{
+		var list = new List<int>(_seen);
+		list.Sort();
+		return string.Join(",", list);
+	}
+
+	private GameObject SpawnDummyEnemy(
+		UnitVision _observerVision,
+		Transform _observer,
+		float _distance,
+		float _yawDegrees,
+		string _name)
+	{
+		var go = new GameObject(_name);
+		UnitTeamId team = UnitTeamId.Enemy;
+		if (_observer != null && _observer.TryGetComponent(out UnitTeam observerTeam) &&
+		    observerTeam.Team == UnitTeamId.Enemy)
+			team = UnitTeamId.Player;
+
+		UnitTeam unitTeam = go.AddComponent<UnitTeam>();
+		unitTeam.SetTeam(team);
+		go.AddComponent<UnitObservationSource>();
+		go.AddComponent<UnitPerception>();
+		go.AddComponent<SphereCollider>().radius = 0.45f;
+		go.AddComponent<UnitVision>();
+
+		Vector3 origin = _observerVision.GetGameplayVisionOriginWorld();
+		Vector3 fwd = _observerVision.GetGameplayVisionForwardXZ();
+		fwd.y = 0f;
+		if (fwd.sqrMagnitude < 1e-6f)
+			fwd = Vector3.forward;
+		fwd.Normalize();
+		Vector3 dir = Quaternion.AngleAxis(_yawDegrees, Vector3.up) * fwd;
+		Vector3 pos = origin + dir * _distance;
+		pos.y = origin.y;
+		go.transform.position = pos;
+		return go;
+	}
+
 	private void Check(string _name, bool _ok, string _detail)
 	{
+		string line = (_ok ? "PASS " : "FAIL ") + _name + " | " + _detail;
 		if (_ok)
-		{
 			m_PassCount++;
-			Append("PASS " + _name + " | " + _detail);
-		}
 		else
-		{
 			m_FailCount++;
-			Append("FAIL " + _name + " | " + _detail);
-		}
+		Append(line);
+		Debug.Log("[VisionEnvelope] " + line + $"  (pass={m_PassCount} fail={m_FailCount})", this);
+	}
+
+	private void BeginGroup(string _title)
+	{
+		Append("");
+		Append(_title);
+		Debug.Log(
+			$"[VisionEnvelopeRuntimeSmoke] {_title} t={Time.time:F1} pass={m_PassCount} fail={m_FailCount}",
+			this);
 	}
 
 	private static bool Near(float _a, float _b)

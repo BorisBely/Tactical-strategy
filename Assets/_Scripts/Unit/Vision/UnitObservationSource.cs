@@ -32,6 +32,7 @@ public sealed class UnitObservationSource : MonoBehaviour, IObservationSource
 
 	private Transform m_CachedSightFromWeapon;
 	private ItemDefinition m_CachedSightWeaponDef;
+	private Transform m_MountOriginOverride;
 	#endregion
 
 	#region Public Properties
@@ -72,13 +73,22 @@ public sealed class UnitObservationSource : MonoBehaviour, IObservationSource
 		InvalidateSightCache();
 	}
 
+	public void SetMountOriginOverride(Transform _origin)
+	{
+		m_MountOriginOverride = _origin;
+	}
+
 	public Vector3 GetEyeWorldPosition()
 	{
+		if (m_MountOriginOverride != null)
+			return m_MountOriginOverride.position;
 		return transform.position + Vector3.up * m_EyeHeight;
 	}
 
 	public Vector3 GetOriginWorld()
 	{
+		if (m_MountOriginOverride != null)
+			return m_MountOriginOverride.position;
 		if (TryGetSightTransform(out Transform sight))
 			return sight.position;
 		return GetEyeWorldPosition();

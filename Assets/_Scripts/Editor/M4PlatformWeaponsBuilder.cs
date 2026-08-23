@@ -376,7 +376,7 @@ public static class M4PlatformWeaponsBuilder
 			false, SlotLayout.BasicOptic, WeaponAttachmentSlotProfile.M4BasicOpticNoStock,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.MidRifle,
 			standardModes, WeaponFireMode.SemiAuto,
-			600f, 0.35f, 2.30f, 125f, 0.80f, 0.46f, 0.83f, 1.12f, 3.9f, 0.84f, 3000);
+			600f, 0.35f, 2.30f, 160f, 0.80f, 0.46f, 0.83f, 1.12f, 3.9f, 0.84f, 3000);
 
 		yield return Config(
 			"Equipped_M16A4ModA_2", "Weapon_M16A4_ModA_2", "Item_Weapon_M16A4_ModA_2",
@@ -384,7 +384,7 @@ public static class M4PlatformWeaponsBuilder
 			true, SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.M4TacticalNoStock,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Marksman,
 			standardModes, WeaponFireMode.SemiAuto,
-			600f, 0.39f, 2.35f, 140f, 0.72f, 0.43f, 0.82f, 1.06f, 4.3f, 0.84f, 3100);
+			600f, 0.39f, 2.35f, 175f, 0.72f, 0.43f, 0.82f, 1.06f, 4.3f, 0.84f, 3100);
 
 		yield return Config(
 			"Equipped_MK12", "Weapon_MK12", "Item_Weapon_MK12",
@@ -392,7 +392,7 @@ public static class M4PlatformWeaponsBuilder
 			true, SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			marksmanModes, WeaponFireMode.SemiAuto,
-			450f, 0.50f, 2.50f, 160f, 0.56f, 0.38f, 0.80f, 1.00f, 4.8f, 0.86f, 3600,
+			450f, 0.50f, 2.50f, 200f, 0.56f, 0.38f, 0.80f, 1.00f, 4.8f, 0.86f, 3600,
 			WeaponClassType.SniperRifle);
 
 		yield return Config(
@@ -401,7 +401,7 @@ public static class M4PlatformWeaponsBuilder
 			true, SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.CqbShort,
 			standardModes, WeaponFireMode.FullAuto,
-			700f, 0.26f, 1.95f, 60f, 1.18f, 0.60f, 0.88f, 1.50f, 3.0f, 0.82f, 2750);
+			700f, 0.26f, 1.95f, 105f, 1.18f, 0.60f, 0.88f, 1.50f, 3.0f, 0.82f, 2750);
 	}
 
 	private static WeaponBuildConfig Config(

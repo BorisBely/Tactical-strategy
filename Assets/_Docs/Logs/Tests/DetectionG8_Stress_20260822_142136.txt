@@ -1,0 +1,40 @@
+﻿DetectionG8 StressSmoke 2026-08-22 14:21:21
+---
+CASE observers=10 mode=idle scans=14 los=0 hitZones=0 contacts=0 avgMs~=6,72 maxMs=9,86
+PASS Stress_10_idle_Completed | scans=14 los=0
+PASS Stress_10_idle_LosNotExploding | los=0
+CASE observers=10 mode=mixed scans=32 los=30 hitZones=0 contacts=4 avgMs~=6,80 maxMs=13,08
+PASS Stress_10_mixed_Completed | scans=32 los=30
+PASS Stress_10_mixed_LosNotExploding | los=30
+CASE observers=10 mode=combat scans=51 los=135 hitZones=0 contacts=7 avgMs~=6,74 maxMs=10,39
+PASS Stress_10_combat_Completed | scans=51 los=135
+PASS Stress_10_combat_LosNotExploding | los=135
+CASE observers=25 mode=idle scans=35 los=0 hitZones=0 contacts=0 avgMs~=7,15 maxMs=27,34
+PASS Stress_25_idle_Completed | scans=35 los=0
+PASS Stress_25_idle_LosNotExploding | los=0
+CASE observers=25 mode=mixed scans=73 los=105 hitZones=0 contacts=10 avgMs~=6,25 maxMs=8,94
+PASS Stress_25_mixed_Completed | scans=73 los=105
+PASS Stress_25_mixed_LosNotExploding | los=105
+CASE observers=25 mode=combat scans=128 los=315 hitZones=0 contacts=18 avgMs~=6,68 maxMs=17,99
+PASS Stress_25_combat_Completed | scans=128 los=315
+PASS Stress_25_combat_LosNotExploding | los=315
+CASE observers=50 mode=idle scans=71 los=0 hitZones=0 contacts=0 avgMs~=7,28 maxMs=14,11
+PASS Stress_50_idle_Completed | scans=71 los=0
+PASS Stress_50_idle_LosNotExploding | los=0
+CASE observers=50 mode=mixed scans=125 los=170 hitZones=0 contacts=16 avgMs~=7,48 maxMs=20,43
+PASS Stress_50_mixed_Completed | scans=125 los=170
+PASS Stress_50_mixed_LosNotExploding | los=170
+CASE observers=50 mode=combat scans=224 los=585 hitZones=0 contacts=29 avgMs~=7,58 maxMs=13,79
+PASS Stress_50_combat_Completed | scans=224 los=585
+PASS Stress_50_combat_LosNotExploding | los=585
+CASE observers=100 mode=idle scans=134 los=0 hitZones=0 contacts=0 avgMs~=9,07 maxMs=24,81
+PASS Stress_100_idle_Completed | scans=134 los=0
+PASS Stress_100_idle_LosNotExploding | los=0
+CASE observers=100 mode=mixed scans=229 los=320 hitZones=0 contacts=25 avgMs~=9,32 maxMs=25,15
+PASS Stress_100_mixed_Completed | scans=229 los=320
+PASS Stress_100_mixed_LosNotExploding | los=320
+CASE observers=100 mode=combat scans=418 los=1035 hitZones=0 contacts=48 avgMs~=9,64 maxMs=19,07
+PASS Stress_100_combat_Completed | scans=418 los=1035
+PASS Stress_100_combat_LosNotExploding | los=1035
+---
+RESULT=PASS pass=24 fail=0

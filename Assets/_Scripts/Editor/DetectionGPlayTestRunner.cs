@@ -8,34 +8,34 @@ using UnityEngine;
 /// </summary>
 public static class DetectionGPlayTestRunner
 {
-	[MenuItem("Tools/Tests/Run Detection G1–G8 (Play)", false, 149)]
+	[MenuItem("Tools/Tests/Run Detection G1–G8 (Play)", false, 42)]
 	public static void RunAllG() => EnterPlay(DetectionHarnessPlayMode.AllGStages);
 
-	[MenuItem("Tools/Tests/Run DetectionG1 (Play)", false, 150)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG1 (Play)", false, 111)]
 	public static void RunG1() => EnterPlay("G1");
 
-	[MenuItem("Tools/Tests/Run DetectionG2 (Play)", false, 151)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG2 (Play)", false, 112)]
 	public static void RunG2() => EnterPlay("G2");
 
-	[MenuItem("Tools/Tests/Run DetectionG3 (Play)", false, 152)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG3 (Play)", false, 113)]
 	public static void RunG3() => EnterPlay("G3");
 
-	[MenuItem("Tools/Tests/Run DetectionG4 (Play)", false, 153)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG4 (Play)", false, 114)]
 	public static void RunG4() => EnterPlay("G4");
 
-	[MenuItem("Tools/Tests/Run DetectionG5 (Play)", false, 154)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG5 (Play)", false, 115)]
 	public static void RunG5() => EnterPlay("G5");
 
-	[MenuItem("Tools/Tests/Run DetectionG6 (Play)", false, 155)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG6 (Play)", false, 116)]
 	public static void RunG6() => EnterPlay("G6");
 
-	[MenuItem("Tools/Tests/Run DetectionG7 (Play)", false, 156)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG7 (Play)", false, 117)]
 	public static void RunG7() => EnterPlay("G7");
 
-	[MenuItem("Tools/Tests/Run DetectionG8 (Play)", false, 157)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG8 (Play)", false, 118)]
 	public static void RunG8() => EnterPlay("G8");
 
-	[MenuItem("Tools/Tests/Run DetectionG8 Stress (Play)", false, 158)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG8 Stress (Play)", false, 119)]
 	public static void RunG8Stress() => EnterPlay("G8Stress");
 
 	private static void EnterPlay(string _stage)
@@ -56,6 +56,21 @@ public static class DetectionGPlayTestRunner
 		DetectionHarnessPlayMode.RunGameCommandInput = false;
 		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 		DetectionHarnessPlayMode.RunVisionEnvelope = false;
+		DetectionHarnessPlayMode.RunVisionDetectionCalibration = false;
+		DetectionHarnessPlayMode.RunVisionExposureFovContract = false;
+		DetectionHarnessPlayMode.RunVisionDetectionBalance = false;
+		DetectionHarnessPlayMode.RunVisionContactLifecycle = false;
+		DetectionHarnessPlayMode.RunVisionOpticRangeContract = false;
+		DetectionHarnessPlayMode.RunWeaponRangeContract = false;
+		DetectionHarnessPlayMode.RunAccuracyAimCurveContract = false;
+		DetectionHarnessPlayMode.RunFireDisciplineContract = false;
+		DetectionHarnessPlayMode.RunProjectileVisionContract = false;
+		DetectionHarnessPlayMode.RunVehicleVisionContract = false;
+		DetectionHarnessPlayMode.RunCombatRetainContract = false;
+		DetectionHarnessPlayMode.RunAttentionFacingContract = false;
+		DetectionHarnessPlayMode.RunSoundPerceptionContract = false;
+		DetectionHarnessPlayMode.RunAllyReportContract = false;
+		DetectionHarnessPlayMode.RunFinalPerceptionContract = false;
 		DetectionHarnessPlayMode.RunGStage = _stage;
 
 		if (EditorApplication.isPlaying)

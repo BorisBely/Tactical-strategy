@@ -19,6 +19,38 @@ public sealed class VisibilityChecker
 	private VisionScanStats m_Stats;
 	public bool LastLosWasBlocked { get; private set; }
 	public string LastLosBlocker { get; private set; }
+	public CheapExposureSample LastCheapExposure { get; private set; }
+	#endregion
+
+	#region Types
+	/// <summary>
+	/// Far-optic cheap LOS: Head / Chest / Abdomen, one ray each.
+	/// Exposure01 = visible / tested — not a boolean.
+	/// </summary>
+	public struct CheapExposureSample
+	{
+		public bool HeadTested;
+		public bool ChestTested;
+		public bool AbdomenTested;
+		public bool HeadVisible;
+		public bool ChestVisible;
+		public bool AbdomenVisible;
+		public int TestedZones;
+		public int VisibleZones;
+		public float Exposure01;
+		public Vector3 AimPoint;
+		public bool HasLos;
+
+		public string FormatZones()
+		{
+			return
+				$"Chest   visible={(ChestVisible ? 1 : 0)} tested={(ChestTested ? 1 : 0)}\n" +
+				$"Head    visible={(HeadVisible ? 1 : 0)} tested={(HeadTested ? 1 : 0)}\n" +
+				$"Abdomen visible={(AbdomenVisible ? 1 : 0)} tested={(AbdomenTested ? 1 : 0)}\n" +
+				$"VisibleZones={VisibleZones}/{TestedZones}\n" +
+				$"Exposure01={Exposure01:0.00}";
+		}
+	}
 	#endregion
 
 	#region Construction
@@ -103,8 +135,18 @@ public sealed class VisibilityChecker
 		return found;
 	}
 
+	/// <summary>Cheap far-optic Exposure: visibleZones / testedZones in 0..1.</summary>
+	public static float CheapZoneExposure01(int _visibleZones, int _testedZones)
+	{
+		if (_testedZones <= 0)
+			return 0f;
+		return Mathf.Clamp01(_visibleZones / (float)_testedZones);
+	}
+
 	/// <summary>
-	/// Scope / far path: chest → head → pelvis, stop on the first LOS. Not the G1 exposure grid.
+	/// Scope / far path: one ray each to chest, head, abdomen.
+	/// Exposure is the fraction of tested zones with LOS. Aim point prefers chest, then head, then abdomen.
+	/// Does not expand the per-scan scope candidate budget.
 	/// </summary>
 	public bool TryFindFirstVisibleAimPointCheap(
 		Vector3 _eye,
@@ -113,30 +155,60 @@ public sealed class VisibilityChecker
 		out Vector3 _aimPoint,
 		out float _exposure01)
 	{
+		CheapExposureSample sample = default;
 		_aimPoint = Vector3.zero;
 		_exposure01 = 0f;
 		if (_hitZones == null || _hitZones.Length == 0)
-			return false;
-
-		if (TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Chest, out _aimPoint) ||
-		    TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Head, out _aimPoint) ||
-		    TryCheapZone(_eye, _hitZones, _opponentRoot, BodyPartType.Abdomen, out _aimPoint))
 		{
-			_exposure01 = 1f;
-			return true;
+			LastCheapExposure = sample;
+			return false;
 		}
 
-		return false;
+		sample.ChestTested = TryProbeCheapZone(
+			_eye, _hitZones, _opponentRoot, BodyPartType.Chest, out Vector3 chestAim, out sample.ChestVisible);
+		sample.HeadTested = TryProbeCheapZone(
+			_eye, _hitZones, _opponentRoot, BodyPartType.Head, out Vector3 headAim, out sample.HeadVisible);
+		sample.AbdomenTested = TryProbeCheapZone(
+			_eye, _hitZones, _opponentRoot, BodyPartType.Abdomen, out Vector3 abdomenAim, out sample.AbdomenVisible);
+
+		if (sample.ChestTested)
+			sample.TestedZones++;
+		if (sample.HeadTested)
+			sample.TestedZones++;
+		if (sample.AbdomenTested)
+			sample.TestedZones++;
+		if (sample.ChestVisible)
+			sample.VisibleZones++;
+		if (sample.HeadVisible)
+			sample.VisibleZones++;
+		if (sample.AbdomenVisible)
+			sample.VisibleZones++;
+
+		if (sample.ChestVisible)
+			sample.AimPoint = chestAim;
+		else if (sample.HeadVisible)
+			sample.AimPoint = headAim;
+		else if (sample.AbdomenVisible)
+			sample.AimPoint = abdomenAim;
+
+		sample.Exposure01 = CheapZoneExposure01(sample.VisibleZones, sample.TestedZones);
+		sample.HasLos = sample.VisibleZones > 0;
+		LastCheapExposure = sample;
+		_aimPoint = sample.AimPoint;
+		_exposure01 = sample.Exposure01;
+		return sample.HasLos;
 	}
 
-	private bool TryCheapZone(
+	private bool TryProbeCheapZone(
 		Vector3 _eye,
 		UnitBodyHitZone[] _hitZones,
 		Transform _opponentRoot,
 		BodyPartType _part,
-		out Vector3 _aimPoint)
+		out Vector3 _aimPoint,
+		out bool _visible)
 	{
 		_aimPoint = Vector3.zero;
+		_visible = false;
 		Collider zoneCol = UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(_hitZones, _part);
 		if (zoneCol == null)
 			return false;
@@ -150,10 +222,8 @@ public sealed class VisibilityChecker
 		bool ok = HasLineOfSightToPoint(_eye, candidate.Point, _opponentRoot, zoneCol, out Vector3 rayEnd, out bool hitTarget);
 		if (m_DrawVisionGizmos)
 			m_DebugRays.Add((_eye, rayEnd, hitTarget && ok));
-		if (!ok)
-			return false;
-
 		_aimPoint = candidate.Point;
+		_visible = ok;
 		return true;
 	}
 

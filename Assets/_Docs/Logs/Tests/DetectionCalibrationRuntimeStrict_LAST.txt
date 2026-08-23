@@ -1,68 +1,63 @@
 ﻿VISION DETECTION STRICT VALIDATION
 ==================================
-stamp=2026-08-19 20:27:55
+stamp=2026-08-22 14:55:38
 V1.9.4 — no production retune; acceptance is distance/FOV/exposure/detection/time
 F/G/H Q=0 is not a FAIL. Staging implementation is not an acceptance field.
 ---
 PASS Harness_Processor | DetectionProcessor missing
 PASS Harness_Vision | UnitVision missing or disabled
 PASS Harness_Target | Target missing
-PASS Defaults_VisionRange | expected=500 runtime=500
+PASS Defaults_VisionRange | expected=150 runtime=150
 PASS Defaults_FovHalf | math=60 runtime=60
 PASS Defaults_FovEdge | math=0,15 runtime=0,15
 PASS Defaults_AcquireThreshold | math=0,25 runtime=0,25
 PASS Defaults_LoseThreshold | math=0,20 runtime=0,20
 PASS Defaults_AcquireTime | math=0,35 runtime=0,35
+PASS Defaults_AcquisitionExponent | math=3,8 runtime=3,8
 PASS Defaults_LossTime | math=2,50 runtime=2,50
 
 A–H
 -------
-RT A dist=9.9 fov=0.3 exp=1.00 detected=True t=0.34 det=Detected obs=Observed visible=True
-PASS A_Distance | expected=10.0 actual=9.9
-PASS A_Fov | expected=0.0 actual=0.3
+RT A dist=9.5 fov=0.9 exp=1.00 detected=True t=0.35 det=Detected obs=Observed visible=True
+PASS A_Distance | expected=10.0 actual=9.5
+PASS A_Fov | expected=0.0 actual=0.9
 PASS A_Exposure | design=1.00 runtime=1.00
-PASS A_Detected | tDetect=0.34
-PASS A_Time | math=0.36 runtime=0.34 tol=0.45
-RT B dist=29.8 fov=0.6 exp=1.00 detected=True t=0.35 det=Detected obs=Observed visible=True
-PASS B_Distance | expected=30.0 actual=29.8
-PASS B_Fov | expected=0.0 actual=0.6
+PASS A_Detected | tDetect=0.35
+PASS A_Time | math=0.36 runtime=0.35 tol=0.45
+RT B dist=29.5 fov=0.4 exp=1.00 detected=True t=0.36 det=Detected obs=Observed visible=True
+PASS B_Distance | expected=30.0 actual=29.5
+PASS B_Fov | expected=0.0 actual=0.4
 PASS B_Exposure | design=1.00 runtime=1.00
-PASS B_Detected | tDetect=0.35
-PASS B_Time | math=0.36 runtime=0.35 tol=0.45
-RT C dist=79.8 fov=0.0 exp=0.50 detected=True t=0.72 det=Detected obs=Observed visible=True
-PASS C_Distance | expected=80.0 actual=79.8
-PASS C_Fov | expected=0.0 actual=0.0
-PASS C_Exposure | design=0.50 runtime=0.50
-PASS C_Detected | tDetect=0.72
-PASS C_Time | math=0.74 runtime=0.72 tol=0.45
-RT D dist=79.8 fov=31.2 exp=0.50 detected=True t=1.28 det=Detected obs=Observed visible=True
-PASS D_Distance | expected=80.0 actual=79.8
-PASS D_Fov | expected=30.0 actual=31.2
-PASS D_Exposure | design=0.50 runtime=0.50
-PASS D_Detected | tDetect=1.28
-PASS D_Time | math=1.12 runtime=1.28 tol=0.45
-RT E dist=149.8 fov=0.0 exp=0.31 detected=True t=1.34 det=Detected obs=Observed visible=True
-PASS E_Distance | expected=150.0 actual=149.8
-PASS E_Fov | expected=0.0 actual=0.0
-PASS E_Exposure | design=0.30 runtime=0.31
-PASS E_Detected | tDetect=1.34
-PASS E_Time | math=1.40 runtime=1.34 tol=0.56
-RT F dist=249.8 fov=50.0 exp=0.31 detected=False t=timeout det=Undetected obs=Lost visible=True
-PASS F_Distance | expected=250.0 actual=249.8
-PASS F_Fov | expected=50.0 actual=50.0
-PASS F_Exposure | design=0.30 runtime=0.31
+PASS B_Detected | tDetect=0.36
+PASS B_Time | math=0.36 runtime=0.36 tol=0.45
+RT C dist=79.5 fov=0.1 exp=0.51 detected=True t=2.13 det=Detected obs=Observed visible=True
+PASS C_Distance | expected=80.0 actual=79.5
+PASS C_Fov | expected=0.0 actual=0.1
+PASS C_Exposure | design=0.50 runtime=0.51
+PASS C_Detected | tDetect=2.13
+PASS C_Time | math=2.24 runtime=2.13 tol=0.90
+RT D dist=79.5 fov=35.9 exp=0.51 detected=False t=timeout det=Detecting obs=Observed visible=True
+PASS D_Distance | expected=80.0 actual=79.5
+PASS D_Fov | expected=30.0 actual=35.9
+PASS D_Exposure | design=0.50 runtime=0.51
+PASS D_NoDetect | state=Detecting
+PASS D_ObservedIsNotDetected | obs=Observed det=Detecting (Observed must not imply Detected)
+RT E dist=149.4 fov=0.1 exp=0.28 detected=False t=timeout det=Undetected obs=Lost visible=True
+PASS E_Distance | expected=150.0 actual=149.4
+PASS E_Fov | expected=0.0 actual=0.1
+PASS E_Exposure | design=0.30 runtime=0.28
+PASS E_NoDetect | state=Undetected
+PASS E_ObservedIsNotDetected | obs=Lost det=Undetected (Observed must not imply Detected)
+RT F dist=250.0 fov=50.0 exp=0.00 detected=False t=timeout det=Undetected obs=Lost visible=False
+PASS F_Distance | expected=250.0 actual=250.0
 PASS F_NoDetect | state=Undetected
 PASS F_ObservedIsNotDetected | obs=Lost det=Undetected (Observed must not imply Detected)
-RT G dist=399.8 fov=46.3 exp=0.09 detected=False t=timeout det=Undetected obs=Lost visible=True
-PASS G_Distance | expected=400.0 actual=399.8
-PASS G_Fov | expected=50.0 actual=46.3
-PASS G_Exposure | design=0.10 runtime=0.09
+RT G dist=400.9 fov=53.9 exp=0.00 detected=False t=timeout det=Undetected obs=Lost visible=False
+PASS G_Distance | expected=400.0 actual=400.9
 PASS G_NoDetect | state=Undetected
 PASS G_ObservedIsNotDetected | obs=Lost det=Undetected (Observed must not imply Detected)
-RT H dist=499.8 fov=60.0 exp=0.05 detected=False t=timeout det=Undetected obs=Lost visible=True
-PASS H_Distance | expected=500.0 actual=499.8
-PASS H_Fov | expected=60.0 actual=60.0
-PASS H_Exposure | design=0.05 runtime=0.05
+RT H dist=500.0 fov=60.0 exp=0.00 detected=False t=timeout det=Undetected obs=Lost visible=False
+PASS H_Distance | expected=500.0 actual=500.0
 PASS H_NoDetect | state=Undetected
 PASS H_ObservedIsNotDetected | obs=Lost det=Undetected (Observed must not imply Detected)
 
@@ -71,7 +66,7 @@ NEGATIVE
 N1 FOV>60 (90°) dist=30.0 fov=90.0 visible=False det=False
 PASS N1_NoObservation | none
 PASS N1_NoDetect | Undetected
-N2 RANGE>500 dist=510.0 visible=False det=False range=500
+N2 RANGE>150 dist=151.0 visible=False det=False range=150
 PASS N2_NoObservation | no valid perception
 PASS N2_NoDetect | Undetected
 N3 LOS dist=30.0 fov=0.0 exp=0.00 visible=False det=False
@@ -89,13 +84,14 @@ PASS N5_NoStrongExposure | no observation
 BOUNDARIES
 ----------
 PASS Boundary_Fov59_Observation | look=59.0 visible=True
-PASS Boundary_Fov60_Observation | look=60.0 visible=True
-PASS Boundary_Fov61_MatchesLiveCone | half=70.0 look=61.0 visible=True expectObs=True
+PASS Boundary_Fov60_MatchesLiveCone | half=60.0 look=60.0 visible=False expectObs=False
+PASS Boundary_Fov60_NoDetectRequired | Undetected
+PASS Boundary_Fov61_MatchesLiveCone | half=60.0 look=61.0 visible=False expectObs=False
 PASS Boundary_Fov61_NoDetectRequired | Undetected
-PASS Boundary_Range499_Observation | dist=499.0 visible=True
-PASS Boundary_Range500_Observation | dist=500.0 visible=True
-PASS Boundary_Range501_NoObservation | beyond VisionRange
-PASS Boundary_Range501_NoDetect | Undetected
+PASS Boundary_Range149_Observation | dist=149.0 visible=True
+PASS Boundary_Range150_Observation | dist=150.0 visible=True
+PASS Boundary_Range151_NoObservation | beyond VisionRange
+PASS Boundary_Range151_NoDetect | Undetected
 PASS Boundary_Exp0_NoDetect | Undetected
 PASS Boundary_Exp005_NoDetect | Undetected
 PASS Boundary_Exp010_NoDetect | Undetected
@@ -119,10 +115,10 @@ G1 PASS | RESULT=PASS pass=20 fail=0 (file, not this Play)
 G2 PASS | RESULT=PASS pass=20 fail=0 (file, not this Play)
 G3 PASS | RESULT=PASS pass=30 fail=0 (file, not this Play)
 G4 PASS | RESULT=PASS pass=32 fail=0 (file, not this Play)
-G5 PASS | RESULT=PASS pass=21 fail=0 (file, not this Play)
-G6 PASS | RESULT=PASS pass=26 fail=0 (file, not this Play)
-G7 PASS | RESULT=PASS pass=29 fail=0 (file, not this Play)
-G8 PASS | RESULT=PASS pass=19 fail=0 (file, not this Play)
+G5 SEE LAST | RESULT=FAIL pass=19 fail=2 (file, not this Play)
+G6 SEE LAST | RESULT=FAIL pass=23 fail=3 (file, not this Play)
+G7 SEE LAST | RESULT=FAIL pass=28 fail=1 (file, not this Play)
+G8 SEE LAST | RESULT=FAIL pass=18 fail=1 (file, not this Play)
 G8 Stress PASS | RESULT=PASS pass=24 fail=0 (file, not this Play)
 (G1–G8 LAST files are recorded, not re-run in this Play. Re-run Tools/Tests G menus before closing Block A.)
 
@@ -149,7 +145,7 @@ N5 EXPOSURE PASS
 BOUNDARIES
 ----------
 FOV 59/60/61 PASS
-Range 499/500/501 PASS
+Range 149/150/151 PASS
 Exposure 0/0.05/0.10 PASS
 
 SCHEDULER
@@ -162,10 +158,10 @@ G1 PASS
 G2 PASS
 G3 PASS
 G4 PASS
-G5 PASS
-G6 PASS
-G7 PASS
-G8 PASS
+G5 RESULT=FAIL pass=19 fail=2
+G6 RESULT=FAIL pass=23 fail=3
+G7 RESULT=FAIL pass=28 fail=1
+G8 RESULT=FAIL pass=18 fail=1
 G8 Stress PASS
 
-RESULT=PASS pass=83 fail=0
+RESULT=PASS pass=79 fail=0

@@ -1,0 +1,37 @@
+﻿DetectionG4 AutoSmoke 2026-08-22 14:36:12
+---
+[MATH]
+PASS Math_ZeroTimeInitial | t=0
+PASS Math_HorizonZero | horizon
+PASS Math_Monotone | 1s=0,950 7s=0,671
+PASS Math_InitialScales | half=0,427 full=0,854
+PASS Math_StaleNotForgotten | stale band
+PASS G4_Processor | DetectionProcessor missing
+PASS G4_Target | target missing
+PASS Isolation_SelectorHasNoPerceivedContactFields | TargetSelector must not hold PerceivedContact
+PASS Isolation_ObservationHasNoMemoryFields | VisionObservation must stay physical-only
+PASS G4_HasContact | contact missing after observe
+PASS G4_ObservedConfidenceFull | obs=Observed conf=1,000
+PASS G4_LastKnownEqualsLastSeen | known=(0.00, 0.00, 26.00) seen=(0.00, 0.00, 26.00)
+PASS G4_Detected | Detected
+PASS G4_IdentityHostile | id=Hostile C=0,594
+PASS G4_RecentlyLost | RecentlyLost
+PASS G4_LastSeenFrozenOnSoftLose | (0.00, 0.00, 26.00)
+PASS G4_ConfidenceStillHighOnSoftLose | conf=0,985
+PASS G4_SameContactOnSoftLose | contact identity
+PASS G4_LostAfterGrace | Lost
+PASS G4_LastSeenNotLiveTransform | seen=(0.00, 0.00, 26.00) live=(40.00, 0.00, 26.00)
+PASS G4_LastKnownFrozen | (0.00, 0.00, 26.00)
+PASS G4_ConfidenceDecayed | conf=0,731
+PASS G4_ConfidenceIndependentFromDetection | mem=0,731 det=0,000
+PASS G4_IdentityHeld | id=Hostile C=0,594
+PASS G4_MemoryStaleBeforeForgotten | conf=0,236 staleThr=0,25
+PASS G4_ContactKeptWhenForgotten | Lost contact must stay
+PASS G4_ConfidenceAtHorizon | conf=0,000
+PASS G4_ReacquireSameContact | reacquire must keep instance
+PASS G4_ReacquireConfidenceFull | conf=1,000
+PASS G4_ReacquireLastKnownUpdated | (0.00, 0.00, 34.00)
+PASS G4_ReacquireIdentityPreserved | Hostile
+PASS G5_ClearContactsDeselects | before=Unit(Clone) after=null
+---
+RESULT=PASS pass=32 fail=0

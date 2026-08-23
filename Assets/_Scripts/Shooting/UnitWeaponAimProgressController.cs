@@ -14,7 +14,7 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	[SerializeField] private UnitWeaponReadyHandsLayer m_ReadyHands;
 	[Tooltip("Selected/engageable combat target (TargetSelector).")]
 	[SerializeField] private TargetSelector m_TargetSelector;
-	[Tooltip("Detection scan defer after clearing non-engageable selection.")]
+	[Tooltip("Detection scan defer after losing engageable aim (selection stays while knowledge lasts).")]
 	[SerializeField] private UnitVision m_Vision;
 	[SerializeField] private UnitBusyState m_BusyState;
 	[SerializeField] private UnitWeaponReloadController m_ReloadController;
@@ -310,12 +310,19 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 		if (engageableTarget == m_LastVisibleTarget)
 			return;
 
-		// Selected but not engageable: clear selection and wait for next planned scan.
-		if (m_LastVisibleTarget != null && engageableTarget == null &&
-		    m_TargetSelector != null && m_TargetSelector.SelectedTarget != null)
+		// Lost LOS/aim: AimProgress decays (CanAccumulateAim is false). G5 keeps the selected
+		// contact as Track while knowledge lasts. Only drop selection if the world target is gone.
+		if (m_LastVisibleTarget != null && engageableTarget == null)
 		{
 			m_LastVisibleTarget = null;
-			m_TargetSelector.ClearSelectionAndNotifyIfHadTarget();
+			m_LastValidAimPointWorld = Vector3.zero;
+			if (m_TargetSelector != null &&
+			    m_TargetSelector.SelectedTarget != null &&
+			    !TargetEngageability.IsEngageable(m_TargetSelector.SelectedTarget))
+			{
+				m_TargetSelector.ClearSelectionAndNotifyIfHadTarget();
+			}
+
 			m_Vision?.DeferNextScan();
 			return;
 		}

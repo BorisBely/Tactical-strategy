@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class GameCommandInputTestRunner
 {
-	[MenuItem("Tools/Tests/Run Game Command Input (Play)", false, 148)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run Game Command Input (Play)", false, 128)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

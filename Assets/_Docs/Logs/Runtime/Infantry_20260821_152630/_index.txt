@@ -1,0 +1,3 @@
+﻿# Infantry action log session 2026-08-21 15:26:30
+# folder=D:/UnityProjects/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260821_152630
+# columns: slot team look callsign iid go file ai

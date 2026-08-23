@@ -66,7 +66,7 @@ namespace Vision.Tests
 			Assert.IsFalse(contact.HasVisualEvidence);
 			Assert.IsTrue(contact.HasSharedEvidence);
 			Assert.AreEqual(reported, contact.SharedPosition);
-			Assert.AreEqual(reported, contact.LastKnownPosition);
+			Assert.AreEqual(Vector3.zero, contact.LastKnownPosition);
 			Assert.AreEqual(PerceivedIdentity.Unknown, contact.Identity);
 			Assert.AreEqual(m_Target.transform, m_Selector.SelectedTarget);
 			Assert.IsFalse(m_Selector.HasSelectedAimPoint);

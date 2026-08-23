@@ -435,7 +435,7 @@
     },
     {
       "key": "item.attachment.m4_acog_rmr",
-      "value": "3.5x optical sight"
+      "value": "3.5x optical sight with collimator"
     },
     {
       "key": "item.attachment.m4_aimpoint",
@@ -443,11 +443,11 @@
     },
     {
       "key": "item.attachment.m4_eotech_g33",
-      "value": "Hybrid sight"
+      "value": "1/3x hybrid sight"
     },
     {
       "key": "item.attachment.m4_elcan_specterdr",
-      "value": "1-4x optical sight mod 1"
+      "value": "1/4x optical sight"
     },
     {
       "key": "item.attachment.m4_vortex_razor",
@@ -467,15 +467,15 @@
     },
     {
       "key": "item.attachment.m4_scope4",
-      "value": "Sniper scope"
+      "value": "6x sniper scope"
     },
     {
       "key": "item.attachment.m4_scope5",
-      "value": "Sniper scope mod 1"
+      "value": "8x sniper scope"
     },
     {
       "key": "item.attachment.m4_scope9",
-      "value": "Sniper scope mod 2"
+      "value": "10x sniper scope"
     },
     {
       "key": "item.attachment.m4_reddot1",
@@ -483,7 +483,7 @@
     },
     {
       "key": "item.attachment.m4_reddot2",
-      "value": "Holographic sight mod 1"
+      "value": "Holographic sight"
     },
     {
       "key": "item.attachment.m4_reddot3",
@@ -535,7 +535,7 @@
     },
     {
       "key": "item.attachment.ak_reddot4_rail",
-      "value": "Standard collimator sight"
+      "value": "Side-rail collimator sight"
     },
     {
       "key": "item.attachment.ak_scope11",
@@ -699,7 +699,7 @@
     },
     {
       "key": "item.attachment.mosin_scope8",
-      "value": "Standard sniper scope"
+      "value": "3.5x optical sight"
     },
     {
       "key": "item.attachment.svd_silencer",
@@ -935,63 +935,63 @@
     },
     {
       "key": "item.attachment.m4_reddot1.desc",
-      "value": "Collimator sight for close range."
+      "value": "Collimator with no magnification. Same view range as the eye."
     },
     {
       "key": "item.attachment.m4_reddot2.desc",
-      "value": "Holographic sight for close range."
+      "value": "Holographic sight with no magnification. Same view range as the eye."
     },
     {
       "key": "item.attachment.m4_reddot3.desc",
-      "value": "Collimator sight for close range."
+      "value": "Collimator with no magnification. Same view range as the eye."
     },
     {
       "key": "item.attachment.m4_rdc.desc",
-      "value": "Collimator sight for close range."
+      "value": "Collimator with no magnification. Same view range as the eye."
     },
     {
       "key": "item.attachment.m4_aimpoint.desc",
-      "value": "Optical sight for medium range."
+      "value": "Compact 2x tube. Farther than the eye, shorter than a 3x optic."
     },
     {
       "key": "item.attachment.m4_scope1_3x.desc",
-      "value": "Optical sight for medium range."
+      "value": "Fixed 3x optic for medium range."
     },
     {
       "key": "item.attachment.m4_acog_rmr.desc",
-      "value": "Optical sight for medium range."
+      "value": "Main 3.5x channel with a separate 1x collimator on top. Two channels, not a zoom."
     },
     {
       "key": "item.attachment.m4_acog.desc",
-      "value": "Optical sight for medium range."
+      "value": "Fixed 4x optic for medium range."
     },
     {
       "key": "item.attachment.m4_susat.desc",
-      "value": "Optical sight for medium range with a collimator."
+      "value": "Fixed 4x optic. Backup iron sights on top, not a collimator."
     },
     {
       "key": "item.attachment.m4_elcan_specterdr.desc",
-      "value": "Variable-power optic for medium range."
+      "value": "Two modes: 1x and 4x. Not a smooth zoom."
     },
     {
       "key": "item.attachment.m4_vortex_razor.desc",
-      "value": "Variable-power optic for medium range."
+      "value": "Variable magnification from 1x to 6x."
     },
     {
       "key": "item.attachment.m4_eotech_g33.desc",
-      "value": "Hybrid sight for close and medium range."
+      "value": "1x holographic sight with a flip-up 3x adapter."
     },
     {
       "key": "item.attachment.m4_scope4.desc",
-      "value": "Sniper scope for precise long-range shooting."
+      "value": "6x sniper tube. The sniper class starts at six power."
     },
     {
       "key": "item.attachment.m4_scope5.desc",
-      "value": "Sniper scope for precise long-range shooting."
+      "value": "8x sniper tube for long range."
     },
     {
       "key": "item.attachment.m4_scope9.desc",
-      "value": "Sniper scope for precise long-range shooting."
+      "value": "10x sniper tube. The longest-range optic."
     },
     {
       "key": "item.attachment.m4_laser1.desc",
@@ -1031,15 +1031,15 @@
     },
     {
       "key": "item.attachment.ak_reddot4_rail.desc",
-      "value": "Standard collimator sight for the AK side rail."
+      "value": "Collimator with no magnification for the side rail. Same view range as the eye."
     },
     {
       "key": "item.attachment.ak_scope11.desc",
-      "value": "4x optical sight for the AK side rail."
+      "value": "Fixed 4x optic for the side rail."
     },
     {
       "key": "item.attachment.mosin_scope8.desc",
-      "value": "Standard sniper scope."
+      "value": "Compact 3.5x optic. Not a long sniper tube."
     },
     {
       "key": "item.attachment.svd_silencer.desc",

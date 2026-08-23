@@ -191,7 +191,7 @@ public static class Ak47PreparedContentBuilder
 		so.FindProperty("m_ArmorDamage").floatValue = 10f;
 		so.FindProperty("m_ProjectileCount").intValue = 1;
 		so.FindProperty("m_Velocity").floatValue = 715f;
-		so.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
+		so.FindProperty("m_EffectiveRangeMeters").floatValue = 250f;
 		so.FindProperty("m_ShellEjectSpeed").floatValue = 5.5f;
 		so.FindProperty("m_ShellEjectSpeedVariance").floatValue = 0.75f;
 		so.FindProperty("m_ShellEjectUpSpeed").floatValue = 1.2f;
@@ -383,7 +383,7 @@ public static class Ak47PreparedContentBuilder
 		weaponSo.FindProperty("m_FireRateRpm").intValue = 600;
 		weaponSo.FindProperty("m_AimTimeSeconds").floatValue = 0.32f;
 		weaponSo.FindProperty("m_ReloadTimeSeconds").floatValue = 2.4f;
-		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 100f;
+		weaponSo.FindProperty("m_EffectiveRangeMeters").floatValue = 140f;
 		weaponSo.ApplyModifiedPropertiesWithoutUndo();
 		EditorUtility.SetDirty(weapon);
 

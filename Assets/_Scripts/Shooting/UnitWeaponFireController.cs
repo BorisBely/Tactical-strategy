@@ -449,6 +449,35 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 
 		return result;
 	}
+
+	/// <summary>
+	/// Stage 12: projectile launch permit. Does not consume hitscan ammo or fire a bullet.
+	/// LastKnown is never an AimPoint.
+	/// </summary>
+	public bool TryAuthorizeProjectileLaunch(Vector3 _origin, out ProjectileLaunchDeny _reason)
+	{
+		Vector3 aimPoint = m_TargetSelector != null
+			? m_TargetSelector.GetEngageableAimPointWorld()
+			: Vector3.zero;
+		bool hasAim = m_TargetSelector != null &&
+		              m_TargetSelector.GetEngageableSelectedTarget() != null &&
+		              aimPoint != Vector3.zero;
+		bool hasG6 = m_EngagementDecision != null;
+		bool g6IsFire = hasG6 && m_EngagementDecision.CurrentDecision == EngagementDecision.Fire;
+		float vision = m_Vision != null
+			? m_Vision.ResolvedMaxRange
+			: UnitVisionProfile.BaseRangeMeters;
+		bool lineBlocked = IsLineOfFireBlocked();
+		return ProjectileLaunchPermit.TryAuthorize(
+			hasAim,
+			_origin,
+			aimPoint,
+			vision,
+			hasG6,
+			g6IsFire,
+			lineBlocked,
+			out _reason);
+	}
 	#endregion
 
 	#region Private Methods

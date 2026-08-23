@@ -36,6 +36,10 @@ MonoBehaviour:
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 0.98
   m_EffectiveRangeModifier: 1
+  m_ScopeVisionRangeMeters: 150
+  m_HasVariableMagnification: 0
+  m_LowMagnificationScopeVisionRangeMeters: 0
+  m_HighMagnificationActive: 1
   m_RecoilModifier: 1
   m_SemiAutoRecoilModifier: 1
   m_AutomaticRecoilModifier: 1
@@ -63,35 +67,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 175
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 250
-        value: 1.06
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 350
-        value: 1.1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.12
+        time: 150
+        value: 0.98
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -123,35 +100,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 175
-        value: 1.02
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 250
-        value: 1.06
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 350
-        value: 1.08
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.1
+        time: 150
+        value: 1.01
         inSlope: 0
         outSlope: 0
         tangentMode: 0

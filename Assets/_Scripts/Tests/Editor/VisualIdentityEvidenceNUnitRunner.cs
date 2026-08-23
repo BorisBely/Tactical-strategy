@@ -10,7 +10,7 @@ namespace Vision.Tests.Editor
 	/// </summary>
 	public static class VisualIdentityEvidenceNUnitRunner
 	{
-		[MenuItem("Tools/Tests/Run Identity World Evidence (EditMode)", false, 133)]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run Identity World Evidence (EditMode)", false, 143)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

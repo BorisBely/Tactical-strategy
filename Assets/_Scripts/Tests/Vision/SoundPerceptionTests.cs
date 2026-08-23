@@ -63,7 +63,8 @@ namespace Vision.Tests
 			Assert.AreEqual(0f, contact.DetectionProgress, 0.0001f);
 			Assert.IsFalse(contact.LastObservation.HasAimPoint);
 			Assert.AreEqual(heard, contact.SoundPosition);
-			Assert.AreEqual(heard, contact.LastKnownPosition);
+			Assert.AreNotEqual(heard, contact.LastKnownPosition);
+			Assert.AreEqual(Vector3.zero, contact.LastKnownPosition);
 			Assert.AreEqual(PerceivedIdentity.Unknown, contact.Identity);
 			Assert.IsTrue(contact.HasSoundEvidence);
 			Assert.IsFalse(contact.HasVisualEvidence);

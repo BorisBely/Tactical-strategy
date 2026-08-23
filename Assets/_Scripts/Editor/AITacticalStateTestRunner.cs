@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class AITacticalStateTestRunner
 {
-	[MenuItem("Tools/Tests/Run AI Tactical State (Play)", false, 144)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run AI Tactical State (Play)", false, 121)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

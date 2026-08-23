@@ -176,12 +176,10 @@ def stretch_scene_targets() -> None:
 
 
 def main() -> None:
-    stretch_optic_library()
-    stretch_weapon_assets()
-    stretch_attachment_assets()
-    stretch_ammo_assets()
-    stretch_scene_targets()
-    print("Stretch complete")
+    raise SystemExit(
+        "stretch_distance_balance.py is retired. Stage 9 range: bake_weapon_range.py. "
+        "Stage 10 curves: bake_accuracy_aim_curves.py"
+    )
 
 
 if __name__ == "__main__":

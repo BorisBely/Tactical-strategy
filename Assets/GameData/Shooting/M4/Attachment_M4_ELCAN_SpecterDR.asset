@@ -34,7 +34,11 @@ MonoBehaviour:
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.24
-  m_EffectiveRangeModifier: 1.25
+  m_EffectiveRangeModifier: 1
+  m_ScopeVisionRangeMeters: 220
+  m_HasVariableMagnification: 1
+  m_LowMagnificationScopeVisionRangeMeters: 150
+  m_HighMagnificationActive: 1
   m_RecoilModifier: 1
   m_SemiAutoRecoilModifier: 1
   m_AutomaticRecoilModifier: 1
@@ -71,7 +75,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 225
+        time: 210
         value: 0.86
         inSlope: 0
         outSlope: 0
@@ -80,26 +84,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 300
-        value: 0.88
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 400
-        value: 0.96
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.06
+        time: 220
+        value: 0.87
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -140,7 +126,7 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 225
+        time: 210
         value: 0.98
         inSlope: 0
         outSlope: 0
@@ -149,26 +135,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 300
-        value: 1
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 400
-        value: 1.06
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.1
+        time: 220
+        value: 0.99
         inSlope: 0
         outSlope: 0
         tangentMode: 0

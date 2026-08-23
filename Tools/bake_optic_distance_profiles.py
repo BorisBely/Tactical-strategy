@@ -150,7 +150,10 @@ def patch_file(path: Path, disp: list[tuple[float, float]], aim: list[tuple[floa
 
 
 def main() -> None:
-    for rel, (disp, aim) in CURVES.items():
+    raise SystemExit(
+        "bake_optic_distance_profiles.py is retired (0–100 keys). "
+        "Stage 10 owner: python Tools/bake_accuracy_aim_curves.py"
+    )
         matches = list(SHOOTING.rglob(rel.split("/")[-1]))
         if not matches:
             print(f"Missing {rel}")

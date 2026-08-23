@@ -6,14 +6,14 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Offline detection gameplay calibration.
-/// Math (no Play): Tools/Tests/Run Detection Calibration Math (no Play).
-/// Runtime A–H: Tools/Tests/Run Detection Calibration Runtime (Play).
-/// Strict V1.9.4: Tools/Tests/Run Detection Calibration Strict (Play).
+/// Offline detection gameplay calibration (Archive — not the current contract).
+/// Math (no Play): Tools/Tests/Archive/Calibration/Run Detection Calibration Math (no Play).
+/// Runtime A–H: Tools/Tests/Archive/Calibration/Run Detection Calibration Runtime (Play).
+/// Strict V1.9.4: Tools/Tests/Archive/Calibration/Run Detection Calibration Strict (Play).
 /// </summary>
 public static class DetectionCalibrationTestRunner
 {
-	[MenuItem("Tools/Tests/Run Detection Calibration Strict (Play)", false, 139)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Detection Calibration Strict (Play)", false, 100)]
 	public static void RunStrictFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;
@@ -32,6 +32,21 @@ public static class DetectionCalibrationTestRunner
 		DetectionHarnessPlayMode.RunGameCommandInput = false;
 		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 		DetectionHarnessPlayMode.RunVisionEnvelope = false;
+		DetectionHarnessPlayMode.RunVisionDetectionCalibration = false;
+		DetectionHarnessPlayMode.RunVisionExposureFovContract = false;
+		DetectionHarnessPlayMode.RunVisionDetectionBalance = false;
+		DetectionHarnessPlayMode.RunVisionContactLifecycle = false;
+		DetectionHarnessPlayMode.RunVisionOpticRangeContract = false;
+		DetectionHarnessPlayMode.RunWeaponRangeContract = false;
+		DetectionHarnessPlayMode.RunAccuracyAimCurveContract = false;
+		DetectionHarnessPlayMode.RunFireDisciplineContract = false;
+		DetectionHarnessPlayMode.RunProjectileVisionContract = false;
+		DetectionHarnessPlayMode.RunVehicleVisionContract = false;
+		DetectionHarnessPlayMode.RunCombatRetainContract = false;
+		DetectionHarnessPlayMode.RunAttentionFacingContract = false;
+		DetectionHarnessPlayMode.RunSoundPerceptionContract = false;
+		DetectionHarnessPlayMode.RunAllyReportContract = false;
+		DetectionHarnessPlayMode.RunFinalPerceptionContract = false;
 		if (EditorApplication.isPlaying)
 		{
 			DetectionCalibrationRuntimeStrictSmoke smoke =
@@ -54,7 +69,7 @@ public static class DetectionCalibrationTestRunner
 		Debug.Log("[DetectionCalibrationTestRunner] V1.9.4 STRICT: entering Play (G1–G8 skipped). Expect DetectionCalibrationRuntimeStrict_LAST.txt");
 	}
 
-	[MenuItem("Tools/Tests/Run Detection Calibration Runtime (Play)", false, 140)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Detection Calibration Runtime (Play)", false, 101)]
 	public static void RunRuntimeFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;
@@ -73,6 +88,21 @@ public static class DetectionCalibrationTestRunner
 		DetectionHarnessPlayMode.RunGameCommandInput = false;
 		DetectionHarnessPlayMode.RunGameCommandLayer = false;
 		DetectionHarnessPlayMode.RunVisionEnvelope = false;
+		DetectionHarnessPlayMode.RunVisionDetectionCalibration = false;
+		DetectionHarnessPlayMode.RunVisionExposureFovContract = false;
+		DetectionHarnessPlayMode.RunVisionDetectionBalance = false;
+		DetectionHarnessPlayMode.RunVisionContactLifecycle = false;
+		DetectionHarnessPlayMode.RunVisionOpticRangeContract = false;
+		DetectionHarnessPlayMode.RunWeaponRangeContract = false;
+		DetectionHarnessPlayMode.RunAccuracyAimCurveContract = false;
+		DetectionHarnessPlayMode.RunFireDisciplineContract = false;
+		DetectionHarnessPlayMode.RunProjectileVisionContract = false;
+		DetectionHarnessPlayMode.RunVehicleVisionContract = false;
+		DetectionHarnessPlayMode.RunCombatRetainContract = false;
+		DetectionHarnessPlayMode.RunAttentionFacingContract = false;
+		DetectionHarnessPlayMode.RunSoundPerceptionContract = false;
+		DetectionHarnessPlayMode.RunAllyReportContract = false;
+		DetectionHarnessPlayMode.RunFinalPerceptionContract = false;
 		if (EditorApplication.isPlaying)
 		{
 			DetectionCalibrationRuntimeSmoke smoke = UnityEngine.Object.FindAnyObjectByType<DetectionCalibrationRuntimeSmoke>();
@@ -87,7 +117,7 @@ public static class DetectionCalibrationTestRunner
 		Debug.Log("[DetectionCalibrationTestRunner] V1.9.1 RUNTIME: entering Play (G1–G8 skipped). Expect [DetectionCalibrationRuntimeSmoke] and DetectionCalibrationRuntime_LAST.txt");
 	}
 
-	[MenuItem("Tools/Tests/Run Detection Calibration Math (no Play)", false, 141)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Detection Calibration Math (no Play)", false, 102)]
 	public static void RunFromMenu()
 	{
 		DetectionCalibrationScenarios.ReportResult result = DetectionCalibrationScenarios.BuildReport();
@@ -100,13 +130,5 @@ public static class DetectionCalibrationTestRunner
 		Debug.Log($"[DetectionCalibrationTestRunner] MATH only (not runtime). wrote {latest} {resultLine}\n{result.Body}");
 	}
 
-	[MenuItem("Tools/Tests/Run Detection Calibration", false, 142)]
-	public static void RunFromMenuLegacyAlias()
-	{
-		Debug.LogWarning(
-			"[DetectionCalibrationTestRunner] 'Run Detection Calibration' is MATH (no Play), already PASS 10/0. " +
-			"For V1.9 use Tools/Tests/Run Detection Calibration Runtime (Play).");
-		RunFromMenu();
-	}
 }
 #endif

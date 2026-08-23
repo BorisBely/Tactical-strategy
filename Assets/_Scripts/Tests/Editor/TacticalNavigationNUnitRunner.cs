@@ -10,7 +10,7 @@ namespace Vision.Tests.Editor
 	/// </summary>
 	public static class TacticalNavigationNUnitRunner
 	{
-		[MenuItem("Tools/Tests/Run Tactical Navigation (EditMode)", false, 143)]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run Tactical Navigation (EditMode)", false, 142)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

@@ -1,0 +1,772 @@
+﻿SUGGESTED ItemDefinition weapon poses (from measured MainWeaponRoot.local after settle)
+GripRig: prefer hand-in-weapon TRS (full pos+rot), NOT position-only snap to animated hands.
+With fixed GripRig, change only pose fields per posture; keep grip orientation on mesh.
+
+=== Item_Weapon_AK47 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0536, -0.3446, -0.3431) eu=(80.5912, 327.4126, 81.8813)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5695, 81.2888, 271.4547)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0536, -0.3446, -0.3431) eu=(80.5912, 327.4126, 81.8813)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.0109, 86.1499, 274.5612)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0455, -0.3249, -0.3496) eu=(82.9365, 299.9200, 53.7907)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK47MOD1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5922, 327.4357, 81.8934)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1453, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5583, 81.2882, 271.4522)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5922, 327.4357, 81.8934)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4855, 123.2890)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.0121, 86.1491, 274.5614)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0455, -0.3249, -0.3495) eu=(82.9356, 299.9221, 53.7940)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK47S ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0536, -0.3446, -0.3431) eu=(80.5912, 327.4041, 81.8762)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5730, 81.2893, 271.4556)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0536, -0.3446, -0.3431) eu=(80.5912, 327.4041, 81.8762)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4857, 123.2892)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.0047, 86.1508, 274.5601)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9384, 299.9231, 53.7876)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK47_1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9455, 107.5519)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0574, -0.3452, -0.3419) eu=(80.4208, 325.6302, 80.9493)
+                                        Left  pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9455, 107.5518)
+  hand→grip Standing_Ready R=25,6mm/178,2° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3442, -0.1259, -0.2702) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3442, -0.1259, -0.2702) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=14,2mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3120) eu=(77.8373, 310.1454, 75.7606)
+    handL inWeapon pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9454, 107.5519)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(25.4339, 81.2514, 271.6611)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=4,2°
+    hand→grip R=25,6mm/178,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0574, -0.3452, -0.3419) eu=(80.4208, 325.6302, 80.9493)
+    handL inWeapon pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9455, 107.5518)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4098, -0.0602, -0.2897) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4098, -0.0602, -0.2897) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=50,6mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3577) eu=(80.7932, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9455, 107.5519)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3699, -0.0777, -0.2966) eu=(24.2978, 86.1126, 274.7309)
+    authored  pos=(0.3699, -0.0777, -0.2966) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,4°
+    hand→grip R=26,7mm/175,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0460, -0.3259, -0.3500) eu=(82.7475, 299.3044, 53.4557)
+    handL inWeapon pos=(-0.0920, -0.2810, 0.0530) eu=(1.9449, 12.9454, 107.5518)
+
+=== Item_Weapon_AK74 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0536, -0.3446, -0.3431) eu=(80.5913, 327.4171, 81.8837)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5674, 81.2886, 271.4542)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0536, -0.3446, -0.3431) eu=(80.5913, 327.4171, 81.8837)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.0065, 86.1502, 274.5605)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9375, 299.9232, 53.7895)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK74MOD1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5921, 327.4334, 81.8924)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5596, 81.2882, 271.4524)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5921, 327.4334, 81.8924)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7932, 14.4857, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.0017, 86.1511, 274.5596)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9393, 299.9251, 53.7867)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK74U ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0536, -0.3446, -0.3431) eu=(80.5913, 327.4149, 81.8825)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5685, 81.2887, 271.4544)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0536, -0.3446, -0.3431) eu=(80.5913, 327.4149, 81.8825)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4857, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(23.9974, 86.1513, 274.5586)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9405, 299.9296, 53.7869)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_AK74UMOD1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5923, 327.4434, 81.8979)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1453, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5551, 81.2877, 271.4514)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5923, 327.4434, 81.8979)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4857, 123.2892)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(24.2925, 86.1041, 274.6074)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,4°
+    hand→grip R=25,4mm/175,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0468, -0.3254, -0.3490) eu=(82.8482, 299.8291, 53.9786)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_BenelliM4 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0038, 0.0245, -0.0616) eu=(8.3518, 7.1470, 263.1177)
+                                    LeftHandGrip  local pos=(-0.0382, -0.0224, 0.2511) eu=(1.3253, 45.5464, 163.2246)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0833, 0.0172, -0.0420) eu=(69.1289, 73.9182, 212.3657)
+                                        Left  pos=(-0.0382, -0.0224, 0.2511) eu=(1.3254, 45.5464, 163.2246)
+  hand→grip Standing_Ready R=82,2mm/119,6° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0354, 0.0035, 0.0130) eu=(353.2608, 101.0336, 276.1094)
+    authored  pos=(0.0354, 0.0035, 0.0130) eu=(353.2608, 101.0336, 276.1094) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=29,7mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0018, 0.0194, -0.0324) eu=(76.7928, 213.7075, 297.5551)
+    handL inWeapon pos=(-0.0382, -0.0224, 0.2511) eu=(1.3254, 45.5464, 163.2246)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(47.1381, 81.6580, 243.7442)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=55,4°
+    hand→grip R=82,2mm/119,6° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0833, 0.0172, -0.0420) eu=(69.1289, 73.9182, 212.3657)
+    handL inWeapon pos=(-0.0382, -0.0224, 0.2511) eu=(1.3254, 45.5464, 163.2246)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.0758, 0.0292, -0.0001) eu=(351.3241, 107.2675, 275.1781)
+    authored  pos=(0.0758, 0.0292, -0.0001) eu=(351.3241, 107.2675, 275.1781) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,0mm/179,6° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0199, 0.0207, -0.0760) eu=(71.2609, 204.0213, 286.1240)
+    handL inWeapon pos=(-0.0382, -0.0224, 0.2511) eu=(1.3254, 45.5464, 163.2246)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.0835, 0.0127, 0.0058) eu=(0.7849, 100.4061, 279.9738)
+    authored  pos=(0.0835, 0.0127, 0.0058) eu=(359.7410, 100.4365, 279.3812) | Δpos=0,0mm Δang=1,2°
+    hand→grip R=24,4mm/174,7° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0172, 0.0181, -0.0809) eu=(75.7234, 222.9140, 314.6092)
+    handL inWeapon pos=(-0.0382, -0.0224, 0.2511) eu=(1.3253, 45.5464, 163.2246)
+
+=== Item_Weapon_M16A4_ModA_2 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0388, -0.0025, -0.0865) eu=(78.7485, 227.4064, 326.7294)
+                                        Left  pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  hand→grip Standing_Ready R=46,6mm/168,3° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3669)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.6921, 97.6770, 279.4990)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,0°
+    hand→grip R=46,6mm/168,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0388, -0.0025, -0.0865) eu=(78.7485, 227.4064, 326.7294)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2437, 261.7435)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4190, 44.2776, 163.0430)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,6mm/175,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0058, 0.0039, -0.1045) eu=(76.2042, 222.5172, 313.1585)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+
+=== Item_Weapon_M16A_ModA_1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0388, -0.0025, -0.0865) eu=(78.7483, 227.4062, 326.7305)
+                                        Left  pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  hand→grip Standing_Ready R=46,6mm/168,3° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3669)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4875, 163.4827)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.6933, 97.6772, 279.4994)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,0°
+    hand→grip R=46,6mm/168,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0388, -0.0025, -0.0865) eu=(78.7483, 227.4062, 326.7305)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7434)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4875, 163.4826)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.6183, 100.1275, 279.2231)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,3°
+    hand→grip R=23,4mm/175,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0055, 0.0040, -0.1045) eu=(76.2892, 222.1105, 312.5479)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+
+=== Item_Weapon_M249 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0001, 0.0041, -0.0580) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5091, 165.7719)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0356, -0.0036, -0.0879) eu=(79.6912, 231.5261, 328.7123)
+                                        Left  pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5092, 165.7719)
+  hand→grip Standing_Ready R=47,2mm/169,6° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0347, 0.0004, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0347, 0.0004, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0013, 0.0193, -0.0316) eu=(77.0551, 214.4830, 298.3668)
+    handL inWeapon pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5092, 165.7719)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(6.6908, 96.4364, 278.8574)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=7,7°
+    hand→grip R=47,2mm/169,6° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0356, -0.0036, -0.0879) eu=(79.6912, 231.5261, 328.7123)
+    handL inWeapon pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5092, 165.7719)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.0760, 0.0114, -0.0145) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.0760, 0.0114, -0.0145) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0134, 0.0081, -0.0766) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5091, 165.7719)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1116, 0.0046, -0.0133) eu=(8.1498, 351.5964, 182.5222)
+    authored  pos=(0.1116, 0.0046, -0.0133) eu=(0.2597, 100.6402, 277.9863) | Δpos=0,0mm Δang=128,6°
+    hand→grip R=139,8mm/85,8° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.1083, -0.0044, 0.0298) eu=(7.6819, 351.1671, 176.2838)
+    handL inWeapon pos=(-0.0653, -0.0171, 0.2980) eu=(2.5246, 67.5092, 165.7719)
+
+=== Item_Weapon_M4_ModA_1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0888, -0.0052, -0.0329) eu=(87.8216, 139.8356, 284.1332)
+                                        Left  pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  hand→grip Standing_Ready R=109,3mm/129,5° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3668)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4827)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(54.2843, 92.8525, 270.9111)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=54,9°
+    hand→grip R=109,3mm/129,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0888, -0.0052, -0.0329) eu=(87.8216, 139.8356, 284.1332)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(3.4283, 99.8098, 282.7667)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=5,0°
+    hand→grip R=27,7mm/174,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0123, 0.0016, -0.1040) eu=(74.4229, 230.7034, 325.2292)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4827)
+
+=== Item_Weapon_M4_ModA_2 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0391, -0.0025, -0.0864) eu=(78.7042, 227.4410, 326.9209)
+                                        Left  pos=(-0.0407, 0.0010, 0.2504) eu=(1.4190, 44.2776, 163.0430)
+  hand→grip Standing_Ready R=46,8mm/168,3° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3669)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4190, 44.2776, 163.0430)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.8427, 97.7050, 279.5612)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,2°
+    hand→grip R=46,8mm/168,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0391, -0.0025, -0.0864) eu=(78.7042, 227.4410, 326.9209)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4190, 44.2776, 163.0430)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7434)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0431)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.7502, 100.1248, 279.3375)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,5mm/175,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0057, 0.0040, -0.1045) eu=(76.2300, 222.3927, 312.9719)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0431)
+
+=== Item_Weapon_MK12 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0388, -0.0025, -0.0866) eu=(78.7511, 227.4013, 326.6991)
+                                        Left  pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  hand→grip Standing_Ready R=46,5mm/168,4° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3668)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.6674, 97.6755, 279.4929)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,0°
+    hand→grip R=46,5mm/168,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0388, -0.0025, -0.0866) eu=(78.7511, 227.4013, 326.6991)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,6mm/175,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0058, 0.0039, -0.1045) eu=(76.2042, 222.5172, 313.1585)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+
+=== Item_Weapon_MK18 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0388, -0.0025, -0.0865) eu=(78.7485, 227.4054, 326.7282)
+                                        Left  pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  hand→grip Standing_Ready R=46,6mm/168,3° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3668)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0431)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.6919, 97.6772, 279.4989)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,0°
+    hand→grip R=46,6mm/168,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0388, -0.0025, -0.0865) eu=(78.7485, 227.4054, 326.7282)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.8958, 100.1208, 279.4650)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,7mm/175,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0060, 0.0039, -0.1045) eu=(76.1642, 222.7086, 313.4445)
+    handL inWeapon pos=(-0.0407, 0.0010, 0.2504) eu=(1.4189, 44.2776, 163.0430)
+
+=== Item_Weapon_Mosin ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0140, 0.0050, -0.0780) eu=(21.4046, 358.6013, 266.0939)
+                                    LeftHandGrip  local pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0442, -0.0345, -0.0929) eu=(72.6357, 193.3925, 295.1425)
+                                        Left  pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+  hand→grip Standing_Ready R=51,9mm/172,0° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0307, 0.0182, -0.0441) eu=(357.5311, 107.1327, 280.5559)
+    authored  pos=(0.0307, 0.0182, -0.0441) eu=(357.5311, 107.1327, 280.5559) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=53,6mm/174,8° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0101, -0.0355, -0.0431) eu=(69.5747, 212.5060, 301.6310)
+    handL inWeapon pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0873, 0.0303, -0.0568) eu=(10.6498, 107.1827, 277.4132)
+    authored  pos=(0.0873, 0.0303, -0.0568) eu=(5.7051, 105.6192, 273.3130) | Δpos=0,0mm Δang=6,5°
+    hand→grip R=51,9mm/172,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0442, -0.0345, -0.0929) eu=(72.6357, 193.3925, 295.1425)
+    handL inWeapon pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.0598, 0.0014, -0.0646) eu=(351.1042, 114.1356, 265.6220)
+    authored  pos=(0.0598, 0.0014, -0.0646) eu=(351.1042, 114.1356, 265.6220) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=46,2mm/174,8° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0084, -0.0353, -0.0803) eu=(66.1695, 179.0618, 259.2420)
+    handL inWeapon pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.0863, 0.0303, -0.0609) eu=(31.8031, 33.9113, 218.3118)
+    authored  pos=(0.0863, 0.0303, -0.0609) eu=(5.6303, 109.0457, 273.7384) | Δpos=0,0mm Δang=78,5°
+    hand→grip R=137,5mm/118,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0980, -0.0463, 0.0180) eu=(43.5545, 13.2922, 156.9469)
+    handL inWeapon pos=(-0.0750, -0.0490, 0.2590) eu=(8.0488, 60.9711, 184.9017)
+
+=== Item_Weapon_PKM ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5643, 156.2697)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0388, -0.0025, -0.0865) eu=(78.7500, 227.4039, 326.7200)
+                                        Left  pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5643, 156.2697)
+  hand→grip Standing_Ready R=46,6mm/168,3° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3669)
+    handL inWeapon pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5644, 156.2697)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(8.6854, 97.6762, 279.4965)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=10,0°
+    hand→grip R=46,6mm/168,3° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0388, -0.0025, -0.0865) eu=(78.7500, 227.4039, 326.7200)
+    handL inWeapon pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5643, 156.2697)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5643, 156.2697)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,6mm/175,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0058, 0.0039, -0.1045) eu=(76.2043, 222.5172, 313.1586)
+    handL inWeapon pos=(-0.0760, 0.0210, 0.2560) eu=(12.6479, 57.5643, 156.2697)
+
+=== Item_Weapon_RPK47 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0560, -0.3448, -0.3425) eu=(80.5205, 326.4102, 81.3826)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,6mm/178,1° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(25.0802, 81.2875, 271.5613)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=4,6°
+    hand→grip R=25,6mm/178,1° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0560, -0.3448, -0.3425) eu=(80.5205, 326.4102, 81.3826)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5651, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(23.9983, 86.1512, 274.5590)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9400, 299.9281, 53.7863)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_RPK47MOD1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5920, 327.4361, 81.8939)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1453, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5585, 81.2880, 271.4521)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5920, 327.4361, 81.8939)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(23.9980, 86.1512, 274.5589)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,5mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0454, -0.3249, -0.3496) eu=(82.9401, 299.9288, 53.7868)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_RPK74 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5943, 327.4458, 81.8960)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1453, 75.7606)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5508, 81.2897, 271.4513)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5943, 327.4458, 81.8960)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4855, 123.2890)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(23.9696, 86.1593, 274.5600)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=5,7°
+    hand→grip R=26,6mm/175,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0453, -0.3249, -0.3497) eu=(82.9468, 299.8983, 53.7280)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_RPK74MOD1 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0550, -0.3262, -0.3249) eu=(347.7769, 328.6079, 265.9416)
+                                    LeftHandGrip  local pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0535, -0.3446, -0.3431) eu=(80.5921, 327.4325, 81.8916)
+                                        Left  pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  hand→grip Standing_Ready R=25,9mm/177,9° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666)
+    authored  pos=(0.3370, -0.1206, -0.2714) eu=(35.8666, 80.3505, 273.6666) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=22,7mm/177,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0494, -0.3279, -0.3030) eu=(77.8373, 310.1452, 75.7605)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.3860, -0.0860, -0.2880) eu=(24.5598, 81.2884, 271.4525)
+    authored  pos=(0.3860, -0.0860, -0.2880) eu=(29.5320, 81.4990, 272.6590) | Δpos=0,0mm Δang=5,1°
+    hand→grip R=25,9mm/177,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0535, -0.3446, -0.3431) eu=(80.5921, 327.4325, 81.8916)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900)
+    authored  pos=(0.4013, -0.0573, -0.2911) eu=(18.3896, 80.6044, 264.6900) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=45,2mm/179,4° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0879, -0.3460, -0.3487) eu=(80.7931, 14.4856, 123.2891)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.3690, -0.0772, -0.2962) eu=(41.1077, 75.9080, 272.2820)
+    authored  pos=(0.3690, -0.0772, -0.2962) eu=(29.5882, 85.5030, 275.1637) | Δpos=0,0mm Δang=14,2°
+    hand→grip R=100,6mm/173,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.1146, -0.3820, -0.2661) eu=(74.3150, 312.7337, 83.6284)
+    handL inWeapon pos=(-0.1110, -0.2350, 0.0180) eu=(19.5650, 33.0290, 143.0070)
+
+=== Item_Weapon_SVD ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(-0.0060, 0.0100, -0.0850) eu=(8.0348, 7.1255, 263.0723)
+                                    LeftHandGrip  local pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0655, -0.0082, -0.0681) eu=(76.5775, 225.3823, 344.9666)
+                                        Left  pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  hand→grip Standing_Ready R=75,7mm/155,5° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518)
+    authored  pos=(0.0628, -0.0029, 0.0128) eu=(353.3100, 100.7148, 276.1518) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=30,5mm/178,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0072, 0.0252, -0.0586) eu=(77.0550, 214.4830, 298.3668)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4875, 163.4827)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0911, 0.0252, -0.0083) eu=(28.3707, 100.6786, 284.7610)
+    authored  pos=(0.0911, 0.0252, -0.0083) eu=(359.5424, 94.9775, 276.2641) | Δpos=0,0mm Δang=30,2°
+    hand→grip R=75,7mm/155,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0655, -0.0082, -0.0681) eu=(76.5775, 225.3823, 344.9666)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209)
+    authored  pos=(0.1040, 0.0145, -0.0167) eu=(341.8566, 107.2415, 267.5209) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=23,2mm/176,5° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(-0.0193, 0.0140, -0.1036) eu=(73.3679, 190.2436, 261.7433)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4826)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.1037, 0.0054, -0.0136) eu=(359.6472, 100.1270, 279.2482)
+    authored  pos=(0.1037, 0.0054, -0.0136) eu=(359.8080, 100.1232, 279.3877) | Δpos=0,0mm Δang=0,2°
+    hand→grip R=23,4mm/175,2° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0055, 0.0040, -0.1045) eu=(76.2761, 222.1726, 312.6410)
+    handL inWeapon pos=(-0.0740, 0.0150, 0.3060) eu=(1.5506, 67.4876, 163.4827)
+
+=== Item_Weapon_Sniper762x51 ===
+  GripRig CURRENT (Standing_Ready): RightHandGrip local pos=(0.0229, -0.0059, -0.0598) eu=(0.1548, 350.3165, 272.3586)
+                                    LeftHandGrip  local pos=(-0.0743, 0.0552, 0.2554) eu=(33.1697, 40.5942, 164.9984)
+  GripRig from HAND (weapon local TRS): Right pos=(0.0492, -0.0317, -0.0726) eu=(89.4941, 352.1106, 98.9621)
+                                        Left  pos=(-0.0743, 0.0552, 0.2554) eu=(33.1698, 40.5942, 164.9984)
+  hand→grip Standing_Ready R=39,0mm/176,6° L=0,0mm/0,0°
+  barrel fwdLocal=(0.0000, 0.0000, 1.0000)
+  Standing_NotReady → m_RightHandLocalPosition / m_RightHandLocalEulerAngles
+    measured  pos=(0.0223, 0.0241, -0.0226) eu=(5.5955, 90.5543, 272.2273)
+    authored  pos=(0.0223, 0.0241, -0.0226) eu=(5.5955, 90.5543, 272.2273) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=43,5mm/173,9° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0253, -0.0234, -0.0200) eu=(87.7581, 255.7525, 351.3587)
+    handL inWeapon pos=(-0.0743, 0.0552, 0.2554) eu=(33.1697, 40.5942, 164.9984)
+  Standing_Ready → m_RightHandReadyLocalPosition / m_RightHandReadyLocalEulerAngles
+    measured  pos=(0.0840, 0.0260, -0.0310) eu=(16.8511, 89.4764, 269.9176)
+    authored  pos=(0.0840, 0.0260, -0.0310) eu=(12.6336, 88.8608, 268.1749) | Δpos=0,0mm Δang=4,5°
+    hand→grip R=39,0mm/176,6° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0492, -0.0317, -0.0726) eu=(89.4941, 352.1106, 98.9621)
+    handL inWeapon pos=(-0.0743, 0.0552, 0.2554) eu=(33.1698, 40.5942, 164.9984)
+  Crouch_NotReady → m_CrouchRightHandLocalPosition / m_CrouchRightHandLocalEulerAngles
+    measured  pos=(0.0863, 0.0124, -0.0399) eu=(2.4465, 96.2794, 262.4835)
+    authored  pos=(0.0863, 0.0124, -0.0399) eu=(2.4465, 96.2794, 262.4835) | Δpos=0,0mm Δang=0,0°
+    hand→grip R=37,1mm/178,0° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0201, -0.0279, -0.0895) eu=(80.0134, 129.0603, 221.0942)
+    handL inWeapon pos=(-0.0743, 0.0552, 0.2554) eu=(33.1697, 40.5942, 164.9984)
+  Crouch_Ready → m_CrouchRightHandReadyLocalPosition / m_CrouchRightHandReadyLocalEulerAngles
+    measured  pos=(0.0987, 0.0178, -0.0355) eu=(16.2990, 93.0120, 268.3720)
+    authored  pos=(0.0987, 0.0178, -0.0355) eu=(17.7723, 93.2919, 269.1160) | Δpos=0,0mm Δang=1,6°
+    hand→grip R=45,5mm/175,7° L=0,0mm/0,0° R_CHECK L_OK
+    handR inWeapon pos=(0.0461, -0.0290, -0.0914) eu=(86.1957, 139.4760, 245.7339)
+    handL inWeapon pos=(-0.0743, 0.0552, 0.2554) eu=(33.1697, 40.5942, 164.9984)
+

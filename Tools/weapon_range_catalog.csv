@@ -1,0 +1,27 @@
+weapon,asset_path,ammo,caliber,role,damage_model,category,compact_hint,current_weapon_range,proposed_weapon_range,engagement_edge,min_multiplier_at_edge,notes
+Weapon_BenelliM4,Assets/GameData/Shooting/Standalone/Weapon_BenelliM4.asset,Ammo_12Gauge,TwelveGauge,Shotgun,ShotgunPelletCurve,ShotgunCurve,,40,40,40,0.35,Pellet curve; linear hitscan falloff is bypassed
+Weapon_AK74U,Assets/GameData/Shooting/AK/Weapon_AK74U.asset,Ammo_545x39mm,Five45By39,CarbineCQB,LinearHitscan,RegularHitscan,55,275,100,150,0.500,Short 5.45; full 100 working 150 limit 200
+Weapon_MK18,Assets/GameData/Shooting/M4/Weapon_MK18.asset,Ammo_556x45mmNATO,Five56By45,CarbineCQB,LinearHitscan,RegularHitscan,60,300,105,150,0.571,Short 5.56 CQB
+Weapon_AK74UMOD1,Assets/GameData/Shooting/AK/Weapon_AK74UMOD1.asset,Ammo_545x39mm,Five45By39,CarbineCQB,LinearHitscan,RegularHitscan,65,325,110,150,0.636,Controlled CQB 5.45
+Weapon_AK47S,Assets/GameData/Shooting/AK/Weapon_AK47S.asset,Ammo_762x39mm,Seven62By39,CarbineCQB,LinearHitscan,RegularHitscan,75,375,115,150,0.696,Short 7.62x39
+Weapon_M4_ModA_1,Assets/GameData/Shooting/M4/Weapon_M4_ModA_1.asset,Ammo_556x45mmNATO,Five56By45,Assault,LinearHitscan,RegularHitscan,95,475,140,200,0.571,User example: full ~140 falloff through 200-250
+Weapon_AK47,Assets/GameData/Shooting/AK/Weapon_AK47.asset,Ammo_762x39mm,Seven62By39,Assault,LinearHitscan,RegularHitscan,95,475,140,200,0.571,Default 7.62 assault
+Weapon_AK47_1,Assets/GameData/Shooting/AK/Weapon_AK47_1.asset,Ammo_762x39mm,Seven62By39,Assault,LinearHitscan,RegularHitscan,105,525,145,200,0.621,Wood-handguard 7.62
+Weapon_AK74,Assets/GameData/Shooting/AK/Weapon_AK74.asset,Ammo_545x39mm,Five45By39,Assault,LinearHitscan,RegularHitscan,105,525,145,200,0.621,Default 5.45 assault
+Weapon_M4_ModA_2,Assets/GameData/Shooting/M4/Weapon_M4_ModA_2.asset,Ammo_556x45mmNATO,Five56By45,Assault,LinearHitscan,RegularHitscan,105,525,150,200,0.667,Longer M4
+Weapon_AK47MOD1,Assets/GameData/Shooting/AK/Weapon_AK47MOD1.asset,Ammo_762x39mm,Seven62By39,Assault,LinearHitscan,RegularHitscan,110,550,150,200,0.667,Mod1 7.62
+Weapon_AK74MOD1,Assets/GameData/Shooting/AK/Weapon_AK74MOD1.asset,Ammo_545x39mm,Five45By39,Assault,LinearHitscan,RegularHitscan,115,575,155,200,0.710,Mod1 5.45
+Weapon_M16A_ModA_1,Assets/GameData/Shooting/M4/Weapon_M16A_ModA_1.asset,Ammo_556x45mmNATO,Five56By45,Assault,LinearHitscan,RegularHitscan,125,625,160,200,0.750,Longer 5.56 rifle
+Weapon_RPK47,Assets/GameData/Shooting/AK/Weapon_RPK47.asset,Ammo_762x39mm,Seven62By39,LMG,LinearHitscan,RegularHitscan,125,625,150,200,0.667,Support 7.62; working 200 limit 250
+Weapon_RPK47MOD1,Assets/GameData/Shooting/AK/Weapon_RPK47MOD1.asset,Ammo_762x39mm,Seven62By39,LMG,LinearHitscan,RegularHitscan,135,675,155,200,0.710,Support 7.62 mod
+Weapon_RPK74,Assets/GameData/Shooting/AK/Weapon_RPK74.asset,Ammo_545x39mm,Five45By39,LMG,LinearHitscan,RegularHitscan,135,675,155,200,0.710,Support 5.45
+Weapon_RPK74MOD1,Assets/GameData/Shooting/AK/Weapon_RPK74MOD1.asset,Ammo_545x39mm,Five45By39,LMG,LinearHitscan,RegularHitscan,145,725,160,200,0.750,Longest 5.45 support
+Weapon_M249,Assets/GameData/Shooting/Standalone/Weapon_M249.asset,Ammo_556x45mmNATO,Five56By45,LMG,LinearHitscan,RegularHitscan,,140,150,200,0.667,Already near envelope; keep LMG band
+Weapon_PKM,Assets/GameData/Shooting/Standalone/Weapon_PKM.asset,Ammo_762x54mmR,Seven62By54R,LMG,LinearHitscan,RegularHitscan,,150,160,200,0.750,Already near envelope
+Weapon_M16A4_ModA_2,Assets/GameData/Shooting/M4/Weapon_M16A4_ModA_2.asset,Ammo_556x45mmNATO,Five56By45,Marksman,LinearHitscan,RegularHitscan,140,700,175,225,0.714,Marksman 5.56; working 225 limit 300
+Weapon_SVD,Assets/GameData/Shooting/Standalone/Weapon_SVD.asset,Ammo_762x54mmR,Seven62By54R,Marksman,LinearHitscan,RegularHitscan,,320,175,225,0.714,Designated marksman not 10x sniper
+Weapon_MK12,Assets/GameData/Shooting/M4/Weapon_MK12.asset,Ammo_556x45mmNATO,Five56By45,Marksman,LinearHitscan,RegularHitscan,160,800,200,250,0.750,5.56 DMR
+Weapon_Mosin,Assets/GameData/Shooting/Standalone/Weapon_Mosin.asset,Ammo_762x54mmR,Seven62By54R,Marksman,LinearHitscan,RegularHitscan,,300,200,250,0.750,Compact 3.5x optic class; not Scope9
+Weapon_Sniper762x51,Assets/GameData/Shooting/Standalone/Weapon_Sniper762x51.asset,Ammo_762x51mmNATO,Seven62By51,Sniper,LinearHitscan,RegularHitscan,,380,225,300,0.667,True sniper; full 225 still damaging at 300
+Weapon_M2Browning_127,Assets/GameData/Shooting/Turret/Weapon_M2Browning_127.asset,Ammo_127x99,TwelvePointSevenByNinetyNine,HMG,LinearHitscan,HeavyHitscan,,800,225,300,0.667,Hitscan heavy; dominates 200-300 without stretching zero to 1600
+Weapon_MK19,Assets/GameData/Shooting/Turret/Weapon_MK19.asset,Ammo_40x53,FortyByFiftyThree,AGL,ProjectileSupport,ProjectileSupport,,1200,300,300,,Engagement ceiling only; EffectiveRange is not live grenade falloff

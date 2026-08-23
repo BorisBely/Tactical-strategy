@@ -1,7 +1,7 @@
 ﻿VISION ENVELOPE
 ===============
-stamp=2026-08-21 23:39:17
-eye=150/120  scope=150-300/8  aiming-only
+stamp=2026-08-22 15:03:20
+eye=150/120  scope=150-300/8  assignedSector=120  aiming-only
 ---
 PASS Harness_Vision | UnitVision
 PASS Harness_Target | Target
@@ -23,11 +23,11 @@ PASS B_Scope150_200 | dist=200 yaw=0 seen=False expect=False frames=9 scope=Fals
 C 8 DEG
 PASS C_0 | dist=200 yaw=0 seen=True expect=True frames=2 scope=True max=300
 PASS C_3 | dist=200 yaw=3 seen=True expect=True frames=2 scope=True max=300
-PASS C_4 | dist=200 yaw=4 seen=True expect=True frames=3 scope=True max=300
+PASS C_4 | dist=200 yaw=4 seen=True expect=True frames=2 scope=True max=300
 PASS C_5 | dist=200 yaw=5 seen=False expect=False frames=9 scope=True max=300
 
 D SWEEP
-PASS D_SweepFindsPlus3 | yaw=1,0
+PASS D_SweepFindsPlus3 | yaw=-0,9
 
 E LOS
 PASS E_BlockedNoDetect | blocked
@@ -68,41 +68,75 @@ M Q DISTANCE
 [Q] Eye 50m D=0,95
 [Q] Eye 75m D=0,85
 [Q] Eye 100m D=0,71
-[Q] Eye 125m D=0,47
-[Q] Eye 140m D=0,23
-[Q] Eye 149m D=0,09
-[Q] Eye 150m D=0,08
+[Q] Eye 125m D=0,48
+[Q] Eye 140m D=0,35
+[Q] Eye 149m D=0,30
+[Q] Eye 150m D=0,30
 [Q] Scope 150m D=0,85
 [Q] Scope 175m D=0,79
 [Q] Scope 200m D=0,71
 [Q] Scope 225m D=0,61
-[Q] Scope 250m D=0,47
-[Q] Scope 275m D=0,28
-[Q] Scope 290m D=0,15
-[Q] Scope 300m D=0,08
+[Q] Scope 250m D=0,48
+[Q] Scope 275m D=0,36
+[Q] Scope 290m D=0,32
+[Q] Scope 300m D=0,30
 
 N Q RELATIVE
 PASS N_RelativeHalf | A=0,853 B=0,853
-PASS N_RelativeEdge | 150=0,080 300=0,080
+PASS N_RelativeEdge | 150=0,300 300=0,300
 PASS N_CurveKey0 | t=0
 PASS N_CurveKey1 | t=1
 
 O Q BOUNDARY
-PASS O_EyeInside | Q=0,091
+PASS O_EyeInside | Q=0,303
 PASS O_EyeOutside | gone
-PASS O_ScopeInside | Q=0,085
+PASS O_ScopeInside | Q=0,302
 PASS O_ScopeOutside | gone
 
 P Q POSE
-PASS P_Aiming250 | Q=0,469
+PASS P_Aiming250 | Q=0,480
 PASS P_Hip250 | gone
-PASS P_Aiming250Again | Q=0,469
+PASS P_Aiming250Again | Q=0,480
+
+Q R SWEEP GRID
+PASS Q_VisitedMinus4 | yaw set=-4,-3,-2,-1,0,1,2,3,4
+PASS Q_VisitedMinus2 | yaw set=-4,-3,-2,-1,0,1,2,3,4
+PASS Q_Visited0 | yaw set=-4,-3,-2,-1,0,1,2,3,4
+PASS Q_VisitedPlus2 | yaw set=-4,-3,-2,-1,0,1,2,3,4
+PASS Q_VisitedPlus4 | yaw set=-4,-3,-2,-1,0,1,2,3,4
+PASS R_ReversedAfterPlus4 | dir=-1 yaw=3,4
+
+S HOLD CONTACT
+PASS S_FoundPlus3 | mode=TrackTarget
+PASS S_HoldStopsSweep | held=True yaw=0,1 lockYaw=0,1 extraSweeps=0
+
+T SECTOR 20 DEG
+PASS T_NotSeenBeforeSector | early=False yaw=15,1
+PASS T_SeenAtPlus20 | yaw=16,5
+
+U RESUME AFTER LOST
+PASS U_ResumeNotFromMinus60 | mode=Sweep yaw=2,2 lockYaw=2,1
+
+V CACHE DUP
+PASS V_CachedOrSkippedGrows | cache=5 skip=0 liveLos=0
+PASS V_LiveLosNotLinear | liveLos=0 sweeps=5
+
+W BUDGET AND TWO TARGETS
+PASS W_BudgetMax6 | maxLive=6 last=6 cand=25
+PASS W_BFoundFirst | B=True A=False
+PASS W_AFoundAfterSweep | yaw=-17,8
+
+X EYE VS SWEEP
+PASS X_EyeSees100 | Eye
+PASS X_ScopeLosSkippedDuringSweep | skip=6 scopeLive=0 sweeps=6
 
 L PERF
-[PERF] scans=4 scopeQuery=1 skipDup=0 los=4 qEval=4 avgMs=0,05 maxMs=0,06
-PASS L_StatsPresent | scans=4
-PASS L_QEvalPresent | qEval=4
-PASS L_LosNotInflated | los=4 qEval=4
+[PERF] scans=3 scopeQuery=1 skipDup=0 los=0 qEval=3 avgMs=0,00 maxMs=0,00
+[SCOPE PERF] frames=10010 scopeTicks=3 candidateQueries=3 LOSQueries=0 cachedObservations=3 skippedDuplicateLOS=0 maxLOSPerFrame=0
+PASS L_StatsPresent | scans=3 sweeps=3
+PASS L_QEvalPresent | qEval=3
+PASS L_LosNotInflated | live=0 max=0 los=0 cache=3 skip=0
+PASS W_ScopePerfBudget | maxLiveLos=0
 ---
 SYSTEM STATUS: PASS
-pass=50 fail=0
+pass=69 fail=0

@@ -1,0 +1,1039 @@
+﻿STAGE 6 PRE-RETUNE BASELINE
+===========================
+archivedFrom=VisionDetectionCalibration_LAST.txt
+playStamp=2026-08-22 12:33:47
+unityPlay=not re-run here (MCP unavailable); E=1 full/static/center cells do not depend on Stage 5 Exposure/Chest collider
+note=Optic Exposure 0.50/0.25 rows in the original Play used boolean E=1 — ignore those. Use Stage 5 PASS 20/0 for Exposure semantics.
+formula=Q = D * F * E * M
+defaults=AcquireThreshold=0.25 AcquireTime=0.35 DistanceCurve edge=0.08 accumulate=linear (exponent=1)
+---
+KEY CELLS (full / static / center)
+Eye  25m  Q=0.992  T_LOS=0.00  T_detected=0.35  never=0/5
+Eye  50m  Q=0.948  T_detected live
+Eye  75m  Q=0.856  T_detected=0.41  never=0/5  (N=20 median=0.41)
+Eye 100m  Q=0.715  T_detected live
+Eye 140m  Q=0.242  NEVER Q_GATED
+Eye 149m  Q=0.101  NEVER Q_GATED
+Optic 150m Q=0.855 T_detected=0.41  (same t=0.50 as Eye 75)
+Optic 200m Q=0.713 T_detected live
+Optic 225m Q=0.608 T_detected=0.57  (N=20)
+Optic 250m Q=0.475 T_detected live
+Optic 275m Q=0.281 T_detected~1.24 live
+Optic 299m Q=0.091 NEVER Q_GATED
+---
+ORIGINAL PLAY REPORT FOLLOWS
+============================
+VISION DETECTION CALIBRATION
+============================
+stamp=2026-08-22 12:33:47
+measure only — AcquireThreshold=0.25 AcquireTime=0.35 DistanceCurve frozen
+timeout=8s sweep=12s  NEVER = Q below gate or no Detected; gated abort after 0.45s LOS; frozen abort 2s only if never in cone
+---
+PASS Harness_Vision | UnitVision
+PASS Harness_Target | Target
+PASS Fixture_ObserverReady | Unit(Clone) active/alive/conscious
+PASS Fixture_TargetReady | Unit(Clone) active/alive/conscious; usableZones=12
+PASS Fixture_ObserverCombatIsolated | Unit(Clone) combat/locomotion isolated
+PASS Fixture_TargetCombatIsolated | Unit(Clone) combat/locomotion isolated
+
+A DISTANCE
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 25m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.35s median=0.35s p10=0.35s p90=0.35s max=0.35s
+DetectionTime(Detected-LOS): min=0.35s median=0.35s p10=0.35s p90=0.35s max=0.35s
+Q last=0,992  D=0,992 F=1,000 E=1,000 M=1,000 P=1,000
+PASS Fixture_Baseline25 | detected=5/5
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 50m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s
+DetectionTime(Detected-LOS): min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s
+Q last=0,948  D=0,948 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,856  D=0,856 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 100m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,715  D=0,715 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 125m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.73s median=0.73s p10=0.73s p90=0.73s max=0.73s
+DetectionTime(Detected-LOS): min=0.73s median=0.73s p10=0.73s p90=0.73s max=0.73s
+Q last=0,479  D=0,479 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,242  D=0,242 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 149m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,101  D=0,101 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 150m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,855  D=0,855 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 175m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.44s median=0.44s p10=0.44s p90=0.44s max=0.44s
+DetectionTime(Detected-LOS): min=0.44s median=0.44s p10=0.44s p90=0.44s max=0.44s
+Q last=0,790  D=0,791 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,713  D=0,713 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.57s
+DetectionTime(Detected-LOS): min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.57s
+Q last=0,608  D=0,608 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 250m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.74s median=0.74s p10=0.74s p90=0.74s max=0.74s
+DetectionTime(Detected-LOS): min=0.74s median=0.74s p10=0.74s p90=0.74s max=0.74s
+Q last=0,474  D=0,475 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 275m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=1.24s median=1.24s p10=1.24s p90=1.25s max=1.25s
+DetectionTime(Detected-LOS): min=1.24s median=1.24s p10=1.24s p90=1.25s max=1.25s
+Q last=0,281  D=0,281 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 299m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,091  D=0,091 F=1,000 E=1,000 M=1,000 P=0,000
+
+E HIGH-N
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=20 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.40s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.40s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,856  D=0,856 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=20 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s
+DetectionTime(Detected-LOS): min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s
+Q last=0,608  D=0,608 F=1,000 E=1,000 M=1,000 P=1,000
+
+B FOV
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 50m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s
+DetectionTime(Detected-LOS): min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s
+Q last=0,948  D=0,948 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 50m
+FOV: 30°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.64s median=0.64s p10=0.64s p90=0.64s max=0.64s
+DetectionTime(Detected-LOS): min=0.64s median=0.64s p10=0.64s p90=0.64s max=0.64s
+Q last=0,544  D=0,948 F=0,573 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 50m
+FOV: 55°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,156  D=0,948 F=0,165 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 100m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,715  D=0,715 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 100m
+FOV: 30°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.85s median=0.85s p10=0.85s p90=0.85s max=0.85s
+DetectionTime(Detected-LOS): min=0.85s median=0.85s p10=0.85s p90=0.85s max=0.85s
+Q last=0,411  D=0,715 F=0,574 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 100m
+FOV: 55°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,118  D=0,714 F=0,166 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,242  D=0,242 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 30°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,139  D=0,242 F=0,574 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 55°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,040  D=0,240 F=0,166 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 150m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,855  D=0,855 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 150m
+FOV: 2°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,852  D=0,855 F=0,997 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 150m
+FOV: 3,5°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,848  D=0,855 F=0,992 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s
+DetectionTime(Detected-LOS): min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s
+Q last=0,608  D=0,608 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 2°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.98s median=0.98s p10=0.98s p90=0.98s max=0.98s
+DetectionTime(Detected-LOS): min=0.98s median=0.98s p10=0.98s p90=0.98s max=0.98s
+Q last=0,357  D=0,608 F=0,588 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 3,5°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,117  D=0,608 F=0,192 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,151  D=0,151 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 2°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,088  D=0,151 F=0,585 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 3,5°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,029  D=0,151 F=0,191 E=1,000 M=1,000 P=0,000
+
+C EXPOSURE
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,856  D=0,856 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 0,50
+StagedExposure: min=0,504 median=0,504 max=0,504
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.81s median=0.81s p10=0.81s p90=0.81s max=0.81s
+DetectionTime(Detected-LOS): min=0.81s median=0.81s p10=0.81s p90=0.81s max=0.81s
+Q last=0,431  D=0,856 F=1,000 E=0,504 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 0,25
+StagedExposure: min=0,263 median=0,263 max=0,263
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,225  D=0,856 F=1,000 E=0,263 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,242  D=0,242 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 0,50
+StagedExposure: min=0,504 median=0,504 max=0,504
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,122  D=0,242 F=1,000 E=0,504 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 0,25
+StagedExposure: min=0,263 median=0,263 max=0,263
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,064  D=0,242 F=1,000 E=0,263 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,713  D=0,713 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 0,50
+StagedExposure: min=0,504 median=0,504 max=0,504
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,713  D=0,713 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 0,25
+StagedExposure: min=0,263 median=0,263 max=0,263
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,713  D=0,713 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,151  D=0,151 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 0,50
+StagedExposure: min=0,504 median=0,504 max=0,504
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,151  D=0,151 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 0,25
+StagedExposure: min=0,263 median=0,263 max=0,263
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,151  D=0,151 F=1,000 E=1,000 M=1,000 P=0,000
+
+D MOVEMENT
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+DetectionTime(Detected-LOS): min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s
+Q last=0,856  D=0,856 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Walk
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.39s median=0.39s p10=0.39s p90=0.39s max=0.39s
+DetectionTime(Detected-LOS): min=0.39s median=0.39s p10=0.39s p90=0.39s max=0.39s
+Q last=0,984  D=0,856 F=1,000 E=1,000 M=1,150 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 75m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Run
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.38s median=0.39s p10=0.38s p90=0.39s max=0.39s
+DetectionTime(Detected-LOS): min=0.38s median=0.39s p10=0.38s p90=0.39s max=0.39s
+Q last=1,000  D=0,856 F=1,000 E=1,000 M=1,350 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,242  D=0,242 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Walk
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=1.51s median=1.51s p10=1.51s p90=1.51s max=1.51s
+DetectionTime(Detected-LOS): min=1.51s median=1.51s p10=1.51s p90=1.51s max=1.51s
+Q last=0,278  D=0,242 F=1,000 E=1,000 M=1,150 P=1,000
+
+[VISION CALIBRATION]
+Source: Eye
+Range: 140m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Run
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=1.33s median=1.33s p10=1.33s p90=1.33s max=1.33s
+DetectionTime(Detected-LOS): min=1.33s median=1.33s p10=1.33s p90=1.33s max=1.33s
+Q last=0,323  D=0,240 F=0,996 E=1,000 M=1,350 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+DetectionTime(Detected-LOS): min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s
+Q last=0,713  D=0,713 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Walk
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.45s median=0.45s p10=0.45s p90=0.46s max=0.46s
+DetectionTime(Detected-LOS): min=0.45s median=0.45s p10=0.45s p90=0.46s max=0.46s
+Q last=0,820  D=0,713 F=1,000 E=1,000 M=1,150 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 200m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Run
+N=5 never=0
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=0.42s median=0.42s p10=0.42s p90=0.42s max=0.42s
+DetectionTime(Detected-LOS): min=0.42s median=0.42s p10=0.42s p90=0.42s max=0.42s
+Q last=0,951  D=0,713 F=0,988 E=1,000 M=1,350 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,151  D=0,151 F=1,000 E=1,000 M=1,000 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Walk
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,173  D=0,151 F=1,000 E=1,000 M=1,150 P=0,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 290m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Run
+N=5 never=5
+NeverReason: Q_GATED=5
+Candidate: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+LOS: min=0.00s median=0.00s p10=0.00s p90=0.00s max=0.00s
+Detected: min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+DetectionTime(Detected-LOS): min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER
+Q last=0,202  D=0,151 F=0,994 E=1,000 M=1,350 P=0,000
+
+F SWEEP
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: -40°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=0.63s median=0.63s p10=0.63s p90=0.63s max=0.63s
+LOS: min=0.66s median=0.66s p10=0.66s p90=0.67s max=0.67s
+SweepTime(LOS): min=0.66s median=0.66s p10=0.66s p90=0.67s max=0.67s
+DetectionTime(Detected-LOS): min=0.66s median=0.66s p10=0.66s p90=0.67s max=0.67s
+Total: min=1.33s median=1.33s p10=1.33s p90=1.33s max=1.33s
+Q last=0,607  D=0,607 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 0°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=2.23s median=2.23s p10=2.23s p90=2.24s max=2.24s
+LOS: min=2.26s median=2.26s p10=2.26s p90=2.26s max=2.26s
+SweepTime(LOS): min=2.26s median=2.26s p10=2.26s p90=2.26s max=2.26s
+DetectionTime(Detected-LOS): min=0.58s median=0.58s p10=0.58s p90=0.58s max=0.58s
+Total: min=2.84s median=2.84s p10=2.84s p90=2.84s max=2.84s
+Q last=0,608  D=0,608 F=1,000 E=1,000 M=1,000 P=1,000
+
+[VISION CALIBRATION]
+Source: Optic
+Range: 225m
+FOV: 40°
+Exposure: 1,00
+StagedExposure: min=1,000 median=1,000 max=1,000
+Movement: Static
+N=5 never=0
+Candidate: min=3.84s median=3.84s p10=3.84s p90=3.87s max=3.90s
+LOS: min=3.85s median=3.86s p10=3.85s p90=3.89s max=3.90s
+SweepTime(LOS): min=3.85s median=3.86s p10=3.85s p90=3.89s max=3.90s
+DetectionTime(Detected-LOS): min=0.60s median=0.74s p10=0.66s p90=0.75s max=0.75s
+Total: min=4.50s median=4.60s p10=4.54s p90=4.61s max=4.61s
+Q last=0,608  D=0,608 F=1,000 E=1,000 M=1,000 P=1,000
+
+G SECTOR
+[SECTOR] first: A-50=3.01s B-20=5.87s C+10=8.72s D+45=11.57s
+[SECTOR] second: A-50=2.76s B-20=5.58s C+10=8.41s D+45=11.55s ghostOutside8=0
+
+=== DISTANCE ===
+Eye 25m yaw=0 E=1,00 Static  min=0.35s median=0.35s p10=0.35s p90=0.35s max=0.35s  never=0/5
+Eye 50m yaw=0 E=1,00 Static  min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s  never=0/5
+Eye 75m yaw=0 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Eye 100m yaw=0 E=1,00 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Eye 125m yaw=0 E=1,00 Static  min=0.73s median=0.73s p10=0.73s p90=0.73s max=0.73s  never=0/5
+Eye 140m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 149m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 150m yaw=0 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Optic 175m yaw=0 E=1,00 Static  min=0.44s median=0.44s p10=0.44s p90=0.44s max=0.44s  never=0/5
+Optic 200m yaw=0 E=1,00 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Optic 225m yaw=0 E=1,00 Static  min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.57s  never=0/5
+Optic 250m yaw=0 E=1,00 Static  min=0.74s median=0.74s p10=0.74s p90=0.74s max=0.74s  never=0/5
+Optic 275m yaw=0 E=1,00 Static  min=1.24s median=1.24s p10=1.24s p90=1.25s max=1.25s  never=0/5
+Optic 299m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+
+=== FOV ===
+Eye 50m yaw=0 E=1,00 Static  min=0.37s median=0.37s p10=0.37s p90=0.37s max=0.37s  never=0/5
+Eye 50m yaw=30 E=1,00 Static  min=0.64s median=0.64s p10=0.64s p90=0.64s max=0.64s  never=0/5
+Eye 50m yaw=55 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 100m yaw=0 E=1,00 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Eye 100m yaw=30 E=1,00 Static  min=0.85s median=0.85s p10=0.85s p90=0.85s max=0.85s  never=0/5
+Eye 100m yaw=55 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=30 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=55 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 150m yaw=0 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Optic 150m yaw=2 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Optic 150m yaw=3,5 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Optic 225m yaw=0 E=1,00 Static  min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s  never=0/5
+Optic 225m yaw=2 E=1,00 Static  min=0.98s median=0.98s p10=0.98s p90=0.98s max=0.98s  never=0/5
+Optic 225m yaw=3,5 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=2 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=3,5 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+
+=== EXPOSURE ===
+Eye 75m yaw=0 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Eye 75m yaw=0 E=0,50 Static  min=0.81s median=0.81s p10=0.81s p90=0.81s max=0.81s  never=0/5
+Eye 75m yaw=0 E=0,25 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=0 E=0,50 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=0 E=0,25 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 200m yaw=0 E=1,00 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Optic 200m yaw=0 E=0,50 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Optic 200m yaw=0 E=0,25 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Optic 290m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=0 E=0,50 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=0 E=0,25 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+
+=== MOVEMENT ===
+Eye 75m yaw=0 E=1,00 Static  min=0.41s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/5
+Eye 75m yaw=0 E=1,00 Walk  min=0.39s median=0.39s p10=0.39s p90=0.39s max=0.39s  never=0/5
+Eye 75m yaw=0 E=1,00 Run  min=0.38s median=0.39s p10=0.38s p90=0.39s max=0.39s  never=0/5
+Eye 140m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Eye 140m yaw=0 E=1,00 Walk  min=1.51s median=1.51s p10=1.51s p90=1.51s max=1.51s  never=0/5
+Eye 140m yaw=0 E=1,00 Run  min=1.33s median=1.33s p10=1.33s p90=1.33s max=1.33s  never=0/5
+Optic 200m yaw=0 E=1,00 Static  min=0.49s median=0.49s p10=0.49s p90=0.49s max=0.49s  never=0/5
+Optic 200m yaw=0 E=1,00 Walk  min=0.45s median=0.45s p10=0.45s p90=0.46s max=0.46s  never=0/5
+Optic 200m yaw=0 E=1,00 Run  min=0.42s median=0.42s p10=0.42s p90=0.42s max=0.42s  never=0/5
+Optic 290m yaw=0 E=1,00 Static  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=0 E=1,00 Walk  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+Optic 290m yaw=0 E=1,00 Run  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  never=5/5
+
+=== HIGH-N ===
+Eye 75m yaw=0 E=1,00 Static  min=0.40s median=0.41s p10=0.41s p90=0.41s max=0.41s  never=0/20
+Optic 225m yaw=0 E=1,00 Static  min=0.57s median=0.57s p10=0.57s p90=0.57s max=0.58s  never=0/20
+
+=== SWEEP ===
+Optic 225m yaw=-40 E=1,00 Static  min=1.33s median=1.33s p10=1.33s p90=1.33s max=1.33s  never=0/5
+Optic 225m yaw=0 E=1,00 Static  min=2.84s median=2.84s p10=2.84s p90=2.84s max=2.84s  never=0/5
+Optic 225m yaw=40 E=1,00 Static  min=4.50s median=4.60s p10=4.54s p90=4.61s max=4.61s  never=0/5
+
+=== RELATIVE 50% ===
+Eye 75/150 median Detected=0.41s
+Optic 150/300 median Detected=0.41s
+expect similar T_detection if DistanceFactor matches (optics stretch range only)
+
+=== EDGE GATE ===
+Eye 140m  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  Q=0,242  DEAD_OR_GATED
+Eye 149m  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  Q=0,101  DEAD_OR_GATED
+Optic 275m  min=1.24s median=1.24s p10=1.24s p90=1.25s max=1.25s  Q=0,281  LIVE
+Optic 299m  min=NEVER median=NEVER p10=NEVER p90=NEVER max=NEVER  Q=0,091  DEAD_OR_GATED
+
+=== PERF (measure only) ===
+samples=335 LOS=15619 QualityEval=1092 Candidates=1622 CacheHits=229
+
+=== NEXT ACTION (hints only, no retune this stage) ===
+DistanceCurve: MEASURED
+FOV curve: MEASURED
+Exposure: MEASURED
+Movement: MEASURED
+Sweep delay: MEASURED
+Edge 140–149 / 275–299: dead or gated (Q often <= AcquireThreshold 0.25). Do not retune yet.
+Closer should be faster; FOV edge slower; low Exposure slower; Run faster than Static.
+PASS Fixture_ActorsIntact | observer=Unit(Clone) active/alive/conscious; target=Unit(Clone) active/alive/conscious; usableZones=12
+PASS Fixture_CombatIsolationHeld | observer=Unit(Clone) combat/locomotion isolated; target=Unit(Clone) combat/locomotion isolated
+PASS ExposureStaging_Valid | outsideTolerance=0
+PASS Suite_Completed | samples=335
+---
+SYSTEM STATUS: PASS
+pass=11 fail=0
+samples=335
+

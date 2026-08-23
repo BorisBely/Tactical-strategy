@@ -120,6 +120,25 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 	}
 	#endregion
 
+	#region Public Methods
+	public bool TryGetLookForwardXZ(out Vector3 _forwardXZ)
+	{
+		_forwardXZ = default;
+		if (m_State == null || !m_State.IsFireCapable)
+			return false;
+
+		Transform vehicleTransform = m_Vehicle != null ? m_Vehicle.transform : null;
+		Vector3 reference = GetPerpendicularDirection(vehicleTransform);
+		Vector3 look = Quaternion.AngleAxis(m_State.AimYaw, Vector3.up) * reference;
+		look.y = 0f;
+		if (look.sqrMagnitude < 0.0001f)
+			return false;
+
+		_forwardXZ = look.normalized;
+		return true;
+	}
+	#endregion
+
 	#region Private Methods
 	private Vector3? ResolveAimTarget()
 	{
@@ -130,10 +149,6 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 		if (engageable != null)
 			return engageable.position;
 
-		Transform selected = m_TargetSelector.SelectedTarget;
-		if (selected != null)
-			return selected.position;
-
 		return null;
 	}
 
@@ -142,11 +157,7 @@ public sealed class VehiclePassengerAimController : MonoBehaviour
 		if (m_TargetSelector == null)
 			return null;
 
-		Transform engageable = m_TargetSelector.GetEngageableSelectedTarget();
-		if (engageable != null)
-			return engageable;
-
-		return m_TargetSelector.SelectedTarget;
+		return m_TargetSelector.GetEngageableSelectedTarget();
 	}
 
 	private float WorldDirectionToVehicleLocalAngle(

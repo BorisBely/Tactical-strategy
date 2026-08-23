@@ -16,7 +16,11 @@ public struct VisionObservation
 	/// <summary>Horizontal angle (degrees) from observer forward XZ to aim/target point. 0 = center of gaze.</summary>
 	public float FovOffsetDegrees;
 
-	/// <summary>Fraction of hit-zone aim samples with LOS (0..1). Legacy collider LOS → 1.</summary>
+	/// <summary>
+	/// Fraction of the sensor's tested target surface with LOS (0..1).
+	/// Eye detail = weighted hit-zone samples. Far optic cheap = Head/Chest/Abdomen count.
+	/// Legacy collider LOS → 1 if any sample hits.
+	/// </summary>
 	public float Exposure01;
 
 	/// <summary>Which filter produced this observation. Knowledge does not branch on this.</summary>

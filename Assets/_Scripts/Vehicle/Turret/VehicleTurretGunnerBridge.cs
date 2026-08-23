@@ -71,12 +71,14 @@ public sealed class VehicleTurretGunnerBridge : MonoBehaviour
 
 		Transform target = m_BoundTargetSelector.GetEngageableSelectedTarget();
 		if (target == null)
-			target = m_BoundTargetSelector.SelectedTarget;
-		if (target == null)
+			return;
+
+		Vector3 aimPoint = m_BoundTargetSelector.GetEngageableAimPointWorld();
+		if (aimPoint == Vector3.zero)
 			return;
 
 		m_Aim.SetActive(true);
-		m_Aim.SetAimPoint(target.position);
+		m_Aim.SetAimPoint(aimPoint);
 	}
 	#endregion
 

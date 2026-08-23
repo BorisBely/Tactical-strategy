@@ -10,7 +10,7 @@ public enum WeaponDistanceAimGraphMetric
 }
 
 /// <summary>
-/// UI-график дистанционного поведения оружия: точность и скорость прицеливания на 0..500 м.
+/// UI-график дистанционного поведения оружия: точность и скорость прицеливания на 0..300 м.
 /// Формулы — Assets/Docs/CombatBalance/OpticDistanceBalance.md, расчёт — <see cref="WeaponDistanceAimEvaluator"/>.
 /// </summary>
 [DisallowMultipleComponent]
@@ -18,7 +18,7 @@ public sealed class WeaponDistanceAimProfileGraph : Graphic
 {
 	#region Constants
 	private const float c_DefaultMinDistanceMeters = 0f;
-	private const float c_DefaultMaxDistanceMeters = 500f;
+	private const float c_DefaultMaxDistanceMeters = 300f;
 	private const float c_DefaultMinRecoilPreviewShot = 1f;
 	private const float c_DefaultMaxRecoilPreviewShot = 12f;
 	private const int c_MinRecoilPreviewSampleCount = 192;

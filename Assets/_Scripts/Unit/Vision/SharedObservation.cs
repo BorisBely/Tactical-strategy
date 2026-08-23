@@ -13,4 +13,5 @@ public struct SharedObservation
 	public float SourceConfidence;
 	public SharedInformationType InformationType;
 	public float FreshnessSeconds;
+	public PerceivedIdentity ReportedIdentity;
 }

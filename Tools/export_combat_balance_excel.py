@@ -24,12 +24,21 @@ from combat_attachment_model import (
     mod_affects_aim,
     mod_affects_recoil,
 )
+from optic_vision_catalog import load_catalog
+from weapon_damage_range_model import (
+    PROPOSED_OPTIC_EFFECTIVE_RANGE_MODIFIER,
+    compute_falloff_multiplier,
+    compute_zero_damage_distance,
+    resolve_effective_range_meters,
+)
+from weapon_range_catalog import load_ammo_catalog, load_weapon_catalog, read_yaml_float
 
 ROOT = Path(__file__).resolve().parents[1]
 SHOOTING = ROOT / "Assets" / "GameData" / "Shooting"
 OUTPUT = ROOT / "Tools" / "CombatBalanceParameters.xlsx"
 
-DISTANCES = list(range(0, 501, 50))
+DISTANCES = list(range(0, 301, 25))
+DAMAGE_DISTANCES = [25, 50, 100, 150, 200, 250, 300]
 RECOIL_SHOTS = list(range(1, 11))
 RECOIL_GRAPH_RECOVERY = 0.45
 
@@ -139,7 +148,7 @@ WEAPON_ROLE = {
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
     "Weapon_BenelliM4": "ShotgunCqb",
-    "Weapon_Mosin": "Dmr",
+    "Weapon_Mosin": "Marksman",
     "Weapon_SVD": "Marksman",
     "Weapon_Sniper762x51": "Dmr",
     "Weapon_M249": "Support545",
@@ -287,6 +296,7 @@ def parse_weapon(path: Path) -> dict:
         "disp_curve": parse_curve_block(content, "m_DispersionMultiplierByDistance"),
         "aim_curve": parse_curve_block(content, "m_AimTimeMultiplierByDistance"),
         "burst_curve": parse_curve_block(content, "m_AutoBurstSpreadMultiplierByShot"),
+        "effective_range": get_float("m_EffectiveRangeMeters", 0.0),
     }
 
 
@@ -664,17 +674,19 @@ def write_description_sheet(wb: Workbook) -> None:
         ["Отдача (УСТАРЕЛО)", "Старая модель RecoilPerShot / P. Не использовать для калибровки offset-отдачи. Ждём новую таблицу."],
         ["Параметры", "Сырые поля каждого Weapon_*.asset, включая новые Vertical/Horizontal/Recovery °/с. Сюда вносить обновлённые данные."],
         ["Моды", "Плоские множители и дистанционные кривые каждого модуля. Range× = EffectiveRangeModifier. Δ — изменение vs эталонное оружие."],
+        ["Прицелы", "Vision Stage 8: ScopeVisionRange по режиму кратности. Не EffectiveRange. Источник bake: Tools/optic_vision_catalog.csv → python Tools/bake_optic_vision_range.py"],
+        ["Дальность урона", "Этап 9B: live EffectiveRange vs каталог. Оптика Range×=1.0. Bake: python Tools/bake_weapon_range.py"],
         ["M4 точность / прицел / отдача", "M4 ModA1 + по одному модулю в столбце. График = влияние модов."],
         ["AK точность / прицел / отдача", "AK-74 + по одному модулю в столбце. График = влияние модов."],
         ["", ""],
-        ["Строки", "0, 50, 100 … 500 м — для точности и прицеливания"],
+        ["Строки", "0, 25, 50 … 300 м — для точности и прицеливания (Vision Stage 10)"],
         ["Строки отдачи", "Номер выстрела в очереди FullAuto (1–10)"],
         ["Столбцы", "Оружие в фиксированном порядке"],
         ["Графики", "Линейные графики под каждой таблицей"],
         ["Benelli M4", "Роль ShotgunCqb: 0–15 лучший, 15–25 сильный, 25–40 рабочий, 40–60 хуже АК, 60+ почти бесполезен. Эффективность дроби = паттерн + falloff, не только лист Точность."],
         ["M2 / MK19", "Турельные стволы добавлены 2026-08-21. Раньше в книге их не было."],
         ["", ""],
-        ["Важно", "Точность и прицеливание читаются из Unity assets. Перезапекание: python Tools/bake_weapon_combat_balance.py"],
+        ["Важно", "Точность и прицеливание читаются из Unity assets. Перезапекание: python Tools/bake_accuracy_aim_curves.py"],
         ["Обновление", "python Tools/export_combat_balance_excel.py"],
     ]
     for row in rows:
@@ -688,8 +700,9 @@ def write_weapon_params_sheet(wb: Workbook, weapons: list[dict]) -> None:
     headers = [
         "Asset",
         "Название",
-        "Роль",
-        "RPM",
+            "Роль",
+            "EffectiveRange м",
+            "RPM",
         "AimTime с",
         "BaseDispersion",
         "RecoilPerShot (legacy)",
@@ -709,6 +722,7 @@ def write_weapon_params_sheet(wb: Workbook, weapons: list[dict]) -> None:
             weapon["name"],
             weapon["label"],
             weapon["role"],
+            weapon.get("effective_range", 0.0),
             weapon["rpm"],
             weapon["aim_base"],
             weapon["disp_base"],
@@ -724,6 +738,166 @@ def write_weapon_params_sheet(wb: Workbook, weapons: list[dict]) -> None:
     autosize_columns(ws, 28)
 
 
+def _damage_cell(category: str, distance: float, effective: float, pellet_curve: list[tuple[float, float]]) -> str | float:
+    if category == "ProjectileSupport":
+        return "N/A — projectile"
+    if category == "ShotgunCurve":
+        return round(lerp_curve(pellet_curve, distance), 3) if pellet_curve else ""
+    return round(compute_falloff_multiplier(distance, effective), 3)
+
+
+def write_damage_range_sheet(wb: Workbook) -> None:
+    ws = wb.create_sheet("Дальность урона")
+    headers = [
+        "Weapon",
+        "Роль",
+        "Модель",
+        "Категория",
+        "Ammo",
+        "WeaponRange сейчас",
+        "WeaponRange proposal",
+        "AmmoRange сейчас",
+        "AmmoRange proposal",
+        "E сейчас",
+        "E proposal",
+        "FullDamageEnd сейчас",
+        "FullDamageEnd proposal",
+        "ZeroDamageAt сейчас",
+        "ZeroDamageAt proposal",
+    ]
+    for distance in DAMAGE_DISTANCES:
+        headers.append(f"Сейчас ×@{distance}")
+        headers.append(f"Proposal ×@{distance}")
+    headers.extend(["Игровой край", "Мин × на краю", "Proposal × на краю", "Предупреждение"])
+    ws.append(headers)
+    style_header_row(ws)
+
+    weapon_rows = load_weapon_catalog()
+    ammo_rows = {row.ammo: row for row in load_ammo_catalog()}
+    pellet_curve: list[tuple[float, float]] = []
+    gauge = ammo_rows.get("Ammo_12Gauge")
+    if gauge is not None and gauge.abs_asset_path.is_file():
+        pellet_curve = parse_curve_block(
+            gauge.abs_asset_path.read_text(encoding="utf-8"),
+            "m_ShotgunPelletDamageFalloffByDistance",
+        )
+
+    for row in weapon_rows:
+        ammo_row = ammo_rows[row.ammo]
+        current_e = resolve_effective_range_meters(row.current_weapon_range, 1.0, ammo_row.current_range)
+        proposed_e = resolve_effective_range_meters(
+            row.proposed_weapon_range,
+            PROPOSED_OPTIC_EFFECTIVE_RANGE_MODIFIER,
+            ammo_row.proposed_range,
+        )
+        live_weapon = read_yaml_float(row.abs_asset_path, "m_EffectiveRangeMeters")
+        live_ammo = read_yaml_float(ammo_row.abs_asset_path, "m_EffectiveRangeMeters")
+        live_e = resolve_effective_range_meters(
+            live_weapon,
+            PROPOSED_OPTIC_EFFECTIVE_RANGE_MODIFIER,
+            live_ammo,
+        )
+        projectile = row.category == "ProjectileSupport"
+        current_full = "N/A — projectile" if projectile else live_e
+        proposed_full = "N/A — projectile" if projectile else proposed_e
+        current_zero = "N/A — projectile" if projectile else compute_zero_damage_distance(live_e)
+        proposed_zero = "N/A — projectile" if projectile else compute_zero_damage_distance(proposed_e)
+
+        warnings: list[str] = []
+        if projectile:
+            warnings.append("N/A — projectile")
+        elif row.category == "ShotgunCurve":
+            warnings.append("pellet curve")
+        if abs(live_weapon - row.proposed_weapon_range) > 0.01 or abs(live_ammo - ammo_row.proposed_range) > 0.01:
+            warnings.append("DRIFT vs catalog")
+        else:
+            warnings.append("baked")
+
+        edge_mult: str | float = "N/A — projectile"
+        if not projectile:
+            edge_mult = _damage_cell(row.category, row.engagement_edge, proposed_e, pellet_curve)
+
+        values: list[object] = [
+            row.weapon,
+            row.role,
+            row.damage_model,
+            row.category,
+            row.ammo,
+            live_weapon,
+            row.proposed_weapon_range,
+            live_ammo,
+            ammo_row.proposed_range,
+            live_e if not projectile else "N/A — projectile",
+            proposed_e if not projectile else "N/A — projectile",
+            current_full,
+            proposed_full,
+            current_zero,
+            proposed_zero,
+        ]
+        for distance in DAMAGE_DISTANCES:
+            values.append(_damage_cell(row.category, distance, live_e, pellet_curve))
+            values.append(_damage_cell(row.category, distance, proposed_e, pellet_curve))
+        values.extend(
+            [
+                row.engagement_edge,
+                row.min_multiplier_at_edge if row.min_multiplier_at_edge is not None else "N/A — projectile",
+                edge_mult,
+                "; ".join(warnings),
+            ]
+        )
+        ws.append(values)
+
+    note_row = ws.max_row + 2
+    ws.cell(note_row, 1, "Этап 9B: bake применён. E = min(WeaponRange × Range×, AmmoRange). До E множитель 1, между E и 2E линейно, с 2E — 0.")
+    ws.cell(note_row + 1, 1, "Оптика Range× = 1.0. Глушители 1.1 не входили в bake. Источник: Tools/weapon_range_catalog.csv → python Tools/bake_weapon_range.py")
+    ws.cell(note_row + 2, 1, "Дробовик: pellet-кривая Ammo_12Gauge. MK19: физический снаряд, EffectiveRange не читает урон.")
+    ws.cell(note_row + 3, 1, "Неверный инвариант ZeroDamageAt≤300 не используется: при E>150 точка 2E может быть дальше 300, луч уже режется VisionRange.")
+    autosize_columns(ws, 28)
+
+
+def write_optic_vision_sheet(wb: Workbook) -> None:
+    ws = wb.create_sheet("Прицелы")
+    headers = [
+        "Optic",
+        "Mode",
+        "Magnification",
+        "ScopeVisionRange",
+        "EffectiveRangeModifier",
+        "AimTimeModifier",
+        "Class",
+        "Variable",
+        "Display name",
+        "Notes",
+    ]
+    ws.append(headers)
+    style_header_row(ws)
+
+    attachments = {
+        attachment["name"]: attachment
+        for attachment in load_attachments()
+        if attachment["attachment_type"] == 0
+    }
+    for row in load_catalog():
+        attachment = attachments.get(row.optic, {})
+        ws.append([
+            row.optic,
+            row.mode,
+            row.magnification,
+            row.scope_vision_range,
+            attachment.get("effective_range_modifier", ""),
+            attachment.get("aim_time_modifier", ""),
+            row.behavior_class,
+            "yes" if row.has_variable else "no",
+            row.display_name,
+            row.notes,
+        ])
+
+    note_row = ws.max_row + 2
+    ws.cell(note_row, 1, "ScopeVisionRange задаёт обнаружение (150…300). EffectiveRangeModifier не двигает VisionRange и hitscan.")
+    ws.cell(note_row + 1, 1, "1x всегда 150, в том числе низкий режим переменной оптики. Правка метров: CSV → bake_optic_vision_range.py. Q / урон / кривые прицела не трогать.")
+    autosize_columns(ws, 42)
+
+
 def main() -> None:
     weapons = load_weapons()
     if not weapons:
@@ -735,6 +909,8 @@ def main() -> None:
     write_description_sheet(wb)
     write_weapon_params_sheet(wb, weapons)
     write_attachment_params_sheet(wb, weapons_by_name, DISTANCES, RECOIL_SHOTS)
+    write_optic_vision_sheet(wb)
+    write_damage_range_sheet(wb)
 
     write_matrix_sheet(
         wb,

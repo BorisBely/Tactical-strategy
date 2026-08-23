@@ -28,6 +28,11 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_EffectiveRangeModifier = 1f;
 	[Tooltip("Абсолютная дальность обзора через кратную оптику (м). 0 или 150 = без бонуса. Clamp 150…300. Не EffectiveRangeModifier.")]
 	[SerializeField, Min(0f)] private float m_ScopeVisionRangeMeters;
+	[Tooltip("Переменная кратность: низкий режим 1× читает Low Magnification Scope Vision Range. Высокий режим читает Scope Vision Range. Не второй VisionSystem.")]
+	[SerializeField] private bool m_HasVariableMagnification;
+	[Tooltip("Обзор в низком режиме (1×). 0 или 150 = без бонуса. Высокий режим использует Scope Vision Range.")]
+	[SerializeField, Min(0f)] private float m_LowMagnificationScopeVisionRangeMeters;
+	[SerializeField] private bool m_HighMagnificationActive = true;
 	[Tooltip("Как модуль меняет накопление отдачи.")]
 	[SerializeField, Min(0f)] private float m_RecoilModifier = 1f;
 	[Tooltip("Дополнительный множитель отдачи только для одиночного огня. 1 = использовать общий Recoil Modifier без изменений.")]
@@ -82,6 +87,15 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float AimTimeModifier => m_AimTimeModifier;
 	public float EffectiveRangeModifier => m_EffectiveRangeModifier;
 	public float ScopeVisionRangeMeters => m_ScopeVisionRangeMeters;
+	public bool HasVariableMagnification => m_HasVariableMagnification;
+	public bool HighMagnificationActive => m_HighMagnificationActive;
+	public float LowMagnificationScopeVisionRangeMeters => m_LowMagnificationScopeVisionRangeMeters;
+
+	/// <summary>Range the sensor should read this frame. Variable 1× uses the low value.</summary>
+	public float ResolvedScopeVisionRangeMeters =>
+		m_HasVariableMagnification && !m_HighMagnificationActive
+			? m_LowMagnificationScopeVisionRangeMeters
+			: m_ScopeVisionRangeMeters;
 	public float RecoilModifier => m_RecoilModifier;
 	public float SemiAutoRecoilModifier => m_SemiAutoRecoilModifier;
 	public float AutomaticRecoilModifier => m_AutomaticRecoilModifier;
@@ -105,6 +119,24 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public void SetScopeVisionRangeMeters(float _meters)
 	{
 		m_ScopeVisionRangeMeters = Mathf.Max(0f, _meters);
+	}
+
+	public void SetEffectiveRangeModifier(float _modifier)
+	{
+		m_EffectiveRangeModifier = Mathf.Max(0f, _modifier);
+	}
+
+	public void ConfigureVariableMagnification(float _lowMeters, float _highMeters)
+	{
+		m_HasVariableMagnification = true;
+		m_LowMagnificationScopeVisionRangeMeters = Mathf.Max(0f, _lowMeters);
+		m_ScopeVisionRangeMeters = Mathf.Max(0f, _highMeters);
+		m_HighMagnificationActive = true;
+	}
+
+	public void SetVariableMagnificationActive(bool _highMagnification)
+	{
+		m_HighMagnificationActive = _highMagnification;
 	}
 
 	public bool SupportsWeapon(WeaponDefinition _weaponDefinition)

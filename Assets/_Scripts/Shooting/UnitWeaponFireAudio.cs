@@ -53,6 +53,8 @@ public sealed class UnitWeaponFireAudio : MonoBehaviour
 	#region Private Methods
 	private void HandleShotFired(AmmoDefinition _ammo)
 	{
+		WorldSoundHub.PublishGunshot(transform, ResolveBarrelPosition());
+
 		if (m_WeaponRuntime == null)
 			return;
 

@@ -1,6 +1,16 @@
 using UnityEngine;
 
 /// <summary>
+/// Which parameter set feeds the single VisionSystem. Not a second scanner.
+/// </summary>
+public enum VisionSourceKind
+{
+	InfantryEye = 0,
+	Passenger = 1,
+	Turret = 2
+}
+
+/// <summary>
 /// Resolved eye / optic envelope for one observer this frame.
 /// Eye is the wide search cone. Optic is a narrow sweep, never a second Knowledge.
 /// </summary>
@@ -41,6 +51,7 @@ public readonly struct ResolvedVisionProfile
 
 /// <summary>
 /// Single place for eye 150/120 and optic 150–300 / 8° contract. Does not retune Q.
+/// Passenger uses the same envelope as infantry. Turret optic is data, not Aiming pose.
 /// </summary>
 public static class UnitVisionProfile
 {
@@ -50,6 +61,7 @@ public static class UnitVisionProfile
 	public const float ScopeFovDegrees = 8f;
 	public const float MinScopeRangeMeters = 150f;
 	public const float MaxScopeRangeMeters = 300f;
+	public const float ObservationEpsilonMeters = 0.01f;
 	#endregion
 
 	#region Public Methods
@@ -60,7 +72,12 @@ public static class UnitVisionProfile
 
 	public static bool HasMagnifiedScopeBonus(float _rawMeters)
 	{
-		return _rawMeters > BaseRangeMeters + 0.01f;
+		return _rawMeters > BaseRangeMeters + ObservationEpsilonMeters;
+	}
+
+	public static bool IsWithinResolvedRange(float _distanceMeters, float _resolvedMaxRangeMeters)
+	{
+		return _distanceMeters <= _resolvedMaxRangeMeters + ObservationEpsilonMeters;
 	}
 
 	public static float ReadRawScopeRange(WeaponAttachmentDefinition[] _attachments)
@@ -74,11 +91,49 @@ public static class UnitVisionProfile
 			WeaponAttachmentDefinition attachment = _attachments[i];
 			if (attachment == null || attachment.AttachmentType != WeaponAttachmentType.Optic)
 				continue;
-			if (attachment.ScopeVisionRangeMeters > best)
-				best = attachment.ScopeVisionRangeMeters;
+			if (attachment.ResolvedScopeVisionRangeMeters > best)
+				best = attachment.ResolvedScopeVisionRangeMeters;
 		}
 
 		return best;
+	}
+
+	public static bool ResolveTreatAsAlwaysAimed(VisionSourceKind _source, bool _passengerReady)
+	{
+		switch (_source)
+		{
+			case VisionSourceKind.Turret:
+				return true;
+			case VisionSourceKind.Passenger:
+				return _passengerReady;
+			default:
+				return false;
+		}
+	}
+
+	public static float ResolveAdditionalRawScope(VisionSourceKind _source, float _turretOpticMeters)
+	{
+		return _source == VisionSourceKind.Turret ? Mathf.Max(0f, _turretOpticMeters) : 0f;
+	}
+
+	public static ResolvedVisionProfile ResolveForSource(
+		VisionSourceKind _source,
+		float _eyeRangeMeters,
+		float _eyeFovDegrees,
+		WeaponPoseState _pose,
+		WeaponAttachmentDefinition[] _attachments,
+		bool _passengerReady,
+		float _turretOpticMeters)
+	{
+		bool treatAsAlwaysAimed = ResolveTreatAsAlwaysAimed(_source, _passengerReady);
+		float additionalRawScope = ResolveAdditionalRawScope(_source, _turretOpticMeters);
+		return Resolve(
+			_eyeRangeMeters,
+			_eyeFovDegrees,
+			_pose,
+			_attachments,
+			treatAsAlwaysAimed,
+			additionalRawScope);
 	}
 
 	public static ResolvedVisionProfile Resolve(
@@ -88,7 +143,24 @@ public static class UnitVisionProfile
 		WeaponAttachmentDefinition[] _attachments,
 		bool _treatAsAlwaysAimed)
 	{
-		float rawScope = ReadRawScopeRange(_attachments);
+		return Resolve(
+			_eyeRangeMeters,
+			_eyeFovDegrees,
+			_pose,
+			_attachments,
+			_treatAsAlwaysAimed,
+			0f);
+	}
+
+	public static ResolvedVisionProfile Resolve(
+		float _eyeRangeMeters,
+		float _eyeFovDegrees,
+		WeaponPoseState _pose,
+		WeaponAttachmentDefinition[] _attachments,
+		bool _treatAsAlwaysAimed,
+		float _additionalRawScopeMeters)
+	{
+		float rawScope = Mathf.Max(ReadRawScopeRange(_attachments), Mathf.Max(0f, _additionalRawScopeMeters));
 		bool poseAllowsScope = _treatAsAlwaysAimed || _pose == WeaponPoseState.Aiming;
 		bool scopeActive = poseAllowsScope && HasMagnifiedScopeBonus(rawScope);
 		float scopeRange = scopeActive ? ClampScopeRange(rawScope) : Mathf.Max(0.5f, _eyeRangeMeters);

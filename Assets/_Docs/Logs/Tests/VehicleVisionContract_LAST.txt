@@ -1,0 +1,40 @@
+Vision Stage 13 VehicleVisionContract
+2026-08-22 22:59:18
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_E_MK19  300
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_PoseFloors  0.35/0.68/1.0
+PASS  Frozen_Rpg_115_12  115/12
+PASS  Frozen_Mk19_240_25  240/25
+PASS  Frozen_M2_Optic_0  0
+PASS  Frozen_MK19_Optic_0  0
+PASS  InfantryEye_149  150
+PASS  InfantryEye_151  150
+PASS  Passenger_Not100  150
+PASS  Passenger_99  Visible
+PASS  Passenger_101  Visible
+PASS  Passenger_149  Visible
+PASS  Passenger_151  no Observation
+PASS  InfantryBeside_101  both Visible
+PASS  Passenger_250_Scope9_ready  300
+PASS  Passenger_250_notReady  150
+PASS  Turret_noOptic_149  Visible
+PASS  Turret_noOptic_151  no Observation
+PASS  Turret_ignores_Aiming  150
+PASS  Turret_injected_250  250
+PASS  Turret_injected_251  no Observation
+PASS  M2_inside_permit  Launch
+PASS  M2_outside_permit  OutsideVision
+PASS  MK19_inside_permit  Launch
+PASS  MK19_outside_permit  OutsideVision
+PASS  Rpg_LastKnown  fireDenied=NoAimPoint
+PASS  Mk19_life_unclipped  25s
+PASS  Architecture_NoPassenger100  field gone
+PASS  Architecture_NoSecondVision  one UnitVision
+
+RESULT=PASS  PASS=35 FAIL=0

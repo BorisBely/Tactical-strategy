@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG3TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG3 Identity Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG3 Identity Smoke (no Play)", false, 131)]
 	public static void RunIdentitySmokeFromMenu()
 	{
 		string report = BuildIdentitySmokeReport();

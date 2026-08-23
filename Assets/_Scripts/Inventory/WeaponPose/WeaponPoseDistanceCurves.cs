@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Starting pose distance multipliers 0–500 m (PLAN §89).
+/// Starting pose distance multipliers 0–300 m (PLAN §89, Stage 10 envelope).
 /// Accuracy curves multiply spread; aim-time curves multiply CurrentPoseAimTime.
 /// </summary>
 public static class WeaponPoseDistanceCurves
@@ -28,7 +28,8 @@ public static class WeaponPoseDistanceCurves
 		new Key(25f, 3.50f),
 		new Key(50f, 6f),
 		new Key(100f, 10f),
-		new Key(500f, 16f),
+		new Key(150f, 11f),
+		new Key(300f, 13f),
 	};
 
 	private static readonly Key[] s_PointAimAccuracy =
@@ -41,7 +42,6 @@ public static class WeaponPoseDistanceCurves
 		new Key(100f, 1.90f),
 		new Key(200f, 3f),
 		new Key(300f, 4.20f),
-		new Key(500f, 7f),
 	};
 
 	private static readonly Key[] s_AimingAccuracy =
@@ -52,7 +52,6 @@ public static class WeaponPoseDistanceCurves
 		new Key(100f, 1.05f),
 		new Key(200f, 1.08f),
 		new Key(300f, 1.10f),
-		new Key(500f, 1.15f),
 	};
 
 	private static readonly Key[] s_HipFireAimTime =
@@ -61,7 +60,7 @@ public static class WeaponPoseDistanceCurves
 		new Key(15f, 1f),
 		new Key(50f, 1.05f),
 		new Key(100f, 1.10f),
-		new Key(500f, 1.20f),
+		new Key(300f, 1.20f),
 	};
 
 	private static readonly Key[] s_PointAimAimTime =
@@ -70,7 +69,6 @@ public static class WeaponPoseDistanceCurves
 		new Key(25f, 1f),
 		new Key(100f, 1.08f),
 		new Key(300f, 1.15f),
-		new Key(500f, 1.25f),
 	};
 
 	private static readonly Key[] s_AimingAimTime =
@@ -79,7 +77,6 @@ public static class WeaponPoseDistanceCurves
 		new Key(25f, 1f),
 		new Key(100f, 1.05f),
 		new Key(300f, 1.10f),
-		new Key(500f, 1.15f),
 	};
 
 	private static readonly Key[] s_PreAimAimTime =
@@ -87,7 +84,7 @@ public static class WeaponPoseDistanceCurves
 		new Key(0f, 1f),
 		new Key(50f, 1.02f),
 		new Key(200f, 1.08f),
-		new Key(500f, 1.12f),
+		new Key(300f, 1.12f),
 	};
 
 	public static float GetAccuracyMultiplier(WeaponPoseState _pose, float _distanceMeters)
@@ -133,7 +130,7 @@ public static class WeaponPoseDistanceCurves
 		if (_keys == null || _keys.Length == 0)
 			return 1f;
 
-		float d = Mathf.Clamp(_distanceMeters, 0f, 500f);
+		float d = Mathf.Clamp(_distanceMeters, 0f, 300f);
 		if (d <= _keys[0].Meters)
 			return _keys[0].Value;
 		if (d >= _keys[_keys.Length - 1].Meters)

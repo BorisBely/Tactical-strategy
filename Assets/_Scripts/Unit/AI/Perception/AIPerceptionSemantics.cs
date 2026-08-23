@@ -77,4 +77,14 @@ public static class AIPerceptionSemantics
 	{
 		return _contact != null && _contact.Threat == ThreatLevel.High;
 	}
+
+	public static bool SoundPresent(PerceivedContact _contact)
+	{
+		return _contact != null && _contact.HasUsefulSound;
+	}
+
+	public static bool SharedPresent(PerceivedContact _contact)
+	{
+		return _contact != null && _contact.HasUsefulShared;
+	}
 }

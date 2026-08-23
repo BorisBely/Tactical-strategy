@@ -54,7 +54,7 @@ WEAPON_ROLE = {
     "Weapon_MK12": "Dmr",
     "Weapon_MK18": "CqbShort",
     "Weapon_BenelliM4": "ShotgunCqb",
-    "Weapon_Mosin": "Dmr",
+    "Weapon_Mosin": "Marksman",
     "Weapon_SVD": "Marksman",
     "Weapon_Sniper762x51": "Dmr",
     "Weapon_M249": "Support545",

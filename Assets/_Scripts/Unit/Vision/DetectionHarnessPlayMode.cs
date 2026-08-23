@@ -23,6 +23,21 @@ public static class DetectionHarnessPlayMode
 	private const string c_RunGameCommandInputKey = "DetectionCalib.RunGameCommandInput";
 	private const string c_RunGameCommandLayerKey = "DetectionCalib.RunGameCommandLayer";
 	private const string c_RunVisionEnvelopeKey = "DetectionCalib.RunVisionEnvelope";
+	private const string c_RunVisionDetectCalKey = "DetectionCalib.RunVisionDetectCal";
+	private const string c_RunVisionExposureFovKey = "DetectionCalib.RunExposureFov";
+	private const string c_RunVisionDetectBalanceKey = "DetectionCalib.RunDetectBalance";
+	private const string c_RunVisionContactLifecycleKey = "DetectionCalib.RunContactLifecycle";
+	private const string c_RunVisionOpticRangeContractKey = "DetectionCalib.RunOpticRange";
+	private const string c_RunWeaponRangeContractKey = "DetectionCalib.RunWeaponRange";
+	private const string c_RunAccuracyAimCurveContractKey = "DetectionCalib.RunAccuracyAim";
+	private const string c_RunFireDisciplineContractKey = "DetectionCalib.RunFireDiscipline";
+	private const string c_RunProjectileVisionContractKey = "DetectionCalib.RunProjectileVision";
+	private const string c_RunVehicleVisionContractKey = "DetectionCalib.RunVehicleVision";
+	private const string c_RunCombatRetainContractKey = "DetectionCalib.RunCombatRetain";
+	private const string c_RunAttentionFacingContractKey = "DetectionCalib.RunAttentionFacing";
+	private const string c_RunSoundPerceptionContractKey = "DetectionCalib.RunSoundPerception";
+	private const string c_RunAllyReportContractKey = "DetectionCalib.RunAllyReport";
+	private const string c_RunFinalPerceptionContractKey = "DetectionCalib.RunFinalPerception";
 	public const string AllGStages = "All";
 	#endregion
 
@@ -177,6 +192,156 @@ public static class DetectionHarnessPlayMode
 		}
 	}
 
+	public static bool RunVisionDetectionCalibration
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionDetectCalKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionDetectCalKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVisionExposureFovContract
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionExposureFovKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionExposureFovKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVisionDetectionBalance
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionDetectBalanceKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionDetectBalanceKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVisionContactLifecycle
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionContactLifecycleKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionContactLifecycleKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVisionOpticRangeContract
+	{
+		get => PlayerPrefs.GetInt(c_RunVisionOpticRangeContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVisionOpticRangeContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunWeaponRangeContract
+	{
+		get => PlayerPrefs.GetInt(c_RunWeaponRangeContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunWeaponRangeContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunAccuracyAimCurveContract
+	{
+		get => PlayerPrefs.GetInt(c_RunAccuracyAimCurveContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunAccuracyAimCurveContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunFireDisciplineContract
+	{
+		get => PlayerPrefs.GetInt(c_RunFireDisciplineContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunFireDisciplineContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunProjectileVisionContract
+	{
+		get => PlayerPrefs.GetInt(c_RunProjectileVisionContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunProjectileVisionContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunVehicleVisionContract
+	{
+		get => PlayerPrefs.GetInt(c_RunVehicleVisionContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunVehicleVisionContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCombatRetainContract
+	{
+		get => PlayerPrefs.GetInt(c_RunCombatRetainContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCombatRetainContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunAttentionFacingContract
+	{
+		get => PlayerPrefs.GetInt(c_RunAttentionFacingContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunAttentionFacingContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunSoundPerceptionContract
+	{
+		get => PlayerPrefs.GetInt(c_RunSoundPerceptionContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunSoundPerceptionContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunAllyReportContract
+	{
+		get => PlayerPrefs.GetInt(c_RunAllyReportContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunAllyReportContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunFinalPerceptionContract
+	{
+		get => PlayerPrefs.GetInt(c_RunFinalPerceptionContractKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunFinalPerceptionContractKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
 	public static bool RunGameCommandLayer
 	{
 		get => PlayerPrefs.GetInt(c_RunGameCommandLayerKey, 0) == 1;
@@ -203,7 +368,12 @@ public static class DetectionHarnessPlayMode
 		RunIdentityCalibration || RunAIPerceptionHandoff || RunAITacticalState ||
 		RunUseOfForcePolicy || RunCombatEngageExecution || RunSearchExecution ||
 		RunTacticalNavigationExecution || RunTacticalCommandContract || RunGameCommandSource ||
-		RunGameCommandInput || RunGameCommandLayer || RunVisionEnvelope;
+		RunGameCommandInput || RunGameCommandLayer || RunVisionEnvelope ||
+		RunVisionDetectionCalibration || RunVisionExposureFovContract || RunVisionDetectionBalance ||
+		RunVisionContactLifecycle || RunVisionOpticRangeContract || RunWeaponRangeContract ||
+		RunAccuracyAimCurveContract || RunFireDisciplineContract || RunProjectileVisionContract ||
+		RunVehicleVisionContract || 		RunCombatRetainContract || RunAttentionFacingContract ||
+		RunSoundPerceptionContract || RunAllyReportContract || RunFinalPerceptionContract;
 
 	public static bool IsGRegressionPlay => !string.IsNullOrEmpty(RunGStage);
 	#endregion
@@ -282,6 +452,21 @@ public static class DetectionHarnessPlayMode
 		RunGameCommandInput = false;
 		RunGameCommandLayer = false;
 		RunVisionEnvelope = false;
+		RunVisionDetectionCalibration = false;
+		RunVisionExposureFovContract = false;
+		RunVisionDetectionBalance = false;
+		RunVisionContactLifecycle = false;
+		RunVisionOpticRangeContract = false;
+		RunWeaponRangeContract = false;
+		RunAccuracyAimCurveContract = false;
+		RunFireDisciplineContract = false;
+		RunProjectileVisionContract = false;
+		RunVehicleVisionContract = false;
+		RunCombatRetainContract = false;
+		RunAttentionFacingContract = false;
+		RunSoundPerceptionContract = false;
+		RunAllyReportContract = false;
+		RunFinalPerceptionContract = false;
 		RunGStage = string.Empty;
 	}
 

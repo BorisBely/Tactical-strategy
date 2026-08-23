@@ -44,11 +44,14 @@ public sealed class PerceivedContact
 	public float SoundConfidenceInitial;
 	public float SoundTime;
 	public Vector3 SoundPosition;
+	public SoundEventType SoundType;
 
 	public float SharedConfidence;
 	public float SharedConfidenceInitial;
 	public float SharedTime;
 	public Vector3 SharedPosition;
+	public PerceivedIdentity SharedIdentity;
+	public Transform SharedReporter;
 
 	public float VisibilityQuality => CurrentEvaluation.VisibilityQuality;
 
@@ -56,7 +59,11 @@ public sealed class PerceivedContact
 
 	public bool HasSoundEvidence => SoundConfidence > 0f;
 
+	public bool HasUsefulSound => HasSoundEvidence;
+
 	public bool HasSharedEvidence => SharedConfidence > 0f;
+
+	public bool HasUsefulShared => HasSharedEvidence;
 
 	public bool HasNonVisualKnowledge => HasSoundEvidence || HasSharedEvidence;
 
@@ -66,6 +73,14 @@ public sealed class PerceivedContact
 		LastSeenConfidence > 0f || HasSoundEvidence || HasSharedEvidence;
 
 	public bool HasMemory => LastSeenConfidence > 0f;
+
+	public bool HasUsefulVisualMemory => HasMemory;
+
+	/// <summary>Stage 18: visual committed identity. SharedIdentity never writes this.</summary>
+	public PerceivedIdentity VisualIdentityEvidence => Identity;
+
+	/// <summary>Stage 18: report identity evidence. Not a visual commit.</summary>
+	public PerceivedIdentity SharedIdentityEvidence => SharedIdentity;
 
 	public bool IsMemoryForgotten => LastSeenConfidence <= 0f;
 

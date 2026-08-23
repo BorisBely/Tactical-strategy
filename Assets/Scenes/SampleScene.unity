@@ -42335,6 +42335,7 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 0}
   m_ObservationSource: {fileID: 1243261174}
   m_ContactRegistry: {fileID: 1243261177}
+  m_Vision: {fileID: 1243261160}
   m_ExcludeFriendly: 1
   m_ExcludeNeutralIdentity: 1
   m_AllowUnknownIdentity: 1
@@ -42350,7 +42351,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_QueryTriggerInteraction: 1
-  m_MaxEngageRange: 500
   m_RetainTargetDuringReloadOrMalfunction: 1
   m_LineOfFireSafetyRadius: 0.35
   m_LineOfFireBlockedRetrySeconds: 0.15
@@ -42373,6 +42373,7 @@ MonoBehaviour:
   m_LossTimeSeconds: 2.5
   m_AcquireThreshold: 0.25
   m_LoseThreshold: 0.2
+  m_AcquisitionExponent: 3.8
   m_RecentlyLostDurationSeconds: 5
   m_RemoveContactWhenUndetectedAndLost: 0
   m_IdentifyTimeSeconds: 4
@@ -42385,7 +42386,7 @@ MonoBehaviour:
   m_SharedShapeExponent: 1.5
   m_DistanceNearMeters: 20
   m_DistanceFarMeters: 150
-  m_DistanceFarFactor: 0.08
+  m_DistanceFarFactor: 0.3
   m_FovHalfReferenceDegrees: 60
   m_FovEdgeFactor: 0.15
   m_WalkSpeedThreshold: 0.6

@@ -1,13 +1,14 @@
 # Vision Freeze / AI Handoff
 
-**Статус: FROZEN** (2026-08-19)  
+**Статус: FROZEN** (2026-08-19). Повтор Verify **PASS 22/0** (2026-08-22 15:04:09). Этап 6 баланса **CLOSED**. Этап 7 lifecycle **CLOSED / VERIFIED** (2026-08-22 15:52:10, `VisionContactLifecycle_LAST.txt` **PASS 37/0**). Этап 8 боевых прицелов **CLOSED / VERIFIED** (2026-08-22 16:42:52, `OpticRangeContract_LAST.txt` **PASS 29/0**) — не ретюнит Q / Memory / Identity. Этап 9 дальности урона **CLOSED / VERIFIED** (2026-08-22 18:54:04, `WeaponRangeContract_LAST.txt` **PASS 53/0**, `Vision_Stage9_DamageRange_Catalog.md`) — не ретюнит Q и `ScopeVisionRange`.  
 **Калибровка:** Block A / B / C **CLOSED / VERIFIED**.  
 **Этап 1 look:** **FROZEN** — `Identity_World_Evidence.md`. Play C13 **PASS 49/0** (2026-08-20 10:23). Не ретюнить IdentifyTime / commit.  
 **Этап 2 CombatIntent:** **FROZEN** — `Combat_Engage_Execution.md`. Play **PASS 31/0** (10:56). EditMode **14/0**. Не класть AI на prefab.  
 **Этап 3 Search locomotion:** **FROZEN** — `Search_Navigation_Execution.md`. Play **PASS 45/0** (12:06). EditMode **18/0**.  
 **Контракт AI:** **FROZEN** — `AIPerceptionFrame` (`AI_Perception_Contract.md`). Play **PASS 41/0** (23:10). Vision knowledge на `PerceivedContact`; AI не читает Q / DetectionProgress / UnitTeam.  
 **Архитектура:** `Vision_Current_Architecture_And_Future_Philosophy.md` (G0–G8 CLOSED).  
-**Калибровочные числа:** `Vision_Gameplay_Calibration.md`.
+**Калибровочные числа:** `Vision_Gameplay_Calibration.md`.  
+**Рабочий порядок:** `Пехота_дорожная_карта.md`. Vision Stage 10 **CLOSED / VERIFIED PASS 11/0**. Vision Stage 11 **CLOSED / VERIFIED PASS 21/0** (`Vision_Stage11_FireDiscipline_Catalog.md`). Vision Stage 12 (A4+A5) **CLOSED / VERIFIED PASS 30/0** (`Vision_Stage12_ProjectileVision_Catalog.md`). Stage 13 (A6+A9) **CLOSED / VERIFIED PASS 35/0** (`Vision_Stage13_VehicleVision_Catalog.md`). Stage 14 (A7 Retain) **CLOSED / VERIFIED PASS 31/0** (`Vision_Stage14_CombatRetain_Catalog.md`). **Stage 15 Attention (B): CLOSED / VERIFIED PASS 44/0** (`Vision_Stage15_AttentionFacing_Catalog.md`). **Stage 16 Sound (C1): CLOSED / VERIFIED PASS 47/0** (`Vision_Stage16_SoundPerception_Catalog.md`). **Stage 17 Ally Report (C2): CLOSED / VERIFIED PASS 72/0** (`Vision_Stage17_AllyReport_Catalog.md`). **Stage 18 Final Perception (D+E+F): CLOSED / VERIFIED PASS 49/0** (`Vision_Stage18_FinalPerception_Catalog.md`). Q / Acquire / Memory / Identity не открывать. Тактическое **#7** — после закрытого A10 той карты.
 
 ```text
 Vision = perception
@@ -34,9 +35,10 @@ FOV half        = 60°
 FOV edge        = 0.15
 Acquire         = 0.25
 AcquireTime     = 0.35 s
+AcquireExp      = 3.8
 ```
 
-Q = Distance × FOV × Exposure × Movement. Формула не открывается.
+Q = Distance × FOV × Exposure × Movement. Формула не открывается. Хвост DistanceCurve: `t=0.82/0.90/0.96/1.00 → 0.50/0.38/0.32/0.30`.
 
 ### Memory
 
@@ -47,7 +49,7 @@ Shape           = 1.5
 Stale           = 0.25
 ```
 
-Decay только `LastSeenConfidence`. Identity при потере LOS **держится**. LastKnown **заморожен** (нет velocity × time). Forgotten (`conf=0`) ≠ удалён из registry.
+Decay только `LastSeenConfidence`. Identity при потере LOS **держится**. LastKnown **заморожен** (нет velocity × time). Forgotten (`conf=0`) ≠ удалён из registry. Живой LOS-miss → RecentlyLost. Мёртвый / untargetable → Lost (не RecentlyLost). Selected при RecentlyLost держится, пока есть Knowledge; смерть снимает Selected.
 
 ### Identity
 
@@ -72,11 +74,11 @@ Low             > 80 m
 
 | Параметр | Значение | Зачем AI это знать |
 |----------|--------:|--------------------|
-| VisionRange | **500 м** (`Unit.prefab`) | perception range |
-| MaxEngageRange | **18 м** (`TargetSelector`) | **не** perception |
+| VisionRange | глаз **150 м**; кратная оптика в Aiming до **300** | perception range |
+| Retain (reload/misfire) | `UnitVision.ResolvedMaxRange` | **не** perception, **не** SELECT, **не** потолок боя отдельным числом |
 | LoseThreshold | **0.20** | hysteresis под Acquire 0.25 |
 | LossTime | **2.5 с** | падение DetectionProgress |
-| DistanceNear / Far / FarFactor | **20 / 500 / 0.08** | Q distance |
+| DistanceNear / Far / FarFactor | **t = d / resolvedRange**, край **0.30** | Q distance; не абсолютные 500 м |
 | Movement idle / walk / run / cap | **1.00 / 1.15 / 1.35 / 1.50** | только бонус цели |
 
 Проверка: `Tools/Tests/Verify Vision Freeze` → `Assets/_Docs/Logs/Tests/VisionFreeze_LAST.txt`.
@@ -88,7 +90,7 @@ Low             > 80 m
 Один наблюдатель → свой registry → свой `AIPerceptionFrame`. Два солдата про один объект мира могут знать разное.
 
 ```text
-UnitVision (лучи, 500 м, LOD)
+UnitVision (лучи, глаз 150 / оптика до 300, LOD)
   → UnitPerception.ApplyVisionFrame          // physical evidence only
   → DetectionProcessor                       // knowledge
   → AIPerceptionFrameBuilder                 // AI-0
@@ -149,7 +151,7 @@ Detected + RecentlyLost / Lost       валидно
 Lost + LastSeenConfidence=0          валидно (forgotten)
 DetectionProgress ≠ LastSeenConfidence ≠ IdentityConfidence
 LastKnown ≠ aim ≠ live transform
-VisionRange (500) ≠ MaxEngageRange (18)
+VisionRange (perception) ≠ combat retain (ResolvedMaxRange)
 Cue conflict ≠ instant team teleport
 ```
 

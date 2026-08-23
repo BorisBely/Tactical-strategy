@@ -1,0 +1,70 @@
+Vision Stage 9 WeaponRangeContract
+2026-08-22 18:54:04
+---
+PASS Harness_Vision | UnitVision
+PASS Harness_Target | Target
+PASS LoadWeapon_M4 | Assets/GameData/Shooting/M4/Weapon_M4_ModA_1.asset
+PASS LoadWeapon_AK74U | Assets/GameData/Shooting/AK/Weapon_AK74U.asset
+PASS LoadWeapon_MK12 | Assets/GameData/Shooting/M4/Weapon_MK12.asset
+PASS LoadWeapon_Sniper | Assets/GameData/Shooting/Standalone/Weapon_Sniper762x51.asset
+PASS LoadWeapon_M2 | Assets/GameData/Shooting/Turret/Weapon_M2Browning_127.asset
+PASS LoadWeapon_MK19 | Assets/GameData/Shooting/Turret/Weapon_MK19.asset
+PASS LoadAmmo_556 | Assets/GameData/Shooting/Ammo_556x45mmNATO.asset
+PASS LoadAmmo_545 | Assets/GameData/Shooting/Ammo_545x39mm.asset
+PASS LoadAmmo_762x51 | Assets/GameData/Shooting/Ammo_762x51mmNATO.asset
+PASS LoadAmmo_127 | Assets/GameData/Shooting/Turret/Ammo_127x99.asset
+PASS LoadOptic_Vortex | Assets/GameData/Shooting/M4/Attachment_M4_Vortex_Razor.asset
+PASS LoadOptic_Aimpoint | Assets/GameData/Shooting/M4/Attachment_M4_Aimpoint.asset
+PASS LoadOptic_Scope9 | Assets/GameData/Shooting/M4/Attachment_M4_Scope9.asset
+
+A ASSETS
+PASS A_M4_Full | E=140 full=1,00
+PASS A_M4_Edge | edge=0,571 min=0,570
+PASS A_M4_Zero | zero=0,00
+PASS A_AK74U_Full | E=100 full=1,00
+PASS A_AK74U_Edge | edge=0,500 min=0,500
+PASS A_AK74U_Zero | zero=0,00
+PASS A_MK12_Full | E=200 full=1,00
+PASS A_MK12_Edge | edge=0,750 min=0,750
+PASS A_MK12_Zero | zero=0,00
+PASS A_Sniper_Full | E=225 full=1,00
+PASS A_Sniper_Edge | edge=0,667 min=0,667
+PASS A_Sniper_Zero | zero=0,00
+PASS A_M2_Full | E=225 full=1,00
+PASS A_M2_Edge | edge=0,667 min=0,667
+PASS A_M2_Zero | zero=0,00
+PASS A_MK19Class | AutomaticGrenadeLauncher
+PASS A_MK19Ceiling | range=300
+
+B OPTICS
+PASS B_VortexRangeX | x=1,00
+PASS B_Scope9RangeX | x=1,00
+PASS B_Scope9Vision | vision=300
+PASS B_AimpointVision | vision=175
+
+C CQB EDGE
+PASS C_Aimpoint150 | want=150 placed=150,0 seen=True expect=True max=175
+PASS C_AK74UDamageAt150 | mult=0,50
+
+D ASSAULT EDGE
+PASS D_Vortex200 | want=200 placed=200,0 seen=True expect=True max=250
+PASS D_Vision250 | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+PASS D_HitscanFollowsVision | cap=250,0 vision=250,0
+PASS D_M4DamageAt200 | mult=0,57
+PASS D_CanAttemptFireAt200 | NotReady
+
+E MARKSMAN / SNIPER
+PASS E_Vortex250Mk12 | want=250 placed=250,0 seen=True expect=True max=250
+PASS E_MK12DamageAt250 | mult=0,75
+PASS E_Scope9_299 | want=299 placed=299,0 seen=True expect=True max=300
+PASS E_SniperDamageAt300 | mult=0,67
+PASS E_M2DamageAt300 | mult=0,67
+
+F VISION CAP UNCHANGED
+PASS F_Vortex251NoSee | want=251 placed=251,1 seen=False expect=False max=250
+PASS F_HitscanCappedAtVision | cap=250,0 vision=250,0
+PASS F_NoVisibleTargetAt251 | NoVisibleTarget
+PASS G_M4ZeroAt280 | mult=0,00
+PASS G_M4FullAt140 | mult=1,00
+
+RESULT=PASS  PASS=53 FAIL=0

@@ -160,6 +160,11 @@ public sealed class AmmoDefinition : ScriptableObject
 		return true;
 	}
 
+	public void SetEffectiveRangeMeters(float _meters)
+	{
+		m_EffectiveRangeMeters = Mathf.Max(0.1f, _meters);
+	}
+
 	public bool TryPickShellImpactSound(out AudioClip _clip, out float _volume)
 	{
 		_clip = null;

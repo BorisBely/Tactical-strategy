@@ -13,7 +13,7 @@ using UnityEngine;
 /// </summary>
 public static class IdentityCalibrationTestRunner
 {
-	[MenuItem("Tools/Tests/Run Identity Calibration", false, 134)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Identity Calibration", false, 109)]
 	public static void RunMathFromMenu()
 	{
 		IdentityCalibrationScenarios.ReportResult result = IdentityCalibrationScenarios.BuildReport();
@@ -26,7 +26,7 @@ public static class IdentityCalibrationTestRunner
 		Debug.Log($"[IdentityCalibrationTestRunner] MATH (no Play). wrote {latest} {resultLine}\n{result.Body}");
 	}
 
-	[MenuItem("Tools/Tests/Run Identity Calibration (Play)", false, 135)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Identity Calibration (Play)", false, 110)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;
@@ -45,6 +45,22 @@ public static class IdentityCalibrationTestRunner
 		DetectionHarnessPlayMode.RunGameCommandSource = false;
 		DetectionHarnessPlayMode.RunGameCommandInput = false;
 		DetectionHarnessPlayMode.RunGameCommandLayer = false;
+		DetectionHarnessPlayMode.RunVisionEnvelope = false;
+		DetectionHarnessPlayMode.RunVisionDetectionCalibration = false;
+		DetectionHarnessPlayMode.RunVisionExposureFovContract = false;
+		DetectionHarnessPlayMode.RunVisionDetectionBalance = false;
+		DetectionHarnessPlayMode.RunVisionContactLifecycle = false;
+		DetectionHarnessPlayMode.RunVisionOpticRangeContract = false;
+		DetectionHarnessPlayMode.RunWeaponRangeContract = false;
+		DetectionHarnessPlayMode.RunAccuracyAimCurveContract = false;
+		DetectionHarnessPlayMode.RunFireDisciplineContract = false;
+		DetectionHarnessPlayMode.RunProjectileVisionContract = false;
+		DetectionHarnessPlayMode.RunVehicleVisionContract = false;
+		DetectionHarnessPlayMode.RunCombatRetainContract = false;
+		DetectionHarnessPlayMode.RunAttentionFacingContract = false;
+		DetectionHarnessPlayMode.RunSoundPerceptionContract = false;
+		DetectionHarnessPlayMode.RunAllyReportContract = false;
+		DetectionHarnessPlayMode.RunFinalPerceptionContract = false;
 
 		if (EditorApplication.isPlaying)
 		{

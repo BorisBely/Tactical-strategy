@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Проверяет условия стрельбы для пассажира в машине:
-/// угол в секторе, стекло открыто, луч не пересекает кузов, дистанция.
+/// угол в секторе, стекло открыто, луч не пересекает кузов.
+/// Дальность — тот же Observation/GATE, что у пехоты на земле (не 100 м).
 /// Выставляет <c>VehiclePassengerState.CanFire</c>.
 /// </summary>
 [DisallowMultipleComponent]
@@ -17,8 +18,6 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 	[SerializeField] private UnitWeaponFireController m_FireController;
 	[SerializeField] private UnitEquipment m_Equipment;
 	[SerializeField] private LayerMask m_VehicleBodyMask = -1;
-	[SerializeField] private float m_MinFireRange = 0f;
-	[SerializeField] private float m_MaxFireRange = 100f;
 
 	[Header("Diagnostics")]
 	[SerializeField] private bool m_LogDiagnostics = true;
@@ -215,13 +214,6 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 			return false;
 		}
 
-		float distance = Vector3.Distance(transform.position, target.position);
-		if (distance < m_MinFireRange || distance > m_MaxFireRange)
-		{
-			m_LastFailReason = $"distance out of range: {distance:F1}m [{m_MinFireRange}..{m_MaxFireRange}]";
-			return false;
-		}
-
 		if (!IsLineOfSightClear(target.position))
 		{
 			m_LastFailReason = "line of sight blocked (vehicle body)";
@@ -237,11 +229,7 @@ public sealed class VehiclePassengerFireValidator : MonoBehaviour
 		if (m_TargetSelector == null)
 			return null;
 
-		Transform engageable = m_TargetSelector.GetEngageableSelectedTarget();
-		if (engageable != null)
-			return engageable;
-
-		return m_TargetSelector.SelectedTarget;
+		return m_TargetSelector.GetEngageableSelectedTarget();
 	}
 
 	private bool IsLineOfSightClear(Vector3 _targetPosition)

@@ -5,9 +5,9 @@
 **Папка закрытых систем:** `Assets/_Docs/Closed/`  
 **Расположение кода (справочно):** `Assets/_Scripts/Unit/Vision/`  
 **Статус:** система зрения **заморожена** — Stage F + **G0–G8 CLOSED / VERIFIED** + калибровка A/B/C CLOSED. **Identity World Evidence FROZEN** (`Identity_World_Evidence.md`, Play PASS 49/0). **Combat Engage Execution FROZEN** (`Combat_Engage_Execution.md`, Play PASS 31/0, EditMode 14/0). **Search Navigation Execution FROZEN** (`Search_Navigation_Execution.md`, Play PASS 45/0, EditMode 18/0). **AI Perception Contract FROZEN** (`AI_Perception_Contract.md`, Play PASS 41/0). **AI-1 FROZEN** (`AI_Tactical_State_Model.md`, Play PASS 71/0). **AI-1A FROZEN** (`AI_UseOfForce_Policy.md`, Play PASS 107/0). Search / high-level AI — **другая система**, читает `AIPerceptionFrame`, не roadmap этого документа.  
-**Автотесты:** EditMode `VisionFreezeTests`, `DetectionQualityMathTests`, `PerceivedContactLifecycleTests`, `IdentityKnowledgeMathTests`, `PerceivedIdentityTests`, `MemoryDecayMathTests`, `PerceivedMemoryTests`, `ContactSelectionEligibilityTests`, `TargetSelectionMathTests`, `TargetSelectorContactTests`, `EngagementDecisionMathTests`, `DefaultCombatEngagementPolicyTests`, `SoundPerceptionTests`, `SharedPerceptionTests`, `PerceptionFusionTests`, `VisionLodPolicyTests`. Play **2026-08-19 20:45** one-Play V1.9.5: G1 **20/0**, G2 **20/0**, G3 **30/0**, G4 **32/0**, G5 **21/0**, G6 **26/0**, G7 **29/0**, G8 **19/0**, G8 Stress **24/0** (`DetectionG_Regression_LAST.txt` PASS 9/0). Calibration Strict V1.9.4 **83/0**. Math menus G3–G8 as before. `*_LAST.txt` **не в git**. Каждый автотест **обязан** закончиться логом `RESULT=...` в Console (§9.2 п.7).
+**Автотесты:** EditMode `VisionFreezeTests`, `DetectionQualityMathTests`, `PerceivedContactLifecycleTests`, `UnitVisionProfileTests`, `OpticRangeContractTests`, `WeaponRangeContractTests`, `AccuracyAimCurveContractTests`, `FireDisciplineContractTests`, `ProjectileVisionContractTests`, `VehicleVisionContractTests`, `CombatRetainContractTests`, `AttentionFacingContractTests`, `IdentityKnowledgeMathTests`, `PerceivedIdentityTests`, `MemoryDecayMathTests`, `PerceivedMemoryTests`, `ContactSelectionEligibilityTests`, `TargetSelectionMathTests`, `TargetSelectorContactTests`, `EngagementDecisionMathTests`, `DefaultCombatEngagementPolicyTests`, `SoundPerceptionTests`, `SharedPerceptionTests`, `PerceptionFusionTests`, `VisionLodPolicyTests`. Play **2026-08-22 14:57** one-Play V1.9.5: G1 **20/0**, G2 **20/0**, G3 **30/0**, G4 **32/0**, G5 **21/0**, G6 **26/0**, G7 **29/0**, G8 **19/0**, G8 Stress **24/0** (`DetectionG_Regression_LAST.txt` PASS 9/0). Calibration Strict V1.9.4 **79/0** (14:55, конверт 150/300). Envelope **69/0** (15:03). Freeze **22/0** (15:04). Vision Stage 7 lifecycle **37/0** (15:52, `VisionContactLifecycle_LAST.txt`). Vision Stage 8 optic catalog **CLOSED / VERIFIED** (`Vision_Stage8_Optic_Catalog.md`, 16:42:52, `OpticRangeContract_LAST.txt` **PASS 29/0**). Vision Stage 9 damage range **CLOSED / VERIFIED** (`Vision_Stage9_DamageRange_Catalog.md`, 18:54:04, `WeaponRangeContract_LAST.txt` **PASS 53/0**). Vision Stage 10 Accuracy/AimTime **CLOSED / VERIFIED** (Vision_Stage10_AccuracyAimCurves_Catalog.md, 21:35:32, AccuracyAimCurveContract_LAST.txt **PASS 11/0**). Vision Stage 11 Fire Discipline **CLOSED / VERIFIED** (`Vision_Stage11_FireDiscipline_Catalog.md`, 22:06:49, `FireDisciplineContract_LAST.txt` **PASS 21/0**). Vision Stage 12 Projectile Vision **CLOSED / VERIFIED** (`Vision_Stage12_ProjectileVision_Catalog.md`, 22:32:12, `ProjectileVisionContract_LAST.txt` **PASS 30/0**). Vision Stage 13 Vehicle Vision **CLOSED / VERIFIED** (`Vision_Stage13_VehicleVision_Catalog.md`, 22:59:18, `VehicleVisionContract_LAST.txt` **PASS 35/0**). Vision Stage 14 Combat Retain **CLOSED / VERIFIED** (`Vision_Stage14_CombatRetain_Catalog.md`, 23:18:15, `CombatRetainContract_LAST.txt` **PASS 31/0**). Vision Stage 15 Attention / Facing **CLOSED / VERIFIED** (`Vision_Stage15_AttentionFacing_Catalog.md`, 09:42:24, `AttentionFacingContract_LAST.txt` **PASS 44/0**). Vision Stage 16 Sound Perception **CLOSED / VERIFIED** (`Vision_Stage16_SoundPerception_Catalog.md`, 10:34:44, `SoundPerceptionContract_LAST.txt` **PASS 47/0**). Math menus G3–G8 as before. `*_LAST.txt` **не в git**. Каждый автотест **обязан** закончиться логом `RESULT=...` в Console (§9.2 п.7).
 
-**Источник правды по статусу:** §0 и шапка. §9 — закрытый roadmap **G0–G8**. **Контракт для AI:** `AI_Perception_Contract.md` (FROZEN). Этапы другой системы сюда не добавлять. Не ретюнить зрение во время разработки AI.
+**Источник правды по статусу:** §0 и шапка. §9 — закрытый roadmap **G0–G8**. **Контракт для AI:** `AI_Perception_Contract.md` (FROZEN; расширение знания — этапы C–E `Пехота_дорожная_карта.md`, не ретюн Q). Этапы другой системы сюда не добавлять. Не ретюнить зрение во время разработки AI. **A3 CLOSED / VERIFIED PASS 21/0**. **A4+A5 CLOSED / VERIFIED PASS 30/0**. **A6+A9 CLOSED / VERIFIED PASS 35/0**. **A7 CLOSED / VERIFIED PASS 31/0**. **Stage 15 Attention (B): CLOSED / VERIFIED PASS 44/0**. **Stage 16 Sound (C1): CLOSED / VERIFIED PASS 47/0** (`Vision_Stage16_SoundPerception_Catalog.md`). **Stage 17 Ally Report (C2): CLOSED / VERIFIED PASS 72/0** (`Vision_Stage17_AllyReport_Catalog.md`). **Stage 18 Final Perception (D+E+F): CLOSED / VERIFIED PASS 49/0** (`Vision_Stage18_FinalPerception_Catalog.md`). Не G9 и не тактический #7.
 
 ---
 
@@ -326,7 +326,7 @@ G8: **когда** делать дорогую работу (LOD / budget), не
 
 | Параметр | Default | Смысл |
 |----------|---------|--------|
-| `VisionRange` | код 18; **`Unit.prefab` = 500** | дальность **detect/perception**. **Не** `TargetSelector.MaxEngageRange` (prefab **18 м**) |
+| `VisionRange` | код 18; **`Unit.prefab` глаз 150** | дальность **detect/perception**. Combat retain reload/misfire = `ResolvedMaxRange` (Stage 14), не отдельный 18 м |
 | `FieldOfViewDegrees` | 120 | полный угол конуса |
 | `TrackingHalfFovExtraDegrees` | 15 | бонус half-FOV при наличии Selected |
 | `EyeHeight` | 1.6 | прокидывается в ObservationSource |
@@ -399,7 +399,7 @@ Vector3 GetEngageFacingOriginWorld()   — fallback на root/sight
 
 | Параметр | Default | Смысл |
 |----------|---------|--------|
-| `MaxEngageRange` | 18 | retain/range checks. **Не** VisionRange (perception 500 м на `Unit.prefab`) |
+| Retain (`ResolvedMaxRange`) | текущий источник | reload/misfire revalidate. **Не** SELECT ranking. Поле `m_MaxEngageRange` снято (Stage 14 / A7) |
 | `RetainTargetDuringReloadOrMalfunction` | true | держать цель без FOV (range+LOS) |
 | `LineOfFireSafetyRadius` | 0.35 | suppress radius semantics |
 | `LineOfFireBlockedRetrySeconds` | 0.15 | |
@@ -649,7 +649,7 @@ Vision scan только до ApplyVisionFrame; Selector на PerceptionFrameApp
 
 | Пункт | Статус | Почему не сделано |
 |-------|--------|-------------------|
-| Градация до ~500 м «только хорошо заметные» | Частично G1 (`DistanceFarMeters` = 500) + G8 budget | Формула Q есть. **`Unit.prefab` VisionRange = 500 м** (perception). **MaxEngageRange остаётся 18 м**. Не сливать. Дальний detect дешёвый за счёт LOD, не за счёт урезания range |
+| Градация до ~500 м «только хорошо заметные» | Частично G1 (`DistanceFarMeters` = 500) + G8 budget | Формула Q есть. Живой глаз **150 м** (оптика до 300). Combat retain = `ResolvedMaxRange`, не отдельный 18 м. Дальний detect дешёвый за счёт LOD, не за счёт урезания range |
 | Состояние **наблюдателя** (идёт / бежит / занят) как detection modifiers | ❌ Нет | Не входило в G1 (там только движение **цели**). Намеренно позже: иначе Vision узнаёт всю game logic. Путь — ObservationSource + параметры, без знания анимаций внутри Vision. Не G3 |
 
 Lighting / camouflage / fatigue / attention — **не цель системы** (см. §8.9). Не backlog.
@@ -1378,8 +1378,8 @@ Engagement: нет sound-типов; `HasKnowledge` в контексте; бе�
 ```text
 LOD = compute budget, не DetectionProgress
 Q = Distance × FOV × Exposure × Movement   (без LOD penalty)
-500 m = perception (Unit.prefab VisionRange / DistanceFarMeters)
-18 m  = MaxEngageRange                     (не сливать)
+500 m = historical G8 perception discussion (Unit.prefab DistanceFar / old VisionRange)
+retain = ResolvedMaxRange (Stage 14; не отдельный 18 м)
 skip-scan ≠ ApplyVisionFrame(empty)
 T1/T2 никогда не фабрикуют VisionObservation.IsVisible
 только T3 применяет vision frame
@@ -1527,7 +1527,8 @@ LoF blocked?                       → SuppressCurrentTargetForLineOfFire(t); vi
 Кто сейчас в кадре зрения?         → UnitPerception.Observations  // не список выбора
 Текущий звук / доклад?             → UnitPerception.SoundEvents / SharedEvents  // не список выбора
 LOD / сколько стоит скан?          → UnitVision.ScanStats / CurrentScanTier  // не Q, не confidence
-Perception range?                  → UnitVision.VisionRange (prefab 500 м) ≠ MaxEngageRange (18 м)
+Perception range?                  → UnitVision.ResolvedMaxRange (глаз 150 / оптика до 300)
+Combat retain?                     → тот же ResolvedMaxRange; не SELECT; поле 18 м снято
 Soft-lost LastSeen?                → contact.LastSeenPosition / LastSeenTime
 LastSeenConfidence decay?          → contact.LastSeenConfidence / IsMemoryStale
 Memory-only / sound-only selected? → Decision=Track; не Fire

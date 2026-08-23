@@ -125,6 +125,12 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		if (m_ProjectilePrefab == null || m_MuzzleExit == null)
 			return;
 
+		if (!TryAuthorizeMk19Launch(out ProjectileLaunchDeny deny))
+		{
+			LogProjectileAttempt(deny);
+			return;
+		}
+
 		EnsureProjectilePool();
 
 		GameObject proj = m_ProjectilePool[m_ProjectileIndex % m_PoolCapacity];
@@ -145,6 +151,7 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		if (proj.TryGetComponent(out VehicleTurretGrenadeProjectile grenade))
 		{
 			grenade.ConfigureDiagnostics(m_Mk19ProjectileShotCount);
+			grenade.BindShooter(m_Bridge != null && m_Bridge.HasBoundGunner ? m_Bridge.BoundGunner.transform : null);
 			grenade.SetVelocity(launchVelocity);
 		}
 		else if (proj.TryGetComponent(out Rigidbody rb))
@@ -159,6 +166,54 @@ public sealed class VehicleTurretGrenadeFiring : MonoBehaviour
 		LogMk19(
 			$"Projectile #{m_Mk19ProjectileShotCount} pool={((m_ProjectileIndex - 1) % m_PoolCapacity) + 1}/{m_PoolCapacity} " +
 			$"pos={m_MuzzleExit.position} vel={launchVelocity.magnitude:F0}m/s");
+		LogProjectileAttempt(ProjectileLaunchDeny.None);
+	}
+
+	private bool TryAuthorizeMk19Launch(out ProjectileLaunchDeny _reason)
+	{
+		_reason = ProjectileLaunchDeny.NoAimPoint;
+		if (m_Bridge == null || !m_Bridge.HasBoundGunner)
+			return false;
+
+		UnitWeaponFireController fire = m_Bridge.BoundGunner.GetComponent<UnitWeaponFireController>();
+		if (fire == null)
+			return false;
+
+		return fire.TryAuthorizeProjectileLaunch(m_MuzzleExit.position, out _reason);
+	}
+
+	private void LogProjectileAttempt(ProjectileLaunchDeny _reason)
+	{
+		if (!UnitActionLog.Enabled || m_Bridge == null || !m_Bridge.HasBoundGunner)
+			return;
+
+		RtsUnitMember gunner = m_Bridge.BoundGunner;
+		TargetSelector selector = gunner.GetComponent<TargetSelector>();
+		UnitVision vision = gunner.GetComponent<UnitVision>();
+		Vector3 origin = m_MuzzleExit != null ? m_MuzzleExit.position : Vector3.zero;
+		Vector3 aim = selector != null ? selector.GetEngageableAimPointWorld() : Vector3.zero;
+		float distance = aim != Vector3.zero && m_MuzzleExit != null
+			? Vector3.Distance(origin, aim)
+			: 0f;
+		float visionRange = vision != null ? vision.ResolvedMaxRange : UnitVisionProfile.BaseRangeMeters;
+		float life = ProjectileLaunchPermit.Mk19LifetimeSeconds;
+		if (m_ProjectilePrefab != null &&
+		    m_ProjectilePrefab.TryGetComponent(out VehicleTurretGrenadeProjectile prefabGrenade))
+			life = prefabGrenade.MaxLifetimeSeconds;
+
+		string tgt = selector != null && selector.SelectedTarget != null
+			? UnitActionLog.Slot(selector.SelectedTarget)
+			: "none";
+		string payload =
+			"weapon=MK19" +
+			" tgt=" + tgt +
+			" aim=" + UnitActionLog.Vec(aim) +
+			" distance=" + UnitActionLog.F1(distance) +
+			" visionRange=" + UnitActionLog.F1(visionRange) +
+			" physicalRange=" + UnitActionLog.F1(
+				ProjectileLaunchPermit.TheoreticalPhysicalRangeMeters(m_MuzzleVelocity, life)) +
+			" result=" + ProjectileLaunchPermit.FormatResult(_reason);
+		UnitActionLog.Write(gunner, UnitActionLog.Projectile, payload);
 	}
 
 	private void EnsureProjectilePool()

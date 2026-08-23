@@ -342,7 +342,10 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (discipline == WeaponFireDisciplineMode.Auto)
 			return WeaponAimMode.Auto;
 
-		return WeaponFireDisciplineModeUtility.MapToAimMode(discipline, _targetDistanceMeters);
+		return WeaponFireDisciplineModeUtility.MapToAimMode(
+			discipline,
+			_targetDistanceMeters,
+			m_WeaponRuntime != null ? m_WeaponRuntime.CurrentWeaponDefinition : null);
 	}
 
 	private WeaponShotAccuracyInput BuildAccuracyInput(AmmoDefinition _ammo, float _targetDistanceMeters)
@@ -719,25 +722,21 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 	private float ComputeFalloffMultiplier(float _distance, AmmoDefinition _ammo)
 	{
 		WeaponDefinition wd = m_WeaponRuntime.CurrentWeaponDefinition;
-		float effective = wd != null ? wd.EffectiveRangeMeters : 100f;
+		float weaponRange = wd != null ? wd.EffectiveRangeMeters : 100f;
+		float attachmentProduct = 1f;
 		WeaponRuntimeState weaponState = m_WeaponRuntime.RuntimeState;
 		if (weaponState != null)
-			effective *= weaponState.GetAttachmentEffectiveRangeProduct();
-		float ammoEff = _ammo.EffectiveRangeMeters;
-		if (ammoEff > 0.1f)
-			effective = Mathf.Min(effective, ammoEff);
+			attachmentProduct = weaponState.GetAttachmentEffectiveRangeProduct();
 
-		if (effective <= 0.1f)
-			return 1f;
-
-		if (_distance <= effective)
-			return 1f;
-
-		float zeroAt = effective * m_FalloffZeroRangeMultiplier;
-		if (_distance >= zeroAt)
-			return 0f;
-
-		return 1f - (_distance - effective) / (zeroAt - effective);
+		float ammoRange = _ammo != null ? _ammo.EffectiveRangeMeters : 0f;
+		float effective = WeaponDamageRangeMath.ResolveEffectiveRangeMeters(
+			weaponRange,
+			attachmentProduct,
+			ammoRange);
+		return WeaponDamageRangeMath.ComputeFalloffMultiplier(
+			_distance,
+			effective,
+			m_FalloffZeroRangeMultiplier);
 	}
 
 	private float EstimateTargetDistanceMeters()

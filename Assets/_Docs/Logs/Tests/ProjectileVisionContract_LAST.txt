@@ -1,0 +1,55 @@
+Vision Stage 12 ProjectileVisionContract
+2026-08-22 22:32:12
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_E_MK19  300
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_PoseFloors  0.35/0.68/1.0
+PASS  Frozen_Rpg_115_12  115/12
+PASS  Frozen_Disposable_130_12  130/12
+PASS  Frozen_Mk19_240_25  240/25
+
+MATRIX vision=150 (eye)
+     50  Launch
+    100  Launch
+    149  Launch
+    150  Launch
+    151  fireDenied=OutsideVision
+    200  fireDenied=OutsideVision
+    250  fireDenied=OutsideVision
+    300  fireDenied=OutsideVision
+
+MATRIX vision=300 (scope9)
+     50  Launch
+    100  Launch
+    149  Launch
+    150  Launch
+    151  Launch
+    200  Launch
+    250  Launch
+    300  Launch
+PASS  Permit_Eye_50  Launch
+PASS  Permit_Eye_100  Launch
+PASS  Permit_Eye_149  Launch
+PASS  Permit_Eye_150  Launch
+PASS  Permit_Eye_151  fireDenied=OutsideVision
+PASS  Permit_Eye_200  fireDenied=OutsideVision
+PASS  Permit_Eye_250  fireDenied=OutsideVision
+PASS  Permit_Eye_300  fireDenied=OutsideVision
+PASS  Permit_Scope9_250  Launch
+PASS  Permit_Scope9_300  Launch
+PASS  Permit_RecentlyLost  fireDenied=NoAimPoint
+PASS  Permit_LastKnown_300  fireDenied=NoAimPoint
+PASS  Permit_NotG6Fire  Track
+PASS  Permit_NoLOS  blocked
+PASS  FlightBeyondVision  1380m
+PASS  Mk19_E_NotPhysicalLife  E=300 phys=6000
+PASS  Rocket_LifetimeUnclipped  12s
+PASS  Lead_AfterPermit  15.0
+PASS  Architecture_NoSecondVision  static permit
+
+RESULT=PASS  PASS=30 FAIL=0

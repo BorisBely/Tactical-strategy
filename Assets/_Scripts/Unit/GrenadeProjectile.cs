@@ -28,6 +28,7 @@ public sealed class GrenadeProjectile : MonoBehaviour
 	private Coroutine m_FuseRoutine;
 	private Coroutine m_LifetimeRoutine;
 	private Coroutine m_SmokeBodyKeepAliveRoutine;
+	private Transform m_Thrower;
 	private static PhysicsMaterial s_SoftLandingPhysicsMaterial;
 	#endregion
 
@@ -103,6 +104,7 @@ public sealed class GrenadeProjectile : MonoBehaviour
 	{
 		m_Data = _data;
 		m_GrenadeDefinition = _grenadeDefinition;
+		m_Thrower = _thrower != null ? _thrower.transform : null;
 		m_HasPlayedImpactSound = false;
 		m_HasLanded = false;
 		m_HasExploded = false;
@@ -258,6 +260,7 @@ public sealed class GrenadeProjectile : MonoBehaviour
 		GrenadeType type = m_GrenadeDefinition != null ? m_GrenadeDefinition.GrenadeType : GrenadeType.Fragmentation;
 
 		PlayExplosionAudio(position);
+		WorldSoundHub.PublishExplosion(m_Thrower, position);
 		SpawnExplosionVfx(position, type);
 		SpawnSmokeVfx(position, type);
 

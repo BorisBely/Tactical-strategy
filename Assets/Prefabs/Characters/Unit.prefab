@@ -3320,6 +3320,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5583257052563532237}
   - component: {fileID: 3453217202403618131}
+  - component: {fileID: 6128493028475612301}
   m_Layer: 7
   m_Name: Spine_02
   m_TagString: Untagged
@@ -3367,6 +3368,27 @@ MonoBehaviour:
   m_MarksLegsWounded: 0
   m_MarksHeavyPain: 0
   m_MinDamageForConditionEffect: 1
+--- !u!65 &6128493028475612301
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3842021023417125647}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.40920776, y: 0.2783776, z: 0.38197827}
+  m_Center: {x: -0.20460391, y: 0.025450096, z: -0.00000010430813}
 --- !u!1 &4006420851912009387
 GameObject:
   m_ObjectHideFlags: 0
@@ -10608,6 +10630,7 @@ MonoBehaviour:
   m_LossTimeSeconds: 2.5
   m_AcquireThreshold: 0.25
   m_LoseThreshold: 0.2
+  m_AcquisitionExponent: 3.8
   m_RecentlyLostDurationSeconds: 5
   m_RemoveContactWhenUndetectedAndLost: 0
   m_IdentifyTimeSeconds: 4
@@ -10620,7 +10643,7 @@ MonoBehaviour:
   m_SharedShapeExponent: 1.5
   m_DistanceFarMeters: 150
   m_DistanceNearMeters: 20
-  m_DistanceFarFactor: 0.08
+  m_DistanceFarFactor: 0.3
   m_FovHalfReferenceDegrees: 60
   m_FovEdgeFactor: 0.15
   m_WalkSpeedThreshold: 0.6
@@ -10664,6 +10687,7 @@ MonoBehaviour:
   m_WeaponRuntime: {fileID: 1512094426153763378}
   m_ObservationSource: {fileID: 1100000875000488401}
   m_ContactRegistry: {fileID: 7085333448395688800}
+  m_Vision: {fileID: 1773384317962348157}
   m_ExcludeFriendly: 1
   m_ExcludeNeutralIdentity: 1
   m_AllowUnknownIdentity: 1
@@ -10679,7 +10703,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_QueryTriggerInteraction: 1
-  m_MaxEngageRange: 18
   m_RetainTargetDuringReloadOrMalfunction: 1
   m_LineOfFireSafetyRadius: 0.35
   m_LineOfFireBlockedRetrySeconds: 0.15

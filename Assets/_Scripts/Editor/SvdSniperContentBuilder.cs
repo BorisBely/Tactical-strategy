@@ -234,7 +234,7 @@ public static class SvdSniperContentBuilder
 		so.FindProperty("m_SemiAutoFireRateRpm").floatValue = 150f;
 		so.FindProperty("m_AimTimeSeconds").floatValue = 0.48f;
 		so.FindProperty("m_ReloadTimeSeconds").floatValue = 2.5f;
-		so.FindProperty("m_EffectiveRangeMeters").floatValue = 320f;
+		so.FindProperty("m_EffectiveRangeMeters").floatValue = 175f;
 		so.FindProperty("m_BaseShotDispersion").floatValue = 0.48f;
 		so.FindProperty("m_RecoilPerShot").floatValue = 0.46f;
 		so.FindProperty("m_SemiAutoRecoilMultiplier").floatValue = 0.82f;
@@ -261,7 +261,7 @@ public static class SvdSniperContentBuilder
 	private static void ApplySniperBalance(WeaponDefinition _weapon)
 	{
 		var so = new SerializedObject(_weapon);
-		so.FindProperty("m_EffectiveRangeMeters").floatValue = 380f;
+		so.FindProperty("m_EffectiveRangeMeters").floatValue = 225f;
 		so.FindProperty("m_AimTimeSeconds").floatValue = 0.55f;
 		so.FindProperty("m_BaseShotDispersion").floatValue = 0.40f;
 		so.FindProperty("m_RecoilPerShot").floatValue = 0.42f;

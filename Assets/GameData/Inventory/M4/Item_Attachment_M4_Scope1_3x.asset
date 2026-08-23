@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Scope1_3x
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_scope1_3x
-  m_Description: "\u041E\u043F\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u0440\u0438\u0446\u0435\u043B
-    \u0434\u043B\u044F 35-45 \u043C."
+  m_Description: "Фиксированная 3-кратная оптика для средней дистанции."
   m_Icon: {fileID: 21300000, guid: 8fa066a103752de4f9db90fc601df38e, type: 3}
   m_BasePrice: 520
   m_WeightKg: 0

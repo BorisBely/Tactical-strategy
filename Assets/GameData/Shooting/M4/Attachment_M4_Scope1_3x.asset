@@ -34,7 +34,11 @@ MonoBehaviour:
   m_CompatibleSlots: 03000000
   m_CompatibleRailSocketIndices: 
   m_AimTimeModifier: 1.14
-  m_EffectiveRangeModifier: 1.15
+  m_EffectiveRangeModifier: 1
+  m_ScopeVisionRangeMeters: 200
+  m_HasVariableMagnification: 0
+  m_LowMagnificationScopeVisionRangeMeters: 0
+  m_HighMagnificationActive: 1
   m_RecoilModifier: 1
   m_SemiAutoRecoilModifier: 1
   m_AutomaticRecoilModifier: 1
@@ -79,33 +83,6 @@ MonoBehaviour:
         weightedMode: 0
         inWeight: 0
         outWeight: 0
-      - serializedVersion: 3
-        time: 275
-        value: 0.88
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 375
-        value: 1.04
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.12
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
@@ -142,33 +119,6 @@ MonoBehaviour:
       - serializedVersion: 3
         time: 200
         value: 0.98
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 275
-        value: 1.02
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 375
-        value: 1.08
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: 500
-        value: 1.12
         inSlope: 0
         outSlope: 0
         tangentMode: 0

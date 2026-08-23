@@ -47,8 +47,14 @@ public sealed class UnitWeaponImpactVfx : MonoBehaviour
 	#region Private Methods
 	private void HandleShotTrace(WeaponShotTraceInfo _trace)
 	{
+		if (_trace.HitSelf)
+			return;
+
+		if (_trace.HasHit && _trace.HitCollider != null)
+			WorldSoundHub.PublishImpact(transform, _trace.EndPoint);
+
 		WeaponVfxProfile profile = WeaponVfxUtility.GetCurrentProfile(m_WeaponRuntime);
-		if (profile == null || _trace.HitSelf)
+		if (profile == null)
 			return;
 
 		if (!_trace.HasHit || _trace.HitCollider == null)

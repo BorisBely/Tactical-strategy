@@ -154,7 +154,36 @@ public static class DetectionCalibrationScenarios
 		return SimulateProgress(_quality, DetectionQualityMath.DefaultAcquireThreshold);
 	}
 
-	public static ProgressRun SimulateProgress(float _quality, float _acquireThreshold)
+	public static ProgressRun SimulateProgress(in Scenario _scenario)
+	{
+		return SimulateProgress(
+			EvaluateQ(_scenario).Q,
+			DetectionQualityMath.DefaultAcquireThreshold,
+			AttentionMath.EvaluateMultiplier(_scenario.FovOffsetDegrees));
+	}
+
+	/// <summary>
+	/// Runtime Detected gate. FrozenCal timeout (D, E–H) stays gated — linear Q sim must not
+	/// force Detected when Stage 6 keeps partial Exposure × periphery as a miss.
+	/// </summary>
+	public static bool ExpectsRuntimeDetected(in Scenario _scenario)
+	{
+		for (int i = 0; i < s_V13Baseline.Length; i++)
+		{
+			if (s_V13Baseline[i].Id != _scenario.Id)
+				continue;
+			if (string.Equals(s_V13Baseline[i].TDetect, "timeout", StringComparison.Ordinal))
+				return false;
+			break;
+		}
+
+		return SimulateProgress(EvaluateQ(_scenario).Q).Detected;
+	}
+
+	public static ProgressRun SimulateProgress(
+		float _quality,
+		float _acquireThreshold,
+		float _attentionMultiplier = 1f)
 	{
 		var run = new ProgressRun();
 		var trace = new StringBuilder(512);
@@ -166,8 +195,9 @@ public static class DetectionCalibrationScenarios
 		bool logged75 = false;
 		float t = 0f;
 		float maxProgress = 0f;
+		float att = AttentionMath.ClampMultiplier(_attentionMultiplier);
 
-		trace.AppendLine($"START Q={F(_quality, 3)}");
+		trace.AppendLine($"START Q={F(_quality, 3)} attMul={F(att, 2)}");
 		trace.AppendLine($"Q={F(_quality, 3)} state={state} progress={F(progress, 3)} t=0.00");
 
 		while (t < TimeoutSeconds - 0.0001f)
@@ -179,7 +209,9 @@ public static class DetectionCalibrationScenarios
 				DetectionQualityMath.DefaultAcquireTime,
 				DetectionQualityMath.DefaultLossTime,
 				_acquireThreshold,
-				DetectionQualityMath.DefaultLoseThreshold);
+				DetectionQualityMath.DefaultLoseThreshold,
+				DetectionQualityMath.DefaultAcquisitionExponent,
+				att);
 			t += SimDtSeconds;
 			if (progress > maxProgress)
 				maxProgress = progress;
@@ -272,6 +304,7 @@ public static class DetectionCalibrationScenarios
 		sb.AppendLine($"AcquireThreshold={F(DetectionQualityMath.DefaultAcquireThreshold, 2)}");
 		sb.AppendLine($"LoseThreshold={F(DetectionQualityMath.DefaultLoseThreshold, 2)}");
 		sb.AppendLine($"AcquireTime={F(DetectionQualityMath.DefaultAcquireTime, 2)}");
+		sb.AppendLine($"AcquisitionExponent={F(DetectionQualityMath.DefaultAcquisitionExponent, 1)}");
 		sb.AppendLine($"LossTime={F(DetectionQualityMath.DefaultLossTime, 2)}");
 		sb.AppendLine("---");
 
@@ -281,7 +314,7 @@ public static class DetectionCalibrationScenarios
 		for (int i = 0; i < scenarios.Length; i++)
 		{
 			snaps[i] = EvaluateQ(scenarios[i]);
-			runs[i] = SimulateProgress(snaps[i].Q);
+			runs[i] = SimulateProgress(scenarios[i]);
 		}
 
 		sb.AppendLine("FOV CURVE");

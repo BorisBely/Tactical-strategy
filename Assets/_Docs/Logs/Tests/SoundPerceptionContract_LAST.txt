@@ -1,0 +1,53 @@
+Vision Stage 16 SoundPerceptionContract
+2026-08-23 10:34:44
+OPEN / BAKED — SoundPerceptionContract (Play PASS stamps CLOSED)
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_E_MK19  300
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_Pose_0.35  0.35
+PASS  Frozen_Pose_0.68  0.68
+PASS  Frozen_Pose_1.00  1.00
+PASS  Frozen_Rpg_115_12  115/12
+PASS  Frozen_Mk19_240_25  240/25
+PASS  Frozen_Acquire_0.25  0.25
+PASS  Frozen_Lose_0.20  0.20
+PASS  Frozen_Exponent_3.8  3.8
+PASS  Frozen_AcquireTime_0.35  0.35
+PASS  Frozen_Q_DxFxExM  0.40
+PASS  Frozen_SoundHorizon_3  3s
+PASS  Attention_not_in_Q  D×F×E×M
+PASS  A_HearNotSee  obs
+PASS  A_NoAim  aim
+PASS  A_NoFire  fire
+PASS  A_LastKnownEmpty  lk
+PASS  A_SoundPos  sp
+PASS  A_SelectorNoAim  sel
+PASS  B_NearHighConf  near
+PASS  C_BeyondRange  far
+PASS  D_t0  0s
+PASS  D_t1  1s
+PASS  D_t2  2s
+PASS  D_t3  3s
+PASS  D_t4  4s
+PASS  E_LastKnownVisual  lk
+PASS  E_SoundPosHeard  sp
+PASS  E_BelievedVisual  believed
+PASS  F_Unknown  id
+PASS  F_NotObserved  obs
+PASS  Hub_InRangeOnly  3/3
+PASS  Hub_DeliveryCount  5
+PASS  Hub_NoRaycast  math
+PASS  Hub_SkipSelf  self
+PASS  Live_FireAudioNoClip  shot
+PASS  Architecture_NoSecondVision  0
+PASS  Architecture_GunshotRange  300
+PASS  Architecture_ExplosionRange  500
+PASS  Architecture_FootstepRange  25
+PASS  Architecture_ImpactRange  40
+
+RESULT=PASS  PASS=47 FAIL=0

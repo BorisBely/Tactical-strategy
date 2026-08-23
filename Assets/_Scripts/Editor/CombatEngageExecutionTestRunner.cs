@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class CombatEngageExecutionTestRunner
 {
-	[MenuItem("Tools/Tests/Run Combat Engage Execution (Play)", false, 146)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run Combat Engage Execution (Play)", false, 123)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

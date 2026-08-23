@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_EOTech_G33
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_eotech_g33
-  m_Description: "\u0413\u0438\u0431\u0440\u0438\u0434 \u0434\u043B\u044F 0-20 \u043C
-    \u0438 35-45 \u043C \u0441 \u043F\u0440\u043E\u0432\u0430\u043B\u043E\u043C \u043C\u0435\u0436\u0434\u0443
-    \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438."
+  m_Description: "Голограф 1x и откидной 3-кратный адаптер."
   m_Icon: {fileID: 21300000, guid: 07f7c63a48d1d4c4d9f108f9ffc132f6, type: 3}
   m_BasePrice: 860
   m_WeightKg: 0

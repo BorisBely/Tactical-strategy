@@ -1,0 +1,81 @@
+Vision Stage 11 FireDisciplineContract
+2026-08-22 22:06:49
+---
+PASS  Assets  load
+PASS  Frozen_E_M4  140
+PASS  Frozen_E_Sniper  225
+PASS  Frozen_V_Reddot  150
+PASS  Frozen_V_Scope9  300
+PASS  Frozen_AimTimeX_Scope9  1,55
+PASS  Frozen_PoseFloors  0.35/0.68/1.0
+PASS  Profile_FiveClasses  cqb/assault/lmg/marksman/sniper
+PASS  Working_NotVisionOrE  range≠E≠V
+PASS  CQB_10_Aggressive  FullAuto s=6 a=0.45 Close
+PASS  Assault_100_Universal  Burst s=2 a=0.77 Mid
+PASS  Assault_150_Controlled  SemiAuto s=1 a=1.00 Far
+PASS  LMG_150_Support  FullAuto s=8 a=1.00 Mid
+PASS  Marksman_150_Precision  SemiAuto s=1 a=0.92 Mid
+PASS  Sniper_NeverSpray  semi×1
+
+MATRIX Weapon_AK74U profile=Cqb range=150
+     10  band=Close   n=0,07  mode=FullAuto series= 6  pause=0,22  needAim=0,45  disc=Suppressive
+     25  band=Close   n=0,17  mode=FullAuto series= 6  pause=0,22  needAim=0,45  disc=Suppressive
+     50  band=Near    n=0,33  mode=FullAuto series= 4  pause=0,35  needAim=0,68  disc=Precision
+    100  band=Mid     n=0,67  mode=Burst    series= 3  pause=0,53  needAim=0,73  disc=Precision
+    150  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,21  needAim=1,00  disc=Economical
+    200  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,21  needAim=1,00  disc=Economical
+    225  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,21  needAim=1,00  disc=Economical
+    250  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,21  needAim=1,00  disc=Economical
+    300  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,21  needAim=1,00  disc=Economical
+
+MATRIX Weapon_M4_ModA_1 profile=Assault range=200
+     10  band=Close   n=0,05  mode=Burst    series= 4  pause=0,35  needAim=0,68  disc=Precision
+     25  band=Close   n=0,13  mode=Burst    series= 4  pause=0,35  needAim=0,68  disc=Precision
+     50  band=Near    n=0,25  mode=Burst    series= 3  pause=0,45  needAim=0,68  disc=Precision
+    100  band=Mid     n=0,50  mode=Burst    series= 2  pause=0,60  needAim=0,77  disc=Precision
+    150  band=Far     n=0,75  mode=SemiAuto series= 1  pause=1,10  needAim=1,00  disc=Economical
+    200  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,49  needAim=1,00  disc=Economical
+    225  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,49  needAim=1,00  disc=Economical
+    250  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,49  needAim=1,00  disc=Economical
+    300  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,49  needAim=1,00  disc=Economical
+
+MATRIX Weapon_M249 profile=Lmg range=220
+     10  band=Close   n=0,05  mode=FullAuto series=12  pause=0,19  needAim=0,40  disc=Suppressive
+     25  band=Close   n=0,11  mode=FullAuto series=12  pause=0,19  needAim=0,40  disc=Suppressive
+     50  band=Near    n=0,23  mode=FullAuto series=10  pause=0,27  needAim=0,68  disc=Suppressive
+    100  band=Mid     n=0,45  mode=FullAuto series= 8  pause=0,39  needAim=1,00  disc=Suppressive
+    150  band=Mid     n=0,68  mode=FullAuto series= 8  pause=0,39  needAim=1,00  disc=Suppressive
+    200  band=VeryFar n=0,91  mode=FullAuto series= 4  pause=0,83  needAim=1,00  disc=Economical
+    225  band=VeryFar n=1,00  mode=FullAuto series= 4  pause=0,83  needAim=1,00  disc=Economical
+    250  band=VeryFar n=1,00  mode=FullAuto series= 4  pause=0,83  needAim=1,00  disc=Economical
+    300  band=VeryFar n=1,00  mode=FullAuto series= 4  pause=0,83  needAim=1,00  disc=Economical
+
+MATRIX Weapon_SVD profile=Marksman range=250
+     10  band=Close   n=0,04  mode=SemiAuto series= 1  pause=0,78  needAim=0,79  disc=Precision
+     25  band=Close   n=0,10  mode=SemiAuto series= 1  pause=0,78  needAim=0,79  disc=Precision
+     50  band=Near    n=0,20  mode=SemiAuto series= 1  pause=0,95  needAim=0,85  disc=Precision
+    100  band=Near    n=0,40  mode=SemiAuto series= 1  pause=0,95  needAim=0,85  disc=Precision
+    150  band=Mid     n=0,60  mode=SemiAuto series= 1  pause=1,20  needAim=0,92  disc=Precision
+    200  band=Far     n=0,80  mode=SemiAuto series= 1  pause=1,60  needAim=1,00  disc=Economical
+    225  band=VeryFar n=0,90  mode=SemiAuto series= 1  pause=1,87  needAim=1,00  disc=Economical
+    250  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,87  needAim=1,00  disc=Economical
+    300  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=1,87  needAim=1,00  disc=Economical
+
+MATRIX Weapon_Sniper762x51 profile=Sniper range=300
+     10  band=Close   n=0,03  mode=SemiAuto series= 1  pause=1,15  needAim=0,90  disc=Precision
+     25  band=Close   n=0,08  mode=SemiAuto series= 1  pause=1,15  needAim=0,90  disc=Precision
+     50  band=Close   n=0,17  mode=SemiAuto series= 1  pause=1,15  needAim=0,90  disc=Precision
+    100  band=Near    n=0,33  mode=SemiAuto series= 1  pause=1,40  needAim=0,94  disc=Precision
+    150  band=Mid     n=0,50  mode=SemiAuto series= 1  pause=1,60  needAim=0,97  disc=Precision
+    200  band=Mid     n=0,67  mode=SemiAuto series= 1  pause=1,60  needAim=0,97  disc=Precision
+    225  band=Far     n=0,75  mode=SemiAuto series= 1  pause=1,85  needAim=1,00  disc=Economical
+    250  band=Far     n=0,83  mode=SemiAuto series= 1  pause=1,85  needAim=1,00  disc=Economical
+    300  band=VeryFar n=1,00  mode=SemiAuto series= 1  pause=2,15  needAim=1,00  disc=Economical
+PASS  Series_NeverZero  all cells
+PASS  FarStillFires  300m
+PASS  Hysteresis  enter/exit
+PASS  Old70m_NotAnEdge  Near
+PASS  AmmoEconomy_3s  mag
+PASS  Aim_RisesWithDistance  0,68→1,00
+
+RESULT=PASS  PASS=21 FAIL=0

@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class UseOfForcePolicyTestRunner
 {
-	[MenuItem("Tools/Tests/Run AI Use of Force (Play)", false, 145)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run AI Use of Force (Play)", false, 122)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

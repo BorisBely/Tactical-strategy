@@ -1,0 +1,23 @@
+optic,asset_path,behavior_class,mode,magnification,scope_vision_range,has_variable,display_name,notes
+Attachment_M4_Reddot1,Assets/GameData/Shooting/M4/Attachment_M4_Reddot1.asset,1x,1x,1,150,0,Коллиматорный прицел мод 1,Same 1x class. Cosmetics only.
+Attachment_M4_Reddot3,Assets/GameData/Shooting/M4/Attachment_M4_Reddot3.asset,1x,1x,1,150,0,Коллиматорный прицел мод 2,Same 1x class. Cosmetics only.
+Attachment_M4_RDC,Assets/GameData/Shooting/M4/Attachment_M4_RDC.asset,1x,1x,1,150,0,Коллиматорный прицел мод 3,Same 1x class. Cosmetics only.
+Attachment_M4_Aimpoint,Assets/GameData/Shooting/M4/Attachment_M4_Aimpoint.asset,2x,2x,2,175,0,2-кратный оптический прицел,Compact 2x. Not a collimator. Between 1x 150 and 3x 200.
+Attachment_M4_Reddot2,Assets/GameData/Shooting/M4/Attachment_M4_Reddot2.asset,1x,1x,1,150,0,Голографический прицел,1x holographic. No vision bonus.
+Attachment_AK_Reddot4_Rail,Assets/GameData/Shooting/AK/Attachment_AK_Reddot4_Rail.asset,1x,1x,1,150,0,Коллиматорный прицел на боковую планку,AK side-rail collimator. Same 150 as M4 1x.
+Attachment_M4_EOTech_G33,Assets/GameData/Shooting/M4/Attachment_M4_EOTech_G33.asset,1x/3x,1x,1,150,1,Гибридный прицел 1/3×,Low mode is data not a code exception.
+Attachment_M4_EOTech_G33,Assets/GameData/Shooting/M4/Attachment_M4_EOTech_G33.asset,1x/3x,3x,3,200,1,Гибридный прицел 1/3×,3x band. Same high as fixed 3x.
+Attachment_M4_Scope1_3x,Assets/GameData/Shooting/M4/Attachment_M4_Scope1_3x.asset,3x,3x,3,200,0,3-кратный оптический прицел,Fixed 3x. Same high as hybrid 3x.
+Attachment_Mosin_Scope8,Assets/GameData/Shooting/Mosin/Attachment_Mosin_Scope8.asset,3.5x,3.5x,3.5,210,0,3.5-кратный оптический прицел,Compact 3.5x. Not a long sniper. Between 3x 200 and 4x 220.
+Attachment_M4_ACOG_RMR,Assets/GameData/Shooting/M4/Attachment_M4_ACOG_RMR.asset,1x/3.5x,1x,1,150,1,3.5-кратный оптический прицел с коллиматором,Top 1x channel.
+Attachment_M4_ACOG_RMR,Assets/GameData/Shooting/M4/Attachment_M4_ACOG_RMR.asset,1x/3.5x,3.5x,3.5,210,1,3.5-кратный оптический прицел с коллиматором,High mode matches fixed 3.5x. Not a second VisionSystem.
+Attachment_M4_ACOG,Assets/GameData/Shooting/M4/Attachment_M4_ACOG.asset,4x,4x,4,220,0,4-кратный оптический прицел,4x class 210-230. Pick 220.
+Attachment_M4_SUSAT,Assets/GameData/Shooting/M4/Attachment_M4_SUSAT.asset,4x,4x,4,220,0,4-кратный оптический прицел мод 1,Same 4x vision as the other 4x. Backup irons are not a second vision channel.
+Attachment_AK_Scope11,Assets/GameData/Shooting/AK/Attachment_AK_Scope11.asset,4x,4x,4,220,0,4-кратный оптический прицел на боковую планку,Same 4x vision. Side-rail mount only.
+Attachment_M4_ELCAN_SpecterDR,Assets/GameData/Shooting/M4/Attachment_M4_ELCAN_SpecterDR.asset,1x/4x,1x,1,150,1,1/4-кратный оптический прицел,Two modes only: 1x and 4x.
+Attachment_M4_ELCAN_SpecterDR,Assets/GameData/Shooting/M4/Attachment_M4_ELCAN_SpecterDR.asset,1x/4x,4x,4,220,1,1/4-кратный оптический прицел,High 4x = 4x class 220.
+Attachment_M4_Vortex_Razor,Assets/GameData/Shooting/M4/Attachment_M4_Vortex_Razor.asset,1x/6x,1x,1,150,1,1-6-кратный оптический прицел,Low mode is data.
+Attachment_M4_Vortex_Razor,Assets/GameData/Shooting/M4/Attachment_M4_Vortex_Razor.asset,1x/6x,6x,6,250,1,1-6-кратный оптический прицел,Assault 6x LPVO class ~250.
+Attachment_M4_Scope4,Assets/GameData/Shooting/M4/Attachment_M4_Scope4.asset,sniper_6x,6x,6,260,0,6-кратный снайперский прицел,Sniper ladder starts at 6x. Slightly above assault 6x LPVO because it is a dedicated long tube.
+Attachment_M4_Scope5,Assets/GameData/Shooting/M4/Attachment_M4_Scope5.asset,sniper_8x,8x,8,280,0,8-кратный снайперский прицел,Sniper ladder step 2.
+Attachment_M4_Scope9,Assets/GameData/Shooting/M4/Attachment_M4_Scope9.asset,sniper_10x,10x,10,300,0,10-кратный снайперский прицел,Sniper ladder top. Envelope max 300.

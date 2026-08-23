@@ -7,7 +7,7 @@ namespace Vision.Tests.Editor
 {
 	public static class DetectionQualityMathNUnitRunner
 	{
-		[MenuItem("Tools/Tests/Run DetectionG1 EditMode NUnit")]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run DetectionG1 EditMode NUnit", false, 145)]
 		public static void RunFromMenu()
 		{
 			var api = ScriptableObject.CreateInstance<TestRunnerApi>();

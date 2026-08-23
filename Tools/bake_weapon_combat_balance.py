@@ -1,4 +1,8 @@
-"""Bake weapon distance curves, auto-burst multipliers and base stats into WeaponDefinition assets."""
+"""Bake weapon distance curves, auto-burst multipliers and base stats into WeaponDefinition assets.
+
+Stage 9: does not write m_EffectiveRangeMeters. Range owner is
+Tools/weapon_range_catalog.csv via bake_weapon_range.py.
+"""
 from __future__ import annotations
 
 import re
@@ -284,7 +288,7 @@ def patch_weapon(path: Path, data: dict) -> None:
     text = set_scalar(text, "m_FireRateRpm", data["fire_rate"])
     text = set_scalar(text, "m_AimTimeSeconds", data["aim"])
     text = set_scalar(text, "m_ReloadTimeSeconds", data["reload"])
-    text = set_scalar(text, "m_EffectiveRangeMeters", data["range_m"])
+    # Stage 9: EffectiveRange is owned by Tools/weapon_range_catalog.csv via bake_weapon_range.py.
     text = set_scalar(text, "m_BaseShotDispersion", data["base_dispersion"])
     text = set_scalar(text, "m_RecoilPerShot", data["recoil"])
     text = set_scalar(text, "m_SemiAutoRecoilMultiplier", data["semi_recoil"])
@@ -329,7 +333,10 @@ def apply_excel_accuracy_curves() -> None:
 
 
 def main() -> None:
-    apply_excel_accuracy_curves()
+    raise SystemExit(
+        "bake_weapon_combat_balance.py must not write distance curves. "
+        "Stage 10 owner: python Tools/bake_accuracy_aim_curves.py"
+    )
     baked = 0
     for rel, data in WEAPONS.items():
         matches = list(SHOOTING.rglob(rel.split("/")[-1]))

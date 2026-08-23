@@ -10,7 +10,7 @@ namespace Vision.Tests.Editor
 	/// </summary>
 	public static class CombatIntentNUnitRunner
 	{
-		[MenuItem("Tools/Tests/Run Combat Engage Execution (EditMode)", false, 145)]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run Combat Engage Execution (EditMode)", false, 140)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

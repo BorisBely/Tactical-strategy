@@ -18,7 +18,7 @@ namespace VehicleNavigation.Editor
 			public Vector3 Position;
 		}
 
-		[MenuItem("Tools/Tests/Setup Five Test Platforms")]
+		[MenuItem("Tools/Tests/Archive/Scene/Setup Five Test Platforms", false, 150)]
 		public static void SetupFivePlatforms()
 		{
 			var scene = SceneManager.GetActiveScene();

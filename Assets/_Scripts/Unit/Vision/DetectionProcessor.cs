@@ -64,6 +64,61 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			       HasShared == _other.HasShared;
 		}
 	}
+
+	private struct SoundLogFingerprint : System.IEquatable<SoundLogFingerprint>
+	{
+		public SoundEventType Type;
+		public Vector3 Position;
+		public float Confidence;
+
+		public static SoundLogFingerprint From(PerceivedContact _contact)
+		{
+			return new SoundLogFingerprint
+			{
+				Type = _contact.SoundType,
+				Position = _contact.SoundPosition,
+				Confidence = _contact.SoundConfidence
+			};
+		}
+
+		public bool Equals(SoundLogFingerprint _other)
+		{
+			return Type == _other.Type &&
+			       (Position - _other.Position).sqrMagnitude < 0.01f &&
+			       Mathf.Abs(Confidence - _other.Confidence) < 0.02f;
+		}
+	}
+
+	private struct SharedLogFingerprint : System.IEquatable<SharedLogFingerprint>
+	{
+		public PerceivedIdentity Identity;
+		public Vector3 Position;
+		public float Confidence;
+
+		public static SharedLogFingerprint From(PerceivedContact _contact)
+		{
+			return new SharedLogFingerprint
+			{
+				Identity = _contact.SharedIdentity,
+				Position = _contact.SharedPosition,
+				Confidence = _contact.SharedConfidence
+			};
+		}
+
+		public bool Equals(SharedLogFingerprint _other)
+		{
+			return Identity == _other.Identity &&
+			       (_other.Position - Position).sqrMagnitude < 0.01f &&
+			       Mathf.Abs(Confidence - _other.Confidence) < 0.02f;
+		}
+	}
+
+	private struct AllyReportThrottle
+	{
+		public float Time;
+		public Vector3 Position;
+		public PerceivedIdentity Identity;
+	}
 	#endregion
 
 	#region Serialized
@@ -72,6 +127,8 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	[SerializeField, Min(0.1f)] private float m_LossTimeSeconds = 2.5f;
 	[SerializeField, Range(0f, 1f)] private float m_AcquireThreshold = 0.25f;
 	[SerializeField, Range(0f, 1f)] private float m_LoseThreshold = 0.20f;
+	[Tooltip("1 = legacy linear Q. Production 3.8 slows low-Q accumulation without changing Q.")]
+	[SerializeField, Min(1f)] private float m_AcquisitionExponent = 3.8f;
 
 	[Header("G2 Observation lifecycle")]
 	[SerializeField, Min(0.1f)] private float m_RecentlyLostDurationSeconds = 5f;
@@ -97,7 +154,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	// Prefab leftovers: DistanceFactor is t = d / ResolvedMaxRange, not near/far SmoothStep.
 #pragma warning disable CS0414
 	[SerializeField, Min(1f)] private float m_DistanceNearMeters = 20f;
-	[SerializeField, Range(0f, 1f)] private float m_DistanceFarFactor = 0.08f;
+	[SerializeField, Range(0f, 1f)] private float m_DistanceFarFactor = 0.30f;
 #pragma warning restore CS0414
 
 	[Header("FOV factor")]
@@ -131,6 +188,12 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	private readonly HashSet<Transform> m_ObservedThisScan = new HashSet<Transform>();
 	private readonly Dictionary<EntityId, ContactLogFingerprint> m_LoggedContacts =
 		new Dictionary<EntityId, ContactLogFingerprint>(16);
+	private readonly Dictionary<EntityId, SoundLogFingerprint> m_LoggedSounds =
+		new Dictionary<EntityId, SoundLogFingerprint>(16);
+	private readonly Dictionary<EntityId, SharedLogFingerprint> m_LoggedShared =
+		new Dictionary<EntityId, SharedLogFingerprint>(16);
+	private readonly Dictionary<Transform, AllyReportThrottle> m_AllyReportThrottle =
+		new Dictionary<Transform, AllyReportThrottle>(8);
 
 	private PerceivedContact m_DebugFocus;
 	private float m_SimulatedTime = -1f;
@@ -148,6 +211,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	public float LossTimeSeconds => m_LossTimeSeconds;
 	public float AcquireThreshold => m_AcquireThreshold;
 	public float LoseThreshold => m_LoseThreshold;
+	public float AcquisitionExponent => m_AcquisitionExponent;
 	public float FovHalfReferenceDegrees => m_FovHalfReferenceDegrees;
 	public float FovEdgeFactor => m_FovEdgeFactor;
 	public float RecentlyLostDurationSeconds => m_RecentlyLostDurationSeconds;
@@ -172,10 +236,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	private void OnEnable()
 	{
 		EnsurePerceptionBound();
+		WorldSoundHub.Register(this);
+		WorldAllyReportHub.Register(this);
 	}
 
 	private void OnDisable()
 	{
+		WorldSoundHub.Unregister(this);
+		WorldAllyReportHub.Unregister(this);
 		UnbindPerceptionEvents();
 	}
 
@@ -231,6 +299,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		m_LostSinceTime.Clear();
 		m_ObservedThisScan.Clear();
 		m_LoggedContacts.Clear();
+		m_LoggedSounds.Clear();
 		m_DebugFocus = null;
 		m_HasRecentlyLostContact = false;
 		m_ContactsDirty = false;
@@ -350,11 +419,39 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		m_Perception.ApplySoundEvents(new[] { obs });
 	}
 
+	public void ReceiveWorldSound(in WorldSoundEvent _evt, float _confidence)
+	{
+		if (!isActiveAndEnabled)
+			return;
+		if (_evt.Source == null)
+			return;
+		if (IsOwnSoundSource(_evt.Source))
+			return;
+		ApplySyntheticSound(_evt.Source, _evt.Position, _confidence, _evt.Type);
+	}
+
+	public void ReceiveWorldAllyReport(in WorldAllyReportEvent _evt, float _confidence)
+	{
+		if (!isActiveAndEnabled)
+			return;
+		if (_evt.Subject == null || _evt.Reporter == null)
+			return;
+		if (IsOwnAllyReporter(_evt.Reporter))
+			return;
+		ApplySyntheticShared(
+			_evt.Subject,
+			_evt.Position,
+			_confidence,
+			_evt.Reporter,
+			_evt.ReportedIdentity);
+	}
+
 	public void ApplySyntheticShared(
 		Transform _subject,
 		Vector3 _worldPosition,
 		float _confidence,
-		Transform _sourceUnit = null)
+		Transform _sourceUnit = null,
+		PerceivedIdentity _reportedIdentity = PerceivedIdentity.Unknown)
 	{
 		EnsurePerceptionBound();
 		if (m_Perception == null || _subject == null)
@@ -369,7 +466,8 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			Time = now,
 			SourceConfidence = Mathf.Clamp01(_confidence),
 			InformationType = SharedInformationType.ContactReport,
-			FreshnessSeconds = m_SharedHorizonSeconds
+			FreshnessSeconds = m_SharedHorizonSeconds,
+			ReportedIdentity = _reportedIdentity
 		};
 		m_Perception.ApplySharedEvents(new[] { obs });
 	}
@@ -417,6 +515,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			if (dt > 0f)
 				PromotePending(dt, _nowTime, acquire, lose);
 			TickContacts(dt, _nowTime, acquire, lose);
+			TryPublishAllyReports(_nowTime);
 			RefreshRecentlyLostCache();
 			RefreshDebugFocus();
 			RaiseContactsChangedIfDirty();
@@ -440,8 +539,10 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 			PendingTrack pending = m_Pending[key];
 			float q = pending.HasEvidenceThisFrame ? pending.Evaluation.VisibilityQuality : 0f;
+			float attention = ResolveAttentionMultiplier(pending.LastObservation);
 			pending.Progress = DetectionQualityMath.IntegrateProgress(
-				pending.Progress, q, _dt, m_AcquireTimeSeconds, m_LossTimeSeconds, _acquire, _lose);
+				pending.Progress, q, _dt, m_AcquireTimeSeconds, m_LossTimeSeconds, _acquire, _lose,
+				m_AcquisitionExponent, attention);
 
 			if (pending.Progress <= 0f)
 			{
@@ -465,11 +566,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			contact.LastSeenTime = pending.LastSeenTime;
 			contact.LastKnownPosition = pending.LastSeenPosition;
 			contact.LastSeenConfidence = pending.HasEvidenceThisFrame ? 1f : 0f;
-			contact.ObservationState = pending.HasEvidenceThisFrame
-				? ObservationState.Observed
-				: ObservationState.RecentlyLost;
-			if (!pending.HasEvidenceThisFrame)
-				m_LostSinceTime[key] = _nowTime;
+			if (pending.HasEvidenceThisFrame)
+				contact.ObservationState = ObservationState.Observed;
+			else
+			{
+				contact.ObservationState = ResolveUnobservedState(key);
+				if (contact.ObservationState == ObservationState.RecentlyLost)
+					m_LostSinceTime[key] = _nowTime;
+			}
 
 			m_Contacts[key] = contact;
 			m_Pending.Remove(key);
@@ -499,7 +603,9 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			PerceivedIdentity prevIdentity = contact.Identity;
 			PerceivedRelationship prevRelationship = contact.Relationship;
 			ThreatLevel prevThreat = contact.Threat;
+			bool hadKnowledge = contact.HasKnowledge;
 
+			float attention = ResolveAttentionMultiplier(contact.LastObservation);
 			contact.DetectionProgress = DetectionQualityMath.IntegrateProgress(
 				contact.DetectionProgress,
 				contact.CurrentEvaluation.VisibilityQuality,
@@ -507,7 +613,9 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 				m_AcquireTimeSeconds,
 				m_LossTimeSeconds,
 				_acquire,
-				_lose);
+				_lose,
+				m_AcquisitionExponent,
+				attention);
 			contact.State = DetectionQualityMath.ResolveState(contact.DetectionProgress);
 
 			if (contact.ObservationState == ObservationState.RecentlyLost)
@@ -522,6 +630,10 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 				    lostSince + m_RecentlyLostDurationSeconds)
 					contact.ObservationState = ObservationState.Lost;
 			}
+
+			if (contact.ObservationState == ObservationState.RecentlyLost &&
+			    !TargetEngageability.IsEngageable(key))
+				contact.ObservationState = ObservationState.Lost;
 
 			if (m_RemoveContactWhenUndetectedAndLost &&
 			    contact.State == DetectionState.Undetected &&
@@ -540,7 +652,8 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			    prevState != contact.State ||
 			    prevIdentity != contact.Identity ||
 			    prevRelationship != contact.Relationship ||
-			    prevThreat != contact.Threat)
+			    prevThreat != contact.Threat ||
+			    hadKnowledge != contact.HasKnowledge)
 			{
 				MarkContactsChanged();
 			}
@@ -625,8 +738,9 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			contact.CurrentEvaluation = DetectionEvaluation.ClearedIdleMovement();
 			if (contact.ObservationState == ObservationState.Observed)
 			{
-				contact.ObservationState = ObservationState.RecentlyLost;
-				m_LostSinceTime[key] = now;
+				contact.ObservationState = ResolveUnobservedState(key);
+				if (contact.ObservationState == ObservationState.RecentlyLost)
+					m_LostSinceTime[key] = now;
 				changed = true;
 			}
 
@@ -657,13 +771,14 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 				continue;
 
 			PerceivedContact contact = EnsureContact(obs.Source);
+			bool hadSound = contact.HasUsefulSound;
 			contact.SoundConfidenceInitial = confidence;
 			contact.SoundConfidence = confidence;
 			contact.SoundTime = obs.Time > 0f ? obs.Time : now;
 			contact.SoundPosition = obs.Position;
-			if (contact.ObservationState != ObservationState.Observed)
-				contact.LastKnownPosition = obs.Position;
+			contact.SoundType = obs.Type;
 			m_Contacts[obs.Source] = contact;
+			LogSoundIfChanged(contact, hadSound, false);
 			changed = true;
 		}
 
@@ -694,13 +809,15 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 				continue;
 
 			PerceivedContact contact = EnsureContact(obs.Subject);
+			bool hadShared = contact.HasUsefulShared;
 			contact.SharedConfidenceInitial = confidence;
 			contact.SharedConfidence = confidence;
 			contact.SharedTime = obs.Time > 0f ? obs.Time : now;
 			contact.SharedPosition = obs.Position;
-			if (contact.ObservationState != ObservationState.Observed)
-				contact.LastKnownPosition = obs.Position;
+			contact.SharedIdentity = obs.ReportedIdentity;
+			contact.SharedReporter = obs.SourceUnit;
 			m_Contacts[obs.Subject] = contact;
+			LogSharedIfChanged(contact, hadShared, false);
 			changed = true;
 		}
 
@@ -775,6 +892,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		if (_contact.SoundConfidenceInitial <= 0f && _contact.SoundConfidence <= 0f)
 			return;
 
+		bool hadSound = _contact.SoundConfidence > 0f;
 		float elapsed = Mathf.Max(0f, _nowTime - _contact.SoundTime);
 		_contact.SoundConfidence = SoundKnowledgeMath.Evaluate(
 			elapsed,
@@ -785,6 +903,8 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		{
 			_contact.SoundConfidence = 0f;
 			_contact.SoundConfidenceInitial = 0f;
+			if (hadSound)
+				LogSoundIfChanged(_contact, true, true);
 		}
 	}
 
@@ -795,6 +915,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		if (_contact.SharedConfidenceInitial <= 0f && _contact.SharedConfidence <= 0f)
 			return;
 
+		bool hadShared = _contact.SharedConfidence > 0f;
 		float elapsed = Mathf.Max(0f, _nowTime - _contact.SharedTime);
 		_contact.SharedConfidence = SharedKnowledgeMath.Evaluate(
 			elapsed,
@@ -805,6 +926,9 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		{
 			_contact.SharedConfidence = 0f;
 			_contact.SharedConfidenceInitial = 0f;
+			_contact.SharedIdentity = PerceivedIdentity.Unknown;
+			if (hadShared)
+				LogSharedIfChanged(_contact, true, true);
 		}
 	}
 
@@ -839,7 +963,151 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 		m_LastKnownPositions.Remove(_key);
 		m_LastPositionSampleTime.Remove(_key);
 		m_LostSinceTime.Remove(_key);
+		if (_key != null)
+		{
+			m_LoggedSounds.Remove(_key.GetEntityId());
+			m_LoggedShared.Remove(_key.GetEntityId());
+			m_AllyReportThrottle.Remove(_key);
+		}
 		MarkContactsChanged();
+	}
+
+	private bool IsOwnSoundSource(Transform _source)
+	{
+		if (_source == null)
+			return false;
+		if (_source == transform)
+			return true;
+		return _source.IsChildOf(transform);
+	}
+
+	private void LogSoundIfChanged(PerceivedContact _contact, bool _hadSound, bool _expired)
+	{
+		if (!UnitActionLog.Enabled || _contact == null || _contact.Target == null)
+			return;
+
+		EntityId id = _contact.Target.GetEntityId();
+		SoundLogFingerprint next = SoundLogFingerprint.From(_contact);
+		if (_expired)
+		{
+			m_LoggedSounds.Remove(id);
+			UnitActionLog.Write(
+				this,
+				UnitActionLog.Sound,
+				"expired type=" + _contact.SoundType +
+				" pos=" + UnitActionLog.Vec(_contact.SoundPosition) +
+				" tgt=" + UnitActionLog.Slot(_contact.Target));
+			return;
+		}
+
+		bool created = !m_LoggedSounds.TryGetValue(id, out SoundLogFingerprint prev);
+		if (!created && prev.Equals(next))
+			return;
+
+		m_LoggedSounds[id] = next;
+		string verb = !_hadSound || created ? "received" : "updated";
+		UnitActionLog.Write(
+			this,
+			UnitActionLog.Sound,
+			verb + " type=" + _contact.SoundType +
+			" pos=" + UnitActionLog.Vec(_contact.SoundPosition) +
+			" conf=" + UnitActionLog.F2(_contact.SoundConfidence) +
+			" tgt=" + UnitActionLog.Slot(_contact.Target));
+	}
+
+	private void TryPublishAllyReports(float _nowTime)
+	{
+		if (!isActiveAndEnabled)
+			return;
+		if (m_ObserverTeam == null)
+			TryGetComponent(out m_ObserverTeam);
+		if (m_ObserverTeam == null || m_ObserverTeam.Team == UnitTeamId.Neutral)
+			return;
+
+		foreach (KeyValuePair<Transform, PerceivedContact> pair in m_Contacts)
+		{
+			PerceivedContact contact = pair.Value;
+			if (contact == null || pair.Key == null)
+				continue;
+			if (contact.ObservationState != ObservationState.Observed)
+				continue;
+			if (contact.Identity == PerceivedIdentity.Friendly)
+				continue;
+			if (pair.Key == transform || pair.Key.IsChildOf(transform))
+				continue;
+
+			Vector3 position = contact.LastSeenPosition.sqrMagnitude > 0.0001f
+				? contact.LastSeenPosition
+				: pair.Key.position;
+			PerceivedIdentity identity = contact.Identity;
+			bool hasPrev = m_AllyReportThrottle.TryGetValue(pair.Key, out AllyReportThrottle prev);
+			if (!AllyReportEvidenceMath.ShouldPublish(
+				    hasPrev,
+				    _nowTime,
+				    prev.Time,
+				    prev.Position,
+				    prev.Identity,
+				    position,
+				    identity))
+				continue;
+
+			m_AllyReportThrottle[pair.Key] = new AllyReportThrottle
+			{
+				Time = _nowTime,
+				Position = position,
+				Identity = identity
+			};
+			WorldAllyReportHub.Publish(AllyReportEvidenceMath.Create(
+				transform,
+				pair.Key,
+				position,
+				identity,
+				1f));
+		}
+	}
+
+	private bool IsOwnAllyReporter(Transform _reporter)
+	{
+		if (_reporter == null)
+			return false;
+		if (_reporter == transform)
+			return true;
+		return _reporter.IsChildOf(transform);
+	}
+
+	private void LogSharedIfChanged(PerceivedContact _contact, bool _hadShared, bool _expired)
+	{
+		if (!UnitActionLog.Enabled || _contact == null || _contact.Target == null)
+			return;
+
+		EntityId id = _contact.Target.GetEntityId();
+		SharedLogFingerprint next = SharedLogFingerprint.From(_contact);
+		if (_expired)
+		{
+			m_LoggedShared.Remove(id);
+			UnitActionLog.Write(
+				this,
+				UnitActionLog.Shared,
+				"expired reporter=" + UnitActionLog.Slot(_contact.SharedReporter) +
+				" pos=" + UnitActionLog.Vec(_contact.SharedPosition) +
+				" tgt=" + UnitActionLog.Slot(_contact.Target));
+			return;
+		}
+
+		bool created = !m_LoggedShared.TryGetValue(id, out SharedLogFingerprint prev);
+		if (!created && prev.Equals(next))
+			return;
+
+		m_LoggedShared[id] = next;
+		string verb = !_hadShared || created ? "received" : "updated";
+		UnitActionLog.Write(
+			this,
+			UnitActionLog.Shared,
+			verb + " reporter=" + UnitActionLog.Slot(_contact.SharedReporter) +
+			" pos=" + UnitActionLog.Vec(_contact.SharedPosition) +
+			" conf=" + UnitActionLog.F2(_contact.SharedConfidence) +
+			" identity=" + _contact.SharedIdentity +
+			" tgt=" + UnitActionLog.Slot(_contact.Target));
 	}
 
 	private void LogContactIfChanged(PerceivedContact _contact, bool _force)
@@ -861,6 +1129,11 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			line += " idWas=" + prev.Identity;
 		if (!created && prev.Observation != next.Observation)
 			line += " obsWas=" + prev.Observation;
+		if (m_Vision != null)
+		{
+			line += " source=" + m_Vision.CurrentVisionSource;
+			line += " resolvedRange=" + m_Vision.ResolvedMaxRange.ToString("0");
+		}
 		UnitActionLog.Write(this, UnitActionLog.Vision, line);
 
 		if (created || (next.Observation == ObservationState.Observed && prev.Observation != ObservationState.Observed))
@@ -909,6 +1182,40 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 			MovementFactor = movementFactor,
 			VisibilityQuality = q
 		};
+	}
+
+	private float ResolveAttentionMultiplier(in VisionObservation _lastObservation)
+	{
+		return AttentionMath.EvaluateMultiplier(ResolveAttentionAngleDegrees(_lastObservation));
+	}
+
+	private float ResolveAttentionAngleDegrees(in VisionObservation _lastObservation)
+	{
+		bool hasPoint = _lastObservation.HasAimPoint ||
+			_lastObservation.IsVisible ||
+			_lastObservation.DistanceSq > 0.01f;
+		if (!hasPoint)
+			return AttentionMath.NeutralDegrees;
+
+		if (m_Vision == null)
+			TryGetComponent(out m_Vision);
+
+		Vector3 point = _lastObservation.HasAimPoint
+			? _lastObservation.AimPoint
+			: _lastObservation.Position;
+		if (m_Vision != null)
+		{
+			Vector3 to = point - m_Vision.GetGameplayVisionOriginWorld();
+			to.y = 0f;
+			if (to.sqrMagnitude > 1e-6f)
+			{
+				return Mathf.Abs(VisionGeometry.HorizontalAngleDegrees(
+					m_Vision.GetGameplayVisionForwardXZ(),
+					to));
+			}
+		}
+
+		return Mathf.Abs(_lastObservation.FovOffsetDegrees);
 	}
 
 	private float EvaluateMovementFactor(Transform _target, Vector3 _position)
@@ -964,6 +1271,16 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 		m_ContactsDirty = false;
 		ContactsChanged?.Invoke();
+	}
+
+	/// <summary>
+	/// Live LOS loss is RecentlyLost. A dead / untargetable body is not a trackable miss.
+	/// </summary>
+	private static ObservationState ResolveUnobservedState(Transform _target)
+	{
+		return TargetEngageability.IsEngageable(_target)
+			? ObservationState.RecentlyLost
+			: ObservationState.Lost;
 	}
 
 	private void RefreshRecentlyLostCache()

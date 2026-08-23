@@ -47,6 +47,19 @@ public static class TargetSelectionMath
 	{
 		if (_contact == null)
 			return Vector3.zero;
+		if (_contact.HasUsefulVisualMemory)
+		{
+			if (_contact.LastKnownPosition.sqrMagnitude > 0.0001f)
+				return _contact.LastKnownPosition;
+			return _contact.LastSeenPosition;
+		}
+
+		if (_contact.HasUsefulSound)
+			return _contact.SoundPosition;
+
+		if (_contact.HasUsefulShared)
+			return _contact.SharedPosition;
+
 		if (_contact.LastKnownPosition.sqrMagnitude > 0.0001f)
 			return _contact.LastKnownPosition;
 		return _contact.LastSeenPosition;

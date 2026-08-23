@@ -1,0 +1,78 @@
+﻿VISION CONTACT LIFECYCLE
+========================
+stamp=2026-08-22 15:52:10
+SEE ≠ KNOW ≠ SELECT ≠ ENGAGE ≠ AIM ≠ FIRE
+test optics: NoOptic 0 | Collimator 150 | 3x 200 | 6x 250 | LongRange 300
+---
+PASS Harness_Vision | UnitVision
+PASS Harness_Target | Target
+
+P OPTIC ENVELOPE
+PASS P_Clamp | 0/149→150 300 350→300
+PASS P_Bonus | 0/150 none, 300 bonus
+PASS P_NoOptic200 | want=200 placed=199,8 seen=False expect=False scope=False max=150
+PASS P_NoOpticInactive | [VISION PROFILE] BaseRange=150 OpticInstalled=false OpticActive=false OpticScopeVisionRange=0 ResolvedMaxRange=150 Source=Eye Pose=Aiming
+PASS P_Collimator200 | want=200 placed=200,0 seen=False expect=False scope=False max=150
+PASS P_CollimatorNoBonus | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=false OpticScopeVisionRange=150 ResolvedMaxRange=150 Source=Eye Pose=Aiming
+[SWAP] range=200 resolved=200 active=True t210=1,050 D=0,300 hitscan=200,0 candCap=204 [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=200 ResolvedMaxRange=200 Source=Optic Pose=Aiming
+[SWAP] range=250 resolved=250 active=True t210=0,840 D=0,470 hitscan=250,0 candCap=254 [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+[SWAP] range=300 resolved=300 active=True t210=0,700 D=0,680 hitscan=300,0 candCap=304 [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=300 ResolvedMaxRange=300 Source=Optic Pose=Aiming
+PASS P_Swap200_250_300 | 
+PASS P_HitscanFollowsVision | cap=300,0 vision=300,0
+PASS P_3x199 | want=199 placed=199,0 seen=True expect=True scope=True max=200
+PASS P_3x210 | want=210 placed=210,0 seen=False expect=False scope=True max=200
+PASS P_6x210 | want=210 placed=210,0 seen=True expect=True scope=True max=250
+PASS P_ModifierIsolation | rawA=250 rawB=250 modA=1,0 modB=1,6
+PASS P_Var1x200 | want=200 placed=200,0 seen=False expect=False scope=False max=150
+PASS P_Variable1xInactive | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=false OpticScopeVisionRange=150 ResolvedMaxRange=150 Source=Eye Pose=Aiming
+PASS P_Var6x200 | want=200 placed=200,0 seen=True expect=True scope=True max=250
+PASS P_Variable6xActive | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+
+X EYE 100
+PASS X_Eye100NoScopeLosSpend | src=Eye skip=2 live=0
+
+A 250 OPTIC HOPS
+[VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+PASS A_ProfileLog | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+[HOP] Observation t=0,000s src=Optic E=1,00 state=none prog=0,000
+[HOP] Detecting t=0,007s prog=0,004
+[HOP] Selected t=0,007s
+[HOP] Engageable t=0,007s aim=True
+[HOP] Detected t=3,449s know=True
+PASS A_CandidateThenObservation | cand=True obs=True src=Optic tObs=0,000
+PASS A_ObservationNotDetectedSameFrame | detectedSame=False prog=0,000
+PASS A_DetectingThenDetected | tDet=0,007 tDetected=3,449
+PASS A_SelectedBeforeEngageable | tSel=0,007 tEng=0,007
+[HOP] AimProgress 1,000 → 1,000 pose=Aiming
+PASS A_AimProgressGrows | aim0=1,000 aim1=1,000 pose=Aiming
+
+HIPFIRE
+PASS Hip_OpticGoneKnowledgeHeld | sel=Unit(Clone) aim=False obs=RecentlyLost conf=0,97 know=True lof=False engage=True vis=False
+PASS Hip_RestoreSameTarget | id=568105589213508520 tracked=568105589213508520
+
+COL LONG→COLLIMATOR
+PASS Col_250CollimatorDropsOpticKeepsKnowledge | sel=Unit(Clone) aim=False obs=RecentlyLost conf=0,98 know=True lof=False engage=True vis=False
+
+B LOS LOST
+PASS B_LosLostKeepsSelected | sel=Unit(Clone) aim=False obs=RecentlyLost conf=0,97 know=True lof=False engage=True vis=False aim=0,000 obsSt=RecentlyLost
+PASS F_AimProgressClearsWhileSelectedHeld | sel=True aim=0,000
+
+C REACQUIRE
+PASS C_SameContactReengageable | same=True id=568105589213508520 eng=True aim 0,000→0,720
+
+G CIVILIAN
+PASS G_CivilianObserved | obs=True look=True
+PASS G_CivilianRecentlyLost | RecentlyLost
+
+H DUAL
+PASS H_DualContacts | primary=True extra=True spawned=True
+
+D DEATH
+PASS D_DeadClearsSelection | sel= aim=False obs=Lost conf=0,98 know=True lof=False engage=False vis=False aim=0,000
+PASS D_DeadIsNotRecentlyLost | Lost
+
+E MEMORY
+PASS E_MemoryExpiry | know=False sel=False changed=5
+---
+SYSTEM STATUS: PASS
+pass=37 fail=0

@@ -139,6 +139,7 @@ public sealed class UnitFootsteps : MonoBehaviour
 		m_LastFootstepFrame = Time.frameCount;
 		m_LastFootstepTime = Time.time;
 
+		WorldSoundHub.PublishFootstep(transform, GetEmitWorldPosition());
 		PlayFootstepInternal();
 	}
 	#endregion

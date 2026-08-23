@@ -11,7 +11,8 @@ public static class DetectionQualityMath
 	#region Constants
 	public const float DefaultNearMeters = 20f;
 	public const float DefaultFarMeters = 150f;
-	public const float DefaultFarFactor = 0.08f;
+	public const float DefaultFarFactor = 0.30f;
+	public const float DefaultAcquisitionExponent = 3.8f;
 	public const float DefaultFovHalfDegrees = 60f;
 	public const float DefaultFovEdgeFactor = 0.15f;
 	public const float DefaultWalkSpeed = 0.6f;
@@ -31,7 +32,7 @@ public static class DetectionQualityMath
 
 	private static readonly float[] s_DistanceCurveFactor =
 	{
-		1.00f, 1.00f, 0.98f, 0.92f, 0.82f, 0.68f, 0.50f, 0.32f, 0.16f, 0.08f
+		1.00f, 1.00f, 0.98f, 0.92f, 0.82f, 0.68f, 0.50f, 0.38f, 0.32f, 0.30f
 	};
 	#endregion
 
@@ -103,6 +104,7 @@ public static class DetectionQualityMath
 		return Mathf.Min(cap, Mathf.Max(1f, multiplier));
 	}
 
+	/// <summary>Q = D × F × E × M. Attention is not a factor.</summary>
 	public static float VisibilityQuality(
 		float _distanceFactor,
 		float _fovFactor,
@@ -116,8 +118,46 @@ public static class DetectionQualityMath
 
 	#region Progress
 	/// <summary>
+	/// Monotonic acquire speed from Q. Exponent 1 = legacy <c>Q</c>.
+	/// Production 3.8: <c>Q / (1 + (exponent-1)*(1-Q))</c> — fast near, slow at the live edge.
+	/// </summary>
+	public static float AcquisitionFactor(
+		float _quality,
+		float _exponent = DefaultAcquisitionExponent)
+	{
+		float q = Mathf.Clamp01(_quality);
+		float exponent = Mathf.Max(1f, _exponent);
+		if (exponent <= 1.0001f)
+			return q;
+		float k = exponent - 1f;
+		return q / (1f + k * (1f - q));
+	}
+
+	/// <summary>
+	/// Continuous-time Detected estimate. Negative if Q cannot grow (Q ≤ acquire).
+	/// Attention is rate-only; default 1 matches frozen Q-time anchors.
+	/// </summary>
+	public static float EstimateDetectTimeSeconds(
+		float _quality,
+		float _acquireTimeSeconds = DefaultAcquireTime,
+		float _acquireThreshold = DefaultAcquireThreshold,
+		float _exponent = DefaultAcquisitionExponent,
+		float _attentionMultiplier = 1f)
+	{
+		if (_quality <= _acquireThreshold)
+			return -1f;
+		float factor = AcquisitionFactor(_quality, _exponent);
+		float att = AttentionMath.ClampMultiplier(_attentionMultiplier);
+		if (factor <= 1e-6f)
+			return -1f;
+		return Mathf.Max(0.05f, _acquireTimeSeconds) / (factor * att);
+	}
+
+	/// <summary>
 	/// Dual-threshold hysteresis:
 	/// Q &gt; acquire → grow; lose &lt; Q ≤ acquire → hold; Q ≤ lose → decay.
+	/// Hold / loss branches are unchanged. Grow uses <see cref="AcquisitionFactor"/> × Attention.
+	/// Attention is not a Q factor and cannot grow when Q ≤ acquire.
 	/// </summary>
 	public static float IntegrateProgress(
 		float _progress,
@@ -126,7 +166,9 @@ public static class DetectionQualityMath
 		float _acquireTimeSeconds = DefaultAcquireTime,
 		float _lossTimeSeconds = DefaultLossTime,
 		float _acquireThreshold = DefaultAcquireThreshold,
-		float _loseThreshold = DefaultLoseThreshold)
+		float _loseThreshold = DefaultLoseThreshold,
+		float _exponent = DefaultAcquisitionExponent,
+		float _attentionMultiplier = 1f)
 	{
 		if (_dt <= 0f)
 			return Mathf.Clamp01(_progress);
@@ -138,7 +180,11 @@ public static class DetectionQualityMath
 		float lossRate = 1f / Mathf.Max(0.1f, _lossTimeSeconds);
 
 		if (_quality > acquire)
-			return Mathf.Clamp01(_progress + _quality * acquireRate * _dt);
+		{
+			float factor = AcquisitionFactor(_quality, _exponent);
+			float att = AttentionMath.ClampMultiplier(_attentionMultiplier);
+			return Mathf.Clamp01(_progress + factor * att * acquireRate * _dt);
+		}
 
 		if (_quality > lose)
 			return Mathf.Clamp01(_progress);

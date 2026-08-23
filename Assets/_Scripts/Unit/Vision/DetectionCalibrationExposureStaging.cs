@@ -158,6 +158,24 @@ public sealed class DetectionCalibrationExposureStaging
 			$"cover h={m_CoverHeightMeters:0.00}m designE={desired:0.00} stagedE={m_MeasuredExposure01:0.00}");
 	}
 
+	/// <summary>
+	/// Weighted 0/3: raise the wall until detailed hit-zone samples have no LOS.
+	/// Cheap Head/Chest/Abdomen 0/3 is not enough for Eye — limbs still leak Observation.
+	/// </summary>
+	public void ApplyZeroExposureHide(Transform _observer, Transform _target)
+	{
+		Apply(_observer, _target, 0f);
+		EnsureCover();
+		SetCoverActive(true);
+		IgnoreUnitCollisions(_observer);
+		IgnoreUnitCollisions(_target);
+		SetCoverHeight(c_MaxCoverHeight);
+		m_MeasuredExposure01 = MeasureExposure(_observer, _target);
+		m_Note = ComposeNote(
+			null,
+			$"full-hide h={m_CoverHeightMeters:0.00}m stagedE={m_MeasuredExposure01:0.00}");
+	}
+
 	public bool IsSceneFullyBlocking(Transform _observer, Transform _target)
 	{
 		if (_observer == null || _target == null)
@@ -179,6 +197,110 @@ public sealed class DetectionCalibrationExposureStaging
 		}
 
 		return blocked == probes.Length;
+	}
+
+	/// <summary>
+	/// Ground-up wall so cheap Head/Chest/Abdomen visibility matches <paramref name="_desiredVisibleCount"/>.
+	/// Does not write Exposure01. E0=3 open, E1=2 lower body blocked, E2=1 head-only, E3=0 hidden.
+	/// </summary>
+	public bool TryApplyCheapVisibleCount(
+		Transform _observer,
+		Transform _target,
+		int _desiredVisibleCount,
+		out VisibilityChecker.CheapExposureSample _sample)
+	{
+		m_Observer = _observer;
+		m_Target = _target;
+		_sample = default;
+		int desired = Mathf.Clamp(_desiredVisibleCount, 0, 3);
+		if (_observer == null || _target == null)
+		{
+			Clear();
+			return false;
+		}
+
+		SetCoverActive(false);
+		Physics.SyncTransforms();
+		_sample = MeasureCheapZones(_observer, _target);
+
+		if (desired >= 3)
+		{
+			m_CoverHeightMeters = 0f;
+			m_MeasuredExposure01 = _sample.Exposure01;
+			m_Note = $"open-field cheap zones={_sample.VisibleZones}/{_sample.TestedZones}";
+			return _sample.VisibleZones == desired && _sample.TestedZones >= 3;
+		}
+
+		EnsureCover();
+		SetCoverActive(true);
+		IgnoreUnitCollisions(_observer);
+		IgnoreUnitCollisions(_target);
+		Follow();
+		Physics.SyncTransforms();
+
+		bool found = false;
+		float bestHeight = c_MinCoverHeight;
+		int bestError = int.MaxValue;
+
+		for (float height = c_MinCoverHeight; height <= c_MaxCoverHeight + 0.001f; height += 0.04f)
+		{
+			SetCoverHeight(height);
+			VisibilityChecker.CheapExposureSample probe = MeasureCheapZones(_observer, _target);
+			int error = Mathf.Abs(probe.VisibleZones - desired);
+			if (error < bestError)
+			{
+				bestError = error;
+				bestHeight = height;
+				_sample = probe;
+			}
+
+			if (probe.VisibleZones == desired && probe.TestedZones >= 3)
+			{
+				found = true;
+				bestHeight = height;
+				_sample = probe;
+				break;
+			}
+		}
+
+		SetCoverHeight(bestHeight);
+		_sample = MeasureCheapZones(_observer, _target);
+		m_MeasuredExposure01 = _sample.Exposure01;
+		m_Note =
+			$"cheap cover h={m_CoverHeightMeters:0.00}m visible={_sample.VisibleZones}/{_sample.TestedZones} " +
+			$"want={desired}";
+		return found && _sample.VisibleZones == desired;
+	}
+
+	public VisibilityChecker.CheapExposureSample MeasureCheapZones(Transform _observer, Transform _target)
+	{
+		var sample = new VisibilityChecker.CheapExposureSample();
+		if (_observer == null || _target == null)
+			return sample;
+
+		UnitBodyHitZone[] zones = _target.GetComponentsInChildren<UnitBodyHitZone>(true);
+		if (zones == null || zones.Length == 0)
+			return sample;
+
+		Vector3 eye = GetEye(_observer);
+		sample.ChestTested = ProbeCheapZone(eye, zones, _observer, _target, BodyPartType.Chest, out sample.ChestVisible);
+		sample.HeadTested = ProbeCheapZone(eye, zones, _observer, _target, BodyPartType.Head, out sample.HeadVisible);
+		sample.AbdomenTested = ProbeCheapZone(eye, zones, _observer, _target, BodyPartType.Abdomen, out sample.AbdomenVisible);
+		if (sample.ChestTested)
+			sample.TestedZones++;
+		if (sample.HeadTested)
+			sample.TestedZones++;
+		if (sample.AbdomenTested)
+			sample.TestedZones++;
+		if (sample.ChestVisible)
+			sample.VisibleZones++;
+		if (sample.HeadVisible)
+			sample.VisibleZones++;
+		if (sample.AbdomenVisible)
+			sample.VisibleZones++;
+		sample.Exposure01 = VisibilityChecker.CheapZoneExposure01(sample.VisibleZones, sample.TestedZones);
+		sample.HasLos = sample.VisibleZones > 0;
+		return sample;
 	}
 
 	public void HideCover()
@@ -245,7 +367,8 @@ public sealed class DetectionCalibrationExposureStaging
 		Transform _target,
 		float _heightMeters)
 	{
-		Vector3 toTarget = _target.position - _observer.position;
+		Vector3 origin = GetEye(_observer);
+		Vector3 toTarget = _target.position - origin;
 		toTarget.y = 0f;
 		if (toTarget.sqrMagnitude < 0.0001f)
 			toTarget = _observer.forward;
@@ -300,6 +423,28 @@ public sealed class DetectionCalibrationExposureStaging
 		}
 
 		return totalWeight > 0.0001f ? Mathf.Clamp01(visibleWeight / totalWeight) : 0f;
+	}
+
+	private bool ProbeCheapZone(
+		Vector3 _eye,
+		UnitBodyHitZone[] _hitZones,
+		Transform _observerRoot,
+		Transform _targetRoot,
+		BodyPartType _part,
+		out bool _visible)
+	{
+		_visible = false;
+		Collider zoneCol = UnitBodyHitZoneVisionUtility.TryGetPreferredCollider(_hitZones, _part);
+		if (zoneCol == null)
+			return false;
+
+		UnitBodyHitZoneVisionUtility.BuildAimCandidates(_part, zoneCol, m_AimScratch);
+		if (m_AimScratch.Count == 0)
+			return false;
+
+		_visible = HasLosToPoint(_eye, m_AimScratch[0].Point, _observerRoot, _targetRoot, out bool hitTarget) &&
+			hitTarget;
+		return true;
 	}
 
 	private bool HasLosToPoint(
@@ -368,8 +513,10 @@ public sealed class DetectionCalibrationExposureStaging
 
 	private static Vector3 GetEye(Transform _observer)
 	{
+		if (_observer != null && _observer.TryGetComponent(out UnitVision vision))
+			return vision.GetGameplayVisionOriginWorld();
 		if (_observer != null && _observer.TryGetComponent(out UnitObservationSource source))
-			return source.GetEyeWorldPosition();
+			return source.GetOriginWorld();
 		return _observer != null ? _observer.position + Vector3.up * 1.6f : Vector3.up * 1.6f;
 	}
 	#endregion

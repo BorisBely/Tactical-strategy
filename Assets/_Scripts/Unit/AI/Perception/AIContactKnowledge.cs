@@ -33,6 +33,14 @@ public readonly struct AIContactKnowledge
 	public readonly bool ThreatMedium;
 	public readonly bool ThreatHigh;
 
+	public readonly bool SoundPresent;
+	public readonly float SoundConfidence;
+	public readonly Vector3 SoundPosition;
+	public readonly bool SharedPresent;
+	public readonly float SharedConfidence;
+	public readonly Vector3 SharedPosition;
+	public readonly PerceivedIdentity SharedIdentity;
+
 	public AIContactKnowledge(
 		Transform _target,
 		DetectionState _detectionState,
@@ -60,6 +68,13 @@ public readonly struct AIContactKnowledge
 		bool _threatMedium,
 		bool _threatHigh)
 	{
+		SoundPresent = false;
+		SoundConfidence = 0f;
+		SoundPosition = default;
+		SharedPresent = false;
+		SharedConfidence = 0f;
+		SharedPosition = default;
+		SharedIdentity = PerceivedIdentity.Unknown;
 		Target = _target;
 		DetectionState = _detectionState;
 		ObservationState = _observationState;
@@ -85,6 +100,74 @@ public readonly struct AIContactKnowledge
 		ThreatLow = _threatLow;
 		ThreatMedium = _threatMedium;
 		ThreatHigh = _threatHigh;
+	}
+
+	public AIContactKnowledge(
+		Transform _target,
+		DetectionState _detectionState,
+		ObservationState _observationState,
+		PerceivedIdentity _identity,
+		float _identityConfidence,
+		PerceivedRelationship _relationship,
+		ThreatLevel _threat,
+		Vector3 _lastKnownPosition,
+		Vector3 _lastSeenPosition,
+		float _lastSeenTime,
+		float _lastSeenConfidence,
+		bool _visibleNow,
+		bool _recentlyLost,
+		bool _lost,
+		bool _hasUsefulMemory,
+		bool _memoryStale,
+		bool _identityUnknown,
+		bool _identityKnown,
+		bool _friendly,
+		bool _neutral,
+		bool _hostile,
+		bool _threatNone,
+		bool _threatLow,
+		bool _threatMedium,
+		bool _threatHigh,
+		bool _soundPresent,
+		float _soundConfidence,
+		Vector3 _soundPosition,
+		bool _sharedPresent,
+		float _sharedConfidence,
+		Vector3 _sharedPosition,
+		PerceivedIdentity _sharedIdentity)
+	{
+		Target = _target;
+		DetectionState = _detectionState;
+		ObservationState = _observationState;
+		Identity = _identity;
+		IdentityConfidence = _identityConfidence;
+		Relationship = _relationship;
+		Threat = _threat;
+		LastKnownPosition = _lastKnownPosition;
+		LastSeenPosition = _lastSeenPosition;
+		LastSeenTime = _lastSeenTime;
+		LastSeenConfidence = _lastSeenConfidence;
+		VisibleNow = _visibleNow;
+		RecentlyLost = _recentlyLost;
+		Lost = _lost;
+		HasUsefulMemory = _hasUsefulMemory;
+		MemoryStale = _memoryStale;
+		IdentityUnknown = _identityUnknown;
+		IdentityKnown = _identityKnown;
+		Friendly = _friendly;
+		Neutral = _neutral;
+		Hostile = _hostile;
+		ThreatNone = _threatNone;
+		ThreatLow = _threatLow;
+		ThreatMedium = _threatMedium;
+		ThreatHigh = _threatHigh;
+		SoundPresent = _soundPresent;
+		SoundConfidence = _soundConfidence;
+		SoundPosition = _soundPosition;
+		SharedPresent = _sharedPresent;
+		SharedConfidence = _sharedConfidence;
+		SharedPosition = _sharedPosition;
+		SharedIdentity = _sharedIdentity;
 	}
 
 	public static AIContactKnowledge From(PerceivedContact _contact)
@@ -117,6 +200,13 @@ public readonly struct AIContactKnowledge
 			AIPerceptionSemantics.IsThreatNone(_contact),
 			AIPerceptionSemantics.IsThreatLow(_contact),
 			AIPerceptionSemantics.IsThreatMedium(_contact),
-			AIPerceptionSemantics.IsThreatHigh(_contact));
+			AIPerceptionSemantics.IsThreatHigh(_contact),
+			_contact.HasUsefulSound,
+			_contact.SoundConfidence,
+			_contact.SoundPosition,
+			_contact.HasUsefulShared,
+			_contact.SharedConfidence,
+			_contact.SharedPosition,
+			_contact.SharedIdentity);
 	}
 }

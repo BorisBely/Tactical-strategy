@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class AIPerceptionHandoffTestRunner
 {
-	[MenuItem("Tools/Tests/Run AI Perception Handoff (Play)", false, 143)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run AI Perception Handoff (Play)", false, 120)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

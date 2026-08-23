@@ -1,0 +1,46 @@
+Vision Stage 8 OpticRangeContract
+2026-08-22 18:47:18
+---
+PASS Harness_Vision | UnitVision
+PASS Harness_Target | Target
+PASS Load_Vortex | Assets/GameData/Shooting/M4/Attachment_M4_Vortex_Razor.asset
+PASS Load_G33 | Assets/GameData/Shooting/M4/Attachment_M4_EOTech_G33.asset
+PASS Load_ACOG | Assets/GameData/Shooting/M4/Attachment_M4_ACOG.asset
+PASS Load_Reddot | Assets/GameData/Shooting/M4/Attachment_M4_Reddot1.asset
+PASS Load_Scope9 | Assets/GameData/Shooting/M4/Attachment_M4_Scope9.asset
+
+A CATALOG
+PASS A_VortexHigh | high=250 var=True
+PASS A_G33High | high=200
+PASS A_Acog | range=220
+PASS A_Reddot150 | range=150
+PASS A_Scope9_300 | range=300
+
+B 1X NO BONUS
+PASS B_Reddot175 | want=175 placed=174,8 seen=False expect=False scope=False max=150
+PASS B_Vortex1x175 | want=175 placed=175,0 seen=False expect=False scope=False max=150
+PASS B_Vortex1xInactive | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=false OpticScopeVisionRange=150 ResolvedMaxRange=150 Source=Eye Pose=Aiming
+
+C VARIABLE HIGH
+PASS C_Vortex6x175 | want=175 placed=175,0 seen=True expect=True scope=True max=250
+PASS C_Vortex6xActive | [VISION PROFILE] BaseRange=150 OpticInstalled=true OpticActive=true OpticScopeVisionRange=250 ResolvedMaxRange=250 Source=Optic Pose=Aiming
+PASS C_Vortex6x251 | want=251 placed=251,0 seen=False expect=False scope=True max=250
+PASS C_G33_1x175 | want=175 placed=175,0 seen=False expect=False scope=False max=150
+PASS C_G33_3x175 | want=175 placed=175,0 seen=True expect=True scope=True max=200
+
+D CLASS RANGES
+PASS D_Acog219 | want=219 placed=219,0 seen=True expect=True scope=True max=220
+PASS D_Acog221 | want=221 placed=221,0 seen=False expect=False scope=True max=220
+PASS D_Scope9_299 | want=299 placed=299,0 seen=True expect=True scope=True max=300
+PASS D_Scope9_301 | want=301 placed=301,0 seen=False expect=False scope=True max=300
+
+E MODIFIER ISOLATION
+PASS E_SameVisionRange | rawA=250 rawB=250 modA=1,0 modB=1,5
+PASS E_VisionIgnoresModifier | visionA=250 visionB=250
+PASS E_HitscanIgnoresModifier | hitscanA=250,0 hitscanB=250,0
+
+F HITSCAN CAP
+PASS F_HitscanFollowsVision | cap=250,0 vision=250,0
+PASS F_NoShotAt251 | NoVisibleTarget
+
+RESULT=PASS  PASS=29 FAIL=0

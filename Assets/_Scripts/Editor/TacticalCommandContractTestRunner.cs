@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class TacticalCommandContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Tactical Command Contract (Play)", false, 147)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run Tactical Command Contract (Play)", false, 126)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

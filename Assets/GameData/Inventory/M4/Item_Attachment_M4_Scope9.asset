@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Scope9
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_scope9
-  m_Description: "\u0421\u043D\u0430\u0439\u043F\u0435\u0440\u0441\u043A\u0438\u0439
-    \u043F\u0440\u0438\u0446\u0435\u043B \u0434\u043B\u044F 80-100 \u043C."
+  m_Description: "Снайперская труба 10x. Самая дальнобойная оптика."
   m_Icon: {fileID: 21300000, guid: 8a2de6eca76823f4e8bff484ab6691b0, type: 3}
   m_BasePrice: 1100
   m_WeightKg: 0

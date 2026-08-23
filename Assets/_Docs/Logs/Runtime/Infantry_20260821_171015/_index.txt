@@ -1,0 +1,43 @@
+﻿# Infantry action log session 2026-08-21 17:10:15
+# folder=D:/UnityProjects/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260821_171015
+# columns: slot team look callsign iid go file ai
+P01  team=Player look=Player callsign=Unit(Clone) iid=568105589213641204 go=Unit(Clone) file=Player/P01_Unit(Clone).log ai=none
+P02  team=Player look=Player callsign=Unit(Clone) iid=568105589213639898 go=Unit(Clone) file=Player/P02_Unit(Clone).log ai=none
+P03  team=Player look=Player callsign=Unit(Clone) iid=568105589213638684 go=Unit(Clone) file=Player/P03_Unit(Clone).log ai=none
+P04  team=Player look=Player callsign=Unit(Clone) iid=568105589213637384 go=Unit(Clone) file=Player/P04_Unit(Clone).log ai=none
+P05  team=Player look=Player callsign=Unit(Clone) iid=568105589213636104 go=Unit(Clone) file=Player/P05_Unit(Clone).log ai=none
+P06  team=Player look=Player callsign=Unit(Clone) iid=568105589213634788 go=Unit(Clone) file=Player/P06_Unit(Clone).log ai=none
+P07  team=Player look=Player callsign=Unit(Clone) iid=568105589213633472 go=Unit(Clone) file=Player/P07_Unit(Clone).log ai=none
+P08  team=Player look=Player callsign=Unit(Clone) iid=568105589213632226 go=Unit(Clone) file=Player/P08_Unit(Clone).log ai=none
+P09  team=Player look=Player callsign=Unit(Clone) iid=568105589213630906 go=Unit(Clone) file=Player/P09_Unit(Clone).log ai=none
+P10  team=Player look=Player callsign=Unit(Clone) iid=568105589213629642 go=Unit(Clone) file=Player/P10_Unit(Clone).log ai=none
+E01  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213628322 go=Unit(Clone) file=Enemy/E01_Unit(Clone).log ai=none
+E02  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213627276 go=Unit(Clone) file=Enemy/E02_Unit(Clone).log ai=none
+E03  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213626164 go=Unit(Clone) file=Enemy/E03_Unit(Clone).log ai=none
+E04  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213625044 go=Unit(Clone) file=Enemy/E04_Unit(Clone).log ai=none
+E05  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213623916 go=Unit(Clone) file=Enemy/E05_Unit(Clone).log ai=none
+E06  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213622862 go=Unit(Clone) file=Enemy/E06_Unit(Clone).log ai=none
+E07  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213621742 go=Unit(Clone) file=Enemy/E07_Unit(Clone).log ai=none
+E08  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213620616 go=Unit(Clone) file=Enemy/E08_Unit(Clone).log ai=none
+E09  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213619504 go=Unit(Clone) file=Enemy/E09_Unit(Clone).log ai=none
+E10  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213618368 go=Unit(Clone) file=Enemy/E10_Unit(Clone).log ai=none
+N01  team=Neutral look=Civilian callsign=Civilian-01_01 iid=568105589213617256 go=Unit(Clone) file=Neutral/N01_Civilian-01_01.log ai=none
+N02  team=Neutral look=Civilian callsign=Civilian-01_02 iid=568105589213616494 go=Unit(Clone) file=Neutral/N02_Civilian-01_02.log ai=none
+N03  team=Neutral look=Civilian callsign=Civilian-01_03 iid=568105589213615700 go=Unit(Clone) file=Neutral/N03_Civilian-01_03.log ai=none
+N04  team=Neutral look=Civilian callsign=Civilian-01_04 iid=568105589213614938 go=Unit(Clone) file=Neutral/N04_Civilian-01_04.log ai=none
+N05  team=Neutral look=Civilian callsign=Civilian-01_05 iid=568105589213614160 go=Unit(Clone) file=Neutral/N05_Civilian-01_05.log ai=none
+N06  team=Neutral look=Civilian callsign=Civilian-01_06 iid=568105589213613366 go=Unit(Clone) file=Neutral/N06_Civilian-01_06.log ai=none
+N07  team=Neutral look=Civilian callsign=Civilian-01_07 iid=568105589213612604 go=Unit(Clone) file=Neutral/N07_Civilian-01_07.log ai=none
+N08  team=Neutral look=Civilian callsign=Civilian-01_08 iid=568105589213611794 go=Unit(Clone) file=Neutral/N08_Civilian-01_08.log ai=none
+N09  team=Neutral look=Civilian callsign=Civilian-01_09 iid=568105589213610992 go=Unit(Clone) file=Neutral/N09_Civilian-01_09.log ai=none
+N10  team=Neutral look=Civilian callsign=Civilian-01_10 iid=568105589213610214 go=Unit(Clone) file=Neutral/N10_Civilian-01_10.log ai=none
+N11  team=Neutral look=Civilian callsign=Civilian-01_11 iid=568105589213609452 go=Unit(Clone) file=Neutral/N11_Civilian-01_11.log ai=none
+N12  team=Neutral look=Civilian callsign=Civilian-01_12 iid=568105589213608634 go=Unit(Clone) file=Neutral/N12_Civilian-01_12.log ai=none
+N13  team=Neutral look=Civilian callsign=Civilian-01_13 iid=568105589213607856 go=Unit(Clone) file=Neutral/N13_Civilian-01_13.log ai=none
+N14  team=Neutral look=Civilian callsign=Civilian-01_14 iid=568105589213607078 go=Unit(Clone) file=Neutral/N14_Civilian-01_14.log ai=none
+N15  team=Neutral look=Civilian callsign=Civilian-01_15 iid=568105589213606300 go=Unit(Clone) file=Neutral/N15_Civilian-01_15.log ai=none
+N16  team=Neutral look=Civilian callsign=Civilian-01_16 iid=568105589213605506 go=Unit(Clone) file=Neutral/N16_Civilian-01_16.log ai=none
+N17  team=Neutral look=Civilian callsign=Civilian-01_17 iid=568105589213604744 go=Unit(Clone) file=Neutral/N17_Civilian-01_17.log ai=none
+N18  team=Neutral look=Civilian callsign=Civilian-01_18 iid=568105589213603966 go=Unit(Clone) file=Neutral/N18_Civilian-01_18.log ai=none
+N19  team=Neutral look=Civilian callsign=Civilian-01_19 iid=568105589213603204 go=Unit(Clone) file=Neutral/N19_Civilian-01_19.log ai=none
+N20  team=Neutral look=Civilian callsign=Civilian-01_20 iid=568105589213602362 go=Unit(Clone) file=Neutral/N20_Civilian-01_20.log ai=none

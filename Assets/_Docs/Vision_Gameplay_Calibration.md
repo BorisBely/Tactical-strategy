@@ -9,17 +9,30 @@
 
 **Слой кода:** `Assets/_Scripts/Unit/Vision/`  
 **Архитектура (G0–G8 закрыта):** `Assets/_Docs/Closed/Vision_Current_Architecture_And_Future_Philosophy.md`  
-**Приёмка A:** Strict V1.9.4 Play **PASS 83/0** (20:27). G1–G8 one Play V1.9.5 **PASS 9/0** (20:45) → `DetectionG_Regression_LAST.txt`.  
+**Приёмка A:** Strict V1.9.4 Play **PASS 83/0** (20:27). Повтор на конверте 150/300: **PASS 79/0** (2026-08-22 14:55:38) → `DetectionCalibrationRuntimeStrict_LAST.txt`. G1–G8 one Play V1.9.5 **PASS 9/0** (20:45); повтор **PASS 9/0** (14:57:11) → `DetectionG_Regression_LAST.txt`.  
 **Приёмка B:** G1–G8 one Play **PASS 9/0** (22:03) → тот же файл, B13 5/30/1.5/0.25 не ретюнит Q.  
 **Калибровка A:** math — `Tools/Tests/Run Detection Calibration Math (no Play)`. Runtime A–H — `Tools/Tests/Run Detection Calibration Runtime (Play)`. Strict — `Tools/Tests/Run Detection Calibration Strict (Play)`. G-регрессия — `Tools/Tests/Run Detection G1–G8 (Play)`.  
+**Этап 4 (измерение времени, без ретюна):** `Tools/Tests/Run Vision Detection Calibration (Play)` → `Assets/_Docs/Logs/Tests/VisionDetectionCalibration_LAST.txt`. Один Play: дистанция / FOV / Exposure / Movement / sweep. PASS = сюита домерила, не «времена красивые». Baseline перед Этапом 6: `VisionDetectionCalibration_BASELINE.txt` (Play stamp 2026-08-22 12:33:47).  
+**Этап 5 (входные данные Q, без ретюна):** `Tools/Tests/Run Vision Exposure FOV Contract (Play)` → `Assets/_Docs/Logs/Tests/VisionExposureFovContract_LAST.txt`. **PASS 20/0** (14:16:45). Cheap optic Exposure = visible/tested (Head/Chest/Abdomen). Optic FOV только **>150 м** (225 м).  
+**Этап 6 (баланс времени обнаружения): CLOSED / VERIFIED** (2026-08-22). Balance **PASS 61/0** (14:05:01) → `VisionDetectionBalance_LAST.txt`. Формула Q **без изменений**. Накопление: `AcquisitionFactor(Q, exponent=3.8)`; хвост DistanceCurve `t=0.82/0.90/0.96/1.00 → 0.50/0.38/0.32/0.30`. AcquireThreshold **0.25**, AcquireTime **0.35**. Полностью открытая статика в центре FOV на 149/299 м обнаруживается; 150+/300+ — нет Observation. Partial Exposure × периферия FOV (сценарий D) может оставаться Detecting/timeout. Envelope **PASS 69/0** (15:03:20, optic LOS ≤ 6). Freeze **PASS 22/0** (15:04:09). Q / пороги не открывать.  
+**Этап 7 (жизненный цикл контакта + тестовые прицелы): CLOSED / VERIFIED** (2026-08-22 15:52:10). `Tools/Tests/Run Vision Contact Lifecycle (Play)` → `VisionContactLifecycle_LAST.txt`. **PASS 37/0**. `SEE ≠ KNOW ≠ SELECT ≠ ENGAGE ≠ AIM ≠ FIRE`. Lost LOS ≠ смерть ≠ expiry памяти. Мёртвый / untargetable → `ObservationState.Lost`, не RecentlyLost. Selected/Engageable/Aim могут начаться в Detecting; Detected — знание, не гейт огня. Тестовые `ScopeVisionRange`: 0 / 150 / 200 / 250 / 300; 1×→150 inactive; 6×→250; `EffectiveRangeModifier` не двигает обзор. Q / пороги / FOV / Exposure / sweep / LOS6 / скоринг селектора не ретюнить. Это **не** тактическое #7 ImmediateThreat.  
+**Этап 8 (боевые прицелы): CLOSED / VERIFIED** (2026-08-22 16:42:52). Каталог: `Vision_Stage8_Optic_Catalog.md`. CSV / лист **Прицелы** / bake в 18 боевых optic assets. `1×=150`, 2×=175, 3×=200, 3.5×=210, 4×=220, штурмовой 6×=250, снайперская 6/8/10× = 260/280/300. Переменный 1×/high в данных. Play: `Tools/Tests/Run Vision Optic Range Contract (Play)` → `OpticRangeContract_LAST.txt` **PASS 29/0**. EditMode: `OpticRangeContractTests`. Q / `ScopeVisionRange` **не** открывать.  
+**Этап 9 (дальность урона): CLOSED / VERIFIED** (2026-08-22 18:54:04). Каталог: `Vision_Stage9_DamageRange_Catalog.md`. CSV → `python Tools/bake_weapon_range.py`. Оптика Range×=1.0. Глушители 1.1. Play: `Tools/Tests/Run Weapon Range Contract (Play)` → `WeaponRangeContract_LAST.txt` **PASS 53/0**. Q / `ScopeVisionRange` не ретюнить.  
+**Этап 10 (Accuracy / AimTime внутрь 150/300): CLOSED / VERIFIED** (2026-08-22 21:35:32). Каталог: `Vision_Stage10_AccuracyAimCurves_Catalog.md` (A1+A2). Play: `Tools/Tests/Run Accuracy Aim Curve Contract (Play)` → `AccuracyAimCurveContract_LAST.txt` **PASS 11/0**. Q / `ScopeVisionRange` / E не ретюнились.  
+**Этап 11 (Fire Discipline): CLOSED / VERIFIED** (2026-08-22 22:06:49). Каталог: `Vision_Stage11_FireDiscipline_Catalog.md` (A3). Play: `Tools/Tests/Run Fire Discipline Contract (Play)` → `FireDisciplineContract_LAST.txt` **PASS 21/0**. Q / `ScopeVisionRange` / E не ретюнились.  
+**Этап 12 (Projectile Vision, A4+A5): CLOSED / VERIFIED** (2026-08-22 22:32:12). Каталог: `Vision_Stage12_ProjectileVision_Catalog.md`. Play: `Tools/Tests/Run Projectile Vision Contract (Play)` → `ProjectileVisionContract_LAST.txt` **PASS 30/0**. Q / `ScopeVisionRange` / E / RPG 115/12 / MK19 240/25 не ретюнились.  
+**Этап 13 (Vehicle Passenger + Turret Vision, A6+A9): CLOSED / VERIFIED** (2026-08-22 22:59:18). Каталог: `Vision_Stage13_VehicleVision_Catalog.md`. Play: `Tools/Tests/Run Vehicle Vision Contract (Play)` → `VehicleVisionContract_LAST.txt` **PASS 35/0**. Q / `ScopeVisionRange` / E / RPG 115/12 / MK19 240/25 не ретюнились.  
+**Этап 14 (Combat Retain, A7): CLOSED / VERIFIED** (2026-08-22 23:18:15). Каталог: `Vision_Stage14_CombatRetain_Catalog.md`. Play: `Tools/Tests/Run Combat Retain Contract (Play)` → `CombatRetainContract_LAST.txt` **PASS 31/0**. Q / `ScopeVisionRange` / E / RPG 115/12 / MK19 240/25 не ретюнились.  
+**Этап 15 (Attention / Facing, B): CLOSED / VERIFIED** (2026-08-23 09:42:24). Каталог: `Vision_Stage15_AttentionFacing_Catalog.md`. Play: `Tools/Tests/Run Attention Facing Contract (Play)` → `AttentionFacingContract_LAST.txt` **PASS 44/0**. Q / `ScopeVisionRange` / E не ретюнились.  
+**Этап 16 (Sound Perception, C1): CLOSED / VERIFIED** (2026-08-23 10:34:44). Каталог: `Vision_Stage16_SoundPerception_Catalog.md`. Play: `Tools/Tests/Run Sound Perception Contract (Play)` → `SoundPerceptionContract_LAST.txt` **PASS 47/0**. **Этап 17 (Ally Report, C2): CLOSED / VERIFIED** (2026-08-23 11:22:31). Каталог: `Vision_Stage17_AllyReport_Catalog.md`. Play: `Tools/Tests/Run Ally Report Contract (Play)` → `AllyReportContract_LAST.txt` **PASS 72/0**. **Этап 18 (Final Perception Contract, D+E+F): CLOSED / VERIFIED** (2026-08-23 12:36:53). Каталог: `Vision_Stage18_FinalPerception_Catalog.md`. Play: `Tools/Tests/Run Final Perception Contract (Play)` → `FinalPerceptionContract_LAST.txt` **PASS 49/0**. Тактическое **#7** — после закрытого A10 той карты.  
 **Калибровка B:** math **PASS 14/0** (21:08). Runtime M1–M10 **PASS 105/0** (21:38). B13 locked 5/30/1.5/0.25. B15/B16: G1–G8 **PASS 9/0** (22:03).  
 **Калибровка C:** math **PASS 36/0** (22:38). Runtime C3–C14 **PASS 49/0** (10:23, C13). C15/C16 **4.0 / 0.50**.  
 **Этап 1 Identity World Evidence FROZEN:** `Closed/Identity_World_Evidence.md`. Play **PASS 49/0** (10:23). Mapping **13/13**.  
 **Этап 2 Combat Engage Execution FROZEN:** `Closed/Combat_Engage_Execution.md`. Play **PASS 31/0** (10:56). EditMode **14/0** (11:25).  
 **Этап 3 Search Navigation Execution FROZEN:** `Closed/Search_Navigation_Execution.md`. Play **PASS 45/0** (12:06). EditMode **18/0**. Не ретюнит A/B/C.  
 **Этап 4 Tactical Navigation Execution FROZEN:** `Closed/Tactical_Navigation_Execution.md`. Play **PASS 36/0** (14:46). EditMode **31/0**.  
-**Дорожная карта FROZEN:** `Closed/Tactical_AI_Roadmap.md`. Следующее — **#6 Real game commands**.  
-**Vision Freeze:** `Tools/Tests/Verify Vision Freeze` → `VisionFreeze_LAST.txt`.  
+**Дорожная карта тактики FROZEN:** `Closed/Tactical_AI_Roadmap.md`. **#6.1–6.4 CLOSED**. **#7** ждёт `Пехота_дорожная_карта.md` этапы A–E, включая **A10** (стрельба/отдача не закончена). **A3 CLOSED / VERIFIED PASS 21/0**. **A4+A5 CLOSED / VERIFIED PASS 30/0**. **A6+A9 CLOSED / VERIFIED PASS 35/0**. **A7 CLOSED / VERIFIED PASS 31/0** (`Vision_Stage14_CombatRetain_Catalog.md`). **Stage 15 Attention (B): CLOSED / VERIFIED PASS 44/0**. **Stage 16 Sound (C1): CLOSED / VERIFIED PASS 47/0**. **Stage 17 Ally Report (C2): CLOSED / VERIFIED PASS 72/0**. **Stage 18 Final Perception (D+E+F): CLOSED / VERIFIED PASS 49/0**. A10 остаётся затвором перед AI.  
+**Vision Freeze:** `Tools/Tests/Verify Vision Freeze` → `VisionFreeze_LAST.txt`. **PASS 22/0** (2026-08-22 15:04:09).  
 **AI-0:** `Tools/Tests/Run AI Perception Handoff (Play)` → `AIPerceptionHandoff_LAST.txt` **PASS 41/0** (23:10).  
 **AI-1:** `Tools/Tests/Run AI Tactical State (Play)` → `AITacticalState_LAST.txt` **PASS 71/0**.  
 **AI-1A FROZEN:** `Tools/Tests/Run AI Use of Force (Play)` → `UseOfForcePolicy_LAST.txt` **PASS 107/0** (00:38).  
@@ -45,7 +58,7 @@ physical evidence → confidence → knowledge → decision
 
 Шкала A/B/C зафиксирована. Крутить коэффициенты во время AI нельзя: иначе снова нельзя отличить «плохо обнаружил» от «плохо понял / выбрал / решил стрелять / плохо ищет».
 
-**Текущая фаза:** зрение **заморожено**. Identity World Evidence **FROZEN**. Combat Engage Execution **FROZEN**. AI Perception Contract **FROZEN**. AI-1 **FROZEN**. AI-1A **FROZEN**. Search locomotion **FROZEN**. Attack/Retreat/Flee **FROZEN**. Следующее — **#6 Real game commands** (`Tactical_AI_Roadmap.md`). Block D разобран по номерам карты, не открывать пачкой.
+**Текущая фаза:** зрение **заморожено** по Q / порогам (Этап 6 баланс + **Этап 7 lifecycle CLOSED** 2026-08-22 15:52). **Этап 8 CLOSED / VERIFIED** (16:42:52, `OpticRangeContract_LAST.txt` **PASS 29/0**) — боевые `ScopeVisionRange`, не ретюн Q. **Этап 9 CLOSED / VERIFIED** (18:54:04, `WeaponRangeContract_LAST.txt` **PASS 53/0**) — дальность урона, не vision. **Этап 10 CLOSED / VERIFIED** (21:35:32, `AccuracyAimCurveContract_LAST.txt` **PASS 11/0**) — Accuracy/AimTime внутрь 150/300 (`Vision_Stage10_AccuracyAimCurves_Catalog.md`). **Этап 11 CLOSED / VERIFIED** (22:06:49, `FireDisciplineContract_LAST.txt` **PASS 21/0**) — дисциплина огня (`Vision_Stage11_FireDiscipline_Catalog.md`). **Этап 12 CLOSED / VERIFIED** (22:32:12, `ProjectileVisionContract_LAST.txt` **PASS 30/0**) — RPG/MK19 permit (`Vision_Stage12_ProjectileVision_Catalog.md`). Identity World Evidence **FROZEN**. Combat Engage Execution **FROZEN**. AI Perception Contract **FROZEN** (расширение — этапы C–E рабочей карты, не ретюн Q). AI-1 **FROZEN**. AI-1A **FROZEN**. Search locomotion **FROZEN**. Attack/Retreat/Flee **FROZEN**. Game commands **#6.1–6.4 CLOSED**. **A6+A9 CLOSED / VERIFIED PASS 35/0**. **A7 CLOSED / VERIFIED PASS 31/0**. **B / Stage 15 CLOSED / VERIFIED PASS 44/0**. **C1 / Stage 16 CLOSED / VERIFIED PASS 47/0**. **C2 / Stage 17 CLOSED / VERIFIED PASS 72/0**. **Stage 18 Final Perception (D+E+F): CLOSED / VERIFIED PASS 49/0**. **A10** — закончить новую стрельбу/отдачу; без этого в AI не возвращаемся. Тактическое **#7** — после A–E и закрытого A10. Block D разобран по номерам карты, не открывать пачкой.
 
 ---
 
@@ -57,13 +70,13 @@ physical evidence → confidence → knowledge → decision
 |-----------------------------|--------------------------------|
 | Правильно ли солдат воспринимает ситуацию для этой игры? | Насколько формула «как у человека»? |
 | За сколько игрок/дизайнер ожидает Detected в сцене A…H? | Какой SmoothStep красивее на графике? |
-| Где практический предел 500 м? | Нужно ли слить VisionRange и MaxEngageRange? (**нет**: 500 м perception, 18 м engage) |
+| Где практический предел 500 м? | Нужно ли слить VisionRange и combat retain? (**нет**: perception ≠ reload retain; retain = `ResolvedMaxRange`) |
 
 Запрещено в любой фазе калибровки:
 
 - `LOD →` штраф к Q / DetectionProgress;
 - knowledge-поля в `VisionObservation`;
-- путать `VisionRange` (perception, prefab **500 м**) и `MaxEngageRange` (**18 м**);
+- путать `VisionRange` (perception) и combat retain (`ResolvedMaxRange`, не отдельный 18 м);
 - одновременно крутить Detection + Identity + Selector + Engagement и «смотреть, стало лучше».
 
 ---
@@ -116,16 +129,17 @@ G8 уже дал compute budget (4 tier, FOV до LOS, cache, 500 м). **E пр�
 
 | Параметр | Значение |
 |----------|--------:|
-| VisionRange | **500 м** (`Unit.prefab`; ≠ MaxEngageRange **18 м**) |
+| VisionRange | **150 м** глаз на живом `Unit.prefab` (perception; оптика до 300). Retain reload/misfire = `ResolvedMaxRange`, не отдельный 18 м |
 | FOV cone | **120°** |
 | FovHalfReference | **60°** |
 | FovEdgeFactor | **0.15** |
 | DistanceNear | **20 м** |
 | DistanceFar | **500 м** |
-| DistanceFarFactor | **0.08** |
+| DistanceFarFactor | **0.30** (край нормализованной кривой) |
 | AcquireThreshold | **0.25** |
 | LoseThreshold | **0.20** |
 | AcquireTime | **0.35 с** |
+| AcquisitionExponent | **3.8** |
 | LossTime | **2.5 с** |
 | Movement idle / walk / run / cap | **1.00 / 1.15 / 1.35 / 1.50** |
 
@@ -325,7 +339,7 @@ Exposure в таблице — **дизайн-намерение** (какая �
 |-------|------|---------|
 | Ближняя полная заметность | `m_DistanceNearMeters` (20) | Q по дистанции = 1 до этой дальности |
 | Потолок perception | `m_DistanceFarMeters` (500) | совпадает с `UnitVision.VisionRange` на префабе |
-| Насколько «слепнет» на far | `m_DistanceFarFactor` (0.08) | Q на 500 м при прочих = 1 |
+| Насколько «слепнет» на far | DistanceCurve `t=1` → **0.30** | Q на resolved range при прочих = 1 |
 | Насколько край FOV хуже центра | `m_FovHalfReferenceDegrees` / `m_FovEdgeFactor` | offset 0 → 1; на half (60°) → edge 0.15 |
 | Движение цели | walk/run multipliers + cap | только бонус ≥ 1 |
 | Частичная видимость | не отдельный float | `Exposure01` из hit-zones |
@@ -657,7 +671,9 @@ Play **2026-08-19 20:27:55** — `RESULT=PASS pass=83 fail=0` после пин�
 
 A–H в этом Play совпали с V1.9.3 (E tDetect 1.34 vs 1.33). F/G/H: Observed ≠ Detected. Live half-FOV 70° (weapon not ready) — FOV 61° имеет observation, это не FAIL.
 
-Шум harness, не Detection: `IK-GRIP-UNREACHABLE`; NavMesh `set_enabled` на G (off-mesh, vision не требует NavMesh).
+Повтор **2026-08-22 14:55:38** на конверте глаз 150 / оптика 300: `RESULT=PASS pass=79 fail=0`. `Defaults_VisionRange expected=150`. D = Observed + Detecting timeout (`D_NoDetect`). FOV 59 in / 61 out; ровно 60° — край конуса, Observation не требуется. G1–G8 в этом файле — снимок LAST на старте Strict, не повтор сюиты.
+
+Шум harness, не Detection: `IK-GRIP-UNREACHABLE`; NavMesh `Failed to create agent` / Warp off-mesh (vision не требует NavMesh).
 
 **Эксперимент V1.9.4 закрыт.** Q / пороги / FOV curve не трогать.
 
@@ -678,7 +694,7 @@ A–H в этом Play совпали с V1.9.3 (E tDetect 1.34 vs 1.33). F/G/H:
 | G | 400 м | 50° | 0.10 | timeout | нет (observation есть) |
 | H | 500 м | 60° | 0.05 | timeout | нет (observation на краю FOV) |
 
-Perception cap: **500 м** (`Unit.prefab` / `DetectionQualityMath.DefaultFarMeters`). 501 м и 510 м — нет `VisionObservation`. Engage range остаётся **18 м**.
+Perception cap на момент V1.9.4 (19.08): **500 м**. После конверта 150/300 (22.08) глаз **150 м**, оптика Aiming до **300 м**. Strict 14:55: A–C Detected; **D** = Observed + Detecting timeout (не Detected); E–H NoDetect. Engage range остаётся **18 м**.
 
 ---
 
@@ -686,7 +702,7 @@ Perception cap: **500 м** (`Unit.prefab` / `DetectionQualityMath.DefaultFarMete
 
 Один Play: `Tools/Tests/Run Detection G1–G8 (Play)`.  
 Отчёт: `Assets/_Docs/Logs/Tests/DetectionG_Regression_LAST.txt`.  
-Stamp **2026-08-19 20:45:45**. **RESULT=PASS pass=9 fail=0**.
+Stamp **2026-08-19 20:45:45**. **RESULT=PASS pass=9 fail=0**. Повтор **2026-08-22 14:57:11** — тот же **PASS 9/0** (G5 21, G6 26, G7 29, G8 19) после фикса Hidden=Track: aim-progress не сбрасывает selection при потере LOS; `HasKnowledge` → ContactsChanged.
 
 | Stage | LAST | Результат |
 |-------|------|-----------|

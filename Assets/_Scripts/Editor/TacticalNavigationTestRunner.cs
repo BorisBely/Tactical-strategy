@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class TacticalNavigationTestRunner
 {
-	[MenuItem("Tools/Tests/Run Tactical Navigation (Play)", false, 145)]
+	[MenuItem("Tools/Tests/Archive/Tactics/Run Tactical Navigation (Play)", false, 125)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;

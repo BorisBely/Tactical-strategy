@@ -229,7 +229,7 @@ public static class StandaloneWeaponsBuilder
 			c_Ammo556TemplatePath,
 			CaliberType.Seven62By51,
 			55f, 28f, 14f,
-			1, 850f, 500f,
+			1, 850f, 300f,
 			0.92f, 1.15f);
 
 		BuildAmmoFromTemplate(
@@ -237,7 +237,7 @@ public static class StandaloneWeaponsBuilder
 			c_Ammo762TemplatePath,
 			CaliberType.Seven62By54R,
 			58f, 26f, 13f,
-			1, 830f, 500f,
+			1, 830f, 300f,
 			0.95f, 1.18f);
 
 		BuildAmmoBox(
@@ -1052,7 +1052,7 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.OpticOnly, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
-			50f, 0.55f, 3.20f, 300f, 0.46f,
+			50f, 0.55f, 3.20f, 200f, 0.46f,
 			0.44f, 0.76f, 1.00f, 4.0f, 0.93f,
 			1800, 4.0f, c_VfxProfileAkPath, false);
 
@@ -1076,7 +1076,7 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.MachineGunSideRails,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support545,
 			fullAutoOnly, WeaponFireMode.FullAuto,
-			750f, 0.48f, 4.50f, 140f, 1.05f,
+			750f, 0.48f, 4.50f, 150f, 1.05f,
 			0.50f, 0.86f, 1.10f, 4.5f, 0.82f,
 			4800, 7.5f, c_VfxProfileM4Path, true);
 
@@ -1088,7 +1088,7 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.MuzzleOptic, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Dmr,
 			semiOnly, WeaponFireMode.SemiAuto,
-			40f, 0.55f, 3.00f, 380f, 0.40f,
+			40f, 0.55f, 3.00f, 225f, 0.40f,
 			0.42f, 0.74f, 1.00f, 4.3f, 0.91f,
 			4200, 5.8f, c_VfxProfileM4Path, true, true);
 
@@ -1100,7 +1100,7 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.TacticalFull, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Support762,
 			fullAutoOnly, WeaponFireMode.FullAuto,
-			650f, 0.50f, 5.00f, 150f, 1.10f,
+			650f, 0.50f, 5.00f, 160f, 1.10f,
 			0.52f, 0.88f, 1.12f, 4.2f, 0.80f,
 			4500, 8.2f, c_VfxProfileAkPath, false);
 
@@ -1112,7 +1112,7 @@ public static class StandaloneWeaponsBuilder
 			SlotLayout.MuzzleOpticSideRail, WeaponAttachmentSlotProfile.Full,
 			WeaponDistanceCurveLibrary.WeaponBalanceKind.Marksman,
 			semiOnly, WeaponFireMode.SemiAuto,
-			150f, 0.48f, 2.50f, 320f, 0.48f,
+			150f, 0.48f, 2.50f, 175f, 0.48f,
 			0.46f, 0.82f, 1.00f, 4.2f, 0.88f,
 			3900, 4.3f, c_VfxProfileAkPath, false, true);
 	}

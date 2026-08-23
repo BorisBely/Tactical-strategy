@@ -23,6 +23,12 @@ public sealed class VisionScanStats
 	public int LastScanScopeDetailedQueryCount;
 	public int SkippedDuplicateCount;
 	public int LastScanSkippedDuplicateCount;
+	public int CachedLosCount;
+	public int LastScanCachedLosCount;
+	public int ScopeSweepScanCount;
+	public int ScopeLiveLosCount;
+	public int LastScanScopeLiveLosCount;
+	public int MaxScopeLiveLosCount;
 	public int QualityEvalCount;
 	public int LastScanQualityEvalCount;
 
@@ -61,6 +67,8 @@ public sealed class VisionScanStats
 		LastScanHitZoneCheckCount = 0;
 		LastScanScopeDetailedQueryCount = 0;
 		LastScanSkippedDuplicateCount = 0;
+		LastScanCachedLosCount = 0;
+		LastScanScopeLiveLosCount = 0;
 		LastScanQualityEvalCount = 0;
 	}
 
@@ -75,6 +83,10 @@ public sealed class VisionScanStats
 		HitZoneCheckCount += LastScanHitZoneCheckCount;
 		ScopeDetailedQueryCount += LastScanScopeDetailedQueryCount;
 		SkippedDuplicateCount += LastScanSkippedDuplicateCount;
+		CachedLosCount += LastScanCachedLosCount;
+		ScopeLiveLosCount += LastScanScopeLiveLosCount;
+		if (LastScanScopeLiveLosCount > MaxScopeLiveLosCount)
+			MaxScopeLiveLosCount = LastScanScopeLiveLosCount;
 		QualityEvalCount += LastScanQualityEvalCount;
 		FrameLosCheckCount += LastScanLosCheckCount;
 		if (LastScanLosCheckCount > MaxLosCheckCount)
@@ -118,6 +130,21 @@ public sealed class VisionScanStats
 	public void AddSkippedDuplicate()
 	{
 		LastScanSkippedDuplicateCount++;
+	}
+
+	public void AddCachedLos()
+	{
+		LastScanCachedLosCount++;
+	}
+
+	public void AddScopeLiveLos()
+	{
+		LastScanScopeLiveLosCount++;
+	}
+
+	public void AddScopeSweepScan()
+	{
+		ScopeSweepScanCount++;
 	}
 
 	public void AddQualityEval()
@@ -171,6 +198,12 @@ public sealed class VisionScanStats
 		LastScanScopeDetailedQueryCount = 0;
 		SkippedDuplicateCount = 0;
 		LastScanSkippedDuplicateCount = 0;
+		CachedLosCount = 0;
+		LastScanCachedLosCount = 0;
+		ScopeSweepScanCount = 0;
+		ScopeLiveLosCount = 0;
+		LastScanScopeLiveLosCount = 0;
+		MaxScopeLiveLosCount = 0;
 		QualityEvalCount = 0;
 		LastScanQualityEvalCount = 0;
 		MaxLosCheckCount = 0;

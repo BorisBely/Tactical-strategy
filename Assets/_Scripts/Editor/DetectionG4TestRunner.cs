@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG4TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG4 Memory Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG4 Memory Smoke (no Play)", false, 132)]
 	public static void RunMemorySmokeFromMenu()
 	{
 		string report = BuildMemorySmokeReport();

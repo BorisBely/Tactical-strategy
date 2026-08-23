@@ -797,6 +797,14 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 
 		if (canFire)
 		{
+			Vector3 origin = ResolveMuzzleOrigin();
+			if (!TryAuthorizeRocketLaunch(origin, out ProjectileLaunchDeny deny))
+			{
+				LogProjectileAttempt(deny, origin);
+				FinishOrder(true);
+				yield break;
+			}
+
 			m_Phase = RocketLauncherOrderPhase.Firing;
 			SetAimParameter(false);
 			TriggerFire();
@@ -1220,13 +1228,27 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 			return;
 
 		Vector3 origin = ResolveMuzzleOrigin();
+		if (!TryAuthorizeRocketLaunch(origin, out ProjectileLaunchDeny deny))
+		{
+			LogProjectileAttempt(deny, origin);
+			return;
+		}
+
 		RocketLauncherType type = ResolveActiveLauncherType();
-		float speed = m_Data != null ? m_Data.GetMuzzleSpeed(type) : 115f;
+		float speed = m_Data != null ? m_Data.GetMuzzleSpeed(type) : ProjectileLaunchPermit.RpgMuzzleSpeed;
 		float gravity = m_Data != null ? m_Data.ProjectileGravity : 9.81f;
 		float damping = m_Data != null ? m_Data.ProjectileLinearDamping : 0.02f;
-		float life = m_Data != null ? m_Data.ProjectileLifetimeSeconds : 12f;
+		float life = m_Data != null
+			? m_Data.ProjectileLifetimeSeconds
+			: ProjectileLaunchPermit.RocketLifetimeSeconds;
 
 		Vector3 perfectDirection = ResolveBallisticFireDirection(origin, speed, gravity);
+		if (perfectDirection.sqrMagnitude < 0.0001f)
+		{
+			LogProjectileAttempt(ProjectileLaunchDeny.NoAimPoint, origin);
+			return;
+		}
+
 		Vector3 direction = ApplyFireDispersion(perfectDirection);
 		Quaternion rotation = direction.sqrMagnitude > 0.0001f
 			? Quaternion.LookRotation(direction.normalized, Vector3.up)
@@ -1249,6 +1271,7 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 
 		projectile.Launch(direction, speed, life, gravity, damping, m_Data, gameObject, type);
 		m_FiredProjectile = true;
+		LogProjectileAttempt(ProjectileLaunchDeny.None, origin);
 
 		// После выстрела труба пустая — скрываем встроенный меш ракеты.
 		RocketLauncherVisualUtility.ApplyLoadedRocketVisual(m_HandLauncherInstance, false);
@@ -1301,39 +1324,79 @@ public sealed class UnitRocketLauncherOrderController : MonoBehaviour
 		if (m_TargetSelector == null)
 			return false;
 
-		Transform target = m_TargetSelector.GetEngageableSelectedTarget();
-		if (target == null)
+		if (m_TargetSelector.GetEngageableSelectedTarget() == null)
 			return false;
 
 		_aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
-		if (_aimPoint == Vector3.zero)
-			_aimPoint = target.position;
-
-		return true;
+		return _aimPoint != Vector3.zero;
 	}
 
 	/// <summary>
 	/// Баллистическое направление: на дистанции прицеливается выше, чтобы ракета упала в цель.
+	/// Без Observed AimPoint направление не подменяется muzzle.forward.
 	/// </summary>
 	private Vector3 ResolveBallisticFireDirection(Vector3 _origin, float _muzzleSpeed, float _gravity)
 	{
-		if (TryGetAimTargetPoint(out Vector3 aimPoint))
+		if (!TryGetAimTargetPoint(out Vector3 aimPoint))
+			return Vector3.zero;
+
+		float distance = Vector3.Distance(_origin, aimPoint);
+		Vector3 leadPoint = ProjectileLaunchPermit.ApplyRocketLead(
+			aimPoint,
+			m_TargetSelector.SelectedTargetVelocity,
+			distance,
+			_muzzleSpeed);
+
+		RocketBallistics.TrySolveAimDirection(
+			_origin,
+			leadPoint,
+			_muzzleSpeed,
+			_gravity,
+			out Vector3 aimDirection,
+			out _);
+		return aimDirection.sqrMagnitude > 0.0001f ? aimDirection.normalized : Vector3.zero;
+	}
+
+	private bool TryAuthorizeRocketLaunch(Vector3 _origin, out ProjectileLaunchDeny _reason)
+	{
+		if (m_FireController == null)
 		{
-			RocketBallistics.TrySolveAimDirection(
-				_origin,
-				aimPoint,
-				_muzzleSpeed,
-				_gravity,
-				out Vector3 aimDirection,
-				out _);
-			if (aimDirection.sqrMagnitude > 0.0001f)
-				return aimDirection.normalized;
+			_reason = ProjectileLaunchDeny.NoAimPoint;
+			return false;
 		}
 
-		if (m_MuzzleTransform != null)
-			return m_MuzzleTransform.forward;
+		return m_FireController.TryAuthorizeProjectileLaunch(_origin, out _reason);
+	}
 
-		return transform.forward;
+	private void LogProjectileAttempt(ProjectileLaunchDeny _reason, Vector3 _origin)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+
+		Vector3 aim = Vector3.zero;
+		TryGetAimTargetPoint(out aim);
+		string tgt = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null
+			? UnitActionLog.Slot(m_TargetSelector.SelectedTarget)
+			: "none";
+		float distance = aim != Vector3.zero ? Vector3.Distance(_origin, aim) : 0f;
+		UnitVision vision = GetComponent<UnitVision>();
+		float visionRange = vision != null ? vision.ResolvedMaxRange : UnitVisionProfile.BaseRangeMeters;
+		RocketLauncherType type = ResolveActiveLauncherType();
+		float speed = m_Data != null ? m_Data.GetMuzzleSpeed(type) : ProjectileLaunchPermit.RpgMuzzleSpeed;
+		float life = m_Data != null
+			? m_Data.ProjectileLifetimeSeconds
+			: ProjectileLaunchPermit.RocketLifetimeSeconds;
+		string weapon = type == RocketLauncherType.Disposable ? "Disposable" : "Rpg7";
+		string payload =
+			"weapon=" + weapon +
+			" tgt=" + tgt +
+			" aim=" + UnitActionLog.Vec(aim) +
+			" distance=" + UnitActionLog.F1(distance) +
+			" visionRange=" + UnitActionLog.F1(visionRange) +
+			" physicalRange=" + UnitActionLog.F1(
+				ProjectileLaunchPermit.TheoreticalPhysicalRangeMeters(speed, life)) +
+			" result=" + ProjectileLaunchPermit.FormatResult(_reason);
+		UnitActionLog.Write(this, UnitActionLog.Projectile, payload);
 	}
 
 	private bool ShouldDrawAimTrajectoryGizmo()

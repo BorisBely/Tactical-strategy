@@ -13,11 +13,14 @@ public static class UnitActionLog
 	public const string Spawn = "SPAWN";
 	public const string Scan = "SCAN";
 	public const string Vision = "VISION";
+	public const string Sound = "SOUND";
+	public const string Shared = "SHARED";
 	public const string Select = "SELECT";
 	public const string G6 = "G6";
 	public const string Disc = "DISC";
 	public const string Gate = "GATE";
 	public const string Shot = "SHOT";
+	public const string Projectile = "PROJECTILE";
 	public const string Move = "MOVE";
 	public const string Ai = "AI";
 	public const string Cmd = "CMD";
@@ -111,6 +114,11 @@ public static class UnitActionLog
 		if (hasAim)
 			builder.Append(" aimPt=").Append(Vec(_contact.LastObservation.AimPoint));
 		builder.Append(" p=").Append(F2(_contact.DetectionProgress));
+		float angle = Mathf.Abs(_contact.LastObservation.FovOffsetDegrees);
+		float attMul = AttentionMath.EvaluateMultiplier(angle);
+		builder.Append(" angle=").Append(angle.ToString("0.0", CultureInfo.InvariantCulture));
+		builder.Append(" att=").Append(AttentionMath.EvaluateBand(angle));
+		builder.Append(" attMul=").Append(attMul.ToString("0.0", CultureInfo.InvariantCulture));
 		builder.Append(" memC=").Append(F2(_contact.LastSeenConfidence));
 		if (_contact.SoundConfidence > 0f)
 			builder.Append(" sound=").Append(F2(_contact.SoundConfidence));

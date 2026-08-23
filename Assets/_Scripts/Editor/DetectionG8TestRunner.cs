@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG8TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG8 Lod Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG8 Lod Smoke (no Play)", false, 136)]
 	public static void RunLodSmokeFromMenu()
 	{
 		string report = BuildLodSmokeReport();

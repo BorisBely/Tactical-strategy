@@ -80,14 +80,69 @@ public sealed class DetectionTestController : MonoBehaviour
 	public Transform Target => m_Target;
 	public DetectionProcessor DetectionProcessor => m_DetectionProcessor;
 	public DetectionCalibrationExposureStaging ExposureStaging => m_ExposureStaging;
+
+	/// <summary>Walk/Run strafe for MovementFactor measurement. Idle stops motion.</summary>
+	public void SetTargetMoveMode(MoveMode _mode, Vector3 _axis)
+	{
+		m_ActiveMoveMode = _mode;
+		m_AllowTargetStrafe = _mode != MoveMode.Idle;
+		Vector3 axis = _axis;
+		axis.y = 0f;
+		m_MoveAxis = axis.sqrMagnitude > 1e-6f ? axis.normalized : Vector3.forward;
+	}
 	#endregion
 
 	#region Unity Lifecycle
 	private void Awake()
 	{
+		if (DetectionHarnessPlayMode.RunVisionContactLifecycle &&
+		    GetComponent<VisionContactLifecycleRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionContactLifecycleRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunVisionOpticRangeContract &&
+		    GetComponent<VisionOpticRangeContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionOpticRangeContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunWeaponRangeContract &&
+		    GetComponent<WeaponRangeContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<WeaponRangeContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunAccuracyAimCurveContract &&
+		    GetComponent<AccuracyAimCurveContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<AccuracyAimCurveContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunFireDisciplineContract &&
+		    GetComponent<FireDisciplineContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<FireDisciplineContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunProjectileVisionContract &&
+		    GetComponent<ProjectileVisionContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<ProjectileVisionContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunVehicleVisionContract &&
+		    GetComponent<VehicleVisionContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<VehicleVisionContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunCombatRetainContract &&
+		    GetComponent<CombatRetainContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<CombatRetainContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunAttentionFacingContract &&
+		    GetComponent<AttentionFacingContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<AttentionFacingContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunSoundPerceptionContract &&
+		    GetComponent<SoundPerceptionContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<SoundPerceptionContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunAllyReportContract &&
+		    GetComponent<AllyReportContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<AllyReportContractRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunFinalPerceptionContract &&
+		    GetComponent<FinalPerceptionContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<FinalPerceptionContractRuntimeSmoke>();
 		if (DetectionHarnessPlayMode.RunVisionEnvelope &&
 		    GetComponent<VisionEnvelopeRuntimeSmoke>() == null)
 			gameObject.AddComponent<VisionEnvelopeRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunVisionDetectionCalibration &&
+		    GetComponent<VisionDetectionCalibrationRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionDetectionCalibrationRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunVisionDetectionBalance &&
+		    GetComponent<VisionDetectionCalibrationRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionDetectionCalibrationRuntimeSmoke>();
+		if (DetectionHarnessPlayMode.RunVisionExposureFovContract &&
+		    GetComponent<VisionExposureFovContractRuntimeSmoke>() == null)
+			gameObject.AddComponent<VisionExposureFovContractRuntimeSmoke>();
 		if (DetectionHarnessPlayMode.RunCalibrationStrict &&
 		    GetComponent<DetectionCalibrationRuntimeStrictSmoke>() == null)
 			gameObject.AddComponent<DetectionCalibrationRuntimeStrictSmoke>();
@@ -136,6 +191,62 @@ public sealed class DetectionTestController : MonoBehaviour
 	{
 		PrepareSceneNoise();
 		EnsureObserverAndTarget();
+		VisionDetectionCalibrationRuntimeSmoke visionDetectCalSmoke =
+			GetComponent<VisionDetectionCalibrationRuntimeSmoke>();
+		VisionExposureFovContractRuntimeSmoke exposureFovSmoke =
+			GetComponent<VisionExposureFovContractRuntimeSmoke>();
+		DetectionCalibrationRuntimeSmoke runtimeSmoke = GetComponent<DetectionCalibrationRuntimeSmoke>();
+		DetectionCalibrationRuntimeStrictSmoke strictSmoke = GetComponent<DetectionCalibrationRuntimeStrictSmoke>();
+		VisionEnvelopeRuntimeSmoke envelopeSmoke = GetComponent<VisionEnvelopeRuntimeSmoke>();
+		VisionContactLifecycleRuntimeSmoke lifecycleSmoke = GetComponent<VisionContactLifecycleRuntimeSmoke>();
+		VisionOpticRangeContractRuntimeSmoke opticRangeSmoke = GetComponent<VisionOpticRangeContractRuntimeSmoke>();
+		WeaponRangeContractRuntimeSmoke weaponRangeSmoke = GetComponent<WeaponRangeContractRuntimeSmoke>();
+		AccuracyAimCurveContractRuntimeSmoke accuracyAimSmoke = GetComponent<AccuracyAimCurveContractRuntimeSmoke>();
+		FireDisciplineContractRuntimeSmoke fireDisciplineSmoke = GetComponent<FireDisciplineContractRuntimeSmoke>();
+		ProjectileVisionContractRuntimeSmoke projectileVisionSmoke = GetComponent<ProjectileVisionContractRuntimeSmoke>();
+		VehicleVisionContractRuntimeSmoke vehicleVisionSmoke = GetComponent<VehicleVisionContractRuntimeSmoke>();
+		CombatRetainContractRuntimeSmoke combatRetainSmoke = GetComponent<CombatRetainContractRuntimeSmoke>();
+		AttentionFacingContractRuntimeSmoke attentionFacingSmoke = GetComponent<AttentionFacingContractRuntimeSmoke>();
+		SoundPerceptionContractRuntimeSmoke soundPerceptionSmoke = GetComponent<SoundPerceptionContractRuntimeSmoke>();
+		AllyReportContractRuntimeSmoke allyReportSmoke = GetComponent<AllyReportContractRuntimeSmoke>();
+		FinalPerceptionContractRuntimeSmoke finalPerceptionSmoke =
+			GetComponent<FinalPerceptionContractRuntimeSmoke>();
+		bool isolateVisionCalibration =
+			DetectionHarnessPlayMode.RunVisionDetectionCalibration ||
+			DetectionHarnessPlayMode.RunVisionDetectionBalance ||
+			DetectionHarnessPlayMode.RunVisionExposureFovContract ||
+			DetectionHarnessPlayMode.RunCalibrationStrict ||
+			DetectionHarnessPlayMode.RunCalibrationRuntime ||
+			DetectionHarnessPlayMode.RunVisionEnvelope ||
+			DetectionHarnessPlayMode.RunVisionOpticRangeContract ||
+			DetectionHarnessPlayMode.RunWeaponRangeContract ||
+			DetectionHarnessPlayMode.RunAccuracyAimCurveContract ||
+			DetectionHarnessPlayMode.RunFireDisciplineContract ||
+			DetectionHarnessPlayMode.RunProjectileVisionContract ||
+			DetectionHarnessPlayMode.RunVehicleVisionContract ||
+			DetectionHarnessPlayMode.RunCombatRetainContract ||
+			DetectionHarnessPlayMode.RunAttentionFacingContract ||
+			DetectionHarnessPlayMode.RunSoundPerceptionContract ||
+			DetectionHarnessPlayMode.RunAllyReportContract ||
+			DetectionHarnessPlayMode.RunFinalPerceptionContract ||
+			(visionDetectCalSmoke != null && visionDetectCalSmoke.WillRunOnStart) ||
+			(exposureFovSmoke != null && exposureFovSmoke.WillRunOnStart) ||
+			(runtimeSmoke != null && runtimeSmoke.WillRunOnStart) ||
+			(strictSmoke != null && strictSmoke.WillRunOnStart) ||
+			(envelopeSmoke != null && envelopeSmoke.WillRunOnStart) ||
+			(opticRangeSmoke != null && opticRangeSmoke.WillRunOnStart) ||
+			(weaponRangeSmoke != null && weaponRangeSmoke.WillRunOnStart) ||
+			(accuracyAimSmoke != null && accuracyAimSmoke.WillRunOnStart) ||
+			(fireDisciplineSmoke != null && fireDisciplineSmoke.WillRunOnStart) ||
+			(projectileVisionSmoke != null && projectileVisionSmoke.WillRunOnStart) ||
+			(vehicleVisionSmoke != null && vehicleVisionSmoke.WillRunOnStart) ||
+			(combatRetainSmoke != null && combatRetainSmoke.WillRunOnStart) ||
+			(attentionFacingSmoke != null && attentionFacingSmoke.WillRunOnStart) ||
+			(soundPerceptionSmoke != null && soundPerceptionSmoke.WillRunOnStart) ||
+			(allyReportSmoke != null && allyReportSmoke.WillRunOnStart) ||
+			(finalPerceptionSmoke != null && finalPerceptionSmoke.WillRunOnStart);
+		PrepareHarnessActors(isolateVisionCalibration);
+
 		EnsureDetectionProcessor();
 
 		if (m_Target != null)
@@ -147,8 +258,6 @@ public sealed class DetectionTestController : MonoBehaviour
 			PinObserverPerceptionRange();
 		}
 
-		DetectionCalibrationRuntimeSmoke runtimeSmoke = GetComponent<DetectionCalibrationRuntimeSmoke>();
-		DetectionCalibrationRuntimeStrictSmoke strictSmoke = GetComponent<DetectionCalibrationRuntimeStrictSmoke>();
 		MemoryCalibrationRuntimeSmoke memorySmoke = GetComponent<MemoryCalibrationRuntimeSmoke>();
 		IdentityCalibrationRuntimeSmoke identitySmoke = GetComponent<IdentityCalibrationRuntimeSmoke>();
 		AIPerceptionHandoffSmoke aiPerceptionSmoke = GetComponent<AIPerceptionHandoffSmoke>();
@@ -161,12 +270,37 @@ public sealed class DetectionTestController : MonoBehaviour
 		GameCommandSourceRuntimeSmoke gameCommandSmoke = GetComponent<GameCommandSourceRuntimeSmoke>();
 		GameCommandInputRuntimeSmoke gameCommandInputSmoke = GetComponent<GameCommandInputRuntimeSmoke>();
 		GameCommandLayerRuntimeSmoke gameCommandLayerSmoke = GetComponent<GameCommandLayerRuntimeSmoke>();
-		VisionEnvelopeRuntimeSmoke envelopeSmoke = GetComponent<VisionEnvelopeRuntimeSmoke>();
 		bool harnessOwnsPlay =
 			DetectionHarnessPlayMode.IsGRegressionPlay ||
+			DetectionHarnessPlayMode.RunVisionContactLifecycle ||
+			DetectionHarnessPlayMode.RunVisionOpticRangeContract ||
+			DetectionHarnessPlayMode.RunWeaponRangeContract ||
+			DetectionHarnessPlayMode.RunAccuracyAimCurveContract ||
+			DetectionHarnessPlayMode.RunFireDisciplineContract ||
+			DetectionHarnessPlayMode.RunProjectileVisionContract ||
+			DetectionHarnessPlayMode.RunVehicleVisionContract ||
+			DetectionHarnessPlayMode.RunCombatRetainContract ||
+			DetectionHarnessPlayMode.RunAttentionFacingContract ||
+			DetectionHarnessPlayMode.RunSoundPerceptionContract ||
+			DetectionHarnessPlayMode.RunAllyReportContract ||
+			DetectionHarnessPlayMode.RunFinalPerceptionContract ||
 			(runtimeSmoke != null && runtimeSmoke.WillRunOnStart) ||
 			(strictSmoke != null && strictSmoke.WillRunOnStart) ||
 			(envelopeSmoke != null && envelopeSmoke.WillRunOnStart) ||
+			(lifecycleSmoke != null && lifecycleSmoke.WillRunOnStart) ||
+			(opticRangeSmoke != null && opticRangeSmoke.WillRunOnStart) ||
+			(weaponRangeSmoke != null && weaponRangeSmoke.WillRunOnStart) ||
+			(accuracyAimSmoke != null && accuracyAimSmoke.WillRunOnStart) ||
+			(fireDisciplineSmoke != null && fireDisciplineSmoke.WillRunOnStart) ||
+			(projectileVisionSmoke != null && projectileVisionSmoke.WillRunOnStart) ||
+			(vehicleVisionSmoke != null && vehicleVisionSmoke.WillRunOnStart) ||
+			(combatRetainSmoke != null && combatRetainSmoke.WillRunOnStart) ||
+			(attentionFacingSmoke != null && attentionFacingSmoke.WillRunOnStart) ||
+			(soundPerceptionSmoke != null && soundPerceptionSmoke.WillRunOnStart) ||
+			(allyReportSmoke != null && allyReportSmoke.WillRunOnStart) ||
+			(finalPerceptionSmoke != null && finalPerceptionSmoke.WillRunOnStart) ||
+			(visionDetectCalSmoke != null && visionDetectCalSmoke.WillRunOnStart) ||
+			(exposureFovSmoke != null && exposureFovSmoke.WillRunOnStart) ||
 			(memorySmoke != null && memorySmoke.WillRunOnStart) ||
 			(identitySmoke != null && identitySmoke.WillRunOnStart) ||
 			(aiPerceptionSmoke != null && aiPerceptionSmoke.WillRunOnStart) ||
@@ -247,14 +381,170 @@ public sealed class DetectionTestController : MonoBehaviour
 
 	/// <summary>
 	/// Idle 10 m on the calibration pad. Stops strafe so G5–G7 forgotten waits do not walk the pair.
+	/// Revives the pair and keeps lethal fire off so selection tests do not kill the target.
 	/// </summary>
 	public void ResetPairToIdleCalibrationPad()
 	{
 		if (m_Presets == null || m_Presets.Length == 0 || m_Observer == null || m_Target == null)
 			return;
 
+		RestoreFixtureActor(m_Observer);
+		RestoreFixtureActor(m_Target);
+		DisableLethalFire(m_Observer);
+		DisableLethalFire(m_Target);
+		EnablePerceptionCombat(m_Observer);
+
 		m_PresetIndex = 0;
 		ApplyCalibrationPreset(m_Presets[0], true);
+	}
+
+	/// <summary>
+	/// Snap observer pose to the pad. Does not move the target or rewrite vision range.
+	/// </summary>
+	public void PinObserverPoseToCalibrationPad()
+	{
+		if (m_Observer == null)
+			return;
+
+		Vector3 lookAxis = m_CalibrationLookAxis;
+		lookAxis.y = 0f;
+		if (lookAxis.sqrMagnitude < 0.0001f)
+			lookAxis = Vector3.forward;
+		lookAxis.Normalize();
+
+		Vector3 observerPos = SampleNavHeight(m_CalibrationObserverPosition);
+		if (m_ObserverAgent == null)
+			m_Observer.TryGetComponent(out m_ObserverAgent);
+		if (m_ObserverAgent != null && m_ObserverAgent.enabled)
+			m_ObserverAgent.enabled = false;
+
+		m_Observer.SetPositionAndRotation(
+			observerPos,
+			Quaternion.LookRotation(lookAxis, Vector3.up));
+		SnapCalibrationPose(m_Observer);
+	}
+
+	/// <summary>
+	/// Keep animator bones and hit-zones synchronized with the root after a teleport.
+	/// Measurement-only: does not change Q / FOV / Exposure formulas.
+	/// </summary>
+	public static void SnapCalibrationPose(Transform _unit)
+	{
+		if (_unit == null)
+			return;
+
+		if (_unit.TryGetComponent(out NavMeshAgent agent) && agent.enabled)
+			agent.enabled = false;
+		if (_unit.TryGetComponent(out UnitClickToMove click))
+			click.enabled = false;
+		if (_unit.TryGetComponent(out UnitNavLocomotionDriver driver))
+			driver.enabled = false;
+
+		Animator animator = _unit.GetComponentInChildren<Animator>();
+		if (animator != null)
+		{
+			animator.applyRootMotion = false;
+			animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+			if (animator.enabled && animator.gameObject.activeInHierarchy && animator.isInitialized)
+				animator.Update(0f);
+		}
+
+		if (_unit.TryGetComponent(out UnitVision vision))
+			vision.RefreshBodyHitZones();
+
+		Physics.SyncTransforms();
+	}
+
+	/// <summary>
+	/// Isolate a real infantry unit for vision measurement without changing the sensor itself.
+	/// Prevents target selection, aim/fire decisions, and damage from contaminating later samples.
+	/// </summary>
+	public static void PrepareCalibrationUnit(Transform _unit)
+	{
+		if (_unit == null)
+			return;
+
+		DisableLethalFire(_unit);
+		if (_unit.TryGetComponent(out TargetSelector selector))
+		{
+			selector.ClearSelectionAndNotifyIfHadTarget();
+			selector.enabled = false;
+		}
+		if (_unit.TryGetComponent(out EngagementDecisionController engagement))
+			engagement.enabled = false;
+
+		SnapCalibrationPose(_unit);
+	}
+
+	/// <summary>Stop live bullets. Leaves TargetSelector / engagement on for G5–G8.</summary>
+	public static void DisableLethalFire(Transform _unit)
+	{
+		if (_unit == null)
+			return;
+
+		if (_unit.TryGetComponent(out UnitWeaponFireDisciplineController discipline))
+			discipline.enabled = false;
+		if (_unit.TryGetComponent(out UnitWeaponAutoFireWhenAimed autoFire))
+			autoFire.enabled = false;
+		if (_unit.TryGetComponent(out UnitWeaponFireController fireController))
+		{
+			fireController.StopFiring();
+			fireController.enabled = false;
+		}
+	}
+
+	/// <summary>G5–G8 need selector and engagement; vision-only tests keep them off.</summary>
+	public static void EnablePerceptionCombat(Transform _unit)
+	{
+		if (_unit == null)
+			return;
+
+		if (_unit.TryGetComponent(out TargetSelector selector))
+			selector.enabled = true;
+		if (_unit.TryGetComponent(out EngagementDecisionController engagement))
+			engagement.enabled = true;
+	}
+
+	/// <summary>Undo death / ragdoll / fall-through so the next layout still has a standing target.</summary>
+	public static void RestoreFixtureActor(Transform _unit)
+	{
+		if (_unit == null)
+			return;
+
+		if (_unit.TryGetComponent(out DamageableTarget damageable))
+			damageable.ResetHealth();
+		if (_unit.TryGetComponent(out UnitHealth health))
+			health.ResetToHealthy();
+		if (_unit.TryGetComponent(out UnitConsciousness consciousness) && !consciousness.IsConscious)
+			consciousness.WakeUp();
+		if (_unit.TryGetComponent(out UnitRagdollController ragdoll) && ragdoll.IsRagdollActive)
+			ragdoll.SetRagdollActive(false);
+
+		SnapCalibrationPose(_unit);
+	}
+
+	private void PrepareHarnessActors(bool _isolateVisionDecisions)
+	{
+		bool keepPerceptionCombat =
+			DetectionHarnessPlayMode.IsGRegressionPlay ||
+			DetectionHarnessPlayMode.RunVisionContactLifecycle;
+		if (!_isolateVisionDecisions && !keepPerceptionCombat)
+			return;
+
+		RestoreFixtureActor(m_Observer);
+		RestoreFixtureActor(m_Target);
+		if (_isolateVisionDecisions)
+		{
+			PrepareCalibrationUnit(m_Observer);
+			PrepareCalibrationUnit(m_Target);
+			return;
+		}
+
+		DisableLethalFire(m_Observer);
+		DisableLethalFire(m_Target);
+		EnablePerceptionCombat(m_Observer);
+		SnapCalibrationPose(m_Observer);
+		SnapCalibrationPose(m_Target);
 	}
 
 	private void ApplyCalibrationPreset(DetectionPreset preset, bool _useCalibrationPad)
@@ -511,6 +801,7 @@ public sealed class DetectionTestController : MonoBehaviour
 					_agent.isStopped = true;
 					_agent.velocity = Vector3.zero;
 					_unit.rotation = _rotation;
+					SnapCalibrationPose(_unit);
 					return;
 				}
 			}
@@ -520,6 +811,7 @@ public sealed class DetectionTestController : MonoBehaviour
 			_agent.enabled = false;
 
 		_unit.SetPositionAndRotation(_position, _rotation);
+		SnapCalibrationPose(_unit);
 	}
 
 	private Vector3 SampleNavPosition(Vector3 _desired)

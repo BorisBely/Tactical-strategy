@@ -168,6 +168,10 @@ public readonly struct WeaponFireDisciplinePlan
 	public readonly int SeriesShotCount;
 	public readonly float SeriesPauseSeconds;
 	public readonly float TargetDistanceMeters;
+	public readonly WeaponFireDisciplineProfileKind Profile;
+	public readonly WeaponFireDisciplineDistanceBand DistanceBand;
+	public readonly float NormalizedDistance01;
+	public readonly float WorkingRangeMeters;
 
 	public WeaponFireDisciplinePlan(
 		WeaponFireDisciplineMode _selectedDiscipline,
@@ -177,7 +181,11 @@ public readonly struct WeaponFireDisciplinePlan
 		float _requiredAimProgress01,
 		int _seriesShotCount,
 		float _seriesPauseSeconds,
-		float _targetDistanceMeters)
+		float _targetDistanceMeters,
+		WeaponFireDisciplineProfileKind _profile,
+		WeaponFireDisciplineDistanceBand _distanceBand,
+		float _normalizedDistance01,
+		float _workingRangeMeters)
 	{
 		SelectedDiscipline = _selectedDiscipline;
 		EffectiveDiscipline = _effectiveDiscipline;
@@ -187,6 +195,10 @@ public readonly struct WeaponFireDisciplinePlan
 		SeriesShotCount = Mathf.Max(1, _seriesShotCount);
 		SeriesPauseSeconds = Mathf.Max(0f, _seriesPauseSeconds);
 		TargetDistanceMeters = Mathf.Max(0f, _targetDistanceMeters);
+		Profile = _profile;
+		DistanceBand = _distanceBand;
+		NormalizedDistance01 = Mathf.Clamp01(_normalizedDistance01);
+		WorkingRangeMeters = Mathf.Max(1f, _workingRangeMeters);
 	}
 }
 
@@ -221,17 +233,34 @@ public static class WeaponFireDisciplineModeUtility
 
 	public static WeaponAimMode MapToAimMode(WeaponFireDisciplineMode _discipline, float _distanceMeters)
 	{
-		float distance = Mathf.Max(0f, _distanceMeters);
+		return MapToAimMode(_discipline, _distanceMeters, null);
+	}
+
+	public static WeaponAimMode MapToAimMode(
+		WeaponFireDisciplineMode _discipline,
+		float _distanceMeters,
+		WeaponDefinition _weapon)
+	{
+		float working = WeaponFireDisciplineProfile.GetWorkingRangeMeters(_weapon);
+		float normalized = WeaponFireDisciplineProfile.NormalizeDistance(_distanceMeters, working);
+		return MapToAimModeFromNormalized(_discipline, normalized);
+	}
+
+	public static WeaponAimMode MapToAimModeFromNormalized(
+		WeaponFireDisciplineMode _discipline,
+		float _normalizedDistance01)
+	{
+		float n = Mathf.Clamp01(_normalizedDistance01);
 		switch (_discipline)
 		{
 			case WeaponFireDisciplineMode.Suppressive:
-				if (distance <= 35f)
+				if (n <= 0.18f)
 					return WeaponAimMode.SnapShot;
-				if (distance <= 90f)
+				if (n <= 0.45f)
 					return WeaponAimMode.QuickAim;
 				return WeaponAimMode.FullAim;
 			case WeaponFireDisciplineMode.Precision:
-				if (distance <= 45f)
+				if (n < WeaponFireDisciplineProfile.MidEnter)
 					return WeaponAimMode.QuickAim;
 				return WeaponAimMode.FullAim;
 			default:
@@ -570,7 +599,7 @@ public struct WeaponAttachmentSlotDefinition
 }
 
 /// <summary>
-/// Дистанционный профиль качества прицеливания на диапазоне 0..500 м.
+/// Дистанционный профиль качества прицеливания на диапазоне 0..300 м.
 /// Кривые поддерживают любое количество ключей, например 8-10 точек баланса по дистанции.
 /// Множитель разброса: меньше 1 = точнее. Множитель времени прицеливания: меньше 1 = быстрее.
 /// </summary>
@@ -578,15 +607,16 @@ public struct WeaponAttachmentSlotDefinition
 public sealed class WeaponDistanceAimProfile
 {
 	#region Constants
+	public const float MaxDistanceMeters = 300f;
 	private const float c_MinDistanceMeters = 0f;
-	private const float c_MaxDistanceMeters = 500f;
+	private const float c_MaxDistanceMeters = MaxDistanceMeters;
 	private const float c_MinMultiplier = 0.01f;
 	#endregion
 
 	#region Private Fields
-	[Tooltip("Множитель разброса по дистанции 0..500 м. Можно добавить 8-10 ключей. Меньше 1 = точнее, больше 1 = хуже.")]
+	[Tooltip("Множитель разброса по дистанции 0..300 м. Можно добавить 8-10 ключей. Меньше 1 = точнее, больше 1 = хуже.")]
 	[SerializeField] private AnimationCurve m_DispersionMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
-	[Tooltip("Множитель времени прицеливания по дистанции 0..500 м. Можно добавить 8-10 ключей. Меньше 1 = быстрее, больше 1 = медленнее.")]
+	[Tooltip("Множитель времени прицеливания по дистанции 0..300 м. Можно добавить 8-10 ключей. Меньше 1 = быстрее, больше 1 = медленнее.")]
 	[SerializeField] private AnimationCurve m_AimTimeMultiplierByDistance = AnimationCurve.Linear(c_MinDistanceMeters, 1f, c_MaxDistanceMeters, 1f);
 	#endregion
 
@@ -610,6 +640,20 @@ public sealed class WeaponDistanceAimProfile
 	public bool IsFlatDispersionCurve() => IsFlatNeutralCurve(m_DispersionMultiplierByDistance);
 
 	public bool IsFlatAimTimeCurve() => IsFlatNeutralCurve(m_AimTimeMultiplierByDistance);
+
+	public float GetDispersionMaxKeyedDistanceMeters()
+	{
+		if (m_DispersionMultiplierByDistance == null || m_DispersionMultiplierByDistance.length == 0)
+			return 0f;
+		return m_DispersionMultiplierByDistance.keys[m_DispersionMultiplierByDistance.length - 1].time;
+	}
+
+	public float GetAimTimeMaxKeyedDistanceMeters()
+	{
+		if (m_AimTimeMultiplierByDistance == null || m_AimTimeMultiplierByDistance.length == 0)
+			return 0f;
+		return m_AimTimeMultiplierByDistance.keys[m_AimTimeMultiplierByDistance.length - 1].time;
+	}
 	#endregion
 
 	#region Private Methods

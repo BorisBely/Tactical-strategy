@@ -92,7 +92,7 @@ namespace Vision.Tests
 			PerceivedContact c = Contact(PerceivedIdentity.Unknown, 0f, ObservationState.NotObserved);
 			c.SoundConfidence = 0.8f;
 			c.SoundPosition = new Vector3(2f, 0f, 0f);
-			c.LastKnownPosition = c.SoundPosition;
+			c.LastKnownPosition = Vector3.zero;
 			Assert.IsTrue(c.HasKnowledge);
 			Assert.IsTrue(ContactSelectionEligibility.Evaluate(c, true, m_Policy, out ContactSelectionRejectReason reason));
 			Assert.AreEqual(ContactSelectionRejectReason.None, reason);
@@ -104,7 +104,7 @@ namespace Vision.Tests
 			PerceivedContact c = Contact(PerceivedIdentity.Unknown, 0f, ObservationState.NotObserved);
 			c.SharedConfidence = 0.7f;
 			c.SharedPosition = new Vector3(3f, 0f, 0f);
-			c.LastKnownPosition = c.SharedPosition;
+			c.LastKnownPosition = Vector3.zero;
 			Assert.IsTrue(ContactSelectionEligibility.Evaluate(c, true, m_Policy, out _));
 		}
 

@@ -10,7 +10,7 @@ namespace Vision.Tests.Editor
 	/// </summary>
 	public static class SearchExecutionNUnitRunner
 	{
-		[MenuItem("Tools/Tests/Run Search Execution (EditMode)", false, 147)]
+		[MenuItem("Tools/Tests/Archive/EditMode/Run Search Execution (EditMode)", false, 141)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

@@ -152,7 +152,10 @@ def patch_asset(path: Path, disp: list[tuple[float, float]], aim: list[tuple[flo
 
 
 def main() -> None:
-    patched = 0
+    raise SystemExit(
+        "bake_optic_assets.py is retired (0–100 keys). "
+        "Stage 10 owner: python Tools/bake_accuracy_aim_curves.py"
+    )
     for asset_name, (disp, aim) in CURVES.items():
         matches = list(ROOT.rglob(f"{asset_name}.asset"))
         if not matches:

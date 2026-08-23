@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: Item_Attachment_M4_Vortex_Razor
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   m_LocalizationKey: item.attachment.m4_vortex_razor
-  m_Description: "\u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 \u043F\u0440\u0438\u0446\u0435\u043B
-    \u0434\u043B\u044F 0-60 \u043C \u0441 \u0432\u044B\u0441\u043E\u043A\u043E\u0439
-    \u0446\u0435\u043D\u043E\u0439 \u043F\u043E \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u0438."
+  m_Description: "Переменная кратность от 1x до 6x."
   m_Icon: {fileID: 21300000, guid: bb41401aa49ca584d8ec302a13a5cf8f, type: 3}
   m_BasePrice: 980
   m_WeightKg: 0

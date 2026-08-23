@@ -1,0 +1,9 @@
+ammo,asset_path,caliber,damage_model,current_range,proposed_range,notes
+Ammo_12Gauge,Assets/GameData/Shooting/Ammo_12Gauge.asset,TwelveGauge,ShotgunPelletCurve,40,40,Matches Benelli; pellet curve owns damage vs distance
+Ammo_545x39mm,Assets/GameData/Shooting/Ammo_545x39mm.asset,Five45By39,LinearHitscan,500,250,Must not cap the longest 5.45 weapon (RPK74MOD1 160)
+Ammo_556x45mmNATO,Assets/GameData/Shooting/Ammo_556x45mmNATO.asset,Five56By45,LinearHitscan,500,300,Must not cap MK12 200 / M16A4 175
+Ammo_762x39mm,Assets/GameData/Shooting/Ammo_762x39mm.asset,Seven62By39,LinearHitscan,500,250,Must not cap AK47MOD1 / RPK47
+Ammo_762x51mmNATO,Assets/GameData/Shooting/Ammo_762x51mmNATO.asset,Seven62By51,LinearHitscan,500,300,Must not cap sniper 225
+Ammo_762x54mmR,Assets/GameData/Shooting/Ammo_762x54mmR.asset,Seven62By54R,LinearHitscan,500,300,Must not cap Mosin 200 / SVD 175
+Ammo_127x99,Assets/GameData/Shooting/Turret/Ammo_127x99.asset,TwelvePointSevenByNinetyNine,LinearHitscan,1500,300,Ceiling for M2 hitscan in the 300 envelope
+Ammo_40x53,Assets/GameData/Shooting/Turret/Ammo_40x53.asset,FortyByFiftyThree,ProjectileSupport,1500,300,Catalog ceiling only; MK19 does not use linear hitscan falloff

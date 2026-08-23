@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionG7TestRunner
 {
-	[MenuItem("Tools/Tests/Run DetectionG7 Sound Shared Smoke (no Play)")]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG7 Sound Shared Smoke (no Play)", false, 135)]
 	public static void RunSoundSharedSmokeFromMenu()
 	{
 		string report = BuildSoundSharedSmokeReport();

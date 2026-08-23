@@ -13,7 +13,7 @@ using UnityEngine;
 /// </summary>
 public static class MemoryCalibrationTestRunner
 {
-	[MenuItem("Tools/Tests/Run Memory Calibration", false, 136)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Memory Calibration", false, 107)]
 	public static void RunMathFromMenu()
 	{
 		MemoryCalibrationScenarios.ReportResult result = MemoryCalibrationScenarios.BuildReport();
@@ -26,7 +26,7 @@ public static class MemoryCalibrationTestRunner
 		Debug.Log($"[MemoryCalibrationTestRunner] MATH (no Play). wrote {latest} {resultLine}\n{result.Body}");
 	}
 
-	[MenuItem("Tools/Tests/Run Memory Calibration (Play)", false, 137)]
+	[MenuItem("Tools/Tests/Archive/Calibration/Run Memory Calibration (Play)", false, 108)]
 	public static void RunPlayFromMenu()
 	{
 		DetectionHarnessPlayMode.SkipClosedGStages = true;
@@ -45,6 +45,22 @@ public static class MemoryCalibrationTestRunner
 		DetectionHarnessPlayMode.RunGameCommandSource = false;
 		DetectionHarnessPlayMode.RunGameCommandInput = false;
 		DetectionHarnessPlayMode.RunGameCommandLayer = false;
+		DetectionHarnessPlayMode.RunVisionEnvelope = false;
+		DetectionHarnessPlayMode.RunVisionDetectionCalibration = false;
+		DetectionHarnessPlayMode.RunVisionExposureFovContract = false;
+		DetectionHarnessPlayMode.RunVisionDetectionBalance = false;
+		DetectionHarnessPlayMode.RunVisionContactLifecycle = false;
+		DetectionHarnessPlayMode.RunVisionOpticRangeContract = false;
+		DetectionHarnessPlayMode.RunWeaponRangeContract = false;
+		DetectionHarnessPlayMode.RunAccuracyAimCurveContract = false;
+		DetectionHarnessPlayMode.RunFireDisciplineContract = false;
+		DetectionHarnessPlayMode.RunProjectileVisionContract = false;
+		DetectionHarnessPlayMode.RunVehicleVisionContract = false;
+		DetectionHarnessPlayMode.RunCombatRetainContract = false;
+		DetectionHarnessPlayMode.RunAttentionFacingContract = false;
+		DetectionHarnessPlayMode.RunSoundPerceptionContract = false;
+		DetectionHarnessPlayMode.RunAllyReportContract = false;
+		DetectionHarnessPlayMode.RunFinalPerceptionContract = false;
 
 		if (EditorApplication.isPlaying)
 		{

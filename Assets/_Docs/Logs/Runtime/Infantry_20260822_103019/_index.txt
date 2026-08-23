@@ -1,0 +1,30 @@
+﻿# Infantry action log session 2026-08-22 10:30:19
+# folder=D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260822_103019
+# columns: slot team look callsign iid go file ai
+P01  team=Player look=Player callsign=Unit(Clone) iid=568105589213732174 go=Unit(Clone) file=Player/P01_Unit(Clone).log ai=none
+E01  team=Enemy look=Enemy callsign=Unit(Clone) iid=568105589213730918 go=Unit(Clone) file=Enemy/E01_Unit(Clone).log ai=none
+E02  team=Enemy look=? callsign=EnvDummy_0 iid=568105589213727608 go=EnvDummy_0 file=Enemy/E02_EnvDummy_0.log ai=none
+E03  team=Enemy look=? callsign=EnvDummy_1 iid=568105589213727584 go=EnvDummy_1 file=Enemy/E03_EnvDummy_1.log ai=none
+E04  team=Enemy look=? callsign=EnvDummy_2 iid=568105589213727560 go=EnvDummy_2 file=Enemy/E04_EnvDummy_2.log ai=none
+E05  team=Enemy look=? callsign=EnvDummy_3 iid=568105589213727536 go=EnvDummy_3 file=Enemy/E05_EnvDummy_3.log ai=none
+E06  team=Enemy look=? callsign=EnvDummy_4 iid=568105589213727512 go=EnvDummy_4 file=Enemy/E06_EnvDummy_4.log ai=none
+E07  team=Enemy look=? callsign=EnvDummy_5 iid=568105589213727488 go=EnvDummy_5 file=Enemy/E07_EnvDummy_5.log ai=none
+E08  team=Enemy look=? callsign=EnvDummy_6 iid=568105589213727464 go=EnvDummy_6 file=Enemy/E08_EnvDummy_6.log ai=none
+E09  team=Enemy look=? callsign=EnvDummy_7 iid=568105589213727440 go=EnvDummy_7 file=Enemy/E09_EnvDummy_7.log ai=none
+E10  team=Enemy look=? callsign=EnvDummy_8 iid=568105589213727416 go=EnvDummy_8 file=Enemy/E10_EnvDummy_8.log ai=none
+E11  team=Enemy look=? callsign=EnvDummy_9 iid=568105589213727392 go=EnvDummy_9 file=Enemy/E11_EnvDummy_9.log ai=none
+E12  team=Enemy look=? callsign=EnvDummy_10 iid=568105589213727368 go=EnvDummy_10 file=Enemy/E12_EnvDummy_10.log ai=none
+E13  team=Enemy look=? callsign=EnvDummy_11 iid=568105589213727344 go=EnvDummy_11 file=Enemy/E13_EnvDummy_11.log ai=none
+E14  team=Enemy look=? callsign=EnvDummy_12 iid=568105589213727320 go=EnvDummy_12 file=Enemy/E14_EnvDummy_12.log ai=none
+E15  team=Enemy look=? callsign=EnvDummy_13 iid=568105589213727296 go=EnvDummy_13 file=Enemy/E15_EnvDummy_13.log ai=none
+E16  team=Enemy look=? callsign=EnvDummy_14 iid=568105589213727272 go=EnvDummy_14 file=Enemy/E16_EnvDummy_14.log ai=none
+E17  team=Enemy look=? callsign=EnvDummy_15 iid=568105589213727248 go=EnvDummy_15 file=Enemy/E17_EnvDummy_15.log ai=none
+E18  team=Enemy look=? callsign=EnvDummy_16 iid=568105589213727224 go=EnvDummy_16 file=Enemy/E18_EnvDummy_16.log ai=none
+E19  team=Enemy look=? callsign=EnvDummy_17 iid=568105589213727200 go=EnvDummy_17 file=Enemy/E19_EnvDummy_17.log ai=none
+E20  team=Enemy look=? callsign=EnvDummy_18 iid=568105589213727176 go=EnvDummy_18 file=Enemy/E20_EnvDummy_18.log ai=none
+E21  team=Enemy look=? callsign=EnvDummy_19 iid=568105589213727152 go=EnvDummy_19 file=Enemy/E21_EnvDummy_19.log ai=none
+E22  team=Enemy look=? callsign=EnvDummy_20 iid=568105589213727128 go=EnvDummy_20 file=Enemy/E22_EnvDummy_20.log ai=none
+E23  team=Enemy look=? callsign=EnvDummy_21 iid=568105589213727104 go=EnvDummy_21 file=Enemy/E23_EnvDummy_21.log ai=none
+E24  team=Enemy look=? callsign=EnvDummy_22 iid=568105589213727080 go=EnvDummy_22 file=Enemy/E24_EnvDummy_22.log ai=none
+E25  team=Enemy look=? callsign=EnvDummy_23 iid=568105589213727056 go=EnvDummy_23 file=Enemy/E25_EnvDummy_23.log ai=none
+E26  team=Enemy look=? callsign=EnvTargetA iid=568105589213727032 go=EnvTargetA file=Enemy/E26_EnvTargetA.log ai=none
