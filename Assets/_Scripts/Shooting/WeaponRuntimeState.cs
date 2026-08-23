@@ -320,6 +320,21 @@ public sealed class WeaponRuntimeState
 		return ProductAttachmentFloat(a => a.GetRecoilModifier(_fireMode));
 	}
 
+	public float GetAttachmentRecoilVerticalProduct()
+	{
+		return ProductAttachmentFloat(static a => a.RecoilVerticalModifier);
+	}
+
+	public float GetAttachmentRecoilHorizontalProduct()
+	{
+		return ProductAttachmentFloat(static a => a.RecoilHorizontalModifier);
+	}
+
+	public float GetAttachmentRecoilRecoveryProduct()
+	{
+		return ProductAttachmentFloat(static a => a.RecoilRecoveryModifier);
+	}
+
 	public float GetAttachmentReloadTimeProduct()
 	{
 		return ProductAttachmentFloat(static a => a.ReloadTimeModifier);

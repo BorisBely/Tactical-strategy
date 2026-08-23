@@ -1,0 +1,37 @@
+﻿RecoilPlayLmgForm SIM_PLAY
+Phase B7 Horizontal: M249/PKM X/Y at 5 and 10, pause A. Not M4 cm baseline.
+Offset° matches RecoilContract PredictOffset. Group cm is hitscan cone — do not match to M4 11.8 cm.
+Aiming, stand, FullAuto, no attachments, RecoilControl 50, prone off, 50 m.
+
+Weapon_M249
+  A kick: V=0.070° H=0.150° Rec=0.50°/s
+  After 3: X=0.027° Y=0.157° |Offset|=0.159°
+  After 5: X=-0.070° Y=0.245° |Offset|=0.254°
+  After 8: X=-0.096° Y=0.424° |Offset|=0.435°
+  After 10: X=0.008° Y=0.531° |Offset|=0.531°
+  |X|/|Y| after 5: 0.29  max |X| 1-10: 0.104°
+  NetDriftPerShot 5→10: 0.0554°/shot
+  Pause A after 5: 0.2s=0.154° 0.4s=0.054° 0.8s=0.000°
+  SIM_PLAY group |center| @50m (cone, ignore vs M4): 5=11.5 cm  10=23.3 cm  RecoilShotIndex@5=4
+
+Weapon_PKM
+  A kick: V=0.080° H=0.130° Rec=0.50°/s
+  After 3: X=-0.046° Y=0.159° |Offset|=0.166°
+  After 5: X=-0.120° Y=0.271° |Offset|=0.296°
+  After 8: X=-0.044° Y=0.468° |Offset|=0.470°
+  After 10: X=0.016° Y=0.581° |Offset|=0.581°
+  |X|/|Y| after 5: 0.44  max |X| 1-10: 0.139°
+  NetDriftPerShot 5→10: 0.0570°/shot
+  Pause A after 5: 0.2s=0.196° 0.4s=0.096° 0.8s=0.000°
+  SIM_PLAY group |center| @50m (cone, ignore vs M4): 5=14.3 cm  10=27.9 cm  RecoilShotIndex@5=4
+
+Form checks (not absolute cm):
+  OK    M249 |Offset|10 > |Offset|5 (no zero-drift)
+  OK    PKM |Offset|10 > |Offset|5
+  OK    PKM heavier than M249 after 5
+  OK    M249 pause 0.4s does not wipe Offset
+  OK    PKM pause 0.4s does not wipe Offset
+  OK    M249 |X|/|Y|@5 readable LMG side
+  OK    PKM side heavier than M249 (|X|/|Y|@5)
+  OK    After 5, |Y| still leads |X| (climb remains vertical-led)
+  RecoilShotIndex at 5th hitscan (must not snap to 0): M249=4 PKM=4

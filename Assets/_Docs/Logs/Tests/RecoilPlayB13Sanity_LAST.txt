@@ -1,0 +1,30 @@
+﻿RecoilPlayB13Sanity SIM_PLAY spot-check
+After B12 N7 sheet. Not full Phase A baseline. MATH Off5 vs SIM offset + group cm @50m.
+Group cm = hitscan cone. M4 anchor group 5 ≈ 11.8 cm (Phase A).
+
+Weapon_M4_ModA_1 (FullAuto)
+  Math Off@5=0.313°  SIM before shot5=0.212°  group5=11.8 cm  ShotIndex@5=4
+
+Weapon_AK47 (FullAuto)
+  Math Off@5=0.750°  SIM before shot5=0.598°  group5=28.0 cm  ShotIndex@5=4
+
+Weapon_M249 (FullAuto)
+  Math Off@5=0.254°  SIM before shot5=0.249°  group5=11.5 cm  ShotIndex@5=4
+
+Weapon_PKM (FullAuto)
+  Math Off@5=0.296°  SIM before shot5=0.269°  group5=14.3 cm  ShotIndex@5=4
+
+Weapon_MK12 (SemiAuto)
+  Math Off@5=0.051°  SIM before shot5=0.041°  group5=4.8 cm  ShotIndex@5=4
+
+Form checks:
+  OK    M4 Math Off5 ≈ 0.313° (B0)
+  OK    M249 Math Off5 ≈ 0.254° (B8)
+  OK    PKM Math Off5 ≈ 0.296° (B8)
+  OK    M4 Off5 < AK-47 Off5
+  OK    M249 Off5 < PKM Off5
+  OK    M4 group5 near Phase A 11.8 cm
+  OK    MK12 Semi Off5 quiet (no fake stack)
+  OK    Math Off5 > offset before 5th shot (positive drift)
+  OK    RecoilShotIndex@5 not snap 0 (M4)
+  Assets not changed. B12 sheet is canonical N7 reference.

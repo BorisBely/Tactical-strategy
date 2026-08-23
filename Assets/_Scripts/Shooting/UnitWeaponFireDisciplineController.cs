@@ -211,7 +211,8 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 			m_CombatStats,
 			m_IndividualTraits,
 			m_HasDistanceBand ? m_LastDistanceBand : null,
-			false);
+			false,
+			m_WeaponRuntime.RuntimeState.EquippedAttachments);
 		int ammo = CountReadyRounds();
 		if (ammo > 0 && m_CurrentPlan.SeriesShotCount > ammo)
 		{

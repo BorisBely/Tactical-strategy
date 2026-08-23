@@ -1,0 +1,37 @@
+﻿RecoilPlayE2PlannerDistance MATH
+Phase E2: planner sweep 20/50/80/100/150 m. Auto discipline, deterministic.
+Offset cap 0.60 m × 0.85 = 0.51 m.
+
+Weapon_M4_ModA_1:
+  20 m  mode=Burst  series=4  aim=0.68  disp=0.08 m
+  50 m  mode=Burst  series=3  aim=0.68  disp=0.16 m
+  80 m  mode=Burst  series=3  aim=0.68  disp=0.26 m
+  100 m  mode=Burst  series=2  aim=0.77  disp=0.23 m
+  150 m  mode=SemiAuto  series=1  aim=1.00  disp=0.09 m
+
+Weapon_AK47:
+  20 m  mode=Burst  series=4  aim=0.68  disp=0.21 m
+  50 m  mode=Burst  series=3  aim=0.68  disp=0.41 m
+  80 m  mode=Burst  series=3  aim=0.68  disp=0.66 m
+  100 m  mode=Burst  series=2  aim=0.77  disp=0.57 m
+  150 m  mode=SemiAuto  series=1  aim=1.00  disp=0.21 m
+
+Form checks:
+  OK    M4 @20 m disp ≤ cap
+  OK    M4 @50 m disp ≤ cap
+  OK    M4 @80 m disp ≤ cap
+  OK    M4 @100 m disp ≤ cap
+  OK    M4 @150 m disp ≤ cap
+  OK    AK-47 @20 m disp ≤ cap
+  OK    AK-47 @50 m disp ≤ cap
+  WARN  AK-47 @80 m disp ≤ cap
+  WARN  AK-47 @100 m disp ≤ cap
+  OK    AK-47 @150 m disp ≤ cap
+  OK    M4 aim rises 20→150 m
+  OK    AK-47 aim rises 20→150 m
+  OK    M4 @150 m SemiAuto
+  OK    M4 @20 m Burst or FullAuto
+  OK    M4 series @150 ≤ @20
+  OK    AK-47 @150 m not FullAuto
+  OK    AK-47 @20 m Burst or FullAuto
+  Assets not changed. E1 anchors frozen. F specials = next phase.

@@ -39,6 +39,12 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	[SerializeField, Min(0f)] private float m_SemiAutoRecoilModifier = 1f;
 	[Tooltip("Дополнительный множитель отдачи для Burst / FullAuto / Auto. 1 = использовать общий Recoil Modifier без изменений.")]
 	[SerializeField, Min(0f)] private float m_AutomaticRecoilModifier = 1f;
+	[Tooltip("Множитель вертикального kick. 1 = как общий Recoil Modifier.")]
+	[SerializeField, Min(0f)] private float m_RecoilVerticalModifier = 1f;
+	[Tooltip("Множитель горизонтального kick. 1 = как общий Recoil Modifier.")]
+	[SerializeField, Min(0f)] private float m_RecoilHorizontalModifier = 1f;
+	[Tooltip("Множитель скорости восстановления RecoilOffset. Больше 1 = быстрее оседает.")]
+	[SerializeField, Min(0f)] private float m_RecoilRecoveryModifier = 1f;
 	[Tooltip("Как модуль меняет скорость смены магазина в оружии.")]
 	[SerializeField, Min(0f)] private float m_ReloadTimeModifier = 1f;
 	[Tooltip("Как модуль меняет точность и скорость прицеливания на дистанции 0..500 м.")]
@@ -99,6 +105,9 @@ public sealed class WeaponAttachmentDefinition : ScriptableObject
 	public float RecoilModifier => m_RecoilModifier;
 	public float SemiAutoRecoilModifier => m_SemiAutoRecoilModifier;
 	public float AutomaticRecoilModifier => m_AutomaticRecoilModifier;
+	public float RecoilVerticalModifier => Mathf.Max(0.01f, m_RecoilVerticalModifier);
+	public float RecoilHorizontalModifier => Mathf.Max(0.01f, m_RecoilHorizontalModifier);
+	public float RecoilRecoveryModifier => Mathf.Max(0.01f, m_RecoilRecoveryModifier);
 	public float ReloadTimeModifier => m_ReloadTimeModifier;
 	public WeaponDistanceAimProfile DistanceAimProfile => m_DistanceAimProfile;
 	public bool IsImprovedLaser =>

@@ -1,0 +1,24 @@
+﻿RecoilPlayF1SpecialForm MATH
+Phase F1: Benelli / M2 / MK19 baseline regression (B4). Aiming stand, InstanceHash=0.
+No infantry stance/pose matrix on turret weapons. Shotgun pellet spread = F2.
+
+Weapon_BenelliM4 (SemiAuto)
+  Off3=0.239°  Off5=0.352°  Off10=0.676°  nd=0.0650  pause0.4=0.112°
+
+Weapon_M2Browning_127 (FullAuto)
+  Off3=0.506°  Off5=0.838°  Off10=1.690°  nd=0.1705  pause0.4=0.698°
+
+Weapon_MK19 (FullAuto)
+  Off3=0.648°  Off5=1.122°  Off10=2.222°  nd=0.2199  pause0.4=1.010°
+
+Form checks:
+  OK    Benelli Off5 > 0
+  OK    Benelli Off5 ≈ 0.352° (B4)
+  OK    M2 Off5 > Benelli Off5
+  OK    M2 Off5 ≈ 0.838° (B4)
+  OK    MK19 Off5 > M2 Off5
+  OK    MK19 Off5 ≈ 1.122° (B4)
+  OK    M2 NetDrift 5→10 > 0
+  OK    MK19 NetDrift 5→10 > 0
+  OK    MK19 pause 0.4 after 5 heavy
+  Assets not changed. E phase frozen. F2 Benelli spread @15/40 m next.

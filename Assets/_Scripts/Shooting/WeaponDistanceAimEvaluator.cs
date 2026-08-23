@@ -178,6 +178,41 @@ public static class WeaponDistanceAimEvaluator
 
 		return product;
 	}
+
+	public static float GetAttachmentRecoilVerticalProduct(WeaponAttachmentDefinition[] _attachments)
+	{
+		return GetAttachmentFloatProduct(_attachments, static a => a.RecoilVerticalModifier);
+	}
+
+	public static float GetAttachmentRecoilHorizontalProduct(WeaponAttachmentDefinition[] _attachments)
+	{
+		return GetAttachmentFloatProduct(_attachments, static a => a.RecoilHorizontalModifier);
+	}
+
+	public static float GetAttachmentRecoilRecoveryProduct(WeaponAttachmentDefinition[] _attachments)
+	{
+		return GetAttachmentFloatProduct(_attachments, static a => a.RecoilRecoveryModifier);
+	}
+
+	private static float GetAttachmentFloatProduct(
+		WeaponAttachmentDefinition[] _attachments,
+		System.Func<WeaponAttachmentDefinition, float> _selector)
+	{
+		float product = 1f;
+		if (_attachments == null)
+			return product;
+
+		for (int i = 0; i < _attachments.Length; i++)
+		{
+			WeaponAttachmentDefinition attachment = _attachments[i];
+			if (attachment == null)
+				continue;
+
+			product *= Mathf.Max(0.01f, _selector(attachment));
+		}
+
+		return product;
+	}
 	#endregion
 
 	#region Private Methods

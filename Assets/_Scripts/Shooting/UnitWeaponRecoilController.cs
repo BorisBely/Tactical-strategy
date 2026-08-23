@@ -4,6 +4,7 @@ using UnityEngine;
 /// Gameplay recoil: accumulated RecoilOffset in degrees.
 /// Does not write bones or weapon local TRS. Does not widen the hitscan cone.
 /// Visual recoil (UnitWeaponRecoil) subscribes to ShotFired directly.
+/// Pause A: StopFiring does not clear RecoilOffset; recovery continues at full rate.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(58)]
@@ -19,6 +20,7 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField] private UnitIndividualTraits m_IndividualTraits;
 	[SerializeField] private UnitCombatCondition m_CombatCondition;
 	[SerializeField] private UnitStanceCombatModifiers m_StanceCombatModifiers;
+	[SerializeField] private UnitEquipment m_Equipment;
 
 	[Header("Recovery")]
 	[Tooltip("Страховочный потолок |RecoilOffset| в градусах.")]
@@ -37,6 +39,11 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 	[SerializeField, Min(0.01f)] private float m_DebugConditionRecoveryMultiplier = 1f;
 
 	public float MaxRecoilOffsetDegrees => m_MaxRecoilOffsetDegrees;
+	public int RecoilShotIndex =>
+		m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
+			? m_WeaponRuntime.TransientState.RecoilShotIndex
+			: 0;
+
 	public Vector2 RecoilOffset =>
 		m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
 			? m_WeaponRuntime.TransientState.RecoilOffset
@@ -65,6 +72,8 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			m_CombatCondition = GetComponent<UnitCombatCondition>();
 		if (m_StanceCombatModifiers == null)
 			m_StanceCombatModifiers = GetComponent<UnitStanceCombatModifiers>();
+		if (m_Equipment == null)
+			m_Equipment = GetComponent<UnitEquipment>();
 	}
 
 	private void OnEnable()
@@ -110,6 +119,18 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		return kick.VisualImpulse;
 	}
 
+	public Vector2 PredictOffsetAfterShots(int _shotCount)
+	{
+		WeaponRecoilContext context = BuildContext(null);
+		return WeaponRecoilMath.PredictOffsetAfterShots(in context, _shotCount);
+	}
+
+	public Vector2 PredictOffsetAfterBurstAndPause(int _burstShotCount, float _pauseSeconds)
+	{
+		WeaponRecoilContext context = BuildContext(null);
+		return WeaponRecoilMath.PredictOffsetAfterBurstAndPause(in context, _burstShotCount, _pauseSeconds);
+	}
+
 	public void ResetRecoilOffset()
 	{
 		if (m_WeaponRuntime == null)
@@ -150,74 +171,84 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		AmmoDefinition _ammoDefinition,
 		EquippedWeaponTransientState _transient)
 	{
-		WeaponDefinition weaponDefinition = m_WeaponRuntime != null
-			? m_WeaponRuntime.CurrentWeaponDefinition
-			: null;
-		if (weaponDefinition == null)
+		WeaponRecoilContext context = BuildContext(_ammoDefinition);
+		if (context.WeaponDefinition == null)
 			return new WeaponRecoilKick(Vector2.zero, 0f, 0f);
 
-		WeaponFireMode fireMode = m_FireController != null
-			? m_FireController.ResolveEffectiveFireMode()
-			: WeaponFireMode.SemiAuto;
-		float attachmentModifier = m_WeaponRuntime.RuntimeState != null
-			? m_WeaponRuntime.RuntimeState.GetAttachmentRecoilProduct(fireMode)
-			: 1f;
-		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
-		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilAddedMultiplier() : 1f;
-		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
-		float postureMultiplier = m_StanceCombatModifiers != null
-			? m_StanceCombatModifiers.GetRecoilAddedMultiplier()
-			: 1f;
-		m_DebugSkillRecoilAddedMultiplier = skillMultiplier * individualMultiplier;
-		m_DebugConditionRecoilAddedMultiplier = conditionMultiplier;
-
-		float impulseMultiplier = WeaponRecoilMath.ComposeImpulseMultiplier(
-			weaponDefinition,
-			fireMode,
-			_ammoDefinition,
-			attachmentModifier,
-			skillMultiplier,
-			individualMultiplier,
-			conditionMultiplier,
-			postureMultiplier);
-		float seed = WeaponRecoilMath.CombinePatternSeed(
-			weaponDefinition.RecoilPatternSeed,
-			GetEntityId().GetHashCode());
 		int shotIndex = (_transient != null ? _transient.RecoilShotIndex : 0) + 1;
 		float previousPattern = _transient != null ? _transient.RecoilPatternValue : 0f;
-		return WeaponRecoilMath.ComputeKick(
-			weaponDefinition,
-			seed,
-			shotIndex,
-			previousPattern,
-			impulseMultiplier);
+		return WeaponRecoilMath.ComputeKick(in context, shotIndex, previousPattern);
 	}
 
 	private float CalculateCurrentRecoveryPerSecond()
 	{
+		WeaponRecoilContext context = BuildContext(null);
+		if (context.WeaponDefinition == null)
+			return 0f;
+
+		bool isFiring = m_FireController != null && m_FireController.IsFiringCommandActive;
+		bool isReady = m_ReadyHands == null || m_ReadyHands.IsWeaponEquippedAndReady();
+		return WeaponRecoilMath.ComposeRecoveryPerSecond(in context, isFiring, isReady);
+	}
+
+	private WeaponRecoilContext BuildContext(AmmoDefinition _ammoDefinition)
+	{
 		WeaponDefinition weaponDefinition = m_WeaponRuntime != null
 			? m_WeaponRuntime.CurrentWeaponDefinition
 			: null;
-		if (weaponDefinition == null)
-			return 0f;
+		WeaponFireMode fireMode = m_FireController != null
+			? m_FireController.ResolveEffectiveFireMode()
+			: WeaponFireMode.SemiAuto;
+		WeaponRecoilContext context = WeaponRecoilContext.CreateBaseline(weaponDefinition, fireMode);
+		context.AmmoDefinition = _ammoDefinition;
+		context.MaxOffsetDegrees = m_MaxRecoilOffsetDegrees;
+		context.InstanceHash = GetEntityId().GetHashCode();
+		context.RecoveryWhileFiringMultiplier = m_RecoveryWhileFiringMultiplier;
+		context.RecoveryWhenNotReadyMultiplier = m_RecoveryWhenNotReadyMultiplier;
 
-		float recoveryPerSecond = weaponDefinition.RecoilRecoveryPerSecond;
+		WeaponRuntimeState runtimeState = m_WeaponRuntime != null ? m_WeaponRuntime.RuntimeState : null;
+		if (runtimeState != null)
+		{
+			context.AttachmentKickProduct = runtimeState.GetAttachmentRecoilProduct(fireMode);
+			context.AttachmentVerticalProduct = runtimeState.GetAttachmentRecoilVerticalProduct();
+			context.AttachmentHorizontalProduct = runtimeState.GetAttachmentRecoilHorizontalProduct();
+			context.AttachmentRecoveryProduct = runtimeState.GetAttachmentRecoilRecoveryProduct();
+		}
 
-		if (m_FireController != null && m_FireController.IsFiringCommandActive)
-			recoveryPerSecond *= m_RecoveryWhileFiringMultiplier;
+		float skillKick = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
+		float traitsKick = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilAddedMultiplier() : 1f;
+		float conditionKick = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
+		context.SkillKickMultiplier = skillKick;
+		context.TraitsKickMultiplier = traitsKick;
+		context.ConditionKickMultiplier = conditionKick;
+		m_DebugSkillRecoilAddedMultiplier = skillKick * traitsKick;
+		m_DebugConditionRecoilAddedMultiplier = conditionKick;
 
-		if (m_ReadyHands != null && !m_ReadyHands.IsWeaponEquippedAndReady())
-			recoveryPerSecond *= m_RecoveryWhenNotReadyMultiplier;
+		float skillRecovery = m_CombatStats != null ? m_CombatStats.GetRecoilRecoveryMultiplier() : 1f;
+		float traitsRecovery = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilRecoveryMultiplier() : 1f;
+		float conditionRecovery = m_CombatCondition != null ? m_CombatCondition.GetRecoilRecoveryMultiplier() : 1f;
+		context.SkillRecoveryMultiplier = skillRecovery;
+		context.TraitsRecoveryMultiplier = traitsRecovery;
+		context.ConditionRecoveryMultiplier = conditionRecovery;
+		m_DebugSkillRecoveryMultiplier = skillRecovery * traitsRecovery;
+		m_DebugConditionRecoveryMultiplier = conditionRecovery;
 
-		float skillMultiplier = m_CombatStats != null ? m_CombatStats.GetRecoilRecoveryMultiplier() : 1f;
-		float individualMultiplier = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilRecoveryMultiplier() : 1f;
-		float conditionMultiplier = m_CombatCondition != null ? m_CombatCondition.GetRecoilRecoveryMultiplier() : 1f;
-		recoveryPerSecond *= skillMultiplier;
-		recoveryPerSecond *= individualMultiplier;
-		recoveryPerSecond *= conditionMultiplier;
-		m_DebugSkillRecoveryMultiplier = skillMultiplier * individualMultiplier;
-		m_DebugConditionRecoveryMultiplier = conditionMultiplier;
+		bool turret = m_Equipment != null && m_Equipment.IsOperatingVehicleTurret;
+		if (!turret)
+		{
+			if (m_StanceCombatModifiers != null)
+			{
+				context.StanceKickMultiplier = m_StanceCombatModifiers.GetRecoilAddedMultiplier();
+				context.StanceRecoveryMultiplier = m_StanceCombatModifiers.GetRecoilRecoveryMultiplier();
+			}
 
-		return Mathf.Max(0f, recoveryPerSecond);
+			WeaponPoseState pose = m_ReadyHands != null
+				? m_ReadyHands.EffectivePoseState
+				: WeaponPoseState.Aiming;
+			context.PoseKickMultiplier = WeaponPoseCombatModifiers.GetKickMultiplier(pose);
+			context.PoseRecoveryMultiplier = WeaponPoseCombatModifiers.GetRecoveryMultiplier(pose);
+		}
+
+		return context;
 	}
 }

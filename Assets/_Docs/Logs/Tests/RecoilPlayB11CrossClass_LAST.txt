@@ -1,0 +1,28 @@
+﻿RecoilPlayB11CrossClass MATH
+Phase B11: rifle + LMG class regression after B9 Semi× and B10 Auto× frozen.
+FullAuto, Aiming, stand, InstanceHash=0. Does not retune assets.
+
+Rifle (FullAuto |Offset|):
+  Weapon_M4_ModA_1  V=0.090 H=0.035 Rec=0.70 Auto×=1.22  |Off|5=0.313° 10=0.596°  |X|/|Y|@5=0.06  nd=0.0567  pause0.4=0.033°
+  Weapon_AK74  V=0.120 H=0.060 Rec=0.60 Auto×=1.12  |Off|5=0.458° 10=0.926°  |X|/|Y|@5=0.04  nd=0.0935  pause0.4=0.218°
+  Weapon_AK47  V=0.140 H=0.075 Rec=0.55 Auto×=1.34  |Off|5=0.750° 10=1.482°  |X|/|Y|@5=0.12  nd=0.1464  pause0.4=0.530°
+
+LMG (B8 regression anchors):
+  Weapon_M249  V=0.070 H=0.150 Rec=0.50 Auto×=1.10  |Off|5=0.254° 10=0.531°  |X|/|Y|@5=0.29  nd=0.0554  pause0.4=0.054°
+  Weapon_PKM  V=0.080 H=0.130 Rec=0.50 Auto×=1.12  |Off|5=0.296° 10=0.581°  |X|/|Y|@5=0.44  nd=0.0570  pause0.4=0.096°
+
+Form checks:
+  OK    Rifle @5: M4 < AK-74 < AK-47
+  OK    Rifle @10: M4 < AK-74 < AK-47
+  OK    LMG PKM |Offset|5 > M249
+  OK    LMG PKM |Offset|10 > M249
+  OK    LMG PKM side ratio > M249 (@5)
+  OK    M249 |X|/|Y|@5 readable LMG (≥0.28)
+  OK    M249 NetDrift 5→10 > 0
+  OK    PKM NetDrift 5→10 > 0
+  OK    M249 B8 @5 ≈ 0.254°
+  OK    PKM B8 @5 ≈ 0.296°
+  OK    M249 pause 0.4 B7/B8 alive
+  OK    PKM pause 0.4 B7/B8 alive
+  OK    M4 anchor @5 ≈ 0.313° (B0)
+  Assets not changed. Semi×/Auto×/V/H/Rec frozen.

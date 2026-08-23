@@ -1,0 +1,77 @@
+﻿RecoilPlayBaseline
+Phase A / N4 + N8. Phase B CLOSED until this report is frozen.
+Date: 2026-08-23 19:04:14
+Weapon: Weapon_M4_ModA_1 FullAuto, no attachments.
+RecoilControl: 50 (neutral). Prone: OFF. Rings: 10 / 25 / 50 / 100 cm.
+Group center = mean face XY of shots 1..N. Spread = max pairwise about that center, not about aim.
+PredictOffsetAfterShots(N) = aim center before shot N+1. Mean of hits 1..N is lower.
+Stop-list: no RecoilPenalty, no θ from recoil, no Offset snap on StopFiring, no Vertical retune, no G runner classes.
+
+FireMode: FullAuto
+Asset V=0.090 H=0.035 Rec=0.70 Auto×=1.22 RPM=600
+RecoilContract 5-shot |Offset| 0.313° → 54.6 cm @100m → 27.3 cm @50m (editor orientation, not a Play target).
+
+=== MATH (WeaponRecoilMath + pose/stance, RecoilControl 50 → ×1) ===
+A1 Aiming Stand 50m pose=Aiming stanceKick=1.00 dist=50m
+  after 1 |Offset|=0.072°  OffsetX=0.002 OffsetY=0.071  |Offset|_cm=6.2  MeanHit_cm=0.0  SpreadDiam_cm(θ)=56.2
+  after 3 |Offset|=0.183°  OffsetX=-0.003 OffsetY=0.183  |Offset|_cm=15.9  MeanHit_cm=6.0  SpreadDiam_cm(θ)=56.2
+  after 5 |Offset|=0.313°  OffsetX=-0.018 OffsetY=0.313  |Offset|_cm=27.3  MeanHit_cm=10.9  SpreadDiam_cm(θ)=56.2
+  after 8 |Offset|=0.464°  OffsetX=-0.028 OffsetY=0.463  |Offset|_cm=40.5  MeanHit_cm=18.9  SpreadDiam_cm(θ)=56.2
+A2 Aiming Walk 50m pose=Aiming stanceKick=1.25 dist=50m
+  after 1 |Offset|=0.109°  OffsetX=0.003 OffsetY=0.109  |Offset|_cm=9.5  MeanHit_cm=0.0  SpreadDiam_cm(θ)=56.2
+  after 3 |Offset|=0.287°  OffsetX=-0.004 OffsetY=0.287  |Offset|_cm=25.1  MeanHit_cm=9.2  SpreadDiam_cm(θ)=56.2
+  after 5 |Offset|=0.489°  OffsetX=-0.025 OffsetY=0.489  |Offset|_cm=42.7  MeanHit_cm=17.0  SpreadDiam_cm(θ)=56.2
+  after 8 |Offset|=0.736°  OffsetX=-0.042 OffsetY=0.735  |Offset|_cm=64.2  MeanHit_cm=29.6  SpreadDiam_cm(θ)=56.2
+A3 HipFire Stand 15m pose=HipFire stanceKick=1.00 dist=15m
+  after 1 |Offset|=0.128°  OffsetX=0.004 OffsetY=0.128  |Offset|_cm=3.4  MeanHit_cm=0.0  SpreadDiam_cm(θ)=42.2
+  after 3 |Offset|=0.342°  OffsetX=-0.004 OffsetY=0.342  |Offset|_cm=9.0  MeanHit_cm=3.3  SpreadDiam_cm(θ)=42.2
+  after 5 |Offset|=0.582°  OffsetX=-0.028 OffsetY=0.581  |Offset|_cm=15.2  MeanHit_cm=6.1  SpreadDiam_cm(θ)=42.2
+  after 8 |Offset|=0.880°  OffsetX=-0.049 OffsetY=0.879  |Offset|_cm=23.1  MeanHit_cm=10.6  SpreadDiam_cm(θ)=42.2
+A4 Aiming Crouch 50m pose=Aiming stanceKick=0.95 dist=50m
+  after 1 |Offset|=0.061°  OffsetX=0.002 OffsetY=0.061  |Offset|_cm=5.3  MeanHit_cm=0.0  SpreadDiam_cm(θ)=56.2
+  after 3 |Offset|=0.152°  OffsetX=-0.003 OffsetY=0.152  |Offset|_cm=13.2  MeanHit_cm=5.0  SpreadDiam_cm(θ)=56.2
+  after 5 |Offset|=0.261°  OffsetX=-0.016 OffsetY=0.260  |Offset|_cm=22.8  MeanHit_cm=9.1  SpreadDiam_cm(θ)=56.2
+  after 8 |Offset|=0.382°  OffsetX=-0.023 OffsetY=0.381  |Offset|_cm=33.3  MeanHit_cm=15.7  SpreadDiam_cm(θ)=56.2
+A5 MATH after 3 shots + 0.4s full recovery: |Offset|=0.000° → 0.0 cm @50m. RecoilShotIndex is NOT reset (pause A). Remaining ≈ 0 means recovery drained Offset, not a StopFiring snap.
+
+=== MATH form ===
+  A1 Shot1≈0, 3↑, 8↑↑: PASS
+  A2 Walk > Stand (5-shot |Offset| cm): PASS
+  A3 HipFire deg > Aiming; Offset and spread separate: WARN
+  A4 Crouch < Stand: PASS
+  A5 pause 0.4s: Offset recovered not increased; index kept: PASS
+
+=== MATH vs Play (5-shot group center @50m) ===
+MATH 5-shot |Offset| 0.313° → 27.3 cm @50m (~27 cm orientation).
+MATH MeanHitCm=10.9 vs SIM_PLAY group median=11.8 cm.
+Status: PASS — Play group vs MATH MeanHit within 35%. Integration OK.
+SIM_PLAY group center is mean of hits 1..5 (cone around Offset). Compare to MeanHitCm, not |Offset| after 5.
+
+=== PLAY (median of 3 repeats) ===
+Mode: SIM_PLAY (WeaponRecoilMath + hitscan cone, 3× median). No unit hang.
+RecoilControl 50, no attachments, prone off, FullAuto.
+A1 shot1 |group|_cm: median 17.3 cm  spread 0.0 cm  RecoilOffset 0.000° (n=3)
+A1 shot3 |group|_cm: median 5.0 cm  spread 33.9 cm  RecoilOffset 0.128° (n=3)
+A1 shot5 |group|_cm: median 11.8 cm  spread 48.1 cm  RecoilOffset 0.212° (n=3)
+A1 shot8 |group|_cm: median 20.1 cm  spread 56.8 cm  RecoilOffset 0.447° (n=3)
+A2 shot5 |group|_cm: median 18.4 cm  spread 68.4 cm  RecoilOffset 0.344° (n=3)
+A3 shot5 |group|_cm @15m: median 7.3 cm  spread 31.5 cm  RecoilOffset 0.414° (n=3)
+A4 shot5 |group|_cm: median 9.9 cm  spread 42.2 cm  RecoilOffset 0.172° (n=3)
+A5 shot4 |group|_cm: median 6.8 cm  spread 33.9 cm  RecoilOffset 0.000° (n=3)
+A5 RecoilShotIndex at shot4 (hitscan)=3 RecoilOffset=0.000° (must not snap to 0/1). Pause A: StopFiring resets visual punch only.
+
+=== N8 barrel gate (separate from cm table) ===
+Gate: muzzle forward vs ApplyOffsetToDirection(aim, RecoilOffset), weight 1.
+StopFiring does not clear RecoilOffset. Visual punch reset ≠ gameplay Offset.
+M4 after 3+0.4s |Offset|=0.000°. Aiming idle gate ≈ 3°. Remaining Offset << gate → M4 should fire.
+Weapon_M249 after 3+0.4s |Offset|=0.000°. Expect wait-until-aligned OR fire along aim+Offset. Fail = blocked because recoil state was cleared.
+Weapon_PKM after 3+0.4s |Offset|=0.000°. Expect wait-until-aligned OR fire along aim+Offset. Fail = blocked because recoil state was cleared.
+Mode: SIM_PLAY N8. StopFiring does not clear RecoilOffset.
+Weapon_M4_ModA_1 remaining after 3+0.4s=0.000° gate=3.0° muzzleOnTargetWouldFire=True muzzleFollowsOffsetWouldFire=True RecoilShotIndex=3 ResetRecoilOnStopFiring=visual only
+Weapon_M249 remaining after 3+0.4s=0.000° gate=3.0° muzzleOnTargetWouldFire=True muzzleFollowsOffsetWouldFire=True RecoilShotIndex=3 ResetRecoilOnStopFiring=visual only
+Weapon_PKM remaining after 3+0.4s=0.000° gate=3.0° muzzleOnTargetWouldFire=True muzzleFollowsOffsetWouldFire=True RecoilShotIndex=3 ResetRecoilOnStopFiring=visual only
+
+=== Phase gate ===
+Phase B (Vertical → Recovery → Horizontal → Semi× → Auto× on 10 references): CLOSED.
+WeaponBalanceRunner classes: NOT created. Spec frozen in doc §20.2.
+RESULT: MATH form recorded. SIM_PLAY medians recorded (no unit hang). Phase B CLOSED.

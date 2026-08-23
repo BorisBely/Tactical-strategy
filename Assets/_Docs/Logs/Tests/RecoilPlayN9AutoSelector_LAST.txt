@@ -1,0 +1,83 @@
+﻿RecoilPlayN9AutoSelector MATH + SIM_PLAY
+Stage 1 N9: WeaponAutoModeSelectionUtility (threshold ≈ 0.775 m). Not planner E1/E2.
+Representative shots: FA=5, Burst=3, Semi=1. groupHalfAngle = θ + |predicted Offset|.
+Threshold = 0.775 m.
+
+N9-MATH (contract builder):
+Weapon | Distance | PredictedMode | PredictedAim | GroupDiameter | Threshold | IsAcceptable | PASS/FAIL
+M4 | 20 m | FullAuto | SnapShot | 0.334 | 0.775 | True | PASS
+M4 | 50 m | Burst | SnapShot | 0.683 | 0.775 | True | PASS
+M4 | 80 m | SemiAuto | FullAim | 0.761 | 0.775 | True | PASS
+M4 | 100 m | SemiAuto | FullAim | 0.987 | 0.775 | False | PASS (NOTE fallback)
+M4 | 150 m | SemiAuto | FullAim | 1.598 | 0.775 | False | PASS (NOTE fallback)
+AK-47 | 20 m | FullAuto | SnapShot | 0.663 | 0.775 | True | PASS
+AK-47 | 50 m | SemiAuto | FullAim | 0.642 | 0.775 | True | PASS
+AK-47 | 80 m | SemiAuto | FullAim | 1.099 | 0.775 | False | PASS (NOTE fallback)
+AK-47 | 100 m | SemiAuto | FullAim | 1.438 | 0.775 | False | PASS (NOTE fallback)
+AK-47 | 150 m | SemiAuto | FullAim | 2.372 | 0.775 | False | PASS (NOTE fallback)
+
+N9-PLAY (contract vs runtime-mirror):
+Weapon | Distance | PredictedFire | ActualFire | PredictedAim | ActualAim | PASS/FAIL
+M4 | 20 m | FullAuto | FullAuto | SnapShot | SnapShot | PASS
+M4 | 50 m | Burst | Burst | SnapShot | SnapShot | PASS
+M4 | 80 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+M4 | 100 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+M4 | 150 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+AK-47 | 20 m | FullAuto | FullAuto | SnapShot | SnapShot | PASS
+AK-47 | 50 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+AK-47 | 80 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+AK-47 | 100 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+AK-47 | 150 m | SemiAuto | SemiAuto | FullAim | FullAim | PASS
+
+N9 boundary sweep (5 m steps, observed):
+M4:
+  20–50 m: FullAuto
+  50–60 m: Burst
+  60–150 m: SemiAuto
+AK-47:
+  20–25 m: FullAuto
+  25–35 m: Burst
+  35–150 m: SemiAuto
+
+N9 context tests:
+Stand → Walk @50 m: stand=Burst/SnapShot walk=SemiAuto/QuickAim | PASS
+Aiming → HipFire @25 m: aimD=0.419 hipD=1.861 | PASS
+RecoilControl 0/50/100 @50 m: 0=SemiAuto/SnapShot 50=Burst/SnapShot 100=FullAuto/SnapShot | PASS
+
+Form checks:
+  [PASS] M4 @20 m determinism
+  [PASS] M4 @20 m acceptable or Semi+FullAim fallback
+  [PASS] M4 @20 m groupDiameter formula
+  [PASS] M4 @50 m determinism
+  [PASS] M4 @50 m acceptable or Semi+FullAim fallback
+  [PASS] M4 @50 m groupDiameter formula
+  [PASS] M4 @80 m determinism
+  [PASS] M4 @80 m acceptable or Semi+FullAim fallback
+  [PASS] M4 @80 m groupDiameter formula
+  [PASS] M4 @100 m determinism
+  [PASS] M4 @100 m acceptable or Semi+FullAim fallback
+  [PASS] M4 @100 m groupDiameter formula
+  [PASS] M4 @150 m determinism
+  [PASS] M4 @150 m acceptable or Semi+FullAim fallback
+  [PASS] M4 @150 m groupDiameter formula
+  [PASS] AK-47 @20 m determinism
+  [PASS] AK-47 @20 m acceptable or Semi+FullAim fallback
+  [PASS] AK-47 @20 m groupDiameter formula
+  [PASS] AK-47 @50 m determinism
+  [PASS] AK-47 @50 m acceptable or Semi+FullAim fallback
+  [PASS] AK-47 @50 m groupDiameter formula
+  [PASS] AK-47 @80 m determinism
+  [PASS] AK-47 @80 m acceptable or Semi+FullAim fallback
+  [PASS] AK-47 @80 m groupDiameter formula
+  [PASS] AK-47 @100 m determinism
+  [PASS] AK-47 @100 m acceptable or Semi+FullAim fallback
+  [PASS] AK-47 @100 m groupDiameter formula
+  [PASS] AK-47 @150 m determinism
+  [PASS] AK-47 @150 m acceptable or Semi+FullAim fallback
+  [PASS] AK-47 @150 m groupDiameter formula
+  [PASS] SIM PLAY Actual==Predicted (10/10)
+  [PASS] MATH rows PASS (10/10)
+
+FAIL triage: 1) selector 2) context builder 3) prediction 4) runtime path 5) selector bug.
+Do not change AutoRecoilMultiplier or B0–B14 V/H/Rec without proven asset bug.
+Phase G not opened.

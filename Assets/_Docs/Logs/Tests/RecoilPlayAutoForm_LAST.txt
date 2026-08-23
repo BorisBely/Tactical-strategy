@@ -1,0 +1,76 @@
+﻿RecoilPlayAutoForm MATH + SIM_PLAY
+Phase B10 Auto×: M4 / AK-74 / AK-47 / M249 / PKM. FullAuto kick character only.
+Offset 3/5/8/10 + NetDrift 5→10. Auto× does not fix LMG horizontal (B7 closed).
+Aiming, stand, no attachments, RecoilControl 50, 50 m. Group cm = hitscan cone.
+
+Weapon_M4_ModA_1 (FullAuto Auto×=1.22)
+  V=0.090° H=0.035° Rec=0.70°/s RPM=600
+  after 3: X=-0.003° Y=0.183° |Offset|=0.183°
+  after 5: X=-0.018° Y=0.313° |Offset|=0.313°
+  after 8: X=-0.028° Y=0.463° |Offset|=0.464°
+  after 10: X=0.007° Y=0.596° |Offset|=0.596°
+  |X|/|Y|@5: 0.06  max |X| 1-10: 0.036°
+  NetDriftPerShot 5→10: 0.0567°/shot
+  Pause A after 5: 0.2s=0.173° 0.4s=0.033° 0.8s=0.000°
+  SIM_PLAY group@50m: 5=11.8 cm  10=27.3 cm  RecoilShotIndex@5=4
+
+Weapon_AK74 (FullAuto Auto×=1.12)
+  V=0.120° H=0.060° Rec=0.60°/s RPM=650
+  after 3: X=-0.033° Y=0.285° |Offset|=0.287°
+  after 5: X=-0.018° Y=0.458° |Offset|=0.458°
+  after 8: X=0.029° Y=0.734° |Offset|=0.735°
+  after 10: X=-0.005° Y=0.926° |Offset|=0.926°
+  |X|/|Y|@5: 0.04  max |X| 1-10: 0.036°
+  NetDriftPerShot 5→10: 0.0935°/shot
+  Pause A after 5: 0.2s=0.338° 0.4s=0.218° 0.8s=0.000°
+  SIM_PLAY group@50m: 5=18.4 cm  10=40.3 cm  RecoilShotIndex@5=4
+
+Weapon_AK47 (FullAuto Auto×=1.34)
+  V=0.140° H=0.075° Rec=0.55°/s RPM=600
+  after 3: X=-0.047° Y=0.468° |Offset|=0.470°
+  after 5: X=-0.092° Y=0.744° |Offset|=0.750°
+  after 8: X=0.008° Y=1.228° |Offset|=1.228°
+  after 10: X=-0.007° Y=1.482° |Offset|=1.482°
+  |X|/|Y|@5: 0.12  max |X| 1-10: 0.092°
+  NetDriftPerShot 5→10: 0.1464°/shot
+  Pause A after 5: 0.2s=0.640° 0.4s=0.530° 0.8s=0.310°
+  SIM_PLAY group@50m: 5=28.0 cm  10=61.5 cm  RecoilShotIndex@5=4
+
+Weapon_M249 (FullAuto Auto×=1.10)
+  V=0.070° H=0.150° Rec=0.50°/s RPM=750
+  after 3: X=0.027° Y=0.157° |Offset|=0.159°
+  after 5: X=-0.070° Y=0.245° |Offset|=0.254°
+  after 8: X=-0.096° Y=0.424° |Offset|=0.435°
+  after 10: X=0.008° Y=0.531° |Offset|=0.531°
+  |X|/|Y|@5: 0.29  max |X| 1-10: 0.104°
+  NetDriftPerShot 5→10: 0.0554°/shot
+  Pause A after 5: 0.2s=0.154° 0.4s=0.054° 0.8s=0.000°
+  SIM_PLAY group@50m: 5=11.5 cm  10=23.3 cm  RecoilShotIndex@5=4
+
+Weapon_PKM (FullAuto Auto×=1.12)
+  V=0.080° H=0.130° Rec=0.50°/s RPM=650
+  after 3: X=-0.046° Y=0.159° |Offset|=0.166°
+  after 5: X=-0.120° Y=0.271° |Offset|=0.296°
+  after 8: X=-0.044° Y=0.468° |Offset|=0.470°
+  after 10: X=0.016° Y=0.581° |Offset|=0.581°
+  |X|/|Y|@5: 0.44  max |X| 1-10: 0.139°
+  NetDriftPerShot 5→10: 0.0570°/shot
+  Pause A after 5: 0.2s=0.196° 0.4s=0.096° 0.8s=0.000°
+  SIM_PLAY group@50m: 5=14.3 cm  10=27.9 cm  RecoilShotIndex@5=4
+
+Form checks (FullAuto, not cm):
+  OK    Rifle |Offset|5: M4 < AK-74 < AK-47
+  OK    Rifle |Offset|10: M4 < AK-74 < AK-47
+  OK    LMG PKM heavier than M249 after 5
+  OK    LMG PKM heavier than M249 after 10
+  OK    M4 anchor @5 ≈ 0.313° (B0)
+  OK    M249 B8 regression @5 (0.254°)
+  OK    PKM B8 regression @5 (0.296°)
+  OK    M4 |Offset|10 > |Offset|5
+  OK    M249 |Offset|10 > |Offset|5
+  OK    PKM |Offset|10 > |Offset|5
+  OK    M4 NetDrift 5→10 > 0
+  OK    M249 pause 0.4 does not wipe (B8)
+  OK    PKM pause 0.4 does not wipe (B8)
+  RecoilShotIndex@5 (must not snap 0): M4=4 M249=4 PKM=4
+  Assets not changed this pass. V/H/Rec/Semi× frozen.

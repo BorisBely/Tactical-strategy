@@ -73,6 +73,56 @@ public static class WeaponRecoilMath
 		       _postureMultiplier;
 	}
 
+	public static float ComposeImpulseMultiplier(in WeaponRecoilContext _context)
+	{
+		return ComposeImpulseMultiplier(
+			       _context.WeaponDefinition,
+			       _context.FireMode,
+			       _context.AmmoDefinition,
+			       PositiveOrOne(_context.AttachmentKickProduct),
+			       PositiveOrOne(_context.SkillKickMultiplier),
+			       PositiveOrOne(_context.TraitsKickMultiplier),
+			       PositiveOrOne(_context.ConditionKickMultiplier),
+			       PositiveOrOne(_context.StanceKickMultiplier)) *
+		       PositiveOrOne(_context.PoseKickMultiplier);
+	}
+
+	public static float ComposeRecoveryPerSecond(in WeaponRecoilContext _context, bool _isFiring, bool _isReady)
+	{
+		if (_context.WeaponDefinition == null)
+			return 0f;
+
+		float recoveryPerSecond = Mathf.Max(0f, _context.WeaponDefinition.RecoilRecoveryPerSecond);
+		if (_isFiring)
+			recoveryPerSecond *= Mathf.Max(0f, _context.RecoveryWhileFiringMultiplier);
+		if (!_isReady)
+			recoveryPerSecond *= PositiveOrOne(_context.RecoveryWhenNotReadyMultiplier);
+
+		recoveryPerSecond *= PositiveOrOne(_context.SkillRecoveryMultiplier);
+		recoveryPerSecond *= PositiveOrOne(_context.TraitsRecoveryMultiplier);
+		recoveryPerSecond *= PositiveOrOne(_context.ConditionRecoveryMultiplier);
+		recoveryPerSecond *= PositiveOrOne(_context.StanceRecoveryMultiplier);
+		recoveryPerSecond *= PositiveOrOne(_context.PoseRecoveryMultiplier);
+		recoveryPerSecond *= PositiveOrOne(_context.AttachmentRecoveryProduct);
+		return Mathf.Max(0f, recoveryPerSecond);
+	}
+
+	public static WeaponRecoilKick ComputeKick(in WeaponRecoilContext _context, int _shotIndex, float _previousPatternValue)
+	{
+		float impulse = ComposeImpulseMultiplier(in _context);
+		float seed = CombinePatternSeed(
+			_context.WeaponDefinition != null ? _context.WeaponDefinition.RecoilPatternSeed : 0f,
+			_context.InstanceHash);
+		return ComputeKick(
+			_context.WeaponDefinition,
+			seed,
+			_shotIndex,
+			_previousPatternValue,
+			impulse,
+			PositiveOrOne(_context.AttachmentVerticalProduct),
+			PositiveOrOne(_context.AttachmentHorizontalProduct));
+	}
+
 	public static float CombinePatternSeed(float _weaponSeed, int _instanceHash)
 	{
 		return _weaponSeed + (_instanceHash & 1023) * 0.017f;
@@ -85,11 +135,31 @@ public static class WeaponRecoilMath
 		float _previousPatternValue,
 		float _impulseMultiplier)
 	{
+		return ComputeKick(
+			_weaponDefinition,
+			_seed,
+			_shotIndex,
+			_previousPatternValue,
+			_impulseMultiplier,
+			1f,
+			1f);
+	}
+
+	public static WeaponRecoilKick ComputeKick(
+		WeaponDefinition _weaponDefinition,
+		float _seed,
+		int _shotIndex,
+		float _previousPatternValue,
+		float _impulseMultiplier,
+		float _verticalAttachmentMultiplier,
+		float _horizontalAttachmentMultiplier)
+	{
 		if (_weaponDefinition == null)
 			return new WeaponRecoilKick(Vector2.zero, _previousPatternValue, 0f);
 
 		int i = Mathf.Max(1, _shotIndex);
-		float m = _impulseMultiplier;
+		float verticalM = _impulseMultiplier * PositiveOrOne(_verticalAttachmentMultiplier);
+		float horizontalM = _impulseMultiplier * PositiveOrOne(_horizontalAttachmentMultiplier);
 		float verticalRecoil = Mathf.Max(0f, _weaponDefinition.VerticalRecoil);
 		float horizontalRecoil = Mathf.Max(0f, _weaponDefinition.HorizontalRecoil);
 
@@ -100,15 +170,15 @@ public static class WeaponRecoilMath
 		float rawPattern = EvaluateRawPattern(_seed, i);
 		float pattern = Mathf.Lerp(_previousPatternValue, rawPattern, PatternSmooth);
 
-		float deltaY = verticalRecoil * verticalVariation * m;
-		float deltaX = horizontalRecoil * pattern * m;
+		float deltaY = verticalRecoil * verticalVariation * verticalM;
+		float deltaX = horizontalRecoil * pattern * horizontalM;
 
-		float maxY = verticalRecoil * MaxVerticalStepScale * m;
-		float maxX = horizontalRecoil * MaxHorizontalStepScale * m;
+		float maxY = verticalRecoil * MaxVerticalStepScale * verticalM;
+		float maxX = horizontalRecoil * MaxHorizontalStepScale * horizontalM;
 		deltaY = Mathf.Clamp(deltaY, 0f, maxY);
 		deltaX = Mathf.Clamp(deltaX, -maxX, maxX);
 
-		float visualImpulse = verticalRecoil > 0.0001f ? deltaY / verticalRecoil : m;
+		float visualImpulse = verticalRecoil > 0.0001f ? deltaY / verticalRecoil : verticalM;
 		return new WeaponRecoilKick(new Vector2(deltaX, deltaY), pattern, visualImpulse);
 	}
 
@@ -167,37 +237,12 @@ public static class WeaponRecoilMath
 		int _shotIndex,
 		float _recoveryWhileFiringMultiplier)
 	{
-		if (_weaponDefinition == null || _shotIndex <= 1)
-			return Vector2.zero;
-
-		float attachmentProduct = WeaponDistanceAimEvaluator.GetAttachmentRecoilProduct(_attachments, _fireMode);
-		float impulse = ComposeImpulseMultiplier(
+		WeaponRecoilContext context = WeaponRecoilContext.CreateFromAttachments(
 			_weaponDefinition,
-			_fireMode,
-			null,
-			attachmentProduct,
-			1f,
-			1f,
-			1f,
-			1f);
-		float seed = _weaponDefinition.RecoilPatternSeed;
-		float intervalSeconds = 60f / Mathf.Max(1f, _weaponDefinition.FireRateRpm);
-		float recoveryPerShot = Mathf.Max(0f, _weaponDefinition.RecoilRecoveryPerSecond) *
-		                        _recoveryWhileFiringMultiplier *
-		                        intervalSeconds;
-
-		Vector2 offset = Vector2.zero;
-		float pattern = 0f;
-		int kicks = Mathf.Max(0, _shotIndex - 1);
-		for (int n = 1; n <= kicks; n++)
-		{
-			WeaponRecoilKick kick = ComputeKick(_weaponDefinition, seed, n, pattern, impulse);
-			pattern = kick.PatternValue;
-			offset = ApplyKick(offset, kick.Delta, DefaultMaxOffsetDegrees);
-			offset = Vector2.MoveTowards(offset, Vector2.zero, recoveryPerShot);
-		}
-
-		return offset;
+			_attachments,
+			_fireMode);
+		context.RecoveryWhileFiringMultiplier = _recoveryWhileFiringMultiplier;
+		return PredictOffsetBeforeShot(in context, _shotIndex);
 	}
 
 	public static float PredictOffsetMagnitudeBeforeShot(
@@ -258,16 +303,16 @@ public static class WeaponRecoilMath
 		float _recoveryWhileFiringMultiplier = RecoveryWhileFiringForPrediction,
 		float _pauseRecoveryMultiplier = 1f)
 	{
-		Vector2 offset = PredictOffsetAfterShots(
+		WeaponRecoilContext context = WeaponRecoilContext.CreateFromAttachments(
 			_weaponDefinition,
 			_attachments,
-			_fireMode,
-			_burstShotCount,
-			_recoveryWhileFiringMultiplier);
+			_fireMode);
+		context.RecoveryWhileFiringMultiplier = _recoveryWhileFiringMultiplier;
+		Vector2 offset = PredictOffsetAfterShots(in context, _burstShotCount);
 		if (_weaponDefinition == null || _pauseSeconds <= 0f)
 			return offset;
 
-		float recoveryPerSecond = Mathf.Max(0f, _weaponDefinition.RecoilRecoveryPerSecond) *
+		float recoveryPerSecond = ComposeRecoveryPerSecond(in context, false, true) *
 		                          Mathf.Max(0f, _pauseRecoveryMultiplier);
 		return Recover(offset, recoveryPerSecond, _pauseSeconds);
 	}
@@ -305,9 +350,75 @@ public static class WeaponRecoilMath
 		float halfAngleRadians = Mathf.Max(0f, _halfAngleDegrees) * Mathf.Deg2Rad;
 		return 2f * distance * Mathf.Tan(halfAngleRadians);
 	}
+
+	public static Vector2 PredictOffsetBeforeShot(in WeaponRecoilContext _context, int _shotIndex)
+	{
+		if (_context.WeaponDefinition == null || _shotIndex <= 1)
+			return Vector2.zero;
+
+		float cap = _context.MaxOffsetDegrees > 0.01f ? _context.MaxOffsetDegrees : DefaultMaxOffsetDegrees;
+		float intervalSeconds = 60f / Mathf.Max(1f, _context.WeaponDefinition.FireRateRpm);
+		float recoveryWhileFiring = ComposeRecoveryPerSecond(in _context, true, true);
+		float recoveryPerShot = recoveryWhileFiring * intervalSeconds;
+
+		Vector2 offset = Vector2.zero;
+		float pattern = 0f;
+		int kicks = Mathf.Max(0, _shotIndex - 1);
+		for (int n = 1; n <= kicks; n++)
+		{
+			WeaponRecoilKick kick = ComputeKick(in _context, n, pattern);
+			pattern = kick.PatternValue;
+			offset = ApplyKick(offset, kick.Delta, cap);
+			offset = Vector2.MoveTowards(offset, Vector2.zero, recoveryPerShot);
+		}
+
+		return offset;
+	}
+
+	public static float PredictOffsetMagnitudeBeforeShot(in WeaponRecoilContext _context, int _shotIndex)
+	{
+		return PredictOffsetBeforeShot(in _context, _shotIndex).magnitude;
+	}
+
+	public static Vector2 PredictOffsetAfterShots(in WeaponRecoilContext _context, int _shotCount)
+	{
+		if (_context.WeaponDefinition == null || _shotCount <= 0)
+			return Vector2.zero;
+		return PredictOffsetBeforeShot(in _context, _shotCount + 1);
+	}
+
+	public static float PredictOffsetMagnitudeAfterShots(in WeaponRecoilContext _context, int _shotCount)
+	{
+		return PredictOffsetAfterShots(in _context, _shotCount).magnitude;
+	}
+
+	public static Vector2 PredictOffsetAfterBurstAndPause(
+		in WeaponRecoilContext _context,
+		int _burstShotCount,
+		float _pauseSeconds)
+	{
+		Vector2 offset = PredictOffsetAfterShots(in _context, _burstShotCount);
+		if (_context.WeaponDefinition == null || _pauseSeconds <= 0f)
+			return offset;
+
+		float pauseRecovery = ComposeRecoveryPerSecond(in _context, false, true);
+		return Recover(offset, pauseRecovery, _pauseSeconds);
+	}
+
+	public static float PredictOffsetMagnitudeAfterBurstAndPause(
+		in WeaponRecoilContext _context,
+		int _burstShotCount,
+		float _pauseSeconds)
+	{
+		return PredictOffsetAfterBurstAndPause(in _context, _burstShotCount, _pauseSeconds).magnitude;
+	}
 	#endregion
 
 	#region Private Methods
+	private static float PositiveOrOne(float _value)
+	{
+		return _value > 0.0001f ? _value : 1f;
+	}
 	private static float EvaluateRawPattern(float _seed, int _shotIndex)
 	{
 		return Mathf.Sin(_seed + _shotIndex * PatternFreq1) * PatternWeight1 +

@@ -1,0 +1,418 @@
+﻿WeaponBalanceRunner Reference
+Phase G: analytical matrix. RecoilContract remains independent regression.
+Selector threshold = 0.775 m. Planner cap = 0.51 m. Assets not written.
+
+Summary: cases=700 outliers=180 WARN=235 FAIL=0
+
+Rows (preview 40/700):
+Weapon | Loadout | Mode | Pose | Dist | |Off|@5 | θ | Verdict
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 20m | 0.139 | 0.242 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.139 | 0.257 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 80m | 0.139 | 0.273 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.139 | 0.283 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 150m | 0.139 | 0.305 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 20m | 0.272 | 0.327 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.272 | 0.347 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 80m | 0.272 | 0.368 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.272 | 0.382 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 150m | 0.272 | 0.412 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 20m | 0.096 | 0.218 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.096 | 0.232 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 80m | 0.096 | 0.245 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.096 | 0.255 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 150m | 0.096 | 0.275 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 20m | 0.272 | 0.294 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.272 | 0.313 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 80m | 0.272 | 0.331 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.272 | 0.344 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 150m | 0.272 | 0.371 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 5m | 0.347 | 0.651 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 10m | 0.347 | 0.894 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 15m | 0.347 | 1.321 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 25m | 0.347 | 2.132 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 50m | 0.347 | 3.784 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 5m | 0.304 | 0.586 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 10m | 0.304 | 0.805 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 15m | 0.304 | 1.189 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 25m | 0.304 | 1.919 | Pass
+Weapon_M4_ModA_1 | Base | SemiAuto | HipFire | 50m | 0.304 | 3.405 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 20m | 0.313 | 0.242 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 50m | 0.313 | 0.257 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 80m | 0.313 | 0.273 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 100m | 0.313 | 0.283 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 150m | 0.313 | 0.305 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 20m | 0.489 | 0.327 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 50m | 0.489 | 0.347 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 80m | 0.489 | 0.368 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 100m | 0.489 | 0.382 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 150m | 0.489 | 0.412 | Pass
+
+Outliers (180):
+  Weapon_M4_ModA_1 Base @20m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @80m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @150m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @20m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @80m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @150m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @20m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @80m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @150m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @5m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @10m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @15m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @25m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @20m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @80m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @150m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @5m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @10m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @15m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @25m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @20m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @80m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @150m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @5m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @10m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @15m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @25m |Off|@5=0,582°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,582°
+  Weapon_AK47 Base @20m |Off|@5=0,363°
+  Weapon_AK47 Base @50m |Off|@5=0,363°
+  Weapon_AK47 Base @80m |Off|@5=0,363°
+  Weapon_AK47 Base @100m |Off|@5=0,363°
+  Weapon_AK47 Base @150m |Off|@5=0,363°
+  Weapon_AK74 Base @20m |Off|@5=0,295°
+  Weapon_AK74 Base @50m |Off|@5=0,295°
+  Weapon_AK74 Base @80m |Off|@5=0,295°
+  Weapon_AK74 Base @100m |Off|@5=0,295°
+  Weapon_AK74 Base @150m |Off|@5=0,295°
+  Weapon_AK74 Base @20m |Off|@5=0,252°
+  Weapon_AK74 Base @50m |Off|@5=0,252°
+  Weapon_AK74 Base @80m |Off|@5=0,252°
+  Weapon_AK74 Base @100m |Off|@5=0,252°
+  Weapon_AK74 Base @150m |Off|@5=0,252°
+  Weapon_M249 Base @20m |Off|@5=0,223°
+  Weapon_M249 Base @50m |Off|@5=0,223°
+  Weapon_M249 Base @80m |Off|@5=0,223°
+  Weapon_M249 Base @100m |Off|@5=0,223°
+  Weapon_M249 Base @150m |Off|@5=0,223°
+  Weapon_M249 Base @20m |Off|@5=0,172°
+  Weapon_M249 Base @50m |Off|@5=0,172°
+  Weapon_M249 Base @80m |Off|@5=0,172°
+  Weapon_M249 Base @100m |Off|@5=0,172°
+  Weapon_M249 Base @150m |Off|@5=0,172°
+  Weapon_M249 Base @20m |Off|@5=0,145°
+  Weapon_M249 Base @50m |Off|@5=0,145°
+  Weapon_M249 Base @80m |Off|@5=0,145°
+  Weapon_M249 Base @100m |Off|@5=0,145°
+  Weapon_M249 Base @150m |Off|@5=0,145°
+  Weapon_M249 Base @20m |Off|@5=0,223°
+  Weapon_M249 Base @50m |Off|@5=0,223°
+  Weapon_M249 Base @80m |Off|@5=0,223°
+  Weapon_M249 Base @100m |Off|@5=0,223°
+  Weapon_M249 Base @150m |Off|@5=0,223°
+  Weapon_PKM Base @20m |Off|@5=0,199°
+  Weapon_PKM Base @50m |Off|@5=0,199°
+  Weapon_PKM Base @80m |Off|@5=0,199°
+  Weapon_PKM Base @100m |Off|@5=0,199°
+  Weapon_PKM Base @150m |Off|@5=0,199°
+  Weapon_PKM Base @20m |Off|@5=0,165°
+  Weapon_PKM Base @50m |Off|@5=0,165°
+  Weapon_PKM Base @80m |Off|@5=0,165°
+  Weapon_PKM Base @100m |Off|@5=0,165°
+  Weapon_PKM Base @150m |Off|@5=0,165°
+  Weapon_MK12 Base @20m |Off|@5=0,051°
+  Weapon_MK12 Base @50m |Off|@5=0,051°
+  Weapon_MK12 Base @80m |Off|@5=0,051°
+  Weapon_MK12 Base @100m |Off|@5=0,051°
+  Weapon_MK12 Base @150m |Off|@5=0,051°
+  Weapon_MK12 Base @20m |Off|@5=0,166°
+  Weapon_MK12 Base @50m |Off|@5=0,166°
+  Weapon_MK12 Base @80m |Off|@5=0,166°
+  Weapon_MK12 Base @100m |Off|@5=0,166°
+  Weapon_MK12 Base @150m |Off|@5=0,166°
+  Weapon_MK12 Base @20m |Off|@5=0,166°
+  Weapon_MK12 Base @50m |Off|@5=0,166°
+  Weapon_MK12 Base @80m |Off|@5=0,166°
+  Weapon_MK12 Base @100m |Off|@5=0,166°
+  Weapon_MK12 Base @150m |Off|@5=0,166°
+  Weapon_MK12 Base @20m |Off|@5=0,128°
+  Weapon_MK12 Base @50m |Off|@5=0,128°
+  Weapon_MK12 Base @80m |Off|@5=0,128°
+  Weapon_MK12 Base @100m |Off|@5=0,128°
+  Weapon_MK12 Base @150m |Off|@5=0,128°
+  Weapon_MK12 Base @20m |Off|@5=0,083°
+  Weapon_MK12 Base @50m |Off|@5=0,083°
+  Weapon_MK12 Base @80m |Off|@5=0,083°
+  Weapon_MK12 Base @100m |Off|@5=0,083°
+  Weapon_MK12 Base @150m |Off|@5=0,083°
+  Weapon_MK12 Base @5m |Off|@5=0,338°
+  Weapon_MK12 Base @10m |Off|@5=0,338°
+  Weapon_MK12 Base @15m |Off|@5=0,338°
+  Weapon_MK12 Base @25m |Off|@5=0,338°
+  Weapon_MK12 Base @50m |Off|@5=0,338°
+  Weapon_MK12 Base @5m |Off|@5=0,294°
+  Weapon_MK12 Base @10m |Off|@5=0,294°
+  Weapon_MK12 Base @15m |Off|@5=0,294°
+  Weapon_MK12 Base @25m |Off|@5=0,294°
+  Weapon_MK12 Base @50m |Off|@5=0,294°
+  Weapon_MK12 Base @20m |Off|@5=0,128°
+  Weapon_MK12 Base @50m |Off|@5=0,128°
+  Weapon_MK12 Base @80m |Off|@5=0,128°
+  Weapon_MK12 Base @100m |Off|@5=0,128°
+  Weapon_MK12 Base @150m |Off|@5=0,128°
+  Weapon_MK12 Base @20m |Off|@5=0,083°
+  Weapon_MK12 Base @50m |Off|@5=0,083°
+  Weapon_MK12 Base @80m |Off|@5=0,083°
+  Weapon_MK12 Base @100m |Off|@5=0,083°
+  Weapon_MK12 Base @150m |Off|@5=0,083°
+  Weapon_MK12 Base @5m |Off|@5=0,338°
+  Weapon_MK12 Base @10m |Off|@5=0,338°
+  Weapon_MK12 Base @15m |Off|@5=0,338°
+  Weapon_MK12 Base @25m |Off|@5=0,338°
+  Weapon_MK12 Base @50m |Off|@5=0,338°
+  Weapon_MK12 Base @5m |Off|@5=0,294°
+  Weapon_MK12 Base @10m |Off|@5=0,294°
+  Weapon_MK12 Base @15m |Off|@5=0,294°
+  Weapon_MK12 Base @25m |Off|@5=0,294°
+  Weapon_MK12 Base @50m |Off|@5=0,294°
+  Weapon_SVD Base @5m |Off|@5=0,398°
+  Weapon_SVD Base @10m |Off|@5=0,398°
+  Weapon_SVD Base @15m |Off|@5=0,398°
+  Weapon_SVD Base @25m |Off|@5=0,398°
+  Weapon_SVD Base @50m |Off|@5=0,398°
+  Weapon_SVD Base @5m |Off|@5=0,305°
+  Weapon_SVD Base @10m |Off|@5=0,305°
+  Weapon_SVD Base @15m |Off|@5=0,305°
+  Weapon_SVD Base @25m |Off|@5=0,305°
+  Weapon_SVD Base @50m |Off|@5=0,305°
+  Weapon_BenelliM4 Base @20m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @50m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @80m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @100m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @150m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @20m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @50m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @80m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @100m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @150m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @20m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @50m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @80m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @100m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @150m |Off|@5=0,982°
+  Weapon_BenelliM4 Base @5m |Off|@5=1,213°
+  Weapon_BenelliM4 Base @10m |Off|@5=1,213°
+  Weapon_BenelliM4 Base @15m |Off|@5=1,213°
+  Weapon_BenelliM4 Base @25m |Off|@5=1,213°
+  Weapon_BenelliM4 Base @50m |Off|@5=1,213°
+  Weapon_BenelliM4 Base @5m |Off|@5=1,079°
+  Weapon_BenelliM4 Base @10m |Off|@5=1,079°
+  Weapon_BenelliM4 Base @15m |Off|@5=1,079°
+  Weapon_BenelliM4 Base @25m |Off|@5=1,079°
+  Weapon_BenelliM4 Base @50m |Off|@5=1,079°
+  Weapon_M2Browning_127 Base @20m |Off|@5=0,838°
+  Weapon_M2Browning_127 Base @50m |Off|@5=0,838°
+  Weapon_M2Browning_127 Base @80m |Off|@5=0,838°
+  Weapon_M2Browning_127 Base @100m |Off|@5=0,838°
+  Weapon_M2Browning_127 Base @150m |Off|@5=0,838°
+
+Play Gate:
+Analytical gameplay-path re-check (180 outliers):
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,5818 orig=0,5818 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,3381 orig=0,3381 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,2943 orig=0,2943 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3981 orig=0,3981 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3981 orig=0,3981 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3981 orig=0,3981 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3981 orig=0,3981 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3981 orig=0,3981 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3049 orig=0,3049 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3049 orig=0,3049 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3049 orig=0,3049 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3049 orig=0,3049 | PASS
+  Weapon_SVD Base |Off|@5 replay=0,3049 orig=0,3049 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,9819 orig=0,9819 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,2129 orig=1,2129 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,2129 orig=1,2129 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,2129 orig=1,2129 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,2129 orig=1,2129 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,2129 orig=1,2129 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,0789 orig=1,0789 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,0789 orig=1,0789 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,0789 orig=1,0789 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,0789 orig=1,0789 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=1,0789 orig=1,0789 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+Play Gate analytical: 180/180 PASS
+In-scene Play Mode harness: not run (outliers only, optional Phase G11 tier-2).
+
+
+FAIL triage: expectation band → outlier → Play Gate. Do not retune V/H/Rec assets here.

@@ -1,0 +1,430 @@
+﻿RecoilContract
+Pause A: StopFiring does not clear RecoilOffset; pause recovery is full rate.
+Prone: DISABLED (crouch numbers, locomotion off). No prone matrix.
+Cap 12° is a safety ceiling, not a balance target.
+
+Weapon_AK47 (FullAuto)
+  A kick: V=0,140° H=0,075° recovery=0,55°/s
+  B |Offset|: 3=0,470° 5=0,750° 8=1,228° 10=1,482°
+  B axes after 3: X=-0,047° Y=0,468° |Offset|=0,470°
+  B axes after 5: X=-0,092° Y=0,744° |Offset|=0,750°
+  B axes after 8: X=0,008° Y=1,228° |Offset|=1,228°
+  B axes after 10: X=-0,007° Y=1,482° |Offset|=1,482°
+  |X|/|Y| after 5: 0,12  max |X| 1-10: 0,092°
+  NetDriftPerShot 5→10: 0,1464°/shot
+  B @100m 5 shots → 1,31 m
+  C after 5 + pause: 0.2s=0,640° 0.4s=0,530° 0.8s=0,310°
+  HipFire vs Aiming after 5: 1,080° vs 0,750° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,703° vs 0,750° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK47MOD1 (FullAuto)
+  A kick: V=0,140° H=0,075° recovery=0,55°/s
+  B |Offset|: 3=0,383° 5=0,616° 8=1,012° 10=1,268°
+  B axes after 3: X=-0,073° Y=0,376° |Offset|=0,383°
+  B axes after 5: X=-0,087° Y=0,610° |Offset|=0,616°
+  B axes after 8: X=-0,019° Y=1,012° |Offset|=1,012°
+  B axes after 10: X=-0,011° Y=1,268° |Offset|=1,268°
+  |X|/|Y| after 5: 0,14  max |X| 1-10: 0,087°
+  NetDriftPerShot 5→10: 0,1303°/shot
+  B @100m 5 shots → 1,08 m
+  C after 5 + pause: 0.2s=0,506° 0.4s=0,396° 0.8s=0,176°
+  HipFire vs Aiming after 5: 0,899° vs 0,616° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,576° vs 0,616° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK47S (FullAuto)
+  A kick: V=0,140° H=0,075° recovery=0,55°/s
+  B |Offset|: 3=0,472° 5=0,805° 8=1,302° 10=1,603°
+  B axes after 3: X=0,020° Y=0,472° |Offset|=0,472°
+  B axes after 5: X=-0,048° Y=0,804° |Offset|=0,805°
+  B axes after 8: X=-0,071° Y=1,300° |Offset|=1,302°
+  B axes after 10: X=-0,001° Y=1,603° |Offset|=1,603°
+  |X|/|Y| after 5: 0,06  max |X| 1-10: 0,075°
+  NetDriftPerShot 5→10: 0,1594°/shot
+  B @100m 5 shots → 1,41 m
+  C after 5 + pause: 0.2s=0,695° 0.4s=0,585° 0.8s=0,365°
+  HipFire vs Aiming after 5: 1,154° vs 0,805° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,756° vs 0,805° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK47_1 (FullAuto)
+  A kick: V=0,140° H=0,075° recovery=0,55°/s
+  B |Offset|: 3=0,452° 5=0,735° 8=1,110° 10=1,358°
+  B axes after 3: X=0,071° Y=0,447° |Offset|=0,452°
+  B axes after 5: X=0,067° Y=0,732° |Offset|=0,735°
+  B axes after 8: X=-0,009° Y=1,110° |Offset|=1,110°
+  B axes after 10: X=0,012° Y=1,358° |Offset|=1,358°
+  |X|/|Y| after 5: 0,09  max |X| 1-10: 0,073°
+  NetDriftPerShot 5→10: 0,1247°/shot
+  B @100m 5 shots → 1,28 m
+  C after 5 + pause: 0.2s=0,625° 0.4s=0,515° 0.8s=0,295°
+  HipFire vs Aiming after 5: 1,059° vs 0,735° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,688° vs 0,735° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK74 (FullAuto)
+  A kick: V=0,120° H=0,060° recovery=0,60°/s
+  B |Offset|: 3=0,287° 5=0,458° 8=0,735° 10=0,926°
+  B axes after 3: X=-0,033° Y=0,285° |Offset|=0,287°
+  B axes after 5: X=-0,018° Y=0,458° |Offset|=0,458°
+  B axes after 8: X=0,029° Y=0,734° |Offset|=0,735°
+  B axes after 10: X=-0,005° Y=0,926° |Offset|=0,926°
+  |X|/|Y| after 5: 0,04  max |X| 1-10: 0,036°
+  NetDriftPerShot 5→10: 0,0935°/shot
+  B @100m 5 shots → 0,80 m
+  C after 5 + pause: 0.2s=0,338° 0.4s=0,218° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,687° vs 0,458° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,426° vs 0,458° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK74MOD1 (FullAuto)
+  A kick: V=0,120° H=0,060° recovery=0,60°/s
+  B |Offset|: 3=0,319° 5=0,508° 8=0,781° 10=0,979°
+  B axes after 3: X=-0,023° Y=0,318° |Offset|=0,319°
+  B axes after 5: X=-0,057° Y=0,504° |Offset|=0,508°
+  B axes after 8: X=-0,049° Y=0,779° |Offset|=0,781°
+  B axes after 10: X=-0,003° Y=0,979° |Offset|=0,979°
+  |X|/|Y| after 5: 0,11  max |X| 1-10: 0,062°
+  NetDriftPerShot 5→10: 0,0943°/shot
+  B @100m 5 shots → 0,89 m
+  C after 5 + pause: 0.2s=0,388° 0.4s=0,268° 0.8s=0,028°
+  HipFire vs Aiming after 5: 0,753° vs 0,508° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,473° vs 0,508° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK74U (FullAuto)
+  A kick: V=0,120° H=0,060° recovery=0,60°/s
+  B |Offset|: 3=0,439° 5=0,776° 8=1,186° 10=1,499°
+  B axes after 3: X=0,041° Y=0,437° |Offset|=0,439°
+  B axes after 5: X=0,100° Y=0,769° |Offset|=0,776°
+  B axes after 8: X=0,035° Y=1,186° |Offset|=1,186°
+  B axes after 10: X=0,011° Y=1,499° |Offset|=1,499°
+  |X|/|Y| after 5: 0,13  max |X| 1-10: 0,100°
+  NetDriftPerShot 5→10: 0,1446°/shot
+  B @100m 5 shots → 1,35 m
+  C after 5 + pause: 0.2s=0,656° 0.4s=0,536° 0.8s=0,296°
+  HipFire vs Aiming after 5: 1,115° vs 0,776° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,727° vs 0,776° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_AK74UMOD1 (FullAuto)
+  A kick: V=0,120° H=0,060° recovery=0,60°/s
+  B |Offset|: 3=0,398° 5=0,711° 8=1,084° 10=1,329°
+  B axes after 3: X=-0,016° Y=0,397° |Offset|=0,398°
+  B axes after 5: X=0,054° Y=0,709° |Offset|=0,711°
+  B axes after 8: X=0,032° Y=1,083° |Offset|=1,084°
+  B axes after 10: X=-0,004° Y=1,329° |Offset|=1,329°
+  |X|/|Y| after 5: 0,08  max |X| 1-10: 0,070°
+  NetDriftPerShot 5→10: 0,1237°/shot
+  B @100m 5 shots → 1,24 m
+  C after 5 + pause: 0.2s=0,591° 0.4s=0,471° 0.8s=0,231°
+  HipFire vs Aiming after 5: 1,027° vs 0,711° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,665° vs 0,711° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_BenelliM4 (SemiAuto)
+  A kick: V=0,200° H=0,080° recovery=0,60°/s
+  B |Offset|: 3=0,239° 5=0,352° 8=0,541° 10=0,676°
+  B axes after 3: X=-0,031° Y=0,237° |Offset|=0,239°
+  B axes after 5: X=-0,043° Y=0,349° |Offset|=0,352°
+  B axes after 8: X=-0,006° Y=0,541° |Offset|=0,541°
+  B axes after 10: X=0,035° Y=0,676° |Offset|=0,676°
+  |X|/|Y| after 5: 0,12  max |X| 1-10: 0,043°
+  NetDriftPerShot 5→10: 0,0650°/shot
+  B @100m 5 shots → 0,61 m
+  C after 5 + pause: 0.2s=0,232° 0.4s=0,112° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,719° vs 0,352° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,299° vs 0,352° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M16A4_ModA_2 (FullAuto)
+  A kick: V=0,090° H=0,035° recovery=0,70°/s
+  B |Offset|: 3=0,156° 5=0,248° 8=0,388° 10=0,474°
+  B axes after 3: X=-0,021° Y=0,154° |Offset|=0,156°
+  B axes after 5: X=-0,020° Y=0,247° |Offset|=0,248°
+  B axes after 8: X=0,009° Y=0,388° |Offset|=0,388°
+  B axes after 10: X=0,007° Y=0,474° |Offset|=0,474°
+  |X|/|Y| after 5: 0,08  max |X| 1-10: 0,022°
+  NetDriftPerShot 5→10: 0,0453°/shot
+  B @100m 5 shots → 0,43 m
+  C after 5 + pause: 0.2s=0,108° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,420° vs 0,248° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,223° vs 0,248° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M16A_ModA_1 (FullAuto)
+  A kick: V=0,090° H=0,035° recovery=0,70°/s
+  B |Offset|: 3=0,143° 5=0,233° 8=0,378° 10=0,489°
+  B axes after 3: X=-0,012° Y=0,142° |Offset|=0,143°
+  B axes after 5: X=-0,027° Y=0,232° |Offset|=0,233°
+  B axes after 8: X=0,007° Y=0,378° |Offset|=0,378°
+  B axes after 10: X=0,009° Y=0,489° |Offset|=0,489°
+  |X|/|Y| after 5: 0,11  max |X| 1-10: 0,027°
+  NetDriftPerShot 5→10: 0,0511°/shot
+  B @100m 5 shots → 0,41 m
+  C after 5 + pause: 0.2s=0,093° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,401° vs 0,233° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,210° vs 0,233° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M249 (FullAuto)
+  A kick: V=0,070° H=0,150° recovery=0,50°/s
+  B |Offset|: 3=0,159° 5=0,254° 8=0,435° 10=0,531°
+  B axes after 3: X=0,027° Y=0,157° |Offset|=0,159°
+  B axes after 5: X=-0,070° Y=0,245° |Offset|=0,254°
+  B axes after 8: X=-0,096° Y=0,424° |Offset|=0,435°
+  B axes after 10: X=0,008° Y=0,531° |Offset|=0,531°
+  |X|/|Y| after 5: 0,29  max |X| 1-10: 0,104°
+  NetDriftPerShot 5→10: 0,0554°/shot
+  B @100m 5 shots → 0,44 m
+  C after 5 + pause: 0.2s=0,154° 0.4s=0,054° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,387° vs 0,254° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,236° vs 0,254° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M2Browning_127 (FullAuto)
+  A kick: V=0,180° H=0,100° recovery=0,35°/s
+  B |Offset|: 3=0,506° 5=0,838° 8=1,354° 10=1,690°
+  B axes after 3: X=0,019° Y=0,506° |Offset|=0,506°
+  B axes after 5: X=0,111° Y=0,831° |Offset|=0,838°
+  B axes after 8: X=0,048° Y=1,353° |Offset|=1,354°
+  B axes after 10: X=0,010° Y=1,690° |Offset|=1,690°
+  |X|/|Y| after 5: 0,13  max |X| 1-10: 0,111°
+  NetDriftPerShot 5→10: 0,1705°/shot
+  B @100m 5 shots → 1,46 m
+  C after 5 + pause: 0.2s=0,768° 0.4s=0,698° 0.8s=0,558°
+  HipFire vs Aiming after 5: 1,184° vs 0,838° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,789° vs 0,838° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M4_ModA_1 (FullAuto)
+  A kick: V=0,090° H=0,035° recovery=0,70°/s
+  B |Offset|: 3=0,183° 5=0,313° 8=0,464° 10=0,596°
+  B axes after 3: X=-0,003° Y=0,183° |Offset|=0,183°
+  B axes after 5: X=-0,018° Y=0,313° |Offset|=0,313°
+  B axes after 8: X=-0,028° Y=0,463° |Offset|=0,464°
+  B axes after 10: X=0,007° Y=0,596° |Offset|=0,596°
+  |X|/|Y| after 5: 0,06  max |X| 1-10: 0,036°
+  NetDriftPerShot 5→10: 0,0567°/shot
+  B @100m 5 shots → 0,55 m
+  C after 5 + pause: 0.2s=0,173° 0.4s=0,033° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,508° vs 0,313° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,285° vs 0,313° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_M4_ModA_2 (FullAuto)
+  A kick: V=0,090° H=0,035° recovery=0,70°/s
+  B |Offset|: 3=0,172° 5=0,270° 8=0,434° 10=0,551°
+  B axes after 3: X=-0,003° Y=0,172° |Offset|=0,172°
+  B axes after 5: X=-0,017° Y=0,270° |Offset|=0,270°
+  B axes after 8: X=-0,025° Y=0,434° |Offset|=0,434°
+  B axes after 10: X=0,007° Y=0,551° |Offset|=0,551°
+  |X|/|Y| after 5: 0,06  max |X| 1-10: 0,033°
+  NetDriftPerShot 5→10: 0,0562°/shot
+  B @100m 5 shots → 0,47 m
+  C after 5 + pause: 0.2s=0,130° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,450° vs 0,270° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,244° vs 0,270° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_MK12 (Auto)
+  A kick: V=0,080° H=0,030° recovery=0,55°/s
+  B |Offset|: 3=0,084° 5=0,128° 8=0,235° 10=0,288°
+  B axes after 3: X=0,011° Y=0,083° |Offset|=0,084°
+  B axes after 5: X=-0,001° Y=0,128° |Offset|=0,128°
+  B axes after 8: X=-0,011° Y=0,235° |Offset|=0,235°
+  B axes after 10: X=-0,001° Y=0,288° |Offset|=0,288°
+  |X|/|Y| after 5: 0,01  max |X| 1-10: 0,011°
+  NetDriftPerShot 5→10: 0,0321°/shot
+  B @100m 5 shots → 0,22 m
+  C after 5 + pause: 0.2s=0,018° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,261° vs 0,128° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,108° vs 0,128° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_MK18 (FullAuto)
+  A kick: V=0,090° H=0,035° recovery=0,70°/s
+  B |Offset|: 3=0,268° 5=0,468° 8=0,756° 10=0,939°
+  B axes after 3: X=0,039° Y=0,265° |Offset|=0,268°
+  B axes after 5: X=0,015° Y=0,468° |Offset|=0,468°
+  B axes after 8: X=-0,012° Y=0,756° |Offset|=0,756°
+  B axes after 10: X=0,003° Y=0,939° |Offset|=0,939°
+  |X|/|Y| after 5: 0,03  max |X| 1-10: 0,039°
+  NetDriftPerShot 5→10: 0,0942°/shot
+  B @100m 5 shots → 0,82 m
+  C after 5 + pause: 0.2s=0,328° 0.4s=0,188° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,705° vs 0,468° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,434° vs 0,468° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_MK19 (FullAuto)
+  A kick: V=0,220° H=0,120° recovery=0,28°/s
+  B |Offset|: 3=0,648° 5=1,122° 8=1,772° 10=2,222°
+  B axes after 3: X=0,134° Y=0,634° |Offset|=0,648°
+  B axes after 5: X=0,075° Y=1,120° |Offset|=1,122°
+  B axes after 8: X=-0,003° Y=1,772° |Offset|=1,772°
+  B axes after 10: X=0,037° Y=2,221° |Offset|=2,222°
+  |X|/|Y| after 5: 0,07  max |X| 1-10: 0,134°
+  NetDriftPerShot 5→10: 0,2199°/shot
+  B @100m 5 shots → 1,96 m
+  C after 5 + pause: 0.2s=1,066° 0.4s=1,010° 0.8s=0,898°
+  HipFire vs Aiming after 5: 1,578° vs 1,122° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 1,057° vs 1,122° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_Mosin (SemiAuto)
+  A kick: V=0,220° H=0,050° recovery=0,40°/s
+  B |Offset|: 3=0,000° 5=0,000° 8=0,000° 10=0,000°
+  B axes after 3: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 5: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 8: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 10: X=0,000° Y=0,000° |Offset|=0,000°
+  |X|/|Y| after 5: 0,00  max |X| 1-10: 0,000°
+  NetDriftPerShot 5→10: 0,0000°/shot
+  B @100m 5 shots → 0,00 m
+  C after 5 + pause: 0.2s=0,000° 0.4s=0,000° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,000° vs 0,000° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,000° vs 0,000° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_PKM (FullAuto)
+  A kick: V=0,080° H=0,130° recovery=0,50°/s
+  B |Offset|: 3=0,166° 5=0,296° 8=0,470° 10=0,581°
+  B axes after 3: X=-0,046° Y=0,159° |Offset|=0,166°
+  B axes after 5: X=-0,120° Y=0,271° |Offset|=0,296°
+  B axes after 8: X=-0,044° Y=0,468° |Offset|=0,470°
+  B axes after 10: X=0,016° Y=0,581° |Offset|=0,581°
+  |X|/|Y| after 5: 0,44  max |X| 1-10: 0,139°
+  NetDriftPerShot 5→10: 0,0570°/shot
+  B @100m 5 shots → 0,52 m
+  C after 5 + pause: 0.2s=0,196° 0.4s=0,096° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,456° vs 0,296° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,273° vs 0,296° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_RPK47 (FullAuto)
+  A kick: V=0,090° H=0,090° recovery=0,75°/s
+  B |Offset|: 3=0,116° 5=0,222° 8=0,335° 10=0,422°
+  B axes after 3: X=0,033° Y=0,111° |Offset|=0,116°
+  B axes after 5: X=0,070° Y=0,211° |Offset|=0,222°
+  B axes after 8: X=-0,004° Y=0,335° |Offset|=0,335°
+  B axes after 10: X=-0,023° Y=0,422° |Offset|=0,422°
+  |X|/|Y| after 5: 0,33  max |X| 1-10: 0,070°
+  NetDriftPerShot 5→10: 0,0400°/shot
+  B @100m 5 shots → 0,39 m
+  C after 5 + pause: 0.2s=0,072° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,391° vs 0,222° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,198° vs 0,222° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_RPK47MOD1 (FullAuto)
+  A kick: V=0,090° H=0,090° recovery=0,75°/s
+  B |Offset|: 3=0,122° 5=0,204° 8=0,321° 10=0,398°
+  B axes after 3: X=0,039° Y=0,116° |Offset|=0,122°
+  B axes after 5: X=0,063° Y=0,194° |Offset|=0,204°
+  B axes after 8: X=-0,009° Y=0,321° |Offset|=0,321°
+  B axes after 10: X=-0,023° Y=0,397° |Offset|=0,398°
+  |X|/|Y| after 5: 0,32  max |X| 1-10: 0,063°
+  NetDriftPerShot 5→10: 0,0388°/shot
+  B @100m 5 shots → 0,36 m
+  C after 5 + pause: 0.2s=0,054° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,366° vs 0,204° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,181° vs 0,204° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_RPK74 (FullAuto)
+  A kick: V=0,080° H=0,085° recovery=0,80°/s
+  B |Offset|: 3=0,111° 5=0,182° 8=0,261° 10=0,336°
+  B axes after 3: X=0,046° Y=0,101° |Offset|=0,111°
+  B axes after 5: X=0,024° Y=0,180° |Offset|=0,182°
+  B axes after 8: X=-0,023° Y=0,260° |Offset|=0,261°
+  B axes after 10: X=-0,012° Y=0,336° |Offset|=0,336°
+  |X|/|Y| after 5: 0,13  max |X| 1-10: 0,046°
+  NetDriftPerShot 5→10: 0,0309°/shot
+  B @100m 5 shots → 0,32 m
+  C after 5 + pause: 0.2s=0,022° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,334° vs 0,182° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,160° vs 0,182° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_RPK74MOD1 (FullAuto)
+  A kick: V=0,080° H=0,085° recovery=0,80°/s
+  B |Offset|: 3=0,079° 5=0,135° 8=0,212° 10=0,272°
+  B axes after 3: X=-0,009° Y=0,079° |Offset|=0,079°
+  B axes after 5: X=0,036° Y=0,130° |Offset|=0,135°
+  B axes after 8: X=0,010° Y=0,212° |Offset|=0,212°
+  B axes after 10: X=-0,021° Y=0,271° |Offset|=0,272°
+  |X|/|Y| after 5: 0,27  max |X| 1-10: 0,045°
+  NetDriftPerShot 5→10: 0,0275°/shot
+  B @100m 5 shots → 0,24 m
+  C after 5 + pause: 0.2s=0,000° 0.4s=0,000° 0.8s=0,000°
+  NOTE: pause 0.4s wipes |Offset| after 5 — possible over-recovery (Phase B, not a contract FAIL).
+  HipFire vs Aiming after 5: 0,269° vs 0,135° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,116° vs 0,135° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_SVD (SemiAuto)
+  A kick: V=0,160° H=0,040° recovery=0,50°/s
+  B |Offset|: 3=0,000° 5=0,007° 8=0,015° 10=0,034°
+  B axes after 3: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 5: X=0,001° Y=0,007° |Offset|=0,007°
+  B axes after 8: X=-0,001° Y=0,015° |Offset|=0,015°
+  B axes after 10: X=-0,002° Y=0,034° |Offset|=0,034°
+  |X|/|Y| after 5: 0,10  max |X| 1-10: 0,002°
+  NetDriftPerShot 5→10: 0,0054°/shot
+  B @100m 5 shots → 0,01 m
+  C after 5 + pause: 0.2s=0,000° 0.4s=0,000° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,189° vs 0,007° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,000° vs 0,007° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+Weapon_Sniper762x51 (SemiAuto)
+  A kick: V=0,140° H=0,035° recovery=0,55°/s
+  B |Offset|: 3=0,000° 5=0,000° 8=0,000° 10=0,000°
+  B axes after 3: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 5: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 8: X=0,000° Y=0,000° |Offset|=0,000°
+  B axes after 10: X=0,000° Y=0,000° |Offset|=0,000°
+  |X|/|Y| after 5: 0,00  max |X| 1-10: 0,000°
+  NetDriftPerShot 5→10: 0,0000°/shot
+  B @100m 5 shots → 0,00 m
+  C after 5 + pause: 0.2s=0,000° 0.4s=0,000° 0.8s=0,000°
+  HipFire vs Aiming after 5: 0,000° vs 0,000° (kick ×1,35 vs ×1,00) PASS
+  Crouch vs Stand after 5: 0,000° vs 0,000° (kick ×0,95 vs ×1,00) PASS
+  Pause A recovery 0.2/0.4/0.8: PASS
+  Prone: not evaluated.
+
+RESULT: PASS

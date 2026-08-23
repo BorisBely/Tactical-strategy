@@ -1,0 +1,42 @@
+﻿RecoilPlayN13RecoilControl MATH + SIM_PLAY
+Stage 1 N13: M4 ModA_1, Aiming stand FullAuto, no attachments.
+Skill kick Lerp(1.2→0.8), recovery Lerp(0.8→1.2). θ must not depend on RecoilControl.
+
+N13-MATH:
+Skill | KickY@1 | Recovery/s | |Off|@3 | |Off|@5 | |Off|@8
+0 | 0.1446 | 0.560 | 0.2781 | 0.4737 | 0.7130
+50 | 0.1205 | 0.700 | 0.1827 | 0.3131 | 0.4636
+100 | 0.0964 | 0.840 | 0.0874 | 0.1526 | 0.2142
+
+N13-PLAY (8-shot SIM @50 m):
+Skill | OffX@3 | OffY@3 | |Off|@3 | OffX@5 | OffY@5 | |Off|@5 | OffX@8 | OffY@8 | |Off|@8
+0 | 0.0013 | 0.2002 | 0.2002 | -0.0114 | 0.3614 | 0.3616 | -0.0491 | 0.6382 | 0.6401
+50 | 0.0006 | 0.1341 | 0.1341 | -0.0087 | 0.2359 | 0.2360 | -0.0357 | 0.4177 | 0.4192
+100 | 0.0001 | 0.0681 | 0.0681 | -0.0053 | 0.1103 | 0.1105 | -0.0198 | 0.1974 | 0.1984
+
+N13 pause recovery (after 5 shots):
+Pause | Skill | Remaining |Off|
+0.2 s | 0 | 0.3617
+0.2 s | 50 | 0.1731
+0.2 s | 100 | 0.0000
+0.4 s | 0 | 0.2497
+0.4 s | 50 | 0.0331
+0.4 s | 100 | 0.0000
+0.8 s | 0 | 0.0257
+0.8 s | 50 | 0.0000
+0.8 s | 100 | 0.0000
+
+Form checks:
+  [PASS] KickY@1 monotonic 0>50>100 (less kick)
+  [PASS] Recovery/s monotonic 0<50<100
+  [PASS] |Off|@3 monotonic decreasing
+  [PASS] |Off|@5 monotonic decreasing
+  [PASS] |Off|@8 monotonic decreasing
+  [PASS] |Off|@8 visible 0→100 (~5% NOTE if WARN)
+  [PASS] θ(skill) invariant
+  [PASS] Pattern @shot1 smoothed value identical across skills
+  [PASS] Kick delta@1 scales with skill impulse (100 < 0 magnitude)
+  [PASS] Pause recovery: skill 100 drains fastest
+
+FAIL triage: skill wiring → context → kick/recovery path. Do not change weapon V/H/Rec.
+Phase G not opened.

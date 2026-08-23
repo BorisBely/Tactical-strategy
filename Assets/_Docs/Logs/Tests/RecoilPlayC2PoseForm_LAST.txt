@@ -1,0 +1,42 @@
+﻿RecoilPlayC2PoseForm MATH
+Phase C2: pose |Offset|@5. Standing idle, FullAuto baseline mode, InstanceHash=0.
+Pose kick/recovery: Aiming 1/1, PointAim 1.10/0.90, PreAim 1.15/0.85, HipFire 1.35/0.70.
+Form: Aiming < PointAim < PreAim < HipFire. Spread θ not evaluated here.
+
+Weapon_M4_ModA_1 (FullAuto standing)
+  Aiming=0.313°  PointAim=0.393°  PreAim=0.434°  HipFire=0.582°
+  ratios Point/Aim=1.26  Pre/Aim=1.38  Hip/Aim=1.86
+
+Weapon_AK47 (FullAuto standing)
+  Aiming=0.750°  PointAim=0.864°  PreAim=0.920°  HipFire=1.138°
+  ratios Point/Aim=1.15  Pre/Aim=1.23  Hip/Aim=1.52
+
+Weapon_M249 (FullAuto standing)
+  Aiming=0.254°  PointAim=0.305°  PreAim=0.330°  HipFire=0.424°
+  ratios Point/Aim=1.20  Pre/Aim=1.30  Hip/Aim=1.67
+
+Weapon_PKM (FullAuto standing)
+  Aiming=0.296°  PointAim=0.358°  PreAim=0.389°  HipFire=0.504°
+  ratios Point/Aim=1.21  Pre/Aim=1.31  Hip/Aim=1.70
+
+Form checks:
+  OK    M4 PointAim > Aiming
+  OK    M4 PreAim > PointAim
+  OK    M4 HipFire > PreAim
+  OK    M4 HipFire > Aiming
+  OK    AK-47 PointAim > Aiming
+  OK    AK-47 PreAim > PointAim
+  OK    AK-47 HipFire > PreAim
+  OK    AK-47 HipFire > Aiming
+  OK    M249 PointAim > Aiming
+  OK    M249 PreAim > PointAim
+  OK    M249 HipFire > PreAim
+  OK    M249 HipFire > Aiming
+  OK    PKM PointAim > Aiming
+  OK    PKM PreAim > PointAim
+  OK    PKM HipFire > PreAim
+  OK    PKM HipFire > Aiming
+  OK    M4 Aiming @5 ≈ 0.313° (B0 frozen)
+  OK    M4 HipFire/Aiming ratio readable (≥1.25)
+  NOTE: HipFire/Aiming > kick×1.35 when recovery×0.70 applies between shots — expected.
+  Assets not changed. Stance matrix frozen (C1). N14 distance curve not here.

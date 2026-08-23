@@ -1,0 +1,90 @@
+﻿RecoilPlaySemiForm MATH + SIM_PLAY
+Phase B9 Semi×: M4 / AK-47 / AK-74 / MK12 / SVD. Metric is Semi vs Auto, not |Offset| size.
+Same FireRateRpm cap for both modes (SemiAutoFireRateRpm=0 on rifles). InstanceHash=0 MATH.
+Aiming, stand, no attachments, RecoilControl 50. Do not retune V/H/Rec/Auto×.
+SVD: full drain between shots at 150 RPM is allowed. Group cm is hitscan cone — ignore vs M4 11.8 cm.
+
+Weapon_M4_ModA_1
+  Asset V=0.090° H=0.035° Rec=0.70°/s RPM=600 Semi×=0.84 Auto×=1.22
+  Semi (SemiAuto ×0.84) kick1=0.083° interval=0.100s rec/shot=0.049°
+    after 1: X=0.001° Y=0.034° |Offset|=0.034°
+    after 3: X=-0.002° Y=0.080° |Offset|=0.080°
+    after 5: X=-0.010° Y=0.139° |Offset|=0.139°  pause 0.2/0.4/0.8=0.000/0.000/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=6.8 cm  RecoilShotIndex@5=4
+  Auto (FullAuto ×1.22) kick1=0.121° interval=0.100s rec/shot=0.049°
+    after 1: X=0.002° Y=0.071° |Offset|=0.072°
+    after 3: X=-0.003° Y=0.183° |Offset|=0.183°
+    after 5: X=-0.018° Y=0.313° |Offset|=0.313°  pause 0.2/0.4/0.8=0.173/0.033/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=11.8 cm  RecoilShotIndex@5=4
+  Semi/Auto |Offset|@5=0.45  kick× ratio=0.69
+
+Weapon_AK47
+  Asset V=0.140° H=0.075° Rec=0.55°/s RPM=600 Semi×=0.86 Auto×=1.34
+  Semi (SemiAuto ×0.86) kick1=0.121° interval=0.100s rec/shot=0.039°
+    after 1: X=-0.005° Y=0.082° |Offset|=0.082°
+    after 3: X=-0.027° Y=0.259° |Offset|=0.260°
+    after 5: X=-0.052° Y=0.409° |Offset|=0.413°  pause 0.2/0.4/0.8=0.303/0.193/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=17.1 cm  RecoilShotIndex@5=4
+  Auto (FullAuto ×1.34) kick1=0.188° interval=0.100s rec/shot=0.039°
+    after 1: X=-0.009° Y=0.149° |Offset|=0.149°
+    after 3: X=-0.047° Y=0.468° |Offset|=0.470°
+    after 5: X=-0.092° Y=0.744° |Offset|=0.750°  pause 0.2/0.4/0.8=0.640/0.530/0.310°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=28.0 cm  RecoilShotIndex@5=4
+  Semi/Auto |Offset|@5=0.55  kick× ratio=0.64
+
+Weapon_AK74
+  Asset V=0.120° H=0.060° Rec=0.60°/s RPM=650 Semi×=0.84 Auto×=1.12
+  Semi (SemiAuto ×0.84) kick1=0.111° interval=0.092s rec/shot=0.039°
+    after 1: X=-0.004° Y=0.072° |Offset|=0.073°
+    after 3: X=-0.022° Y=0.185° |Offset|=0.186°
+    after 5: X=-0.010° Y=0.295° |Offset|=0.295°  pause 0.2/0.4/0.8=0.175/0.055/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=13.0 cm  RecoilShotIndex@5=4
+  Auto (FullAuto ×1.12) kick1=0.148° interval=0.092s rec/shot=0.039°
+    after 1: X=-0.005° Y=0.110° |Offset|=0.110°
+    after 3: X=-0.033° Y=0.285° |Offset|=0.287°
+    after 5: X=-0.018° Y=0.458° |Offset|=0.458°  pause 0.2/0.4/0.8=0.338/0.218/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=18.4 cm  RecoilShotIndex@5=4
+  Semi/Auto |Offset|@5=0.64  kick× ratio=0.75
+
+Weapon_MK12
+  Asset V=0.080° H=0.030° Rec=0.55°/s RPM=450 Semi×=0.80 Auto×=1.00
+  Semi (SemiAuto ×0.80) kick1=0.057° interval=0.133s rec/shot=0.051°
+    after 1: X=0.001° Y=0.006° |Offset|=0.006°
+    after 3: X=0.004° Y=0.036° |Offset|=0.036°
+    after 5: X=-0.002° Y=0.051° |Offset|=0.051°  pause 0.2/0.4/0.8=0.000/0.000/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=4.8 cm  RecoilShotIndex@5=4
+  Auto (Auto ×1.00) kick1=0.072° interval=0.133s rec/shot=0.051°
+    after 1: X=0.003° Y=0.020° |Offset|=0.021°
+    after 3: X=0.011° Y=0.083° |Offset|=0.084°
+    after 5: X=-0.001° Y=0.128° |Offset|=0.128°  pause 0.2/0.4/0.8=0.018/0.000/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=7.1 cm  RecoilShotIndex@5=4
+  Semi/Auto |Offset|@5=0.40  kick× ratio=0.80
+
+Weapon_SVD
+  Asset V=0.160° H=0.040° Rec=0.50°/s RPM=150 Semi×=0.82 Auto×=1.00 (Auto MATH only, mode not on weapon)
+  Semi (SemiAuto ×0.82) kick1=0.126° interval=0.400s rec/shot=0.140°
+    after 1: X=0.000° Y=0.000° |Offset|=0.000°
+    after 3: X=0.000° Y=0.000° |Offset|=0.000°
+    after 5: X=0.001° Y=0.007° |Offset|=0.007°  pause 0.2/0.4/0.8=0.000/0.000/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=2.2 cm  RecoilShotIndex@5=4
+  Auto (FullAuto ×1.00) kick1=0.154° interval=0.400s rec/shot=0.140°
+    after 1: X=-0.001° Y=0.014° |Offset|=0.014°
+    after 3: X=-0.002° Y=0.045° |Offset|=0.045°
+    after 5: X=0.008° Y=0.103° |Offset|=0.103°  pause 0.2/0.4/0.8=0.003/0.000/0.000°
+    SIM_PLAY group@50m cone (ignore vs M4): 5=5.1 cm  RecoilShotIndex@5=4
+  Semi/Auto |Offset|@5=0.06  kick× ratio=0.82
+
+Form checks (Semi vs Auto, not cm):
+  OK    M4 Semi |Offset|5 < Auto |Offset|5
+  OK    AK-74 Semi |Offset|5 < Auto |Offset|5
+  OK    AK-47 Semi |Offset|5 < Auto |Offset|5
+  OK    MK12 Semi |Offset|5 < Auto |Offset|5
+  OK    Semi class M4 < AK-74 < AK-47 after 5
+  OK    M4 Semi after 5 readable (not AR drain)
+  OK    M4 Semi/Auto |Offset|@5 in 0.30–0.85
+  OK    AK-74 Semi/Auto |Offset|@5 in 0.30–0.85
+  OK    AK-47 Semi/Auto |Offset|@5 in 0.30–0.85
+  OK    MK12 Semi quieter than M4 Semi after 5 (DMR)
+  NOTE  SVD Semi after 5 drain allowed (low RPM): |Offset|=0.007°
+  RecoilShotIndex@5 Semi (must not snap 0 on rifles): M4=4 AK-47=4 AK-74=4
+  Assets not changed this pass. V/H/Rec/Auto× frozen. LMG not in this set.

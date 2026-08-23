@@ -34,7 +34,8 @@ public static class WeaponFireDisciplinePlanner
 		UnitCombatStats _combatStats,
 		UnitIndividualTraits _individualTraits,
 		WeaponFireDisciplineDistanceBand? _previousBand,
-		bool _deterministic)
+		bool _deterministic,
+		WeaponAttachmentDefinition[] _attachments = null)
 	{
 		WeaponFireMode[] availableModes = _weaponDefinition != null
 			? _weaponDefinition.AvailableFireModes
@@ -95,6 +96,17 @@ public static class WeaponFireDisciplinePlanner
 			seriesShots = Mathf.Clamp(seriesShots, 2, Mathf.Max(2, weaponBurst + 1));
 		}
 
+		ClampSeriesByPredictedOffset(
+			_weaponDefinition,
+			_attachments,
+			effectiveFireMode,
+			_targetDistanceMeters,
+			band.MinShots,
+			band.MinPauseSeconds,
+			band.MaxPauseSeconds,
+			ref seriesShots,
+			ref pauseSeconds);
+
 		return new WeaponFireDisciplinePlan(
 			_selectedDiscipline,
 			effectiveDiscipline,
@@ -112,6 +124,54 @@ public static class WeaponFireDisciplinePlanner
 	#endregion
 
 	#region Private Methods
+	private const float c_OffsetDisplacementSlack = 0.85f;
+
+	private static void ClampSeriesByPredictedOffset(
+		WeaponDefinition _weaponDefinition,
+		WeaponAttachmentDefinition[] _attachments,
+		WeaponFireMode _fireMode,
+		float _distanceMeters,
+		int _minShots,
+		float _minPauseSeconds,
+		float _maxPauseSeconds,
+		ref int _seriesShots,
+		ref float _pauseSeconds)
+	{
+		if (_weaponDefinition == null || _distanceMeters <= 0.01f)
+			return;
+
+		int minShots = Mathf.Max(1, _minShots);
+		int seriesShots = Mathf.Max(minShots, _seriesShots);
+		WeaponRecoilContext context = WeaponRecoilContext.CreateFromAttachments(
+			_weaponDefinition,
+			_attachments,
+			_fireMode);
+		float capMeters = WeaponAutoModeSelectionUtility.HumanTargetWidthMeters * c_OffsetDisplacementSlack;
+		int clamped = minShots;
+		for (int n = seriesShots; n >= minShots; n--)
+		{
+			float magnitude = WeaponRecoilMath.PredictOffsetMagnitudeAfterShots(in context, n);
+			float displacement = WeaponRecoilMath.OffsetToDisplacementMeters(magnitude, _distanceMeters);
+			if (displacement <= capMeters)
+			{
+				clamped = n;
+				break;
+			}
+		}
+
+		_seriesShots = clamped;
+
+		float remainingMagnitude = WeaponRecoilMath.PredictOffsetMagnitudeAfterShots(in context, _seriesShots);
+		float remainingDisplacement = WeaponRecoilMath.OffsetToDisplacementMeters(
+			remainingMagnitude,
+			_distanceMeters);
+		if (remainingDisplacement > capMeters * 0.5f)
+		{
+			_pauseSeconds = Mathf.Lerp(_pauseSeconds, _maxPauseSeconds, 0.65f);
+			_pauseSeconds = Mathf.Clamp(_pauseSeconds, _minPauseSeconds, _maxPauseSeconds);
+		}
+	}
+
 	private static WeaponFireDisciplineMode ResolveEffectiveDiscipline(
 		WeaponFireDisciplineMode _selected,
 		WeaponFireDisciplineProfileKind _profile,

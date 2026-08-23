@@ -81,10 +81,18 @@ public static class WeaponAutoModeSelectionUtility
 		WeaponAttachmentDefinition[] attachments = _input.AccuracyInput.WeaponState != null
 			? _input.AccuracyInput.WeaponState.EquippedAttachments
 			: null;
-		float predictedOffset = WeaponRecoilMath.PredictOffsetMagnitudeBeforeShot(
+		WeaponRecoilContext context = WeaponRecoilContext.CreateFromAttachments(
 			_input.AccuracyInput.WeaponDefinition,
 			attachments,
-			_fireMode,
+			_fireMode);
+		context.StanceKickMultiplier = _input.StanceKickMultiplier;
+		context.StanceRecoveryMultiplier = _input.StanceRecoveryMultiplier;
+		context.PoseKickMultiplier = _input.PoseKickMultiplier;
+		context.PoseRecoveryMultiplier = _input.PoseRecoveryMultiplier;
+		context.SkillKickMultiplier = _input.SkillKickMultiplier > 0f ? _input.SkillKickMultiplier : 1f;
+		context.SkillRecoveryMultiplier = _input.SkillRecoveryMultiplier > 0f ? _input.SkillRecoveryMultiplier : 1f;
+		float predictedOffset = WeaponRecoilMath.PredictOffsetMagnitudeBeforeShot(
+			in context,
 			GetRepresentativeShotIndex(_fireMode));
 		float groupHalfAngle = _accuracy.HalfAngleDegrees + predictedOffset;
 		return WeaponRecoilMath.SpreadDiameterMeters(_input.TargetDistanceMeters, groupHalfAngle);
@@ -177,6 +185,12 @@ public struct WeaponAutoModeSelectionInput
 	public WeaponAimMode SelectedAimMode;
 	public WeaponFireMode[] AvailableFireModes;
 	public float TargetDistanceMeters;
+	public float StanceKickMultiplier;
+	public float StanceRecoveryMultiplier;
+	public float PoseKickMultiplier;
+	public float PoseRecoveryMultiplier;
+	public float SkillKickMultiplier;
+	public float SkillRecoveryMultiplier;
 }
 
 public readonly struct WeaponAutoModeSelectionResult

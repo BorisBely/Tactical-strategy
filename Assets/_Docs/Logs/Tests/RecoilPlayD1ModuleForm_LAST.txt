@@ -1,0 +1,27 @@
+﻿RecoilPlayD1ModuleForm MATH
+Phase D1: Base vs single recoil module. Aiming, stand, FullAuto, InstanceHash=0.
+M249/PKM: base regression only (no D1 module probe in content).
+
+Weapon_M4_ModA_1 + Attachment_M4_MuzzleBrakeM4
+  Base@5=0.313°  Loaded@5=0.397°  kick×=1.15
+  Δ=0.084°
+
+Weapon_AK47 + Attachment_AK_MuzzleBrakeAK
+  Base@5=0.750°  Loaded@5=0.891°  kick×=1.15
+  Δ=0.141°
+
+Weapon_M249 + (base only)
+  Base@5=0.254°  Loaded@5=0.254°  kick×=1.00
+
+Weapon_PKM + (base only)
+  Base@5=0.296°  Loaded@5=0.296°  kick×=1.00
+
+Form checks:
+  OK    M4 muzzle brake Δ matches kick product
+  OK    AK-47 muzzle brake Δ matches kick product
+  OK    M4 module SupportsWeapon
+  OK    AK-47 module SupportsWeapon
+  OK    M4 Base @5 ≈ 0.313° (B0)
+  OK    M249 Base @5 ≈ 0.254° (B8)
+  OK    PKM Base @5 ≈ 0.296° (B8)
+  Assets not changed. Pose/stance frozen (C). Multi-loadout pairs = D2.

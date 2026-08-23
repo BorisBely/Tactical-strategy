@@ -1,0 +1,33 @@
+﻿RecoilPlayN14HipFireCurve MATH + SIM_PLAY
+Stage 1 N14: M4 HipFire θ vs distance. Decompose pose×distance (A3 lesson).
+Offset informational only — not a PASS criterion.
+
+N14-MATH (HipFire):
+Distance | BaseAimingθ | PoseMult | DistanceMult | Finalθ | SpreadDiameter
+5 m | 0.2368 | 2.50 | 1.10 | 0.6511 | 0.114 m
+10 m | 0.2385 | 2.50 | 1.50 | 0.8944 | 0.312 m
+15 m | 0.2402 | 2.50 | 2.20 | 1.3212 | 0.692 m
+25 m | 0.2436 | 2.50 | 3.50 | 2.1319 | 1.861 m
+50 m | 0.2573 | 2.50 | 6.00 | 3.7835 | 6.613 m
+100 m | 0.2829 | 2.50 | 10.00 | 6.7352 | 23.619 m
+
+N14-PLAY validation:
+@5 m Aimingθ=0.2368 HipFireθ=0.6511 | PASS
+@10 m Aimingθ=0.2385 HipFireθ=0.8944 | PASS
+@15 m Aimingθ=0.2402 HipFireθ=1.3212 | PASS
+@25 m Aimingθ=0.2436 HipFireθ=2.1319 | PASS
+@50 m Aimingθ=0.2573 HipFireθ=3.7835 | PASS
+@100 m Aimingθ=0.2829 HipFireθ=6.7352 | PASS
+
+Form checks:
+  [PASS] Finalθ monotonic with distance
+  [PASS] DistanceMult @5 m ≈ 1.10
+  [PASS] DistanceMult @10 m ≈ 1.50
+  [PASS] DistanceMult @25 m ≈ 3.50
+  [PASS] DistanceMult @100 m ≈ 10.00
+  [PASS] PoseMult logged as 2.5
+  [PASS] Finalθ matches evaluator (decomposition)
+  [PASS] Aiming vs HipFire @same distance (all distances)
+
+FAIL triage: Pose × DistanceCurve × θ evaluator. Do not change Vertical/H/Recovery/Offset.
+Phase G not opened.

@@ -1,0 +1,710 @@
+﻿WeaponBalanceRunner Attachments
+Phase G: analytical matrix. RecoilContract remains independent regression.
+Selector threshold = 0.775 m. Planner cap = 0.51 m. Assets not written.
+
+Summary: cases=580 outliers=326 WARN=326 FAIL=0
+
+Rows (preview 40/580):
+Weapon | Loadout | Mode | Pose | Dist | |Off|@5 | θ | Verdict
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.139 | 0.257 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.139 | 0.283 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 50m | 0.096 | 0.232 | Warn
+Weapon_M4_ModA_1 | Base | SemiAuto | Aiming | 100m | 0.096 | 0.255 | Warn
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 50m | 0.313 | 0.257 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 100m | 0.313 | 0.283 | Pass
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 50m | 0.261 | 0.232 | Warn
+Weapon_M4_ModA_1 | Base | Burst | Aiming | 100m | 0.261 | 0.255 | Warn
+Weapon_M4_ModA_1 | Base | FullAuto | Aiming | 50m | 0.313 | 0.257 | Pass
+Weapon_M4_ModA_1 | Base | FullAuto | Aiming | 100m | 0.313 | 0.283 | Pass
+Weapon_M4_ModA_1 | Base | FullAuto | Aiming | 50m | 0.261 | 0.232 | Warn
+Weapon_M4_ModA_1 | Base | FullAuto | Aiming | 100m | 0.261 | 0.255 | Warn
+Weapon_M4_ModA_1 | Base | Auto | Aiming | 50m | 0.313 | 0.257 | Pass
+Weapon_M4_ModA_1 | Base | Auto | Aiming | 100m | 0.313 | 0.283 | Pass
+Weapon_M4_ModA_1 | Base | Auto | Aiming | 50m | 0.261 | 0.232 | Warn
+Weapon_M4_ModA_1 | Base | Auto | Aiming | 100m | 0.261 | 0.255 | Warn
+Weapon_AK47 | Base | SemiAuto | Aiming | 50m | 0.413 | 0.368 | Pass
+Weapon_AK47 | Base | SemiAuto | Aiming | 100m | 0.413 | 0.412 | Pass
+Weapon_AK47 | Base | SemiAuto | Aiming | 50m | 0.363 | 0.331 | Warn
+Weapon_AK47 | Base | SemiAuto | Aiming | 100m | 0.363 | 0.371 | Warn
+Weapon_AK47 | Base | Burst | Aiming | 50m | 0.750 | 0.368 | Pass
+Weapon_AK47 | Base | Burst | Aiming | 100m | 0.750 | 0.412 | Pass
+Weapon_AK47 | Base | Burst | Aiming | 50m | 0.684 | 0.331 | Pass
+Weapon_AK47 | Base | Burst | Aiming | 100m | 0.684 | 0.371 | Pass
+Weapon_AK47 | Base | FullAuto | Aiming | 50m | 0.750 | 0.368 | Pass
+Weapon_AK47 | Base | FullAuto | Aiming | 100m | 0.750 | 0.412 | Pass
+Weapon_AK47 | Base | FullAuto | Aiming | 50m | 0.684 | 0.331 | Pass
+Weapon_AK47 | Base | FullAuto | Aiming | 100m | 0.684 | 0.371 | Pass
+Weapon_AK47 | Base | Auto | Aiming | 50m | 0.750 | 0.368 | Pass
+Weapon_AK47 | Base | Auto | Aiming | 100m | 0.750 | 0.412 | Pass
+Weapon_AK47 | Base | Auto | Aiming | 50m | 0.684 | 0.331 | Pass
+Weapon_AK47 | Base | Auto | Aiming | 100m | 0.684 | 0.371 | Pass
+Weapon_AK47 | M4_ForeGrip1 | SemiAuto | Aiming | 50m | 0.352 | 0.368 | Warn
+Weapon_AK47 | M4_ForeGrip1 | SemiAuto | Aiming | 100m | 0.352 | 0.412 | Warn
+Weapon_AK47 | M4_ForeGrip1 | SemiAuto | Aiming | 50m | 0.306 | 0.331 | Warn
+Weapon_AK47 | M4_ForeGrip1 | SemiAuto | Aiming | 100m | 0.306 | 0.371 | Warn
+Weapon_AK47 | M4_ForeGrip1 | Burst | Aiming | 50m | 0.656 | 0.368 | Pass
+Weapon_AK47 | M4_ForeGrip1 | Burst | Aiming | 100m | 0.656 | 0.412 | Pass
+Weapon_AK47 | M4_ForeGrip1 | Burst | Aiming | 50m | 0.594 | 0.331 | Pass
+Weapon_AK47 | M4_ForeGrip1 | Burst | Aiming | 100m | 0.594 | 0.371 | Pass
+
+Outliers (326):
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,139°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,096°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @50m |Off|@5=0,261°
+  Weapon_M4_ModA_1 Base @100m |Off|@5=0,261°
+  Weapon_AK47 Base @50m |Off|@5=0,363°
+  Weapon_AK47 Base @100m |Off|@5=0,363°
+  Weapon_AK47 M4_ForeGrip1 @50m |Off|@5=0,352°
+  Weapon_AK47 M4_ForeGrip1 @100m |Off|@5=0,352°
+  Weapon_AK47 M4_ForeGrip1 @50m |Off|@5=0,306°
+  Weapon_AK47 M4_ForeGrip1 @100m |Off|@5=0,306°
+  Weapon_AK47 M4_ForeGrip2 @50m |Off|@5=0,364°
+  Weapon_AK47 M4_ForeGrip2 @100m |Off|@5=0,364°
+  Weapon_AK47 M4_ForeGrip2 @50m |Off|@5=0,317°
+  Weapon_AK47 M4_ForeGrip2 @100m |Off|@5=0,317°
+  Weapon_AK47 M4_ForeGrip5 @50m |Off|@5=0,376°
+  Weapon_AK47 M4_ForeGrip5 @100m |Off|@5=0,376°
+  Weapon_AK47 M4_ForeGrip5 @50m |Off|@5=0,329°
+  Weapon_AK47 M4_ForeGrip5 @100m |Off|@5=0,329°
+  Weapon_AK47 M4_ForeGrip4 @50m |Off|@5=0,382°
+  Weapon_AK47 M4_ForeGrip4 @100m |Off|@5=0,382°
+  Weapon_AK47 M4_ForeGrip4 @50m |Off|@5=0,334°
+  Weapon_AK47 M4_ForeGrip4 @100m |Off|@5=0,334°
+  Weapon_AK47 M4_ForeGrip3 @50m |Off|@5=0,346°
+  Weapon_AK47 M4_ForeGrip3 @100m |Off|@5=0,346°
+  Weapon_AK74 Base @50m |Off|@5=0,295°
+  Weapon_AK74 Base @100m |Off|@5=0,295°
+  Weapon_AK74 Base @50m |Off|@5=0,252°
+  Weapon_AK74 Base @100m |Off|@5=0,252°
+  Weapon_AK74 M4_ForeGrip1 @50m |Off|@5=0,247°
+  Weapon_AK74 M4_ForeGrip1 @100m |Off|@5=0,247°
+  Weapon_AK74 M4_ForeGrip1 @50m |Off|@5=0,205°
+  Weapon_AK74 M4_ForeGrip1 @100m |Off|@5=0,205°
+  Weapon_AK74 M4_ForeGrip1 @50m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip1 @100m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip1 @50m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip1 @100m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip1 @50m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip1 @100m |Off|@5=0,345°
+  Weapon_AK74 M4_ForeGrip2 @50m |Off|@5=0,256°
+  Weapon_AK74 M4_ForeGrip2 @100m |Off|@5=0,256°
+  Weapon_AK74 M4_ForeGrip2 @50m |Off|@5=0,215°
+  Weapon_AK74 M4_ForeGrip2 @100m |Off|@5=0,215°
+  Weapon_AK74 M4_ForeGrip2 @50m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip2 @100m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip2 @50m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip2 @100m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip2 @50m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip2 @100m |Off|@5=0,357°
+  Weapon_AK74 M4_ForeGrip5 @50m |Off|@5=0,266°
+  Weapon_AK74 M4_ForeGrip5 @100m |Off|@5=0,266°
+  Weapon_AK74 M4_ForeGrip5 @50m |Off|@5=0,224°
+  Weapon_AK74 M4_ForeGrip5 @100m |Off|@5=0,224°
+  Weapon_AK74 M4_ForeGrip5 @50m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip5 @100m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip5 @50m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip5 @100m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip5 @50m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip5 @100m |Off|@5=0,369°
+  Weapon_AK74 M4_ForeGrip4 @50m |Off|@5=0,271°
+  Weapon_AK74 M4_ForeGrip4 @100m |Off|@5=0,271°
+  Weapon_AK74 M4_ForeGrip4 @50m |Off|@5=0,228°
+  Weapon_AK74 M4_ForeGrip4 @100m |Off|@5=0,228°
+  Weapon_AK74 M4_ForeGrip4 @50m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip4 @100m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip4 @50m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip4 @100m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip4 @50m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip4 @100m |Off|@5=0,376°
+  Weapon_AK74 M4_ForeGrip3 @50m |Off|@5=0,281°
+  Weapon_AK74 M4_ForeGrip3 @100m |Off|@5=0,281°
+  Weapon_AK74 M4_ForeGrip3 @50m |Off|@5=0,238°
+  Weapon_AK74 M4_ForeGrip3 @100m |Off|@5=0,238°
+  Weapon_M249 Base @50m |Off|@5=0,223°
+  Weapon_M249 Base @100m |Off|@5=0,223°
+  Weapon_M249 Base @50m |Off|@5=0,172°
+  Weapon_M249 Base @100m |Off|@5=0,172°
+  Weapon_M249 Base @50m |Off|@5=0,145°
+  Weapon_M249 Base @100m |Off|@5=0,145°
+  Weapon_M249 Base @50m |Off|@5=0,223°
+  Weapon_M249 Base @100m |Off|@5=0,223°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,217°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,217°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,188°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,188°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,143°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,143°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,118°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,118°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,217°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,217°
+  Weapon_M249 M4_ForeGrip1 @50m |Off|@5=0,188°
+  Weapon_M249 M4_ForeGrip1 @100m |Off|@5=0,188°
+  Weapon_M249 M4_ForeGrip2 @50m |Off|@5=0,195°
+  Weapon_M249 M4_ForeGrip2 @100m |Off|@5=0,195°
+  Weapon_M249 M4_ForeGrip2 @50m |Off|@5=0,149°
+  Weapon_M249 M4_ForeGrip2 @100m |Off|@5=0,149°
+  Weapon_M249 M4_ForeGrip2 @50m |Off|@5=0,123°
+  Weapon_M249 M4_ForeGrip2 @100m |Off|@5=0,123°
+  Weapon_M249 M4_ForeGrip2 @50m |Off|@5=0,195°
+  Weapon_M249 M4_ForeGrip2 @100m |Off|@5=0,195°
+  Weapon_M249 M4_ForeGrip5 @50m |Off|@5=0,202°
+  Weapon_M249 M4_ForeGrip5 @100m |Off|@5=0,202°
+  Weapon_M249 M4_ForeGrip5 @50m |Off|@5=0,155°
+  Weapon_M249 M4_ForeGrip5 @100m |Off|@5=0,155°
+  Weapon_M249 M4_ForeGrip5 @50m |Off|@5=0,129°
+  Weapon_M249 M4_ForeGrip5 @100m |Off|@5=0,129°
+  Weapon_M249 M4_ForeGrip5 @50m |Off|@5=0,202°
+  Weapon_M249 M4_ForeGrip5 @100m |Off|@5=0,202°
+  Weapon_M249 M4_ForeGrip4 @50m |Off|@5=0,205°
+  Weapon_M249 M4_ForeGrip4 @100m |Off|@5=0,205°
+  Weapon_M249 M4_ForeGrip4 @50m |Off|@5=0,158°
+  Weapon_M249 M4_ForeGrip4 @100m |Off|@5=0,158°
+  Weapon_M249 M4_ForeGrip4 @50m |Off|@5=0,132°
+  Weapon_M249 M4_ForeGrip4 @100m |Off|@5=0,132°
+  Weapon_M249 M4_ForeGrip4 @50m |Off|@5=0,205°
+  Weapon_M249 M4_ForeGrip4 @100m |Off|@5=0,205°
+  Weapon_M249 M4_ForeGrip3 @50m |Off|@5=0,213°
+  Weapon_M249 M4_ForeGrip3 @100m |Off|@5=0,213°
+  Weapon_M249 M4_ForeGrip3 @50m |Off|@5=0,163°
+  Weapon_M249 M4_ForeGrip3 @100m |Off|@5=0,163°
+  Weapon_M249 M4_ForeGrip3 @50m |Off|@5=0,137°
+  Weapon_M249 M4_ForeGrip3 @100m |Off|@5=0,137°
+  Weapon_M249 M4_ForeGrip3 @50m |Off|@5=0,213°
+  Weapon_M249 M4_ForeGrip3 @100m |Off|@5=0,213°
+  Weapon_PKM Base @50m |Off|@5=0,199°
+  Weapon_PKM Base @100m |Off|@5=0,199°
+  Weapon_PKM Base @50m |Off|@5=0,165°
+  Weapon_PKM Base @100m |Off|@5=0,165°
+  Weapon_PKM M4_ForeGrip1 @50m |Off|@5=0,214°
+  Weapon_PKM M4_ForeGrip1 @100m |Off|@5=0,214°
+  Weapon_PKM M4_ForeGrip1 @50m |Off|@5=0,163°
+  Weapon_PKM M4_ForeGrip1 @100m |Off|@5=0,163°
+  Weapon_PKM M4_ForeGrip1 @50m |Off|@5=0,131°
+  Weapon_PKM M4_ForeGrip1 @100m |Off|@5=0,131°
+  Weapon_PKM M4_ForeGrip1 @50m |Off|@5=0,214°
+  Weapon_PKM M4_ForeGrip1 @100m |Off|@5=0,214°
+  Weapon_PKM M4_ForeGrip2 @50m |Off|@5=0,223°
+  Weapon_PKM M4_ForeGrip2 @100m |Off|@5=0,223°
+  Weapon_PKM M4_ForeGrip2 @50m |Off|@5=0,170°
+  Weapon_PKM M4_ForeGrip2 @100m |Off|@5=0,170°
+  Weapon_PKM M4_ForeGrip2 @50m |Off|@5=0,137°
+  Weapon_PKM M4_ForeGrip2 @100m |Off|@5=0,137°
+  Weapon_PKM M4_ForeGrip2 @50m |Off|@5=0,223°
+  Weapon_PKM M4_ForeGrip2 @100m |Off|@5=0,223°
+  Weapon_PKM M4_ForeGrip5 @50m |Off|@5=0,231°
+  Weapon_PKM M4_ForeGrip5 @100m |Off|@5=0,231°
+  Weapon_PKM M4_ForeGrip5 @50m |Off|@5=0,177°
+  Weapon_PKM M4_ForeGrip5 @100m |Off|@5=0,177°
+  Weapon_PKM M4_ForeGrip5 @50m |Off|@5=0,144°
+  Weapon_PKM M4_ForeGrip5 @100m |Off|@5=0,144°
+  Weapon_PKM M4_ForeGrip5 @50m |Off|@5=0,231°
+  Weapon_PKM M4_ForeGrip5 @100m |Off|@5=0,231°
+  Weapon_PKM M4_ForeGrip4 @50m |Off|@5=0,236°
+  Weapon_PKM M4_ForeGrip4 @100m |Off|@5=0,236°
+  Weapon_PKM M4_ForeGrip4 @50m |Off|@5=0,181°
+  Weapon_PKM M4_ForeGrip4 @100m |Off|@5=0,181°
+  Weapon_PKM M4_ForeGrip4 @50m |Off|@5=0,148°
+  Weapon_PKM M4_ForeGrip4 @100m |Off|@5=0,148°
+  Weapon_PKM M4_ForeGrip4 @50m |Off|@5=0,236°
+  Weapon_PKM M4_ForeGrip4 @100m |Off|@5=0,236°
+  Weapon_PKM M4_ForeGrip3 @50m |Off|@5=0,188°
+  Weapon_PKM M4_ForeGrip3 @100m |Off|@5=0,188°
+  Weapon_PKM M4_ForeGrip3 @50m |Off|@5=0,154°
+  Weapon_PKM M4_ForeGrip3 @100m |Off|@5=0,154°
+  Weapon_MK12 Base @50m |Off|@5=0,051°
+  Weapon_MK12 Base @100m |Off|@5=0,051°
+  Weapon_MK12 Base @50m |Off|@5=0,128°
+  Weapon_MK12 Base @100m |Off|@5=0,128°
+  Weapon_MK12 Base @50m |Off|@5=0,083°
+  Weapon_MK12 Base @100m |Off|@5=0,083°
+  Weapon_MK12 Base @50m |Off|@5=0,128°
+  Weapon_MK12 Base @100m |Off|@5=0,128°
+  Weapon_MK12 Base @50m |Off|@5=0,083°
+  Weapon_MK12 Base @100m |Off|@5=0,083°
+  Weapon_MK12 M4_Stock2 @50m |Off|@5=0,082°
+  Weapon_MK12 M4_Stock2 @100m |Off|@5=0,082°
+  Weapon_MK12 M4_Stock2 @50m |Off|@5=0,166°
+  Weapon_MK12 M4_Stock2 @100m |Off|@5=0,166°
+  Weapon_MK12 M4_Stock2 @50m |Off|@5=0,119°
+  Weapon_MK12 M4_Stock2 @100m |Off|@5=0,119°
+  Weapon_MK12 M4_Stock2 @50m |Off|@5=0,166°
+  Weapon_MK12 M4_Stock2 @100m |Off|@5=0,166°
+  Weapon_MK12 M4_Stock2 @50m |Off|@5=0,119°
+  Weapon_MK12 M4_Stock2 @100m |Off|@5=0,119°
+  Weapon_MK12 M4_ForeGrip1 @50m |Off|@5=0,089°
+  Weapon_MK12 M4_ForeGrip1 @100m |Off|@5=0,089°
+  Weapon_MK12 M4_ForeGrip1 @50m |Off|@5=0,047°
+  Weapon_MK12 M4_ForeGrip1 @100m |Off|@5=0,047°
+  Weapon_MK12 M4_ForeGrip1 @50m |Off|@5=0,089°
+  Weapon_MK12 M4_ForeGrip1 @100m |Off|@5=0,089°
+  Weapon_MK12 M4_ForeGrip1 @50m |Off|@5=0,047°
+  Weapon_MK12 M4_ForeGrip1 @100m |Off|@5=0,047°
+  Weapon_MK12 M4_ForeGrip2 @50m |Off|@5=0,097°
+  Weapon_MK12 M4_ForeGrip2 @100m |Off|@5=0,097°
+  Weapon_MK12 M4_ForeGrip2 @50m |Off|@5=0,054°
+  Weapon_MK12 M4_ForeGrip2 @100m |Off|@5=0,054°
+  Weapon_MK12 M4_ForeGrip2 @50m |Off|@5=0,097°
+  Weapon_MK12 M4_ForeGrip2 @100m |Off|@5=0,097°
+  Weapon_MK12 M4_ForeGrip2 @50m |Off|@5=0,054°
+  Weapon_MK12 M4_ForeGrip2 @100m |Off|@5=0,054°
+  Weapon_MK12 M4_ForeGrip5 @50m |Off|@5=0,105°
+  Weapon_MK12 M4_ForeGrip5 @100m |Off|@5=0,105°
+  Weapon_MK12 M4_ForeGrip5 @50m |Off|@5=0,061°
+  Weapon_MK12 M4_ForeGrip5 @100m |Off|@5=0,061°
+  Weapon_MK12 M4_ForeGrip5 @50m |Off|@5=0,105°
+  Weapon_MK12 M4_ForeGrip5 @100m |Off|@5=0,105°
+  Weapon_MK12 M4_ForeGrip5 @50m |Off|@5=0,061°
+  Weapon_MK12 M4_ForeGrip5 @100m |Off|@5=0,061°
+  Weapon_MK12 M4_Stock1 @50m |Off|@5=0,108°
+  Weapon_MK12 M4_Stock1 @100m |Off|@5=0,108°
+  Weapon_MK12 M4_Stock1 @50m |Off|@5=0,065°
+  Weapon_MK12 M4_Stock1 @100m |Off|@5=0,065°
+  Weapon_MK12 M4_Stock1 @50m |Off|@5=0,108°
+  Weapon_MK12 M4_Stock1 @100m |Off|@5=0,108°
+  Weapon_MK12 M4_Stock1 @50m |Off|@5=0,065°
+  Weapon_MK12 M4_Stock1 @100m |Off|@5=0,065°
+  Weapon_MK12 M4_ForeGrip4 @50m |Off|@5=0,108°
+  Weapon_MK12 M4_ForeGrip4 @100m |Off|@5=0,108°
+  Weapon_MK12 M4_ForeGrip4 @50m |Off|@5=0,065°
+  Weapon_MK12 M4_ForeGrip4 @100m |Off|@5=0,065°
+  Weapon_MK12 M4_ForeGrip4 @50m |Off|@5=0,108°
+  Weapon_MK12 M4_ForeGrip4 @100m |Off|@5=0,108°
+  Weapon_MK12 M4_ForeGrip4 @50m |Off|@5=0,065°
+  Weapon_MK12 M4_ForeGrip4 @100m |Off|@5=0,065°
+  Weapon_MK12 M4_ForeGrip3 @50m |Off|@5=0,042°
+  Weapon_MK12 M4_ForeGrip3 @100m |Off|@5=0,042°
+  Weapon_MK12 M4_ForeGrip3 @50m |Off|@5=0,116°
+  Weapon_MK12 M4_ForeGrip3 @100m |Off|@5=0,116°
+  Weapon_MK12 M4_ForeGrip3 @50m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip3 @100m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip3 @50m |Off|@5=0,116°
+  Weapon_MK12 M4_ForeGrip3 @100m |Off|@5=0,116°
+  Weapon_MK12 M4_ForeGrip3 @50m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip3 @100m |Off|@5=0,072°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @50m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @100m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @50m |Off|@5=0,124°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @100m |Off|@5=0,124°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @50m |Off|@5=0,079°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @100m |Off|@5=0,079°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @50m |Off|@5=0,124°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @100m |Off|@5=0,124°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @50m |Off|@5=0,079°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 @100m |Off|@5=0,079°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @50m |Off|@5=0,055°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @100m |Off|@5=0,055°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @50m |Off|@5=0,132°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @100m |Off|@5=0,132°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @50m |Off|@5=0,087°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @100m |Off|@5=0,087°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @50m |Off|@5=0,132°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @100m |Off|@5=0,132°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @50m |Off|@5=0,087°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 @100m |Off|@5=0,087°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @50m |Off|@5=0,061°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @100m |Off|@5=0,061°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @50m |Off|@5=0,141°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @100m |Off|@5=0,141°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @50m |Off|@5=0,095°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @100m |Off|@5=0,095°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @50m |Off|@5=0,141°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @100m |Off|@5=0,141°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @50m |Off|@5=0,095°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 @100m |Off|@5=0,095°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @50m |Off|@5=0,065°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @100m |Off|@5=0,065°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @50m |Off|@5=0,145°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @100m |Off|@5=0,145°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @50m |Off|@5=0,099°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @100m |Off|@5=0,099°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @50m |Off|@5=0,145°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @100m |Off|@5=0,145°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @50m |Off|@5=0,099°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 @100m |Off|@5=0,099°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @50m |Off|@5=0,072°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @100m |Off|@5=0,072°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @50m |Off|@5=0,153°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @100m |Off|@5=0,153°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @50m |Off|@5=0,107°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @100m |Off|@5=0,107°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @50m |Off|@5=0,153°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @100m |Off|@5=0,153°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @50m |Off|@5=0,107°
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 @100m |Off|@5=0,107°
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 @50m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 @100m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 @50m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 @100m |Off|@5=0,072°
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 @50m |Off|@5=0,079°
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 @100m |Off|@5=0,079°
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 @50m |Off|@5=0,079°
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 @100m |Off|@5=0,079°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @50m |Off|@5=0,087°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @100m |Off|@5=0,087°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @50m |Off|@5=0,044°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @100m |Off|@5=0,044°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @50m |Off|@5=0,087°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @100m |Off|@5=0,087°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @50m |Off|@5=0,044°
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 @100m |Off|@5=0,044°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @50m |Off|@5=0,090°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @100m |Off|@5=0,090°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @50m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @100m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @50m |Off|@5=0,090°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @100m |Off|@5=0,090°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @50m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 @100m |Off|@5=0,048°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @50m |Off|@5=0,097°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @100m |Off|@5=0,097°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @50m |Off|@5=0,054°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @100m |Off|@5=0,054°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @50m |Off|@5=0,097°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @100m |Off|@5=0,097°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @50m |Off|@5=0,054°
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 @100m |Off|@5=0,054°
+  Weapon_BenelliM4 Base @50m |Off|@5=0,562°
+  Weapon_BenelliM4 Base @100m |Off|@5=0,562°
+  Weapon_M2Browning_127 Base @50m |Off|@5=0,838°
+  Weapon_M2Browning_127 Base @100m |Off|@5=0,838°
+
+Play Gate:
+Analytical gameplay-path re-check (326 outliers):
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,1394 orig=0,1394 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,0957 orig=0,0957 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_M4_ModA_1 Base |Off|@5 replay=0,2608 orig=0,2608 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 Base |Off|@5 replay=0,3630 orig=0,3630 | PASS
+  Weapon_AK47 M4_ForeGrip1 |Off|@5 replay=0,3520 orig=0,3520 | PASS
+  Weapon_AK47 M4_ForeGrip1 |Off|@5 replay=0,3520 orig=0,3520 | PASS
+  Weapon_AK47 M4_ForeGrip1 |Off|@5 replay=0,3056 orig=0,3056 | PASS
+  Weapon_AK47 M4_ForeGrip1 |Off|@5 replay=0,3056 orig=0,3056 | PASS
+  Weapon_AK47 M4_ForeGrip2 |Off|@5 replay=0,3641 orig=0,3641 | PASS
+  Weapon_AK47 M4_ForeGrip2 |Off|@5 replay=0,3641 orig=0,3641 | PASS
+  Weapon_AK47 M4_ForeGrip2 |Off|@5 replay=0,3171 orig=0,3171 | PASS
+  Weapon_AK47 M4_ForeGrip2 |Off|@5 replay=0,3171 orig=0,3171 | PASS
+  Weapon_AK47 M4_ForeGrip5 |Off|@5 replay=0,3762 orig=0,3762 | PASS
+  Weapon_AK47 M4_ForeGrip5 |Off|@5 replay=0,3762 orig=0,3762 | PASS
+  Weapon_AK47 M4_ForeGrip5 |Off|@5 replay=0,3285 orig=0,3285 | PASS
+  Weapon_AK47 M4_ForeGrip5 |Off|@5 replay=0,3285 orig=0,3285 | PASS
+  Weapon_AK47 M4_ForeGrip4 |Off|@5 replay=0,3823 orig=0,3823 | PASS
+  Weapon_AK47 M4_ForeGrip4 |Off|@5 replay=0,3823 orig=0,3823 | PASS
+  Weapon_AK47 M4_ForeGrip4 |Off|@5 replay=0,3343 orig=0,3343 | PASS
+  Weapon_AK47 M4_ForeGrip4 |Off|@5 replay=0,3343 orig=0,3343 | PASS
+  Weapon_AK47 M4_ForeGrip3 |Off|@5 replay=0,3458 orig=0,3458 | PASS
+  Weapon_AK47 M4_ForeGrip3 |Off|@5 replay=0,3458 orig=0,3458 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2955 orig=0,2955 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 Base |Off|@5 replay=0,2517 orig=0,2517 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,2466 orig=0,2466 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,2466 orig=0,2466 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,2052 orig=0,2052 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,2052 orig=0,2052 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip1 |Off|@5 replay=0,3446 orig=0,3446 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,2563 orig=0,2563 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,2563 orig=0,2563 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,2145 orig=0,2145 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,2145 orig=0,2145 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip2 |Off|@5 replay=0,3569 orig=0,3569 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,2661 orig=0,2661 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,2661 orig=0,2661 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,2238 orig=0,2238 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,2238 orig=0,2238 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip5 |Off|@5 replay=0,3693 orig=0,3693 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,2710 orig=0,2710 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,2710 orig=0,2710 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,2284 orig=0,2284 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,2284 orig=0,2284 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip4 |Off|@5 replay=0,3755 orig=0,3755 | PASS
+  Weapon_AK74 M4_ForeGrip3 |Off|@5 replay=0,2808 orig=0,2808 | PASS
+  Weapon_AK74 M4_ForeGrip3 |Off|@5 replay=0,2808 orig=0,2808 | PASS
+  Weapon_AK74 M4_ForeGrip3 |Off|@5 replay=0,2377 orig=0,2377 | PASS
+  Weapon_AK74 M4_ForeGrip3 |Off|@5 replay=0,2377 orig=0,2377 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1723 orig=0,1723 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,1454 orig=0,1454 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 Base |Off|@5 replay=0,2234 orig=0,2234 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,2168 orig=0,2168 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,2168 orig=0,2168 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1876 orig=0,1876 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1876 orig=0,1876 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1429 orig=0,1429 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1429 orig=0,1429 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1176 orig=0,1176 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1176 orig=0,1176 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,2168 orig=0,2168 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,2168 orig=0,2168 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1876 orig=0,1876 | PASS
+  Weapon_M249 M4_ForeGrip1 |Off|@5 replay=0,1876 orig=0,1876 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1948 orig=0,1948 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1948 orig=0,1948 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1488 orig=0,1488 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1488 orig=0,1488 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1232 orig=0,1232 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1232 orig=0,1232 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1948 orig=0,1948 | PASS
+  Weapon_M249 M4_ForeGrip2 |Off|@5 replay=0,1948 orig=0,1948 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,2019 orig=0,2019 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,2019 orig=0,2019 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,1546 orig=0,1546 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,1546 orig=0,1546 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,1287 orig=0,1287 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,1287 orig=0,1287 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,2019 orig=0,2019 | PASS
+  Weapon_M249 M4_ForeGrip5 |Off|@5 replay=0,2019 orig=0,2019 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,2055 orig=0,2055 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,2055 orig=0,2055 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,1576 orig=0,1576 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,1576 orig=0,1576 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,1315 orig=0,1315 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,1315 orig=0,1315 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,2055 orig=0,2055 | PASS
+  Weapon_M249 M4_ForeGrip4 |Off|@5 replay=0,2055 orig=0,2055 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,2126 orig=0,2126 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,2126 orig=0,2126 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,1634 orig=0,1634 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,1634 orig=0,1634 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,1371 orig=0,1371 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,1371 orig=0,1371 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,2126 orig=0,2126 | PASS
+  Weapon_M249 M4_ForeGrip3 |Off|@5 replay=0,2126 orig=0,2126 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1985 orig=0,1985 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM Base |Off|@5 replay=0,1647 orig=0,1647 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,2142 orig=0,2142 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,2142 orig=0,2142 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,1627 orig=0,1627 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,1627 orig=0,1627 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,1307 orig=0,1307 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,1307 orig=0,1307 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,2142 orig=0,2142 | PASS
+  Weapon_PKM M4_ForeGrip1 |Off|@5 replay=0,2142 orig=0,2142 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,2228 orig=0,2228 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,2228 orig=0,2228 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,1699 orig=0,1699 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,1699 orig=0,1699 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,1375 orig=0,1375 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,1375 orig=0,1375 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,2228 orig=0,2228 | PASS
+  Weapon_PKM M4_ForeGrip2 |Off|@5 replay=0,2228 orig=0,2228 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,2315 orig=0,2315 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,2315 orig=0,2315 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,1771 orig=0,1771 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,1771 orig=0,1771 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,1443 orig=0,1443 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,1443 orig=0,1443 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,2315 orig=0,2315 | PASS
+  Weapon_PKM M4_ForeGrip5 |Off|@5 replay=0,2315 orig=0,2315 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,2358 orig=0,2358 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,2358 orig=0,2358 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,1806 orig=0,1806 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,1806 orig=0,1806 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,1477 orig=0,1477 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,1477 orig=0,1477 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,2358 orig=0,2358 | PASS
+  Weapon_PKM M4_ForeGrip4 |Off|@5 replay=0,2358 orig=0,2358 | PASS
+  Weapon_PKM M4_ForeGrip3 |Off|@5 replay=0,1878 orig=0,1878 | PASS
+  Weapon_PKM M4_ForeGrip3 |Off|@5 replay=0,1878 orig=0,1878 | PASS
+  Weapon_PKM M4_ForeGrip3 |Off|@5 replay=0,1545 orig=0,1545 | PASS
+  Weapon_PKM M4_ForeGrip3 |Off|@5 replay=0,1545 orig=0,1545 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0511 orig=0,0511 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,1275 orig=0,1275 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 Base |Off|@5 replay=0,0829 orig=0,0829 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,0816 orig=0,0816 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,0816 orig=0,0816 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1192 orig=0,1192 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1192 orig=0,1192 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1658 orig=0,1658 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1192 orig=0,1192 | PASS
+  Weapon_MK12 M4_Stock2 |Off|@5 replay=0,1192 orig=0,1192 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0893 orig=0,0893 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0893 orig=0,0893 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0467 orig=0,0467 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0467 orig=0,0467 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0893 orig=0,0893 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0893 orig=0,0893 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0467 orig=0,0467 | PASS
+  Weapon_MK12 M4_ForeGrip1 |Off|@5 replay=0,0467 orig=0,0467 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0969 orig=0,0969 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0969 orig=0,0969 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0539 orig=0,0539 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0539 orig=0,0539 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0969 orig=0,0969 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0969 orig=0,0969 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0539 orig=0,0539 | PASS
+  Weapon_MK12 M4_ForeGrip2 |Off|@5 replay=0,0539 orig=0,0539 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,1046 orig=0,1046 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,1046 orig=0,1046 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,0612 orig=0,0612 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,0612 orig=0,0612 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,1046 orig=0,1046 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,1046 orig=0,1046 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,0612 orig=0,0612 | PASS
+  Weapon_MK12 M4_ForeGrip5 |Off|@5 replay=0,0612 orig=0,0612 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_Stock1 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,1084 orig=0,1084 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0419 orig=0,0419 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0419 orig=0,0419 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,1160 orig=0,1160 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,1160 orig=0,1160 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0720 orig=0,0720 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0720 orig=0,0720 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,1160 orig=0,1160 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,1160 orig=0,1160 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0720 orig=0,0720 | PASS
+  Weapon_MK12 M4_ForeGrip3 |Off|@5 replay=0,0720 orig=0,0720 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0480 orig=0,0480 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0480 orig=0,0480 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,1237 orig=0,1237 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,1237 orig=0,1237 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0793 orig=0,0793 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0793 orig=0,0793 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,1237 orig=0,1237 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,1237 orig=0,1237 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0793 orig=0,0793 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip1 |Off|@5 replay=0,0793 orig=0,0793 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0548 orig=0,0548 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0548 orig=0,0548 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,1321 orig=0,1321 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,1321 orig=0,1321 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0873 orig=0,0873 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0873 orig=0,0873 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,1321 orig=0,1321 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,1321 orig=0,1321 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0873 orig=0,0873 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip2 |Off|@5 replay=0,0873 orig=0,0873 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0615 orig=0,0615 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0615 orig=0,0615 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,1405 orig=0,1405 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,1405 orig=0,1405 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0953 orig=0,0953 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0953 orig=0,0953 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,1405 orig=0,1405 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,1405 orig=0,1405 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0953 orig=0,0953 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip5 |Off|@5 replay=0,0953 orig=0,0953 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0648 orig=0,0648 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,1447 orig=0,1447 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,1447 orig=0,1447 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0993 orig=0,0993 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0993 orig=0,0993 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,1447 orig=0,1447 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,1447 orig=0,1447 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0993 orig=0,0993 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip4 |Off|@5 replay=0,0993 orig=0,0993 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,0716 orig=0,0716 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,0716 orig=0,0716 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1531 orig=0,1531 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1531 orig=0,1531 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1072 orig=0,1072 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1072 orig=0,1072 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1531 orig=0,1531 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1531 orig=0,1531 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1072 orig=0,1072 | PASS
+  Weapon_MK12 M4_Stock2+M4_ForeGrip3 |Off|@5 replay=0,1072 orig=0,1072 | PASS
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 |Off|@5 replay=0,0721 orig=0,0721 | PASS
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 |Off|@5 replay=0,0721 orig=0,0721 | PASS
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 |Off|@5 replay=0,0721 orig=0,0721 | PASS
+  Weapon_MK12 M4_ForeGrip1+M4_Stock1 |Off|@5 replay=0,0721 orig=0,0721 | PASS
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 |Off|@5 replay=0,0794 orig=0,0794 | PASS
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 |Off|@5 replay=0,0794 orig=0,0794 | PASS
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 |Off|@5 replay=0,0794 orig=0,0794 | PASS
+  Weapon_MK12 M4_ForeGrip2+M4_Stock1 |Off|@5 replay=0,0794 orig=0,0794 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0866 orig=0,0866 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0866 orig=0,0866 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0441 orig=0,0441 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0441 orig=0,0441 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0866 orig=0,0866 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0866 orig=0,0866 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0441 orig=0,0441 | PASS
+  Weapon_MK12 M4_ForeGrip5+M4_Stock1 |Off|@5 replay=0,0441 orig=0,0441 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0902 orig=0,0902 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0902 orig=0,0902 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0476 orig=0,0476 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0476 orig=0,0476 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0902 orig=0,0902 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0902 orig=0,0902 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0476 orig=0,0476 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip4 |Off|@5 replay=0,0476 orig=0,0476 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0975 orig=0,0975 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0975 orig=0,0975 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0545 orig=0,0545 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0545 orig=0,0545 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0975 orig=0,0975 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0975 orig=0,0975 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0545 orig=0,0545 | PASS
+  Weapon_MK12 M4_Stock1+M4_ForeGrip3 |Off|@5 replay=0,0545 orig=0,0545 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_BenelliM4 Base |Off|@5 replay=0,5618 orig=0,5618 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+  Weapon_M2Browning_127 Base |Off|@5 replay=0,8379 orig=0,8379 | PASS
+Play Gate analytical: 326/326 PASS
+In-scene Play Mode harness: not run (outliers only, optional Phase G11 tier-2).
+
+
+FAIL triage: expectation band → outlier → Play Gate. Do not retune V/H/Rec assets here.

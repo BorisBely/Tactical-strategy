@@ -1,0 +1,29 @@
+﻿RecoilPlayD2ModulePair MATH
+Phase D2: M4 ModA_2 multi-slot loadouts. Aiming, stand, FullAuto, InstanceHash=0.
+Pair rule: muzzle brake (kick↑) + foregrip/stock (kick↓) — net between Base and muzzle-only.
+
+Base
+  |Off|@5=0.270°  kick×=1.000
+
+Muzzle brake
+  |Off|@5=0.347°  kick×=1.150
+
+Muzzle + ForeGrip1
+  |Off|@5=0.288°  kick×=1.035
+
+Muzzle + Stock1
+  |Off|@5=0.318°  kick×=1.093
+
+Form checks:
+  OK    M4 ModA_2 Base @5 ≈ 0.270° (N7)
+  OK    Muzzle-only > Base
+  OK    ForeGrip pair < Muzzle-only
+  OK    ForeGrip pair > Base
+  OK    Stock pair < Muzzle-only
+  OK    ForeGrip pair < Stock pair (stronger recoil cut)
+  OK    Muzzle SupportsWeapon
+  OK    ForeGrip SupportsWeapon
+  OK    Stock SupportsWeapon
+  OK    ForeGrip pair kick product = 1.035
+  NOTE: AK-47 has no second recoil module in content — D2 scope is M4 ModA_2 only.
+  Assets not changed. D1 single-module frozen. Full loadout generator = phase G.

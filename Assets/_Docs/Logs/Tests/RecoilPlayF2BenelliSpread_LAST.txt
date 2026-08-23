@@ -1,0 +1,23 @@
+﻿RecoilPlayF2BenelliSpread SIM
+Phase F2: 12 ga pellet ring @15 m / 40 m. One RecoilOffset per shell. Seed=4242.
+Pellets scatter around offset aim; no second recoil cone.
+
+Shot 1 @ 15 m
+  RecoilOffset=0.000°  pellets=9  cloud center=3.0 cm  spread=51.5 cm
+
+Shot 1 @ 40 m
+  RecoilOffset=0.000°  pellets=9  cloud center=23.0 cm  spread=455.2 cm
+
+Shot 2 @ 15 m
+  RecoilOffset=0.043°  pellets=9  cloud center=3.8 cm  spread=51.5 cm
+
+Form checks:
+  OK    Ammo uses shotgun pellet pattern
+  OK    Pellet count ≥ 2
+  OK    Shot1 spread @40 m > @15 m
+  OK    Shot1 @15 m center near aim (|Off|=0)
+  OK    Shot1 @15 m cloud compact
+  OK    Shot2 @15 m RecoilOffset > 0
+  OK    Shot2 cloud center tracks offset
+  OK    Shot2 spread same shell geometry as shot1 @15 m
+  Assets not changed. F CLOSE. Phase G not opened.

@@ -1,0 +1,34 @@
+﻿RecoilPlayE1PlannerForm MATH
+Phase E1: WeaponFireDisciplinePlanner Auto discipline, deterministic.
+Goal A10: M4/AK FullAuto @20 m; Burst/Semi @150 m. Offset cap 0.60 m × 0.85.
+
+Weapon_M4_ModA_1 @ 20 m
+  mode=Burst  series=4  aim=0.68
+  |Off|@series=0.236°  disp=0.08 m
+
+Weapon_M4_ModA_1 @ 150 m
+  mode=SemiAuto  series=1  aim=1.00
+  |Off|@series=0.034°  disp=0.09 m
+
+Weapon_AK47 @ 20 m
+  mode=Burst  series=4  aim=0.68
+  |Off|@series=0.607°  disp=0.21 m
+
+Weapon_AK47 @ 150 m
+  mode=SemiAuto  series=1  aim=1.00
+  |Off|@series=0.082°  disp=0.21 m
+
+Form checks:
+  WARN  M4 @20 m FullAuto
+  OK    M4 @20 m series ≥ 2
+  OK    M4 @150 m SemiAuto
+  OK    M4 @150 m series ≤ 2
+  WARN  AK-47 @20 m FullAuto
+  OK    AK-47 @150 m not FullAuto
+  OK    AK-47 @150 m series ≤ 4
+  OK    M4 @20 m aim < @150 m
+  OK    M4 @20 m disp ≤ 0.51 m
+  OK    M4 @150 m disp ≤ 0.51 m
+  OK    AK-47 @20 m disp ≤ 0.51 m
+  OK    AK-47 @150 m disp ≤ 0.51 m
+  Assets not changed. FireDisciplineContractTests frozen. E2 distances = next.

@@ -1,0 +1,419 @@
+﻿WeaponBalanceHReport
+Phase H: Compare + Report over frozen G. Assets not written.
+M4 reference: Aiming / Standing / idle / Base / FullAuto @50 m
+Selector threshold = 0.775 m. Planner cap = 0.51 m (separate).
+Generated UTC: 2026-08-23 21:55:22Z
+
+=== 1. SUMMARY ===
+Reference cases: 700 | Attachments cases: 580
+Weapons summarized: 10
+Loadout deltas: 484
+Outliers: 180
+Balanced: 4 | Review: 4 | Action candidates: 2
+M4 baseline |Off|@5: 0.313°
+
+=== 2. PER WEAPON ===
+--- Weapon_M4_ModA_1 (Rifle) Pass [None] ---
+Kick V=0.120° H=0.003° Rec/s=0.70
+|Off|@3=0.183 @5=0.313 @8=0.464 @10=0.596
+Offset@5 X=-0.018 Y=0.313
+NetDrift=0.0567 pause0.2=0.173 0.4=0.033 0.8=0.000
+θ=0.257 spread=0.449 m
+Score total=6.3/10 (V=7.0 H=4.0 Rec=7.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,313° band 0,25–0,40
+  Horizontal 4,0/10: |X|/|Y|@5=0,06
+  Recovery 7,0/10: pause0.4=0,033°
+  Burst 7,0/10: NetDrift=0,0567°/shot
+
+--- Weapon_AK47 (Rifle) Pass [None] ---
+Kick V=0.188° H=-0.011° Rec/s=0.55
+|Off|@3=0.470 @5=0.750 @8=1.228 @10=1.482
+Offset@5 X=-0.092 Y=0.744
+NetDrift=0.1464 pause0.2=0.640 0.4=0.530 0.8=0.310
+θ=0.368 spread=0.642 m
+Score total=6.3/10 (V=7.0 H=7.0 Rec=4.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,750° band 0,55–0,90
+  Horizontal 7,0/10: |X|/|Y|@5=0,12
+  Recovery 4,0/10: pause0.4=0,530°
+  Burst 7,0/10: NetDrift=0,1464°/shot
+Relative to M4:
+  |Off|@5 0.750 / M4 0.313 = 2.40×
+  Recovery@0.4 0.530 / M4 0.033 = 16.00×
+  θ 0.368 / M4 0.257 = 1.43×
+
+--- Weapon_AK74 (Rifle) Warn [None] ---
+Kick V=0.148° H=-0.007° Rec/s=0.60
+|Off|@3=0.287 @5=0.458 @8=0.735 @10=0.926
+Offset@5 X=-0.018 Y=0.458
+NetDrift=0.0935 pause0.2=0.338 0.4=0.218 0.8=0.000
+θ=0.283 spread=0.494 m
+Score total=5.5/10 (V=4.0 H=4.0 Rec=7.0 Burst=7.0)
+  Vertical 4,0/10: |Off|@5=0,458° band 0,55–0,90
+  Horizontal 4,0/10: |X|/|Y|@5=0,04
+  Recovery 7,0/10: pause0.4=0,218°
+  Burst 7,0/10: NetDrift=0,0935°/shot
+Relative to M4:
+  |Off|@5 0.458 / M4 0.313 = 1.46×
+  Recovery@0.4 0.218 / M4 0.033 = 6.59×
+  θ 0.283 / M4 0.257 = 1.10×
+
+--- Weapon_M249 (LightMachineGun) Pass [None] ---
+Kick V=0.078° H=0.047° Rec/s=0.50
+|Off|@3=0.159 @5=0.254 @8=0.435 @10=0.531
+Offset@5 X=-0.070 Y=0.245
+NetDrift=0.0554 pause0.2=0.154 0.4=0.054 0.8=0.000
+θ=0.347 spread=0.605 m
+Score total=7.0/10 (V=7.0 H=7.0 Rec=7.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,254° band 0,20–0,50
+  Horizontal 7,0/10: |X|/|Y|@5=0,29
+  Recovery 7,0/10: pause0.4=0,054°
+  Burst 7,0/10: NetDrift=0,0554°/shot
+Relative to M4:
+  |Off|@5 0.254 / M4 0.313 = 0.81×
+  Recovery@0.4 0.054 / M4 0.033 = 1.64×
+  θ 0.347 / M4 0.257 = 1.35×
+
+--- Weapon_PKM (LightMachineGun) Warn [None] ---
+Kick V=0.091° H=-0.013° Rec/s=0.50
+|Off|@3=0.166 @5=0.296 @8=0.470 @10=0.581
+Offset@5 X=-0.120 Y=0.271
+NetDrift=0.0570 pause0.2=0.196 0.4=0.096 0.8=0.000
+θ=0.380 spread=0.664 m
+Score total=7.5/10 (V=7.0 H=9.0 Rec=7.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,296° band 0,20–0,50
+  Horizontal 9,0/10: |X|/|Y|@5=0,44
+  Recovery 7,0/10: pause0.4=0,096°
+  Burst 7,0/10: NetDrift=0,0570°/shot
+Relative to M4:
+  |Off|@5 0.296 / M4 0.313 = 0.95×
+  Recovery@0.4 0.096 / M4 0.033 = 2.90×
+  θ 0.380 / M4 0.257 = 1.48×
+
+--- Weapon_MK12 (SniperRifle) Warn [Balance] ---
+Kick V=0.071° H=0.009° Rec/s=0.55
+|Off|@3=0.084 @5=0.128 @8=0.235 @10=0.288
+Offset@5 X=-0.001 Y=0.128
+NetDrift=0.0321 pause0.2=0.018 0.4=0.000 0.8=0.000
+θ=0.217 spread=0.379 m
+Score total=6.8/10 (V=7.0 H=4.0 Rec=9.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,128° band 0,00–0,20
+  Horizontal 4,0/10: |X|/|Y|@5=0,01
+  Recovery 9,0/10: pause0.4=0,000°
+  Burst 7,0/10: NetDrift=0,0321°/shot
+Relative to M4:
+  |Off|@5 0.128 / M4 0.313 = 0.41×
+  Recovery@0.4 0.000 / M4 0.033 = 0.00×
+  θ 0.217 / M4 0.257 = 0.85×
+
+--- Weapon_SVD (SniperRifle) Warn [Diagnostic] ---
+Kick V=0.126° H=-0.005° Rec/s=0.50
+|Off|@3=0.000 @5=0.007 @8=0.015 @10=0.034
+Offset@5 X=0.001 Y=0.007
+NetDrift=0.0054 pause0.2=0.000 0.4=0.000 0.8=0.000
+θ=0.158 spread=0.275 m
+Score total=7.0/10 (V=7.0 H=7.0 Rec=7.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=0,007° band 0,00–0,20
+  Horizontal 7,0/10: |X|/|Y|@5=0,10
+  Recovery 7,0/10: pause0.4=0,000°
+  Burst 7,0/10: NetDrift=0,0054°/shot
+Relative to M4:
+  |Off|@5 0.007 / M4 0.313 = 0.02×
+  Recovery@0.4 0.000 / M4 0.033 = 0.00×
+  θ 0.158 / M4 0.257 = 0.61×
+
+--- Weapon_BenelliM4 (Shotgun) Fail [Diagnostic] ---
+Kick V=0.220° H=-0.003° Rec/s=0.60
+|Off|@3=0.371 @5=0.562 @8=0.872 @10=1.090
+Offset@5 X=-0.068 Y=0.558
+NetDrift=0.1056 pause0.2=0.442 0.4=0.322 0.8=0.082
+θ=4.251 spread=7.433 m
+Score total=7.3/10 (V=9.0 H=7.0 Rec=4.0 Burst=9.0)
+  Vertical 9,0/10: |Off|@5=0,562° band 0,25–0,40
+  Horizontal 7,0/10: |X|/|Y|@5=0,12
+  Recovery 4,0/10: pause0.4=0,322°
+  Burst 9,0/10: NetDrift=0,1056°/shot
+Relative to M4:
+  |Off|@5 0.562 / M4 0.313 = 1.79×
+  Recovery@0.4 0.322 / M4 0.033 = 9.71×
+  θ 4.251 / M4 0.257 = 16.52×
+
+--- Weapon_M2Browning_127 (HeavyMachineGun) Fail [Balance] ---
+Kick V=0.180° H=-0.015° Rec/s=0.35
+|Off|@3=0.506 @5=0.838 @8=1.354 @10=1.690
+Offset@5 X=0.111 Y=0.831
+NetDrift=0.1705 pause0.2=0.768 0.4=0.698 0.8=0.558
+θ=0.331 spread=0.577 m
+Score total=7.3/10 (V=9.0 H=7.0 Rec=4.0 Burst=9.0)
+  Vertical 9,0/10: |Off|@5=0,838° band 0,20–0,50
+  Horizontal 7,0/10: |X|/|Y|@5=0,13
+  Recovery 4,0/10: pause0.4=0,698°
+  Burst 9,0/10: NetDrift=0,1705°/shot
+Relative to M4:
+  |Off|@5 0.838 / M4 0.313 = 2.68×
+  Recovery@0.4 0.698 / M4 0.033 = 21.06×
+  θ 0.331 / M4 0.257 = 1.29×
+
+--- Weapon_MK19 (AutomaticGrenadeLauncher) Pass [None] ---
+Kick V=0.244° H=0.046° Rec/s=0.28
+|Off|@3=0.648 @5=1.122 @8=1.772 @10=2.222
+Offset@5 X=0.075 Y=1.120
+NetDrift=0.2199 pause0.2=1.066 0.4=1.010 0.8=0.898
+θ=0.557 spread=0.972 m
+Score total=5.5/10 (V=7.0 H=4.0 Rec=4.0 Burst=7.0)
+  Vertical 7,0/10: |Off|@5=1,122° band 0,80–2,50
+  Horizontal 4,0/10: |X|/|Y|@5=0,07
+  Recovery 4,0/10: pause0.4=1,010°
+  Burst 7,0/10: NetDrift=0,2199°/shot
+Relative to M4:
+  |Off|@5 1.122 / M4 0.313 = 3.58×
+  Recovery@0.4 1.010 / M4 0.033 = 30.49×
+  θ 0.557 / M4 0.257 = 2.16×
+
+=== 3. PER LOADOUT (Base → Delta) ===
+Weapon_AK47 [Aiming/Standing/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip1 0.352° Δ=-0.398° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip1 0.352° Δ=-0.398° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip1 0.306° Δ=-0.445° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip1 0.306° Δ=-0.445° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Burst] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Burst] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Burst] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Burst] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Auto] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Auto] Base 0.750° → M4_ForeGrip1 0.656° Δ=-0.094° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Auto] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Auto] Base 0.750° → M4_ForeGrip1 0.594° Δ=-0.156° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip2 0.364° Δ=-0.386° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip2 0.364° Δ=-0.386° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip2 0.317° Δ=-0.433° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip2 0.317° Δ=-0.433° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Burst] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Burst] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Burst] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Burst] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Auto] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Auto] Base 0.750° → M4_ForeGrip2 0.675° Δ=-0.075° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Auto] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Auto] Base 0.750° → M4_ForeGrip2 0.612° Δ=-0.138° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip5 0.376° Δ=-0.374° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip5 0.376° Δ=-0.374° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip5 0.329° Δ=-0.422° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip5 0.329° Δ=-0.422° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Burst] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Burst] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Burst] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Burst] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Auto] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Auto] Base 0.750° → M4_ForeGrip5 0.694° Δ=-0.057° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Auto] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Auto] Base 0.750° → M4_ForeGrip5 0.630° Δ=-0.120° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip4 0.382° Δ=-0.368° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip4 0.382° Δ=-0.368° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip4 0.334° Δ=-0.416° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip4 0.334° Δ=-0.416° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Burst] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Burst] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Burst] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Burst] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Auto] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Auto] Base 0.750° → M4_ForeGrip4 0.703° Δ=-0.047° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Auto] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Auto] Base 0.750° → M4_ForeGrip4 0.639° Δ=-0.111° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip3 0.394° Δ=-0.356° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip3 0.394° Δ=-0.356° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/SemiAuto] Base 0.750° → M4_ForeGrip3 0.346° Δ=-0.404° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/SemiAuto] Base 0.750° → M4_ForeGrip3 0.346° Δ=-0.404° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Burst] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Burst] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Burst] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Burst] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/FullAuto] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/FullAuto] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/50m/Auto] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Standing/idle/100m/Auto] Base 0.750° → M4_ForeGrip3 0.722° Δ=-0.028° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/50m/Auto] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+Weapon_AK47 [Aiming/Crouch/idle/100m/Auto] Base 0.750° → M4_ForeGrip3 0.657° Δ=-0.093° [Balance]
+... (404 more loadout rows)
+
+=== CLASS COMPARISON (within WeaponClassType only) ===
+Rifle: Weapon_M4_ModA_1, Weapon_AK47, Weapon_AK74 |Off|@5 min=0.313 med=0.458 max=0.750
+LightMachineGun: Weapon_M249, Weapon_PKM |Off|@5 min=0.254 med=0.296 max=0.296
+SniperRifle: Weapon_MK12, Weapon_SVD |Off|@5 min=0.007 med=0.128 max=0.128
+Shotgun: Weapon_BenelliM4 |Off|@5 min=0.562 med=0.562 max=0.562
+HeavyMachineGun: Weapon_M2Browning_127 |Off|@5 min=0.838 med=0.838 max=0.838
+AutomaticGrenadeLauncher: Weapon_MK19 |Off|@5 min=1.122 med=1.122 max=1.122
+
+=== AUTO / DISCIPLINE (selector 0.775 m ≠ planner 0.51 m) ===
+Weapon_M4_ModA_1 @20m mode=FullAuto group=0.240m ok=True plannerSeries=4 disp=0.035m
+Weapon_M4_ModA_1 @50m mode=Burst group=0.557m ok=True plannerSeries=3 disp=0.070m
+Weapon_M4_ModA_1 @80m mode=SemiAuto group=0.761m ok=True plannerSeries=3 disp=0.112m
+Weapon_M4_ModA_1 @100m mode=SemiAuto group=0.987m ok=False plannerSeries=2 disp=0.108m
+Weapon_M4_ModA_1 @150m mode=SemiAuto group=1.598m ok=False plannerSeries=1 disp=0.089m
+Weapon_AK47 @20m mode=FullAuto group=0.473m ok=True plannerSeries=4 disp=0.117m
+Weapon_AK47 @50m mode=SemiAuto group=0.642m ok=True plannerSeries=3 disp=0.227m
+Weapon_AK47 @80m mode=SemiAuto group=1.099m ok=False plannerSeries=3 disp=0.364m
+Weapon_AK47 @100m mode=SemiAuto group=1.438m ok=False plannerSeries=2 disp=0.318m
+Weapon_AK47 @150m mode=SemiAuto group=2.372m ok=False plannerSeries=1 disp=0.215m
+Weapon_AK74 @20m mode=FullAuto group=0.357m ok=True plannerSeries=4 disp=0.085m
+Weapon_AK74 @50m mode=SemiAuto group=0.615m ok=True plannerSeries=3 disp=0.162m
+Weapon_AK74 @80m mode=SemiAuto group=0.838m ok=False plannerSeries=3 disp=0.260m
+Weapon_AK74 @100m mode=SemiAuto group=1.090m ok=False plannerSeries=2 disp=0.235m
+Weapon_AK74 @150m mode=SemiAuto group=1.776m ok=False plannerSeries=1 disp=0.190m
+Weapon_M249 @20m mode=FullAuto group=0.392m ok=True plannerSeries=12 disp=0.215m
+Weapon_M249 @50m mode=SemiAuto group=0.769m ok=True plannerSeries=10 disp=0.464m
+Weapon_M249 @80m mode=SemiAuto group=0.937m ok=False plannerSeries=6 disp=0.448m
+Weapon_M249 @100m mode=SemiAuto group=1.101m ok=False plannerSeries=5 disp=0.444m
+Weapon_M249 @150m mode=SemiAuto group=1.353m ok=False plannerSeries=5 disp=0.666m
+Weapon_PKM @20m mode=FullAuto group=0.431m ok=True plannerSeries=12 disp=0.238m
+Weapon_PKM @50m mode=SemiAuto group=0.664m ok=True plannerSeries=10 disp=0.507m
+Weapon_PKM @80m mode=SemiAuto group=1.027m ok=False plannerSeries=6 disp=0.508m
+Weapon_PKM @100m mode=SemiAuto group=1.226m ok=False plannerSeries=5 disp=0.517m
+Weapon_PKM @150m mode=SemiAuto group=1.589m ok=False plannerSeries=5 disp=0.776m
+Weapon_MK12 @20m mode=Burst group=0.164m ok=True plannerSeries=1 disp=0.002m
+Weapon_MK12 @50m mode=Burst group=0.405m ok=True plannerSeries=1 disp=0.005m
+Weapon_MK12 @80m mode=Burst group=0.638m ok=True plannerSeries=1 disp=0.009m
+Weapon_MK12 @100m mode=SemiAuto group=0.703m ok=True plannerSeries=1 disp=0.011m
+Weapon_MK12 @150m mode=SemiAuto group=0.874m ok=False plannerSeries=1 disp=0.016m
+Weapon_SVD @20m mode=SemiAuto group=0.195m ok=True plannerSeries=1 disp=0.000m
+Weapon_SVD @50m mode=SemiAuto group=0.473m ok=True plannerSeries=1 disp=0.000m
+Weapon_SVD @80m mode=SemiAuto group=0.564m ok=True plannerSeries=1 disp=0.000m
+Weapon_SVD @100m mode=SemiAuto group=0.679m ok=True plannerSeries=1 disp=0.000m
+Weapon_SVD @150m mode=SemiAuto group=0.581m ok=True plannerSeries=1 disp=0.000m
+Weapon_BenelliM4 @20m mode=SemiAuto group=1.109m ok=False plannerSeries=1 disp=0.028m
+Weapon_BenelliM4 @50m mode=SemiAuto group=7.433m ok=False plannerSeries=1 disp=0.070m
+Weapon_BenelliM4 @80m mode=SemiAuto group=19.072m ok=False plannerSeries=1 disp=0.111m
+Weapon_BenelliM4 @100m mode=SemiAuto group=29.301m ok=False plannerSeries=1 disp=0.139m
+Weapon_BenelliM4 @150m mode=SemiAuto group=52.159m ok=False plannerSeries=1 disp=0.209m
+... (10 more auto rows)
+
+=== 4. OUTLIERS ===
+Weapon | Case | Metric | Actual | Expected | Kind | Severity | Play
+Weapon_M4_ModA_1 | SemiAuto Aiming Standing Idle @20m Base | |Off|@5 | 0.139 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Standing Idle @50m Base | |Off|@5 | 0.139 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Standing Idle @80m Base | |Off|@5 | 0.139 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Standing Idle @100m Base | |Off|@5 | 0.139 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Standing Idle @150m Base | |Off|@5 | 0.139 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Crouch Idle @20m Base | |Off|@5 | 0.096 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Crouch Idle @50m Base | |Off|@5 | 0.096 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Crouch Idle @80m Base | |Off|@5 | 0.096 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Crouch Idle @100m Base | |Off|@5 | 0.096 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | SemiAuto Aiming Crouch Idle @150m Base | |Off|@5 | 0.096 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Burst Aiming Crouch Idle @20m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Burst Aiming Crouch Idle @50m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Burst Aiming Crouch Idle @80m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Burst Aiming Crouch Idle @100m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Burst Aiming Crouch Idle @150m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Burst HipFire Standing Idle @5m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Burst HipFire Standing Idle @10m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Burst HipFire Standing Idle @15m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Burst HipFire Standing Idle @25m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Burst HipFire Standing Idle @50m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | FullAuto Aiming Crouch Idle @20m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | FullAuto Aiming Crouch Idle @50m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | FullAuto Aiming Crouch Idle @80m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | FullAuto Aiming Crouch Idle @100m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | FullAuto Aiming Crouch Idle @150m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | FullAuto HipFire Standing Idle @5m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | FullAuto HipFire Standing Idle @10m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | FullAuto HipFire Standing Idle @15m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | FullAuto HipFire Standing Idle @25m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | FullAuto HipFire Standing Idle @50m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Auto Aiming Crouch Idle @20m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Auto Aiming Crouch Idle @50m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Auto Aiming Crouch Idle @80m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Auto Aiming Crouch Idle @100m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Auto Aiming Crouch Idle @150m Base | |Off|@5 | 0.261 | 0,25–0,40° | Balance | Warn | yes
+Weapon_M4_ModA_1 | Auto HipFire Standing Idle @5m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Auto HipFire Standing Idle @10m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Auto HipFire Standing Idle @15m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Auto HipFire Standing Idle @25m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_M4_ModA_1 | Auto HipFire Standing Idle @50m Base | |Off|@5 | 0.582 | 0,25–0,40° | Diagnostic | Warn | yes
+Weapon_AK47 | SemiAuto Aiming Crouch Idle @20m Base | |Off|@5 | 0.363 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK47 | SemiAuto Aiming Crouch Idle @50m Base | |Off|@5 | 0.363 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK47 | SemiAuto Aiming Crouch Idle @80m Base | |Off|@5 | 0.363 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK47 | SemiAuto Aiming Crouch Idle @100m Base | |Off|@5 | 0.363 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK47 | SemiAuto Aiming Crouch Idle @150m Base | |Off|@5 | 0.363 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Standing Idle @20m Base | |Off|@5 | 0.295 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Standing Idle @50m Base | |Off|@5 | 0.295 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Standing Idle @80m Base | |Off|@5 | 0.295 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Standing Idle @100m Base | |Off|@5 | 0.295 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Standing Idle @150m Base | |Off|@5 | 0.295 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Crouch Idle @20m Base | |Off|@5 | 0.252 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Crouch Idle @50m Base | |Off|@5 | 0.252 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Crouch Idle @80m Base | |Off|@5 | 0.252 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Crouch Idle @100m Base | |Off|@5 | 0.252 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_AK74 | SemiAuto Aiming Crouch Idle @150m Base | |Off|@5 | 0.252 | 0,55–0,90° | Diagnostic | Warn | yes
+Weapon_M249 | FullAuto Aiming Crouch Idle @20m Base | |Off|@5 | 0.223 | 0,20–0,50° | Balance | Warn | yes
+Weapon_M249 | FullAuto Aiming Crouch Idle @50m Base | |Off|@5 | 0.223 | 0,20–0,50° | Balance | Warn | yes
+Weapon_M249 | FullAuto Aiming Crouch Idle @80m Base | |Off|@5 | 0.223 | 0,20–0,50° | Balance | Warn | yes
+Weapon_M249 | FullAuto Aiming Crouch Idle @100m Base | |Off|@5 | 0.223 | 0,20–0,50° | Balance | Warn | yes
+Weapon_M249 | FullAuto Aiming Crouch Idle @150m Base | |Off|@5 | 0.223 | 0,20–0,50° | Balance | Warn | yes
+... (120 more outliers)
+
+=== PLAY CORRELATION (analytical replay) ===
+Weapon | Loadout | Analytical | Replay | Delta | Status
+Weapon_M4_ModA_1 | Base | 0.1394 | 0.1394 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.1394 | 0.1394 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.1394 | 0.1394 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.1394 | 0.1394 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.1394 | 0.1394 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.0957 | 0.0957 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.0957 | 0.0957 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.0957 | 0.0957 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.0957 | 0.0957 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.0957 | 0.0957 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.2608 | 0.2608 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+Weapon_M4_ModA_1 | Base | 0.5818 | 0.5818 | 0.0000 | PASS
+... (140 more play rows)
+
+=== CONCLUSIONS ===
+Balanced (4): Weapon_M4_ModA_1, Weapon_AK47, Weapon_M249, Weapon_MK19
+Review diagnostic (4): Weapon_AK74, Weapon_PKM, Weapon_SVD, Weapon_BenelliM4
+Action candidates (2): Weapon_MK12, Weapon_M2Browning_127
+
+Pipeline: G Measure → H Compare → H Report → Manual review → [optional] Tuner → Re-run G

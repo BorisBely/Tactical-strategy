@@ -145,6 +145,12 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 	public float DebugLastBarrelAimErrorDegrees => m_DebugLastBarrelAimErrorDegrees;
 	public string DebugLastAimGateFail => m_DebugLastAimGateFail;
 
+	/// <summary>
+	/// Play baseline N8: same barrel gate as fire, without consuming a shot.
+	/// Compares muzzle forward to aim+RecoilOffset, not the raw target point.
+	/// </summary>
+	public bool DebugIsBarrelAlignedEnoughToFire() => IsBarrelAlignedEnoughToFire();
+
 	/// <summary>Диагностика MK19 / турели в Console.</summary>
 	public int DebugSuccessfulShotCountForDiagnostics => m_DebugSuccessfulShotCount;
 
@@ -670,7 +676,13 @@ public sealed class UnitWeaponFireController : MonoBehaviour
 			return true;
 		}
 
-		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, toTarget.normalized);
+		Vector3 toTargetDir = toTarget.normalized;
+		Vector2 recoilOffset = m_RecoilController != null ? m_RecoilController.RecoilOffset : Vector2.zero;
+		const float barrelAlignmentOffsetWeight = 1f;
+		Vector3 expectedAim = WeaponRecoilMath.ApplyOffsetToDirection(
+			toTargetDir,
+			recoilOffset * barrelAlignmentOffsetWeight);
+		m_DebugLastBarrelAimErrorDegrees = Vector3.Angle(fireOrigin.forward, expectedAim);
 		float maxError = ResolveMaxBarrelAimErrorDegrees();
 		return m_DebugLastBarrelAimErrorDegrees <= maxError;
 	}

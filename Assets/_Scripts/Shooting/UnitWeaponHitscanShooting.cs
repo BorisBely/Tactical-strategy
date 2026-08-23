@@ -251,6 +251,7 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		m_ShotgunPelletBudgets.Clear();
 
 		int projectileCount = Mathf.Max(1, _ammo.ProjectileCount);
+		// Pellets scatter around the same RecoilOffset direction; they do not get a second P-cone.
 		if (_ammo.UsesShotgunPelletPattern)
 		{
 			float shotgunHalfAngle = halfAngle * _ammo.GetShotgunSpreadDistanceScale(accuracyContext.TargetDistanceMeters);
@@ -318,13 +319,28 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 
 		float targetDistanceMeters = EstimateTargetDistanceMeters();
 		WeaponShotAccuracyInput accuracyInput = BuildAccuracyInput(_ammo, targetDistanceMeters);
+		UnitCombatStats combatStats = ResolveCombatStats();
+		bool turret = IsOperatingVehicleTurret();
+		WeaponPoseState pose = m_ReadyHands != null
+			? m_ReadyHands.EffectivePoseState
+			: WeaponPoseState.Aiming;
 		_input = new WeaponAutoModeSelectionInput
 		{
 			AccuracyInput = accuracyInput,
 			SelectedFireMode = accuracyInput.SelectedFireMode,
 			SelectedAimMode = ResolveSelectedAimMode(targetDistanceMeters),
 			AvailableFireModes = m_WeaponRuntime.CurrentWeaponDefinition.AvailableFireModes,
-			TargetDistanceMeters = targetDistanceMeters
+			TargetDistanceMeters = targetDistanceMeters,
+			StanceKickMultiplier = turret || m_StanceCombatModifiers == null
+				? 1f
+				: m_StanceCombatModifiers.GetRecoilAddedMultiplier(),
+			StanceRecoveryMultiplier = turret || m_StanceCombatModifiers == null
+				? 1f
+				: m_StanceCombatModifiers.GetRecoilRecoveryMultiplier(),
+			PoseKickMultiplier = turret ? 1f : WeaponPoseCombatModifiers.GetKickMultiplier(pose),
+			PoseRecoveryMultiplier = turret ? 1f : WeaponPoseCombatModifiers.GetRecoveryMultiplier(pose),
+			SkillKickMultiplier = turret || combatStats == null ? 1f : combatStats.GetRecoilAddedMultiplier(),
+			SkillRecoveryMultiplier = turret || combatStats == null ? 1f : combatStats.GetRecoilRecoveryMultiplier()
 		};
 		return true;
 	}
@@ -406,15 +422,13 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 			MaxHalfAngleDegrees = m_MaxHalfAngleDegrees,
 			Stance = GetCurrentStance(),
 			IsMoving = IsMoving(),
-			IsSprinting = IsSprinting(),
+			IsSprinting = !IsOperatingVehicleTurret() && IsSprinting(),
 			StandingSpreadMultiplier = m_StandingSpreadMultiplier,
 			CrouchSpreadMultiplier = m_CrouchSpreadMultiplier,
 			ProneSpreadMultiplier = m_ProneSpreadMultiplier,
 			MovingSpreadMultiplier = m_MovingSpreadMultiplier,
 			SprintSpreadMultiplier = m_SprintSpreadMultiplier,
-			PostureSpreadMultiplier = m_StanceCombatModifiers != null
-				? m_StanceCombatModifiers.GetSpreadMultiplier()
-				: 0f,
+			PostureSpreadMultiplier = ResolvePostureSpreadMultiplier(),
 			AimProgress01 = m_WeaponRuntime != null && m_WeaponRuntime.TransientState != null
 				? m_WeaponRuntime.TransientState.AimProgress01
 				: 1f,
@@ -801,6 +815,21 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		if (m_LocomotionDriver != null && m_LocomotionDriver.enabled)
 			return m_LocomotionDriver.IsSprintMoveMode;
 		return m_ClickToMove != null && m_ClickToMove.enabled && m_ClickToMove.IsSprintMoveMode;
+	}
+
+	private bool IsOperatingVehicleTurret()
+	{
+		return m_Equipment != null && m_Equipment.IsOperatingVehicleTurret;
+	}
+
+	private float ResolvePostureSpreadMultiplier()
+	{
+		if (IsOperatingVehicleTurret())
+			return 1f;
+
+		return m_StanceCombatModifiers != null
+			? m_StanceCombatModifiers.GetSpreadMultiplier()
+			: 0f;
 	}
 
 	private bool IsHitOnVisibleTarget(Collider _hitCollider)

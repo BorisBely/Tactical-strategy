@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using UnityEngine;
 
@@ -9,11 +10,17 @@ public static class ShootingRangeHitLogger
 	#region Public Fields
 	/// <summary>Включить логи попаданий по мишеням полигона.</summary>
 	public static bool LoggingEnabled;
+
+	/// <summary>
+	/// Fired for every range-target hit, even when <see cref="LoggingEnabled"/> is false.
+	/// Used by Recoil Play baseline group measurement.
+	/// </summary>
+	public static event Action<ShootingRangeHitRecord> HitRecorded;
 	#endregion
 
 	#region Public Methods
 	public static void LogHit(
-		Object _context,
+		UnityEngine.Object _context,
 		Transform _shooterRoot,
 		UnitEquipment _equipment,
 		UnitWeaponRuntime _weaponRuntime,
@@ -28,6 +35,17 @@ public static class ShootingRangeHitLogger
 
 		if (!_target.TryEvaluateFaceHitAccuracy(_hit.point, _hit.normal, out ShootingRangeFaceHitAccuracy accuracy))
 			accuracy = default;
+
+		EquippedWeaponTransientState transient =
+			_weaponRuntime != null ? _weaponRuntime.TransientState : null;
+		HitRecorded?.Invoke(new ShootingRangeHitRecord(
+			_target,
+			accuracy,
+			_shotDistanceMeters,
+			transient != null ? transient.RecoilOffset : Vector2.zero,
+			transient != null ? transient.RecoilShotIndex : 0,
+			_shooterRoot,
+			_weaponRuntime));
 
 		string unitName = _shooterRoot != null ? _shooterRoot.name : "?";
 		ItemDefinition weaponItem = _equipment != null ? _equipment.EquippedDefinition : null;
@@ -184,4 +202,36 @@ public readonly struct ShootingRangeFaceHitAccuracy
 		OffsetVerticalMeters = _offsetVerticalMeters;
 		FaceHalfExtentMeters = _faceHalfExtentMeters;
 	}
+}
+
+public readonly struct ShootingRangeHitRecord
+{
+	public readonly ShootingRangeTarget Target;
+	public readonly ShootingRangeFaceHitAccuracy Accuracy;
+	public readonly float ShotDistanceMeters;
+	public readonly Vector2 RecoilOffsetDegrees;
+	public readonly int RecoilShotIndex;
+	public readonly Transform ShooterRoot;
+	public readonly UnitWeaponRuntime WeaponRuntime;
+
+	public ShootingRangeHitRecord(
+		ShootingRangeTarget _target,
+		ShootingRangeFaceHitAccuracy _accuracy,
+		float _shotDistanceMeters,
+		Vector2 _recoilOffsetDegrees,
+		int _recoilShotIndex,
+		Transform _shooterRoot,
+		UnitWeaponRuntime _weaponRuntime)
+	{
+		Target = _target;
+		Accuracy = _accuracy;
+		ShotDistanceMeters = _shotDistanceMeters;
+		RecoilOffsetDegrees = _recoilOffsetDegrees;
+		RecoilShotIndex = _recoilShotIndex;
+		ShooterRoot = _shooterRoot;
+		WeaponRuntime = _weaponRuntime;
+	}
+
+	public float OffsetXCm => Accuracy.IsValid ? Accuracy.OffsetHorizontalMeters * 100f : 0f;
+	public float OffsetYCm => Accuracy.IsValid ? Accuracy.OffsetVerticalMeters * 100f : 0f;
 }

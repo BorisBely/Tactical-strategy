@@ -1,0 +1,37 @@
+﻿RecoilPlayC1StanceForm MATH
+Phase C1: stance/movement |Offset|@5. Aiming, FullAuto baseline mode, InstanceHash=0.
+Kick/recovery: Stand 1/1, Crouch 0.95/1.10, Walk 1.25/0.85, Sprint 1.60/0.50.
+Relative form Walk>Stand, Crouch<Stand, Sprint>Stand. Assets not changed.
+
+Weapon_M4_ModA_1 (FullAuto Aiming)
+  Stand=0.313°  Crouch=0.261°  Walk=0.489°  Sprint=0.770°
+  ratios Walk/Stand=1.56  Crouch/Stand=0.83  Sprint/Stand=2.46
+
+Weapon_AK47 (FullAuto Aiming)
+  Stand=0.750°  Crouch=0.684°  Walk=1.015°  Sprint=1.412°
+  ratios Walk/Stand=1.35  Crouch/Stand=0.91  Sprint/Stand=1.88
+
+Weapon_M249 (FullAuto Aiming)
+  Stand=0.254°  Crouch=0.223°  Walk=0.368°  Sprint=0.544°
+  ratios Walk/Stand=1.44  Crouch/Stand=0.88  Sprint/Stand=2.14
+
+Weapon_PKM (FullAuto Aiming)
+  Stand=0.296°  Crouch=0.257°  Walk=0.434°  Sprint=0.650°
+  ratios Walk/Stand=1.47  Crouch/Stand=0.87  Sprint/Stand=2.19
+
+Form checks:
+  OK    M4 Walk > Stand
+  OK    M4 Crouch < Stand
+  OK    M4 Sprint > Stand
+  OK    AK-47 Walk > Stand
+  OK    AK-47 Crouch < Stand
+  OK    AK-47 Sprint > Stand
+  OK    M249 Walk > Stand
+  OK    M249 Crouch < Stand
+  OK    M249 Sprint > Stand
+  OK    PKM Walk > Stand
+  OK    PKM Crouch < Stand
+  OK    PKM Sprint > Stand
+  OK    M4 Stand @5 ≈ 0.313° (B0 frozen)
+  WARN  Walk/Stand ratio increases with kick class (M4 < AK-47)
+  Assets not changed. Phase B numbers frozen. HipFire/pose matrix = C2.

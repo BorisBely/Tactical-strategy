@@ -7,10 +7,10 @@ using UnityEngine;
 public static class WeaponPoseAutoCapabilityBaker
 {
 	public const float DefaultAcceptableHitRadiusMeters = 0.35f;
-	public const float DefaultHipFireSpreadMult = 2.5f;
-	public const float DefaultPointAimSpreadMult = 1.5f;
-	public const float DefaultAimingSpreadMult = 1f;
-	public const float DefaultPreAimSpreadMult = PreAimPoseUtility.SpreadMult;
+	public const float DefaultHipFireSpreadMult = WeaponPoseCombatModifiers.HipFireSpreadMultiplier;
+	public const float DefaultPointAimSpreadMult = WeaponPoseCombatModifiers.PointAimSpreadMultiplier;
+	public const float DefaultAimingSpreadMult = WeaponPoseCombatModifiers.AimingSpreadMultiplier;
+	public const float DefaultPreAimSpreadMult = WeaponPoseCombatModifiers.PreAimSpreadMultiplier;
 	public const float DefaultBaseSpreadToDegrees = 1f;
 	public const float DefaultHipFirePreferredMeters = 6f;
 	public const float DefaultPointAimPreferredMeters = 32f;

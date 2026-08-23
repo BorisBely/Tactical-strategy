@@ -99,11 +99,11 @@ public static class WeaponShotAccuracyEvaluator
 
 	private static float GetPostureDispersionMultiplier(WeaponShotAccuracyInput _input)
 	{
-		if (_input.IsSprinting)
-			return Mathf.Max(0.01f, _input.SprintSpreadMultiplier);
-
 		if (_input.PostureSpreadMultiplier > 0f)
 			return Mathf.Max(0.01f, _input.PostureSpreadMultiplier);
+
+		if (_input.IsSprinting)
+			return Mathf.Max(0.01f, _input.SprintSpreadMultiplier);
 
 		float stanceFactor = GetLegacyStanceDispersionMultiplier(_input);
 		float movementFactor = _input.IsMoving
