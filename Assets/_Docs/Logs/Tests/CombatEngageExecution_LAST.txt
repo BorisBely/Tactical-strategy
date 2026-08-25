@@ -1,6 +1,6 @@
 ﻿STAGE 2 — COMBAT ENGAGE EXECUTION
 =================================
-stamp=2026-08-20 10:56:57
+stamp=2026-08-25 22:00:52
 AI publishes CombatIntent; Combat shoots. Engage ≠ Fire. ROE veto remains.
 ---
 PASS Harness_Processor | DetectionProcessor missing
@@ -29,6 +29,13 @@ PASS T3_IntentEngage | Engage
 PASS T3_NoAimFire | Ignore
 PASS T3_NoShot | NoVisibleTarget
 ---
+[T3b] Engage + SelfDefense + incoming fire → ImmediateThreat, Allow, G6 not Ignore
+PASS T3b_ImmediateThreat | flag still false
+PASS T3b_Allow | Allowed/SelfDefenseImmediateThreat
+PASS T3b_NotIgnore | Aim
+PASS T3b_SelectionUnchanged | Unit(Clone)
+PASS T3b_ShotOrAllow | shots=1 last=Success decision=Fire
+---
 [T4] Hostile gone → Hold, fire closed
 PASS T4_StartedEngage | Engage
 PASS T4_Hold | Search/None/Hold
@@ -51,4 +58,4 @@ PASS T8_ObserverB | failed to create observer B
 PASS T8_A_Engage | Engage
 PASS T8_B_Hold | None
 ---
-RESULT=PASS pass=31 fail=0
+RESULT=PASS pass=36 fail=0

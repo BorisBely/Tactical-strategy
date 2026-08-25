@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// AI-0 FROZEN. Observer-local immutable perception snapshot for one AI decision tick.
+/// Observer-local immutable perception snapshot for one AI decision tick.
+/// Visual channels are AI-0 FROZEN. Sound / Report channels are #9.
 /// Built from <see cref="IPerceivedContactRegistry"/> — not from TargetSelector.
-/// Selected ≠ Engageable ≠ Fire ≠ this frame.
+/// Selected ≠ Engageable ≠ Fire ≠ this frame. Sound ≠ Observed.
 /// </summary>
 public readonly struct AIPerceptionFrame
 {
@@ -16,7 +17,9 @@ public readonly struct AIPerceptionFrame
 		Array.Empty<AIContactKnowledge>(),
 		Array.Empty<AIContactKnowledge>(),
 		Array.Empty<AIContactKnowledge>(),
-		ThreatLevel.None);
+		ThreatLevel.None,
+		Array.Empty<AISoundContact>(),
+		Array.Empty<AIReportContact>());
 
 	public readonly IReadOnlyList<AIContactKnowledge> AllContacts;
 	public readonly IReadOnlyList<AIContactKnowledge> VisibleContacts;
@@ -25,6 +28,8 @@ public readonly struct AIPerceptionFrame
 	public readonly IReadOnlyList<AIContactKnowledge> HostileContacts;
 	public readonly IReadOnlyList<AIContactKnowledge> UnknownContacts;
 	public readonly ThreatLevel StrongestThreat;
+	public readonly IReadOnlyList<AISoundContact> SoundContacts;
+	public readonly IReadOnlyList<AIReportContact> ReportContacts;
 
 	public AIPerceptionFrame(
 		IReadOnlyList<AIContactKnowledge> _all,
@@ -34,6 +39,29 @@ public readonly struct AIPerceptionFrame
 		IReadOnlyList<AIContactKnowledge> _hostile,
 		IReadOnlyList<AIContactKnowledge> _unknown,
 		ThreatLevel _strongestThreat)
+		: this(
+			_all,
+			_visible,
+			_remembered,
+			_stale,
+			_hostile,
+			_unknown,
+			_strongestThreat,
+			Array.Empty<AISoundContact>(),
+			Array.Empty<AIReportContact>())
+	{
+	}
+
+	public AIPerceptionFrame(
+		IReadOnlyList<AIContactKnowledge> _all,
+		IReadOnlyList<AIContactKnowledge> _visible,
+		IReadOnlyList<AIContactKnowledge> _remembered,
+		IReadOnlyList<AIContactKnowledge> _stale,
+		IReadOnlyList<AIContactKnowledge> _hostile,
+		IReadOnlyList<AIContactKnowledge> _unknown,
+		ThreatLevel _strongestThreat,
+		IReadOnlyList<AISoundContact> _sounds,
+		IReadOnlyList<AIReportContact> _reports)
 	{
 		AllContacts = _all ?? Array.Empty<AIContactKnowledge>();
 		VisibleContacts = _visible ?? Array.Empty<AIContactKnowledge>();
@@ -42,6 +70,8 @@ public readonly struct AIPerceptionFrame
 		HostileContacts = _hostile ?? Array.Empty<AIContactKnowledge>();
 		UnknownContacts = _unknown ?? Array.Empty<AIContactKnowledge>();
 		StrongestThreat = _strongestThreat;
+		SoundContacts = _sounds ?? Array.Empty<AISoundContact>();
+		ReportContacts = _reports ?? Array.Empty<AIReportContact>();
 	}
 
 	public bool TryGetContact(Transform _target, out AIContactKnowledge _knowledge)

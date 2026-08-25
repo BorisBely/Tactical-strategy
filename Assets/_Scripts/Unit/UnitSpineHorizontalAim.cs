@@ -312,7 +312,10 @@ public sealed class UnitSpineHorizontalAim : MonoBehaviour
 		if (TryGetSpineSkipReason(out _))
 			return false;
 
-		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
+		if (m_TargetSelector == null ||
+		    !m_TargetSelector.TryGetEngageableAimPointWorld(out Vector3 aimPoint))
+			return false;
+
 		Vector3 toTarget = aimPoint - transform.position;
 		toTarget.y = 0f;
 		if (toTarget.sqrMagnitude < 1e-6f)
@@ -415,7 +418,13 @@ public sealed class UnitSpineHorizontalAim : MonoBehaviour
 			return true;
 		}
 
-		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
+		if (m_TargetSelector == null ||
+		    !m_TargetSelector.TryGetEngageableAimPointWorld(out Vector3 aimPoint))
+		{
+			_reason = "noAimPoint";
+			return true;
+		}
+
 		Vector3 toTarget = aimPoint - transform.position;
 		toTarget.y = 0f;
 		if (toTarget.sqrMagnitude < 1e-6f)

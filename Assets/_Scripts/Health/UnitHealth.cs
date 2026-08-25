@@ -224,6 +224,7 @@ public sealed class UnitHealth : MonoBehaviour
 		}
 
 		NotifyChanged();
+		CombatEventHub.Publish(CombatEvent.Death(this, null, this, transform.position));
 	}
 
 	public void ClearInjuries()

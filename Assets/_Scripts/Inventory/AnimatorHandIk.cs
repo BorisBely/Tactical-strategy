@@ -707,7 +707,7 @@ public class AnimatorHandIk : MonoBehaviour
 			return 0f;
 
 		return m_EquippedWeaponPose != null
-			? Mathf.Clamp01(m_EquippedWeaponPose.ReadyPoseBlend01)
+			? Mathf.Clamp01(m_EquippedWeaponPose.GripHoldBlend01)
 			: 0f;
 	}
 

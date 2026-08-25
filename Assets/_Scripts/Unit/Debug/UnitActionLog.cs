@@ -28,6 +28,7 @@ public static class UnitActionLog
 	public const string Input = "INPUT";
 	public const string Snap = "SNAP";
 	public const string Death = "DEATH";
+	public const string Threat = "THREAT";
 	#endregion
 
 	#region Public Properties

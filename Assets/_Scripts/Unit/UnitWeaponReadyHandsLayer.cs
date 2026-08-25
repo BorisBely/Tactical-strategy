@@ -11,8 +11,9 @@ using UnityEngine.Serialization;
 /// Run/sprint: non-combat stays; HipFire → NotReady; combat → HighReady; then restore wanted mode.
 /// Turn >90°: NotReady/Patrol stay; LowReady/PreAim → LowReady; PointAim/Aiming/HighReady → HighReady; HipFire → NotReady.
 /// Animator bool <c>WeaponReady</c> picks locomotion clips (Jog_Aim vs Run_F), not the pose slot.
+/// LowReady and HighReady: on the move WeaponReady stays on so walk uses Walk_Aim / RifleCrouch_Move, not Walk_F.
 /// Standing idle uses the IK-delayed pose so HighReady does not flip WeaponReady mid E-cycle.
-/// Run: LowReady and HighReady → Run_F. Sprint: Run_F / Sprint_F.
+/// Run: LowReady and HighReady → Jog_Aim_F_Loop. Sprint: Sprint_F.
 /// Int <c>WeaponStandIdle</c>: NotReady/NotReadyPatrol/HipFire → relaxed body
 /// (Stand_Relaxed_Idle / RifleCrouch_Idle); HipFireWalk / HipFireCrouchWalk use aim-walk clips;
 /// LowReady and combat poses → aim body (Stand_Aim_Idle / RifleCrouch_Idle_Ready).
@@ -91,6 +92,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private RtsUnitMember m_RtsMember;
 	private string m_LastPoseLogKey;
 	private int m_PoseLogSilence;
+	private WeaponPoseState m_CachedAutoPose = WeaponPoseState.LowReady;
+	private float m_NextAutoPoseTime;
+	private bool m_CachedAutoHasTarget;
+	private Transform m_CachedAutoTarget;
+	private bool m_CachedAutoAlert;
 	private const float c_CombatAlertHoldSeconds = 4f;
 	private const float c_BarrelPitchLevelDeadzoneDeg = 2f;
 	#endregion
@@ -473,6 +479,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			m_CombatCondition,
 			m_AcceptableHitRadiusMeters);
 
+		m_NextAutoPoseTime = 0f;
 		m_WantedMode = ClampModeToCapabilities(m_WantedMode);
 		RefreshEffectivePose(true);
 		m_LastAttachmentFingerprint = ComputeAttachmentFingerprint();
@@ -886,7 +893,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 				? m_PeacefulCarryPose
 				: WeaponPoseState.NotReady;
 		if (m_ProximityBlocksReady)
-			return WeaponPoseState.LowReady;
+			return WeaponPoseState.HighReady;
 		return m_EffectivePose;
 	}
 
@@ -973,9 +980,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		bool hasTarget = false;
 		float distance = -1f;
+		Transform target = null;
 		if (m_TargetSelector != null)
 		{
-			Transform target = m_TargetSelector.SelectedTarget;
+			target = m_TargetSelector.SelectedTarget;
 			if (target != null)
 			{
 				hasTarget = true;
@@ -984,13 +992,27 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			}
 		}
 
-		return m_CapabilityCache.ResolveAutoPose(new WeaponAutoPoseContext
+		bool hasAlert = HasCombatAlert;
+		bool due = Time.time >= m_NextAutoPoseTime;
+		bool identityChanged = hasTarget != m_CachedAutoHasTarget
+			|| target != m_CachedAutoTarget
+			|| hasAlert != m_CachedAutoAlert;
+		if (!due && !identityChanged)
+			return m_CachedAutoPose;
+
+		m_CachedAutoPose = m_CapabilityCache.ResolveAutoPose(new WeaponAutoPoseContext
 		{
 			HasTarget = hasTarget,
 			DistanceMeters = distance,
-			HasCombatAlert = HasCombatAlert,
+			HasCombatAlert = hasAlert,
 			CurrentPose = m_EffectivePose,
 		});
+		m_CachedAutoHasTarget = hasTarget;
+		m_CachedAutoTarget = target;
+		m_CachedAutoAlert = hasAlert;
+		m_NextAutoPoseTime = Time.time + PerceptionWorkStagger.NextIntervalSeconds(
+			gameObject.GetEntityId().GetHashCode());
+		return m_CachedAutoPose;
 	}
 
 	private void ApplyPoseModeWanted(WeaponPoseMode _mode, bool _forceWalkIfNeeded, bool _refreshImmediately)
@@ -1013,6 +1035,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 
 		WeaponPoseState previousPose = m_EffectivePose;
 		bool modeChanged = m_WantedMode != _mode;
+		if (modeChanged && _mode == WeaponPoseMode.Auto)
+			m_NextAutoPoseTime = 0f;
 		m_WantedMode = _mode;
 		m_EffectivePose = ComputePoseFromWantedMode(_mode);
 		bool poseChanged = previousPose != m_EffectivePose;
@@ -1132,11 +1156,11 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 				this);
 		}
 
-		if (standIdleChanged && ShouldReplayStandIdleCrossfade())
+		if ((standIdleChanged || wasReady != nextReady) && ShouldReplayBaseLayerForPoseChange())
 			m_AnimatorWeaponMode?.ReplayLocomotionIdleCrossfade();
 	}
 
-	private bool ShouldReplayStandIdleCrossfade()
+	private bool ShouldReplayBaseLayerForPoseChange()
 	{
 		if (m_Animator == null)
 			return false;
@@ -1146,7 +1170,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return false;
 		if (m_WeaponReloadController != null && m_WeaponReloadController.IsReloadBusy)
 			return false;
-		return m_Animator.GetFloat(s_NavSpeed) < 0.055f;
+		return true;
 	}
 
 	private WeaponPoseState ResolveStandIdlePoseSource()
@@ -1178,8 +1202,6 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			return false;
 		if (m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return true;
-		if (m_ProximityBlocksReady)
-			return false;
 		WeaponPoseState pose = ShouldWeaponReadyFollowEffectivePose()
 			? ResolveEffectivePose()
 			: ResolveStandIdlePoseSource();
@@ -1187,15 +1209,10 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (IsSprintingNow())
 			return pose.CanFireFromPose();
 
-		if (IsRunningNow())
-		{
-			if (pose == WeaponPoseState.LowReady || pose == WeaponPoseState.HighReady)
-				return false;
-			return pose.CanFireFromPose();
-		}
-
-		if (pose == WeaponPoseState.LowReady)
+		if (!IsStandingIdleNow() &&
+		    (pose == WeaponPoseState.LowReady || pose == WeaponPoseState.HighReady))
 			return true;
+
 		return pose.CanFireFromPose();
 	}
 

@@ -120,6 +120,18 @@ public sealed class TargetSelector : MonoBehaviour
 	}
 
 	/// <summary>World aim point for the engageable selected target. No LastKnown / collider fallback.</summary>
+	public bool TryGetEngageableAimPointWorld(out Vector3 _aimPoint)
+	{
+		if (!m_HasSelectedAimPoint)
+		{
+			_aimPoint = Vector3.zero;
+			return false;
+		}
+
+		_aimPoint = GetEngageableAimPointWorld();
+		return true;
+	}
+
 	public Vector3 GetEngageableAimPointWorld()
 	{
 		Transform selected = GetEngageableSelectedTarget();
@@ -298,6 +310,12 @@ public sealed class TargetSelector : MonoBehaviour
 					continue;
 
 				bool worldOk = TargetEngageability.IsEngageable(contact.Target);
+				if (IsWorldNonHostile(contact.Target))
+				{
+					if (logSelect)
+						AppendReject(contact.Target, "WorldNonHostile");
+					continue;
+				}
 				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out ContactSelectionRejectReason reason))
 				{
 					if (logSelect)
@@ -414,6 +432,16 @@ public sealed class TargetSelector : MonoBehaviour
 		if (m_SelectLogScratch.Length > 0)
 			m_SelectLogScratch.Append(',');
 		m_SelectLogScratch.Append(UnitActionLog.Slot(_target)).Append(':').Append(_reason);
+	}
+
+	private bool IsWorldNonHostile(Transform _target)
+	{
+		if (m_Team == null)
+			m_Team = GetComponent<UnitTeam>();
+		UnitTeam other = UnitTeam.Resolve(_target);
+		if (m_Team == null || other == null)
+			return false;
+		return !UnitTeam.AreHostile(m_Team.Team, other.Team);
 	}
 
 	private void LogSelectionIfNeeded(

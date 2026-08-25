@@ -1,0 +1,54 @@
+﻿STAGE 8 — COMBAT EVENT WORLD
+============================
+stamp=2026-08-25 22:25:17
+CombatEvent = world fact. event ≠ knowledge. Impact/Death ≠ ImmediateThreat.
+---
+PASS Log_Enabled | UnitActionLog session off in Editor Play
+PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260825_222515
+[E2] WorldSoundHub does not publish CombatEvent
+PASS E2_SoundNotCombatEvent | count=0
+[E1] Gunshot fact delivers; contacts stay empty; WorldSound delivery unchanged
+PASS E1_PublishCount | count=1
+PASS E1_TypeGunshot | Gunshot
+PASS E1_Listener | hits=1
+PASS E1_NoKnowledge | contacts=0
+PASS E1_SoundUnchanged | sound=40
+PASS E1_Idle | Idle
+[E3] Hostile Gunshot aimed at player → ImmediateThreat IncomingFire, still no knowledge
+PASS E3_ThreatOn | incoming gunshot did not set threat
+PASS E3_IncomingFire | IncomingFire
+PASS E3_NoKnowledge | contacts=0
+PASS E3_Idle | Idle
+[E4] Hostile Hit → ConfirmedHit
+PASS E4_ThreatOn | hit did not set threat
+PASS E4_ConfirmedHit | ConfirmedHit
+[E5] Friendly Gunshot publishes, no threat
+PASS E5_Published | count=4
+PASS E5_NoThreat | friendly gunshot set threat
+[E6] Impact does not set ImmediateThreat
+PASS E6_TypeImpact | Impact
+PASS E6_NoThreat | impact set threat
+[E7] UnitHealth death publishes Death, no threat
+PASS E7_TypeDeath | Death
+PASS E7_DeathTarget | target mismatch
+PASS E7_NoThreat | death set threat
+[E8] Aimed Gunshot isolates: only the aimed victim
+PASS E8_VictimThreat | aimed victim missed threat
+PASS E8_BystanderClear | bystander received threat
+PASS E8_AllyClear | ally received threat
+PASS E8_EnemyClear | attacker received threat
+PASS E8_NeutralClear | neutral received threat
+[E9] DamageableTarget HP death publishes Death
+PASS E9_TypeDeath | Death
+PASS E9_DeathTarget | target mismatch
+[E10] #7 Signal API still sets threat without publishing CombatEvent
+PASS E10_ThreatOn | signal did not set threat
+PASS E10_NoHubPublish | count=8
+[F] Four sides present
+PASS F_Player | player
+PASS F_Enemy | enemy
+PASS F_Ally | ally
+PASS F_Neutral | neutral
+PASS Log_THREAT | THREAT line missing in session folder
+---
+RESULT=PASS pass=36 fail=0

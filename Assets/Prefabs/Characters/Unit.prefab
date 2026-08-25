@@ -9202,6 +9202,7 @@ MonoBehaviour:
   m_IndividualTraits: {fileID: 0}
   m_CombatCondition: {fileID: 0}
   m_StanceCombatModifiers: {fileID: 0}
+  m_Equipment: {fileID: 0}
   m_MaxRecoilOffsetDegrees: 12
   m_RecoveryWhileFiringMultiplier: 0.7
   m_RecoveryWhenNotReadyMultiplier: 1.2

@@ -216,7 +216,15 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			aiPart = "ai=" + m_Ai.CurrentState + "/" + m_Ai.CurrentAction +
 			         " intent=" + m_Ai.CurrentCombatIntent +
 			         " roe=" + m_Ai.CurrentUseOfForceLevel +
+			         " immediateThreat=" + (m_Ai.ImmediateThreat ? "1" : "0") +
 			         " engage=" + engage;
+			if (m_Ai.TryGetComponent(out ImmediateThreatSource threat) && threat.WindowActive)
+			{
+				aiPart += " threatSource=" + (threat.LastAttacker != null
+					          ? UnitActionLog.Slot(threat.LastAttacker)
+					          : "none") +
+				          " threatAge=" + UnitActionLog.F1(threat.AgeSeconds);
+			}
 		}
 
 		int vis = 0;

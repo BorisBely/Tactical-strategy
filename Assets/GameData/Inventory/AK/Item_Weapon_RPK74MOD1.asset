@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Tactical RPK-74 Mod.1 with rails and side mount, 5.45x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 3700
-  m_WeightKg: 0
+  m_WeightKg: 4.7
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5213839126309145426, guid: 95f5fbdeb231e81458aeb1546e1aa957, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 79e6d65704e54c729ac0a62953d03543, type: 2}

@@ -97,6 +97,20 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Right-hand IK hold. LowReady uses the same full hold as HighReady.
+	/// NotReady / Patrol stay at 0. Independent from <see cref="ReadyPoseBlend01"/> (raised / aim).
+	/// </summary>
+	public float GripHoldBlend01
+	{
+		get
+		{
+			float fromHold = GripHoldAmount(m_CurrentPose);
+			float toHold = GripHoldAmount(m_TargetPose);
+			return Mathf.Lerp(fromHold, toHold, m_PoseBlend01);
+		}
+	}
+
+	/// <summary>
 	/// 0 = cannot shoot (HighReady/PreAim/LowReady/NotReady), 1 = HipFire/PointAim/Aiming.
 	/// Follows the weapon blend so Aim layer / barrel correction do not race ahead.
 	/// </summary>
@@ -112,6 +126,9 @@ public sealed class UnitEquippedWeaponPose : MonoBehaviour
 
 	private static float RaisedAmount(WeaponPoseState _pose) =>
 		_pose.IsWeaponRaised() ? 1f : 0f;
+
+	private static float GripHoldAmount(WeaponPoseState _pose) =>
+		_pose.UsesFullGripHold() ? 1f : 0f;
 
 	public Vector3 CurrentBaseWeaponLocalPosition => m_CurrentBaseWeaponLocalPosition;
 	public Quaternion CurrentBaseWeaponLocalRotation => m_CurrentBaseWeaponLocalRotation;

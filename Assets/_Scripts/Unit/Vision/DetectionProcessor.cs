@@ -220,6 +220,7 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 	public float MemoryStaleThreshold => m_MemoryStaleThreshold;
 	public float MemoryShapeExponent => m_MemoryShapeExponent;
 	public float SoundHorizonSeconds => m_SoundHorizonSeconds;
+	public float PerceptionClock => NowTime;
 	public float SharedHorizonSeconds => m_SharedHorizonSeconds;
 
 	public bool HasRecentlyLostContact => m_HasRecentlyLostContact;

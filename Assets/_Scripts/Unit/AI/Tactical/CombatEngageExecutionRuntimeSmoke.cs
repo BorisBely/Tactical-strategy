@@ -58,6 +58,9 @@ public sealed class CombatEngageExecutionRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
 		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
+		!DetectionHarnessPlayMode.RunImmediateThreatLive &&
+		!DetectionHarnessPlayMode.RunCombatEventWorld &&
+		!DetectionHarnessPlayMode.RunSoundInAi &&
 		!DetectionHarnessPlayMode.RunSearchExecution &&
 		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
@@ -140,6 +143,7 @@ public sealed class CombatEngageExecutionRuntimeSmoke : MonoBehaviour
 		yield return RunT1MissionCombatShot();
 		RunT2NoHostileHold();
 		RunT3SelfDefenseNoShot();
+		yield return RunT3bSelfDefenseImmediateThreatAllows();
 		RunT4LostContactHold();
 		RunT5UnknownHold();
 		RunT6FriendlyHold();
@@ -246,6 +250,63 @@ public sealed class CombatEngageExecutionRuntimeSmoke : MonoBehaviour
 			WeaponShotAttemptResult shot = m_Fire.TryFireSingleShot();
 			Check("T3_NoShot", shot != WeaponShotAttemptResult.Success, shot.ToString());
 		}
+	}
+
+	private IEnumerator RunT3bSelfDefenseImmediateThreatAllows()
+	{
+		AppendLine("---");
+		AppendLine("[T3b] Engage + SelfDefense + incoming fire → ImmediateThreat, Allow, G6 not Ignore");
+		PrepareDefense(UseOfForceLevel.SelfDefense, ObservableAffiliation.Hostile, true);
+		EnsureTeam(m_Observer, UnitTeamId.Player);
+		EnsureTeam(m_Target, UnitTeamId.Enemy);
+		ImmediateThreatSignal.NotifyIncomingFire(m_Target, m_Observer);
+		m_Controller.Tick(0.05f);
+		m_Engagement.RefreshDecisionNow();
+		Check("T3b_ImmediateThreat", m_Controller.ImmediateThreat, "flag still false");
+		Check("T3b_Allow",
+			m_Engagement.LastForcePermission.Allowed,
+			m_Engagement.LastForcePermission.ToString());
+		Check("T3b_NotIgnore",
+			m_Engagement.CurrentDecision != EngagementDecision.Ignore,
+			m_Engagement.CurrentDecision.ToString());
+		Check("T3b_SelectionUnchanged",
+			m_Selector != null && m_Selector.SelectedTarget == m_Target,
+			m_Selector != null && m_Selector.SelectedTarget != null ? m_Selector.SelectedTarget.name : "null");
+
+		if (m_ReadyHands != null)
+			m_ReadyHands.SetPoseModeWanted(WeaponPoseMode.Aiming, true);
+		m_ShotCount = 0;
+		if (m_Fire != null)
+		{
+			m_Fire.StartFiring();
+			m_Fire.TryFireSingleShot();
+		}
+
+		float until = Time.unscaledTime + 1.5f;
+		while (Time.unscaledTime < until && m_ShotCount == 0)
+			yield return null;
+
+		bool shot = m_ShotCount > 0 ||
+		            (m_Fire != null &&
+		             (m_Fire.LastShotAttemptResult == WeaponShotAttemptResult.Success ||
+		              m_Fire.LastShotAttemptResult == WeaponShotAttemptResult.FireRateLimited));
+		Check("T3b_ShotOrAllow",
+			shot || m_Engagement.LastForcePermission.Allowed,
+			m_Fire != null
+				? $"shots={m_ShotCount} last={m_Fire.LastShotAttemptResult} decision={m_Engagement.CurrentDecision}"
+				: "no fire; Allow is the #7 gate");
+		if (m_Fire != null)
+			m_Fire.StopFiring();
+	}
+
+	private static void EnsureTeam(Component _component, UnitTeamId _id)
+	{
+		if (_component == null)
+			return;
+		UnitTeam team = _component.GetComponent<UnitTeam>();
+		if (team == null)
+			team = _component.gameObject.AddComponent<UnitTeam>();
+		team.SetTeam(_id);
 	}
 
 	private void RunT4LostContactHold()

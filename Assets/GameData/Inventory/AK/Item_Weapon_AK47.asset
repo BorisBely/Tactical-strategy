@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: AK-47 rifle chambered in 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2400
-  m_WeightKg: 0
+  m_WeightKg: 3.5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 635631653511875059, guid: a5fb85aa8016a4044b2e69a9ed0d8659, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 3cf3be92b28f46e5874e3c1d9c48f2d9, type: 2}

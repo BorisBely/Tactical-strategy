@@ -907,9 +907,13 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 					return;
 				}
 
-				Vector3 aimPoint = m_TargetSelector != null
-					? m_TargetSelector.GetEngageableAimPointWorld()
-					: Vector3.zero;
+				if (m_TargetSelector == null ||
+				    !m_TargetSelector.TryGetEngageableAimPointWorld(out Vector3 aimPoint))
+				{
+					mode = "engageRoot";
+					detail = "noAimPoint";
+					return;
+				}
 				Vector3 toTarget = aimPoint - origin;
 				toTarget.y = 0f;
 				if (toTarget.sqrMagnitude < 1e-6f)
@@ -1085,10 +1089,10 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 			return false;
 
 		ResolveTargetSelector();
-		if (m_TargetSelector == null || m_TargetSelector.SelectedTarget == null)
+		if (m_TargetSelector == null ||
+		    !m_TargetSelector.TryGetEngageableAimPointWorld(out Vector3 aimPoint))
 			return false;
 
-		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		if (!UnitHorizontalFacingUtility.TryGetTargetWorldYaw(transform, aimPoint, out float desiredBarrelYaw))
 			return false;
 
@@ -1110,17 +1114,20 @@ public sealed class UnitNavLocomotionDriver : MonoBehaviour
 	private bool IsEngagingVisibleTarget()
 	{
 		ResolveTargetSelector();
-		return m_TargetSelector != null && m_TargetSelector.SelectedTarget != null && ShouldRotateRootTowardVisionTarget();
+		return m_TargetSelector != null &&
+		       m_TargetSelector.HasSelectedAimPoint &&
+		       m_TargetSelector.SelectedTarget != null &&
+		       ShouldRotateRootTowardVisionTarget();
 	}
 
 	private bool TryGetRootBodyToTargetYaw(out float _bodyToTargetYaw)
 	{
 		_bodyToTargetYaw = 0f;
 		ResolveTargetSelector();
-		if (m_TargetSelector == null || m_TargetSelector.SelectedTarget == null)
+		if (m_TargetSelector == null ||
+		    !m_TargetSelector.TryGetEngageableAimPointWorld(out Vector3 aimPoint))
 			return false;
 
-		Vector3 aimPoint = m_TargetSelector.GetEngageableAimPointWorld();
 		Vector3 toTarget = aimPoint - transform.position;
 		toTarget.y = 0f;
 		if (toTarget.sqrMagnitude < 1e-6f)

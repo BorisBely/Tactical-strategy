@@ -160,6 +160,7 @@ public sealed class DamageableTarget : MonoBehaviour
 
 		if (!injuryOnly && m_CurrentHealth <= 0f)
 		{
+			CombatEventHub.Publish(CombatEvent.Death(this, null, this, transform.position));
 			Died?.Invoke(info);
 			if (m_DestroyOnDeath)
 			{

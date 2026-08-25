@@ -692,7 +692,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		m_AimQuality01 = 1f;
 		m_AimSaturation = AimSaturation.None;
 
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null && m_AimAtVisibleTarget;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null &&
+		                 m_AimAtVisibleTarget;
 		if (!hasTarget || m_BarrelTransform == null)
 		{
 			PublishAimSolverDebug();
@@ -791,7 +794,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (GetModelAimAlignStrength() <= 0.001f)
 			return false;
 
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 		if (!hasTarget || !m_AimAtVisibleTarget)
 			return false;
 
@@ -1137,7 +1142,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		if (fireBlend <= 0.001f)
 			return false;
 
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 		if (hasTarget && m_AimAtVisibleTarget)
 			return false;
 
@@ -1450,7 +1457,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			m_PoseAimTransitionLogId++;
 
 		float pointAimW = GetPointAimCorrectionWeight();
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 		float barrelPitch = 0f;
 		if (m_BarrelTransform != null)
 		{
@@ -1911,7 +1920,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		                  (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0;
 		bool modelAim = ShouldApplyWeaponLocalOnlyForAim();
 		float pointAimW = GetPointAimCorrectionWeight();
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 		float nav = m_Animator != null ? m_Animator.GetFloat(s_NavSpeed) : 0f;
 		Vector3 weaponEu = WrapEuler180(_weaponLocal.eulerAngles);
 
@@ -2021,7 +2032,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		float horiz = Mathf.Sqrt(f.x * f.x + f.z * f.z);
 		_barrelPitch = Mathf.Atan2(f.y, Mathf.Max(1e-6f, horiz)) * Mathf.Rad2Deg;
 
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 		if (!hasTarget)
 			return;
 
@@ -2128,7 +2141,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 		                  (m_BusyState.Reasons & UnitBusyState.BusyReason.StanceTransition) != 0;
 		bool modelAim = ShouldApplyWeaponLocalOnlyForAim();
 		float pointAimW = GetPointAimCorrectionWeight();
-		bool hasTarget = m_TargetSelector != null && m_TargetSelector.SelectedTarget != null;
+		bool hasTarget = m_TargetSelector != null &&
+		                 m_TargetSelector.HasSelectedAimPoint &&
+		                 m_TargetSelector.SelectedTarget != null;
 
 		float barrelPitch = 0f;
 		float barrelYawErr = 0f;
@@ -2506,7 +2521,10 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 
 	private Vector3 GetTargetAimPointWorld(Transform _targetRoot)
 	{
-		if (m_TargetSelector != null && _targetRoot != null && _targetRoot == m_TargetSelector.SelectedTarget)
+		if (m_TargetSelector != null &&
+		    _targetRoot != null &&
+		    _targetRoot == m_TargetSelector.SelectedTarget &&
+		    m_TargetSelector.HasSelectedAimPoint)
 			return m_TargetSelector.GetEngageableAimPointWorld();
 
 		if (_targetRoot != null && _targetRoot.TryGetComponent(out UnitVision uv))

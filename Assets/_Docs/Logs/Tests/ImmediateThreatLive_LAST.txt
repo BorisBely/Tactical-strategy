@@ -1,0 +1,31 @@
+﻿STAGE 7 — IMMEDIATE THREAT LIVE
+==============================
+stamp=2026-08-25 22:04:45
+ImmediateThreat from hostile attack only. RoE is veto. Allow ≠ Fire.
+---
+PASS Log_Enabled | UnitActionLog session off in Editor Play
+PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260825_220443
+[D1] Hostile visible, SelfDefense, no attack → ImmediateThreat false, Aim/Fire denied
+PASS D1_ThreatOff | threat already set
+PASS D1_Deny | Denied/SelfDefenseNoImmediateThreat
+PASS D1_NoAimFire | Ignore
+[D2] Enemy fires at player → ImmediateThreat true, Allow
+PASS D2_ThreatOn | incoming fire did not set threat
+PASS D2_Allow | Allowed/SelfDefenseImmediateThreat
+[D3] Allow does not Ignore G6 (SHOT is Combat Engage T3b)
+PASS D3_NotIgnore | Fire
+PASS D3_SelectionIsEnemy | IT_Enemy
+[D4] Friendly fire event → no threat
+PASS D4_NoThreat | friendly event set threat
+[D5/D6] Attack on player does not set ally/enemy/neutral
+PASS D5_AllyClear | ally received threat
+PASS D6_EnemyClear | attacker received threat
+PASS D6_NeutralClear | neutral received threat
+[F] Four sides present
+PASS F_Player | player
+PASS F_Enemy | enemy
+PASS F_Ally | ally
+PASS F_Neutral | neutral
+PASS Log_THREAT | THREAT line missing in session folder
+---
+RESULT=PASS pass=18 fail=0

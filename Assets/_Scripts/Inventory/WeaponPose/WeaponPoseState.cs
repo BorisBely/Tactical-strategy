@@ -115,6 +115,13 @@ public static class WeaponPoseStateExtensions
 		_pose != WeaponPoseState.NotReady
 		&& _pose != WeaponPoseState.NotReadyPatrol
 		&& _pose != WeaponPoseState.LowReady;
+
+	/// <summary>
+	/// Full right-hand IK onto the authored grip slot. LowReady matches HighReady.
+	/// Peaceful carry keeps the weaker NotReady weight.
+	/// </summary>
+	public static bool UsesFullGripHold(this WeaponPoseState _pose) =>
+		!_pose.IsPeacefulCarryPose();
 }
 
 /// <summary>Player / AI selection mode. Auto resolves to a <see cref="WeaponPoseState"/> from baked caps.</summary>

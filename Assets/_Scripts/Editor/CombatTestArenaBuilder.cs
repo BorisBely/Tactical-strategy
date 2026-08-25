@@ -362,6 +362,7 @@ public static class CombatTestArenaBuilder
 		Check("ArenaLoadoutBake", kitsOk, "baker");
 		Check("CivilianTemplate", neutrals.Length == 1, "count=" + neutrals.Length);
 	}
+
 	#endregion
 
 	#region Layout

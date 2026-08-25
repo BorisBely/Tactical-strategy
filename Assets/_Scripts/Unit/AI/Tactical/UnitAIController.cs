@@ -51,6 +51,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	private UnitAIAction m_LastLoggedAction = (UnitAIAction)(-1);
 	private EntityId m_LastLoggedEngageId;
 	private UseOfForceLevel m_LastLoggedRoe = (UseOfForceLevel)(-1);
+	private ImmediateThreatSource m_ThreatSource;
 	#endregion
 
 	#region Public Properties
@@ -66,7 +67,12 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	public bool ImmediateThreat
 	{
 		get => m_ImmediateThreat;
-		set => m_ImmediateThreat = value;
+		set
+		{
+			if (!value)
+				m_ThreatSource?.ClearWindow();
+			m_ImmediateThreat = value;
+		}
 	}
 	public ForcePermission LastForcePermission => m_LastForcePermission;
 
@@ -138,6 +144,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		m_Handler.Enter(this, in m_Context);
 		m_Trace.Add("Enter:Idle");
 		m_Started = true;
+		TryGetComponent(out m_ThreatSource);
 		EnsureCombatReadiness();
 		RefreshPerception();
 		ResolveAction();
@@ -151,6 +158,8 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			if (_dt < 0f)
 				_dt = 0f;
 			m_StateTime += _dt;
+			if (m_ThreatSource != null)
+				m_ThreatSource.Tick(_dt);
 			RefreshPerception();
 			ResolveAction();
 			TryAutonomousTransitions();
@@ -269,6 +278,26 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	public ForcePermission EvaluateForce(in AIContactKnowledge _knowledge)
 	{
 		return EvaluateForce(_knowledge.Target != null, _knowledge.Relationship, _knowledge.Target);
+	}
+
+	public ImmediateThreatSource EnsureImmediateThreatSource()
+	{
+		EnsureStarted();
+		if (m_ThreatSource == null)
+			TryGetComponent(out m_ThreatSource);
+		if (m_ThreatSource == null)
+			m_ThreatSource = gameObject.AddComponent<ImmediateThreatSource>();
+		return m_ThreatSource;
+	}
+
+	public void NotifyHostileAttack(Component _attacker, ImmediateThreatCause _cause)
+	{
+		EnsureImmediateThreatSource().NotifyHostileAttack(_attacker, _cause);
+	}
+
+	internal void SetImmediateThreatFlag(bool _value)
+	{
+		m_ImmediateThreat = _value;
 	}
 
 	public ForcePermission EvaluateForce(bool _hasContact, PerceivedRelationship _relationship, Transform _target = null)
@@ -659,15 +688,30 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	private bool TryBuildSearchCommand(out UnitAICommand _command)
 	{
 		_command = default;
-		if (!UnitAISearchDecision.TryGetSearchContact(in m_Perception, out AIContactKnowledge contact))
+		Vector3 searchPosition;
+		UnitAISearchCue cue;
+		if (UnitAISearchDecision.TryGetSearchContact(in m_Perception, out AIContactKnowledge contact))
+		{
+			searchPosition = contact.LastKnownPosition;
+			cue = UnitAISearchCue.VisualMemory;
+		}
+		else if (UnitAISearchDecision.TryGetSearchSound(in m_Perception, out AISoundContact sound))
+		{
+			searchPosition = sound.Position;
+			cue = UnitAISearchCue.Sound;
+		}
+		else
+		{
 			return false;
+		}
 
 		Vector3 origin = m_State == UnitAIState.Defense ? m_Context.AnchorPosition : m_Context.Destination;
 		UnitAIStateContext ctx = UnitAIStateContext.ForSearch(
 			origin,
-			contact.LastKnownPosition,
+			searchPosition,
 			UnitAISearchDecision.DefaultAreaRadius,
-			m_State);
+			m_State,
+			cue);
 		ctx.Facing = m_Context.Facing;
 		ctx.AnchorPosition = m_State == UnitAIState.Defense ? m_Context.AnchorPosition : origin;
 		ctx.Destination = m_Context.Destination;

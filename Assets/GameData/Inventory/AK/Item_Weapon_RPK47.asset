@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: RPK-47 light machine gun chambered in 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 3200
-  m_WeightKg: 0
+  m_WeightKg: 4.8
   m_Category: 1
   m_DropWorldPrefab: {fileID: 4749686429326126556, guid: dbc325069a1cd404fbcefcb6186d207f, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: cf11d3b77ea9402e98f12dbfefeb3784, type: 2}

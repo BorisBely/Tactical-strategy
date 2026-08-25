@@ -1,0 +1,33 @@
+﻿STAGE 9 — SOUND / REPORTS IN AI
+===============================
+stamp=2026-08-25 23:05:08
+WorldSoundHub → SoundContact → snapshot → Search. CombatEventHub independent.
+---
+[R8] CombatEvent Gunshot does not create SoundContact
+PASS R8_CombatEventPublished | count=1
+PASS R8_NoSoundFromEvent | sounds=0
+PASS R8_NoVisualFromEvent | visual=0
+[A/B] WorldSound Gunshot → SoundContact, Observed false
+PASS A_SoundCount | sounds=1
+PASS A_TypeGunshot | Gunshot
+PASS A_Hostile | hostile cue
+PASS B_NoVisual | visible=0
+PASS B_NoAllVisual | all=0
+PASS B_NotObserved | obs
+PASS B_IdentityUnknown | id
+PASS B_LastKnownEmpty | lastKnown
+PASS R8_HubUnchangedBySound | count=1
+[E1] Defense + hostile gunshot → Search at SoundPosition
+PASS E1_DefenseIssued | defense command
+PASS E1_Search | Search
+PASS E1_SoundCue | Sound
+PASS E1_SearchPos | (12.00, 0.00, 0.00)
+[E3] Idle + sound → no Search
+PASS E3_Idle | Idle
+[E5] Attack + VisibleNow → sound does not reset Attack
+PASS E5_StayAttack | Attack
+[E found] Search + VisibleNow → leave Search
+PASS Found_EnterSearch | Search
+PASS Found_ResumeDefense | Defense
+---
+RESULT=PASS pass=20 fail=0

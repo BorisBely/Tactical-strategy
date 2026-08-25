@@ -281,6 +281,13 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		}
 
 		m_ShotgunPelletBudgets.Clear();
+		PublishGunshotCombatEvent(origin);
+	}
+
+	private void PublishGunshotCombatEvent(Vector3 _origin)
+	{
+		Transform aimed = m_TargetSelector != null ? m_TargetSelector.SelectedTarget : null;
+		CombatEventHub.Publish(CombatEvent.Gunshot(this, this, aimed, _origin));
 	}
 
 	private UnitCombatStats ResolveCombatStats()
@@ -603,6 +610,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				                    (!string.IsNullOrWhiteSpace(resolvedInjury.StatusLocalizationKey) ||
 				                     !string.IsNullOrWhiteSpace(resolvedInjury.StatusDisplayName));
 			}
+
+			CombatEventHub.Publish(CombatEvent.Hit(this, this, target, _hit.point));
+		}
+		else
+		{
+			CombatEventHub.Publish(CombatEvent.Impact(this, this, _hit.collider, _hit.point));
 		}
 
 		BodyPartType bodyPart = bodyPartPreview;

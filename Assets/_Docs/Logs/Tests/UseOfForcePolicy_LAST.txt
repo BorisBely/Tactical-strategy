@@ -1,6 +1,6 @@
 ﻿AI-1A — USE OF FORCE POLICY
 ===========================
-stamp=2026-08-20 00:38:44
+stamp=2026-08-25 22:00:28
 ForcePermission from Relationship; G6 math untouched; no Weapon
 ---
 PASS Harness_Processor | DetectionProcessor missing
@@ -48,7 +48,7 @@ PASS SelfDefense_Hostile_Threat_StateUnchanged | Idle
 PASS SelfDefense_Hostile_Threat_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS SelfDefense_Hostile_Threat_G6_PermissionMatch | eng=Allowed/SelfDefenseImmediateThreat ai=Allowed/SelfDefenseImmediateThreat
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS RestrictedDefense_Hostile_HasContact | Unit(Clone)
 PASS RestrictedDefense_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
@@ -68,7 +68,7 @@ PASS RestrictedDefense_Hostile_StateUnchanged | Idle
 PASS RestrictedDefense_Hostile_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS RestrictedDefense_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS MissionCombat_Hostile_HasContact | Unit(Clone)
 PASS MissionCombat_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
@@ -88,7 +88,7 @@ PASS MissionCombat_Hostile_StateUnchanged | Idle
 PASS MissionCombat_Hostile_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS MissionCombat_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS FullEngagement_Hostile_HasContact | Unit(Clone)
 PASS FullEngagement_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
@@ -108,7 +108,7 @@ PASS FullEngagement_Hostile_StateUnchanged | Idle
 PASS FullEngagement_Hostile_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS FullEngagement_Hostile_G6_PermissionMatch | eng=Allowed/PolicyAllowsHostile ai=Allowed/PolicyAllowsHostile
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS NoFriendlyFire_Hostile_HasContact | Unit(Clone)
 PASS NoFriendlyFire_Hostile_Relationship | got=Hostile want=Hostile identity=Hostile
@@ -128,7 +128,7 @@ PASS NoFriendlyFire_Hostile_StateUnchanged | Idle
 PASS NoFriendlyFire_Hostile_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS NoFriendlyFire_Hostile_G6_PermissionMatch | eng=Allowed/NonFriendly ai=Allowed/NonFriendly
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS NoFriendlyFire_Neutral_HasContact | Unit(Clone)
 PASS NoFriendlyFire_Neutral_Relationship | got=Neutral want=Neutral identity=Neutral
@@ -168,7 +168,7 @@ PASS NoFriendlyFire_Unknown_StateUnchanged | Idle
 PASS NoFriendlyFire_Unknown_G6_Handoff | gate not applied
 G6_Handoff=received
 PASS NoFriendlyFire_Unknown_G6_PermissionMatch | eng=Allowed/NonFriendly ai=Allowed/NonFriendly
-G6_OBSERVE decision=Aim (not AI-1A acceptance)
+G6_OBSERVE decision=Ignore (not AI-1A acceptance)
 ---
 PASS Friendly_SelfDefense_HasContact | Unit(Clone)
 PASS Friendly_SelfDefense_Relationship | got=Friendly want=Friendly identity=Friendly

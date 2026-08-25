@@ -55,6 +55,9 @@ public sealed class UseOfForcePolicyRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunAIPerceptionHandoff &&
 		!DetectionHarnessPlayMode.RunAITacticalState &&
 		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunImmediateThreatLive &&
+		!DetectionHarnessPlayMode.RunCombatEventWorld &&
+		!DetectionHarnessPlayMode.RunSoundInAi &&
 		!DetectionHarnessPlayMode.RunSearchExecution &&
 		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
@@ -204,10 +207,7 @@ public sealed class UseOfForcePolicyRuntimeSmoke : MonoBehaviour
 		ResetSim();
 		m_Controller.TrySetUseOfForcePolicy(_level);
 		m_Controller.ImmediateThreat = _immediateThreat;
-		if (_cue == ObservableAffiliation.Unknown)
-			m_Processor.ClearAffiliationCue(m_Target);
-		else
-			m_Processor.SetAffiliationCue(m_Target, _cue);
+		ApplyAffiliationCue(_cue);
 		ObserveAt(m_Target.position, 15f, c_ObserveSeconds);
 
 		AIContactKnowledge k = SnapshotTarget();
@@ -313,6 +313,22 @@ public sealed class UseOfForcePolicyRuntimeSmoke : MonoBehaviour
 		AppendLine("DECISION");
 		AppendLine($"forceAllowed={_perm.Allowed}");
 		AppendLine($"reason={_perm.Reason}");
+	}
+
+	private void ApplyAffiliationCue(ObservableAffiliation _cue)
+	{
+		if (_cue == ObservableAffiliation.Unknown)
+		{
+			m_Processor.ClearAffiliationCue(m_Target);
+			if (m_Target.TryGetComponent(out VisualIdentityEvidence unknownLook))
+				unknownLook.SetPrimaryAffiliation(VisualAffiliation.Unknown);
+			return;
+		}
+
+		m_Processor.SetAffiliationCue(m_Target, _cue);
+		if (m_Target.TryGetComponent(out VisualIdentityEvidence look) &&
+		    _cue == ObservableAffiliation.Hostile)
+			look.SetPrimaryAffiliation(VisualAffiliation.Enemy);
 	}
 
 	private static PerceivedRelationship ExpectedRelationship(ObservableAffiliation _cue)

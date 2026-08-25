@@ -36,15 +36,17 @@ public static class WeaponRecoilAssetDefaults
 		if (Contains(name, "M2Browning"))
 			return new Values(0.18f, 0.10f, 0.35f, seed);
 		if (Contains(name, "PKM"))
-			return new Values(0.08f, 0.10f, 0.80f, seed);
+			return new Values(0.08f, 0.13f, 0.50f, seed);
 		if (Contains(name, "M249"))
-			return new Values(0.07f, 0.09f, 0.85f, seed);
+			return new Values(0.07f, 0.11f, 0.50f, seed);
 		if (Contains(name, "RPK74"))
 			return new Values(0.08f, 0.085f, 0.80f, seed);
 		if (Contains(name, "RPK47"))
 			return new Values(0.09f, 0.09f, 0.75f, seed);
 		if (Contains(name, "AK47"))
 			return new Values(0.14f, 0.075f, 0.55f, seed);
+		if (Contains(name, "AK74U"))
+			return new Values(0.115f, 0.055f, 0.65f, seed);
 		if (Contains(name, "AK74"))
 			return new Values(0.12f, 0.06f, 0.60f, seed);
 		if (Contains(name, "SVD"))
@@ -56,8 +58,10 @@ public static class WeaponRecoilAssetDefaults
 		if (Contains(name, "Benelli"))
 			return new Values(0.20f, 0.08f, 0.60f, seed);
 		if (Contains(name, "MK12"))
-			return new Values(0.08f, 0.03f, 0.75f, seed);
-		if (Contains(name, "MK18") || Contains(name, "M16") || Contains(name, "M4"))
+			return new Values(0.08f, 0.03f, 0.55f, seed);
+		if (Contains(name, "MK18"))
+			return new Values(0.09f, 0.035f, 0.75f, seed);
+		if (Contains(name, "M16") || Contains(name, "M4"))
 			return new Values(0.09f, 0.035f, 0.70f, seed);
 		return new Values(0.10f, 0.04f, 0.65f, seed);
 	}
@@ -77,24 +81,14 @@ public static class WeaponRecoilAssetDefaults
 	[MenuItem("Polygone/Shooting/Migrate Recoil Offset Fields")]
 	private static void MigrateAllWeaponAssets()
 	{
-		string[] guids = AssetDatabase.FindAssets("t:WeaponDefinition", new[] { "Assets/GameData/Shooting" });
-		int count = 0;
-		for (int i = 0; i < guids.Length; i++)
-		{
-			string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-			WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
-			if (weapon == null)
-				continue;
-
-			var so = new SerializedObject(weapon);
-			Write(so, weapon.name);
-			so.ApplyModifiedPropertiesWithoutUndo();
-			EditorUtility.SetDirty(weapon);
-			count++;
-		}
-
-		AssetDatabase.SaveAssets();
-		Debug.Log($"Migrated offset recoil fields on {count} WeaponDefinition assets.");
+		EditorUtility.DisplayDialog(
+			"Migrate Recoil Offset Fields — blocked",
+			"Глобальная запись V/H/Rec на все стволы заморожена после A10.\n" +
+			"Она затрёт калибровку M249 / PKM / MK12.\n\n" +
+			"Сверка и точечный §23.2: Polygone/Shooting/Recoil Doc Migration.",
+			"OK");
+		Debug.LogWarning(
+			"[WeaponRecoilAssetDefaults] Global migrate blocked. Use Recoil Doc Migration instead.");
 	}
 	#endregion
 

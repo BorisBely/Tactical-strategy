@@ -22,6 +22,7 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 	public const int IfakCount = 2;
 	private const float c_WaveOffset = 1.5f;
 	private const float c_CenterAttackNavSample = 8f;
+	private const UseOfForceLevel c_ArenaStartUseOfForce = UseOfForceLevel.MissionCombat;
 	public static readonly Vector3 ArenaCenterLocal = new Vector3(0f, 0f, 75f);
 	#endregion
 
@@ -72,6 +73,8 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 	{
 		if (ShouldSkipHarnessPlay())
 			return;
+
+		ApplyArenaStartUseOfForce();
 		if (!m_SpawnOnStart)
 			return;
 
@@ -213,6 +216,12 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 	private static bool ShouldSkipHarnessPlay()
 	{
 		return DetectionHarnessPlayMode.IsCalibrationPlay || DetectionHarnessPlayMode.IsGRegressionPlay;
+	}
+
+	private static void ApplyArenaStartUseOfForce()
+	{
+		UseOfForceSideCommands.Apply(UnitTeamId.Player, c_ArenaStartUseOfForce);
+		UseOfForceSideCommands.Apply(UnitTeamId.Enemy, c_ArenaStartUseOfForce);
 	}
 
 	private void EnsureReady()
@@ -425,21 +434,21 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 		configurator.Configure(_config);
 		configurator.ApplyConfiguration();
 		m_SpawnedInstances.Add(instance);
-		QueueCenterAttack(instance);
+		QueueSpawnedCombatAi(instance);
 		return true;
 	}
 
-	private void QueueCenterAttack(GameObject _instance)
+	private void QueueSpawnedCombatAi(GameObject _instance)
 	{
 		if (_instance == null)
 			return;
 		if (!_instance.TryGetComponent(out UnitTeam team) || team.Team == UnitTeamId.Neutral)
 			return;
 
-		StartCoroutine(IssueCenterAttackNextFrame(_instance));
+		StartCoroutine(PrepareSpawnedCombatAiNextFrame(_instance));
 	}
 
-	private IEnumerator IssueCenterAttackNextFrame(GameObject _instance)
+	private IEnumerator PrepareSpawnedCombatAiNextFrame(GameObject _instance)
 	{
 		yield return null;
 		if (_instance == null)
@@ -452,6 +461,7 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 		if (ai == null)
 			yield break;
 
+		ai.EnsureImmediateThreatSource();
 		ai.DrawSearchHud = false;
 		ai.TrySetUseOfForcePolicy(UseOfForceSideCommands.Peek(team.Team));
 		ai.SetAttack(SpreadAround(ResolveCenterAttackPoint(), _instance), null);

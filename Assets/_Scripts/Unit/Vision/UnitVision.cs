@@ -807,7 +807,16 @@ public sealed class UnitVision : MonoBehaviour
 		float min = ResolveScanIntervalMinSeconds();
 		float max = ResolveScanIntervalMaxSeconds();
 		float scale = VisionLodMath.IntervalScale(_tier);
-		m_NextScanTime = Time.time + _delayOffset + UnityEngine.Random.Range(min, max) * scale;
+		int idHash = GetEntityId().GetHashCode();
+		m_NextScanTime = Time.time + _delayOffset
+			+ UnityEngine.Random.Range(min, max) * scale
+			+ PerceptionWorkStagger.FrameJitterSeconds(idHash);
+	}
+
+	private void ScheduleDeniedDetailRetry()
+	{
+		m_NextScanTime = Time.time + PerceptionWorkStagger.NextIntervalSeconds(GetEntityId().GetHashCode());
+		m_ForceDetailThisScan = false;
 	}
 
 	private float ResolveScanIntervalMinSeconds()
@@ -877,8 +886,7 @@ public sealed class UnitVision : MonoBehaviour
 			m_AwaitingDetailGrant = false;
 			if (!VisionScanScheduler.TryAcquireDetailSlot(true))
 			{
-				m_NextScanTime = Time.time + 0.02f;
-				m_ForceDetailThisScan = false;
+				ScheduleDeniedDetailRetry();
 				if (UnitActionLog.Enabled)
 					UnitActionLog.Write(this, UnitActionLog.Scan, "skip=DetailSlot notALoss=1");
 				return;
@@ -903,8 +911,7 @@ public sealed class UnitVision : MonoBehaviour
 		if (!VisionScanScheduler.WasGranted(GetEntityId().GetHashCode()))
 		{
 			m_DetailStarveFrames++;
-			m_NextScanTime = Time.time + 0.02f;
-			m_ForceDetailThisScan = false;
+			ScheduleDeniedDetailRetry();
 			if (UnitActionLog.Enabled)
 				UnitActionLog.Write(this, UnitActionLog.Scan, "skip=DetailSlot notALoss=1");
 			return;

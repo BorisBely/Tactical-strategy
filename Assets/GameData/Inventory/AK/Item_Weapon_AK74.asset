@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: AK-74 rifle chambered in 5.45x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2600
-  m_WeightKg: 0
+  m_WeightKg: 3.1
   m_Category: 1
   m_DropWorldPrefab: {fileID: 8783430883008731744, guid: e83f5680fe14f89498009d747b6385d7, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 724bf71b1ec64d14876ca1ad1f84d000, type: 2}

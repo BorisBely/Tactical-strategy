@@ -17,7 +17,7 @@ MonoBehaviour:
     except stock.
   m_Icon: {fileID: 0}
   m_BasePrice: 3100
-  m_WeightKg: 0
+  m_WeightKg: 3.5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: ae91e625ac0645638f2051c47e26e946, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 157ac5597f794829908124033d9b8271, type: 2}

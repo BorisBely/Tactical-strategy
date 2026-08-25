@@ -436,15 +436,14 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 
 	private string ResolveBaseLayerLocomotionQualified(int _weaponMode, int _stance, bool _useAimStandIdle)
 	{
-		_ = _useAimStandIdle;
 		if (_weaponMode == (int)LocomotionWeaponMode.Rifle ||
 		    _weaponMode == (int)LocomotionWeaponMode.Pistol)
 		{
+			bool fireReady = m_Animator.GetBool(s_WeaponReady);
+			bool aimHold = _useAimStandIdle || fireReady;
 			if (_stance == (int)LocomotionStance.Crouch)
 			{
-				bool crouchReady = m_Animator.GetBool(s_WeaponReady);
-				// HipFireWalk / HipFireCrouchWalk / Aim/ADS: RifleCrouch_Move. NotReady: CrouchWalk_F_Loop.
-				string crouchLeaf = crouchReady
+				string crouchLeaf = aimHold
 					? "RifleCrouch_Move"
 					: "CrouchWalk_F_Loop";
 				return QualifyBaseLayerPath(SubStateMachineRifleCrouch, crouchLeaf);
@@ -454,9 +453,10 @@ public sealed class UnitAnimatorWeaponMode : MonoBehaviour
 				return QualifyBaseLayerPath(SubStateMachineRifleCrouch, "RifleCrouch_Move");
 
 			int tier = m_Animator.GetInteger(s_LocomotionTier);
-			bool ready = m_Animator.GetBool(s_WeaponReady);
 			string leaf;
-			if (ready)
+			if (tier == (int)UnitClickToMove.MoveTier.Sprint && !fireReady)
+				leaf = "Sprint_F_Loop";
+			else if (aimHold)
 			{
 				if (tier == (int)UnitClickToMove.MoveTier.Run)
 					leaf = "Jog_Aim_F_Loop";

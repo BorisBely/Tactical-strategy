@@ -16,6 +16,9 @@ public static class DetectionHarnessPlayMode
 	private const string c_RunAITacticalKey = "DetectionCalib.RunAITactical";
 	private const string c_RunUseOfForceKey = "DetectionCalib.RunUseOfForce";
 	private const string c_RunCombatEngageKey = "DetectionCalib.RunCombatEngage";
+	private const string c_RunImmediateThreatKey = "DetectionCalib.RunImmediateThreat";
+	private const string c_RunCombatEventWorldKey = "DetectionCalib.RunCombatEventWorld";
+	private const string c_RunSoundInAiKey = "DetectionCalib.RunSoundInAi";
 	private const string c_RunSearchExecutionKey = "DetectionCalib.RunSearchExecution";
 	private const string c_RunTacticalNavKey = "DetectionCalib.RunTacticalNav";
 	private const string c_RunTacticalCommandKey = "DetectionCalib.RunTacticalCommand";
@@ -128,6 +131,36 @@ public static class DetectionHarnessPlayMode
 		set
 		{
 			PlayerPrefs.SetInt(c_RunCombatEngageKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunImmediateThreatLive
+	{
+		get => PlayerPrefs.GetInt(c_RunImmediateThreatKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunImmediateThreatKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCombatEventWorld
+	{
+		get => PlayerPrefs.GetInt(c_RunCombatEventWorldKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCombatEventWorldKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunSoundInAi
+	{
+		get => PlayerPrefs.GetInt(c_RunSoundInAiKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunSoundInAiKey, value ? 1 : 0);
 			PlayerPrefs.Save();
 		}
 	}
@@ -445,6 +478,9 @@ public static class DetectionHarnessPlayMode
 		RunAITacticalState = false;
 		RunUseOfForcePolicy = false;
 		RunCombatEngageExecution = false;
+		RunImmediateThreatLive = false;
+		RunCombatEventWorld = false;
+		RunSoundInAi = false;
 		RunSearchExecution = false;
 		RunTacticalNavigationExecution = false;
 		RunTacticalCommandContract = false;

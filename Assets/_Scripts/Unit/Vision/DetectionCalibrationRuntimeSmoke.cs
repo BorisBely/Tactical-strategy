@@ -53,6 +53,9 @@ public sealed class DetectionCalibrationRuntimeSmoke : MonoBehaviour
 		 !DetectionHarnessPlayMode.RunAITacticalState &&
 		 !DetectionHarnessPlayMode.RunUseOfForcePolicy &&
 		 !DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		 !DetectionHarnessPlayMode.RunImmediateThreatLive &&
+		 !DetectionHarnessPlayMode.RunCombatEventWorld &&
+		 !DetectionHarnessPlayMode.RunSoundInAi &&
 		 !DetectionHarnessPlayMode.RunSearchExecution &&
 		 !DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		 !DetectionHarnessPlayMode.RunTacticalCommandContract &&

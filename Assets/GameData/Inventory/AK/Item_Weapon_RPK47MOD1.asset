@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Tactical RPK-47 Mod.1 with rails and side mount, 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 3500
-  m_WeightKg: 0
+  m_WeightKg: 4.8
   m_Category: 1
   m_DropWorldPrefab: {fileID: 4097466700092464768, guid: cbaeae015c1bbf2428eba9ded48dafcf, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: a49be3cf46f94df1b12f37dd8bef2bc0, type: 2}

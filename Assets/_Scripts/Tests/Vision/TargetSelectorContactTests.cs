@@ -148,6 +148,36 @@ namespace Vision.Tests
 			Assert.IsNull(selector.SelectedTarget);
 		}
 
+		[Test]
+		public void WorldSameTeam_IsNotSelected()
+		{
+			UnitTeam observerTeam = m_ObserverA.AddComponent<UnitTeam>();
+			observerTeam.SetTeam(UnitTeamId.Player);
+			UnitTeam targetTeam = m_Target.AddComponent<UnitTeam>();
+			targetTeam.SetTeam(UnitTeamId.Player);
+
+			DetectionProcessor processor = m_ObserverA.GetComponent<DetectionProcessor>();
+			TargetSelector selector = m_ObserverA.GetComponent<TargetSelector>();
+			Observe(processor, 20, m_Target.transform.position);
+
+			Assert.IsNull(selector.SelectedTarget);
+		}
+
+		[Test]
+		public void WorldHostileTeam_IsSelected()
+		{
+			UnitTeam observerTeam = m_ObserverA.AddComponent<UnitTeam>();
+			observerTeam.SetTeam(UnitTeamId.Player);
+			UnitTeam targetTeam = m_Target.AddComponent<UnitTeam>();
+			targetTeam.SetTeam(UnitTeamId.Enemy);
+
+			DetectionProcessor processor = m_ObserverA.GetComponent<DetectionProcessor>();
+			TargetSelector selector = m_ObserverA.GetComponent<TargetSelector>();
+			Observe(processor, 20, m_Target.transform.position);
+
+			Assert.AreEqual(m_Target.transform, selector.SelectedTarget);
+		}
+
 		private static GameObject CreateObserver(string _name)
 		{
 			var go = new GameObject(_name);

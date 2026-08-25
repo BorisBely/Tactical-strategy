@@ -20,6 +20,7 @@ public struct UnitAIStateContext
 	public Vector3 SearchOrigin;
 	public Vector3 SearchPosition;
 	public UnitAIState ResumeState;
+	public UnitAISearchCue SearchCue;
 
 	public Vector3 EscapeDirection;
 
@@ -60,7 +61,8 @@ public struct UnitAIStateContext
 		Vector3 _origin,
 		Vector3 _searchPosition,
 		float _areaRadius,
-		UnitAIState _resumeState = UnitAIState.Idle)
+		UnitAIState _resumeState = UnitAIState.Idle,
+		UnitAISearchCue _cue = UnitAISearchCue.VisualMemory)
 	{
 		return new UnitAIStateContext
 		{
@@ -69,7 +71,8 @@ public struct UnitAIStateContext
 			AreaCenter = _searchPosition,
 			AreaRadius = Mathf.Max(0f, _areaRadius),
 			AnchorPosition = _origin,
-			ResumeState = _resumeState
+			ResumeState = _resumeState,
+			SearchCue = _cue
 		};
 	}
 

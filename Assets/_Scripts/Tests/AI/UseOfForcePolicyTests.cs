@@ -38,6 +38,26 @@ namespace AI.Tests
 		}
 
 		[Test]
+		public void Matrix_RestrictedDefenseAndMissionCombat_IgnoreImmediateThreat()
+		{
+			UseOfForceLevel[] levels =
+			{
+				UseOfForceLevel.RestrictedDefense,
+				UseOfForceLevel.MissionCombat
+			};
+
+			for (int i = 0; i < levels.Length; i++)
+			{
+				ForcePermission without = Eval(levels[i], PerceivedRelationship.Hostile, false);
+				ForcePermission with = Eval(levels[i], PerceivedRelationship.Hostile, true);
+				Assert.IsTrue(without.Allowed, levels[i] + " without threat");
+				Assert.IsTrue(with.Allowed, levels[i] + " with threat");
+				Assert.AreEqual(without.Reason, with.Reason, levels[i].ToString());
+				Assert.AreEqual(ForcePermissionReason.PolicyAllowsHostile, with.Reason, levels[i].ToString());
+			}
+		}
+
+		[Test]
 		public void Matrix_Levels2to4_HostileYes_UnknownNeutralNo()
 		{
 			UseOfForceLevel[] levels =
@@ -136,6 +156,7 @@ namespace AI.Tests
 			try
 			{
 				UnitAIController controller = go.AddComponent<UnitAIController>();
+				controller.EnsureStarted();
 				Assert.AreEqual(UnitAIState.Idle, controller.CurrentState);
 				Assert.AreEqual(UseOfForceLevel.SelfDefense, controller.CurrentUseOfForceLevel);
 				controller.ClearTrace();

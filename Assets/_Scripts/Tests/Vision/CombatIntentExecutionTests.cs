@@ -307,6 +307,47 @@ namespace Vision.Tests
 			}
 		}
 
+		[Test]
+		public void SelfDefense_ImmediateThreat_DoesNotVetoG6_AndDoesNotChangeSelection()
+		{
+			GameObject observer = CreateObserver();
+			try
+			{
+				UnitTeam observerTeam = observer.GetComponent<UnitTeam>() ?? observer.AddComponent<UnitTeam>();
+				observerTeam.SetTeam(UnitTeamId.Player);
+				UnitTeam targetTeam = m_Target.GetComponent<UnitTeam>() ?? m_Target.AddComponent<UnitTeam>();
+				targetTeam.SetTeam(UnitTeamId.Enemy);
+
+				UnitAIController ai = observer.AddComponent<UnitAIController>();
+				ai.TrySetUseOfForcePolicy(UseOfForceLevel.SelfDefense);
+				ai.TryApplyCommand(
+					UnitAICommand.Defense(UnitAIStateContext.ForDefense(Vector3.zero, Vector3.zero, 10f, Vector3.forward)));
+				ai.SetPerceptionFrame(HostileVisibleFrame(m_Target.transform));
+				ai.Tick(0.05f);
+
+				DetectionProcessor processor = observer.GetComponent<DetectionProcessor>();
+				TargetSelector selector = observer.GetComponent<TargetSelector>();
+				EngagementDecisionController engagement = observer.GetComponent<EngagementDecisionController>();
+				processor.SetAffiliationCue(m_Target.transform, ObservableAffiliation.Hostile);
+				Observe(processor, 44);
+				selector.SetSelectedTargetForDiagnostics(m_Target.transform, m_Target.transform.position);
+				Transform selectedBefore = selector.SelectedTarget;
+
+				ImmediateThreatSignal.NotifyIncomingFire(m_Target.transform, observer.transform);
+				ai.Tick(0.05f);
+				engagement.RefreshDecisionNow();
+
+				Assert.IsTrue(ai.ImmediateThreat);
+				Assert.IsTrue(engagement.LastForcePermission.Allowed, engagement.LastForcePermission.ToString());
+				Assert.AreSame(selectedBefore, selector.SelectedTarget);
+				Assert.AreNotEqual(EngagementDecision.Ignore, engagement.CurrentDecision);
+			}
+			finally
+			{
+				UnityEngine.Object.DestroyImmediate(observer);
+			}
+		}
+
 		private static GameObject CreateObserver()
 		{
 			var go = new GameObject("CombatIntentObserver");

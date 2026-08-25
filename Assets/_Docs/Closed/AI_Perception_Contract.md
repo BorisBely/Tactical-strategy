@@ -63,7 +63,7 @@ Hostile + far — ThreatLow валидно.
 - Vision scheduler / LOD
 - `TargetSelector.SelectedTarget`
 
-Sound/Shared (G7) в AI-0 не входят.
+Sound/Shared (G7) в AI-0 не входят. **#9 CLOSED:** отдельные каналы `SoundContacts` / `ReportContacts` на `AIPerceptionFrame`; визуальные флаги AI-0 не менять.
 
 ---
 

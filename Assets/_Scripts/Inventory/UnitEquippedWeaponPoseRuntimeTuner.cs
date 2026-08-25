@@ -225,6 +225,7 @@ public sealed class UnitEquippedWeaponPoseRuntimeTuner : MonoBehaviour
 		TuningTarget.PointAim => 0.66f,
 		TuningTarget.Aiming => 1f,
 		TuningTarget.HighReady => 0.5f,
+		TuningTarget.LowReady => 0.5f,
 		_ => 0f,
 	};
 

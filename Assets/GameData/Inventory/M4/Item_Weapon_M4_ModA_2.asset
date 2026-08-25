@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: M4 configuration with railed handguard, replaceable optic and stock.
   m_Icon: {fileID: 0}
   m_BasePrice: 2850
-  m_WeightKg: 0
+  m_WeightKg: 3.2
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: 91474cca9c712ee408186cd9d73c6c7e, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: b4f3654813504a288465f4db20fd6e54, type: 2}

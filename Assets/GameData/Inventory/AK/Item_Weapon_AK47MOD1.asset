@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Tactical AK-47 Mod.1 with M4-style optic rails and side mount, 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2800
-  m_WeightKg: 0
+  m_WeightKg: 3.5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5810116954979002485, guid: 48d7f718a430e644396133e4d6427d74, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 65831a1a5ac343b78fc59796a685aa48, type: 2}

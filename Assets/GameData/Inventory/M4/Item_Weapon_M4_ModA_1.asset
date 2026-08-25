@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: M4 configuration with standard handguard, fixed stock and iron sights.
   m_Icon: {fileID: 0}
   m_BasePrice: 2400
-  m_WeightKg: 0
+  m_WeightKg: 2.9
   m_Category: 1
   m_DropWorldPrefab: {fileID: 3546601374575190557, guid: eaa888010cf390f45a9d769f06ad8852, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: dcda23d6a51144ee8007bde3e5433484, type: 2}

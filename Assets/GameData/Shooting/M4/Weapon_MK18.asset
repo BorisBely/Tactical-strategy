@@ -214,8 +214,8 @@ MonoBehaviour:
   m_HorizontalRecoil: 0.035
   m_RecoilPatternSeed: 7.13
   m_SemiAutoRecoilMultiplier: 0.88
-  m_AutoRecoilMultiplier: 1.5
-  m_RecoilRecoveryPerSecond: 0.7
+  m_AutoRecoilMultiplier: 1.3
+  m_RecoilRecoveryPerSecond: 0.75
   m_VisualRecoilKickScale: 1.45
   m_BurstRounds: 3
   m_BurstPauseSeconds: 0.12

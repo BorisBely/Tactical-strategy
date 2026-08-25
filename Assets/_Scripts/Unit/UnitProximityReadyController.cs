@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Периодически проверяет наличие союзников/нейтралов впереди юнита.
-/// При обнаружении — блокирует стрельбу через BusyState.ProximityRelax и опускает оружие стволом вниз.
+/// При обнаружении — блокирует стрельбу через BusyState.ProximityRelax и ставит HighReady
+/// (ствол вверх, не в спину союзнику). LowReady здесь не используется.
 /// При освобождении зоны — автоматически снимает блокировку.
 /// </summary>
 [DisallowMultipleComponent]
@@ -43,7 +44,6 @@ public sealed class UnitProximityReadyController : MonoBehaviour
 	private Vector3 m_BlockedPosition;
 	private float m_LastUnblockTime;
 	private float m_BlockedTime;
-	private bool m_WasReadyToFire;
 	#endregion
 
 	#region Unity Lifecycle
@@ -77,22 +77,8 @@ public sealed class UnitProximityReadyController : MonoBehaviour
 		if (m_BusyState == null || m_Team == null)
 			return;
 
-		if (!IsReadyToFire())
-		{
-			// Когда не ready из-за самого proximity-блока — продолжаем проверки.
-			// Когда не ready по другой причине (sprint, E-key, без оружия) — скипаем.
-			if (!m_IsBlocked)
-			{
-				m_WasReadyToFire = false;
-				return;
-			}
-		}
-		else
-		{
-			if (!m_WasReadyToFire && m_LogProximity)
-				Debug.Log($"[Prox] {name}: monitoring — ready to fire, cone {m_CheckHalfAngleDegrees:F0}° r={m_CheckRadius:F1}m", this);
-			m_WasReadyToFire = true;
-		}
+		if (!ShouldMonitorProximity())
+			return;
 
 		bool forceCheck = false;
 		if (m_IsBlocked)
@@ -125,9 +111,17 @@ public sealed class UnitProximityReadyController : MonoBehaviour
 	#endregion
 
 	#region Private Methods
-	private bool IsReadyToFire()
+	private bool ShouldMonitorProximity()
 	{
-		return m_ReadyHands != null && m_ReadyHands.IsWeaponReadyToFire();
+		if (m_IsBlocked)
+			return true;
+		if (m_ReadyHands == null)
+			return false;
+		if (m_ReadyHands.IsWeaponReadyToFire())
+			return true;
+
+		WeaponPoseState pose = m_ReadyHands.EffectivePoseState;
+		return pose == WeaponPoseState.LowReady || pose.IsWeaponRaised();
 	}
 
 	private bool HasFriendlyOrNeutralNearby()

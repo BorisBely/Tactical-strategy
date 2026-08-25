@@ -17,7 +17,7 @@ MonoBehaviour:
     slot.
   m_Icon: {fileID: 0}
   m_BasePrice: 3000
-  m_WeightKg: 0
+  m_WeightKg: 3.4
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: deeb30beba7f40369ceb141957d563d2, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: fa2651707f164b08942555cc36f0c955, type: 2}

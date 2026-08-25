@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Tactical AK-74 Mod.1 with rails and side mount, 5.45x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2900
-  m_WeightKg: 0
+  m_WeightKg: 3.1
   m_Category: 1
   m_DropWorldPrefab: {fileID: 8201332413734950085, guid: 9f03729fe2b24c94390f3137b784ce80, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 8a38b56cc7f84b0d8905abcec6aee9a9, type: 2}

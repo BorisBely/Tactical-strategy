@@ -45,6 +45,32 @@ public sealed class UnitTeam : MonoBehaviour
 		m_Team = _team;
 	}
 
+	/// <summary>World hostility for ImmediateThreat. Neutral is never hostile. Identity is not used.</summary>
+	public static bool AreHostile(UnitTeamId _a, UnitTeamId _b)
+	{
+		if (_a == _b)
+			return false;
+		if (_a == UnitTeamId.Neutral || _b == UnitTeamId.Neutral)
+			return false;
+		return true;
+	}
+
+	public static bool AreHostile(Component _a, Component _b)
+	{
+		UnitTeam teamA = Resolve(_a);
+		UnitTeam teamB = Resolve(_b);
+		if (teamA == null || teamB == null)
+			return false;
+		return AreHostile(teamA.Team, teamB.Team);
+	}
+
+	public static UnitTeam Resolve(Component _component)
+	{
+		if (_component == null)
+			return null;
+		return _component.GetComponent<UnitTeam>() ?? _component.GetComponentInParent<UnitTeam>();
+	}
+
 	/// <summary>
 	/// Living enabled teams. Strips destroyed entries. Order is registration order, not hierarchy.
 	/// </summary>

@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: MK18 Mod 1 CQB carbine. Short 5.56 rifle with full M4 tactical slots.
   m_Icon: {fileID: 0}
   m_BasePrice: 2750
-  m_WeightKg: 0
+  m_WeightKg: 2.7
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: ff4900cd5ce24c40898bdb7625877cdd, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: fb9a4210ad6b4ded997ea439f1b466b2, type: 2}

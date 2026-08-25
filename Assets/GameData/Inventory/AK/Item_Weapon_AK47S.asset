@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: AK-47S with folding stock, chambered in 7.62x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2300
-  m_WeightKg: 0
+  m_WeightKg: 3.5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 3489104028976546628, guid: b48666116e4afcf4cbb6e48353e35a6e, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 64faf41637404f8ba57f0d4eb56d8925, type: 2}

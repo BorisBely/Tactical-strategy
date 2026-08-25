@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Description: Compact AK-74U chambered in 5.45x39.
   m_Icon: {fileID: 0}
   m_BasePrice: 2200
-  m_WeightKg: 0
+  m_WeightKg: 2.7
   m_Category: 1
   m_DropWorldPrefab: {fileID: 1983682050386955912, guid: a709e9ec0cc8dca49bbf98a5151f17e3, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: ef86e19951dc4bfd94ea77d3562b9c04, type: 2}

@@ -104,6 +104,8 @@ public static class UnitActionLogSession
 		if (writer == null)
 			return;
 		WriteLine(writer, FormatLine(_channel, _payload));
+		if (IsImmediateChannel(_channel))
+			FlushAll();
 	}
 
 	public static void WriteTimeline(string _channel, string _payload)
@@ -114,6 +116,30 @@ public static class UnitActionLogSession
 		if (s_TimelineWriter == null)
 			return;
 		WriteLine(s_TimelineWriter, FormatLine(_channel, _payload));
+		if (IsImmediateChannel(_channel))
+			FlushAll();
+	}
+
+	public static void FlushAll()
+	{
+		try
+		{
+			foreach (KeyValuePair<EntityId, StreamWriter> pair in s_Writers)
+			{
+				if (pair.Value != null)
+					pair.Value.Flush();
+			}
+
+			if (s_TimelineWriter != null)
+				s_TimelineWriter.Flush();
+			if (s_IndexWriter != null)
+				s_IndexWriter.Flush();
+			s_LinesSinceFlush = 0;
+		}
+		catch
+		{
+			// ignore IO during teardown
+		}
 	}
 
 	public static bool ShouldLogMove(Component _actor, Vector3 _dest, bool _continuous)
@@ -295,6 +321,11 @@ public static class UnitActionLogSession
 		{
 			return null;
 		}
+	}
+
+	private static bool IsImmediateChannel(string _channel)
+	{
+		return _channel == UnitActionLog.Threat;
 	}
 
 	private static string FormatLine(string _channel, string _payload)

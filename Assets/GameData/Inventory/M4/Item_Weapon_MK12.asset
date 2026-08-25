@@ -17,7 +17,7 @@ MonoBehaviour:
     layout.
   m_Icon: {fileID: 0}
   m_BasePrice: 3600
-  m_WeightKg: 0
+  m_WeightKg: 4.5
   m_Category: 1
   m_DropWorldPrefab: {fileID: 5418623541962261350, guid: fa743eecdb874d2eaf44562ba0b25826, type: 3}
   m_WeaponPoseDefinition: {fileID: 11400000, guid: 1e5b65d8ee434ded8f59bfbbe0951769, type: 2}

@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// AI-1 FROZEN. Search uses frozen LastKnown from <see cref="AIPerceptionFrame"/>.
-/// Does not write Memory / LastSeenConfidence / LastKnownPosition.
-/// Useful memory = LastSeenConfidence &gt; 0.25 (AI-0). Stale is not enough to search.
+/// Search uses frozen LastKnown (visual) or #9 SoundPosition. Does not write Memory / LastSeen / LastKnown.
+/// Useful visual memory = LastSeenConfidence &gt; 0.25 (AI-0). Stale is not enough to search.
+/// Hostile combat sound = Gunshot / Explosion from a Hostile emitter.
 /// </summary>
 public static class UnitAISearchDecision
 {
@@ -19,7 +19,7 @@ public static class UnitAISearchDecision
 			return false;
 		if (UnitAIActionResolver.HasHostileVisible(_frame))
 			return false;
-		return TryGetSearchContact(_frame, out _);
+		return TryGetSearchContact(_frame, out _) || TryGetSearchSound(_frame, out _);
 	}
 
 	public static bool ShouldFinishSearchBecauseFound(UnitAIState _state, in AIPerceptionFrame _frame)
@@ -33,7 +33,7 @@ public static class UnitAISearchDecision
 			return false;
 		if (UnitAIActionResolver.HasHostileVisible(_frame))
 			return false;
-		return !TryGetSearchContact(_frame, out _);
+		return !TryGetSearchContact(_frame, out _) && !TryGetSearchSound(_frame, out _);
 	}
 
 	public static bool TryGetSearchContact(in AIPerceptionFrame _frame, out AIContactKnowledge _knowledge)
@@ -62,6 +62,37 @@ public static class UnitAISearchDecision
 			_knowledge = contact;
 			bestConfidence = contact.LastSeenConfidence;
 			bestSeenTime = contact.LastSeenTime;
+			found = true;
+		}
+
+		return found;
+	}
+
+	public static bool TryGetSearchSound(in AIPerceptionFrame _frame, out AISoundContact _sound)
+	{
+		_sound = default;
+		IReadOnlyList<AISoundContact> sounds = _frame.SoundContacts;
+		if (sounds == null || sounds.Count == 0)
+			return false;
+
+		bool found = false;
+		float bestConfidence = 0f;
+		float bestTime = float.MinValue;
+		for (int i = 0; i < sounds.Count; i++)
+		{
+			AISoundContact cue = sounds[i];
+			if (!cue.IsCombatCue)
+				continue;
+
+			bool better = !found ||
+			              cue.Confidence > bestConfidence + 0.0001f ||
+			              (cue.Confidence >= bestConfidence - 0.0001f && cue.Time > bestTime);
+			if (!better)
+				continue;
+
+			_sound = cue;
+			bestConfidence = cue.Confidence;
+			bestTime = cue.Time;
 			found = true;
 		}
 
