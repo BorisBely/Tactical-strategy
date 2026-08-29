@@ -31,6 +31,7 @@ public static class CoverSpatialReduce
 			{
 				if (IsNearDuplicate(candidate, kept[k], radiusSqr))
 				{
+					MergeGeometryFlags(kept[k], candidate);
 					duplicate = true;
 					break;
 				}
@@ -101,6 +102,48 @@ public static class CoverSpatialReduce
 		if (z != 0)
 			return z;
 		return _a.CandidateId.CompareTo(_b.CandidateId);
+	}
+
+	public static void MergeGeometryFlags(CoverCandidate _kept, CoverCandidate _incoming)
+	{
+		if (_kept == null || _incoming == null)
+			return;
+		_kept.EdgeSeed |= _incoming.EdgeSeed;
+		_kept.OpeningSeed |= _incoming.OpeningSeed;
+		_kept.EdgeValid |= _incoming.EdgeValid;
+		_kept.OpeningValid |= _incoming.OpeningValid;
+		_kept.WindowValid |= _incoming.WindowValid;
+		_kept.CornerValid |= _incoming.CornerValid;
+		_kept.Capabilities |= _incoming.Capabilities;
+		if (_incoming.EdgeSeed && _incoming.EdgeDirection.sqrMagnitude > _kept.EdgeDirection.sqrMagnitude)
+			_kept.EdgeDirection = _incoming.EdgeDirection;
+		if (_incoming.OpeningWidth > _kept.OpeningWidth)
+		{
+			_kept.OpeningWidth = _incoming.OpeningWidth;
+			_kept.OpeningAxis = _incoming.OpeningAxis;
+			_kept.OpeningCenter = _incoming.OpeningCenter;
+			_kept.LeftOffset = _incoming.LeftOffset;
+			_kept.RightOffset = _incoming.RightOffset;
+		}
+
+		_kept.HasFrame |= _incoming.HasFrame;
+		_kept.HasTransparentPane |= _incoming.HasTransparentPane;
+		if (_incoming.WindowWidth > _kept.WindowWidth)
+		{
+			_kept.WindowWidth = _incoming.WindowWidth;
+			_kept.WindowAxis = _incoming.WindowAxis;
+			_kept.WindowCenter = _incoming.WindowCenter;
+		}
+
+		_kept.CornerSeed |= _incoming.CornerSeed;
+		if (_incoming.CornerFacing.sqrMagnitude > _kept.CornerFacing.sqrMagnitude)
+		{
+			_kept.CornerFacing = _incoming.CornerFacing;
+			_kept.CornerNormalA = _incoming.CornerNormalA;
+			_kept.CornerNormalB = _incoming.CornerNormalB;
+			_kept.CornerVertex = _incoming.CornerVertex;
+			_kept.CornerOrientation = _incoming.CornerOrientation;
+		}
 	}
 	#endregion
 

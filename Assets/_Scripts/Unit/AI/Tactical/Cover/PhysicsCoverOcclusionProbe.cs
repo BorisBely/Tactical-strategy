@@ -39,6 +39,8 @@ public sealed class PhysicsCoverOcclusionProbe : ICoverOcclusionProbe
 				continue;
 			if (PhysicsCoverGeometrySource.IsCharacterOrVehicle(collider))
 				continue;
+			if (TacticalTransparency.IsMarked(collider))
+				continue;
 			return true;
 		}
 

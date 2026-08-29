@@ -56,7 +56,8 @@ namespace AI.Tests
 			CoverCandidate candidate = Classify(HighWall(), CandidateOnWall());
 			Assert.IsTrue(candidate.StandingValid);
 			Assert.IsTrue(candidate.CrouchValid);
-			Assert.AreEqual(CoverType.Standing, candidate.CoverType);
+			Assert.AreEqual(CoverType.None, candidate.CoverType);
+			Assert.IsFalse(candidate.IsTacticalSelectable);
 		}
 
 		[Test]
@@ -74,7 +75,8 @@ namespace AI.Tests
 			CoverCandidate candidate = Classify(HighWall(), CandidateOnWall());
 			Assert.IsTrue(candidate.StandingValid);
 			Assert.IsTrue(candidate.CrouchValid);
-			Assert.AreEqual(CoverType.Standing, candidate.CoverType);
+			Assert.AreEqual(CoverType.None, candidate.CoverType);
+			Assert.IsFalse(candidate.IsTacticalSelectable);
 		}
 
 		[Test]

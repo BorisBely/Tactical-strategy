@@ -15,7 +15,12 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 	private readonly CoverGenerationSettings m_Settings;
 	private readonly CoverClassificationSettings m_ClassSettings;
 	private readonly CoverClassifier m_Classifier = new CoverClassifier();
+	private readonly ICoverWindowProbe m_Window;
+	private PhysicsCoverWindowProbe m_PhysicsWindow;
+	private PhysicsCoverSeamProbe m_PhysicsSeam;
 	private readonly List<CoverGeometrySurface> m_Surfaces = new List<CoverGeometrySurface>(32);
+	private readonly List<CoverOpeningSeed> m_Openings = new List<CoverOpeningSeed>(8);
+	private readonly List<CoverCornerSeed> m_Corners = new List<CoverCornerSeed>(8);
 	private readonly List<CoverCandidate> m_Scratch = new List<CoverCandidate>(32);
 	private readonly List<CoverRejectedSample> m_Rejected = new List<CoverRejectedSample>(32);
 	private readonly RaycastHit[] m_RayHits = new RaycastHit[8];
@@ -41,7 +46,8 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 		ICoverClearanceProbe _clearance,
 		CoverGenerationSettings _settings = null,
 		ICoverOcclusionProbe _occlusion = null,
-		CoverClassificationSettings _classSettings = null)
+		CoverClassificationSettings _classSettings = null,
+		ICoverWindowProbe _window = null)
 	{
 		m_Geometry = _geometry;
 		m_NavMesh = _navMesh;
@@ -49,6 +55,7 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 		m_Occlusion = _occlusion;
 		m_Settings = _settings ?? new CoverGenerationSettings();
 		m_ClassSettings = _classSettings ?? new CoverClassificationSettings();
+		m_Window = _window;
 	}
 	#endregion
 
@@ -70,13 +77,19 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 		m_Surfaces.Clear();
 		m_Scratch.Clear();
 		m_Rejected.Clear();
+		m_Openings.Clear();
+		m_Corners.Clear();
 
 		Bounds queryBounds = CoverSpatialMath.ExpandHorizontally(_bounds, m_Settings.GeometryMarginMeters);
 		if (m_Geometry != null)
 			m_Geometry.Collect(_region, queryBounds, m_Surfaces);
 
+		CoverSurfaceMerge.Rebuild(m_Surfaces, m_Settings, ResolveSeamProbe());
 		SortSurfaces();
 		SampleSurfaces(_bounds);
+		SampleEdges(_bounds);
+		SampleOpenings(_bounds);
+		SampleCorners(_bounds);
 
 		CoverSpatialReduce.Deduplicate(m_Scratch, m_Settings.DedupRadiusMeters);
 		LastAcceptedBeforeCap = m_Scratch.Count;
@@ -98,6 +111,23 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 				candidate.Occupancy = CoverOccupancy.Available;
 				_destination.Add(candidate);
 			}
+
+			CoverEdgeGeometry.TagEdges(_destination, m_Surfaces, m_Settings);
+			CoverOpeningGeometry.TagOpenings(_destination, m_Settings);
+			CoverOpeningGeometry.AbsorbPassageEdges(_destination, m_Settings);
+			CoverWindowGeometry.TagWindows(_destination, ResolveWindowProbe(), m_Settings);
+			CoverCornerGeometry.TagCorners(_destination, m_Corners, m_Settings);
+			CoverCornerGeometry.AbsorbCornerEdges(_destination, m_Settings);
+			for (int i = 0; i < _destination.Count; i++)
+			{
+				CoverCandidate candidate = _destination[i];
+				if (candidate == null)
+					continue;
+				CoverClassifier.FinalizeBake(candidate);
+				candidate.CandidateId = i + 1;
+			}
+
+			LastClassificationCount = _destination.Count;
 		}
 
 		watch.Stop();
@@ -135,12 +165,101 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 				float t = sampleCount == 1 ? 0.5f : (i + 0.5f) / sampleCount;
 				Vector3 onSurface = surface.Origin + tangent * ((t - 0.5f) * surface.Length);
 				Vector3 pos = onSurface + normal * standoff;
-				TryAccept(pos, normal, _regionBounds);
+				TryAccept(pos, normal, _regionBounds, false);
 			}
 		}
 	}
 
-	private void TryAccept(Vector3 _position, Vector3 _normal, Bounds _regionBounds)
+	private void SampleEdges(Bounds _regionBounds)
+	{
+		float standoff = Mathf.Max(0.05f, m_Settings.StandOffMeters);
+		float inset = Mathf.Max(0.05f, m_Settings.EdgeInsetMeters);
+		for (int s = 0; s < m_Surfaces.Count; s++)
+		{
+			CoverGeometrySurface surface = m_Surfaces[s];
+			if (!CoverEdgeGeometry.SurfaceSupportsEdge(surface, m_Settings.MinEdgeSurfaceLengthMeters))
+				continue;
+			Vector3 normal = surface.Normal.sqrMagnitude > 0.01f ? surface.Normal.normalized : surface.Normal;
+			LastSampleCount++;
+			TryAccept(
+				CoverEdgeGeometry.EndSamplePosition(surface, standoff, inset, true),
+				normal,
+				_regionBounds,
+				true);
+			LastSampleCount++;
+			TryAccept(
+				CoverEdgeGeometry.EndSamplePosition(surface, standoff, inset, false),
+				normal,
+				_regionBounds,
+				true);
+		}
+	}
+
+	private void SampleOpenings(Bounds _regionBounds)
+	{
+		CoverOpeningGeometry.Collect(m_Surfaces, m_Settings, m_Openings);
+		float standoff = Mathf.Max(0.05f, m_Settings.StandOffMeters);
+		for (int i = 0; i < m_Openings.Count; i++)
+		{
+			CoverOpeningSeed seed = m_Openings[i];
+			LastSampleCount++;
+			TryAccept(
+				CoverOpeningGeometry.StandPosition(in seed, standoff),
+				seed.Normal,
+				_regionBounds,
+				false,
+				in seed,
+				true);
+		}
+	}
+
+	private void SampleCorners(Bounds _regionBounds)
+	{
+		CoverCornerGeometry.Collect(m_Surfaces, m_Settings, m_Corners);
+		for (int i = 0; i < m_Corners.Count; i++)
+		{
+			CoverCornerSeed seed = m_Corners[i];
+			LastSampleCount++;
+			CoverOpeningSeed none = default;
+			TryAccept(
+				seed.Position,
+				seed.Facing,
+				_regionBounds,
+				false,
+				in none,
+				false,
+				in seed,
+				true);
+		}
+	}
+
+	private void TryAccept(Vector3 _position, Vector3 _normal, Bounds _regionBounds, bool _edgeSeed)
+	{
+		CoverOpeningSeed none = default;
+		TryAccept(_position, _normal, _regionBounds, _edgeSeed, in none, false);
+	}
+
+	private void TryAccept(
+		Vector3 _position,
+		Vector3 _normal,
+		Bounds _regionBounds,
+		bool _edgeSeed,
+		in CoverOpeningSeed _opening,
+		bool _openingSeed)
+	{
+		CoverCornerSeed none = default;
+		TryAccept(_position, _normal, _regionBounds, _edgeSeed, in _opening, _openingSeed, in none, false);
+	}
+
+	private void TryAccept(
+		Vector3 _position,
+		Vector3 _normal,
+		Bounds _regionBounds,
+		bool _edgeSeed,
+		in CoverOpeningSeed _opening,
+		bool _openingSeed,
+		in CoverCornerSeed _corner,
+		bool _cornerSeed)
 	{
 		if (!CoverSpatialMath.ContainsPlanar(_regionBounds, _position))
 		{
@@ -167,7 +286,9 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 			}
 		}
 
-		if (m_Settings.ConfirmSurfaceWithPhysics && !IsAnchoredToGeometry(sampled, _normal))
+		if (!_openingSeed && !_cornerSeed &&
+		    m_Settings.ConfirmSurfaceWithPhysics &&
+		    !IsAnchoredToGeometry(sampled, _normal))
 		{
 			Reject(sampled, _normal, CoverRejectReason.Unanchored);
 			LastRejectedUnanchoredCount++;
@@ -181,14 +302,40 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 			return;
 		}
 
-		m_Scratch.Add(new CoverCandidate
+		var candidate = new CoverCandidate
 		{
 			Position = sampled,
 			Normal = _normal,
 			CoverType = CoverType.None,
 			NavMeshValid = true,
-			Occupancy = CoverOccupancy.Available
-		});
+			Occupancy = CoverOccupancy.Available,
+			EdgeSeed = _edgeSeed
+		};
+		if (_openingSeed)
+			CoverOpeningGeometry.ApplySeed(candidate, in _opening);
+		if (_cornerSeed)
+			CoverCornerGeometry.ApplySeed(candidate, in _corner);
+		m_Scratch.Add(candidate);
+	}
+
+	private ICoverSeamProbe ResolveSeamProbe()
+	{
+		if (!m_Settings.ConfirmSurfaceWithPhysics)
+			return null;
+		if (m_PhysicsSeam == null)
+			m_PhysicsSeam = new PhysicsCoverSeamProbe(m_Settings.PhysicsMask);
+		return m_PhysicsSeam;
+	}
+
+	private ICoverWindowProbe ResolveWindowProbe()
+	{
+		if (m_Window != null)
+			return m_Window;
+		if (!m_Settings.ConfirmSurfaceWithPhysics)
+			return null;
+		if (m_PhysicsWindow == null)
+			m_PhysicsWindow = new PhysicsCoverWindowProbe();
+		return m_PhysicsWindow;
 	}
 
 	private bool IsAnchoredToGeometry(Vector3 _position, Vector3 _normal)
@@ -214,6 +361,8 @@ public sealed class CoverCandidateGenerator : ICoverCandidateSource
 			if (collider == null || collider.isTrigger)
 				continue;
 			if (PhysicsCoverGeometrySource.IsCharacterOrVehicle(collider))
+				continue;
+			if (TacticalTransparency.IsMarked(collider))
 				continue;
 			return true;
 		}

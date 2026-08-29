@@ -43,9 +43,9 @@ public static class TacticalAiWiringInstaller
 		int count = TacticalWorldBaker.Bake(world);
 		EditorSceneManager.MarkSceneDirty(world.gameObject.scene);
 		EditorSceneManager.SaveScene(world.gameObject.scene);
-		string msg = "baked=" + count + " nav=" + TacticalWorldBaker.NavMeshReachable(world.ResolveWorldBakeBounds());
-		Debug.Log("[TacticalAI] Bake Cover " + msg);
-		EditorUtility.DisplayDialog("Bake Cover", msg, "OK");
+		string msg = "zones=" + count + " nav=" + TacticalWorldBaker.NavMeshReachable(world.ResolveWorldBakeBounds());
+		Debug.Log("[TacticalAI] Bake Protection Zones " + msg);
+		EditorUtility.DisplayDialog("Bake Protection Zones", msg, "OK");
 	}
 	#endregion
 
@@ -153,7 +153,7 @@ public static class TacticalAiWiringInstaller
 
 		int baked = TacticalWorldBaker.Bake(world);
 		EditorUtility.SetDirty(world);
-		_log.AppendLine("bakedCover=" + baked);
+		_log.AppendLine("bakedZones=" + baked);
 		_log.AppendLine("navReachable=" + TacticalWorldBaker.NavMeshReachable(world.ResolveWorldBakeBounds()));
 		EditorSceneManager.MarkSceneDirty(scene);
 		EditorSceneManager.SaveScene(scene);

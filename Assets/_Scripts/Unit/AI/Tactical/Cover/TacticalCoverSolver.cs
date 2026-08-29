@@ -198,14 +198,28 @@ public sealed class TacticalCoverSolver
 		TacticalCoverDecision decision;
 		if (!hasBest)
 		{
-			decision = Build(
-				TacticalCoverDecisionKind.Stay,
-				TacticalCoverReason.NoCandidate,
-				in _current,
-				currentEval,
-				default,
-				0f,
-				null);
+			if (_current.Occupied && currentValid)
+			{
+				decision = Build(
+					TacticalCoverDecisionKind.Stay,
+					TacticalCoverReason.Committed,
+					in _current,
+					currentEval,
+					default,
+					0f,
+					currentEval.Candidate);
+			}
+			else
+			{
+				decision = Build(
+					TacticalCoverDecisionKind.Stay,
+					TacticalCoverReason.NoCandidate,
+					in _current,
+					currentEval,
+					default,
+					0f,
+					null);
+			}
 		}
 		else if (!currentValid)
 		{
@@ -356,7 +370,7 @@ public sealed class TacticalCoverSolver
 				CoverScoreMath.EvaluateOne(candidate, in _situation, _los),
 				in _situation);
 			m_Evaluations.Add(evaluation);
-			if (!evaluation.Valid)
+			if (!ThreatDirectionCoverMath.IsUsableWithThreat(evaluation, in _situation))
 				continue;
 			if (_occupancy != null &&
 			    !_occupancy.IsUsable(candidate, _situation.UnitId, Time.time))

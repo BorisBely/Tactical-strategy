@@ -82,7 +82,7 @@ public static class TacticalAiValidator
 			world.transform.Find("CoverOccupancyBoard") != null);
 		Check(log, "Cover cache baked", world.IsBaked);
 		if (world.IsBaked)
-			log.AppendLine("[PASS] baked=" + world.BakedCount);
+			log.AppendLine("[PASS] zones=" + world.ZoneCount + " candidates=" + world.BakedCount);
 		else
 			log.AppendLine("[FAIL] Cover cache not baked");
 		Check(log, "NavMesh reachable in bake bounds", TacticalWorldBaker.NavMeshReachable(world.ResolveWorldBakeBounds()));

@@ -358,9 +358,27 @@ public sealed class CoverCandidateDebugDraw : MonoBehaviour
 		{
 			CoverCandidate candidate = m_Candidates[i];
 			Vector3 pos = candidate.Position + Vector3.up * 0.05f;
-			Gizmos.color = ColorForType(candidate.CoverType);
+			Color color = ColorForType(candidate.CoverType);
+			if (!CoverClassifier.IsTacticalType(candidate.CoverType))
+				color.a *= 0.45f;
+			Gizmos.color = color;
 			Gizmos.DrawSphere(pos, 0.12f);
-			Gizmos.DrawLine(pos, pos + candidate.Normal.normalized * 0.85f);
+			CoverTypeVisual.DrawGeometryAxes(
+				candidate.Position,
+				candidate.Normal,
+				candidate.EdgeDirection,
+				candidate.OpeningWidth,
+				candidate.OpeningAxis,
+				candidate.OpeningCenter,
+				candidate.WindowValid,
+				candidate.WindowCenter,
+				candidate.WindowAxis,
+				candidate.WindowWidth,
+				candidate.HasFrame,
+				candidate.HasTransparentPane,
+				candidate.CornerFacing,
+				candidate.CornerNormalA,
+				candidate.CornerNormalB);
 		}
 
 		if (m_TacticalActive)
@@ -452,7 +470,7 @@ public sealed class CoverCandidateDebugDraw : MonoBehaviour
 			Vector3 screen = camera.WorldToScreenPoint(world);
 			if (screen.z <= 0f)
 				continue;
-			string label = "C" + candidate.CandidateId + " [" + candidate.CoverType.ToString().ToUpperInvariant() + "]";
+			string label = CoverClassifier.FormatTypeLabel(candidate.CandidateId, candidate.CoverType);
 			if (TryGetScore(candidate.CandidateId, out float score))
 			{
 				label = "C" + candidate.CandidateId + "  " + score.ToString("0.0");
@@ -462,6 +480,14 @@ public sealed class CoverCandidateDebugDraw : MonoBehaviour
 					label += " curr";
 				else if (IsEmergencyRejected(candidate.CandidateId))
 					label += " rej";
+			}
+
+			if (candidate.CandidateId == m_SelectedId)
+			{
+				label += "  " + CoverClassifier.FormatProtection(
+					candidate.StandingProfile.Torso,
+					candidate.CrouchProfile.Torso);
+				label += "  " + CoverClassifier.FormatCapabilities(candidate.Capabilities);
 			}
 
 			if (TryGetOccupancyLabel(candidate.CandidateId, out string occupancy))
@@ -574,6 +600,10 @@ public sealed class CoverCandidateDebugDraw : MonoBehaviour
 	{
 		switch (_type)
 		{
+			case CoverType.Edge:
+			case CoverType.Opening:
+			case CoverType.Window:
+				return CoverTypeVisual.Color(_type);
 			case CoverType.Crouch:
 				return m_CrouchColor;
 			case CoverType.Standing:

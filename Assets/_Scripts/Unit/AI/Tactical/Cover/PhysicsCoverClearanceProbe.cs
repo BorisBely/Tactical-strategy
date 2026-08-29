@@ -55,6 +55,8 @@ public sealed class PhysicsCoverClearanceProbe : ICoverClearanceProbe
 				continue;
 			if (PhysicsCoverGeometrySource.IsCharacterOrVehicle(hit))
 				continue;
+			if (TacticalTransparency.IsMarked(hit))
+				continue;
 			if (IsCoverWallBehind(_position, nrm, hit))
 				continue;
 			return false;
@@ -71,7 +73,12 @@ public sealed class PhysicsCoverClearanceProbe : ICoverClearanceProbe
 			return false;
 
 		Vector3 probe = _position + Vector3.up * 0.9f;
-		Vector3 closest = _hit.ClosestPoint(probe);
+		Vector3 closest;
+		MeshCollider mesh = _hit as MeshCollider;
+		if (mesh != null && !mesh.convex)
+			closest = mesh.bounds.ClosestPoint(probe);
+		else
+			closest = _hit.ClosestPoint(probe);
 		Vector3 planar = closest - _position;
 		planar.y = 0f;
 		if (planar.sqrMagnitude < 0.0001f)

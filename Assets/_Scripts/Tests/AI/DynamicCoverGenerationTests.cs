@@ -246,7 +246,11 @@ namespace AI.Tests
 			gen.Generate(region, bounds, 7, dest);
 			Assert.Greater(dest.Count, 0);
 			Assert.AreEqual(7, dest[0].GeometryVersion);
-			Assert.AreEqual(CoverType.None, dest[0].CoverType);
+			for (int i = 0; i < dest.Count; i++)
+			{
+				Assert.AreEqual(7, dest[i].GeometryVersion);
+				Assert.AreNotEqual(CoverType.Standing, dest[i].CoverType);
+			}
 		}
 		#endregion
 

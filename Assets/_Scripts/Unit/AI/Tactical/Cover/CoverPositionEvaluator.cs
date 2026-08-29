@@ -149,7 +149,7 @@ public sealed class CoverPositionEvaluator
 				CoverPositionEvaluation evaluation = CoverScoreMath.EvaluateOne(candidate, in _situation, _los);
 				evaluation = ThreatDirectionCoverMath.Stamp(evaluation, in _situation);
 				m_Scratch.Add(evaluation);
-				if (!evaluation.Valid)
+				if (!ThreatDirectionCoverMath.IsUsableWithThreat(evaluation, in _situation))
 					continue;
 				if (_occupancy != null &&
 				    !_occupancy.IsUsable(candidate, _situation.UnitId, Time.time))

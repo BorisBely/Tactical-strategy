@@ -59,10 +59,35 @@ public sealed class CoverCandidate
 	public bool CrouchValid;
 	public bool PartialValid;
 	public bool CornerValid;
+	public bool EdgeValid;
+	public bool OpeningValid;
+	public bool WindowValid;
+	public bool EdgeSeed;
+	public bool OpeningSeed;
+	public Vector3 EdgeDirection;
+	public Vector3 OpeningAxis;
+	public Vector3 OpeningCenter;
+	public Vector3 WindowCenter;
+	public Vector3 WindowAxis;
+	public float LeftOffset;
+	public float RightOffset;
+	public float OpeningWidth;
+	public float WindowWidth;
+	public bool HasFrame;
+	public bool HasTransparentPane;
+	public bool CornerSeed;
+	public Vector3 CornerFacing;
+	public Vector3 CornerNormalA;
+	public Vector3 CornerNormalB;
+	public Vector3 CornerVertex;
+	public CoverCornerOrientation CornerOrientation;
+	public CoverCapabilities Capabilities;
 	public CoverProtectionProfile StandingProfile;
 	public CoverProtectionProfile CrouchProfile;
 	public bool NavMeshValid;
 	public CoverRegionId RegionId;
 	public int GeometryVersion;
 	public CoverOccupancy Occupancy;
+
+	public bool IsTacticalSelectable => CoverClassifier.IsTacticalType(CoverType);
 }

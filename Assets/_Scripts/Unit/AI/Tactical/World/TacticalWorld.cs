@@ -5,7 +5,7 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// Scene host for editor-baked cover geometry and a runtime occupancy board.
+/// Scene host for editor-baked #13.2C protection zones, leftover #13 candidates, and occupancy.
 /// Play does not create this object and does not scan the whole arena for walls.
 /// </summary>
 [DisallowMultipleComponent]
@@ -22,6 +22,8 @@ public sealed class TacticalWorld : MonoBehaviour
 	[SerializeField] private bool m_BakeBoundsAreLocal = true;
 	[SerializeField] private List<BakedCoverCandidateRecord> m_Baked =
 		new List<BakedCoverCandidateRecord>(128);
+	[SerializeField] private List<BakedProtectionZoneRecord> m_Zones =
+		new List<BakedProtectionZoneRecord>(64);
 	[SerializeField] private bool m_DrawBaked = true;
 	#endregion
 
@@ -54,7 +56,9 @@ public sealed class TacticalWorld : MonoBehaviour
 
 	public int BakedCount => m_Baked != null ? m_Baked.Count : 0;
 	public IReadOnlyList<BakedCoverCandidateRecord> Baked => m_Baked;
-	public bool IsBaked => m_Baked != null && m_Baked.Count > 0;
+	public int ZoneCount => m_Zones != null ? m_Zones.Count : 0;
+	public IReadOnlyList<BakedProtectionZoneRecord> Zones => m_Zones;
+	public bool IsBaked => (m_Zones != null && m_Zones.Count > 0) || (m_Baked != null && m_Baked.Count > 0);
 	public Bounds BakeBounds => m_BakeBounds;
 	public bool BakeBoundsAreLocal => m_BakeBoundsAreLocal;
 	#endregion
@@ -77,7 +81,16 @@ public sealed class TacticalWorld : MonoBehaviour
 
 	private void OnDrawGizmos()
 	{
-		if (!m_DrawBaked || m_Baked == null)
+		if (!m_DrawBaked)
+			return;
+		if (m_Zones != null && m_Zones.Count > 0)
+		{
+			for (int i = 0; i < m_Zones.Count; i++)
+				ProtectionZoneDebugDraw.Draw(m_Zones[i].ToZone(), false);
+			return;
+		}
+
+		if (m_Baked == null)
 			return;
 		for (int i = 0; i < m_Baked.Count; i++)
 			DrawRecord(m_Baked[i], false);
@@ -88,6 +101,14 @@ public sealed class TacticalWorld : MonoBehaviour
 		Gizmos.color = new Color(0.2f, 0.9f, 1f, 0.25f);
 		Bounds world = ResolveWorldBakeBounds();
 		Gizmos.DrawWireCube(world.center, world.size);
+		if (m_Zones != null && m_Zones.Count > 0)
+		{
+			int zoneCap = Mathf.Min(m_Zones.Count, 80);
+			for (int i = 0; i < m_Zones.Count; i++)
+				ProtectionZoneDebugDraw.Draw(m_Zones[i].ToZone(), i < zoneCap);
+			return;
+		}
+
 		if (m_Baked == null)
 			return;
 		for (int i = 0; i < m_Baked.Count; i++)
@@ -99,7 +120,7 @@ public sealed class TacticalWorld : MonoBehaviour
 			BakedCoverCandidateRecord record = m_Baked[i];
 			Handles.Label(
 				record.Position + Vector3.up * 0.35f,
-				"C" + record.CandidateId + " " + record.CoverType);
+				CoverClassifier.FormatTypeLabel(record.CandidateId, record.CoverType));
 		}
 #endif
 	}
@@ -175,6 +196,25 @@ public sealed class TacticalWorld : MonoBehaviour
 		return m_Baked.Count;
 	}
 
+	public int ReplaceZones(IReadOnlyList<BakedProtectionZoneRecord> _records)
+	{
+		if (m_Zones == null)
+			m_Zones = new List<BakedProtectionZoneRecord>(64);
+		m_Zones.Clear();
+		if (_records != null)
+		{
+			for (int i = 0; i < _records.Count; i++)
+				m_Zones.Add(_records[i]);
+		}
+
+		return m_Zones.Count;
+	}
+
+	public BakedProtectionZoneSource CreateZoneSource()
+	{
+		return new BakedProtectionZoneSource(m_Zones);
+	}
+
 	public void EnsureRuntime()
 	{
 		if (m_RuntimeReady && m_Cache != null && m_Occupancy != null)
@@ -190,6 +230,7 @@ public sealed class TacticalWorld : MonoBehaviour
 			"TacticalWorld.EnsureRuntime",
 			"world ready",
 			"{\"baked\":" + BakedCount +
+			",\"zones\":" + ZoneCount +
 			",\"hasProfile\":" + (m_Profile != null ? "true" : "false") +
 			",\"hasCache\":true,\"hasOccupancy\":true}");
 		// #endregion
@@ -224,24 +265,33 @@ public sealed class TacticalWorld : MonoBehaviour
 			else if (occupancy == CoverOccupancy.Reserved)
 				color = new Color(1f, 0.75f, 0.15f, 1f);
 		}
+		if (!CoverClassifier.IsTacticalType(_record.CoverType))
+			color.a *= 0.45f;
 		if (!_selected)
-			color.a = 0.7f;
+			color.a = Mathf.Min(color.a, 0.7f);
 		Gizmos.color = color;
 		Gizmos.DrawSphere(_record.Position, _selected ? 0.22f : 0.16f);
-		Gizmos.DrawLine(_record.Position, _record.Position + _record.Normal.normalized * 0.8f);
+		CoverTypeVisual.DrawGeometryAxes(
+			_record.Position,
+			_record.Normal,
+			_record.EdgeDirection,
+			_record.OpeningWidth,
+			_record.OpeningAxis,
+			_record.OpeningCenter,
+			_record.WindowValid,
+			_record.WindowCenter,
+			_record.WindowAxis,
+			_record.WindowWidth,
+			_record.HasFrame,
+			_record.HasTransparentPane,
+			_record.CornerFacing,
+			_record.CornerNormalA,
+			_record.CornerNormalB);
 	}
 
 	private static Color TypeColor(CoverType _type)
 	{
-		if (_type == CoverType.Corner)
-			return new Color(1f, 0.55f, 0.15f, 1f);
-		if (_type == CoverType.Standing)
-			return new Color(0.2f, 0.85f, 1f, 1f);
-		if (_type == CoverType.Crouch)
-			return new Color(1f, 0.85f, 0.2f, 1f);
-		if (_type == CoverType.Partial)
-			return new Color(0.95f, 0.35f, 0.9f, 1f);
-		return new Color(0.45f, 0.9f, 0.4f, 1f);
+		return CoverTypeVisual.Color(_type);
 	}
 	#endregion
 }

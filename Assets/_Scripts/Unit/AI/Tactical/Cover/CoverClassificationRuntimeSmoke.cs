@@ -119,12 +119,18 @@ public sealed class CoverClassificationRuntimeSmoke : MonoBehaviour
 		IReadOnlyList<CoverCandidate> first = cache.GetCandidates(regionBounds.center);
 		debug.Capture(regionBounds, first, false, generator.LastRejected);
 		int standing = 0;
+		int standingProtected = 0;
 		int crouch = 0;
 		int partial = 0;
 		int corner = 0;
 		int none = 0;
+		int tactical = 0;
 		for (int i = 0; i < first.Count; i++)
 		{
+			if (first[i].StandingValid)
+				standingProtected++;
+			if (CoverClassifier.IsTacticalType(first[i].CoverType))
+				tactical++;
 			switch (first[i].CoverType)
 			{
 				case CoverType.Standing:
@@ -148,17 +154,20 @@ public sealed class CoverClassificationRuntimeSmoke : MonoBehaviour
 		AppendLine(
 			"candidates=" + first.Count +
 			" classified=" + generator.LastClassificationCount +
-			" standing=" + standing +
+			" standingType=" + standing +
+			" standingProtected=" + standingProtected +
 			" crouch=" + crouch +
 			" partial=" + partial +
 			" corner=" + corner +
-			" none=" + none);
+			" none=" + none +
+			" tactical=" + tactical);
 		Check("S1_HasCandidates", first.Count > 0, "count=" + first.Count);
 		Check("S1_ClassifiedOnce", generator.LastClassificationCount == first.Count,
 			"class=" + generator.LastClassificationCount);
-		Check("S1_HasStanding", standing > 0, "standing=" + standing);
+		Check("S1_NoSelectableStandingType", standing == 0, "standingType=" + standing);
+		Check("S1_HasStandingProtection", standingProtected > 0, "standingProtected=" + standingProtected);
 		Check("S1_HasCrouch", crouch > 0, "crouch=" + crouch);
-		Check("S1_NotAllNone", standing + crouch + partial + corner > 0, "none=" + none);
+		Check("S1_HasTacticalType", tactical > 0, "tactical=" + tactical);
 
 		AppendLine("[S2] Cache hit keeps the same classification");
 		IReadOnlyList<CoverCandidate> second = cache.GetCandidates(regionBounds.center + new Vector3(0.3f, 0f, 0.2f));
