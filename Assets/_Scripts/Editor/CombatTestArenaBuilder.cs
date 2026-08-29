@@ -262,6 +262,10 @@ public static class CombatTestArenaBuilder
 		NavMeshSurface surface = BakeNavMesh(root, navigation);
 		Validate(scene, surface);
 
+		string wiring = TacticalAiWiringInstaller.Install();
+		Log("--- Tactical editor wiring ---");
+		Log(wiring);
+
 		EditorSceneManager.MarkSceneDirty(scene);
 		EditorSceneManager.SaveScene(scene);
 		AssetDatabase.SaveAssets();

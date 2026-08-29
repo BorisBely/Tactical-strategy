@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class ProjectileVisionContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Projectile Vision Contract (Play)", false, 24)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Projectile Vision Contract (Play)", false, 166)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

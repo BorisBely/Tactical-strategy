@@ -9,9 +9,9 @@ namespace Shooting.Tests.Editor
 	/// <summary>Phase H EditMode fixtures without Test Runner window selection.</summary>
 	public static class WeaponBalanceHNUnitRunner
 	{
-		private const string c_MenuPath = "Tools/Tests/Run Weapon Balance H-TEST (EditMode)";
+		private const string c_MenuPath = "Tools/Tests/Archive/Weapon/Run Weapon Balance H-TEST (EditMode)";
 
-		[MenuItem(c_MenuPath, false, 35)]
+		[MenuItem(c_MenuPath, false, 185)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

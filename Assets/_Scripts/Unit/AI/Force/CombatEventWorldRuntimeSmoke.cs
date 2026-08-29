@@ -10,11 +10,11 @@ using UnityEditor;
 /// <summary>
 /// #8 Play: world CombatEvent bus. event ≠ knowledge. Does not retune #7 RoE.
 /// Report: Assets/_Docs/Logs/Tests/CombatEvent_LAST.txt
-/// Menu: Tools/Tests/Run Combat Event World (Play)
+/// Menu: Tools/Tests/Run Regression (Play)
 /// </summary>
 [DefaultExecutionOrder(63)]
 [DisallowMultipleComponent]
-public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour
+public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour, IPlaySmokeSuite
 {
 	#region Serialized
 	[SerializeField] private bool m_RunOnStart;
@@ -37,6 +37,9 @@ public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour
 	#region Public Properties
 	public bool WillRunOnStart =>
 		m_RunOnStart || DetectionHarnessPlayMode.RunCombatEventWorld;
+
+	public int LastPassCount => m_PassCount;
+	public int LastFailCount => m_FailCount;
 	#endregion
 
 	#region Unity Lifecycle
@@ -62,7 +65,8 @@ public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour
 	{
 		CombatEventHub.Unsubscribe(OnHeard);
 		DestroyActors();
-		if (DetectionHarnessPlayMode.RunCombatEventWorld)
+		if (DetectionHarnessPlayMode.RunCombatEventWorld &&
+		    !DetectionHarnessPlayMode.RunFrozenLayersPlay)
 			DetectionHarnessPlayMode.ResetFlags();
 	}
 	#endregion
@@ -74,6 +78,11 @@ public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour
 			return;
 		StopAllCoroutines();
 		StartCoroutine(RunSuite());
+	}
+
+	public IEnumerator RunAndWait()
+	{
+		yield return RunSuite();
 	}
 	#endregion
 
@@ -397,7 +406,8 @@ public sealed class CombatEventWorldRuntimeSmoke : MonoBehaviour
 			" pass=" + m_PassCount + " fail=" + m_FailCount,
 			this);
 
-		bool exitPlay = m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunCombatEventWorld;
+		bool exitPlay = !DetectionHarnessPlayMode.RunFrozenLayersPlay &&
+		                (m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunCombatEventWorld);
 #if UNITY_EDITOR
 		if (exitPlay && EditorApplication.isPlaying)
 			EditorApplication.isPlaying = false;

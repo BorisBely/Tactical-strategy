@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class CombatEventWorldTestRunner
 {
-	[MenuItem("Tools/Tests/Run Combat Event World (Play)", false, 33)]
+	[MenuItem("Tools/Tests/Archive/Regression/Run Combat Event World (Play)", false, 181)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

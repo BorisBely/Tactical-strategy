@@ -7939,6 +7939,11 @@ GameObject:
   - component: {fileID: 7085333448395688803}
   - component: {fileID: 7085333448395688802}
   - component: {fileID: 7085333448395688801}
+  - component: {fileID: 6642000100000001}
+  - component: {fileID: 6642000100000002}
+  - component: {fileID: 6642000100000003}
+  - component: {fileID: 6642000100000004}
+  - component: {fileID: 6642000100000005}
   m_Layer: 7
   m_Name: Unit
   m_TagString: Untagged
@@ -10700,6 +10705,9 @@ MonoBehaviour:
   m_DistanceWeight: 1
   m_StalePenalty: 3
   m_HostileBonus: 0.5
+  m_SwitchThreshold: 0.45
+  m_WeaponSuitabilityWeight: 0.35
+  m_MissionBonus: 0.6
   m_LayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -10726,6 +10734,81 @@ MonoBehaviour:
   m_ContactRegistry: {fileID: 7085333448395688800}
   m_FireController: {fileID: 8854059317223957988}
   m_DebugDecision: 0
+--- !u!114 &6642000100000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88192031425394e715263748596a7b8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::UnitAIController
+  m_DrawSearchHud: 0
+  m_WorldProfile: {fileID: 11400000, guid: 6642e0c0ffee0001a1b2c3d4e5f60001, type: 2}
+  m_TacticalProfile: {fileID: 11400000, guid: 6642e0c0ffee0001a1b2c3d4e5f60002, type: 2}
+--- !u!114 &6642000100000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7f95f9fa5bf54142ad99b79e7e2babf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::ImmediateThreatSource
+  m_DurationSeconds: 4
+--- !u!114 &6642000100000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 904f9b5d55fb00941a4bb064c762987d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::UnitNavMoveCommand
+--- !u!114 &6642000100000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fc60aa2b3eaeae499030369243ca6c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::CoverCandidateDebugDraw
+  m_DrawInPlay: 1
+  m_RegionColor: {r: 1, g: 0.92, b: 0.2, a: 1}
+  m_GeneratedColor: {r: 0.2, g: 0.85, b: 1, a: 1}
+  m_CachedColor: {r: 0.25, g: 0.9, b: 0.35, a: 1}
+  m_RejectedColor: {r: 1, g: 0.25, b: 0.2, a: 1}
+  m_NoneColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
+  m_CrouchColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+  m_StandingColor: {r: 0.2, g: 0.85, b: 1, a: 1}
+  m_PartialColor: {r: 0.95, g: 0.35, b: 0.9, a: 1}
+  m_CornerColor: {r: 1, g: 0.55, b: 0.15, a: 1}
+--- !u!114 &6642000100000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9176879924895076622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dd1f0979539c4741bf71337b7ed6afe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: _Scripts::TacticalMovementDebugDraw
+  m_DrawInPlay: 1
 --- !u!1 &9207668543881882153
 GameObject:
   m_ObjectHideFlags: 0

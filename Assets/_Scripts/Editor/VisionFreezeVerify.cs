@@ -7,11 +7,11 @@ using UnityEngine;
 
 /// <summary>
 /// Vision freeze / AI handoff check. Does not retune numbers.
-/// Tools/Tests/Verify Vision Freeze
+/// Tools/Tests/Archive/Vision/Verify Vision Freeze
 /// </summary>
 public static class VisionFreezeVerify
 {
-	[MenuItem("Tools/Tests/Verify Vision Freeze", false, 41)]
+	[MenuItem("Tools/Tests/Archive/Vision/Verify Vision Freeze", false, 172)]
 	public static void RunFromMenu()
 	{
 		VisionFreezeBaseline.ReportResult result = VisionFreezeBaseline.BuildReport();

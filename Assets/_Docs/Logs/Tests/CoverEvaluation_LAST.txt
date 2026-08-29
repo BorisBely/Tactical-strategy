@@ -1,0 +1,30 @@
+﻿STAGE 13.3 — COVER INDIVIDUAL EVALUATION
+========================================
+stamp=2026-08-26 21:27:10
+Per-unit score. Shared geometry. Selected ≠ Move. Not Fire.
+---
+PASS S0_NavMeshBake
+[S1] Factor mix — not always the safest wall
+rifle selected=C4 C1=3,20 C2=3,26 C3=3,95 C4=4,32
+PASS S1_HasBest
+PASS S1_NotC1
+PASS S1_RiflePrefersC4
+PASS S1_NoMove
+[S2] Same shared set, different weapons
+sniper selected=C3 C1=2,35 C2=3,41 C3=5,30 C4=3,17
+lmg selected=C3 C1=3,40 C2=3,56 C3=4,25 C4=4,07
+PASS S2_SharedIds
+PASS S2_SniperC3OverC2
+PASS S2_LmgC2OverC1
+PASS S2_WeaponScoresDiffer
+[S3] Recruit vs Veteran — same shared candidates
+PASS S3_SameSet
+PASS S3_Independent
+[S4] 20 units / 3 regions → 3 geometry + 20 scores
+PASS S4_Generations
+PASS S4_Evals
+PASS S4_SharedHasNoScoreField
+[S5] Overlay shows scores
+PASS S5_DebugScores
+---
+RESULT=PASS pass=15 fail=0

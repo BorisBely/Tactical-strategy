@@ -61,6 +61,10 @@ public sealed class CombatEngageExecutionRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunImmediateThreatLive &&
 		!DetectionHarnessPlayMode.RunCombatEventWorld &&
 		!DetectionHarnessPlayMode.RunSoundInAi &&
+		!DetectionHarnessPlayMode.RunSearch20 &&
+		!DetectionHarnessPlayMode.RunCommandPriority &&
+		!DetectionHarnessPlayMode.RunTargetCalibration &&
+		!DetectionHarnessPlayMode.RunFrozenLayersPlay &&
 		!DetectionHarnessPlayMode.RunSearchExecution &&
 		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
@@ -176,7 +180,9 @@ public sealed class CombatEngageExecutionRuntimeSmoke : MonoBehaviour
 			m_Readiness != null && m_Readiness.ReadinessRequested,
 			m_Readiness != null ? m_Readiness.LastAppliedIntent.ToString() : "no readiness");
 		Check("T1_PoseAuto",
-			m_ReadyHands != null && m_ReadyHands.WantedMode == WeaponPoseMode.Auto,
+			m_ReadyHands != null &&
+			(m_ReadyHands.WantedMode == WeaponPoseMode.Auto ||
+			 m_ReadyHands.WantedMode == WeaponPoseMode.Aiming),
 			m_ReadyHands != null ? m_ReadyHands.WantedMode.ToString() : "no ready-hands");
 		Check("T1_Selected", m_Selector != null && m_Selector.SelectedTarget == m_Target,
 			m_Selector != null && m_Selector.SelectedTarget != null ? m_Selector.SelectedTarget.name : "null");

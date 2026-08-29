@@ -1,15 +1,23 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
-/// AI-1 FROZEN. Only this type changes <see cref="UnitAIState"/>. Orders enter via <see cref="TryApplyCommand"/>.
-/// Perception may change <see cref="CurrentAction"/>; Search from LastKnown is also applied here.
-/// Search does not write Memory. Does not call Fire(). Publishes <see cref="CombatIntent"/> only.
+/// AI-1 FROZEN decision. Only this type changes <see cref="UnitAIState"/>. Orders enter via <see cref="TryApplyCommand"/>.
+/// Perception may change <see cref="CurrentAction"/>; Search from LastKnown / Sound / Report is also applied here.
+/// Search 2.0: area + cached candidates, does not write Memory. Does not call Fire(). Publishes <see cref="CombatIntent"/> only.
 /// Stage 4 FROZEN: Search / Attack / Retreat / Flee walk via <see cref="IUnitMoveCommand"/> to a snapshotted destination.
-/// Not baked onto Unit.prefab. Stage 2 CombatIntent FROZEN. Stage 3 Search decision FROZEN.
+/// #14: Attack/Defense/Retreat/Flee hop comes from <see cref="TacticalMovementOverlay"/>. Overlay does not Move.
+/// #14B.3: ticks <see cref="ReadinessController"/> from perception / combat activity. Does not SetPose or Fire.
+/// #14B.6: ticks ArmFatigue while bound (frozen on LifeGate). Physical AimTime / RecoilControl / yaw only.
+/// #14C: ticks <see cref="ThreatDirectionController"/> from spawn pins and perception events. Does not Cover / Move / Aim.
+/// #14C.1: cover preference overlay + event facing from threat sector. Does not rewrite CoverScore / 0.60 / Reservation.
+/// Editor wiring: profiles on prefab; overlays stay owned here. Stage 2 CombatIntent FROZEN. Stage 3 Search decision FROZEN.
 /// AI-1A: <see cref="UseOfForceLevel"/> is a separate field. <see cref="TrySetUseOfForcePolicy"/> does not change state.
 /// Game orders (6.2): <see cref="GameCommandService"/> → <see cref="ITacticalCommandReceiver.IssueCommand"/>.
+/// #11: <see cref="IssueCommand"/> goes through <see cref="UnitAICommandPriority"/> then the transition table.
 /// Debug: <see cref="IUnitTacticalCommand"/> → <see cref="TryIssue"/>.
+/// Editor wiring: <see cref="TacticalWorldProfile"/> + <see cref="InfantryTacticalProfile"/>. Overlays stay owned here.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(25)]
@@ -21,6 +29,8 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 
 	#region Private Fields
 	[SerializeField] private bool m_DrawSearchHud;
+	[SerializeField] private TacticalWorldProfile m_WorldProfile;
+	[SerializeField] private InfantryTacticalProfile m_TacticalProfile;
 
 	private readonly Dictionary<UnitAIState, IUnitAIStateHandler> m_Handlers =
 		new Dictionary<UnitAIState, IUnitAIStateHandler>(6);
@@ -52,6 +62,45 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	private EntityId m_LastLoggedEngageId;
 	private UseOfForceLevel m_LastLoggedRoe = (UseOfForceLevel)(-1);
 	private ImmediateThreatSource m_ThreatSource;
+	private readonly UnitAISearchSession m_SearchSession = new UnitAISearchSession();
+	private bool m_SearchSessionActive;
+	private UnitAISearchCompletionReason m_LastSearchCompletionReason;
+	private UnitAIPriorityEvaluation m_LastPriorityEvaluation;
+	private bool m_LoggedThreatHold;
+	private bool m_HasPendingCommand;
+	private TacticalCommand m_PendingCommand;
+	private readonly EmergencyCoverOverlay m_EmergencyCover = new EmergencyCoverOverlay();
+	private readonly TacticalCoverOverlay m_TacticalCover = new TacticalCoverOverlay();
+	private readonly CoverPeekOverlay m_PeekCover = new CoverPeekOverlay();
+	private readonly TacticalMovementOverlay m_TacticalMovement = new TacticalMovementOverlay();
+	private CoverOccupancyBoard m_CoverOccupancy;
+	private ICoverLeanExecutor m_LeanExecutor;
+	private ICoverLineOfSightProbe m_CoverLos;
+	private ICoverOcclusionProbe m_CoverPeekOcclusion;
+	private UnitHealth m_CoverHealth;
+	private UnitConsciousness m_CoverConsciousness;
+	private bool m_OccupancyReleasedOnIncapacitated;
+	private CoverWeaponClass m_CoverWeapon = CoverWeaponClass.Rifle;
+	private CoverRankClass m_CoverRank = CoverRankClass.Soldier;
+	private readonly List<CoverCandidate> m_RouteCoverScratch = new List<CoverCandidate>(16);
+	private float m_LastHostileVisibleAt = float.NegativeInfinity;
+	private string m_PendingAiTransitionReason;
+	private bool m_WorldBound;
+	private int m_DebugHopLogs;
+	private int m_DebugCoverLogs;
+	private int m_DebugAcquireLogs;
+	private float m_DebugHopLogAt;
+	private float m_DebugAcquireLogAt = -1f;
+	private readonly ReadinessController m_Readiness = new ReadinessController();
+	private readonly ThreatDirectionController m_ThreatDirection = new ThreatDirectionController();
+	private readonly ThreatDirectionFacingController m_ThreatFacing = new ThreatDirectionFacingController();
+	private ThreatDirectionReorientation m_ThreatReorientation;
+	private ThreatDirectionReposition m_ThreatReposition;
+	private bool m_ReadinessBound;
+	private bool m_ThreatDirectionBound;
+	private bool m_ReadinessSawHostile;
+	private bool m_LastArrivalWasAcquired;
+	private UnitWeaponFireController m_FireController;
 	#endregion
 
 	#region Public Properties
@@ -72,6 +121,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			if (!value)
 				m_ThreatSource?.ClearWindow();
 			m_ImmediateThreat = value;
+			m_TacticalMovement.NotifyImmediateThreat(value);
 		}
 	}
 	public ForcePermission LastForcePermission => m_LastForcePermission;
@@ -83,6 +133,58 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	public bool SearchAreaReached => m_SearchAreaReached;
 	public bool TacticalNavigationIssued => m_TacticalNavigationIssued;
 	public bool TacticalDestinationReached => m_TacticalDestinationReached;
+	public UnitAISearchSession SearchSession => m_SearchSessionActive ? m_SearchSession : null;
+	public UnitAISearchCompletionReason LastSearchCompletionReason => m_LastSearchCompletionReason;
+	public UnitAISearchArea CurrentSearchArea => m_SearchSession.Area;
+	public UnitAIPriorityEvaluation LastPriorityEvaluation => m_LastPriorityEvaluation;
+	public bool HasPendingCommand => m_HasPendingCommand;
+	public TacticalCommand PendingCommand => m_PendingCommand;
+	public bool EmergencyCoverActive => m_EmergencyCover.Last.Active;
+	public Vector3 EmergencyCoverDestination => m_EmergencyCover.Last.Destination;
+	public bool HasEmergencyCoverDestination => m_EmergencyCover.Last.HasDestination;
+	public int EmergencyCoverSelectedCandidateId => m_EmergencyCover.Last.SelectedCandidateId;
+	public EmergencyCoverDecision LastEmergencyCoverDecision => m_EmergencyCover.Last;
+	public TacticalCoverDecision LastTacticalCoverDecision => m_TacticalCover.Last;
+	public bool HasTacticalRepositionRequest =>
+		m_TacticalCover.Last.Decision == TacticalCoverDecisionKind.Reposition &&
+		m_TacticalCover.Last.HasDestination;
+	public Vector3 TacticalCoverDestination => m_TacticalCover.Last.Destination;
+	public CoverPeekDecision LastPeekDecision => m_PeekCover.Last;
+	public CoverPeekOverlay PeekCover => m_PeekCover;
+	public TacticalMovementOverlay TacticalMovement => m_TacticalMovement;
+	public TacticalMovementDecision LastTacticalMovement => m_TacticalMovement.Last;
+	public TacticalArrivalDecision LastTacticalArrival => m_TacticalMovement.LastArrival;
+	public TacticalMovingLeanDecision LastMovingLean => m_TacticalMovement.LastMovingLean;
+	public TacticalLodDecision LastLod => m_TacticalMovement.LastLod;
+	public CoverOccupancyBoard CoverOccupancy => m_CoverOccupancy;
+	public int CoverOccupancyUnitId => GetEntityId().GetHashCode();
+	public TacticalWorldProfile WorldProfile => m_WorldProfile;
+	public InfantryTacticalProfile TacticalProfile => m_TacticalProfile;
+	public bool TacticalWorldBound => m_WorldBound;
+	public ReadinessController Readiness => m_Readiness;
+	public ThreatDirectionController ThreatDirection => m_ThreatDirection;
+	public ThreatDirectionFacingController ThreatFacing => m_ThreatFacing;
+	public ThreatDirectionReorientation ThreatReorientation
+	{
+		get
+		{
+			if (m_ThreatReorientation == null)
+				m_ThreatReorientation = new ThreatDirectionReorientation(m_ThreatFacing);
+			return m_ThreatReorientation;
+		}
+	}
+
+	public ThreatDirectionReposition ThreatReposition
+	{
+		get
+		{
+			if (m_ThreatReposition == null)
+				m_ThreatReposition = new ThreatDirectionReposition();
+			return m_ThreatReposition;
+		}
+	}
+
+	public bool ThreatRepositionAllowed => ThreatReposition.AllowsCoverReevaluation;
 
 	public bool SearchHasMoveIntent =>
 		TryGetComponent(out IUnitMoveCommand move) && move.HasMoveIntent;
@@ -121,8 +223,8 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		GUI.Label(new Rect(24f, 304f, 420f, 136f),
 			$"{m_State} / {m_Action} / {CurrentCombatIntent}\n" +
 			$"SearchPos={m_Context.SearchPosition:F1}  liveLastKnown={liveKnownText}\n" +
-			$"conf={liveConf:F2}  radius={m_Context.AreaRadius:F0}  resume={m_Context.ResumeState}\n" +
-			$"search issued={m_SearchNavigationIssued} reached={m_SearchAreaReached}\n" +
+			$"conf={liveConf:F2}  radius={m_Context.AreaRadius:F0}  cue={m_Context.SearchCue}  resume={m_Context.ResumeState}\n" +
+			$"search issued={m_SearchNavigationIssued} reached={m_SearchAreaReached} idx={m_SearchSession.Index} left={m_SearchSession.Remaining}\n" +
 			$"dest={m_Context.Destination:F1} hasDest={m_Context.HasDestination} " +
 			$"issued={m_TacticalNavigationIssued} reached={m_TacticalDestinationReached}\n" +
 			$"intent={SearchHasMoveIntent} reason={CurrentNavigationReason}");
@@ -148,6 +250,24 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		EnsureCombatReadiness();
 		RefreshPerception();
 		ResolveAction();
+		m_TacticalMovement.BindScheduler(TacticalUpdateScheduler.Shared, CoverOccupancyUnitId);
+		TryBindTacticalWorld();
+	}
+
+	public void AssignTacticalProfiles(TacticalWorldProfile _world, InfantryTacticalProfile _tactical)
+	{
+		m_WorldProfile = _world;
+		m_TacticalProfile = _tactical;
+	}
+
+	private void OnDestroy()
+	{
+		ReleaseCoverOccupancy(CoverReservationReason.Death);
+		m_PeekCover.ForceReturn(m_LeanExecutor, CoverPeekReason.PositionChanged, this, Time.time);
+		if (m_CoverHealth != null)
+			m_CoverHealth.Changed -= OnCoverHealthChanged;
+		if (m_CoverConsciousness != null)
+			m_CoverConsciousness.ConsciousnessChanged -= OnCoverConsciousnessChanged;
 	}
 
 	public void Tick(float _dt)
@@ -155,6 +275,16 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		using (InfantryProfilerMarkers.AiTick.Auto())
 		{
 			EnsureStarted();
+			TacticalUpdateScheduler.Shared.BeginTick(Time.frameCount, Time.time);
+			UnitLifeState life = UnitLifeStateMath.Resolve(this);
+			if (!UnitLifeStateMath.AllowsTactical(life))
+			{
+				NotifyLifeState(life);
+				TickReadiness();
+				return;
+			}
+
+			TickCoverOccupancy();
 			if (_dt < 0f)
 				_dt = 0f;
 			m_StateTime += _dt;
@@ -171,6 +301,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	/// <summary>
 	/// Stage 6.1 game entry. Does not bounce through Idle. Does not call Fire, Navigate, or write Vision/RoE.
 	/// Same-type reissue replaces context and re-enters the current handler so navigation restarts.
+	/// #11: priority resolver runs after the transition table; ImmediateThreat is not a command.
 	/// </summary>
 	public TacticalCommandResult IssueCommand(in TacticalCommand _command)
 	{
@@ -183,23 +314,46 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			return TacticalCommandResult.Rejected(reason);
 		}
 
+		if (!UnitLifeStateMath.AllowsTactical(UnitLifeStateMath.Resolve(this)))
+		{
+			LogCommand("rejected", in _command, TacticalCommandRejectReason.UnitUnavailable);
+			return TacticalCommandResult.Rejected(TacticalCommandRejectReason.UnitUnavailable);
+		}
+
 		if (!TryMapIssuedCommand(in _command, out UnitAIState next, out UnitAIStateContext context))
 		{
 			LogCommand("rejected", in _command, TacticalCommandRejectReason.InvalidCommandData);
 			return TacticalCommandResult.Rejected(TacticalCommandRejectReason.InvalidCommandData);
 		}
 
-		if (next == m_State)
+		bool isCancel = _command.Type == TacticalCommandType.Cancel;
+		if (next != m_State && !UnitAITransitionTable.CanTransition(m_State, next))
 		{
-			ChangeState(next, context);
-			LogCommand("accepted", in _command, TacticalCommandRejectReason.None);
-			return TacticalCommandResult.Ok();
-		}
-
-		if (!UnitAITransitionTable.CanTransition(m_State, next))
-		{
+			m_LastPriorityEvaluation = UnitAICommandPriority.Illegal(m_State, next);
+			LogCmdPriority(_command.Type.ToString(), m_LastPriorityEvaluation);
 			LogCommand("rejected", in _command, TacticalCommandRejectReason.InvalidStateTransition);
 			return TacticalCommandResult.Rejected(TacticalCommandRejectReason.InvalidStateTransition);
+		}
+
+		m_LastPriorityEvaluation = UnitAICommandPriority.EvaluateCommand(m_State, next, isCancel);
+		LogCmdPriority(_command.Type.ToString(), m_LastPriorityEvaluation);
+
+		if (m_LastPriorityEvaluation.IsReject)
+		{
+			LogCommand("rejected", in _command, TacticalCommandRejectReason.LowerPriority);
+			return TacticalCommandResult.Rejected(TacticalCommandRejectReason.LowerPriority);
+		}
+
+		ClearPendingCommand();
+		m_PendingAiTransitionReason = "CommandChanged";
+		ReleaseCoverOccupancy(CoverReservationReason.CommandChanged);
+		ReturnPeek(CoverPeekReason.CommandChanged);
+		if (m_State == UnitAIState.Search && next != UnitAIState.Search)
+		{
+			UnitAISearchCompletionReason completion = isCancel
+				? UnitAISearchCompletionReason.Cancelled
+				: UnitAISearchCompletionReason.NewOrder;
+			SetSearchCompletion(completion, false);
 		}
 
 		ChangeState(next, context);
@@ -224,6 +378,12 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			return false;
 		}
 
+		m_LastPriorityEvaluation = UnitAICommandPriority.EvaluateInternal(m_State, _command.State);
+		LogCmdPriority(_command.State.ToString(), m_LastPriorityEvaluation);
+		if (string.IsNullOrEmpty(m_PendingAiTransitionReason))
+			m_PendingAiTransitionReason = "CommandChanged";
+		ReleaseCoverOccupancy(CoverReservationReason.CommandChanged);
+		ReturnPeek(CoverPeekReason.CommandChanged);
 		ChangeState(_command.State, _command.Context);
 		return true;
 	}
@@ -295,9 +455,125 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		EnsureImmediateThreatSource().NotifyHostileAttack(_attacker, _cause);
 	}
 
+	public void BindCoverCache(SharedCoverSpatialCache _cache)
+	{
+		m_EmergencyCover.BindCache(_cache);
+		m_TacticalCover.BindCache(_cache);
+		m_PeekCover.BindCache(_cache);
+	}
+
+	public void BindCoverLos(ICoverLineOfSightProbe _los)
+	{
+		m_CoverLos = _los;
+	}
+
+	public void BindCoverPeekOcclusion(ICoverOcclusionProbe _probe)
+	{
+		m_CoverPeekOcclusion = _probe;
+	}
+
+	public void BindCoverLeanExecutor(ICoverLeanExecutor _executor)
+	{
+		m_LeanExecutor = _executor;
+	}
+
+	public void BindCoverOccupancy(CoverOccupancyBoard _occupancy)
+	{
+		m_CoverOccupancy = _occupancy;
+		m_EmergencyCover.BindOccupancy(_occupancy);
+		m_TacticalCover.BindOccupancy(_occupancy);
+		m_TacticalMovement.BindOccupancy(_occupancy, CoverOccupancyUnitId);
+		if (m_CoverHealth == null)
+			TryGetComponent(out m_CoverHealth);
+		if (m_CoverHealth != null)
+		{
+			m_CoverHealth.Changed -= OnCoverHealthChanged;
+			m_CoverHealth.Changed += OnCoverHealthChanged;
+		}
+
+		if (m_CoverConsciousness == null)
+			TryGetComponent(out m_CoverConsciousness);
+		if (m_CoverConsciousness != null)
+		{
+			m_CoverConsciousness.ConsciousnessChanged -= OnCoverConsciousnessChanged;
+			m_CoverConsciousness.ConsciousnessChanged += OnCoverConsciousnessChanged;
+		}
+
+		UnitLifeState life = UnitLifeStateMath.Resolve(this);
+		if (UnitLifeStateMath.RequiresCoverRelease(life))
+		{
+			m_OccupancyReleasedOnIncapacitated = false;
+			NotifyLifeState(life);
+		}
+	}
+
+	public void BindCoverProfile(CoverWeaponClass _weapon, CoverRankClass _rank)
+	{
+		m_CoverWeapon = _weapon;
+		m_CoverRank = _rank;
+	}
+
+	/// <summary>
+	/// Life is not an AI state. Unconscious / Dead release cover. Overlay does not Move.
+	/// </summary>
+	public void NotifyLifeState(UnitLifeState _state)
+	{
+		if (_state == UnitLifeState.Alive)
+		{
+			m_OccupancyReleasedOnIncapacitated = false;
+			if (m_ReadinessBound)
+				m_Readiness.SetAllowed(true);
+			return;
+		}
+
+		if (m_ReadinessBound)
+			m_Readiness.SetAllowed(false);
+
+		if (m_OccupancyReleasedOnIncapacitated)
+			return;
+
+		m_OccupancyReleasedOnIncapacitated = true;
+		CoverReservationReason reason = _state == UnitLifeState.Dead
+			? CoverReservationReason.Death
+			: CoverReservationReason.Unconscious;
+		ReleaseCoverOccupancy(reason);
+		m_TacticalMovement.ReleaseOccupancyHold();
+		ReturnPeek(CoverPeekReason.PositionChanged);
+	}
+
+	/// <summary>
+	/// #14.1: Destination stays the goal. Current hop comes from selected route. Overlay does not Move.
+	/// Production without <see cref="InfantryTacticalProfile.UseCover"/> still queries Normal (Direct typically wins).
+	/// With UseCover, mode comes from the profile; a #13 RepositionRequest becomes the walk goal without rewriting Attack context.
+	/// 14.5: ImmediateThreat is an edge event, not a per-frame replan.
+	/// 14.6: under-fire reaction may Continue / Replan / EmergencyCover; overlay still does not Move.
+	/// 14.7: navigation Reached is not tactical acquire.
+	/// 14.9: scheduler decides when overlay may re-evaluate; hop still comes from last route.
+	/// </summary>
+	public Vector3 ResolvePointMovementHop(bool _hasDestination, Vector3 _destination)
+	{
+		if (!_hasDestination)
+			return _destination;
+		TryBindTacticalWorld();
+		if (m_CoverOccupancy != null)
+			m_TacticalMovement.BindOccupancy(m_CoverOccupancy, CoverOccupancyUnitId);
+		m_TacticalMovement.NotifyImmediateThreat(m_ImmediateThreat);
+		TacticalLodSituation lodHints = BuildLodHints();
+		m_TacticalMovement.SetLodHints(in lodHints);
+		Vector3 goal = ResolveCoverAwareGoal(_destination);
+		TacticalMovementMode mode = ResolveMovementMode();
+		TacticalRouteSituation situation = BuildRouteSituation(goal, mode);
+		TacticalMovementDecision decision = m_TacticalMovement.Update(in situation, this);
+		Vector3 hop = decision.HasRoute ? decision.CurrentHop : goal;
+		LogHopDebug(goal, mode, hop, in decision);
+		TryCaptureAcquireLive(hop);
+		return hop;
+	}
+
 	internal void SetImmediateThreatFlag(bool _value)
 	{
 		m_ImmediateThreat = _value;
+		m_TacticalMovement.NotifyImmediateThreat(_value);
 	}
 
 	public ForcePermission EvaluateForce(bool _hasContact, PerceivedRelationship _relationship, Transform _target = null)
@@ -334,10 +610,87 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		m_SearchAreaReached = true;
 	}
 
+	public void ClearSearchArrival()
+	{
+		m_SearchAreaReached = false;
+	}
+
 	public void ClearSearchNavigationDebug()
 	{
 		m_SearchNavigationIssued = false;
 		m_SearchAreaReached = false;
+	}
+
+	public void BeginSearchSession()
+	{
+		float now = Time.time;
+		UnitAISearchArea area;
+		if (!UnitAISearchDecision.TryBuildSearchArea(in m_Perception, now, out area))
+		{
+			float radius = m_Context.AreaRadius > 0.01f
+				? m_Context.AreaRadius
+				: UnitAISearchDecision.DefaultAreaRadius;
+			UnitAISearchCue cue = m_Context.SearchCue != UnitAISearchCue.None
+				? m_Context.SearchCue
+				: UnitAISearchCue.VisualMemory;
+			area = new UnitAISearchArea(m_Context.SearchPosition, radius, cue, 1f, now);
+		}
+
+		m_SearchSession.Reset(area);
+		m_SearchSessionActive = true;
+		m_LastSearchCompletionReason = UnitAISearchCompletionReason.None;
+		ISearchReachability reach = UnitAISearchAlwaysReachable.Instance;
+		if (Application.isPlaying &&
+		    NavMesh.SamplePosition(transform.position, out _, 1.5f, NavMesh.AllAreas))
+			reach = UnitAISearchNavMeshReachability.Instance;
+		UnitAISearchPlanner.Build(
+			in area,
+			transform.position,
+			now,
+			reach,
+			m_SearchSession.CandidateBuffer);
+		m_SearchSession.BindBuiltPlan();
+		ApplyCurrentSearchCandidateToContext();
+		LogSearch(
+			"source=" + area.Source +
+			" area=" + UnitActionLog.Vec(area.Center) +
+			" r=" + UnitActionLog.F1(area.Radius) +
+			" candidates=" + m_SearchSession.Candidates.Count);
+		LogSearchCandidate("Active");
+	}
+
+	public bool TryAdvanceSearchCandidate()
+	{
+		if (!m_SearchSessionActive || !m_SearchSession.TryAdvance())
+			return false;
+		ApplyCurrentSearchCandidateToContext();
+		LogSearchCandidate("Active");
+		return true;
+	}
+
+	public void NotifySearchCandidateInspected()
+	{
+		LogSearchCandidate("Checked");
+	}
+
+	public bool TryCompleteSearchBecauseExhausted()
+	{
+		m_PendingAiTransitionReason = "Exhausted";
+		return CompleteSearch(UnitAISearchCompletionReason.Exhausted, false);
+	}
+
+	public void FinishSearchSessionIfOpen()
+	{
+		if (!m_SearchSessionActive)
+			return;
+		if (m_SearchSession.Completion == UnitAISearchCompletionReason.None)
+		{
+			m_SearchSession.SetCompletion(UnitAISearchCompletionReason.Cancelled);
+			m_LastSearchCompletionReason = UnitAISearchCompletionReason.Cancelled;
+			LogSearch("result=Cancelled");
+		}
+
+		m_SearchSessionActive = false;
 	}
 
 	public void NotifyTacticalNavigationIssued()
@@ -348,6 +701,70 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	public void NotifyTacticalDestinationReached()
 	{
 		m_TacticalDestinationReached = true;
+	}
+
+	/// <summary>
+	/// 14.7: NavMesh reached the hop. Tactical acquire / reject is separate.
+	/// Search does not call this. Overlay does not Move and does not change mission.
+	/// </summary>
+	public TacticalArrivalDecision NotifyTacticalArrival()
+	{
+		Vector3 moveDest = m_TacticalMovement.Route != null && m_TacticalMovement.Route.HasDestination
+			? m_TacticalMovement.Route.CurrentHop
+			: transform.position;
+		var sit = new TacticalArrivalSituation
+		{
+			NavigationReached = true,
+			CurrentPosition = transform.position,
+			MoveDestination = moveDest,
+			HasMoveDestination = true,
+			Now = Time.time,
+			UnitId = CoverOccupancyUnitId,
+			Occupancy = m_CoverOccupancy,
+			GeometryVersion = m_CoverOccupancy != null ? m_CoverOccupancy.GeometryVersion : 0,
+			MissionState = m_State,
+			AcquireToleranceMeters = TacticalArrivalMath.DefaultAcquireToleranceMeters
+		};
+		if (TryGetComponent(out NavMeshAgent agent) && agent.enabled)
+		{
+			sit.HasAgentPosition = true;
+			sit.AgentPosition = agent.nextPosition;
+			sit.HasVelocity = true;
+			sit.Velocity = agent.velocity;
+			sit.HasStoppingDistance = true;
+			sit.StoppingDistance = agent.stoppingDistance;
+			sit.HasAgentRadius = true;
+			sit.AgentRadius = agent.radius;
+			if (!agent.isOnNavMesh)
+				sit.PathStatus = "none";
+			else if (agent.pathPending)
+				sit.PathStatus = "pending";
+			else if (!agent.hasPath)
+				sit.PathStatus = "none";
+			else
+				sit.PathStatus = agent.pathStatus.ToString();
+			if (agent.isOnNavMesh && !float.IsPositiveInfinity(agent.remainingDistance))
+			{
+				sit.HasNavRemaining = true;
+				sit.NavRemainingDistance = agent.remainingDistance;
+			}
+		}
+
+		TacticalArrivalDecision decision = m_TacticalMovement.NotifyTacticalArrival(in sit, this);
+		LogAcquireDebug(in sit, in decision);
+		TryCaptureAcquireDebug(in sit, in decision);
+		bool coverApproach =
+			TacticalArrivalMath.IsTransientAcquireMiss(decision.Reason) &&
+			m_TacticalMovement.CurrentHopRequiresCoverAcquire;
+		bool acquired = decision.Result == TacticalArrivalResult.Acquired;
+		if (acquired)
+			m_TacticalDestinationReached = true;
+		else if (decision.Result != TacticalArrivalResult.Traversed && !coverApproach)
+			m_TacticalDestinationReached = true;
+		if (acquired && !m_LastArrivalWasAcquired)
+			NotifyThreatFacing(ThreatDirectionFacingReason.CoverAcquired);
+		m_LastArrivalWasAcquired = acquired;
+		return decision;
 	}
 
 	public void ClearTacticalNavigationDebug()
@@ -409,9 +826,9 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	{
 		EnsureStarted();
 		RefreshPerception();
-		if (!UnitAISearchDecision.TryGetSearchContact(in m_Perception, out AIContactKnowledge contact))
+		if (!UnitAISearchDecision.TryBuildSearchArea(in m_Perception, Time.time, out UnitAISearchArea area))
 			return false;
-		return TryIssue(UnitAICommand.Search(BuildIssuedSearchContext(contact.LastKnownPosition)));
+		return TryIssue(UnitAICommand.Search(BuildIssuedSearchContext(area.Center, area.Source)));
 	}
 
 	public bool SetSearch(Vector3 _point)
@@ -432,6 +849,310 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	#endregion
 
 	#region Private Methods
+	private void TryBindTacticalWorld()
+	{
+		if (m_WorldBound)
+			return;
+		if (IsIsolatedTacticalHarness())
+			return;
+		if (m_WorldProfile == null && (m_TacticalProfile == null || !m_TacticalProfile.UseCover))
+			return;
+		TacticalWorld world = TacticalWorld.Find(m_WorldProfile);
+		if (world == null)
+		{
+			// #region agent log
+			AgentDebugNdjson.Write(
+				"B",
+				"UnitAIController.TryBindTacticalWorld",
+				"no world",
+				"{\"hasWorldProfile\":" + (m_WorldProfile != null ? "true" : "false") + "}");
+			// #endregion
+			return;
+		}
+
+		world.EnsureRuntime();
+		BindCoverCache(world.Cache);
+		if (m_TacticalProfile == null || m_TacticalProfile.AllowCoverReservation)
+			BindCoverOccupancy(world.Occupancy);
+		EnsureCoverPeekBindings();
+		m_WorldBound = true;
+		// #region agent log
+		AgentDebugNdjson.Write(
+			"B",
+			"UnitAIController.TryBindTacticalWorld",
+			"bound",
+			"{\"baked\":" + world.BakedCount +
+			",\"useCover\":" + (m_TacticalProfile != null && m_TacticalProfile.UseCover ? "true" : "false") +
+			",\"mode\":\"" + ResolveMovementMode() + "\"}");
+		// #endregion
+	}
+
+	private static bool IsIsolatedTacticalHarness()
+	{
+		return DetectionHarnessPlayMode.IsCalibrationPlay ||
+		       DetectionHarnessPlayMode.IsGRegressionPlay ||
+		       DetectionHarnessPlayMode.RunTacticalMovement ||
+		       DetectionHarnessPlayMode.RunCoverGeneration ||
+		       DetectionHarnessPlayMode.RunCoverClassification ||
+		       DetectionHarnessPlayMode.RunCoverEvaluation ||
+		       DetectionHarnessPlayMode.RunCoverEmergency ||
+		       DetectionHarnessPlayMode.RunCoverTactical ||
+		       DetectionHarnessPlayMode.RunCoverOccupancy ||
+		       DetectionHarnessPlayMode.RunCoverPeek ||
+		       DetectionHarnessPlayMode.RunCoverIntegration;
+	}
+
+	private bool UsesCover()
+	{
+		return m_TacticalProfile != null && m_TacticalProfile.UseCover && m_WorldBound;
+	}
+
+	private TacticalMovementMode ResolveMovementMode()
+	{
+		if (!UsesCover())
+			return TacticalMovementMode.Normal;
+		return m_TacticalProfile.MovementMode;
+	}
+
+	private Vector3 ResolveCoverAwareGoal(Vector3 _destination)
+	{
+		if (!UsesCover())
+			return _destination;
+		if (m_ImmediateThreat && HasEmergencyCoverDestination)
+			return EmergencyCoverDestination;
+		CoverCandidate reserved = m_TacticalMovement.ReservedCoverCandidate;
+		if (reserved != null)
+			return reserved.Position;
+		if (m_TacticalMovement.CurrentTacticalPosition.Valid)
+			return m_TacticalMovement.CurrentTacticalPosition.Position;
+		if (HasTacticalRepositionRequest)
+			return TacticalCoverDestination;
+		return _destination;
+	}
+
+	private TacticalRouteSituation BuildRouteSituation(Vector3 _goal, TacticalMovementMode _mode)
+	{
+		SharedCoverSpatialCache cache = m_TacticalCover.Cache;
+		FillRouteCovers(cache);
+		int reservedId = m_TacticalMovement.ReservedCoverCandidateId;
+		int finalId = reservedId;
+		if (finalId == 0 && UsesCover())
+		{
+			if (m_ImmediateThreat && HasEmergencyCoverDestination)
+				finalId = EmergencyCoverSelectedCandidateId;
+			else if (HasTacticalRepositionRequest)
+				finalId = m_TacticalCover.Last.SelectedCandidateId;
+		}
+
+		return new TacticalRouteSituation
+		{
+			Origin = transform.position,
+			Destination = _goal,
+			HasDestination = true,
+			Mode = _mode,
+			HasKnownThreat = m_HasHostileVisible || m_ImmediateThreat,
+			WalkSpeedMetersPerSecond = TacticalRouteScoreMath.DefaultWalkSpeed,
+			CoverCache = cache,
+			CoverCandidates = m_RouteCoverScratch,
+			Occupancy = m_CoverOccupancy,
+			OccupancyUnitId = CoverOccupancyUnitId,
+			Now = Time.time,
+			FinalCoverCandidateId = finalId
+		};
+	}
+
+	private void FillRouteCovers(SharedCoverSpatialCache _cache)
+	{
+		m_RouteCoverScratch.Clear();
+		if (_cache != null)
+		{
+			IReadOnlyList<CoverCandidate> nearby = _cache.GetCandidates(transform.position);
+			if (nearby != null)
+			{
+				for (int i = 0; i < nearby.Count; i++)
+				{
+					if (nearby[i] != null)
+						m_RouteCoverScratch.Add(nearby[i]);
+				}
+			}
+		}
+
+		EnsureRouteCover(m_TacticalCover.Last.Selected);
+		EnsureRouteCover(m_TacticalMovement.ReservedCoverCandidate);
+	}
+
+	private void EnsureRouteCover(CoverCandidate _cover)
+	{
+		if (_cover == null)
+			return;
+		for (int i = 0; i < m_RouteCoverScratch.Count; i++)
+		{
+			if (m_RouteCoverScratch[i] != null &&
+			    m_RouteCoverScratch[i].CandidateId == _cover.CandidateId)
+				return;
+		}
+
+		m_RouteCoverScratch.Add(_cover);
+	}
+
+	private void LogHopDebug(
+		Vector3 _goal,
+		TacticalMovementMode _mode,
+		Vector3 _hop,
+		in TacticalMovementDecision _decision)
+	{
+		if (m_DebugHopLogs >= 8 && Time.time - m_DebugHopLogAt < 2f)
+			return;
+		m_DebugHopLogs++;
+		m_DebugHopLogAt = Time.time;
+		string hypo = UsesCover() ? "C" : "C";
+		if (HasTacticalRepositionRequest)
+			hypo = "D";
+		// #region agent log
+		AgentDebugNdjson.Write(
+			hypo,
+			"UnitAIController.ResolvePointMovementHop",
+			"hop",
+			"{\"mode\":\"" + _mode +
+			"\",\"useCover\":" + (UsesCover() ? "true" : "false") +
+			",\"reposition\":" + (HasTacticalRepositionRequest ? "true" : "false") +
+			",\"emergency\":" + (HasEmergencyCoverDestination ? "true" : "false") +
+			",\"kind\":\"" + _decision.Kind +
+			"\",\"goalX\":" + _goal.x.ToString("0.0") +
+			",\"goalZ\":" + _goal.z.ToString("0.0") +
+			",\"hopX\":" + _hop.x.ToString("0.0") +
+			",\"hopZ\":" + _hop.z.ToString("0.0") +
+			",\"coverReason\":\"" + m_TacticalCover.Last.Reason + "\"}");
+		// #endregion
+	}
+
+	private void LogAcquireDebug(in TacticalArrivalSituation _situation, in TacticalArrivalDecision _decision)
+	{
+		bool transient = TacticalArrivalMath.IsTransientAcquireMiss(_decision.Reason);
+		if (transient && m_DebugAcquireLogAt >= 0f && Time.time - m_DebugAcquireLogAt < 0.45f)
+			return;
+		m_DebugAcquireLogs++;
+		m_DebugAcquireLogAt = Time.time;
+		Vector3 acquire = _decision.AcquirePosition;
+		Vector3 dest = _decision.MoveDestination.sqrMagnitude > 0.0001f
+			? _decision.MoveDestination
+			: (_situation.HasMoveDestination ? _situation.MoveDestination : acquire);
+		string rem = _situation.HasNavRemaining
+			? _situation.NavRemainingDistance.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+			: "n/a";
+		string agent = _situation.HasAgentPosition
+			? "{\"x\":" + _situation.AgentPosition.x.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			  ",\"z\":" + _situation.AgentPosition.z.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "}"
+			: "null";
+		// #region agent log
+		AgentDebugNdjson.Write(
+			"E",
+			"UnitAIController.NotifyTacticalArrival",
+			"acquire",
+			"{\"result\":\"" + _decision.Result +
+			"\",\"reason\":\"" + _decision.Reason +
+			"\",\"candidateId\":" + _decision.CandidateId +
+			",\"unitX\":" + _situation.CurrentPosition.x.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"unitZ\":" + _situation.CurrentPosition.z.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"destX\":" + dest.x.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"destZ\":" + dest.z.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"acquireX\":" + acquire.x.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"acquireZ\":" + acquire.z.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"dist\":" + _decision.DistanceMeters.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"tol\":" + TacticalArrivalMath.ResolveTolerance(_situation.AcquireToleranceMeters)
+				.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"remaining\":\"" + rem +
+			"\",\"navRadius\":" + TacticalArrivalMath.ArrivalRadiusForHop(
+				m_TacticalMovement.CurrentHopRequiresCoverAcquire)
+				.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+			",\"agent\":" + agent + "}");
+		// #endregion
+	}
+
+	private void TryCaptureAcquireLive(Vector3 _hop)
+	{
+		if (!TryGetComponent(out TacticalMovementDebugDraw draw))
+			return;
+		TacticalMovementDecision last = m_TacticalMovement.Last;
+		draw.Capture(in last, transform.position);
+		float remaining = -1f;
+		if (TryGetComponent(out NavMeshAgent agent) &&
+		    agent.enabled &&
+		    agent.isOnNavMesh &&
+		    !float.IsPositiveInfinity(agent.remainingDistance))
+			remaining = agent.remainingDistance;
+		int coverId = m_TacticalMovement.LastArrival.CandidateId != 0
+			? m_TacticalMovement.LastArrival.CandidateId
+			: m_TacticalMovement.ReservedCoverCandidateId;
+		Vector3 acquire = _hop;
+		if (m_TacticalMovement.LastArrival.Position.Valid)
+			acquire = m_TacticalMovement.LastArrival.Position.Position;
+		draw.CaptureAcquireLive(
+			_hop,
+			acquire,
+			TacticalArrivalMath.DefaultAcquireToleranceMeters,
+			remaining,
+			coverId,
+			m_TacticalMovement.ReservedCoverCandidateId,
+			m_TacticalMovement.CurrentTacticalPosition.Occupied);
+	}
+
+	private void TryCaptureAcquireDebug(
+		in TacticalArrivalSituation _situation,
+		in TacticalArrivalDecision _decision)
+	{
+		if (!TryGetComponent(out TacticalMovementDebugDraw draw))
+			return;
+		draw.CaptureArrival(in _decision);
+		Vector3 acquire = _decision.AcquirePosition;
+		Vector3 dest = _decision.MoveDestination.sqrMagnitude > 0.0001f
+			? _decision.MoveDestination
+			: (_situation.HasMoveDestination ? _situation.MoveDestination : acquire);
+		draw.CaptureAcquireLive(
+			dest,
+			acquire,
+			TacticalArrivalMath.ResolveTolerance(_situation.AcquireToleranceMeters),
+			_situation.HasNavRemaining ? _situation.NavRemainingDistance : -1f,
+			_decision.CandidateId,
+			m_TacticalMovement.ReservedCoverCandidateId,
+			_decision.Result == TacticalArrivalResult.Acquired ||
+			m_TacticalMovement.CurrentTacticalPosition.Occupied);
+	}
+
+	private TacticalLodSituation BuildLodHints()
+	{
+		bool hasRoute = m_TacticalMovement.Last.HasRoute && !m_TacticalDestinationReached;
+		float playerDistance;
+		bool hasPlayer = TryPlayerDistance(out playerDistance);
+		return new TacticalLodSituation
+		{
+			Now = Time.time,
+			PreviousTier = m_TacticalMovement.LastLod.Tier,
+			Idle = m_State == UnitAIState.Idle || !hasRoute,
+			HasActiveTacticalMovement = hasRoute,
+			UnderFire = m_TacticalMovement.LastUnderFire.Action != TacticalUnderFireAction.None,
+			InCombat = m_HasHostileVisible || m_ImmediateThreat || m_State == UnitAIState.Attack,
+			SeesHostile = m_HasHostileVisible,
+			HasImmediateThreat = m_ImmediateThreat,
+			IncomingFire = m_ImmediateThreat,
+			HasPlayerDistance = hasPlayer,
+			DistanceToPlayerMeters = playerDistance,
+			CurrentlyLeaning = m_TacticalMovement.MovingLeanActive,
+			Arriving = m_TacticalMovement.LastArrival.IsAcquired
+		};
+	}
+
+	private bool TryPlayerDistance(out float _meters)
+	{
+		_meters = 0f;
+		Camera camera = Camera.main;
+		if (camera == null)
+			return false;
+		_meters = Mathf.Sqrt(
+			CoverSpatialMath.PlanarDistanceSqr(transform.position, camera.transform.position));
+		return true;
+	}
+
 	private bool TryValidateIssuedCommand(in TacticalCommand _command, out TacticalCommandRejectReason _reason)
 	{
 		_reason = TacticalCommandRejectReason.None;
@@ -499,12 +1220,43 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 					_command.Position);
 				return true;
 			case TacticalCommandType.Cancel:
+				if (m_State == UnitAIState.Search)
+				{
+					UnitAICommand resume = BuildResumeOrFoundCommand(false);
+					_state = resume.State;
+					_context = resume.Context;
+					return true;
+				}
+
 				_state = UnitAIState.Idle;
 				_context = UnitAIStateContext.Empty;
 				return true;
 			default:
 				return false;
 		}
+	}
+
+	private void LogCmdPriority(string _incoming, in UnitAIPriorityEvaluation _eval)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+
+		string payload =
+			"incoming=" + _incoming +
+			" current=" + _eval.CurrentState +
+			" result=" + _eval.Decision +
+			" reason=" + _eval.Reason +
+			" kind=" + _eval.Kind;
+		UnitActionLog.Write(this, UnitActionLog.CmdPriority, payload);
+		UnitActionLog.Timeline(
+			UnitActionLog.CmdPriority,
+			"actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
+	private void ClearPendingCommand()
+	{
+		m_HasPendingCommand = false;
+		m_PendingCommand = default;
 	}
 
 	private void LogCommand(string _verb, in TacticalCommand _command, TacticalCommandRejectReason _reason)
@@ -573,6 +1325,166 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			gameObject.AddComponent<CombatReadinessController>();
 	}
 
+	private void EnsureReadiness()
+	{
+		if (m_ReadinessBound)
+			return;
+
+		m_Readiness.LogActor = this;
+		m_Readiness.Reset(ReadinessProfile.ForRank(ResolveReadinessRank()), Time.time);
+		m_ReadinessBound = true;
+	}
+
+	private ReadinessRankKind ResolveReadinessRank()
+	{
+		if (TryGetComponent(out UnitCombatStats stats) && stats.RankPreset != null)
+		{
+			int index = UnitCombatRankCycle.GetRankAssetNameIndex(stats.RankPreset);
+			return ReadinessMath.RankFromAssetIndex(index);
+		}
+
+		return ReadinessRankKind.Soldier;
+	}
+
+	private void TickReadiness()
+	{
+		UnitLifeState life = UnitLifeStateMath.Resolve(this);
+		if (!UnitLifeStateMath.AllowsTactical(life))
+		{
+			if (m_ReadinessBound)
+			{
+				m_Readiness.SetAllowed(false);
+				TickReadinessFrozen();
+			}
+
+			return;
+		}
+
+		EnsureReadiness();
+		if (!m_Readiness.Allowed)
+		{
+			TickReadinessFrozen();
+			return;
+		}
+
+		bool previousVisible = m_ReadinessSawHostile;
+		ReadinessFrame frame = ReadinessStimulusMath.FromPerception(
+			in m_Perception,
+			previousVisible,
+			m_ImmediateThreat);
+		frame.Firing = IsFiringForReadiness();
+		m_ReadinessSawHostile = frame.HostileVisible;
+		int readinessChanges = m_Readiness.Context.ChangeCount;
+		m_Readiness.Tick(Time.time, in frame);
+		TickThreatDirection();
+		if (m_Readiness.Context.ChangeCount != readinessChanges)
+			NotifyThreatFacing(ThreatDirectionFacingReason.ReadinessChanged);
+	}
+
+	private void TickReadinessFrozen()
+	{
+		ReadinessFrame frozen = default;
+		frozen.Firing = false;
+		m_Readiness.Tick(Time.time, in frozen);
+		TickThreatDirectionFrozen();
+	}
+
+	private bool IsFiringForReadiness()
+	{
+		if (m_FireController == null)
+			TryGetComponent(out m_FireController);
+		return m_FireController != null && m_FireController.IsFiringCommandActive;
+	}
+
+	private void EnsureThreatDirection()
+	{
+		if (m_ThreatDirectionBound)
+			return;
+
+		m_ThreatDirection.LogActor = this;
+		m_ThreatFacing.LogActor = this;
+		ThreatReorientation.LogActor = this;
+		ThreatReposition.LogActor = this;
+		m_ThreatDirectionBound = true;
+		UnitTeamId team = UnitTeamId.Neutral;
+		if (TryGetComponent(out UnitTeam unitTeam) && unitTeam != null)
+			team = unitTeam.Team;
+		if (ThreatDirectionSpawnQuery.TryGetCenters(team, out Vector3 ownCenter, out Vector3 enemyCenter))
+			m_ThreatDirection.ApplyBattleStart(ownCenter, enemyCenter, Time.time);
+	}
+
+	private void TickThreatDirection()
+	{
+		EnsureThreatDirection();
+		int logCount = m_ThreatDirection.LogCount;
+		m_ThreatDirection.Tick(Time.time, transform.position, in m_Perception);
+		if (m_ThreatDirection.LogCount != logCount ||
+		    (!m_ThreatFacing.HasDesiredFacing && m_ThreatDirection.HasThreatDirection))
+			NotifyThreatFacing(ThreatDirectionFacingReason.ThreatDirectionChanged);
+	}
+
+	private void NotifyThreatFacing(ThreatDirectionFacingReason _reason)
+	{
+		if (!m_ThreatDirection.TryGetThreatDirection(out ThreatDirectionKnowledge knowledge))
+			return;
+		ThreatDirectionReorientationResult result = ThreatReorientation.Observe(
+			in knowledge,
+			ResolveOccupyingCover(),
+			transform.eulerAngles.y,
+			_reason);
+		RefreshThreatReposition(in knowledge, result.AngleDeltaDegrees);
+		if (!result.FacingUpdated)
+			return;
+		if (m_HasHostileVisible)
+			return;
+		if (TryGetComponent(out UnitWeaponReadyHandsLayer readyHands) &&
+		    readyHands.WantsCombatTargetFacing())
+			return;
+		if (TryGetComponent(out UnitClickToMove clickToMove))
+			clickToMove.OverrideFacingAngle = m_ThreatFacing.DesiredYaw;
+		if (TryGetComponent(out UnitNavLocomotionDriver locomotion))
+			locomotion.OverrideFacingAngle = m_ThreatFacing.DesiredYaw;
+	}
+
+	private CoverCandidate ResolveOccupyingCover()
+	{
+		CurrentTacticalPosition position = m_TacticalMovement.CurrentTacticalPosition;
+		if (!position.Valid || !position.Occupied)
+			return null;
+
+		IReadOnlyList<CoverCandidate> candidates = m_TacticalCover.LastCandidates;
+		if (candidates == null)
+			return null;
+
+		for (int i = 0; i < candidates.Count; i++)
+		{
+			CoverCandidate candidate = candidates[i];
+			if (candidate != null && candidate.CandidateId == position.CandidateId)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	private void RefreshThreatReposition(in ThreatDirectionKnowledge _knowledge, float _angleDeltaDegrees)
+	{
+		CoverSituation situation = BuildCoverSituation();
+		ThreatReposition.Evaluate(
+			in _knowledge,
+			ResolveOccupyingCover(),
+			m_TacticalCover.LastCandidates,
+			in situation,
+			_angleDeltaDegrees);
+	}
+
+	private void TickThreatDirectionFrozen()
+	{
+		if (!m_ThreatDirectionBound)
+			return;
+
+		m_ThreatDirection.Tick(Time.time);
+	}
+
 	private void ChangeState(UnitAIState _next, UnitAIStateContext _context)
 	{
 		UnitAIState previous = m_State;
@@ -589,6 +1501,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 		m_Handler.Enter(this, in m_Context);
 		m_Trace.Add("Enter:" + _next);
 		ResolveAction();
+		LogAiTransition(previous, _next);
 		LogAiIfChanged("state", true);
 	}
 
@@ -616,6 +1529,8 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 	private void ResolveAction()
 	{
 		m_HasHostileVisible = UnitAIActionResolver.HasHostileVisible(in m_Perception);
+		if (m_HasHostileVisible)
+			m_LastHostileVisibleAt = Time.time;
 		m_Action = UnitAIActionResolver.Resolve(m_State, in m_Perception);
 		if (m_Action == UnitAIAction.Engage &&
 		    UnitAIActionResolver.TryGetEngageContact(in m_Perception, out AIContactKnowledge knowledge))
@@ -627,6 +1542,7 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			m_EngageTarget = null;
 		}
 
+		TickReadiness();
 		LogAiIfChanged("action", false);
 	}
 
@@ -666,52 +1582,402 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			UnitActionLog.Timeline(UnitActionLog.Ai, "actor=" + UnitActionLog.Slot(this) + " " + payload);
 	}
 
+	private void LogAiTransition(UnitAIState _from, UnitAIState _to)
+	{
+		string reason = m_PendingAiTransitionReason;
+		m_PendingAiTransitionReason = null;
+		if (!UnitActionLog.Enabled || _from == _to)
+			return;
+		bool searchPair = _from == UnitAIState.Search || _to == UnitAIState.Search;
+		if (!searchPair)
+			return;
+		if (string.IsNullOrEmpty(reason))
+			reason = "CommandChanged";
+		string target = "none";
+		if (m_EngageTarget != null)
+			target = UnitActionLog.Slot(m_EngageTarget);
+		else if (UnitAIActionResolver.TryGetEngageContact(in m_Perception, out AIContactKnowledge knowledge) &&
+		         knowledge.Target != null)
+			target = UnitActionLog.Slot(knowledge.Target);
+		string payload =
+			"unit=" + UnitActionLog.Slot(this) +
+			" from=" + _from +
+			" to=" + _to +
+			" reason=" + reason +
+			" target=" + target +
+			" immediateThreat=" + (m_ImmediateThreat ? "1" : "0");
+		UnitActionLog.Write(this, UnitActionLog.AiTransition, payload);
+		UnitActionLog.Timeline(
+			UnitActionLog.AiTransition,
+			"actor=" + UnitActionLog.Slot(this) + " " + payload);
+	}
+
 	private void TryAutonomousTransitions()
 	{
-		if (UnitAISearchDecision.ShouldStartSearch(m_State, in m_Perception))
+		if (m_ImmediateThreat)
+			ApplyImmediateThreatPriority();
+		else
+			m_LoggedThreatHold = false;
+
+		if (UnitAISearchDecision.ShouldStartSearch(
+			    m_State, in m_Perception, Time.time, m_LastHostileVisibleAt))
 		{
 			if (TryBuildSearchCommand(out UnitAICommand search))
+			{
+				m_PendingAiTransitionReason = "LostCurrentTarget";
 				TryApplyCommand(search);
+			}
+
 			return;
 		}
 
 		if (UnitAISearchDecision.ShouldFinishSearchBecauseFound(m_State, in m_Perception))
 		{
-			TryApplyCommand(BuildResumeOrFoundCommand(true));
+			m_PendingAiTransitionReason = "HostileVisible";
+			CompleteSearch(UnitAISearchCompletionReason.Found, true);
+			UpdateEmergencyCover();
+			UpdateTacticalCover();
+			UpdatePeekCover();
 			return;
 		}
 
 		if (UnitAISearchDecision.ShouldFinishSearchBecauseMemoryGone(m_State, in m_Perception))
-			TryApplyCommand(BuildResumeOrFoundCommand(false));
+		{
+			m_PendingAiTransitionReason = "Expired";
+			CompleteSearch(UnitAISearchCompletionReason.Expired, false);
+		}
+
+		UpdateEmergencyCover();
+		UpdateTacticalCover();
+		UpdatePeekCover();
+	}
+
+	private void UpdateEmergencyCover()
+	{
+		CoverSituation situation = BuildCoverSituation();
+		EmergencyCoverDecision decision = m_EmergencyCover.Update(
+			m_ImmediateThreat,
+			m_State,
+			in situation,
+			null,
+			this);
+		TryCaptureEmergencyDebug(in decision);
+	}
+
+	private void UpdateTacticalCover()
+	{
+		CoverSituation situation = BuildCoverSituation();
+		if (m_ThreatDirectionBound &&
+		    m_ThreatDirection.TryGetThreatDirection(out ThreatDirectionKnowledge knowledge))
+		{
+			ThreatReposition.Evaluate(
+				in knowledge,
+				ResolveOccupyingCover(),
+				m_TacticalCover.LastCandidates,
+				in situation,
+				ThreatReorientation.LastAngleDeltaDegrees);
+			situation.ThreatRepositionAllowed = ThreatReposition.AllowsCoverReevaluation;
+		}
+
+		TacticalCoverDecision decision = m_TacticalCover.Update(
+			m_ImmediateThreat,
+			m_State,
+			in situation,
+			null,
+			this);
+		if (m_DebugCoverLogs < 8)
+		{
+			m_DebugCoverLogs++;
+			int candidateCount = m_TacticalCover.LastCandidates != null ? m_TacticalCover.LastCandidates.Count : 0;
+			// #region agent log
+			AgentDebugNdjson.Write(
+				"D",
+				"UnitAIController.UpdateTacticalCover",
+				"cover tick",
+				"{\"state\":\"" + m_State +
+				"\",\"decision\":\"" + decision.Decision +
+				"\",\"reason\":\"" + decision.Reason +
+				"\",\"hasDest\":" + (decision.HasDestination ? "true" : "false") +
+				",\"selectedId\":" + decision.SelectedCandidateId +
+				",\"candidates\":" + candidateCount +
+				",\"hasTarget\":" + (situation.HasTarget ? "true" : "false") +
+				",\"bound\":" + (m_WorldBound ? "true" : "false") + "}");
+			// #endregion
+		}
+		if (!m_ImmediateThreat)
+			TryCaptureTacticalDebug(in decision);
+		TryCaptureOccupancyDebug();
+	}
+
+	private void UpdatePeekCover()
+	{
+		UpdateMovingLean();
+		bool moving = m_TacticalMovement.Last.HasRoute && !m_TacticalDestinationReached;
+		if (m_TacticalMovement.MovingLeanActive || moving)
+			return;
+		EnsureCoverPeekBindings();
+		CoverSituation situation = BuildCoverSituation();
+		IReadOnlyList<CoverCandidate> candidates =
+			m_TacticalCover.LastCandidates ?? m_EmergencyCover.LastCandidates;
+		CoverCandidate occupying = EmergencyCoverOverlay.FindOccupying(candidates, in situation);
+		CoverPeekDecision decision = m_PeekCover.Update(
+			m_State,
+			occupying,
+			in situation,
+			m_CoverLos,
+			m_CoverPeekOcclusion,
+			m_LeanExecutor,
+			Time.time,
+			this);
+		TryCapturePeekDebug(in decision);
+	}
+
+	private void UpdateMovingLean()
+	{
+		EnsureCoverPeekBindings();
+		var sit = new TacticalMovingLeanSituation
+		{
+			Present = true,
+			Moving = m_TacticalMovement.Last.HasRoute && !m_TacticalDestinationReached,
+			ImmediateThreat = m_ImmediateThreat,
+			Arrived = m_TacticalMovement.LastArrival.IsAcquired,
+			Replan = m_TacticalMovement.Last.ReplanAction == TacticalReplanAction.Replace
+		};
+		m_TacticalMovement.NotifyMovingLean(in sit, m_LeanExecutor, this);
+	}
+
+	private void EnsureCoverPeekBindings()
+	{
+		if (m_LeanExecutor == null && TryGetComponent(out UnitSpineLean spine))
+			m_LeanExecutor = new UnitSpineLeanExecutor(spine);
+		if (m_CoverLos == null)
+			m_CoverLos = new PhysicsCoverLosProbe();
+		if (m_CoverPeekOcclusion == null)
+			m_CoverPeekOcclusion = new PhysicsCoverOcclusionProbe();
+	}
+
+	private void ReturnPeek(CoverPeekReason _reason)
+	{
+		EnsureCoverPeekBindings();
+		m_PeekCover.ForceReturn(m_LeanExecutor, _reason, this, Time.time);
+	}
+
+	private void TickCoverOccupancy()
+	{
+		if (m_CoverOccupancy == null)
+			return;
+		m_TacticalMovement.HeartbeatReservation(Time.time, this);
+		if (m_EmergencyCover.Cache != null)
+			m_CoverOccupancy.NotifyGeometryVersion(m_EmergencyCover.Cache.GeometryVersion, Time.time);
+		m_CoverOccupancy.Tick(Time.time);
+		UnitLifeState life = UnitLifeStateMath.Resolve(this);
+		if (UnitLifeStateMath.RequiresCoverRelease(life))
+		{
+			NotifyLifeState(life);
+		}
+	}
+
+	private void ReleaseCoverOccupancy(CoverReservationReason _reason)
+	{
+		if (m_CoverOccupancy != null)
+			m_CoverOccupancy.ReleaseUnit(CoverOccupancyUnitId, Time.time, _reason, this);
+		m_TacticalMovement.ReleaseOccupancyHold();
+	}
+
+	private void OnCoverHealthChanged()
+	{
+		NotifyLifeState(UnitLifeStateMath.Resolve(this));
+	}
+
+	private void OnCoverConsciousnessChanged(bool _isConscious)
+	{
+		NotifyLifeState(UnitLifeStateMath.Resolve(this));
+	}
+
+	private void TryCaptureOccupancyDebug()
+	{
+		if (m_CoverOccupancy == null || !TryGetComponent(out CoverCandidateDebugDraw debug))
+			return;
+		IReadOnlyList<CoverCandidate> candidates = m_TacticalCover.LastCandidates ?? m_EmergencyCover.LastCandidates;
+		debug.CaptureOccupancy(candidates, m_CoverOccupancy, Time.time);
+	}
+
+	private CoverSituation BuildCoverSituation()
+	{
+		Vector3 unit = transform.position;
+		Vector3 target = unit;
+		bool hasTarget = false;
+		Vector3 hostile = transform.forward;
+		if (m_ThreatSource != null && m_ThreatSource.LastAttacker != null)
+		{
+			target = m_ThreatSource.LastAttacker.position;
+			hasTarget = true;
+			hostile = target - unit;
+		}
+		else if (m_EngageTarget != null)
+		{
+			target = m_EngageTarget.position;
+			hasTarget = true;
+			hostile = target - unit;
+		}
+
+		hostile.y = 0f;
+		if (hostile.sqrMagnitude < 0.0001f)
+			hostile = transform.forward;
+
+		CoverMissionIntent mission = CoverMissionIntent.Hold;
+		if (m_State == UnitAIState.Attack)
+			mission = CoverMissionIntent.Attack;
+		else if (m_State == UnitAIState.Defense)
+			mission = CoverMissionIntent.Defense;
+
+		var situation = new CoverSituation
+		{
+			UnitPosition = unit,
+			Stance = CoverStance.Standing,
+			Mission = mission,
+			Weapon = m_CoverWeapon,
+			Rank = m_CoverRank,
+			TargetPosition = target,
+			HasTarget = hasTarget,
+			SectorForward = transform.forward,
+			HostileDirection = hostile,
+			UnitId = CoverOccupancyUnitId,
+			OccupancyVersion = m_CoverOccupancy != null ? m_CoverOccupancy.OccupancyVersion : 0
+		};
+		if (m_ThreatDirectionBound &&
+		    m_ThreatDirection.TryGetThreatDirection(out ThreatDirectionKnowledge knowledge))
+			ThreatDirectionCoverMath.Bind(ref situation, in knowledge);
+		return situation;
+	}
+
+	private void TryCaptureEmergencyDebug(in EmergencyCoverDecision _decision)
+	{
+		if (!TryGetComponent(out CoverCandidateDebugDraw debug))
+			return;
+		Bounds bounds = new Bounds(transform.position, Vector3.one * CoverSpatialMath.DefaultRegionSizeMeters);
+		if (m_EmergencyCover.Cache != null)
+		{
+			CoverRegionId region = m_EmergencyCover.Cache.RegionAt(transform.position);
+			bounds = CoverSpatialMath.RegionBounds(region, m_EmergencyCover.Cache.RegionSizeMeters);
+		}
+
+		debug.CaptureEmergency(
+			bounds,
+			m_EmergencyCover.LastCandidates,
+			_decision.Evaluations,
+			_decision.Result,
+			_decision.SelectedCandidateId,
+			_decision.FromCache,
+			_decision.Active);
+	}
+
+	private void TryCaptureTacticalDebug(in TacticalCoverDecision _decision)
+	{
+		if (!TryGetComponent(out CoverCandidateDebugDraw debug))
+			return;
+		Bounds bounds = new Bounds(transform.position, Vector3.one * CoverSpatialMath.DefaultRegionSizeMeters);
+		if (m_TacticalCover.Cache != null)
+		{
+			CoverRegionId region = m_TacticalCover.Cache.RegionAt(transform.position);
+			bounds = CoverSpatialMath.RegionBounds(region, m_TacticalCover.Cache.RegionSizeMeters);
+		}
+
+		debug.CaptureTactical(
+			bounds,
+			m_TacticalCover.LastCandidates,
+			_decision.Evaluations,
+			_decision.CurrentCandidateId,
+			_decision.BestCandidateId,
+			_decision.CurrentScore,
+			_decision.BestScore,
+			_decision.SwitchingCost,
+			_decision.Decision,
+			_decision.FromCache);
+	}
+
+	private void TryCapturePeekDebug(in CoverPeekDecision _decision)
+	{
+		if (!TryGetComponent(out CoverCandidateDebugDraw debug))
+			return;
+		debug.CapturePeek(in _decision);
+	}
+
+	private void ApplyImmediateThreatPriority()
+	{
+		m_LastPriorityEvaluation = UnitAICommandPriority.EvaluateImmediateThreat(m_State);
+		bool logHold = m_LastPriorityEvaluation.Decision == UnitAIPriorityDecision.HoldState && !m_LoggedThreatHold;
+		bool logInterrupt = m_LastPriorityEvaluation.Decision == UnitAIPriorityDecision.Interrupt;
+		if (logHold || logInterrupt)
+		{
+			LogCmdPriority("ImmediateThreat", m_LastPriorityEvaluation);
+			if (logHold)
+				m_LoggedThreatHold = true;
+		}
+	}
+
+	private bool CompleteSearch(UnitAISearchCompletionReason _reason, bool _found)
+	{
+		if (m_State != UnitAIState.Search)
+			return false;
+		SetSearchCompletion(_reason, _found);
+		return TryApplyCommand(BuildResumeOrFoundCommand(_found));
+	}
+
+	private void SetSearchCompletion(UnitAISearchCompletionReason _reason, bool _found)
+	{
+		if (m_SearchSessionActive)
+			m_SearchSession.SetCompletion(_reason);
+		m_LastSearchCompletionReason = _reason;
+		string target = string.Empty;
+		if (_found && m_EngageTarget != null)
+			target = " target=" + UnitActionLog.Slot(m_EngageTarget);
+		LogSearch("result=" + _reason + target);
+	}
+
+	private void ApplyCurrentSearchCandidateToContext()
+	{
+		UnitAIStateContext ctx = m_Context;
+		ctx.SearchPosition = m_SearchSession.CurrentPosition;
+		ctx.AreaCenter = m_SearchSession.Area.Center;
+		ctx.AreaRadius = m_SearchSession.Area.Radius;
+		ctx.SearchCue = m_SearchSession.Area.Source;
+		m_Context = ctx;
+	}
+
+	private void LogSearch(string _payload)
+	{
+		if (!UnitActionLog.Enabled)
+			return;
+		UnitActionLog.Write(this, UnitActionLog.Search, _payload);
+		UnitActionLog.Timeline(
+			UnitActionLog.Search,
+			"actor=" + UnitActionLog.Slot(this) + " " + _payload);
+	}
+
+	private void LogSearchCandidate(string _state)
+	{
+		LogSearch(
+			"candidate=" + m_SearchSession.Index +
+			" pos=" + UnitActionLog.Vec(m_SearchSession.CurrentPosition) +
+			" score=" + UnitActionLog.F1(m_SearchSession.CurrentScore) +
+			" remaining=" + m_SearchSession.Remaining +
+			" state=" + _state);
 	}
 
 	private bool TryBuildSearchCommand(out UnitAICommand _command)
 	{
 		_command = default;
-		Vector3 searchPosition;
-		UnitAISearchCue cue;
-		if (UnitAISearchDecision.TryGetSearchContact(in m_Perception, out AIContactKnowledge contact))
-		{
-			searchPosition = contact.LastKnownPosition;
-			cue = UnitAISearchCue.VisualMemory;
-		}
-		else if (UnitAISearchDecision.TryGetSearchSound(in m_Perception, out AISoundContact sound))
-		{
-			searchPosition = sound.Position;
-			cue = UnitAISearchCue.Sound;
-		}
-		else
-		{
+		if (!UnitAISearchDecision.TryBuildSearchArea(in m_Perception, Time.time, out UnitAISearchArea area))
 			return false;
-		}
 
 		Vector3 origin = m_State == UnitAIState.Defense ? m_Context.AnchorPosition : m_Context.Destination;
 		UnitAIStateContext ctx = UnitAIStateContext.ForSearch(
 			origin,
-			searchPosition,
+			area.Center,
 			UnitAISearchDecision.DefaultAreaRadius,
 			m_State,
-			cue);
+			area.Source);
 		ctx.Facing = m_Context.Facing;
 		ctx.AnchorPosition = m_State == UnitAIState.Defense ? m_Context.AnchorPosition : origin;
 		ctx.Destination = m_Context.Destination;
@@ -787,10 +2053,15 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 
 	private UnitAIStateContext BuildIssuedSearchContext(Vector3 _searchPosition)
 	{
+		return BuildIssuedSearchContext(_searchPosition, UnitAISearchCue.VisualMemory);
+	}
+
+	private UnitAIStateContext BuildIssuedSearchContext(Vector3 _searchPosition, UnitAISearchCue _cue)
+	{
 		EnsureStarted();
-		UnitAIState resume = UnitAIState.Attack;
-		if (m_State == UnitAIState.Defense)
-			resume = UnitAIState.Defense;
+		UnitAIState resume = UnitAIState.Idle;
+		if (m_State == UnitAIState.Attack || m_State == UnitAIState.Defense)
+			resume = m_State;
 		else if (m_State == UnitAIState.Search && m_Context.ResumeState != UnitAIState.Idle)
 			resume = m_Context.ResumeState;
 
@@ -806,7 +2077,8 @@ public sealed class UnitAIController : MonoBehaviour, ICombatIntentSource, IUnit
 			origin,
 			_searchPosition,
 			UnitAISearchDecision.DefaultAreaRadius,
-			resume);
+			resume,
+			_cue);
 		ctx.Facing = m_Context.Facing;
 		ctx.AnchorPosition = resume == UnitAIState.Defense ? origin : m_Context.AnchorPosition;
 		ctx.Destination = m_Context.Destination;

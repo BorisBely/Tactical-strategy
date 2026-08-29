@@ -8,6 +8,7 @@ using UnityEngine.Serialization;
 /// Does not write equipped weapon local TRS — BASE is <see cref="UnitEquippedWeaponPose"/>.
 /// NotReady and NotReadyPatrol are peaceful carry flags (Ctrl+E), not WeaponPoseMode values.
 /// E cycles LowReady → HighReady → PreAim → Aiming → PointAim. Ctrl+E cycles NotReady ↔ NotReadyPatrol.
+	/// Patrol wanted stay: walk/run/sprint uses NotReady hands; idle uses NotReadyPatrol.
 /// Run/sprint: non-combat stays; HipFire → NotReady; combat → HighReady; then restore wanted mode.
 /// Turn >90°: NotReady/Patrol stay; LowReady/PreAim → LowReady; PointAim/Aiming/HighReady → HighReady; HipFire → NotReady.
 /// Animator bool <c>WeaponReady</c> picks locomotion clips (Jog_Aim vs Run_F), not the pose slot.
@@ -259,6 +260,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	public void SetPeacefulCarryPose(WeaponPoseState _pose)
 	{
 		if (!_pose.IsPeacefulCarryPose())
+			return;
+		if (m_IsPeacefulNotReady && m_PeacefulCarryPose == _pose)
 			return;
 		ApplyPeacefulCarry(_pose);
 	}
@@ -792,7 +795,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		m_PeacefulCarryPose = _pose;
 		m_WantedMode = WeaponPoseMode.LowReady;
 		WeaponPoseState previous = m_EffectivePose;
-		m_EffectivePose = _pose;
+		m_EffectivePose = ResolvePeacefulCarryHoldPose();
 		if (previous != m_EffectivePose)
 		{
 			PlayPoseEnterSoundIfNeeded(previous, m_EffectivePose);
@@ -889,9 +892,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 		if (m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
 			return WeaponPoseState.Aiming;
 		if (m_IsPeacefulNotReady)
-			return m_PeacefulCarryPose.IsPeacefulCarryPose()
-				? m_PeacefulCarryPose
-				: WeaponPoseState.NotReady;
+			return ResolvePeacefulCarryHoldPose();
 		if (m_ProximityBlocksReady)
 			return WeaponPoseState.HighReady;
 		return m_EffectivePose;
@@ -901,7 +902,7 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	{
 		WeaponPoseState previous = m_EffectivePose;
 		m_EffectivePose = m_IsPeacefulNotReady
-			? (m_PeacefulCarryPose.IsPeacefulCarryPose() ? m_PeacefulCarryPose : WeaponPoseState.NotReady)
+			? ResolvePeacefulCarryHoldPose()
 			: ComputePoseFromWantedMode(m_WantedMode);
 		if (_forceNotify || previous != m_EffectivePose)
 		{
@@ -940,6 +941,33 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 			default:
 				return WeaponPoseState.LowReady;
 		}
+	}
+
+	private WeaponPoseState ResolvePeacefulCarryHoldPose()
+	{
+		WeaponPoseState carry = m_PeacefulCarryPose.IsPeacefulCarryPose()
+			? m_PeacefulCarryPose
+			: WeaponPoseState.NotReady;
+		if (carry != WeaponPoseState.NotReadyPatrol)
+			return carry;
+		return ShouldUseNotReadyHoldWhilePatrolMoving()
+			? WeaponPoseState.NotReady
+			: WeaponPoseState.NotReadyPatrol;
+	}
+
+	/// <summary>
+	/// Patrol idle keeps HoldNotReadyPatrol. On the move the body already plays Walk_F,
+	/// so hands switch to the NotReady slot. Tuner always shows the selected peaceful slot.
+	/// </summary>
+	private bool ShouldUseNotReadyHoldWhilePatrolMoving()
+	{
+		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+			return false;
+		if (m_Animator != null && m_Animator.GetInteger(s_Stance) == (int)LocomotionStance.Prone)
+			return false;
+		if (IsFastMoveModeNow())
+			return true;
+		return m_Animator != null && m_Animator.GetFloat(s_NavSpeed) >= 0.055f;
 	}
 
 	private WeaponPoseState ResolveHipFireHoldPose()
@@ -1251,6 +1279,8 @@ public sealed class UnitWeaponReadyHandsLayer : MonoBehaviour
 	private static bool IsSilentPreAimAimingBlend(WeaponPoseState _from, WeaponPoseState _to)
 	{
 		if (_from.IsHipFireHold() && _to.IsHipFireHold())
+			return true;
+		if (_from.IsPeacefulCarryPose() && _to.IsPeacefulCarryPose())
 			return true;
 		return (_from == WeaponPoseState.PreAim && _to == WeaponPoseState.Aiming)
 			|| (_from == WeaponPoseState.Aiming && _to == WeaponPoseState.PreAim);

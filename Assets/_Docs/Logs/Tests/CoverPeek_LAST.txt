@@ -1,0 +1,35 @@
+﻿STAGE 13.7 — LEAN / PEEK INTEGRATION
+====================================
+stamp=2026-08-27 09:51:02
+Stationary peek. Existing UnitSpineLean. Not Fire. Moving-lean contract only.
+---
+[S1] Target visible without lean → No Lean
+PASS S1_NoLean
+PASS S1_NoExecutor
+[S2] Corner hidden → lean reveals → Lean request
+PASS S2_Lean
+PASS S2_Request
+[S3] Small sufficient → not Deep
+PASS S3_Small
+[S4] Deep required
+PASS S4_Deep
+[S5] Wrong side → Right
+PASS S5_Right
+[S6] Lean → enemy gone → Return
+PASS S6_Return
+PASS S6_Neutral
+[S7] Existing spine lean + no Fire pipeline
+PASS S7_SpineLevel
+PASS S7_OneSpine
+PASS S7_NoFire
+PASS S7_OverlaySelected
+[S8] 20 units / 1 shared generation / 20 lean evals
+PASS S8_GenerationOnce
+PASS S8_TwentyEvals
+[S9] Event-driven: same key does not reevaluate 6 poses
+PASS S9_OneEval
+PASS S9_FromCache
+[S10] Moving-lean contract only (no policy)
+PASS S10_Contract
+---
+RESULT=PASS pass=18 fail=0

@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class WeaponRangeContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Weapon Range Contract (Play)", false, 27)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Weapon Range Contract (Play)", false, 169)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

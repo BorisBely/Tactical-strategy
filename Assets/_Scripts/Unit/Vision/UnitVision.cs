@@ -479,6 +479,9 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void Update()
 	{
+		if (!UnitLifeStateMath.AllowsPerception(UnitLifeStateMath.Resolve(this)))
+			return;
+
 		if (m_Registry == null || m_Team == null)
 			return;
 
@@ -510,6 +513,9 @@ public sealed class UnitVision : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		if (!UnitLifeStateMath.AllowsPerception(UnitLifeStateMath.Resolve(this)))
+			return;
+
 		if (Application.isPlaying)
 			CompleteGrantedDetailIfNeeded();
 

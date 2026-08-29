@@ -70,6 +70,10 @@ HUD на `UnitAIController` (Search): State, Action, Intent, SearchPosition, liv
 
 Прочёс, сектора, кручение на месте, экстраполяция, запись LastKnown, aim/Fire в LastKnown, укрытия, flanking, групповой Search, Defense якорь, AI на `Unit.prefab`, ретюн 0.25 / 15 м / IdentifyTime / G6 / CombatIntent math.
 
+## Расширение
+
+Decision этого слоя **FROZEN**. Исполнение расширено **#10 Search 2.0**: `Search_2.md` (область + кандидаты + Inspect). 15 м остаётся радиусом области; arrival кандидата — 1.5 м. Не открывать слой decision заново.
+
 ## Дальше
 
-Слой Search decision не открывать. Attack / Retreat / Flee locomotion — **FROZEN**: `Tactical_Navigation_Execution.md`. Дальше — `Tactical_AI_Roadmap.md` (#6 commands). Не Block D.
+Attack / Retreat / Flee locomotion — **FROZEN**: `Tactical_Navigation_Execution.md`. #10 Search 2.0 — **FROZEN**: `Search_2.md`. #11 — `Command_Priority.md` (**FROZEN**). Не Block D.

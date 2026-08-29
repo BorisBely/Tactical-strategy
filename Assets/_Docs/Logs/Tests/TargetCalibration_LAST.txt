@@ -1,0 +1,54 @@
+﻿STAGE 12 — TARGET + FIRE CALIBRATION
+====================================
+stamp=2026-08-26 14:24:19
+Selection ≠ Fire. Hysteresis. AI/Combat mismatch is diagnostic.
+---
+[S0] Baseline 10 contacts (snapshot, determinism)
+selected=BL_01 runnerUp=BL_06 score=12,14 engageable=1 G6=Fire switch=0
+  BL_01 obs=Observed threat=None id=Unknown selected=1
+  BL_02 obs=Observed threat=None id=Unknown selected=0
+  BL_03 obs=Observed threat=None id=Unknown selected=0
+  BL_04 obs=Observed threat=None id=Unknown selected=0
+  BL_05 obs=Observed threat=None id=Unknown selected=0
+  BL_06 obs=Observed threat=None id=Unknown selected=0
+  BL_07 obs=Observed threat=None id=Unknown selected=0
+  BL_08 obs=Observed threat=None id=Unknown selected=0
+  BL_09 obs=Observed threat=None id=Unknown selected=0
+  BL_10 obs=Observed threat=None id=Unknown selected=0
+PASS S0_Deterministic
+PASS S0_HasSelected
+[SA] E1 visible alone → selected
+PASS SA_E1
+[SB] E2 slightly closer → remain E1
+PASS SB_HoldE1
+PASS SB_Hysteresis
+[SC] E2 High Hostile → switch E2
+PASS SC_SwitchE2
+PASS SC_HigherScore
+PASS SC_Switched
+[SD] E2 loses LOS → remain selected, Track
+PASS SD_RemainE2
+PASS SD_NotEngageable
+PASS SD_Track
+[SE] E2 forgotten, E3 visible → E3
+PASS SE_E3
+[SG] Golden: hold / switch / track / no oscillation
+PASS SG_A
+PASS SG_Hold
+PASS SG_SwitchB
+PASS SG_RemainB
+PASS SG_NotEngageable
+PASS SG_Track
+PASS SG_NoOscillation
+[SH] Friendly never selected; Unknown may be
+PASS SH_Friendly
+PASS SH_Unknown
+[SJ] AI/Combat mismatch is diagnostic, not merged
+PASS SJ_Mismatch
+PASS SJ_Reason
+PASS SJ_CombatKept
+PASS SJ_AiKept
+[SF] High Threat + no LOS ≠ Fire
+PASS SF_Track
+---
+RESULT=PASS pass=26 fail=0

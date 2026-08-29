@@ -12,25 +12,25 @@ public static class WeaponBalanceReportEditor
 {
 	#region Constants
 	private const string c_WeaponFolder = "Assets/GameData/Shooting";
-	private const string c_MenuSmoke = "Tools/Tests/Run Weapon Balance Matrix (Smoke)";
-	private const string c_MenuReference = "Tools/Tests/Run Weapon Balance Matrix (Reference)";
-	private const string c_MenuAttachments = "Tools/Tests/Run Weapon Balance Matrix (Attachments)";
+	private const string c_MenuSmoke = "Tools/Tests/Archive/Weapon/Run Weapon Balance Matrix (Smoke)";
+	private const string c_MenuReference = "Tools/Tests/Archive/Weapon/Run Weapon Balance Matrix (Reference)";
+	private const string c_MenuAttachments = "Tools/Tests/Archive/Weapon/Run Weapon Balance Matrix (Attachments)";
 	#endregion
 
 	#region Menu
-	[MenuItem(c_MenuSmoke, false, 30)]
+	[MenuItem(c_MenuSmoke, false, 180)]
 	public static void RunSmokeFromMenu()
 	{
 		RunPreset(WeaponBalanceRunConfig.CreateSmokePreset(), "Smoke");
 	}
 
-	[MenuItem(c_MenuReference, false, 31)]
+	[MenuItem(c_MenuReference, false, 181)]
 	public static void RunReferenceFromMenu()
 	{
 		RunPreset(WeaponBalanceRunConfig.CreateReferencePreset(), "Reference");
 	}
 
-	[MenuItem(c_MenuAttachments, false, 32)]
+	[MenuItem(c_MenuAttachments, false, 182)]
 	public static void RunAttachmentsFromMenu()
 	{
 		RunPreset(WeaponBalanceRunConfig.CreateAttachmentsPreset(), "Attachments");

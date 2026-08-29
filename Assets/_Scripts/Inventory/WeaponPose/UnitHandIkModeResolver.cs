@@ -1,6 +1,7 @@
 /// <summary>
 /// Single source of truth for infantry hand-IK mode. Not a MonoBehaviour.
 /// Does not write transforms, aim, or recoil.
+/// Standing NotReady/Patrol walk: left stays full grip hold, right follows Walk_F.
 /// </summary>
 public static class UnitHandIkModeResolver
 {
@@ -20,6 +21,8 @@ public static class UnitHandIkModeResolver
 		public bool StanceBlending;
 		public bool StanceBusy;
 		public bool Running;
+		public bool Walking;
+		public bool PeacefulCarry;
 		public bool Reacquiring;
 	}
 
@@ -71,7 +74,31 @@ public static class UnitHandIkModeResolver
 			};
 		}
 
-		if (_query.PoseBlending || _query.StanceBlending || _query.StanceBusy || _query.Reacquiring)
+		if (_query.PoseBlending || _query.StanceBlending || _query.StanceBusy)
+		{
+			return new Result
+			{
+				Mode = HandIkMode.Transition,
+				LeftIntent = HandIkIntent.WeaponHold,
+				RightIntent = HandIkIntent.WeaponHold,
+				LeftWeightTarget = holdLeft,
+				RightWeightTarget = holdRight
+			};
+		}
+
+		if (_query.Walking && _query.PeacefulCarry)
+		{
+			return new Result
+			{
+				Mode = HandIkMode.SoftHold,
+				LeftIntent = HandIkIntent.WeaponHold,
+				RightIntent = HandIkIntent.MovementRelaxation,
+				LeftWeightTarget = 1f,
+				RightWeightTarget = 0f
+			};
+		}
+
+		if (_query.Reacquiring)
 		{
 			return new Result
 			{

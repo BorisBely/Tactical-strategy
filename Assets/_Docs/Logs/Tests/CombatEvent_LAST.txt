@@ -1,10 +1,10 @@
 ﻿STAGE 8 — COMBAT EVENT WORLD
 ============================
-stamp=2026-08-25 22:25:17
+stamp=2026-08-26 22:02:36
 CombatEvent = world fact. event ≠ knowledge. Impact/Death ≠ ImmediateThreat.
 ---
 PASS Log_Enabled | UnitActionLog session off in Editor Play
-PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260825_222515
+PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260826_220234
 [E2] WorldSoundHub does not publish CombatEvent
 PASS E2_SoundNotCombatEvent | count=0
 [E1] Gunshot fact delivers; contacts stay empty; WorldSound delivery unchanged

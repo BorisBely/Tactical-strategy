@@ -1,0 +1,29 @@
+﻿STAGE 11 — COMMAND PRIORITY
+===========================
+stamp=2026-08-26 22:02:37
+Command / interrupt / cancel. ImmediateThreat ≠ Flee.
+---
+[S1] Search → player Attack cancels Search
+PASS S1_Search
+PASS S1_Attack
+PASS S1_NewOrder
+PASS S1_Dest
+PASS S1_NoResumeSearch
+[S2] Attack → Retreat command, nav replaced
+PASS S2_Retreat
+PASS S2_Reason
+PASS S2_Stop
+PASS S2_Dest
+[S3] Search → ImmediateThreat interrupts to ReturnState, not Flee
+PASS S3_Search
+PASS S3_ReturnAttack
+PASS S3_NotFlee
+PASS S3_Threat
+[S4] Attack A → Attack B keeps Attack, new context
+PASS S4_State
+PASS S4_Dest
+PASS S4_TargetB
+PASS S4_NoIdleBounce
+PASS S4_Replace
+---
+RESULT=PASS pass=18 fail=0

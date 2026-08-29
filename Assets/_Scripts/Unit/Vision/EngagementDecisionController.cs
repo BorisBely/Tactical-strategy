@@ -30,6 +30,7 @@ public sealed class EngagementDecisionController : MonoBehaviour
 	private CombatIntent m_LastCombatIntent;
 	private bool m_CombatIntentGateApplied;
 	private bool m_EngageTargetMismatch;
+	private string m_EngageTargetMismatchReason = string.Empty;
 	private EngagementDecision m_LastLoggedRaw;
 	private EngagementDecision m_LastLoggedFinal;
 	private CombatIntent m_LastLoggedIntent;
@@ -51,6 +52,7 @@ public sealed class EngagementDecisionController : MonoBehaviour
 	public CombatIntent LastCombatIntent => m_LastCombatIntent;
 	public bool CombatIntentGateApplied => m_CombatIntentGateApplied;
 	public bool EngageTargetMismatch => m_EngageTargetMismatch;
+	public string EngageTargetMismatchReason => m_EngageTargetMismatchReason;
 	#endregion
 
 	#region Unity Lifecycle
@@ -109,6 +111,8 @@ public sealed class EngagementDecisionController : MonoBehaviour
 
 	private void RefreshDecision()
 	{
+		if (!UnitLifeStateMath.AllowsCombatDecision(UnitLifeStateMath.Resolve(this)))
+			return;
 		BindCombatRefs();
 		EngagementDecision g6 = m_Policy.Evaluate(BuildContext());
 		m_ForceGateApplied = TryResolveAi();
@@ -190,9 +194,8 @@ public sealed class EngagementDecisionController : MonoBehaviour
 
 		Transform aiTarget = m_Ai != null ? m_Ai.CurrentEngageTarget : null;
 		Transform combatTarget = m_TargetSelector != null ? m_TargetSelector.SelectedTarget : null;
-		m_EngageTargetMismatch = aiTarget != null &&
-		                        combatTarget != null &&
-		                        !ReferenceEquals(aiTarget, combatTarget);
+		m_EngageTargetMismatch = TargetCombatMismatch.IsMismatch(aiTarget, combatTarget);
+		m_EngageTargetMismatchReason = TargetCombatMismatch.Describe(aiTarget, combatTarget);
 	}
 
 	private EngagementDecisionContext BuildContext()
@@ -266,6 +269,8 @@ public sealed class EngagementDecisionController : MonoBehaviour
 			" roe=" + roe +
 			" intent=" + intent +
 			" mismatch=" + (m_EngageTargetMismatch ? "1" : "0");
+		if (m_EngageTargetMismatch)
+			payload += " mismatchReason=AiHostileVisibleMaxThreat_vs_G5Hysteresis";
 		UnitActionLog.Write(this, UnitActionLog.G6, payload);
 		UnitActionLog.Timeline(UnitActionLog.G6, "actor=" + UnitActionLog.Slot(this) + " " + payload);
 	}

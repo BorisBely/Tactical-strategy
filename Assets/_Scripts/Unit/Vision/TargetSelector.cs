@@ -4,9 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Chooses a combat target from observer-local <see cref="PerceivedContact"/> knowledge (G5).
-/// Owns: eligibility/priority, ForcedPriority, LoF suppress, reload/malfunction retain, selected velocity.
+/// Owns: eligibility/priority, hysteresis, ForcedPriority, LoF suppress, reload/malfunction retain, selected velocity.
 /// Candidate list is <see cref="IPerceivedContactRegistry"/> — not <see cref="UnitPerception.Observations"/>.
-/// LastKnown is never a fire aim point. Selected ≠ Engageable ≠ Fire.
+/// LastKnown is never a fire aim point. Selected ≠ Engageable ≠ Fire. High Threat ≠ Fire.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(20)]
@@ -42,6 +42,9 @@ public sealed class TargetSelector : MonoBehaviour
 	[SerializeField, Min(0f)] private float m_DistanceWeight = 1f;
 	[SerializeField, Min(0f)] private float m_StalePenalty = 3f;
 	[SerializeField, Min(0f)] private float m_HostileBonus = 0.5f;
+	[SerializeField, Min(0f)] private float m_SwitchThreshold = TargetSwitchMath.DefaultSwitchThreshold;
+	[SerializeField, Min(0f)] private float m_WeaponSuitabilityWeight = TargetSelectionMath.DefaultWeaponSuitabilityWeight;
+	[SerializeField, Min(0f)] private float m_MissionBonus = TargetSelectionMath.DefaultMissionBonus;
 
 	[Header("Physics / retain LOS")]
 	[SerializeField] private LayerMask m_LayerMask = ~0;
@@ -81,8 +84,23 @@ public sealed class TargetSelector : MonoBehaviour
 	private float m_LastAimPointUpdateTime;
 	private Transform m_LastLoggedSelected;
 	private float m_LastLoggedScore = float.MinValue;
+	private TargetSwitchReason m_LastLoggedSwitchReason;
+	private Transform m_LastLoggedRunnerUp;
 	private readonly System.Text.StringBuilder m_SelectLogScratch = new System.Text.StringBuilder(256);
+	private readonly List<ScoredCandidate> m_ScoredScratch = new List<ScoredCandidate>(16);
+	private TargetSelectionSnapshot m_LastSelection;
+	private Transform m_MissionTarget;
+	private WeaponClassType m_WeaponClassOverride = WeaponClassType.Unknown;
+	private float m_EffectiveRangeOverride;
 	#endregion
+
+	private struct ScoredCandidate
+	{
+		public Transform Target;
+		public float Score;
+		public bool HasAim;
+		public Vector3 AimPoint;
+	}
 
 	#region Public Properties
 	public Transform SelectedTarget => m_SelectedTarget;
@@ -107,6 +125,32 @@ public sealed class TargetSelector : MonoBehaviour
 
 	public float LastAimPointUpdateTime => m_LastAimPointUpdateTime;
 	public Transform VelocityTrackedTarget => m_VelocityTrackedTarget;
+	public TargetSelectionSnapshot LastSelection => m_LastSelection;
+
+	/// <summary>Attack/Defense TargetEntity bonus. Not ForcedPriority. Not AI.EngageTarget.</summary>
+	public Transform MissionTarget
+	{
+		get => m_MissionTarget;
+		set => m_MissionTarget = value;
+	}
+
+	public float SwitchThreshold
+	{
+		get => m_SwitchThreshold;
+		set => m_SwitchThreshold = Mathf.Max(0f, value);
+	}
+
+	public WeaponClassType WeaponClassOverride
+	{
+		get => m_WeaponClassOverride;
+		set => m_WeaponClassOverride = value;
+	}
+
+	public float EffectiveRangeOverride
+	{
+		get => m_EffectiveRangeOverride;
+		set => m_EffectiveRangeOverride = Mathf.Max(0f, value);
+	}
 
 	/// <summary>Reload/misfire retain envelope: current VisionSource ResolvedMaxRange. Not SELECT ranking.</summary>
 	public float RetainRangeMeters => ResolveRetainRangeMeters();
@@ -191,6 +235,15 @@ public sealed class TargetSelector : MonoBehaviour
 		if (changed)
 			SelectedTargetChanged?.Invoke(m_SelectedTarget);
 	}
+
+	/// <summary>
+	/// EditMode / harness: LoF SphereCast must not depend on the currently open scene.
+	/// Production combat keeps the serialized mask. 0 = no LoF hits.
+	/// </summary>
+	public void SetLineOfFireLayerMaskForDiagnostics(LayerMask _mask)
+	{
+		m_LayerMask = _mask;
+	}
 	#endregion
 
 	#region Public Events
@@ -269,29 +322,58 @@ public sealed class TargetSelector : MonoBehaviour
 		}
 	}
 
+	private void EnsureBindings()
+	{
+		DetectionProcessor processor = m_ContactRegistry;
+		if (processor == null || processor.gameObject != gameObject)
+			TryGetComponent(out processor);
+
+		if (m_ContactRegistry != processor)
+		{
+			if (m_ContactRegistry != null)
+				m_ContactRegistry.ContactsChanged -= HandleContactsChanged;
+			m_ContactRegistry = processor;
+		}
+
+		if (m_ContactRegistry != null)
+		{
+			m_ContactRegistry.ContactsChanged -= HandleContactsChanged;
+			m_ContactRegistry.ContactsChanged += HandleContactsChanged;
+		}
+
+		if (m_ObservationSource == null)
+			m_ObservationSource = GetComponent<UnitObservationSource>() ??
+			                      gameObject.AddComponent<UnitObservationSource>();
+		if (m_Perception == null)
+			TryGetComponent(out m_Perception);
+		if (m_Hits == null)
+			m_Hits = new RaycastHit[c_RaycastHitBuffer];
+		if (m_VisibilityChecker == null)
+			m_VisibilityChecker = new VisibilityChecker(transform, m_Hits, m_AimCandidateScratch, m_DebugRays);
+	}
+
 	private void SelectFromContactsUnguarded(Vector3 _visionOrigin)
 	{
+		EnsureBindings();
 		CleanupExpiredSuppressedTargets();
 		RefreshVisibilityCheckerConfig();
 		ContactSelectionPolicy policy = BuildPolicy();
+		ResolveWeaponSuitability(out WeaponClassType weaponClass, out float effectiveRange);
+		Transform missionTarget = ResolveMissionTarget();
 
+		bool lostUnengageable = false;
 		if (m_SelectedTarget != null && !TargetEngageability.IsEngageable(m_SelectedTarget))
 		{
 			m_SelectedTarget = null;
 			m_HasSelectedAimPoint = false;
 			m_SelectedAimPointWorld = Vector3.zero;
+			lostUnengageable = true;
 		}
 
-		Transform newTarget = null;
-		bool hasAim = false;
-		Vector3 aimPoint = Vector3.zero;
-		float bestScore = float.MinValue;
-		Transform runnerUp = null;
-		float runnerUpScore = float.MinValue;
-		bool logSelect = UnitActionLog.Enabled;
-		if (logSelect)
-			m_SelectLogScratch.Length = 0;
+		Transform previousSelected = m_SelectedTarget;
+		m_SelectLogScratch.Length = 0;
 
+		m_ScoredScratch.Clear();
 		IPerceivedContactRegistry registry = m_ContactRegistry;
 		if (registry != null)
 		{
@@ -302,48 +384,109 @@ public sealed class TargetSelector : MonoBehaviour
 					continue;
 				if (IsLineOfFireSuppressed(contact.Target))
 				{
-					if (logSelect)
-						AppendReject(contact.Target, "LoFSuppressed");
+					AppendReject(contact.Target, "LoFSuppressed");
 					continue;
 				}
 				if (!TryRevalidateSuppressedTarget(contact.Target, _visionOrigin))
+				{
+					AppendReject(contact.Target, "LoFRevalidate");
 					continue;
+				}
 
 				bool worldOk = TargetEngageability.IsEngageable(contact.Target);
 				if (IsWorldNonHostile(contact.Target))
 				{
-					if (logSelect)
-						AppendReject(contact.Target, "WorldNonHostile");
+					AppendReject(contact.Target, "WorldNonHostile");
 					continue;
 				}
-				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out ContactSelectionRejectReason reason))
+				if (!ContactSelectionEligibility.Evaluate(contact, worldOk, policy, out ContactSelectionRejectReason reject))
 				{
-					if (logSelect)
-						AppendReject(contact.Target, reason.ToString());
-					continue;
-				}
-
-				float score = TargetSelectionMath.Score(contact, _visionOrigin, policy);
-				if (score <= bestScore)
-				{
-					if (score > runnerUpScore)
-					{
-						runnerUpScore = score;
-						runnerUp = contact.Target;
-					}
+					AppendReject(contact.Target, reject.ToString());
 					continue;
 				}
 
-				if (newTarget != null)
+				bool hasObservedAim = TargetSelectionMath.TryGetObservedAimPoint(contact, out Vector3 observedAim);
+				m_ScoredScratch.Add(new ScoredCandidate
 				{
-					runnerUp = newTarget;
+					Target = contact.Target,
+					Score = TargetSelectionMath.ScoreWithModifiers(
+						contact,
+						_visionOrigin,
+						policy,
+						weaponClass,
+						effectiveRange,
+						missionTarget),
+					HasAim = hasObservedAim,
+					AimPoint = observedAim
+				});
+			}
+		}
+
+		int bestIndex = -1;
+		int currentIndex = -1;
+		float bestScore = float.MinValue;
+		float runnerUpScore = float.MinValue;
+		Transform runnerUp = null;
+		for (int i = 0; i < m_ScoredScratch.Count; i++)
+		{
+			ScoredCandidate scored = m_ScoredScratch[i];
+			if (scored.Target == previousSelected)
+				currentIndex = i;
+
+			if (scored.Score > bestScore)
+			{
+				if (bestIndex >= 0)
+				{
+					runnerUp = m_ScoredScratch[bestIndex].Target;
 					runnerUpScore = bestScore;
 				}
 
-				bestScore = score;
-				newTarget = contact.Target;
-				hasAim = TargetSelectionMath.TryGetObservedAimPoint(contact, out aimPoint);
+				bestScore = scored.Score;
+				bestIndex = i;
+				continue;
 			}
+
+			if (scored.Score > runnerUpScore)
+			{
+				runnerUpScore = scored.Score;
+				runnerUp = scored.Target;
+			}
+		}
+
+		bool currentEligible = currentIndex >= 0;
+		float currentScore = currentEligible ? m_ScoredScratch[currentIndex].Score : float.MinValue;
+		Transform best = bestIndex >= 0 ? m_ScoredScratch[bestIndex].Target : null;
+		float candidateScore = bestIndex >= 0 ? bestScore : float.MinValue;
+
+		bool shouldSwitch = TargetSwitchMath.ShouldSwitch(
+			previousSelected,
+			currentEligible,
+			currentScore,
+			best,
+			candidateScore,
+			policy.SwitchThreshold,
+			out TargetSwitchReason switchReason);
+		if (lostUnengageable && best != null)
+		{
+			shouldSwitch = true;
+			switchReason = TargetSwitchReason.LostCurrent;
+		}
+
+		int chosenIndex = shouldSwitch ? bestIndex : currentIndex;
+		Transform newTarget = chosenIndex >= 0 ? m_ScoredScratch[chosenIndex].Target : null;
+		bool hasAim = chosenIndex >= 0 && m_ScoredScratch[chosenIndex].HasAim;
+		Vector3 aimPoint = hasAim ? m_ScoredScratch[chosenIndex].AimPoint : Vector3.zero;
+		float selectedScore = chosenIndex >= 0 ? m_ScoredScratch[chosenIndex].Score : float.MinValue;
+
+		if (shouldSwitch && currentEligible && previousSelected != newTarget)
+		{
+			runnerUp = previousSelected;
+			runnerUpScore = currentScore;
+		}
+		else if (!shouldSwitch && switchReason == TargetSwitchReason.Hysteresis && best != newTarget)
+		{
+			runnerUp = best;
+			runnerUpScore = bestScore;
 		}
 
 		if (newTarget != null && hasAim)
@@ -354,22 +497,59 @@ public sealed class TargetSelector : MonoBehaviour
 				newTarget = null;
 				hasAim = false;
 				aimPoint = Vector3.zero;
+				selectedScore = float.MinValue;
 			}
 		}
 
-		TryRetainEngageTargetDuringWeaponMaintenance(_visionOrigin, ref newTarget, ref aimPoint, ref hasAim);
-		TryApplyForcedPriority(_visionOrigin, ref newTarget, ref aimPoint, ref hasAim);
+		if (TryRetainEngageTargetDuringWeaponMaintenance(_visionOrigin, ref newTarget, ref aimPoint, ref hasAim))
+			switchReason = TargetSwitchReason.WeaponMaintenanceRetain;
 
-		bool changed = newTarget != m_SelectedTarget;
+		if (TryApplyForcedPriority(_visionOrigin, ref newTarget, ref aimPoint, ref hasAim) &&
+		    newTarget != previousSelected)
+			switchReason = TargetSwitchReason.ForcedPriority;
+
+		bool changed = newTarget != previousSelected;
 		m_SelectedTarget = newTarget;
 		m_HasSelectedAimPoint = newTarget != null && hasAim;
 		m_SelectedAimPointWorld = m_HasSelectedAimPoint ? aimPoint : Vector3.zero;
+
+		m_LastSelection = new TargetSelectionSnapshot
+		{
+			Selected = newTarget,
+			RunnerUp = runnerUp,
+			SelectedScore = newTarget != null ? selectedScore : 0f,
+			RunnerUpScore = runnerUp != null ? runnerUpScore : 0f,
+			CurrentScore = previousSelected != null && currentEligible ? currentScore : 0f,
+			CandidateScore = best != null ? candidateScore : 0f,
+			SwitchThreshold = policy.SwitchThreshold,
+			Switched = changed,
+			SwitchReason = switchReason,
+			Engageable = newTarget != null && hasAim && TargetEngageability.IsEngageable(newTarget),
+			HasAimPoint = hasAim,
+			ScoredCount = m_ScoredScratch.Count,
+			RegistryCount = registry != null ? registry.Contacts.Count : 0,
+			RejectSummary = m_SelectLogScratch.ToString()
+		};
 
 		if (changed)
 			SelectedTargetChanged?.Invoke(m_SelectedTarget);
 
 		if (UnitActionLog.Enabled)
-			LogSelectionIfNeeded(changed, newTarget, bestScore, hasAim, aimPoint, runnerUp, runnerUpScore);
+		{
+			LogSelectionIfNeeded(
+				changed,
+				newTarget,
+				selectedScore,
+				hasAim,
+				aimPoint,
+				runnerUp,
+				runnerUpScore,
+				changed,
+				switchReason,
+				currentEligible ? currentScore : 0f,
+				best != null ? candidateScore : 0f,
+				policy.SwitchThreshold);
+		}
 
 		UpdateTargetVelocityEstimate(newTarget, aimPoint, hasAim);
 	}
@@ -447,26 +627,41 @@ public sealed class TargetSelector : MonoBehaviour
 	private void LogSelectionIfNeeded(
 		bool _changed,
 		Transform _newTarget,
-		float _bestScore,
+		float _selectedScore,
 		bool _hasAim,
 		Vector3 _aimPoint,
 		Transform _runnerUp,
-		float _runnerUpScore)
+		float _runnerUpScore,
+		bool _switched,
+		TargetSwitchReason _switchReason,
+		float _currentScore,
+		float _candidateScore,
+		float _switchThreshold)
 	{
+		bool hysteresisHold = _switchReason == TargetSwitchReason.Hysteresis && _runnerUp != null;
+		bool hysteresisLog = hysteresisHold &&
+		                     (_switchReason != m_LastLoggedSwitchReason || _runnerUp != m_LastLoggedRunnerUp);
 		bool scoreShift = _newTarget != null &&
 		                  _newTarget == m_LastLoggedSelected &&
 		                  m_LastLoggedScore > float.MinValue / 4f &&
-		                  Mathf.Abs(_bestScore - m_LastLoggedScore) >= 1f;
-		if (!_changed && !scoreShift)
+		                  Mathf.Abs(_selectedScore - m_LastLoggedScore) >= 1f;
+		if (!_changed && !scoreShift && !hysteresisLog)
 			return;
 
 		m_LastLoggedSelected = _newTarget;
-		m_LastLoggedScore = _bestScore;
+		m_LastLoggedScore = _selectedScore;
+		m_LastLoggedSwitchReason = _switchReason;
+		m_LastLoggedRunnerUp = _runnerUp;
 		bool engageable = _newTarget != null && _hasAim && TargetEngageability.IsEngageable(_newTarget);
 		string payload = "selected=" + (_newTarget != null ? UnitActionLog.Slot(_newTarget) : "none") +
-		                 " score=" + (_newTarget != null ? UnitActionLog.F2(_bestScore) : "-") +
+		                 " score=" + (_newTarget != null ? UnitActionLog.F2(_selectedScore) : "-") +
 		                 " engageable=" + (engageable ? "1" : "0") +
-		                 " aim=" + (_hasAim ? "1" : "0");
+		                 " aim=" + (_hasAim ? "1" : "0") +
+		                 " switch=" + (_switched ? "1" : "0") +
+		                 " switchReason=" + _switchReason +
+		                 " currentScore=" + UnitActionLog.F2(_currentScore) +
+		                 " candidateScore=" + UnitActionLog.F2(_candidateScore) +
+		                 " switchThreshold=" + UnitActionLog.F2(_switchThreshold);
 		if (_changed)
 			payload += " retainRange=" + UnitActionLog.F1(ResolveRetainRangeMeters());
 		if (_hasAim)
@@ -476,7 +671,7 @@ public sealed class TargetSelector : MonoBehaviour
 		if (m_SelectLogScratch.Length > 0)
 			payload += " rejected=" + m_SelectLogScratch;
 		UnitActionLog.Write(this, UnitActionLog.Select, payload);
-		if (_changed)
+		if (_changed || hysteresisLog)
 			UnitActionLog.Timeline(UnitActionLog.Select, "actor=" + UnitActionLog.Slot(this) + " " + payload);
 	}
 
@@ -499,7 +694,10 @@ public sealed class TargetSelector : MonoBehaviour
 			ThreatWeight = m_ThreatWeight,
 			DistanceWeight = m_DistanceWeight,
 			StalePenalty = m_StalePenalty,
-			HostileBonus = m_HostileBonus
+			HostileBonus = m_HostileBonus,
+			SwitchThreshold = m_SwitchThreshold,
+			WeaponSuitabilityWeight = m_WeaponSuitabilityWeight,
+			MissionBonus = m_MissionBonus
 		};
 	}
 
@@ -537,6 +735,8 @@ public sealed class TargetSelector : MonoBehaviour
 		Vector3 _origin)
 	{
 		if (!_hasAimPoint)
+			return false;
+		if (m_Hits == null || m_LayerMask == 0)
 			return false;
 
 		Vector3 dir = _aimPoint - _origin;
@@ -808,22 +1008,22 @@ public sealed class TargetSelector : MonoBehaviour
 		return true;
 	}
 
-	private void TryApplyForcedPriority(
+	private bool TryApplyForcedPriority(
 		Vector3 _origin,
 		ref Transform _newTarget,
 		ref Vector3 _aimPoint,
 		ref bool _hasAimPoint)
 	{
 		if (m_ForcedPriorityTarget == null || m_ForcedPriorityTarget == _newTarget)
-			return;
+			return false;
 
 		Transform forcedRoot = m_ForcedPriorityTarget;
 		if (!IsContactEligibleForSelection(forcedRoot))
-			return;
+			return false;
 		if (IsLineOfFireSuppressed(forcedRoot))
-			return;
+			return false;
 		if (!TryRevalidateSuppressedTarget(forcedRoot, _origin))
-			return;
+			return false;
 
 		_newTarget = forcedRoot;
 		if (m_ContactRegistry != null &&
@@ -838,6 +1038,41 @@ public sealed class TargetSelector : MonoBehaviour
 			_hasAimPoint = false;
 			_aimPoint = Vector3.zero;
 		}
+
+		return true;
+	}
+
+	private Transform ResolveMissionTarget()
+	{
+		if (m_MissionTarget != null)
+			return m_MissionTarget;
+		if (!TryGetComponent(out UnitAIController ai) || ai == null)
+			return null;
+		if (ai.CurrentState != UnitAIState.Attack && ai.CurrentState != UnitAIState.Defense)
+			return null;
+		return ai.CurrentContext.TargetEntity;
+	}
+
+	private void ResolveWeaponSuitability(out WeaponClassType _weaponClass, out float _effectiveRangeMeters)
+	{
+		if (m_WeaponClassOverride != WeaponClassType.Unknown)
+		{
+			_weaponClass = m_WeaponClassOverride;
+			_effectiveRangeMeters = m_EffectiveRangeOverride > 0.01f ? m_EffectiveRangeOverride : 100f;
+			return;
+		}
+
+		_weaponClass = WeaponClassType.Unknown;
+		_effectiveRangeMeters = 100f;
+		if (m_Equipment == null)
+			TryGetComponent(out m_Equipment);
+		ItemDefinition item = m_Equipment != null ? m_Equipment.EquippedDefinition : null;
+		WeaponDefinition definition = item != null ? item.WeaponDefinition : null;
+		if (definition == null)
+			return;
+
+		_weaponClass = definition.WeaponClass;
+		_effectiveRangeMeters = definition.EffectiveRangeMeters;
 	}
 
 	private bool IsContactEligibleForSelection(Transform _target)

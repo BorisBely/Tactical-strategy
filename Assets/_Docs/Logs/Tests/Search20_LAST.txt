@@ -1,0 +1,36 @@
+﻿STAGE 10 — SEARCH 2.0
+====================
+stamp=2026-08-26 22:02:37
+SearchTestArena: area + candidates + inspect. Found = VisibleNow.
+---
+[E1] Visual loss → SearchArea → Search
+PASS E1_Search | Search
+PASS E1_VisualCue | VisualMemory
+PASS E1_AreaCenter | (12.00, 0.00, 0.00)
+PASS E1_Candidates | 5
+PASS E1_Bounded | cap
+[D] Inspect A then B; target at B → Found / Engage
+PASS D1_InspectA | A
+PASS D2_ToB | B
+PASS D4_Found | found
+PASS D4_Engage | Engage
+PASS D4_Defense | Defense
+[E2] Shot / Sound → SearchArea
+PASS E2_Search | Search
+PASS E2_SoundCue | Sound
+PASS E2_Area | (10.00, 0.00, 2.00)
+[E3] Ally report → SearchArea
+PASS E3_Search | Search
+PASS E3_ReportCue | AllyReport
+[E5] ImmediateThreat interrupts Search
+PASS E5_LeftSearch | Defense
+PASS E5_Threat | Threat
+[D6] New command cancels Search
+PASS D6_InSearch | Search
+PASS D6_Retreat | Retreat
+PASS D6_Cancelled | Cancelled
+PASS D6_Recorder | move recorder
+[Arena] wall spawned for SearchTestArena geometry
+PASS Arena_Wall | S10_Building
+---
+RESULT=PASS pass=22 fail=0

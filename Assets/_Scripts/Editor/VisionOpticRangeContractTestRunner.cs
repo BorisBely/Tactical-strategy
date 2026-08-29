@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class VisionOpticRangeContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Vision Optic Range Contract (Play)", false, 28)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Vision Optic Range Contract (Play)", false, 170)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

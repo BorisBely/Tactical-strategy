@@ -1,10 +1,10 @@
 ﻿STAGE 7 — IMMEDIATE THREAT LIVE
 ==============================
-stamp=2026-08-25 22:04:45
+stamp=2026-08-26 22:02:36
 ImmediateThreat from hostile attack only. RoE is veto. Allow ≠ Fire.
 ---
 PASS Log_Enabled | UnitActionLog session off in Editor Play
-PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260825_220443
+PASS Log_Folder | D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260826_220234
 [D1] Hostile visible, SelfDefense, no attack → ImmediateThreat false, Aim/Fire denied
 PASS D1_ThreatOff | threat already set
 PASS D1_Deny | Denied/SelfDefenseNoImmediateThreat

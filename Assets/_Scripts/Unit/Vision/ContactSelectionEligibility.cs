@@ -32,6 +32,9 @@ public struct ContactSelectionPolicy
 	public float DistanceWeight;
 	public float StalePenalty;
 	public float HostileBonus;
+	public float SwitchThreshold;
+	public float WeaponSuitabilityWeight;
+	public float MissionBonus;
 
 	public static ContactSelectionPolicy CreateDefault()
 	{
@@ -47,7 +50,10 @@ public struct ContactSelectionPolicy
 			ThreatWeight = 1f,
 			DistanceWeight = 1f,
 			StalePenalty = 3f,
-			HostileBonus = 0.5f
+			HostileBonus = 0.5f,
+			SwitchThreshold = TargetSwitchMath.DefaultSwitchThreshold,
+			WeaponSuitabilityWeight = TargetSelectionMath.DefaultWeaponSuitabilityWeight,
+			MissionBonus = TargetSelectionMath.DefaultMissionBonus
 		};
 	}
 }

@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class VisionContactLifecycleTestRunner
 {
-	[MenuItem("Tools/Tests/Run Vision Contact Lifecycle (Play)", false, 29)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Vision Contact Lifecycle (Play)", false, 171)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

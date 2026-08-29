@@ -1,0 +1,44 @@
+﻿# Infantry action log session 2026-08-28 22:08:10
+# folder=D:/Unity project/My project 001/Assets\_Docs\Logs\Runtime\Infantry_20260828_220810
+# columns: slot team look callsign iid go file ai
+P01  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213683442 go=Unit(Clone) file=Player/P01_Unit(Clone).log ai=UnitAIController
+P02  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213682186 go=Unit(Clone) file=Player/P02_Unit(Clone).log ai=UnitAIController
+P03  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213680858 go=Unit(Clone) file=Player/P03_Unit(Clone).log ai=UnitAIController
+P04  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213679556 go=Unit(Clone) file=Player/P04_Unit(Clone).log ai=UnitAIController
+P05  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213678216 go=Unit(Clone) file=Player/P05_Unit(Clone).log ai=UnitAIController
+P06  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213676912 go=Unit(Clone) file=Player/P06_Unit(Clone).log ai=UnitAIController
+P07  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213675620 go=Unit(Clone) file=Player/P07_Unit(Clone).log ai=UnitAIController
+P08  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213674320 go=Unit(Clone) file=Player/P08_Unit(Clone).log ai=UnitAIController
+P09  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213673060 go=Unit(Clone) file=Player/P09_Unit(Clone).log ai=UnitAIController
+P10  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213671858 go=Unit(Clone) file=Player/P10_Unit(Clone).log ai=UnitAIController
+P11  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213670504 go=Unit(Clone) file=Player/P11_Unit(Clone).log ai=UnitAIController
+P12  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213669384 go=Unit(Clone) file=Player/P12_Unit(Clone).log ai=UnitAIController
+P13  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213668322 go=Unit(Clone) file=Player/P13_Unit(Clone).log ai=UnitAIController
+P14  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213667186 go=Unit(Clone) file=Player/P14_Unit(Clone).log ai=UnitAIController
+P15  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213666058 go=Unit(Clone) file=Player/P15_Unit(Clone).log ai=UnitAIController
+P16  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213664898 go=Unit(Clone) file=Player/P16_Unit(Clone).log ai=UnitAIController
+P17  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213663770 go=Unit(Clone) file=Player/P17_Unit(Clone).log ai=UnitAIController
+P18  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213662628 go=Unit(Clone) file=Player/P18_Unit(Clone).log ai=UnitAIController
+P19  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213661470 go=Unit(Clone) file=Player/P19_Unit(Clone).log ai=UnitAIController
+P20  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213660342 go=Unit(Clone) file=Player/P20_Unit(Clone).log ai=UnitAIController
+P21  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213659222 go=Unit(Clone) file=Player/P21_Unit(Clone).log ai=UnitAIController
+P22  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213658428 go=Unit(Clone) file=Player/P22_Unit(Clone).log ai=UnitAIController
+P23  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213657634 go=Unit(Clone) file=Player/P23_Unit(Clone).log ai=UnitAIController
+P24  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213656840 go=Unit(Clone) file=Player/P24_Unit(Clone).log ai=UnitAIController
+P25  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213656014 go=Unit(Clone) file=Player/P25_Unit(Clone).log ai=UnitAIController
+P26  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213655220 go=Unit(Clone) file=Player/P26_Unit(Clone).log ai=UnitAIController
+P27  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213654410 go=Unit(Clone) file=Player/P27_Unit(Clone).log ai=UnitAIController
+P28  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213653616 go=Unit(Clone) file=Player/P28_Unit(Clone).log ai=UnitAIController
+P29  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213652838 go=Unit(Clone) file=Player/P29_Unit(Clone).log ai=UnitAIController
+P30  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213652044 go=Unit(Clone) file=Player/P30_Unit(Clone).log ai=UnitAIController
+P31  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213651250 go=Unit(Clone) file=Player/P31_Unit(Clone).log ai=UnitAIController
+P32  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213650472 go=Unit(Clone) file=Player/P32_Unit(Clone).log ai=UnitAIController
+P33  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213649694 go=Unit(Clone) file=Player/P33_Unit(Clone).log ai=UnitAIController
+P34  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213648884 go=Unit(Clone) file=Player/P34_Unit(Clone).log ai=UnitAIController
+P35  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213648106 go=Unit(Clone) file=Player/P35_Unit(Clone).log ai=UnitAIController
+P36  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213647312 go=Unit(Clone) file=Player/P36_Unit(Clone).log ai=UnitAIController
+P37  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213646518 go=Unit(Clone) file=Player/P37_Unit(Clone).log ai=UnitAIController
+P38  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213645708 go=Unit(Clone) file=Player/P38_Unit(Clone).log ai=UnitAIController
+P39  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213644930 go=Unit(Clone) file=Player/P39_Unit(Clone).log ai=UnitAIController
+P40  team=Player look=Unknown callsign=Unit(Clone) iid=568105589213644120 go=Unit(Clone) file=Player/P40_Unit(Clone).log ai=UnitAIController
+Tgt_ReadinessAi  team=None look=? callsign=ReadinessAi iid=568105589213640988 go=ReadinessAi file=Other/Tgt_ReadinessAi_ReadinessAi.log ai=UnitAIController

@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class AllyReportContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Ally Report Contract (Play)", false, 21)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Ally Report Contract (Play)", false, 162)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

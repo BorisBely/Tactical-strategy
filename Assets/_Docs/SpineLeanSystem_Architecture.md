@@ -39,7 +39,7 @@
 | Префаб | `Assets/Prefabs/Unit.prefab` (или актуальный Unit) | `UnitSpineLean` включён (`m_Enabled: 1`) |
 | Снимок исходников | `Assets/_Docs/SpineLean/SourceSnapshot/` | `.cs.txt` — полный текст на дату документа |
 
-Других gameplay-вызовов `SetLeanTarget` **нет**. Если наклон «не работает в бою» — это не баг ядра, API просто никто не зовёт.
+Других gameplay-вызовов `SetLeanTarget` **нет**. #13.7 tactical peek вызывает **`SetLeanLevel`** через `UnitSpineLeanExecutor` (не второй LeanController). Debug-кнопки панели по-прежнему живы.
 
 Тексты скриптов целиком: **§15** (`UnitSpineLean`, калибровка, commit позы, lean-ветка и полный `UnitWeaponAiming`, UI, selection).
 

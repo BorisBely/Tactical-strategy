@@ -1,0 +1,17 @@
+﻿REGRESSION #7–#11 PLAY
+======================
+stamp=2026-08-26 22:02:36
+#7 ImmediateThreat → #8 Combat Events → #9 Sound In AI → #10 Search 2.0 → #11 Command Priority
+---
+[#7 Immediate Threat Live]
+PASS #7 Immediate Threat Live pass=18 fail=0
+[#8 Combat Event World]
+PASS #8 Combat Event World pass=36 fail=0
+[#9 Sound In AI]
+PASS #9 Sound In AI pass=20 fail=0
+[#10 Search 2.0]
+PASS #10 Search 2.0 pass=22 fail=0
+[#11 Command Priority]
+PASS #11 Command Priority pass=18 fail=0
+---
+RESULT=PASS layersFail=0 checksPass=114 checksFail=0

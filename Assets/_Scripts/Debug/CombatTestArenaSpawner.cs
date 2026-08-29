@@ -9,6 +9,7 @@ using UnityEngine.AI;
 /// Player = US/M-line kits, enemy = Mosin/SVD/PKM + AK series, neutral = unarmed civilian.
 /// Unique weapon classes are guaranteed first; leftover pins pick similar series kits at random.
 /// Does not use <see cref="UnitSceneSpawner"/> start-spawn (polygon / G-tests stay intact).
+/// Does not AddComponent AI: <see cref="UnitAIController"/> is on Unit.prefab (disabled); this spawner enables combat sides.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class CombatTestArenaSpawner : MonoBehaviour
@@ -434,6 +435,10 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 		configurator.Configure(_config);
 		configurator.ApplyConfiguration();
 		m_SpawnedInstances.Add(instance);
+		if (instance.TryGetComponent(out UnitTeam spawnedTeam) &&
+		    spawnedTeam.Team == UnitTeamId.Neutral &&
+		    instance.TryGetComponent(out UnitAIController civilianAi))
+			civilianAi.enabled = false;
 		QueueSpawnedCombatAi(instance);
 		return true;
 	}
@@ -456,15 +461,32 @@ public sealed class CombatTestArenaSpawner : MonoBehaviour
 		if (!_instance.TryGetComponent(out UnitTeam team) || team.Team == UnitTeamId.Neutral)
 			yield break;
 
-		if (!_instance.TryGetComponent(out UnitAIController ai) || ai == null)
-			ai = _instance.AddComponent<UnitAIController>();
-		if (ai == null)
+		bool hadAi = _instance.TryGetComponent(out UnitAIController ai) && ai != null;
+		if (!hadAi)
+		{
+			// #region agent log
+			AgentDebugNdjson.Write(
+				"A",
+				"CombatTestArenaSpawner.PrepareSpawnedCombatAiNextFrame",
+				"prefab AI missing",
+				"{\"hadPrefabAi\":false}");
+			// #endregion
 			yield break;
+		}
 
+		ai.enabled = true;
 		ai.EnsureImmediateThreatSource();
 		ai.DrawSearchHud = false;
 		ai.TrySetUseOfForcePolicy(UseOfForceSideCommands.Peek(team.Team));
 		ai.SetAttack(SpreadAround(ResolveCenterAttackPoint(), _instance), null);
+		// #region agent log
+		AgentDebugNdjson.Write(
+			"A",
+			"CombatTestArenaSpawner.PrepareSpawnedCombatAiNextFrame",
+			"ai ready",
+			"{\"hadPrefabAi\":" + (hadAi ? "true" : "false") +
+			",\"worldBound\":" + (ai.TacticalWorldBound ? "true" : "false") + "}");
+		// #endregion
 	}
 
 	private Vector3 ResolveCenterAttackPoint()

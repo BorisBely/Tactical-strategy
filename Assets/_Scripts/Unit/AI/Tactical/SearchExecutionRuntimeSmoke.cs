@@ -63,6 +63,11 @@ public sealed class SearchExecutionRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunAITacticalState &&
 		!DetectionHarnessPlayMode.RunUseOfForcePolicy &&
 		!DetectionHarnessPlayMode.RunCombatEngageExecution &&
+		!DetectionHarnessPlayMode.RunSoundInAi &&
+		!DetectionHarnessPlayMode.RunSearch20 &&
+		!DetectionHarnessPlayMode.RunCommandPriority &&
+		!DetectionHarnessPlayMode.RunTargetCalibration &&
+		!DetectionHarnessPlayMode.RunFrozenLayersPlay &&
 		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		!DetectionHarnessPlayMode.RunTacticalCommandContract &&
 		!DetectionHarnessPlayMode.RunGameCommandSource &&
@@ -113,7 +118,7 @@ public sealed class SearchExecutionRuntimeSmoke : MonoBehaviour
 		AppendLine("STAGE 3 — SEARCH NAVIGATION EXECUTION");
 		AppendLine("=====================================");
 		AppendLine($"stamp={DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-		AppendLine("Search walks Walk to snapshotted SearchPosition. Stop at 15 m is not Found.");
+		AppendLine("Search walks Walk to snapshotted SearchArea center (first candidate). Arrival 1.5 m is not Found.");
 		AppendLine("---");
 
 		if (m_Harness == null)
@@ -173,7 +178,7 @@ public sealed class SearchExecutionRuntimeSmoke : MonoBehaviour
 			$"{m_Controller.CurrentAction}/{m_Controller.CurrentCombatIntent}");
 		Check("T1_Radius", Mathf.Abs(m_Controller.CurrentContext.AreaRadius - UnitAISearchDecision.DefaultAreaRadius) < 0.01f,
 			m_Controller.CurrentContext.AreaRadius.ToString("F1"));
-		Check("T1_StartOutsideRadius", startDist > UnitAISearchDecision.DefaultAreaRadius,
+		Check("T1_StartOutsideRadius", startDist > TacticalNavigationMath.DefaultPointArrivalRadius,
 			startDist.ToString("F2"));
 		Check("T1_NavIssuedOrIntent",
 			m_Controller.SearchNavigationIssued || m_Controller.SearchHasMoveIntent,
@@ -204,7 +209,7 @@ public sealed class SearchExecutionRuntimeSmoke : MonoBehaviour
 	private IEnumerator RunT2StopAtRadiusStaySearch()
 	{
 		AppendLine("---");
-		AppendLine("[T2] planar dist ≤ 15 m → HardStop, stay Search, keep observing");
+		AppendLine("[T2] planar dist ≤ 1.5 m of current candidate → HardStop, stay Search, inspect");
 		if (m_Controller.CurrentState != UnitAIState.Search)
 		{
 			if (!PrepareLostSearch(c_SearchDistance))
@@ -217,7 +222,7 @@ public sealed class SearchExecutionRuntimeSmoke : MonoBehaviour
 			yield return null;
 
 		float dist = UnitSearchNavigationMath.PlanarDistance(m_Observer.position, m_Controller.CurrentContext.SearchPosition);
-		Check("T2_ReachedArea", m_Controller.SearchAreaReached || dist <= UnitAISearchDecision.DefaultAreaRadius + 0.35f,
+		Check("T2_ReachedArea", m_Controller.SearchAreaReached || dist <= TacticalNavigationMath.DefaultPointArrivalRadius + 0.35f,
 			$"reached={m_Controller.SearchAreaReached} dist={dist:F2}");
 		Check("T2_StillSearch", m_Controller.CurrentState == UnitAIState.Search, m_Controller.CurrentState.ToString());
 		Check("T2_Hold", m_Controller.CurrentCombatIntent == CombatIntent.Hold,

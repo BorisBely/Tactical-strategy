@@ -11,11 +11,11 @@ using UnityEditor;
 /// #9 Play: WorldSoundHub → SoundContact → AI snapshot → Defense/Attack Search.
 /// CombatEventHub stays independent. Does not retune Stage 16 decay or #7 RoE.
 /// Report: Assets/_Docs/Logs/Tests/SoundInAi_LAST.txt
-/// Menu: Tools/Tests/Run Sound In AI (Play)
+/// Menu: Tools/Tests/Run Regression (Play)
 /// </summary>
 [DefaultExecutionOrder(64)]
 [DisallowMultipleComponent]
-public sealed class SoundInAiRuntimeSmoke : MonoBehaviour
+public sealed class SoundInAiRuntimeSmoke : MonoBehaviour, IPlaySmokeSuite
 {
 	#region Serialized
 	[SerializeField] private bool m_RunOnStart;
@@ -34,6 +34,9 @@ public sealed class SoundInAiRuntimeSmoke : MonoBehaviour
 	#region Public Properties
 	public bool WillRunOnStart =>
 		m_RunOnStart || DetectionHarnessPlayMode.RunSoundInAi;
+
+	public int LastPassCount => m_PassCount;
+	public int LastFailCount => m_FailCount;
 	#endregion
 
 	#region Unity Lifecycle
@@ -58,7 +61,8 @@ public sealed class SoundInAiRuntimeSmoke : MonoBehaviour
 	private void OnDestroy()
 	{
 		DestroyActors();
-		if (DetectionHarnessPlayMode.RunSoundInAi)
+		if (DetectionHarnessPlayMode.RunSoundInAi &&
+		    !DetectionHarnessPlayMode.RunFrozenLayersPlay)
 			DetectionHarnessPlayMode.ResetFlags();
 	}
 	#endregion
@@ -70,6 +74,11 @@ public sealed class SoundInAiRuntimeSmoke : MonoBehaviour
 			return;
 		StopAllCoroutines();
 		StartCoroutine(RunSuite());
+	}
+
+	public IEnumerator RunAndWait()
+	{
+		yield return RunSuite();
 	}
 	#endregion
 
@@ -290,7 +299,8 @@ public sealed class SoundInAiRuntimeSmoke : MonoBehaviour
 			" pass=" + m_PassCount + " fail=" + m_FailCount,
 			this);
 
-		bool exitPlay = m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunSoundInAi;
+		bool exitPlay = !DetectionHarnessPlayMode.RunFrozenLayersPlay &&
+		                (m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunSoundInAi);
 #if UNITY_EDITOR
 		if (exitPlay && EditorApplication.isPlaying)
 			EditorApplication.isPlaying = false;

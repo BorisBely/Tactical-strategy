@@ -2,8 +2,7 @@
 using UnityEditor;
 
 /// <summary>
-/// Tools/Tests order: Current (top) → closed vision newest-first → regression.
-/// Older calibration / G isolates / frozen tactics live under Tools/Tests/Archive.
+/// Tools/Tests: Current (#13.2) → Regression (#7–#11, 2 пункта) → Archive.
 /// </summary>
 public static class TestMenuLayout
 {
@@ -15,16 +14,8 @@ public static class TestMenuLayout
 	private static bool HeaderCurrentValidate() => false;
 	#endregion
 
-	#region Closed vision
-	[MenuItem("Tools/Tests/── Closed vision ──", false, 20)]
-	private static void HeaderClosedVision() { }
-
-	[MenuItem("Tools/Tests/── Closed vision ──", true)]
-	private static bool HeaderClosedVisionValidate() => false;
-	#endregion
-
 	#region Regression
-	[MenuItem("Tools/Tests/── Regression ──", false, 40)]
+	[MenuItem("Tools/Tests/── Regression ──", false, 10)]
 	private static void HeaderRegression() { }
 
 	[MenuItem("Tools/Tests/── Regression ──", true)]

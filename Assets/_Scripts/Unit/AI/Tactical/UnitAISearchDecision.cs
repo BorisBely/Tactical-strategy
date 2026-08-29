@@ -2,24 +2,50 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Search uses frozen LastKnown (visual) or #9 SoundPosition. Does not write Memory / LastSeen / LastKnown.
+/// Search uses frozen LastKnown (visual), #9 SoundPosition, or #10 hostile report.
+/// Does not write Memory / LastSeen / LastKnown.
 /// Useful visual memory = LastSeenConfidence &gt; 0.25 (AI-0). Stale is not enough to search.
 /// Hostile combat sound = Gunshot / Explosion from a Hostile emitter.
+/// Hostile report = Identity Hostile and Confidence &gt; 0.
+/// Attack overlay Search: Search 2.0 gunshot/report immediately; visual memory after lost-visible dwell 1.5 s.
+/// Defense overlay Search uses memory / sound / report. ImmediateThreat does not start or finish Search.
 /// </summary>
 public static class UnitAISearchDecision
 {
 	#region Constants
 	public const float DefaultAreaRadius = 15f;
+	public const float InspectDuration = 1f;
+	public const float AttackLostVisibleDwellSeconds = 1.5f;
 	#endregion
 
 	#region Public Methods
 	public static bool ShouldStartSearch(UnitAIState _state, in AIPerceptionFrame _frame)
 	{
+		return ShouldStartSearch(_state, in _frame, Time.time, float.NegativeInfinity);
+	}
+
+	public static bool ShouldStartSearch(
+		UnitAIState _state,
+		in AIPerceptionFrame _frame,
+		float _now,
+		float _lastHostileVisibleAt)
+	{
 		if (_state != UnitAIState.Defense && _state != UnitAIState.Attack)
 			return false;
 		if (UnitAIActionResolver.HasHostileVisible(_frame))
 			return false;
-		return TryGetSearchContact(_frame, out _) || TryGetSearchSound(_frame, out _);
+		if (_state == UnitAIState.Attack)
+		{
+			if (TryGetSearchSound(_frame, out _) || TryGetSearchReport(_frame, out _))
+				return true;
+			if (_now - _lastHostileVisibleAt < AttackLostVisibleDwellSeconds)
+				return false;
+			return TryGetSearchContact(_frame, out _);
+		}
+
+		return TryGetSearchContact(_frame, out _) ||
+		       TryGetSearchSound(_frame, out _) ||
+		       TryGetSearchReport(_frame, out _);
 	}
 
 	public static bool ShouldFinishSearchBecauseFound(UnitAIState _state, in AIPerceptionFrame _frame)
@@ -33,7 +59,49 @@ public static class UnitAISearchDecision
 			return false;
 		if (UnitAIActionResolver.HasHostileVisible(_frame))
 			return false;
-		return !TryGetSearchContact(_frame, out _) && !TryGetSearchSound(_frame, out _);
+		return !TryGetSearchContact(_frame, out _) &&
+		       !TryGetSearchSound(_frame, out _) &&
+		       !TryGetSearchReport(_frame, out _);
+	}
+
+	public static bool TryBuildSearchArea(in AIPerceptionFrame _frame, float _now, out UnitAISearchArea _area)
+	{
+		_area = default;
+		_ = _now;
+		if (TryGetSearchContact(_frame, out AIContactKnowledge contact))
+		{
+			_area = new UnitAISearchArea(
+				contact.LastKnownPosition,
+				DefaultAreaRadius,
+				UnitAISearchCue.VisualMemory,
+				contact.LastSeenConfidence,
+				contact.LastSeenTime);
+			return true;
+		}
+
+		if (TryGetSearchSound(_frame, out AISoundContact sound))
+		{
+			_area = new UnitAISearchArea(
+				sound.Position,
+				DefaultAreaRadius,
+				UnitAISearchCue.Sound,
+				sound.Confidence,
+				sound.Time);
+			return true;
+		}
+
+		if (TryGetSearchReport(_frame, out AIReportContact report))
+		{
+			_area = new UnitAISearchArea(
+				report.Position,
+				DefaultAreaRadius,
+				UnitAISearchCue.AllyReport,
+				report.Confidence,
+				report.Time);
+			return true;
+		}
+
+		return false;
 	}
 
 	public static bool TryGetSearchContact(in AIPerceptionFrame _frame, out AIContactKnowledge _knowledge)
@@ -93,6 +161,37 @@ public static class UnitAISearchDecision
 			_sound = cue;
 			bestConfidence = cue.Confidence;
 			bestTime = cue.Time;
+			found = true;
+		}
+
+		return found;
+	}
+
+	public static bool TryGetSearchReport(in AIPerceptionFrame _frame, out AIReportContact _report)
+	{
+		_report = default;
+		IReadOnlyList<AIReportContact> reports = _frame.ReportContacts;
+		if (reports == null || reports.Count == 0)
+			return false;
+
+		bool found = false;
+		float bestConfidence = 0f;
+		float bestTime = float.MinValue;
+		for (int i = 0; i < reports.Count; i++)
+		{
+			AIReportContact report = reports[i];
+			if (report.Identity != PerceivedIdentity.Hostile || report.Confidence <= 0f)
+				continue;
+
+			bool better = !found ||
+			              report.Confidence > bestConfidence + 0.0001f ||
+			              (report.Confidence >= bestConfidence - 0.0001f && report.Time > bestTime);
+			if (!better)
+				continue;
+
+			_report = report;
+			bestConfidence = report.Confidence;
+			bestTime = report.Time;
 			found = true;
 		}
 

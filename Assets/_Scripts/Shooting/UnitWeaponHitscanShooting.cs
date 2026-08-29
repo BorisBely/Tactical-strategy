@@ -295,6 +295,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 		return UnitCombatStatsLookup.ResolveOnUnit(this);
 	}
 
+	private float ResolveFatigueRecoilControl(UnitCombatStats _stats)
+	{
+		float recoilControl = _stats != null ? _stats.RecoilControl : 1f;
+		return ArmFatigueBinding.EffectsOrNeutral(this).EffectiveRecoilControl(recoilControl);
+	}
+
 	private UnitIndividualTraits ResolveIndividualTraits()
 	{
 		if (m_IndividualTraits != null)
@@ -346,8 +352,12 @@ public sealed class UnitWeaponHitscanShooting : MonoBehaviour
 				: m_StanceCombatModifiers.GetRecoilRecoveryMultiplier(),
 			PoseKickMultiplier = turret ? 1f : WeaponPoseCombatModifiers.GetKickMultiplier(pose),
 			PoseRecoveryMultiplier = turret ? 1f : WeaponPoseCombatModifiers.GetRecoveryMultiplier(pose),
-			SkillKickMultiplier = turret || combatStats == null ? 1f : combatStats.GetRecoilAddedMultiplier(),
-			SkillRecoveryMultiplier = turret || combatStats == null ? 1f : combatStats.GetRecoilRecoveryMultiplier()
+			SkillKickMultiplier = turret || combatStats == null
+				? 1f
+				: combatStats.GetRecoilAddedMultiplier(ResolveFatigueRecoilControl(combatStats)),
+			SkillRecoveryMultiplier = turret || combatStats == null
+				? 1f
+				: combatStats.GetRecoilRecoveryMultiplier(ResolveFatigueRecoilControl(combatStats))
 		};
 		return true;
 	}

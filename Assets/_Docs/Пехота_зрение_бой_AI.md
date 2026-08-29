@@ -2,11 +2,11 @@
 
 **Дата съёмки:** 24 августа 2026.  
 **Назначение:** самодостаточное описание поведения пехоты — что видит, как решает стрелять или нет, как работает тактический AI, зачем тестовая площадка, что сделано и что планируется. Документ рассчитан на анализ **вне репозитория**: все ключевые контракты, числа приёмки и философия собраны здесь, без отсылок к другим файлам.  
-**Дизайн конечной системы:** `Пехота_система_дизайн.md` (v1.0). **Рабочий backlog:** `Пехота_дорожная_карта.md` — этапы с привязкой к §6 дизайн-дока.  
+**Дизайн конечной системы:** `Пехота_система_дизайн.md` (v1.3). **Рабочий backlog:** `Пехота_дорожная_карта.md` — этапы с привязкой к §6 дизайн-дока.  
 **Источник:** код, префаб юнита, Play-отчёты регрессии.  
 **Прежнее имя файла:** `Пехота_зрение_поведение_стрельба.md`.
 
-### Статус слоёв (снимок 24.08.2026)
+### Статус слоёв (снимок 26.08.2026)
 
 | Блок | Статус |
 |------|--------|
@@ -20,7 +20,14 @@
 | Ранги юнитов (5 пресетов навыков) | Готово на префабе (`UnitCombatStats`); поведенческий слой — #15B |
 | Оружие по дистанции (классы, E, WorkingRange) | Готово, A3/A9/A10 CLOSED; тактические роли — #15A |
 | Тактическое **#7** ImmediateThreat + живой RoE | **CLOSED 24.08.2026** — A 10/0, B 11/0, C 3/0, D 18/0, E 107/0 + 36/0 |
-| Индивидуальная тактика #13–#15 (cover / movement / weapon+rank) | не начинать до #12 |
+| Тактическое **#10** Search 2.0 | **CLOSED / FROZEN 26.08.2026** — Play 22/0; регрессия #7–#9 PASS |
+| Тактическое **#11** Command priority | **CLOSED / FROZEN 26.08.2026** — EditMode 18/0; Play 18/0; регрессия #7–#10 PASS |
+| Тактическое **#12** Target + fire calibration | **CLOSED / FROZEN 26.08.2026** — EditMode 18/0; Play 26/0; регрессия 62/0 + 114/0 |
+| Тактическое **#13** Dynamic Cover | **CLOSED / FROZEN 27.08.2026** — EditMode 169/0; Play `CoverIntegration_LAST.txt` 18/0; `Closed/Dynamic_Cover.md` |
+| Индивидуальная тактика **#14** Tactical Movement | **CLOSED / FROZEN 27.08.2026** — EditMode 178/0; Play 157/0; `Closed/Tactical_Movement.md` |
+| **#14B** Readiness State | **OPEN** — 14B.0–14B.7 ✅ 252/0 + 90/0. `Readiness_State.md`. Aim ≠ Fire |
+| **#14C** Threat Direction Knowledge | **OPEN** — 14C.0–14C.6 ✅ 49/0 + 20/0. 14C.1 ✅ 40/0 + 22/0. 14C.2 ✅ 38/0 + 19/0. 14C.3 ✅ 43/0 + 18/0. 14C.4 ✅ 36/0 + 18/0. **14C.5 ✅** 39/0 + 18/0. `Threat_Direction_Knowledge.md` |
+| Индивидуальная тактика #15 (weapon+rank) | не открывать |
 | Группа / CQB #16, адаптивный бой #17–#23, командир/planner #24–#26 | не начинать раньше своего номера |
 
 ---
@@ -31,7 +38,7 @@
 
 1. **Зрение** — что видит и помнит солдат, кем считает цель. Не ходит и не стреляет.
 2. **Боевой контур** — выбирает цель, называет Track / Aim / Fire, ведёт оружие и реально стреляет. Не читает приказы AI.
-3. **Тактический AI** — задача (держать / атаковать / искать), CombatIntent Hold/Engage, правила применения силы (RoE). Search ходит к LastKnown. **Сам не жмёт спуск.**
+3. **Тактический AI** — задача (держать / атаковать / искать), CombatIntent Hold/Engage, правила применения силы (RoE). Search ищет по области последнего контакта. **Сам не жмёт спуск.**
 
 На префабе юнита живёт **только боевой контур**. `UnitAIController` на префаб **нет**. Арена и отладочные оверлеи добавляют AI в рантайме.
 
@@ -89,7 +96,7 @@ EngagementDecisionController — порядок гейтов:
   2. RoE: Denied → Fire/Aim → Ignore; Track не трогать
   3. CombatIntent Hold: Fire/Aim → Ignore
         ↓
-CombatReadiness: Engage → Auto прицел; Hold → LowReady
+CombatReadiness: с Readiness — pose request; без AI — Engage → Auto; Hold не ломает intent
         ↓
 Fire discipline + FireController
         ↓
@@ -110,6 +117,7 @@ Engage (AI)      ≠  Fire (G6)
 AI.EngageTarget  ≠  Combat.SelectedTarget   (наблюдаемый факт, не баг-фикс)
 Hold (AI)        ≠  выключить Combat       (Track остаётся)
 ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
+Readiness.Aim    ≠  G6.Aim  ≠  Fire  ≠  поза Aiming
 ```
 
 ### Тактическое действие Hold / Engage
@@ -206,7 +214,7 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 
 - Не меняет RoE, CombatIntent, тактическое состояние.
 - Не подменяет класс оружия и дистанционные кривые ствола.
-- Не даёт отдельных AI-приказов или приоритетов (#11 — позже).
+- Не даёт отдельных AI-приказов или приоритетов (#11 FROZEN).
 - На тестовой арене 150×50 ранг **не назначается спавнером явно** — берётся с префаба / дефолт Soldier.
 
 ---
@@ -313,7 +321,7 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 1. **Сквозной бой** на коротких и средних дистанциях с укрытиями, комнатами и перекрёстным огнём.
 2. **Разнообразие оружия** — уникальные классы на каждой стороне, fill-киты для оставшихся слотов.
 3. **Нейтралы** — гражданские без оружия для будущих проверок RoE / NoFriendlyFire (сейчас 20 маркеров).
-4. **Тактический AI в бою** — спавнер добавляет `UnitAIController`, ставит Attack в центр арены, RoE со стороны.
+4. **Тактический AI в бою** — `UnitAIController` живёт на `Unit.prefab` (выключен по умолчанию). Арена только включает его у Player/Enemy и даёт `SetAttack`. Cover cache / occupancy — на сценовом `TacticalWorld`, не на солдате.
 5. **Не ломать** основной `UnitSceneSpawner` (polygon / G-regression): арена со своим `CombatTestArenaSpawner`, `m_SpawnOnStart` у сценового спавнера отключается при wire-build.
 
 Предыдущая версия **300×100** заменена на компактную **150×50** для плотного CQB и быстрого обзора камеры.
@@ -357,15 +365,550 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 
 Спавнер **не использует** стартовый спавн сцены; при G-regression Play спавн арены **пропускается** (`DetectionHarnessPlayMode`).
 
+Префаб юнита — `Assets/Prefabs/Characters/Unit.prefab`. Тело, инвентарь, зрение, бой, `UnitNavLocomotionDriver`, `NavMeshAgent`, `RtsUnitMember`, `UnitClickToMove` (прямое WASD выключено), `UnitSpineLean`. После меню `Polygone/Tactical AI/Install Arena Editor Wiring`: на префабе есть **`UnitAIController` (выключен)**, профили мира/тактики, `CoverCandidateDebugDraw`, `TacticalMovementDebugDraw`. **Не** вешать на солдата `SharedCoverSpatialCache` / `CoverOccupancyBoard` — это объекты `TacticalWorld` на сцене.
+
+### Editor-time wiring (чеклист Inspector, 28.08.2026)
+
+Play **не** создаёт тактическую инфраструктуру. Сцена и префаб готовятся в Editor. Формулы CoverScore / RouteScore **не** трогаем. Hand-authored `CoverPoint_*` **не** ставим.
+
+**Меню**
+
+| Пункт | Что делает |
+|-------|------------|
+| `Polygone/Tactical AI/Install Arena Editor Wiring` | SO-профили, `UnitAIController` на префабе, child `TacticalWorld`, bake |
+| `Polygone/Tactical AI/Bake Cover (TacticalWorld)` | Повторный bake геометрии открытой сцены |
+| `Polygone/Tactical AI/Validate Unit Prefab` | PASS/FAIL компонентов и профилей |
+| `Polygone/Tactical AI/Validate Arena Wiring` | PASS/FAIL мира, bake, совпадения profile |
+
+Rebuild арены (`Polygone/Combat Test/Build 150x50 Arena`) заново вызывает Install, потому что уничтожает корень вместе с `TacticalWorld`.
+
+#### `Unit.prefab` — Inspector
+
+| Поле / компонент | Ожидание |
+|------------------|----------|
+| `UnitLifeGate` | есть (Alive/Unconscious/Dead; не AI-state) |
+| `UnitAIController` | есть, **Enabled = off** (G-тесты и Neutral не тикают Idle/Search) |
+| World Profile | `CombatArenaWorldProfile` |
+| Tactical Profile | `InfantryDefaultTacticalProfile` |
+| Tactical Profile.UseCover | true |
+| Tactical Profile.AllowCoverReservation | true |
+| Tactical Profile.Movement Mode | **Tactical** |
+| `TacticalCoverOverlay` / `TacticalMovementOverlay` | **не** MonoBehaviour: их владеет контроллер |
+| `NavMeshAgent`, `UnitNavLocomotionDriver`, `UnitSpineLean` | есть |
+| `CoverCandidateDebugDraw`, `TacticalMovementDebugDraw` | есть (Play gizmos) |
+| `SharedCoverSpatialCache`, `CoverOccupancyBoard` | **нет** на юните |
+
+#### Сцена `CombatTestArena_150x50` — `TacticalWorld`
+
+```text
+CombatTestArena_150x50
+└── TacticalWorld
+    └── CoverOccupancyBoard   ← пустой host; board = C# объект в TacticalWorld
+```
+
+| Поле | Ожидание |
+|------|----------|
+| Profile | тот же `CombatArenaWorldProfile`, что на префабе |
+| Bake Bounds | local center `(0, 1, 75)`, size `(50, 4, 150)` |
+| Baked list | `baked > 0` после Bake (сферы + нормали в Scene View; C+id при выделении) |
+| Cache / Occupancy | создаются в `Awake` / `EnsureRuntime` из bake; Play геометрию заново не сканирует |
+
+#### `InfantryDefaultTacticalProfile.asset`
+
+Включает существующий механизм, не новые веса: UseCover, reservation, mode = Tactical. Overlay решает: есть cover request → цель хода = слот; нет → обычный tactical route к Destination приказа. Attack context **не** переписывается (Cover ≠ Move).
+
+#### Что делает Editor Bake
+
+```text
+геометрия сцены (стены, jersey, hesco, ящики)
+      → CoverCandidateGenerator + Physics/NavMesh probes
+      → BakedCoverCandidateRecord[] на TacticalWorld
+```
+
+Play: Available / Reserved / Occupied / Free по board. Поиск всей арены заново — нет.
+
+Полный разбор поиска, классификации, bake, кэша, достоинств и дыр — раздел **«Поиск и запекание потенциальных укрытий»** сразу после этой главы про площадку.
+
+### Как юнит получает приказы и двигается (SampleScene, после Install)
+
+Обычный Play, не меню `Run Tactical Movement` / `Run Dynamic Cover`. Harness Play bind **пропускает**, чтобы #13/#14 smoke остались Normal/unbound.
+
+```text
+маркер спавна
+      ↓
+Unit.prefab + loadout (AI уже на префабе, выключен)
+      ↓
+арена включает UnitAIController у Player/Enemy
+      ↓
+Bind TacticalWorld (тот же World Profile) → cache + occupancy
+      ↓
+приказ Attack → центр арены (локально 0,0,75)  ← Destination приказа
+      ↓
+#13 overlay: Stay / RepositionRequest (не Move)
+      ↓
+#14 overlay, режим Tactical
+      если RepositionRequest → hop goal = cover slot
+      иначе → hop к Destination приказа
+      ↓
+TacticalNavigationExecutor.TryMoveTo
+      ↓
+UnitNavMoveCommand → UnitNavLocomotionDriver.Walk
+```
+
+**Канал 1 — спавн арены (авто).** `CombatTestArenaSpawner`, `m_SpawnOnStart = 1`. Спавнер **не** делает `AddComponent<UnitAIController>`. Neutral: AI остаётся выключенным. Боевые стороны: enable + RoE `MissionCombat` + `SetAttack(центр ± 1.35 м)`. Debug `TryIssue`, не `GameCommandService`.
+
+**Канал 2 — HUD приказов.** Без изменений: `GameCommandInput` → `GameCommandService.Issue`. Нет AI → `NoAI`.
+
+**Канал 3 — RTS клик.** По-прежнему второй путь на `UnitNavLocomotionDriver`, минуя #13/#14.
+
+**До Install (диагноз 28.08.2026).** На префабе не было AI, cache/occupancy не bound, hop всегда `Normal` → Direct к центру, `RepositionRequest` не становился walk goal. Геометрия jersey/hesco была, слотов в Play не было.
+
+**После Install — Play 28.08.2026.** Первый прогон (`Infantry_20260828_113530`, ~181 с): таблицы волны 0 и карточки всех слотов — **§8.8**. Walk+Occupied (`Infantry_20260828_163640`, ~114 с) — **§8.10**. Актуальный AI после Search/Attack hold (`Infantry_20260828_204049`, ~123 с) — **§8.11**.
+
+### Контракт слота: Reserve → Occupied (не #13/#14)
+
+#13/#14 **не** переоткрываем. Выбор укрытия и hop уже работают. Дыра была в последнем метре и в логе.
+
+Board хранит только occupancy:
+
+```text
+Available / Reserved / Occupied
+```
+
+Наблюдаемый lifecycle слота (лог `COVER_STATE`):
+
+```text
+Reserved
+    ↓
+Approaching
+    ↓
+Acquired          ← геометрия, dist ≤ 0.60. Это ещё не Occupied
+    ↓
+Occupied          ← только CoverOccupancyBoard.ConfirmOccupied
+```
+
+```text
+Acquired ≠ Occupied
+CoverOverlay       → выбрал
+ReservationBoard   → забронировал
+Movement           → довёл
+OccupancyBoard     ← подтвердил занятие
+```
+
+Пока юнит идёт к своему Reserved и путь жив — TTL **heartbeat**, слот не отпускаем. Release только: path invalid, cover invalid, timeout без подхода, **Unconscious**, **Death**, смена приказа.
+
+Объект слота **не искать заново в момент acquire**. `TacticalMovementOverlay` хранит `ReservedCoverCandidate` с Reserve до конца lifecycle. `ConfirmOccupied` вызывается после `POSITION_ACQUIRE Acquired`, если объект слота есть.
+
+Лог `POSITION_ACQUIRE`:
+
+```text
+cover=0      → dest-only, обычная точка назначения, не jersey/hesco
+cover=C1     → реальный cover slot
+```
+
+`candidate=C0` при `cover=0` — не слот. Не путать с boolean `cover=0|1`.
+
+Nav Reached для Attack/Defense (включая dest-only) садится в диск acquire **0.60**, не в 1.50. Search / Retreat / Flee dest-only остаются 1.50. **Tolerance 0.60 не поднимать.** Если `remaining≈0`, а transform дальше 0.60 — Walk выдаётся снова, Stop только внутри диска.
+
+Пока слот Reserved и юнит подходит, #13 current = этот слот (`Occupied=false`). Stay Committed: другой candidate сменяет его **только если текущий invalid**. OccupancyVersion **не** ключ переоценки (иначе каждый Reserve заново выбирает C1↔C2).
+
+Attack→Search:
+  - visual memory после dwell 1.5 с (`LastHostileVisibleAt` + 1.5)
+  - Search 2.0: Defense/Attack + gunshot / report — сразу, без dwell
+Search→Attack Found: только `HostileVisible`.
+`ImmediateThreat` не меняет Attack/Search: RoE + EmergencyCover (overlay разрешён и во время Search).
+Occupied + valid + LOS: Stay Committed, не `BetterTacticalPosition`. CoverScore / PathScore / 0.60 не трогать.
+
+`OutOfTolerance` **не** повод крутить tolerance. В `POSITION_ACQUIRE` пишутся `distance`, `tolerance`, `remaining`, `velocity`, `pathStatus`, `unitPos`, `dest`, `acquire`, `agentPos`. `reason=` больше не сваливается в одну корзину: `OutOfTolerance` / `CandidateMissing` / `ReservationLost` / `NotReservedByUnit` / `PathInvalid`. `Dead` / `Unconscious` / `CommandChanged` — на `COVER_STATE Released` и `COVER_HEARTBEAT action=Release`, не на acquire.
+
+Play 20:40:49 (`Infantry_20260828_204049`, **§8.11**): Walk идёт, **13× Occupied** (10 юнитов), `Search→Attack reason=ImmediateThreat` = **0**. `OutOfTolerance` есть, но это dest центра vs слот ~10 м, **не** повод поднимать 0.60. Occupy **не FROZEN**. Vision / G6 / Weapon / CoverScore / PathScore / 0.60 / #13 / #14 не трогать.
+
+### Unit Lifecycle: Alive / Unconscious / Dead
+
+Это **не** UnitAIState. Источник — `UnitHealth` + `UnitConsciousness`. Координатор `UnitLifeGate` на солдате.
+
+```text
+Alive         → все контуры
+Unconscious   → тело / визуал / Health остаются
+                AI / nav / G6 / SELECT / SCAN / Fire / cover — стоп
+                reservation и occupancy — Released
+Dead          → то же; объект не Destroy
+```
+
+`UnitVision` **не** disable: иначе Unregister и соседи теряют его как кандидата реестра. Scan в Update просто не идёт. NavMeshAgent: `isStopped` + `ResetPath`, компонент не выключаем (revive).
+
+Лог:
+
+```text
+LIFE  life=Unconscious  was=Alive  reason=Damage  health=0|1  consciousness=0
+      ai=off vision=off combat=off move=off cover=Released  coverReleased=1 navStopped=1
+SNAP  life=Unconscious  cover=none coverState=None  ai=off vision=off combat=off move=off
+LIFE  life=Dead  was=Unconscious
+```
+
+После unconscious в файле юнита не должно быть новых `MOVE` / `COVER_HOP` / `COVER_DECISION` / `POSITION_DECISION` / `SCAN` / `VISION` / `SELECT` / `G6` / `SHOT`.
+
 ### Что площадка проверяет и что нет
 
 | Проверяет | Не заменяет |
 |-----------|-------------|
 | Видимость в комнатах, углы, перекрёсток | G1–G8 harness (строгие числа) |
 | Hitscan + урон + отдача в бою | RecoilContract (детерминированный replay) |
-| AI Attack + Engage + ходьба к центру | Tactical smoke T1–T8 (изолированные) |
+| AI Attack + Engage + tactical hop (после Install) | #13/#14 smoke (формулы, golden occupancy) |
 | Разные стволы в одном бою | H-баланс отчёт (аналитика) |
 | Будущий RoE с нейтралами | зоны RestrictedDefense vs MissionCombat — не #7 |
+
+---
+
+## Поиск и запекание потенциальных укрытий
+
+Слой тактического **#13**. На арене **CLOSED / FROZEN 27.08.2026** (формулы CoverScore / RouteScore не крутить). Этот раздел — как мир **находит** потенциальные слоты и **запекает** их в сцену; не как солдат выбирает «лучшее для меня» (это individual score 13.3) и не как он туда идёт (это #14).
+
+### Зачем так, а не CoverPoint_001
+
+Укрытия **не расставляет дизайнер**. Нет ручных `CoverPoint_*`. Солдат читает геометрию мира: стены, jersey, hesco, ящики, барьеры.
+
+`CoverCandidate` — **потенциальная тактическая позиция, привязанная к геометрии**. Это ещё не «это укрытие», не «это хорошо для снайпера», не destination хода и не AimPoint.
+
+```text
+существует ли здесь позиция у стены?     ← поиск / bake  (этот раздел)
+        ↓
+какого она геометрического типа?         ← классификация в том же Generate
+        ↓
+насколько она выгодна именно мне сейчас? ← individual score (13.3), не bake
+        ↓
+Stay / RepositionRequest                 ← overlay #13, не Move
+        ↓
+hop / Walk                               ← #14
+        ↓
+Reserved → Acquired → Occupied           ← board, не геометрия
+```
+
+Десять юнитов **не** делают десять раз один и тот же дорогой анализ стен. Общий список слотов один на регион. Score у каждого свой.
+
+### Два режима одного конвейера
+
+Один генератор, два входа:
+
+| Режим | Когда | Источник `ICoverCandidateSource` | Physics / NavMesh |
+|-------|--------|----------------------------------|-------------------|
+| **Editor bake** | меню `Bake Cover` / Install wiring | `CoverCandidateGenerator` пишет `BakedCoverCandidateRecord[]` на `TacticalWorld` | да, один раз в Editor |
+| **Play арены** | обычный Play после Install | `BakedCoverCandidateSource` копирует bake в кэш | **нет** — геометрию не сканирует |
+| **Smoke / EditMode #13** | `Run Dynamic Cover`, golden tests | тот же `CoverCandidateGenerator` в рантайме | да, lazy на регион |
+
+Продакшен-арена **намеренно** запекает в Editor: Play не создаёт `TacticalWorld` и не бегает OverlapBox по всей карте. Тесты #13 оставляют runtime generation, чтобы проверять сам алгоритм, а не сцену.
+
+Контракт Play:
+
+```text
+Play не создаёт тактическую инфраструктуру
+Play не ищет стены заново
+Play читает bake → SharedCoverSpatialCache (lazy copy по региону)
+Play пишет только occupancy: Available / Reserved / Occupied
+```
+
+### Регион — единица поиска, не вся карта
+
+Мир режется сеткой **16 м** (`CoverSpatialMath.DefaultRegionSizeMeters`). Регион — клетка `(X, Z)` по полу, высота bounds генерации **8 м**.
+
+```text
+NeedCover
+  → Region(world) = Floor(x/16), Floor(z/16)
+  → Cache.GetCandidates(region)
+  → miss → ICoverCandidateSource.Generate
+  → hit  → тот же список
+```
+
+Запрос геометрии — **только этот регион + 1.5 м margin**, не весь мир.
+
+На арене 50×150 м bake bounds local `(0, 1, 75)` size `(50, 4, 150)` → порядка **40 клеток** (X: −2…1, Z: 0…9). Потолок слотов: **16 на клетку** (`DefaultMaxCoverCandidates`). Это spatial cap, не «лучшие 16».
+
+Occupancy ключ = `(RegionX, RegionZ, CandidateId)`. `CandidateId` уникален **внутри клетки** (1…16), не глобально. `C1` в R0_4 и `C1` в R1_4 — разные слоты.
+
+### Конвейер поиска (`CoverCandidateGenerator`)
+
+```text
+PhysicsCoverGeometrySource.Collect
+        ↓  OverlapBox региона, до 128 collider
+стены / box-грани / AABB-грани прочих collider
+        ↓  отсев: trigger, персонаж, техника, крыша (normal.y > 0.7)
+        ↓  грань короче 0.8 м или ниже 0.8 м — выкинуть
+CoverGeometrySurface[]   Origin, Normal, Tangent, Length
+        ↓  sort по XZ (детерминизм)
+сэмплы вдоль грани: шаг 2 м, минимум 1 на поверхность
+        ↓  позиция = точка на грани + Normal × 0.45 м (standoff)
+фильтры по каждому сэмплу:
+        1. внутри региона (planar)
+        2. NavMesh.SamplePosition радиус 1.2 м (bake) / иначе OffNavMesh
+        3. якорь лучем в стену (ConfirmSurfaceWithPhysics = true на bake)
+        4. capsule clearance 0.28 × 1.8 м (тело стоит; стену «сзади» игнор)
+        ↓
+dedup радиус 0.75 м + похожий Normal (dot > 0.5)
+        ↓
+spatial diversity → оставить ≤ 16 самых разнесённых по XZ
+        ↓
+CoverClassifier.Classify  (тип + профили защиты)
+        ↓
+CoverCandidate[]  Occupancy=Available, CoverType уже не None/Crouch/…
+```
+
+Не 1 collider → 1 candidate. Длинная стена даёт несколько точек. Два близких ящика с одной нормалью схлопываются.
+
+**Геометрия, которую видит поиск.** Статичный мир: walls, buildings, obstacles, boxes / barriers. BoxCollider разбирается по локальным граням (уважает поворот). Всё остальное — по AABB. Персонажи (`UnitConsciousness` / `RtsUnitMember`) и техника (`VehicleController`) пропускаются.
+
+**Геометрия, которую поиск не видит.** Vehicles, destruction, живые люди, squad, reservations, оружие, ранг, движущиеся пропы после bake.
+
+Отсев пишется в `CoverRejectedSample`: `OutsideRegion` / `OffNavMesh` / `Unanchored` / `NoClearance`. Debug: сферы слотов и нормали на `TacticalWorld`; у юнита `CoverCandidateDebugDraw`.
+
+### Классификация — часть Generate, не часть выбора солдата
+
+После cap каждый оставшийся кандидат классифицируется **один раз**, относительно своей `Normal`, не относительно врага E01. Lean здесь нет.
+
+Рамка `CoverBacked`: луч идёт **со стороны геометрии** (через стену к телу). Четыре сегмента на стойку:
+
+| Стойка | Head | Torso | Pelvis | Legs |
+|--------|------|-------|--------|------|
+| Standing | 1.60 | 1.30 | 0.95 | 0.40 |
+| Crouch | 0.95 | 0.70 | 0.50 | 0.25 |
+
+Длина луча **3 м**. Сегмент «закрыт», если linecast упёрся в статику (не персонаж). Стойка валидна, если Head+Torso+Pelvis ≥ порог **0.5**. `PartialValid` — ни standing, ни crouch, но хоть один сегмент закрыт. `CornerValid` — есть защита **и** стена продолжается только влево **или** только вправо (span 1.2 м).
+
+`CoverType` (приоритет): Corner → Standing → Crouch → Partial → None.
+
+Профили `StandingProfile` / `CrouchProfile` (0 = открыт, 1 = закрыт) **запекаются** вместе с типом. Individual score потом читает их как Protection, не пересчитывает лучи по сегментам тела.
+
+Пороги классификации — **прототип, не freeze**. Менять их = менять bake и все слоты арены.
+
+### Запекание (`TacticalWorldBaker`)
+
+Меню:
+
+| Пункт | Что делает |
+|-------|------------|
+| `Polygone/Tactical AI/Install Arena Editor Wiring` | профили, AI на префабе, child `TacticalWorld`, **Bake** |
+| `Polygone/Tactical AI/Bake Cover (TacticalWorld)` | повторный bake открытой сцены, Save Scene |
+| `Polygone/Tactical AI/Validate Arena Wiring` | PASS/FAIL мира, bake>0, NavMesh reachable |
+
+Алгоритм bake:
+
+1. Взять `TacticalWorld.ResolveWorldBakeBounds()` (на арене local → world).
+2. Пройти все клетки 16 м, попавшие в bounds (progress bar `Bake Cover`).
+3. На клетку: `CoverCandidateGenerator.Generate` с Physics + NavMesh + clearance + occlusion + classification.
+4. Каждый живой `CoverCandidate` → `BakedCoverCandidateRecord.FromCandidate`.
+5. `TacticalWorld.ReplaceBake` — заменить serialized list, сбросить runtime cache.
+
+В записи слота: Position, Normal, CoverType, флаги стоек, 8 чисел профилей, NavMeshValid, RegionX/Z, GeometryVersion. **Occupancy не хранится** — в Play всегда стартует Available.
+
+Gizmo на `TacticalWorld`: сфера + нормаль 0.8 м; цвет по типу (Standing голубой, Crouch жёлтый, Corner оранжевый, Partial розовый, None зелёный). В Play Reserved = жёлтый, Occupied = красный. Выделение: подписи `C{id} {type}` (до 80).
+
+Rebuild арены уничтожает корень вместе с `TacticalWorld` → Install (и bake) нужно снова. Сдвинул jersey без Bake — Play ходит к **старым** точкам.
+
+### Как Play читает bake
+
+```text
+TacticalWorld.Awake / EnsureRuntime
+      → BakedCoverCandidateSource(m_Baked)
+      → SharedCoverSpatialCache(source)
+      → CoverOccupancyBoard()   пустой
+```
+
+Первый `GetCandidates(region)` — miss: source копирует из списка все записи с этим `(RegionX, RegionZ)`, кладёт в слот кэша (cap 16 ещё раз). Следующий юнит в той же клетке — hit, без обхода bake. In-flight dedup: два одновременных запроса одной клетки не стартуют вторую generation.
+
+`BumpGeometryVersion` / `InvalidateRegion` есть в кэше. На арене **автодетекта разрушения нет**: v1 — ручное invalidation. После bake GeometryVersion в записях = 1; runtime cache живёт своей версией (старт 1). Occupancy при смене версии отпускает все слоты.
+
+`UnitAIController` **не** владеет кэшем. Bind: тот же `TacticalWorldProfile`, что на префабе и на мире сцены.
+
+### Как солдат видит список (граница слоя)
+
+Overlay тактики и emergency берут **одну клетку** — ту, где стоит юнит:
+
+```text
+cache.GetCandidates(unit.position)   → ≤ 16 кандидатов этой клетки
+```
+
+#14 urban walls, если своих якорей нет, дополнительно спрашивает origin, destination и середину пути (до трёх клеток). Это **не** расширяет выбор укрытия #13 — только коридор стен для маршрута.
+
+Дальше (не bake):
+
+- cheap filter: `NavMeshValid` и `CoverType != None`;
+- individual `CoverPositionEvaluator` / `CoverScoreMath` (Protection + Visibility − TravelCost и тонкие факторы);
+- Stay / Reposition, если `NewScore > Current + SwitchingCost`;
+- ImmediateThreat → EmergencyCover (ближайшее приемлемое destination, не Move);
+- occupancy board бронирует `(region, id)`.
+
+Cover **не** жмёт Fire, не пишет AimPoint, не сливает `AI.EngageTarget` и `Combat.SelectedTarget`, не выдаёт NavMesh path.
+
+### Достоинства
+
+1. **Нет ручной расстановки.** Дизайнер ставит геометрию боя; слоты появляются из стен. Арена CQB не требует сотен `CoverPoint_*`, которые разъезжаются при сдвиге jersey.
+2. **Shared ≠ Individual.** Кэш не хранит «лучшее укрытие». C3 плохо для снайпера и хорошо для LMG — это score солдата, не bake. Один список, разные решения.
+3. **Дорогой поиск один раз, и не в Play.** OverlapBox, NavMesh sample, capsule, 8+ лучей классификации на слот — Editor. Play копирует struct-записи. 20 юнитов / 3 региона в приёмке 13.1 дали **3** generation, не 20.
+4. **Регион, а не вся сцена.** Генерация и кэш локальны. Солдат на южном yard не сканирует северный.
+5. **Якорь к NavMesh и телу.** Off-mesh и «внутри ящика» отсекаются до классификации. Standoff 0.45 м совпадает с urban wall inset #14 — слот и «идти вдоль стены» говорят об одной геометрии.
+6. **Детерминизм.** Сортировка поверхностей и сэмплов по XZ, фиксированные knobs, spatial tie-break. Golden EditMode / Play воспроизводимы.
+7. **Чистый контракт occupancy.** Геометрия и бронь разведены. Сломался Reserve/Occupied — чинить board, не bake. Сломался тип стены — переbake, не score.
+8. **Подмена источника.** `ICoverCandidateSource` позволяет тестам кормить mock-список без физики, а арене — bake, не меняя overlay / solver.
+9. **Видимость в Editor.** Сразу видно, где генератор нашёл слоты, какого они типа, заняты ли в Play. Диагноз «нет укрытий» vs «есть слоты, AI не выбрал» разделяется глазами.
+
+### Недостатки и дыры
+
+1. **Bake стареет.** Сдвинул проп, пересобрал арену, забыл Bake — AI идёт в пустоту или в старый угол. Нет dirty-флага «геометрия ≠ bake». Destroy в рантайме слот не убивает: GeometryVersion руками.
+2. **Одна клетка 16 м на выбор #13.** Юнит у края региона не видит слот в 2 м, если тот в соседней клетке. Dense CQB на швах сетки слепой. #14 для стен смотрит до трёх клеток; выбор укрытия — нет. Это главная практическая дыра поиска «вокруг себя».
+3. **Cap 16 — разнообразие, не качество.** В центре арены (перекрёсток, комнаты, hesco) генератор может выкинуть плотный хороший угол, оставив далёкие точки «чтобы покрыть клетку». Tactical quality в reduce **запрещён** контрактом 13.1 — и это плата.
+4. **Прототип геометрии, не mesh.** Не-box collider → 4 стороны AABB. Бочка, цилиндр, наклонная плита, сложный MeshCollider дают фальшивые плоскости и фальшивые нормали. Поворот box уважается; «кривая» стена — нет.
+5. **Мелочь отсекается порогом 0.8 м.** Низкий бордюр, тонкий щит, короткая секция забора не становятся поверхностью. Часть «укрытий глазами игрока» для AI не существует.
+6. **OverlapBox 128 collider на клетку.** Лишние молча отбрасываются. Плотная CQB-клетка с кучей мелких пропов может недобрать грани.
+7. **Классификация «спиной к стене», не «от этого врага».** Protection в bake — «стена закрывает сегменты с тыла геометрии». Враг с той же стороны, что солдат, всё равно видит высокий StandingProfile. Score 13.3 частично компенсирует Facing / FireLane / Danger, но **не пересэмплирует** лучи на текущего hostile. Снайпер за низкой стенкой со «своей» стороны формально «в укрытии».
+8. **CoverType = None не выбирается.** `IsSelectable` режет None. Если классификатор ошибся (луч 3 м не нашёл стену, порог 0.5), слот мёртв для AI, хотя точка на NavMesh живая.
+9. **Нет этажей / окон / внутренних полостей.** Region Y фиксирован около земли. Второй этаж, окоп, проём в стене, стрельба через окно — вне модели сэмпла. Corner ≠ peek: угол помечается, lean — 13.7 по уже выбранному слоту.
+10. **Play не умеет догенерировать.** Новый баррикадный проп в рантайме, разрушенная стена, закрытая дверь — bake не знает. Контракт v1 это признаёт; для живого разрушения слой не готов.
+11. **Стоимость сцены.** Список struct на `TacticalWorld` лежит в YAML сцены. 40 клеток × до 16 записей × профили — терпимо на 150×50; на километровую карту без нарезки миров будет тяжело и в bake-time (двойной цикл клеток, progress bar, SyncTransforms каждый Generate).
+12. **Идентичность слота хрупкая.** `CandidateId` = порядок после reduce, не hash позиции. Переbake перенумеровывает C1…Cn. Логи «ходил в C2» между bake несравнимы. Occupancy с прошлого Play не переживает.
+13. **Два мира отладки.** Smoke #13 генерирует в Play и рисует rejected сэмплы. Арена читает bake — rejected в Play не видно, только итоговые сферы. «Почему нет слота у этой бочки» на арене отвечает только повторный Editor bake / Scene View, не runtime reject log.
+14. **Knobs генерации не на профиле.** Шаг 2 м, standoff 0.45, cap 16, margin 1.5 зашиты в `CoverGenerationSettings` (new() в baker). `InfantryTacticalProfile` включает UseCover / reservation / movement mode, но **не** плотность слотов. Смена шага = код + переbake, не крутилка ассета.
+
+### Что не чинить этим слоем
+
+```text
+нет слотов в Play          → bake / NavMesh / wiring, не CoverScore
+слоты есть, AI не идёт     → overlay / reservation / #14 hop, не генератор
+идёт не туда               → individual score / SwitchingCost, не cap 16
+двое в одном слоте         → occupancy board, не bake
+не стреляет из укрытия     → G6 / RoE / Readiness, Cover ≠ Fire
+снайпер слишком близко     → #15 weapon profile, не CoverPoint
+```
+
+Sampling алгоритм **прототип**: верхний API кэша от него не зависит. Менять шаг/грани/cap можно, не ломая overlay. Менять смысл `CoverCandidate` («это уже лучшее укрытие») — нельзя.
+
+### Приёмка поиска (не арены)
+
+| Подэтап | Что закрыто | Числа |
+|---------|-------------|--------|
+| 13.0 cache | lazy регион, hit/miss, in-flight dedup, GeometryVersion | EditMode в пакете 13.0–13.8 |
+| 13.1 generation | sample → NavMesh → clearance → dedup → cap 16, без score | EditMode **43/0**; Play `CoverGeneration_LAST.txt` **18/0** (16 candidates; 20 units / 3 regions → 3 generation) |
+| 13.2 classification | тип + профили в Generate, не vs враг | EditMode **60/0**; Play `CoverClassification_LAST.txt` **12/0** (standing/crouch/corner; cache hit тот же тип) |
+| Арена bake | Editor list > 0, Play без rescan | wiring 28.08.2026; формулы не трогать |
+
+#13 целиком: EditMode **169/0**, Play `CoverIntegration_LAST.txt` **18/0**. Это **не** freeze occupy на массовой арене (см. контракт слота выше).
+
+---
+
+## Атака, оборона, захват — сверка с дорожной картой
+
+Короткий ответ: **одиночный солдат умеет идти в точку, прятаться в слот и стрелять по RoE. Штурм объекта vs оборона объекта — не сделаны.** «Захват» как отдельная задача на дорожной карте — **#24 Commander**, не открыт.
+
+### Что дорожная карта обещает по ролям
+
+Конечная картина (дизайн, не текущий код):
+
+```text
+командир: Attack / Defend / Flank / Withdraw / Search / Hold / Capture
+        ↓
+группа: assault / support / cover / reserve
+        ↓
+солдат: конкретный слот, маршрут, lean, готовность
+```
+
+По этапам:
+
+| Слой | Что должно отличаться у атакующего и обороняющегося | Статус |
+|------|------------------------------------------------------|--------|
+| **#5** Attack / Retreat / Flee | Attack: Walk в точку, остаться Attack. Defense: держать якорь | **частично** — см. ниже |
+| **#3** Hold / Engage | в Attack и Defense одинаково: виден Hostile → Engage, иначе Hold | **сделано** |
+| **#10** Search | потерял контакт из Attack/Defense → искать, потом вернуться в то же состояние | **сделано** |
+| **#13.5** позиция | Attack: ближе к цели может бить «безопаснее назад». Defense: контроль сектора зоны может бить «идеал за периметром» | **сделано тонко** (один фактор MissionScore) |
+| **#13.6–occupy** | слот Reserved → Occupied, не двое в одной точке | **на арене работает, не FROZEN** |
+| **#13.7** peek | из занятого слота lean, не Fire | **сделано** (если Occupied и стоит) |
+| **#14** путь | cover-to-cover, вдоль стен | **слой закрыт**; на арене hop часто Direct к слоту/центру |
+| **#15** оружие / ранг | снайпер overwatch, LMG сектор, Recruit хуже выбирает | **не открыт** |
+| **#16 / #25** группа | один штурмует, один прикрывает, углы комнаты | **не открыт** |
+| **#17–#22** адаптация | отпор → фланг / fire&maneuver / не прилипать к первой позиции | **не открыт** |
+| **#24** командир | Capture ≠ Attack, Defend ≠ Defense солдата | **не открыт** |
+
+### Как юнит действует сейчас
+
+Один и тот же обработчик `UnitAIPointNavigationHandler` на Attack **и** Defense. Разница — в контексте приказа и в одном числе cover-score.
+
+```text
+приказ Attack(P)     → state=Attack   Destination=P        Walk к P (или к cover slot)
+приказ Defense(P)    → state=Defense  Anchor=P, радиус 10 м Walk к P (или к cover slot)
+оба + Hostile+VisibleNow → Action=Engage → CombatIntent=Engage → G6 / RoE
+оба без видимого врага   → Action=Hold   → Aim/Fire Ignore, Track жив
+ImmediateThreat          → RoE + EmergencyCover overlay; state не меняется
+потерял контакт          → Search 2.0, ResumeState = Attack или Defense
+```
+
+**Walk goal (если UseCover):**
+
+```text
+ImmediateThreat + emergency dest  → тот слот
+иначе Reserved / Current cover    → тот слот
+иначе RepositionRequest           → выбранный слот
+иначе Destination приказа         → центр атаки / якорь обороны
+```
+
+Приход Attack/Defense: диск **0.60 м** (не 1.50). Search / Retreat / Flee dest-only остаются 1.50. Occupied только после ConfirmOccupied.
+
+**Peek** только когда юнит уже стоит в слоте (не Retreat / Flee / Search, не во время hop). Lean — существующий `UnitSpineLean`.
+
+#### Attack сегодня
+
+Смысл состояния: «добиться результата в точке». На арене обе стороны получают **только Attack** в центр `(0, 0, 75)` ± разброс. Отдельного «защитника точки» нет.
+
+Что делает солдат:
+
+1. Идёт к центру (или сворачивает в ближайший baked-слот своей клетки 16 м).
+2. Бронирует слот, доходит, Occupied.
+3. Если видит врага — Engage и стреляет (при RoE стороны MissionCombat).
+4. Occupied + valid + LOS: Stay Committed, не прыгает на чуть лучший score.
+5. Потерял визуал 1.5 с (или gunshot/report Search 2.0) → Search, потом снова Attack.
+
+Cover mission = `CoverMissionIntent.Attack`: бонус, если слот **ближе к цели**, чем сам юнит (`MissionScore` clamp −0.6…+0.8). Цель для score — `EngageTarget` или LastAttacker, **не** пункт атаки P. Если врага нет, HasTarget=false → mission-бонус **0**, Attack и Defense выбирают слот одинаково.
+
+#### Defense сегодня
+
+Смысл состояния: «держать место / сектор». Контекст: якорь, facing, `AreaRadius = 10`.
+
+Что делает солдат:
+
+1. **Ходит к якорю** (HasDestination=true, Destination=якорь). Изначальный freeze #5 / 6.4 писал «Defense якорь не ходит». Occupy 28.08.2026 выровнял Defense с Attack: тот же Walk, диск 0.60. Контракт 6.4 в Closed-доке **устарел** относительно кода.
+2. Overlay укрытий работает так же, как в Attack (Idle/Attack/Defense; не Search/Retreat/Flee).
+3. Cover mission = `Defense`: бонус, если слот **дальше от цели** (держать дистанцию / не лезть вперёд). Якорь и радиус 10 м в `CoverSituation` **не передаются**. «Контроль сектора зоны vs идеал за периметром» из 13.5 в коде **не реализован** — есть только зеркало MissionScore.
+4. Facing якоря не крутит выбор слота: `SectorForward = transform.forward` сейчас.
+
+На арене `SetDefense` **никто не выдаёт**. Проверить оборону точки в SampleScene текущим спавнером нельзя.
+
+#### Захват
+
+Команды `Capture` нет. Нет флага «точка взята», нет удержания объекта, нет смены Attack→Defense после прихода. Приход в центр атаки = Stop и остаться Attack, не «захватили». Это **#24**, не дыра #13.
+
+### Какие позиции занимают
+
+| Вопрос | Сейчас | По карте когда |
+|--------|--------|----------------|
+| Откуда берутся точки | bake геометрии, ≤16 на клетку 16 м | #13 ✅ |
+| Кто выбирает слот | individual score (protection, LOS, travel, тонкий mission/weapon/rank) | #13.3 ✅ прототип |
+| Attack vs Defense слот | чуть ближе / чуть дальше от **врага**, не от пункта приказа | #13.5 тонко; сектор Defense — нет |
+| Снайпер / LMG / дробовик | enum есть; арена не биндит ствол → все как Rifle/Soldier | **#15** |
+| Recruit vs Elite | три класса cover-rank, default Soldier | **#15B** |
+| Присед в низкой стенке | `CoverStance` всегда Standing в `BuildCoverSituation` | не открыто |
+| Углы комнаты, stack, кто left/right | нет | **#16 CQB** |
+| Один assault, один support | нет; occupancy только «слот занят» | **#16 / #25** |
+| Не прилипать навсегда / фланг при отпоре | Occupied+LOS наоборот **держит** слот | **#19–#22** |
+
+WeaponScore / Rank в cover — **нюдж**, не доктрина. `BindCoverProfile` есть, спавнер арены не вызывает.
+
+### Сводка: сделано или нет
+
+**Сделано (одиночка, M2 почти):** приказ Attack/Defense, Hold/Engage, Search из обоих, динамические слоты, Stay/Reposition, emergency под огнём, бронь слота, peek из Occupied, тактический hop к слоту.
+
+**Сделано очень тонко:** «атакующий прёт вперёд, обороняющийся держит сектор». Это одно слагаемое ±0.8 к score относительно врага. Не зона, не facing, не «не выходить за 10 м».
+
+**Не сделано и по карте не должно быть сейчас:** захват объекта, оборона как миссия группы, распределение ролей, CQB-углы, оружейные позиции, адаптивный штурм. **#14B / #14C OPEN** (подэтапы ✅, не FROZEN). CoverDirectionScore / **#15** не открывать, не Capture.
+
+**Дрейф контракта, не баг слоя:** Defense в коде ходит к якорю. Старые формулировки «якорь не ходит» / `MOVE reason=Defense` нет — смотреть код `ForDefense` + `UnitAIPointNavigationHandler`.
+
+Диагноз на арене: обе команды **штурмуют одну точку**. Это не тест «захват vs оборона». Чтобы увидеть Defense, нужен приказ Defense на якорь (HUD / `SetDefense`), не спавн волны.
 
 ---
 
@@ -395,7 +938,7 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 |-----------|-----------|
 | ImmediateThreat | **#7 CLOSED** — `ImmediateThreatSource` + RoE veto |
 | RestrictedDefense vs MissionCombat | **одинаковая матрица**, зона не реализована |
-| AI.EngageTarget vs Combat.SelectedTarget | **расхождение наблюдается**, не чинится до #12 |
+| AI.EngageTarget vs Combat.SelectedTarget | **#12:** расхождение допустимо и объяснимо, не auto-merge |
 | Defense anchor walk | якорь Defense **не ходит** (отдельно от #5) |
 | Звук → боевые события в мире | API C1 есть, **публикация из оружия слабая** (#8) |
 | Звук в кадре тактического AI | **#9 CLOSED** |
@@ -407,20 +950,22 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 | 7 | ImmediateThreat + живой RoE | **CLOSED 24.08.2026** |
 | 8 | Combat events / sound в мир | **CLOSED 25.08.2026** |
 | 9 | Звук в AI perception snapshot | **CLOSED 25.08.2026** |
-| 10 | Search 2.0 (area, несколько точек) | после #9 |
-| 11 | Приоритет / отмена приказов | после #10 |
-| 12 | Калибровка выбора цели и огня | после #11 |
-| 13 | Dynamic Cover (без CoverPoints) | после #12 |
-| 14 | Tactical Movement + Lean / Readiness | после #13 |
-| 15 | Weapon role + Rank behaviour | после #14 |
+| 10 | Search 2.0 (area, несколько точек) | **CLOSED 26.08.2026** |
+| 11 | Приоритет / отмена приказов | **CLOSED 26.08.2026** |
+| 12 | Калибровка выбора цели и огня | **CLOSED / FROZEN 26.08.2026** |
+| 13 | Dynamic Cover (без CoverPoints) | **CLOSED / FROZEN 27.08.2026** — арена: Editor bake + bind, формулы не трогать |
+| 14 | Tactical Movement | **CLOSED / FROZEN 27.08.2026** — арена: mode из InfantryTacticalProfile |
+| 14B | Readiness State | **OPEN** — 14B.0–14B.7 ✅; `Readiness_State.md` |
+| 14C | Threat Direction Knowledge | **OPEN** — 14C.0–14C.6 ✅; 14C.1 ✅; 14C.2 ✅; 14C.3 ✅; 14C.4 ✅; 14C.5 ✅; `Threat_Direction_Knowledge.md` |
+| 15 | Weapon role + Rank behaviour | не открыт |
 | 16 | Group + CQB | после #15 |
 | 17–23 | Under Fire, Wound, Suppression, Reposition, Adaptive, Flank, Fire&Maneuver, Grenade | после #16 |
 | 24–26 | Commander, Squad tactics, HTN/GOAP/Utility/BT | после адаптивного боя |
 
 ### Намеренно отложено (не баги)
 
-- **UnitAIController на префабе** — SelfDefense по умолчанию режет огонь; AI только через арену/overlay/smoke.
-- **Слияние AI-цели и боевой цели** — до этапа калибровки #12.
+- **UnitAIController на префабе** — компонент есть, **выключен**; арена включает Player/Enemy. SelfDefense по умолчанию режет огонь, пока спавнер не поставит RoE стороны.
+- **Слияние AI-цели и боевой цели** — #12 оставляет два представления; не auto-merge.
 - **Отряд, формации, командир** — группа с #16, командир с #24; до стабильного одиночки (#12) не открывать.
 - **Укрытия** — динамические, #13; не hand-authored CoverPoints и не навигация.
 - **ShooterControl, prone locomotion** — вне A10, отдельный трек.
@@ -434,7 +979,7 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 Нумерация **#1–#16 не ломается**. #13–#16 расширены подэтапами; после #16 идут #17–#26.  
 Шесть фаз: I фундамент #1–#6 (**закрыта**) → II живой контур #7–#12 → III индивидуальная тактика #13–#15 → IV группа/CQB #16 → V адаптивный бой #17–#23 → VI командир/planner #24–#26.
 
-**Ближайшая последовательность: #10 не открыт.** Не прыгать к #13–#26.
+**Ближайшая последовательность: #14B OPEN** (14B.0–14B.7 ✅), **#14C OPEN** (14C.0–14C.6 ✅; 14C.1–14C.5 ✅; слой **не FROZEN**). CoverDirectionScore / #15 не открывать. #13/#14 не reopen.
 
 Цикл каждого этапа: DESIGN → CONTRACT → IMPLEMENT → EDITMODE → PLAY → ARENA → LOG → FREEZE. **DESIGN** сверяется с `Пехота_система_дизайн.md` §6.x (таблица §11 дизайн-дока / дорожной карты).
 
@@ -448,12 +993,12 @@ ImmediateThreat  ≠  ThreatLevel.High       (отдельный injected bool)
 #7 ImmediateThreat + RoE   CLOSED 24.08.2026
 #8 Combat events / sound   CLOSED 25.08.2026
 #9 Sound in AI frame          CLOSED 25.08.2026
-#10 Search 2.0
-#11 Command priority
-#12 Target + fire calibration
-#13 Dynamic Cover (геометрия мира, не CoverPoints)
-#14 Tactical Movement + Lean / Readiness
-#15 Weapon role + Rank behaviour
+#10 Search 2.0              CLOSED / FROZEN 26.08.2026
+#11 Command priority          CLOSED / FROZEN 26.08.2026
+#12 Target + fire calibration CLOSED / FROZEN 26.08.2026
+#13 Dynamic Cover CLOSED / FROZEN 27.08.2026
+#14 Tactical Movement CLOSED / FROZEN 27.08.2026
+#15 Weapon role + Rank behaviour   ← не открывать, пока не сказано явно
 #16 Group + CQB
 #17 Under Fire + Wound
 #18 Suppression
@@ -1320,17 +1865,22 @@ Engage **не** вызывает выбор цели боевого контур
 
 ## 3.3. Search по памяти
 
-Старт, только если состояние Defense или Attack, враг **не** виден, и есть Hostile с полезной памятью (conf > 0.25). Берётся самый свежий/уверенный. Точка поиска = LastKnown. Радиус области 15 м. Куда вернуться — предыдущее Defense/Attack.
+Старт, только если состояние Defense или Attack, враг **не** виден, и есть улика: Hostile с полезной памятью (conf > 0.25), либо hostile combat sound, либо hostile report. Источники не сливаются. Приоритет: Visual LastKnown > SoundPosition > Report. Куда вернуться — предыдущее Defense/Attack.
 
 Idle сам Search не начинает. Stale (conf ≤ 0.25) Search не начинает.
 
+На входе снимок **SearchArea** (центр / радиус 15 м / source / confidence). Кандидаты строятся один раз и кэшируются. Солдат ходит к кандидатам (arrival 1.5 м), на каждой точке STOP / Inspect ~1 с, затем следующая. Успех поиска — Hostile+VisibleNow, не радиус и не прибытие.
+
 Конец:
 
-- увидел Hostile → вернуться в Defense или Attack;
-- память кончилась/устарела → то же возвращение;
+- увидел Hostile → Found, вернуться в Defense или Attack;
+- все кандидаты осмотрены → Exhausted, то же возвращение;
+- память+звук+доклад кончились → Expired;
+- ImmediateThreat → RoE / EmergencyCover, Search **не** завершается;
+- явный приказ → Search отменяется;
 - явный Search без «куда вернуться» + нашёл врага → Attack.
 
-Search **не** пишет память, не двигает LastKnown, не вызывает decay. Зрение стареет само по своим часам. Destination — LastKnown **на входе**, не живой LastKnown каждый тик. В 15 м солдат останавливается и смотрит; успех поиска — Hostile+VisibleNow, не радиус. Контракт: `Closed/Search_Navigation_Execution.md`.
+Search **не** пишет память, не двигает LastKnown, не вызывает decay. Destination — снимок на входе, не живой LastKnown каждый тик. Новый звук во время Search area не двигает. Контракт: `Closed/Search_2.md`. Baseline decision: `Closed/Search_Navigation_Execution.md`.
 
 ## 3.4. Правила применения силы
 
@@ -1434,7 +1984,7 @@ Search **исполнен** (этап 3 **FROZEN**): один Walk к snapshotte
 
 **1. Личность в мире — закрыто (этап 1 FROZEN).** `VisualIdentityEvidence` на префабе; спавн пишет look. Identity по-прежнему не жмёт спуск и не ставит Engage.
 
-**2. Тактический AI не на префабе.** Пока его нет — живая стрельба идёт без RoE. Как только его добавили отладкой — огонь по врагу по умолчанию запрещён.
+**2. Тактический AI не на префабе.** Арена вешает `UnitAIController` после спавна (боевые стороны). Без AI живая стрельба идёт без RoE. С AI огонь идёт через RoE стороны (`MissionCombat` на арене).
 
 **3. ImmediateThreat был мёртвый вход — закрыт #7 (24.08.2026).** IncomingFire/ConfirmedHit ставят флаг. Threat High по-прежнему не равен ImmediateThreat.
 
@@ -1446,7 +1996,7 @@ Search **исполнен** (этап 3 **FROZEN**): один Walk к snapshotte
 
 **7. Neutral невидим зрению.** В реестре есть, в кандидатах нет. Нейтрала нельзя ни обнаружить, ни опознать.
 
-**8. Игровой канал команды есть (6.1–6.4).** `GameCommandInput` выбирает получателей; `GameCommandService` отдаёт `TacticalCommand`. Нет AI у игрока → `NoAI`. Enemy Debug может повесить AI. Overlay/арена по-прежнему debug `TryIssue`. SHOT после приказа — #7.
+**8. Игровой канал команды есть (6.1–6.4).** `GameCommandInput` выбирает получателей; `GameCommandService` отдаёт `TacticalCommand`. Нет AI → `NoAI`. Спавн арены ставит Attack через debug `TryIssue`. HUD — production `IssueCommand`. RTS-клик — отдельный locomotion, не tactical cover. SHOT после приказа — #7.
 
 **9. Патруль — параллельная вселенная.** Не состояние AI. Не связан с Search/Defense. На префабе отсутствует.
 
@@ -1653,6 +2203,8 @@ N01  team=Neutral look=Civilian callsign=Civilian-01 … ai=none
 снаряд выпущен      PROJECTILE result=Launch
 пошёл / зачем       INPUT  /  GAMECMD  /  CMD issue  /  AI state=  /  MOVE reason=
 погиб               DEATH
+жизнь тела          LIFE / SNAP life=
+слот укрытия        COVER_STATE
 срез «сейчас»       SNAP
 ```
 
@@ -1674,8 +2226,19 @@ N01  team=Neutral look=Civilian callsign=Civilian-01 … ai=none
 | `CMD` | AI принял/отверг `IssueCommand` | verb=issue\|accepted\|rejected, type, pos, tgt, source, from, reason | да | да |
 | `GAMECMD` | игровой сервис выдал / принял / отверг приказ юниту | verb=issue\|accepted\|rejected, unit, type, pos, tgt, source, reason | да | да |
 | `INPUT` | слой ввода защёлкнул режим, выдал набор приказов, отменил latch или пропустил | mode, audience, verb=pending\|issue\|cancel\|skip, n, units, pos, skip= | нет | да |
-| `SNAP` | сердцебиение 0.5 с | pos, vel, stance, pose, g6, selected, dest, reason, gate, ai, contacts | да | нет |
+| `SNAP` | сердцебиение 0.5 с | life, vision, obs, combat, move, cover=C2\|none, coverState, coverDistance, dest, remaining, g6, selected, ai, aiAction | да | нет |
 | `DEATH` | юнит погиб | dead, pos | да | да |
+| `POSITION_ACQUIRE` | попытка занять точку (не тик) | result, reason, distance, tolerance, remaining, pathStatus, velocity | да | да |
+| `COVER_STATE` | lifecycle слота (не score) | unit, candidate, state=Reserved\|Approaching\|Acquired\|Occupied\|Released, reason, dist | да | да |
+| `COVER_DECISION` | смена Stay/Reposition | unit, current, best, decision, reason, score | да | да |
+| `COVER_REF` | тот же объект слота | unit, coverId, candidateRef=0x…\|MISSING, phase=Reserve\|Acquire\|ConfirmOccupied | да | да |
+| `COVER_INVALID` | почему current invalid | unit, cover, reason=CandidateMissing\|ReservationLost\|TooFar\|ExposureChanged\|PathInvalid | да | да |
+| `COVER_HEARTBEAT` | Keep (≤1 с) или Release | unit, cover, action=Keep\|Release, reason, remaining, pathValid | да | да |
+| `MOVE_COVER` | последний метр к слоту | unit, cover, goal, acquire, unitPos, agentPos, remaining, velocity, stoppingDistance, radius, distance, pathStatus | да | да |
+| `AI_TRANSITION` | Attack↔Search | unit, from, to, reason=LostCurrentTarget\|HostileVisible\|ImmediateThreat\|CommandChanged, target, immediateThreat | да | да |
+| `READINESS` | смена / запрос перехода ReadinessState | state= / transition=From->To reason= duration= | да | да |
+| `READINESS_POSE` | запрос физической позы | state= pose= [transition= duration=] [reason=LifeGate] | да | да |
+| `LIFE` | смена Alive / Unconscious / Dead | life, was, reason=Damage, health, consciousness, ai, vision, combat, move, cover, coverReleased, navStopped | да | да |
 
 `MOVE source=`: `Tactical` = зачем (Search/Attack/Retreat/Flee); `NavDriver` = как сняли точку на NavMesh; `ClickToMove` = приказ игрока RTS (`reason=Rts`). Один тактический шаг часто даёт обе строки Tactical и NavDriver — это не два приказа.
 
@@ -1733,10 +2296,13 @@ N01  team=Neutral look=Civilian callsign=Civilian-01 … ai=none
 **SNAP** (срез; ключи те же, плюс):
 
 ```
-pos vel stance pose g6 selected engageable dest remaining reason gate
-ai=State/Action intent= roe= engage=
+life= vision= obs= combat= move= cover=C2|none coverState= coverDistance= coverTolerance= coverReserved=
+pos vel stance pose g6 selected dest moveGoal remaining reason gate
+ai=Attack aiAction=Engage intent= roe= engage=     ← unconscious/dead: ai=off
 contacts= vis= mem= | E03:Observed/Detected/Hostile/Q0.82
 ```
+
+`life=` — Alive / Unconscious / Dead. `cover=` на SNAP: `C2` слот или `none`. Состояние слота — `coverState=` (None / Approaching / Occupied). `vision=`/`combat=`/`move=` — активность контура. `obs=` — Observed / RecentlyLost / none / off. `COVER_DECISION` и `POSITION_DECISION` пишутся вместе, только при смене решения, не каждый кадр.
 
 `vis=` сколько Observed сейчас, `mem=` сколько с полезной памятью (conf > 0.25) без взгляда.
 
@@ -1758,6 +2324,13 @@ contacts= vis= mem= | E03:Observed/Detected/Hostile/Q0.82
 | `intent=` | CombatIntent Hold/Engage | нет AI на объекте → `n/a` |
 | `roe=` | разрешение силы | Allowed ≠ Fire |
 | `reason=` в `MOVE` | зачем выдан nav | укрытий/POI в коде нет |
+| `life=` | тело Alive/Unconscious/Dead | не UnitAIState |
+| `COVER_STATE Acquired` | дошёл до слота по геометрии | не Occupied |
+| `COVER_STATE Occupied` | board подтвердил занятие | не POSITION_ACQUIRE |
+| `cover=` в `POSITION_ACQUIRE` | `0` dest-only / `C1` реальный слот | не SNAP cover= и не boolean 0\|1 |
+| `cover=` в `SNAP` | `C2` id слота или `none` | не Occupied/Reserved; это `coverState=` |
+| `candidateRef=MISSING` | объект CoverCandidate потерян | дыра Acquire без ConfirmOccupied |
+| `POSITION_ACQUIRE reason=CandidateMissing` | id слота есть, объекта нет | не путать с OutOfTolerance |
 | `scanCandidates=` | фильтр реестра зрения | Neutral: **никогда не кандидат и сам никого не сканирует** |
 
 `SNAP` одной строкой: `g6=`, `selected=`, `engageable=`, `dest=`, `reason=`, `gate=`, `ai=State/Action`, список `E03:Observed/Detected/Hostile/Q0.82`.
@@ -1841,7 +2414,1393 @@ INPUT mode=AttackPending audience=PlayerSelected verb=issue n=2 units=… pos=�
 
 Код для диагноза не нужен. Если лог показал виноватый контур — чинить этот контур, не соседний. Замороженные числа из части 1.9 не крутить, пока тег не указал именно зрение.
 
-## 8.8. Последний Play: `Infantry_20260821_195740`
+## 8.8. Play 28.08.2026: `Infantry_20260828_113530`
+
+Сессия **11:35:30**, запись **~181 с**. Арена 150×50 **после Editor wiring / bake**. Сырые логи: `_Docs/Logs/Runtime/Infantry_20260828_113530/`.
+
+Слоты логгера все в `Player/P01…P90`. Сторона — `SPAWN team=`. Enemy это **P11+**, не E01. `ai=UnitAIController` (на префабе выключен, арена включает Player/Enemy).
+
+| Волна | t | Кто |
+|-------|---|-----|
+| 0 | 0.000 | P01–P10 Player, P11–P20 Enemy, P21–P40 Neutral |
+| 1 | 121.5 | +10 Enemy (P41–P50) |
+| 2 | 150.7 | +10 Player +10 Enemy |
+| 3 | 181.0 | ещё волна, сессия оборвалась |
+
+### Цепочка волны 0 (боевые, не Neutral)
+
+```
+0.000  SPAWN   team=Player|Enemy  ai=UnitAIController  pos=линия Z≈11/15 или Z≈135/139
+0.020  AI      roe=SelfDefense->MissionCombat
+0.020  CMD     Attack Accept  dest≈(0, 75)
+0.020  ROUTE   mode=Tactical  hop к центру
+0.020  MOVE    reason=Attack
+0.353  POSITION_DECISION  Reposition C0→Cx  reason=CurrentInvalid
+0.353  COVER_HOP  candidate=Cx reserved=1
+       … подход …
+       POSITION_ACQUIRE  Acquired  dist≤0.60   или  OutOfTolerance
+```
+
+Cover **видят и бронируют**. Occupied в timeline по-прежнему не пишется (`state=Occupied` нет). Search↔Attack (OverlaySearch) — шум, не отдельная миссия. Neutral: Idle, SelfDefense, без Attack/cover/SHOT, стоят на спавне.
+
+### Волна 0 Player — что решил каждый
+
+Attack dest у всех ≈ центр (z≈75). Hop/reserve — слоты C1–C5.
+
+| Слот | Оружие | Спавн | Cover | Acquire | G6 / SHOT | Исход |
+|------|--------|-------|-------|---------|-----------|-------|
+| P01 | M4_ModA_1 | (−18, 11) | hop C1,C2 | нет | Track/Aim, **0** | unconscious |
+| P02 | MK18 | (−12, 11) | C1–C3 | C0 **OutOfTolerance** dist=1.03 | Track/Aim, **0** | unconscious |
+| P03 | MK12 | (−2, 11) | C1–C5 | C0 **Acquired** dist=0.54 | Fire, **1** | жив, engage P17/P15/P14 |
+| P04 | M16A_ModA_1 | (4, 11) | C1–C4 | нет | Fire, **10** | unconscious, engage много Enemy |
+| P05 | BenelliM4 | (16, 11) | C1–C4 | C0 **Acquired** dist=0.42 | Fire, **45** | жив, engage P18/P19/P11 |
+| P06 | MK18 | (−16, 15) | C1,C2 | нет | Fire, **11** | жив |
+| P07 | M4_ModA_1 | (−4, 15) | C1–C5 | **C1 Acquired** dist=0.59 | Fire, **12** | unconscious, engage P15 |
+| P08 | Sniper762x51 | (2, 15) | C1–C4 | C0 **OutOfTolerance** dist=1.46 | Fire, **3** | жив |
+| P09 | M249 | (12, 15) | C1–C4 | C0 Acquired ×2, потом OutOfTolerance 0.84 | Track, **0** | unconscious |
+| P10 | M16A4_ModA_2 | (18, 15) | C1–C3 | **C1 Acquired** dist=0.00…0.27 | Fire, **5** | unconscious |
+
+Итого Player: **пятеро acquire** (P03, P05, P07, P09, P10), двое стабильно мимо слота (P02, P08). Огонь в основном P04–P07. P01/P02/P09 без выстрела.
+
+### Волна 0 Enemy — что решил каждый
+
+Та же цепочка Attack к центру + COVER_HOP. **Acquire ни у кого.** Все десять **DEATH**. Выстрелов почти нет (G6 чаще Track/Aim, SHOT 0–1).
+
+| Слот | Оружие | Спавн | Engage | DEATH t | Позиция смерти |
+|------|--------|-------|--------|---------|----------------|
+| P11 | Mosin | (−18, 139) | P03,P08,P10,P05,P04 | 126.7 | (−16.7, 91.7) |
+| P12 | AK74UMOD1 | (−12, 139) | много Player | 180.3 | (−7.0, 91.0) |
+| P13 | RPK47 | (−2, 139) | P08 | 170.9 | (0.4, 96.7) |
+| P14 | PKM | (4, 139) | P08,P03,P10,P05 | 170.9 | (2.3, 102.6) |
+| P15 | SVD | (16, 139) | много Player | 127.8 | (2.6, 98.6) |
+| P16 | RPK74MOD1 | (−16, 135) | P10,P05,P08… | **92.9** первый | (−7.4, 88.8) |
+| P17 | RPK74MOD1 | (−4, 135) | P08,P04,P10,P03,P05 | 157.2 | (2.4, 100.8) |
+| P18 | RPK74MOD1 | (2, 135) | много Player | 159.2 | (2.7, 96.3) |
+| P19 | AK47_1 | (12, 135) | P04,P07,P03,P10 | 108.9 | (1.8, 95.5) |
+| P20 | AK47S | (18, 135) | P08,P10,P04,P03 | 143.6 | (3.0, 102.3) |
+
+Картина боя: Player доходят до середины/дальше и стреляют; Enemy бронируют слоты, почти не подтверждают acquire и гибнут у z≈90–100.
+
+### Neutral P21–P40
+
+Idle, RoE SelfDefense, `weapon=none`, `scanCandidates=none`. SNAP: `pose=NotReady dest=none gate=NoWeapon`. Слышат шаги, VISION не коммитит. Нет COVER_HOP, SHOT, DEATH.
+
+Ниже — карточки всех слотов этого прогона (волны 0–3), без timeline.
+
+### Волна 0 - Player P01-P10
+
+#### P01 - Player, Soldier
+
+- Spawn t=0.000 pos=(-18.0, 0.0, 11.0), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.2, 0.1, 75.6)
+- Engage: P12, P43
+- Cover hop: C1, C2
+- Reserved: C1, C2
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 3 of 3:
+  - 0.353  Reposition C0->C2 (CurrentInvalid) score=3.9
+  - 4.484  Stay C0->C0 (NoCandidate) score=1.7
+  - 24.853  Reposition C0->C1 (CurrentInvalid) score=3.2
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=2, SearchAttackOsc=220
+- Last SNAP t=181.315 pos=(-7.8, -0.7, 66.4) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P02 - Player, Soldier
+
+- Spawn t=0.000 pos=(-12.0, 0.0, 11.0), weapon=Item_Weapon_MK18, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 74.9)
+- Engage: P42, P43
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3
+- Acquire:
+  - 5.229  C0 Rejected OutOfTolerance dist=1.03 tol=0.60
+- PositionDecision first 8 of 16:
+  - 0.353  Reposition C0->C3 (CurrentInvalid) score=3.6
+  - 3.126  Stay C4->C3 (Committed) score=4.1
+  - 3.379  Reposition C4->C1 (BetterTacticalPosition) score=4.4
+  - 3.502  Stay C4->C1 (Committed) score=4.4
+  - 3.976  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 4.154  Reposition C0->C3 (CurrentInvalid) score=4.7
+  - 4.319  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 4.681  Reposition C0->C3 (CurrentInvalid) score=4.8
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=2, SearchAttackOsc=8
+- Last SNAP t=181.315 pos=(10.2, -0.4, 60.0) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P03 - Player, Soldier
+
+- Spawn t=0.000 pos=(-2.0, 0.0, 11.0), weapon=Item_Weapon_MK12, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.9, 0.1, 76.0)
+- Engage: P17, P15, P14
+- Cover hop: C1, C2, C3, C4, C5
+- Reserved: C1, C2, C3, C4, C5
+- Acquire:
+  - 107.186  C0 Acquired dist=0.54 tol=0.60
+- PositionDecision first 8 of 33:
+  - 0.353  Reposition C0->C5 (CurrentInvalid) score=5.4
+  - 3.379  Stay C0->C0 (NoCandidate) score=1.7
+  - 6.323  Reposition C0->C1 (CurrentInvalid) score=5.1
+  - 14.070  Reposition C0->C4 (CurrentInvalid) score=3.2
+  - 14.223  Reposition C0->C3 (CurrentInvalid) score=4.2
+  - 15.244  Reposition C0->C4 (CurrentInvalid) score=3.0
+  - 18.223  Reposition C0->C3 (CurrentInvalid) score=3.0
+  - 19.230  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Aim, Ignore, Fire, SHOT=1, ImmediateThreat=0, SearchAttackOsc=11
+- Last SNAP t=181.315 pos=(13.6, 0.1, 78.7) ai=Search/None dest=(1.9, 0.1, 84.2) gate=Success engage=none
+
+#### P04 - Player, Soldier
+
+- Spawn t=0.000 pos=(4.0, 0.0, 11.0), weapon=Item_Weapon_M16A_ModA_1, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 74.9)
+- Engage: P17, P13, P18, P19, P14
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 72:
+  - 0.353  Reposition C0->C1 (CurrentInvalid) score=5.3
+  - 5.889  Reposition C0->C4 (CurrentInvalid) score=2.2
+  - 15.084  Reposition C0->C3 (CurrentInvalid) score=3.8
+  - 15.244  Reposition C0->C2 (CurrentInvalid) score=1.5
+  - 15.762  Reposition C0->C1 (CurrentInvalid) score=1.4
+  - 15.873  Reposition C0->C4 (CurrentInvalid) score=1.6
+  - 16.007  Reposition C0->C1 (CurrentInvalid) score=1.4
+  - 16.835  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Ignore, Fire, Aim, Track, SHOT=10, ImmediateThreat=10, SearchAttackOsc=44
+- Last SNAP t=181.315 pos=(13.9, -0.3, 81.0) ai=Attack/Hold dest=none gate=Success engage=none
+
+#### P05 - Player, Soldier
+
+- Spawn t=0.000 pos=(16.0, 0.0, 11.0), weapon=Item_Weapon_BenelliM4, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 74.8)
+- Engage: P18, P19, P11
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire:
+  - 30.337  C0 Acquired dist=0.42 tol=0.60
+- PositionDecision first 8 of 35:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 6.042  Reposition C0->C3 (CurrentInvalid) score=1.2
+  - 6.479  Reposition C0->C4 (CurrentInvalid) score=1.7
+  - 7.437  Reposition C0->C2 (CurrentInvalid) score=0.8
+  - 7.547  Reposition C0->C3 (CurrentInvalid) score=1.5
+  - 12.908  Reposition C0->C1 (CurrentInvalid) score=3.9
+  - 15.084  Stay C1->C1 (ImprovementTooSmall) score=4.8
+  - 15.485  Reposition C0->C2 (CurrentInvalid) score=3.1
+- Combat: G6=Track, Ignore, Fire, Aim, SHOT=45, ImmediateThreat=0, SearchAttackOsc=10
+- Last SNAP t=181.315 pos=(15.3, 0.1, 79.9) ai=Search/None dest=(1.9, 0.1, 84.2) gate=Success engage=none
+
+#### P06 - Player, Soldier
+
+- Spawn t=0.000 pos=(-16.0, 0.0, 15.0), weapon=Item_Weapon_MK18, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.7, 0.1, 76.2)
+- Engage: P12, P16
+- Cover hop: C1, C2
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 12:
+  - 0.353  Reposition C0->C3 (CurrentInvalid) score=4.5
+  - 0.614  Reposition C0->C1 (CurrentInvalid) score=3.4
+  - 2.970  Stay C0->C0 (NoCandidate) score=1.7
+  - 15.084  Reposition C0->C2 (CurrentInvalid) score=4.6
+  - 23.530  Stay C2->C2 (Committed) score=6.2
+  - 24.965  Stay C2->C0 (NoCandidate) score=6.4
+  - 28.328  Stay C2->C1 (ImprovementTooSmall) score=6.0
+  - 43.416  Reposition C0->C1 (CurrentInvalid) score=1.8
+- Combat: G6=Track, Ignore, Fire, SHOT=11, ImmediateThreat=0, SearchAttackOsc=5
+- Last SNAP t=181.315 pos=(-9.6, 0.1, 60.8) ai=Search/None dest=(17.2, 0.1, 89.9) gate=Success engage=none
+
+#### P07 - Player, Soldier
+
+- Spawn t=0.000 pos=(-4.0, 0.0, 15.0), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 75.1)
+- Engage: P15
+- Cover hop: C1, C2, C3, C4, C5
+- Reserved: C1, C2, C3, C4, C5
+- Acquire:
+  - 28.843  C1 Acquired dist=0.59 tol=0.60
+- PositionDecision first 8 of 24:
+  - 0.353  Reposition C0->C5 (CurrentInvalid) score=3.9
+  - 0.614  Reposition C0->C4 (CurrentInvalid) score=1.2
+  - 3.379  Reposition C0->C5 (CurrentInvalid) score=3.9
+  - 5.470  Stay C0->C0 (NoCandidate) score=1.7
+  - 5.889  Reposition C0->C1 (CurrentInvalid) score=5.1
+  - 7.063  Reposition C0->C3 (CurrentInvalid) score=2.5
+  - 14.070  Reposition C0->C1 (CurrentInvalid) score=4.0
+  - 14.819  Stay C2->C1 (Committed) score=4.2
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=12, ImmediateThreat=1, SearchAttackOsc=44
+- Last SNAP t=181.315 pos=(5.5, -0.7, 65.1) ai=Attack/Hold dest=none gate=Success engage=none
+
+#### P08 - Player, Soldier
+
+- Spawn t=0.000 pos=(2.0, 0.0, 15.0), weapon=Item_Weapon_Sniper762x51, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.2, 0.1, 74.4)
+- Engage: P17, P13, P19, P14
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire:
+  - 164.318  C0 Rejected OutOfTolerance dist=1.46 tol=0.60
+  - 164.985  C0 Rejected OutOfTolerance dist=1.46 tol=0.60
+- PositionDecision first 8 of 49:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 4.484  Reposition C0->C3 (CurrentInvalid) score=2.4
+  - 6.889  Reposition C0->C2 (CurrentInvalid) score=1.7
+  - 14.070  Reposition C0->C3 (CurrentInvalid) score=4.2
+  - 14.223  Reposition C0->C2 (CurrentInvalid) score=2.6
+  - 15.084  Reposition C0->C3 (CurrentInvalid) score=4.0
+  - 18.080  Stay C0->C0 (NoCandidate) score=1.7
+  - 28.635  Reposition C0->C2 (CurrentInvalid) score=2.2
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=3, ImmediateThreat=0, SearchAttackOsc=12
+- Last SNAP t=181.315 pos=(15.3, 0.1, 80.9) ai=Search/None dest=(1.9, 0.1, 84.2) gate=NeedsBoltCycle engage=none
+
+#### P09 - Player, Soldier
+
+- Spawn t=0.000 pos=(12.0, 0.0, 15.0), weapon=Item_Weapon_M249, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 75.4)
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire:
+  - 16.007  C0 Acquired dist=0.54 tol=0.60
+  - 85.727  C0 Acquired dist=0.45 tol=0.60
+  - 172.559  C0 Rejected OutOfTolerance dist=0.84 tol=0.60
+- PositionDecision first 8 of 54:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 5.470  Reposition C0->C4 (CurrentInvalid) score=1.6
+  - 5.610  Reposition C0->C3 (CurrentInvalid) score=1.2
+  - 5.748  Reposition C0->C4 (CurrentInvalid) score=1.5
+  - 6.479  Reposition C0->C3 (CurrentInvalid) score=1.3
+  - 7.437  Reposition C0->C4 (CurrentInvalid) score=2.1
+  - 8.445  Reposition C0->C2 (CurrentInvalid) score=0.7
+  - 12.908  Reposition C0->C1 (CurrentInvalid) score=3.6
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=7, SearchAttackOsc=16
+- Last SNAP t=181.315 pos=(13.1, -0.3, 81.3) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P10 - Player, Soldier
+
+- Spawn t=0.000 pos=(18.0, 0.0, 15.0), weapon=Item_Weapon_M16A4_ModA_2, log until t=181.315
+- Outcome: unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.5, 0.1, 76.2)
+- Engage: P13, P16, P18, P11
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3, C4
+- Acquire:
+  - 163.318  C1 Acquired dist=0.00 tol=0.60
+  - 163.985  C1 Acquired dist=0.00 tol=0.60
+  - 164.985  C1 Acquired dist=0.00 tol=0.60
+  - 165.318  C1 Acquired dist=0.20 tol=0.60
+  - 165.652  C1 Acquired dist=0.06 tol=0.60
+  - 165.985  C1 Acquired dist=0.05 tol=0.60
+  - 166.318  C1 Acquired dist=0.27 tol=0.60
+- PositionDecision first 8 of 25:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 3.976  Reposition C0->C4 (CurrentInvalid) score=1.6
+  - 5.610  Reposition C0->C1 (CurrentInvalid) score=1.7
+  - 12.795  Stay C1->C1 (ImprovementTooSmall) score=4.4
+  - 13.412  Reposition C0->C2 (CurrentInvalid) score=3.1
+  - 13.747  Reposition C0->C3 (CurrentInvalid) score=4.5
+  - 14.819  Reposition C0->C4 (CurrentInvalid) score=2.8
+  - 15.084  Reposition C0->C3 (CurrentInvalid) score=4.4
+- Combat: G6=Track, Ignore, Fire, Aim, SHOT=5, ImmediateThreat=9, SearchAttackOsc=52
+- Last SNAP t=181.315 pos=(4.6, -0.6, 64.8) ai=Attack/Hold dest=none gate=Success engage=none
+
+### Волна 0 - Enemy P11-P20
+
+#### P11 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(-18.0, 0.0, 139.0), weapon=Item_Weapon_Mosin, log until t=181.315
+- Outcome: DEATH t=126.653 (-16.7, -0.6, 91.7); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.2, 0.1, 74.3)
+- Engage: P03, P08, P10, P05, P04
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 11:
+  - 0.353  Reposition C0->C1 (CurrentInvalid) score=2.3
+  - 3.264  Reposition C0->C3 (CurrentInvalid) score=3.5
+  - 6.042  Reposition C0->C4 (CurrentInvalid) score=4.3
+  - 8.820  Reposition C0->C1 (CurrentInvalid) score=4.0
+  - 9.442  Reposition C0->C2 (CurrentInvalid) score=4.1
+  - 10.577  Reposition C0->C5 (CurrentInvalid) score=4.0
+  - 10.683  Reposition C0->C2 (CurrentInvalid) score=3.8
+  - 11.059  Reposition C0->C5 (CurrentInvalid) score=4.0
+- Combat: G6=Track, Ignore, Fire, Aim, SHOT=0, ImmediateThreat=1, SearchAttackOsc=158
+- Last SNAP t=181.315 pos=(-16.7, -0.6, 91.7) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P12 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(-12.0, 0.0, 139.0), weapon=Item_Weapon_AK74UMOD1, log until t=181.315
+- Outcome: DEATH t=180.315 (-7.0, -0.7, 91.0); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.1, 0.1, 74.2)
+- Engage: P01, P06, P10, P04, P08, P03, P05, P02
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 17:
+  - 0.353  Reposition C0->C2 (CurrentInvalid) score=3.6
+  - 5.470  Stay C4->C2 (Committed) score=4.2
+  - 5.748  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 8.616  Reposition C0->C5 (CurrentInvalid) score=2.7
+  - 9.632  Reposition C0->C2 (CurrentInvalid) score=3.9
+  - 9.768  Reposition C0->C5 (CurrentInvalid) score=2.7
+  - 10.922  Reposition C0->C2 (CurrentInvalid) score=0.1
+  - 18.080  Reposition C0->C1 (CurrentInvalid) score=0.8
+- Combat: G6=Track, Ignore, Fire, Aim, SHOT=1, ImmediateThreat=4, SearchAttackOsc=184
+- Last SNAP t=181.315 pos=(-7.0, -0.7, 91.0) ai=Attack/Hold dest=none gate=Success engage=none
+
+#### P13 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(-2.0, 0.0, 139.0), weapon=Item_Weapon_RPK47, log until t=181.315
+- Outcome: DEATH t=170.936 (0.4, -0.6, 96.7); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.4, 0.1, 75.0)
+- Engage: P08
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 40:
+  - 0.353  Reposition C0->C5 (CurrentInvalid) score=5.4
+  - 5.470  Stay C0->C0 (NoCandidate) score=1.7
+  - 8.616  Reposition C0->C1 (CurrentInvalid) score=4.9
+  - 8.820  Stay C0->C0 (NoCandidate) score=1.7
+  - 9.154  Reposition C0->C3 (CurrentInvalid) score=2.1
+  - 11.059  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 11.181  Reposition C0->C2 (CurrentInvalid) score=1.4
+  - 11.607  Reposition C0->C3 (CurrentInvalid) score=2.6
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=6, SearchAttackOsc=619
+- Last SNAP t=181.315 pos=(0.4, -0.6, 96.7) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P14 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(4.0, 0.0, 139.0), weapon=Item_Weapon_PKM, log until t=181.315
+- Outcome: DEATH t=170.936 (2.3, -0.7, 102.6); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.4, 0.1, 76.3)
+- Engage: P08, P03, P10, P05
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 19:
+  - 0.353  Reposition C0->C1 (CurrentInvalid) score=5.3
+  - 10.922  Stay C3->C1 (Committed) score=4.0
+  - 11.181  Stay C3->C0 (NoCandidate) score=3.2
+  - 11.607  Stay C3->C2 (ImprovementTooSmall) score=0.9
+  - 11.948  Stay C3->C0 (NoCandidate) score=3.7
+  - 12.480  Stay C3->C2 (ImprovementTooSmall) score=0.9
+  - 39.611  Reposition C0->C3 (CurrentInvalid) score=4.6
+  - 57.010  Reposition C0->C2 (CurrentInvalid) score=2.9
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=12, SearchAttackOsc=532
+- Last SNAP t=181.315 pos=(2.3, -0.7, 102.6) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P15 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(16.0, 0.0, 139.0), weapon=Item_Weapon_SVD, log until t=181.315
+- Outcome: DEATH t=127.805 (2.6, -0.6, 98.6); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.2, 0.1, 74.4)
+- Engage: P03, P04, P07, P05, P10, P08, P09, P02
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 61:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 10.922  Reposition C0->C1 (CurrentInvalid) score=2.7
+  - 11.468  Reposition C0->C4 (CurrentInvalid) score=1.7
+  - 18.362  Reposition C0->C3 (CurrentInvalid) score=2.1
+  - 18.483  Reposition C0->C4 (CurrentInvalid) score=0.7
+  - 19.230  Reposition C0->C2 (CurrentInvalid) score=1.6
+  - 19.338  Reposition C0->C4 (CurrentInvalid) score=0.5
+  - 20.797  Reposition C0->C2 (CurrentInvalid) score=1.3
+- Combat: G6=Track, Aim, Ignore, SHOT=0, ImmediateThreat=2, SearchAttackOsc=206
+- Last SNAP t=181.315 pos=(2.6, -0.6, 98.6) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P16 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(-16.0, 0.0, 135.0), weapon=Item_Weapon_RPK74MOD1, log until t=181.315
+- Outcome: DEATH t=92.951 (-7.4, -0.7, 88.8); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 74.8)
+- Engage: P10, P05, P08, P04, P03, P07
+- Cover hop: C1, C2
+- Reserved: C1, C2
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 10:
+  - 0.353  Reposition C0->C2 (CurrentInvalid) score=4.5
+  - 0.614  Reposition C0->C1 (CurrentInvalid) score=3.4
+  - 5.470  Reposition C0->C2 (CurrentInvalid) score=4.5
+  - 9.154  Stay C1->C1 (ImprovementTooSmall) score=3.6
+  - 9.442  Reposition C0->C1 (CurrentInvalid) score=3.5
+  - 18.080  Reposition C0->C2 (CurrentInvalid) score=0.5
+  - 30.848  Stay C2->C2 (ImprovementTooSmall) score=4.4
+  - 39.611  Reposition C0->C2 (CurrentInvalid) score=4.0
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=1, SearchAttackOsc=188
+- Last SNAP t=181.315 pos=(-7.4, -0.7, 88.8) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P17 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(-4.0, 0.0, 135.0), weapon=Item_Weapon_RPK74MOD1, log until t=181.315
+- Outcome: DEATH t=157.210 (2.4, -0.7, 100.8); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.8, 0.1, 76.1)
+- Engage: P08, P04, P10, P03, P05
+- Cover hop: C1, C2, C3, C5
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 63:
+  - 0.353  Reposition C0->C5 (CurrentInvalid) score=3.8
+  - 0.614  Reposition C0->C4 (CurrentInvalid) score=1.2
+  - 5.470  Reposition C0->C5 (CurrentInvalid) score=3.8
+  - 7.063  Stay C0->C0 (NoCandidate) score=1.7
+  - 9.442  Reposition C0->C2 (CurrentInvalid) score=1.9
+  - 10.922  Reposition C0->C1 (CurrentInvalid) score=3.2
+  - 11.059  Reposition C0->C3 (CurrentInvalid) score=2.3
+  - 11.468  Reposition C0->C1 (CurrentInvalid) score=3.0
+- Combat: G6=Ignore, Aim, Track, SHOT=0, ImmediateThreat=1, SearchAttackOsc=430
+- Last SNAP t=181.315 pos=(2.4, -0.7, 100.8) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+#### P18 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(2.0, 0.0, 135.0), weapon=Item_Weapon_RPK74MOD1, log until t=181.315
+- Outcome: DEATH t=159.210 (2.7, -0.7, 96.3); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.0, 0.1, 74.1)
+- Engage: P04, P08, P05, P03, P09, P07, P02, P10
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 52:
+  - 0.353  Reposition C0->C1 (CurrentInvalid) score=4.0
+  - 0.614  Reposition C0->C2 (CurrentInvalid) score=2.3
+  - 9.442  Reposition C0->C4 (CurrentInvalid) score=3.9
+  - 9.928  Reposition C0->C3 (CurrentInvalid) score=4.2
+  - 20.703  Reposition C0->C1 (CurrentInvalid) score=7.0
+  - 23.066  Stay C1->C1 (ImprovementTooSmall) score=6.2
+  - 23.434  Stay C1->C0 (NoCandidate) score=6.3
+  - 24.095  Stay C1->C2 (ImprovementTooSmall) score=6.0
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=1, ImmediateThreat=1, SearchAttackOsc=267
+- Last SNAP t=181.315 pos=(2.7, -0.7, 96.3) ai=Attack/Hold dest=none gate=Success engage=none
+
+#### P19 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(12.0, 0.0, 135.0), weapon=Item_Weapon_AK47_1, log until t=181.315
+- Outcome: DEATH t=108.867 (1.8, -0.6, 95.5)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 74.9)
+- Engage: P04, P07, P03, P10
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 39:
+  - 0.353  Reposition C0->C1 (CurrentInvalid) score=2.9
+  - 0.614  Reposition C0->C3 (CurrentInvalid) score=1.2
+  - 8.820  Stay C0->C0 (NoCandidate) score=1.7
+  - 11.607  Reposition C0->C2 (CurrentInvalid) score=0.5
+  - 11.822  Reposition C0->C3 (CurrentInvalid) score=1.4
+  - 12.480  Reposition C0->C1 (CurrentInvalid) score=-1.1
+  - 13.412  Stay C0->C0 (NoCandidate) score=1.7
+  - 14.070  Reposition C0->C1 (CurrentInvalid) score=-1.1
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=3, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(1.8, -0.6, 95.5) ai=Attack/Engage dest=none gate=NoWeapon engage=P10
+
+#### P20 - Enemy, Insurgent
+
+- Spawn t=0.000 pos=(18.0, 0.0, 135.0), weapon=Item_Weapon_AK47S, log until t=181.315
+- Outcome: DEATH t=143.623 (3.0, -0.7, 102.3); unconscious (MOVE fail)
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 75.1)
+- Engage: P08, P10, P04, P03
+- Cover hop: C1, C2
+- Reserved: C1, C2
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 52:
+  - 0.353  Stay C0->C0 (NoCandidate) score=1.7
+  - 9.442  Reposition C0->C2 (CurrentInvalid) score=3.8
+  - 10.198  Stay C1->C2 (Committed) score=4.0
+  - 10.345  Reposition C0->C2 (CurrentInvalid) score=2.4
+  - 20.703  Reposition C0->C1 (CurrentInvalid) score=6.9
+  - 20.797  Reposition C0->C2 (CurrentInvalid) score=5.9
+  - 23.066  Reposition C0->C1 (CurrentInvalid) score=7.4
+  - 23.191  Reposition C0->C2 (CurrentInvalid) score=5.9
+- Combat: G6=Track, Ignore, Aim, SHOT=0, ImmediateThreat=6, SearchAttackOsc=375
+- Last SNAP t=181.315 pos=(3.0, -0.7, 102.3) ai=Attack/Hold dest=none gate=NoWeapon engage=none
+
+### Волна 0 - Neutral P21-P40
+
+All 20 civilians: AI=Idle, RoE=SelfDefense, no weapon, no Attack/cover. SNAP: pose=NotReady, dest=none, gate=NoWeapon. Hear footsteps, VISION does not commit. No SHOT, no DEATH.
+
+| Slot | Spawn | Last SNAP |
+|------|-------|-----------|
+| P21 | (-16.0, 0.0, 42.0) | t=181.315 (-16.0, 0.2, 42.0) Idle/None |
+| P22 | (0.0, 0.0, 66.0) | t=181.315 (0.0, 0.1, 66.0) Idle/None |
+| P23 | (16.0, 0.0, 42.0) | t=181.315 (16.0, 0.1, 42.0) Idle/None |
+| P24 | (-18.0, 0.0, 58.0) | t=181.315 (-18.0, 0.1, 58.0) Idle/None |
+| P25 | (18.0, 0.0, 58.0) | t=181.315 (18.0, 0.1, 58.0) Idle/None |
+| P26 | (-16.0, 0.0, 72.0) | t=181.315 (-16.0, 0.1, 72.0) Idle/None |
+| P27 | (16.0, 0.0, 72.0) | t=181.315 (16.0, 0.1, 72.0) Idle/None |
+| P28 | (0.0, 0.0, 80.0) | t=181.315 (0.0, 0.1, 80.0) Idle/None |
+| P29 | (-18.0, 0.0, 90.0) | t=181.315 (-18.0, 0.1, 90.0) Idle/None |
+| P30 | (18.0, 0.0, 90.0) | t=181.315 (18.0, 0.1, 90.0) Idle/None |
+| P31 | (4.0, 0.0, 92.0) | t=181.315 (4.1, 0.1, 92.0) Idle/None |
+| P32 | (-16.0, 0.0, 46.0) | t=181.315 (-16.0, 0.1, 46.0) Idle/None |
+| P33 | (-16.0, 0.0, 104.0) | t=181.315 (-15.9, 0.1, 103.9) Idle/None |
+| P34 | (8.0, 0.0, 104.0) | t=181.315 (8.0, 0.1, 104.0) Idle/None |
+| P35 | (-16.0, 0.0, 122.0) | t=181.315 (-16.2, 0.1, 121.9) Idle/None |
+| P36 | (16.0, 0.0, 122.0) | t=181.315 (16.1, 0.1, 121.6) Idle/None |
+| P37 | (-20.0, 0.0, 50.0) | t=181.315 (-20.0, 0.1, 50.0) Idle/None |
+| P38 | (20.0, 0.0, 50.0) | t=181.315 (20.0, 0.1, 50.0) Idle/None |
+| P39 | (-20.0, 0.0, 100.0) | t=181.315 (-20.0, 0.1, 100.0) Idle/None |
+| P40 | (20.0, 0.0, 108.0) | t=181.315 (20.0, 0.1, 108.0) Idle/None |
+
+### Волна 1 - Enemy P41-P50 (t=121.5)
+
+#### P41 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(-17.3, 0.0, 139.2), weapon=Item_Weapon_AK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.7, 0.1, 73.8)
+- Cover hop: C1, C3, C4
+- Reserved: C1, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 122.176  Reposition C0->C3 (CurrentInvalid) score=2.4
+  - 124.994  Reposition C0->C1 (CurrentInvalid) score=3.5
+  - 125.412  Reposition C0->C4 (CurrentInvalid) score=4.3
+  - 135.975  Reposition C0->C1 (CurrentInvalid) score=1.5
+  - 141.944  Reposition C0->C3 (CurrentInvalid) score=2.1
+  - 145.353  Reposition C0->C4 (CurrentInvalid) score=4.0
+  - 156.876  Reposition C0->C1 (CurrentInvalid) score=1.8
+  - 176.774  Reposition C0->C4 (CurrentInvalid) score=2.1
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(-11.5, 0.1, 103.4) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P42 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(-10.9, 0.0, 140.0), weapon=Item_Weapon_Mosin, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.4, 0.1, 73.7)
+- Engage: P02
+- Cover hop: C1, C2, C3, C4, C5
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 13:
+  - 122.176  Reposition C0->C5 (CurrentInvalid) score=3.5
+  - 125.281  Stay C4->C5 (Committed) score=4.2
+  - 125.647  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 136.204  Reposition C0->C2 (CurrentInvalid) score=0.6
+  - 136.956  Reposition C0->C3 (CurrentInvalid) score=0.6
+  - 137.791  Reposition C0->C2 (CurrentInvalid) score=-0.7
+  - 140.785  Stay C1->C2 (Committed) score=-0.7
+  - 141.028  Reposition C0->C5 (CurrentInvalid) score=2.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(-10.0, 0.1, 100.9) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P43 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(-2.0, 0.0, 137.7), weapon=Item_Weapon_RPK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.5, 0.1, 73.7)
+- Engage: P10, P07, P02
+- Cover hop: C2, C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 12:
+  - 122.176  Reposition C0->C5 (CurrentInvalid) score=5.2
+  - 122.350  Reposition C0->C2 (CurrentInvalid) score=1.8
+  - 124.035  Reposition C0->C4 (CurrentInvalid) score=1.8
+  - 124.223  Reposition C0->C2 (CurrentInvalid) score=1.5
+  - 124.443  Stay C0->C0 (NoCandidate) score=1.7
+  - 135.975  Reposition C0->C3 (CurrentInvalid) score=3.9
+  - 144.522  Stay C0->C0 (NoCandidate) score=1.7
+  - 162.543  Reposition C0->C1 (CurrentInvalid) score=1.7
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=14, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(3.5, 0.1, 75.3) ai=Search/None dest=none gate=Success engage=none
+
+#### P44 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(4.6, 0.0, 138.0), weapon=Item_Weapon_PKM, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.2, 0.1, 75.6)
+- Cover hop: C1, C3
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 11:
+  - 122.176  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 135.975  Reposition C0->C3 (CurrentInvalid) score=3.8
+  - 136.204  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 136.956  Reposition C0->C2 (CurrentInvalid) score=2.1
+  - 137.791  Reposition C0->C4 (CurrentInvalid) score=2.2
+  - 138.700  Stay C0->C0 (NoCandidate) score=1.7
+  - 141.028  Reposition C0->C1 (CurrentInvalid) score=2.7
+  - 156.876  Reposition C0->C3 (CurrentInvalid) score=4.2
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(4.6, 0.1, 108.3) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P45 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(16.4, 0.0, 138.4), weapon=Item_Weapon_RPK47, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.2, 0.1, 74.5)
+- Engage: P07
+- Cover hop: C2
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 11:
+  - 122.176  Stay C0->C0 (NoCandidate) score=1.7
+  - 135.975  Reposition C0->C3 (CurrentInvalid) score=2.7
+  - 136.204  Reposition C0->C2 (CurrentInvalid) score=2.3
+  - 136.956  Stay C0->C0 (NoCandidate) score=1.7
+  - 137.578  Reposition C0->C2 (CurrentInvalid) score=2.2
+  - 143.786  Stay C0->C0 (NoCandidate) score=1.7
+  - 162.543  Reposition C0->C1 (CurrentInvalid) score=1.7
+  - 162.543  Reposition C0->C2 (CurrentInvalid) score=0.4
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=1, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(2.3, 0.1, 93.1) ai=Search/None dest=none gate=Success engage=none
+
+#### P46 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(-16.8, 0.0, 133.7), weapon=Item_Weapon_AK47MOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.2, 0.1, 73.7)
+- Cover hop: C1, C2, C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 17:
+  - 122.176  Reposition C0->C4 (CurrentInvalid) score=2.3
+  - 124.035  Reposition C0->C2 (CurrentInvalid) score=4.1
+  - 124.223  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 124.826  Reposition C0->C2 (CurrentInvalid) score=4.5
+  - 135.975  Reposition C0->C1 (CurrentInvalid) score=1.1
+  - 136.204  Reposition C0->C3 (CurrentInvalid) score=-0.7
+  - 136.956  Reposition C0->C2 (CurrentInvalid) score=-0.7
+  - 137.578  Reposition C0->C3 (CurrentInvalid) score=0.5
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(-13.1, 0.1, 105.2) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P47 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(-4.9, 0.0, 133.5), weapon=Item_Weapon_AK47_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 74.8)
+- Cover hop: C1, C3, C4, C5
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 12:
+  - 122.176  Reposition C0->C5 (CurrentInvalid) score=3.5
+  - 122.350  Reposition C0->C4 (CurrentInvalid) score=1.3
+  - 123.081  Reposition C0->C2 (CurrentInvalid) score=2.4
+  - 123.403  Reposition C0->C4 (CurrentInvalid) score=1.3
+  - 125.281  Reposition C0->C5 (CurrentInvalid) score=3.6
+  - 135.975  Reposition C0->C3 (CurrentInvalid) score=4.3
+  - 136.204  Stay C0->C0 (NoCandidate) score=1.7
+  - 136.743  Reposition C0->C2 (CurrentInvalid) score=3.1
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(6.0, 0.1, 110.7) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P48 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(2.0, 0.0, 133.9), weapon=Item_Weapon_AK47_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 75.1)
+- Cover hop: C2, C3, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 13:
+  - 122.176  Reposition C0->C1 (CurrentInvalid) score=3.8
+  - 122.350  Reposition C0->C2 (CurrentInvalid) score=2.0
+  - 135.975  Reposition C0->C1 (CurrentInvalid) score=3.3
+  - 136.204  Stay C0->C0 (NoCandidate) score=1.7
+  - 136.743  Reposition C0->C1 (CurrentInvalid) score=3.3
+  - 142.760  Reposition C0->C2 (CurrentInvalid) score=-0.8
+  - 156.876  Reposition C0->C3 (CurrentInvalid) score=4.0
+  - 157.210  Reposition C0->C1 (CurrentInvalid) score=2.8
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(3.6, 0.1, 107.5) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P49 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(11.7, 0.0, 136.0), weapon=Item_Weapon_SVD, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 75.5)
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 15:
+  - 122.176  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 122.350  Reposition C0->C3 (CurrentInvalid) score=1.1
+  - 123.081  Reposition C0->C2 (CurrentInvalid) score=1.3
+  - 123.403  Reposition C0->C3 (CurrentInvalid) score=1.1
+  - 136.204  Stay C0->C0 (NoCandidate) score=1.7
+  - 136.743  Reposition C0->C2 (CurrentInvalid) score=1.1
+  - 136.956  Stay C0->C0 (NoCandidate) score=1.7
+  - 138.367  Reposition C0->C4 (CurrentInvalid) score=1.6
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=4
+- Last SNAP t=181.315 pos=(2.5, 0.1, 98.4) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P50 - Enemy, Insurgent
+
+- Spawn t=121.518 pos=(17.6, 0.0, 133.7), weapon=Item_Weapon_AK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.1, 0.1, 75.8)
+- Engage: P04, P09
+- Cover hop: C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 14:
+  - 122.176  Stay C0->C0 (NoCandidate) score=1.7
+  - 135.975  Reposition C0->C3 (CurrentInvalid) score=2.5
+  - 136.204  Reposition C0->C4 (CurrentInvalid) score=1.3
+  - 136.743  Reposition C0->C2 (CurrentInvalid) score=2.1
+  - 136.956  Reposition C0->C4 (CurrentInvalid) score=1.3
+  - 137.791  Stay C0->C0 (NoCandidate) score=1.7
+  - 138.367  Reposition C0->C4 (CurrentInvalid) score=1.4
+  - 143.786  Reposition C0->C2 (CurrentInvalid) score=1.3
+- Combat: G6=Track, Ignore, Aim, Fire, SHOT=9, ImmediateThreat=0, SearchAttackOsc=5
+- Last SNAP t=181.315 pos=(17.0, 0.1, 88.1) ai=Search/None dest=none gate=Success engage=none
+
+### Волна 2 - Player P51-P60 (t=150.7)
+
+#### P51 - Player, Soldier
+
+- Spawn t=150.679 pos=(-16.7, 0.0, 12.4), weapon=Item_Weapon_M4_ModA_2, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 75.2)
+- Cover hop: C1, C2
+- Reserved: C1, C2
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 2 of 2:
+  - 151.345  Reposition C0->C2 (CurrentInvalid) score=3.6
+  - 155.945  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(-9.4, 0.1, 31.0) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P52 - Player, Soldier
+
+- Spawn t=150.679 pos=(-12.0, 0.0, 10.0), weapon=Item_Weapon_M249, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.4, 0.1, 73.7)
+- Cover hop: C2, C3
+- Reserved: C1, C2, C3
+- Acquire:
+  - 157.210  C0 Rejected OutOfTolerance dist=1.07 tol=0.60
+- PositionDecision first 6 of 6:
+  - 151.345  Reposition C0->C3 (CurrentInvalid) score=3.4
+  - 152.973  Reposition C0->C1 (CurrentInvalid) score=3.6
+  - 155.611  Stay C4->C1 (Committed) score=4.4
+  - 155.945  Reposition C0->C1 (CurrentInvalid) score=4.4
+  - 156.210  Reposition C0->C3 (CurrentInvalid) score=4.7
+  - 157.210  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(-15.0, 0.1, 25.1) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P53 - Player, Soldier
+
+- Spawn t=150.679 pos=(-2.0, 0.0, 10.5), weapon=Item_Weapon_BenelliM4, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 75.3)
+- Cover hop: C2, C3, C4, C5
+- Reserved: C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 6 of 6:
+  - 151.345  Reposition C0->C5 (CurrentInvalid) score=5.5
+  - 154.973  Stay C0->C0 (NoCandidate) score=1.7
+  - 159.210  Reposition C0->C3 (CurrentInvalid) score=2.4
+  - 159.543  Reposition C0->C2 (CurrentInvalid) score=1.7
+  - 160.543  Reposition C0->C4 (CurrentInvalid) score=2.8
+  - 161.543  Reposition C0->C3 (CurrentInvalid) score=2.6
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(7.1, 0.1, 22.7) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P54 - Player, Soldier
+
+- Spawn t=150.679 pos=(4.0, 0.0, 10.7), weapon=Item_Weapon_M16A_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.2, 0.1, 74.4)
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 5 of 5:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=5.3
+  - 157.876  Reposition C0->C4 (CurrentInvalid) score=2.3
+  - 160.210  Reposition C0->C2 (CurrentInvalid) score=2.3
+  - 160.543  Reposition C0->C3 (CurrentInvalid) score=2.6
+  - 161.543  Reposition C0->C2 (CurrentInvalid) score=2.9
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(8.2, 0.1, 28.9) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P55 - Player, Soldier
+
+- Spawn t=150.679 pos=(15.0, 0.0, 11.1), weapon=Item_Weapon_MK12, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.6, 0.1, 76.2)
+- Cover hop: C1, C2, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 151.345  Stay C0->C0 (NoCandidate) score=1.7
+  - 158.543  Reposition C0->C3 (CurrentInvalid) score=1.2
+  - 159.210  Reposition C0->C4 (CurrentInvalid) score=1.8
+  - 159.876  Reposition C0->C3 (CurrentInvalid) score=1.5
+  - 160.876  Reposition C0->C2 (CurrentInvalid) score=1.0
+  - 161.210  Reposition C0->C3 (CurrentInvalid) score=1.9
+  - 168.153  Reposition C0->C1 (CurrentInvalid) score=2.2
+  - 168.487  Reposition C0->C3 (CurrentInvalid) score=2.1
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(18.2, 0.1, 22.1) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P56 - Player, Soldier
+
+- Spawn t=150.679 pos=(-16.3, 0.0, 15.4), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.5, 0.1, 73.8)
+- Cover hop: C1, C2, C3
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 3 of 3:
+  - 151.345  Reposition C0->C2 (CurrentInvalid) score=3.0
+  - 151.679  Reposition C0->C3 (CurrentInvalid) score=0.8
+  - 154.973  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(-11.0, 0.1, 29.0) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P57 - Player, Soldier
+
+- Spawn t=150.679 pos=(-5.4, 0.0, 14.0), weapon=Item_Weapon_M4_ModA_2, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.9, 0.1, 74.0)
+- Cover hop: C1, C4, C5
+- Reserved: C1, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 151.345  Reposition C0->C5 (CurrentInvalid) score=3.9
+  - 151.679  Reposition C0->C4 (CurrentInvalid) score=1.5
+  - 152.973  Reposition C0->C3 (CurrentInvalid) score=2.5
+  - 154.973  Reposition C0->C5 (CurrentInvalid) score=3.9
+  - 159.210  Stay C0->C0 (NoCandidate) score=1.7
+  - 159.543  Reposition C0->C1 (CurrentInvalid) score=5.1
+  - 161.210  Reposition C0->C3 (CurrentInvalid) score=2.4
+  - 161.543  Reposition C0->C4 (CurrentInvalid) score=2.3
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(7.2, 0.1, 17.0) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P58 - Player, Soldier
+
+- Spawn t=150.679 pos=(1.3, 0.0, 14.2), weapon=Item_Weapon_Sniper762x51, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.1, 0.1, 74.2)
+- Cover hop: C1, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 7 of 7:
+  - 151.345  Stay C0->C0 (NoCandidate) score=1.7
+  - 157.876  Reposition C0->C1 (CurrentInvalid) score=5.0
+  - 158.210  Reposition C0->C3 (CurrentInvalid) score=2.0
+  - 160.210  Reposition C0->C4 (CurrentInvalid) score=2.8
+  - 160.543  Reposition C0->C2 (CurrentInvalid) score=1.7
+  - 161.210  Reposition C0->C3 (CurrentInvalid) score=2.3
+  - 161.543  Reposition C0->C1 (CurrentInvalid) score=1.1
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(8.1, 0.1, 21.4) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P59 - Player, Soldier
+
+- Spawn t=150.679 pos=(12.1, 0.0, 14.1), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.2, 0.1, 75.6)
+- Cover hop: C1
+- Reserved: C1, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 7 of 7:
+  - 151.345  Stay C0->C0 (NoCandidate) score=1.7
+  - 158.210  Reposition C0->C1 (CurrentInvalid) score=4.0
+  - 159.210  Stay C0->C0 (NoCandidate) score=1.7
+  - 159.876  Reposition C0->C1 (CurrentInvalid) score=0.5
+  - 160.210  Reposition C0->C4 (CurrentInvalid) score=1.6
+  - 160.543  Reposition C0->C3 (CurrentInvalid) score=1.3
+  - 160.876  Reposition C0->C4 (CurrentInvalid) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(19.8, 0.1, 18.2) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+#### P60 - Player, Soldier
+
+- Spawn t=150.679 pos=(17.6, 0.0, 16.3), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.6, 0.1, 76.2)
+- Cover hop: C1, C2, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=1.4
+  - 156.543  Reposition C0->C4 (CurrentInvalid) score=1.6
+  - 157.210  Reposition C0->C3 (CurrentInvalid) score=1.8
+  - 157.543  Reposition C0->C4 (CurrentInvalid) score=2.2
+  - 158.543  Reposition C0->C3 (CurrentInvalid) score=1.6
+  - 158.876  Reposition C0->C1 (CurrentInvalid) score=1.8
+  - 159.876  Reposition C0->C2 (CurrentInvalid) score=1.2
+  - 160.210  Reposition C0->C1 (CurrentInvalid) score=2.2
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=2
+- Last SNAP t=181.315 pos=(18.2, 0.1, 23.1) ai=Search/None dest=(17.2, 0.1, 89.9) gate=NoWeapon engage=none
+
+### Волна 2 - Enemy P61-P70 (t=150.7)
+
+#### P61 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(-18.8, 0.0, 140.1), weapon=Item_Weapon_Mosin, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.5, 0.1, 76.2)
+- Cover hop: C1, C2, C4
+- Reserved: C1, C2, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 7 of 7:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=2.5
+  - 158.210  Reposition C0->C2 (CurrentInvalid) score=3.1
+  - 158.876  Stay C1->C2 (ImprovementTooSmall) score=3.3
+  - 176.774  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 177.108  Reposition C0->C2 (CurrentInvalid) score=0.1
+  - 178.086  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 178.982  Reposition C0->C2 (CurrentInvalid) score=0.1
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(-14.8, 0.1, 125.3) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P62 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(-12.1, 0.0, 139.4), weapon=Item_Weapon_AK74UMOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.9, 0.1, 76.0)
+- Cover hop: C2
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 151.345  Reposition C0->C2 (CurrentInvalid) score=3.5
+  - 158.543  Reposition C0->C1 (CurrentInvalid) score=3.7
+  - 159.543  Reposition C0->C2 (CurrentInvalid) score=3.9
+  - 176.774  Reposition C0->C1 (CurrentInvalid) score=1.5
+  - 177.108  Reposition C0->C3 (CurrentInvalid) score=-0.6
+  - 177.753  Reposition C0->C2 (CurrentInvalid) score=0.6
+  - 178.689  Reposition C0->C1 (CurrentInvalid) score=1.5
+  - 178.982  Reposition C0->C3 (CurrentInvalid) score=-0.6
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(-14.6, 0.1, 120.2) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P63 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(-1.6, 0.0, 139.5), weapon=Item_Weapon_AK74UMOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 75.4)
+- Cover hop: C3, C4
+- Reserved: C1, C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 5 of 5:
+  - 151.345  Reposition C0->C5 (CurrentInvalid) score=5.5
+  - 176.774  Reposition C0->C1 (CurrentInvalid) score=4.1
+  - 177.108  Stay C0->C0 (NoCandidate) score=1.7
+  - 178.086  Reposition C0->C3 (CurrentInvalid) score=2.9
+  - 178.982  Reposition C0->C2 (CurrentInvalid) score=1.2
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(4.2, 0.1, 129.6) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P64 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(3.2, 0.0, 139.6), weapon=Item_Weapon_AK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-1.3, 0.1, 74.9)
+- Cover hop: C3
+- Reserved: C1, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 1 of 1:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=5.5
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(5.4, 0.1, 128.0) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P65 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(17.2, 0.0, 139.7), weapon=Item_Weapon_SVD, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.9, 0.1, 76.0)
+- Cover hop: C3
+- Reserved: C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 2 of 2:
+  - 151.345  Stay C0->C0 (NoCandidate) score=1.7
+  - 176.774  Reposition C0->C3 (CurrentInvalid) score=2.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(15.6, 0.1, 125.6) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P66 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(-17.0, 0.0, 134.4), weapon=Item_Weapon_AK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.5, 0.1, 76.3)
+- Cover hop: C1, C2, C4
+- Reserved: C1, C2, C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 5 of 5:
+  - 151.345  Reposition C0->C4 (CurrentInvalid) score=2.2
+  - 159.543  Reposition C0->C2 (CurrentInvalid) score=4.5
+  - 159.876  Reposition C0->C1 (CurrentInvalid) score=3.1
+  - 178.086  Reposition C0->C3 (CurrentInvalid) score=-0.7
+  - 178.689  Reposition C0->C1 (CurrentInvalid) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(-15.1, 0.1, 121.3) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P67 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(-4.0, 0.0, 136.2), weapon=Item_Weapon_RPK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (1.3, 0.1, 75.4)
+- Cover hop: C3, C4
+- Reserved: C2, C3, C4, C5
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 8 of 8:
+  - 151.345  Reposition C0->C5 (CurrentInvalid) score=4.3
+  - 151.679  Reposition C0->C4 (CurrentInvalid) score=1.1
+  - 158.543  Reposition C0->C2 (CurrentInvalid) score=2.1
+  - 159.210  Reposition C0->C3 (CurrentInvalid) score=1.9
+  - 159.876  Reposition C0->C4 (CurrentInvalid) score=1.0
+  - 176.774  Reposition C0->C3 (CurrentInvalid) score=2.4
+  - 178.086  Reposition C0->C2 (CurrentInvalid) score=1.4
+  - 178.689  Reposition C0->C3 (CurrentInvalid) score=2.4
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(4.0, 0.1, 131.1) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P68 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(0.6, 0.0, 134.4), weapon=Item_Weapon_PKM, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.2, 0.1, 73.7)
+- Cover hop: C2
+- Reserved: C1, C2, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 6 of 6:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=3.9
+  - 151.679  Reposition C0->C2 (CurrentInvalid) score=2.1
+  - 177.753  Reposition C0->C3 (CurrentInvalid) score=2.9
+  - 178.086  Stay C0->C0 (NoCandidate) score=1.7
+  - 178.689  Reposition C0->C2 (CurrentInvalid) score=0.9
+  - 178.982  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(4.2, 0.1, 128.4) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P69 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(12.9, 0.0, 134.0), weapon=Item_Weapon_AK47, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (-0.3, 0.1, 76.3)
+- Cover hop: 
+- Reserved: C1, C3
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 3 of 3:
+  - 151.345  Reposition C0->C1 (CurrentInvalid) score=2.7
+  - 151.679  Reposition C0->C3 (CurrentInvalid) score=1.3
+  - 176.774  Stay C0->C0 (NoCandidate) score=1.7
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(16.3, 0.1, 128.3) ai=Search/None dest=none gate=NoWeapon engage=none
+
+#### P70 - Enemy, Insurgent
+
+- Spawn t=150.679 pos=(16.7, 0.0, 134.9), weapon=Item_Weapon_AK47S, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack, then Search<->Attack oscillation (count in Combat line)
+- Attack dest: (0.9, 0.1, 76.0)
+- Cover hop: C4
+- Reserved: C3, C4
+- Acquire: none (Occupied not confirmed)
+- PositionDecision first 3 of 3:
+  - 151.345  Stay C0->C0 (NoCandidate) score=1.7
+  - 176.774  Reposition C0->C3 (CurrentInvalid) score=2.7
+  - 177.108  Reposition C0->C4 (CurrentInvalid) score=1.6
+- Combat: G6=Track, Ignore, SHOT=0, ImmediateThreat=0, SearchAttackOsc=3
+- Last SNAP t=181.315 pos=(15.4, 0.1, 124.1) ai=Search/None dest=none gate=NoWeapon engage=none
+
+### Волна 3 - Player P71-P80 (t=181.0, только спавн)
+
+Session ended right after spawn (~0.3 s live). Idle->Attack and first route toward center. No cover acquire / SHOT yet.
+
+#### P71 - Player, Soldier
+
+- Spawn t=180.982 pos=(-17.9, 0.0, 11.8), weapon=Item_Weapon_M249, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-0.3, 0.1, 73.7)
+- Cover hop: C2
+- Reserved: C2
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P72 - Player, Soldier
+
+- Spawn t=180.982 pos=(-11.3, 0.0, 9.7), weapon=Item_Weapon_Sniper762x51, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.1, 0.1, 75.8)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P73 - Player, Soldier
+
+- Spawn t=180.982 pos=(-1.1, 0.0, 9.6), weapon=Item_Weapon_BenelliM4, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.1, 0.1, 75.8)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P74 - Player, Soldier
+
+- Spawn t=180.982 pos=(3.1, 0.0, 9.7), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-0.1, 0.1, 76.3)
+- Cover hop: C1
+- Reserved: C1
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P75 - Player, Soldier
+
+- Spawn t=180.982 pos=(16.4, 0.0, 12.5), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.0, 0.1, 75.9)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P76 - Player, Soldier
+
+- Spawn t=180.982 pos=(-14.9, 0.0, 14.3), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.0, 0.1, 76.0)
+- Cover hop: C2
+- Reserved: C2
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P77 - Player, Soldier
+
+- Spawn t=180.982 pos=(-5.1, 0.0, 13.7), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.3, 0.1, 74.7)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P78 - Player, Soldier
+
+- Spawn t=180.982 pos=(1.2, 0.0, 14.1), weapon=Item_Weapon_MK12, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.1, 0.1, 75.8)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P79 - Player, Soldier
+
+- Spawn t=180.982 pos=(11.4, 0.0, 15.3), weapon=Item_Weapon_M4_ModA_2, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (0.9, 0.1, 76.0)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P80 - Player, Soldier
+
+- Spawn t=180.982 pos=(17.5, 0.0, 16.4), weapon=Item_Weapon_M4_ModA_1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.3, 0.1, 74.9)
+- Cover hop: C1
+- Reserved: C1
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+### Волна 3 - Enemy P81-P90 (t=181.0, только спавн)
+
+Session ended right after spawn (~0.3 s live). Idle->Attack and first route toward center. No cover acquire / SHOT yet.
+
+#### P81 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(-19.3, 0.0, 140.1), weapon=Item_Weapon_AK74, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-0.6, 0.1, 73.8)
+- Cover hop: C4
+- Reserved: C4
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P82 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(-13.5, 0.0, 138.4), weapon=Item_Weapon_AK47MOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-0.9, 0.1, 74.0)
+- Cover hop: C1
+- Reserved: C1
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P83 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(-3.2, 0.0, 140.3), weapon=Item_Weapon_Mosin, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.3, 0.1, 74.6)
+- Cover hop: C4
+- Reserved: C4
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P84 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(3.9, 0.0, 138.8), weapon=Item_Weapon_RPK47, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.3, 0.1, 74.6)
+- Cover hop: C3
+- Reserved: C3
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P85 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(14.9, 0.0, 139.5), weapon=Item_Weapon_AK74U, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (0.1, 0.1, 76.3)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P86 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(-15.0, 0.0, 134.6), weapon=Item_Weapon_RPK74MOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.1, 0.1, 75.8)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P87 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(-2.5, 0.0, 136.1), weapon=Item_Weapon_SVD, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-0.3, 0.1, 73.7)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P88 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(3.5, 0.0, 135.6), weapon=Item_Weapon_RPK74MOD1, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (0.3, 0.1, 73.7)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P89 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(10.7, 0.0, 134.0), weapon=Item_Weapon_PKM, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (-1.1, 0.1, 75.8)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+#### P90 - Enemy, Insurgent
+
+- Spawn t=180.982 pos=(18.2, 0.0, 134.5), weapon=Item_Weapon_AK74U, log until t=181.315
+- Outcome: alive at end of recording
+- AI: Idle -> Attack
+- Attack dest: (1.3, 0.1, 74.7)
+- Cover hop: 
+- Reserved: 
+- Acquire: none (Occupied not confirmed)
+- Combat: G6=None, SHOT=0, ImmediateThreat=0, SearchAttackOsc=0
+
+### Что это значит для системы
+
+```
+Bake / bind / Tactical hop     работает
+Reservation + COVER_HOP        работает
+Acquire last meter             частично: 5 Player Acquired, 2 OutOfTolerance, Enemy — ни одного
+Occupied в occupancy-логе      не видно (канал не пишет state=Occupied) — чинится COVER_STATE + ConfirmOccupied
+Unconscious                    в логе не отдельный тег; слот мог оставаться Reserved — LIFE + release
+Neutral без AI                 ок
+Search↔Attack overlay          шум, не читать как смену миссии
+```
+
+Словарь тегов — 8.3–8.5. Старый разбор старта без cover (август 21): 8.9. Occupied+Walk+LIFE 16:36:40 — **§8.10**. Актуальный AI после Search/Attack hold (20:40:49) — **§8.11**.
+
+## 8.9. Play 21.08.2026: `Infantry_20260821_195740`
+
 
 Сессия 21 августа 2026, старт **19:57:40**, запись ~**51 с**. Папка: `_Docs/Logs/Runtime/Infantry_20260821_195740`. Сцена CQB-арены: 10 Player + 10 Enemy + 20 Neutral.
 
@@ -2007,6 +3966,281 @@ SELECT engageable=1  →  G6 raw=Fire final=Ignore  →  выстрела нет
 
 ---
 
+## 8.10. Play 28.08.2026: `Infantry_20260828_163640`
+
+**Когда:** 28.08.2026 **16:36:40**, запись **~114 с** (последний SNAP t=113.726, timeline до 113.938).
+**Сырые логи:** `_Docs/Logs/Runtime/Infantry_20260828_163640/` (`_index.txt`, `_timeline.log`, `Player/Pxx_*.log`).
+**Слоты:** все файлы в `Player/P01…P40`. Сторона — `SPAWN team=`. Enemy это **P11–P20**, Neutral **P21–P40**. `_index team=` здесь врёт (все Player); смотреть SPAWN.
+
+Полная арена 10+10+20, не «1 P01 + 1 cover». Прогон **после** фикса Walk (`pathPending` больше не сбрасывает `SetDestination`). Предыдущий отчёт 14:49:50 снят.
+
+### Счётчики сессии (timeline)
+
+| Тег / факт | Число |
+|------------|-------|
+| `MOVE` (Walk выдан) | 205 |
+| `COVER_STATE Occupied` | **15** юнитов (раньше 0) |
+| `COVER_STATE Acquired` | 15 |
+| `POSITION_ACQUIRE Acquired` | 15 (+ 4 `Traversed` на промежуточном hop) |
+| `POSITION_ACQUIRE Rejected` / `OutOfTolerance` | **0** |
+| `COVER_REF candidateRef=MISSING` | 9, все `phase=Reserve` @ 0.020 — **не** дыра Acquire |
+| `COVER_DECISION` | 98 |
+| `COVER_INVALID` | 24 |
+| `COVER_HEARTBEAT` | 818 (Keep ≤1 с на подходе) |
+| `MOVE_COVER` | 19 |
+| `AI_TRANSITION` | 38 (P20 = 20 из них) |
+| `SHOT` | 119 (P04 Benelli 9 pellets ≈ 99 строк; P17 RPK 18; P10 снайпер 2) |
+| `LIFE` | 7: Unconscious×6, Dead×1 |
+
+Walk **идёт**. Occupied **случился**. Диск 0.60 не поднимали.
+
+### Occupied — кто и когда
+
+| t | Слот | Сторона | Слот cover | dist |
+|---|------|---------|------------|------|
+| 3.909 | P02 | Player, M249 | C3 | 0.58 |
+| 10.062 | P11 | Enemy, AK74 | C4 | 0.51 |
+| 11.141 | P14 | Enemy, RPK74MOD1 | C3 | 0.37 |
+| 14.490 | P09 | Player, MK18 | C4 | 0.57 |
+| 15.523 | P07 | Player, M4_ModA_2 | C1 | 0.55 |
+| 23.276 | P18 | Enemy, RPK74 | C1 | 0.27 |
+| 24.733 | **P01** | Player, MK18 | **C2** | **0.38** |
+| 25.094 | P19 | Enemy, RPK74 | C2 | 0.34 |
+| 30.736 | P16 | Enemy, Mosin | C2 | 0.44 |
+| 35.300 | P13 | Enemy, AK47 | C4 | 0.01 |
+| 41.092 | P06 | Player, M4 | C1 | 0.24 |
+| 58.310 | P05 | Player, M16A4 | C1 | 0.54 |
+| 58.310 | P12 | Enemy, SVD | C1 | 0.43 |
+| 79.273 | P10 | Player, снайпер | C1 | 0.54 |
+| 89.576 | P08 | Player, MK12 | C4 | 0.42 |
+
+Не заняли слот к концу записи: **P03** (ещё Approaching C5), **P04** (Approaching C2, 2.3 м), **P15 / P17 / P20** (KO по дороге).
+
+Конец сессии Occupied + `vel=0`: P01, P02, P05, P06, P07, P08, P09, P10, P11, P12, P14, P18, P19.
+
+### LIFE
+
+| t | Слот | life | was | coverReleased |
+|---|------|------|-----|---------------|
+| 40.731 | P17 Enemy RPK74 | Unconscious | Alive | 1 (`reason=Unconscious`) |
+| 44.360 | P31 Neutral | Unconscious | Alive | 1 (collateral, AI и так Idle) |
+| 46.595 | P15 Enemy AK74U | Unconscious | Alive | 1 |
+| 47.540 | P20 Enemy PKM | Unconscious | Alive | 1 |
+| 60.375 | P13 Enemy | Unconscious | Alive | 1 (был Occupied C4) |
+| 73.069 | P16 Enemy | Unconscious | Alive | 1 (был Occupied C2) |
+| 113.396 | P16 | **Dead** | Unconscious | 1 `health=0` |
+
+После `LIFE` у боевых нет новых `MOVE` / `COVER_HOP` / `COVER_DECISION` / `SHOT`. SNAP: `cover=none coverState=None ai=off vision=off`. Поля `g6=` / `selected=` на SNAP после KO могут остаться от последнего кадра боя — это не новые решения.
+
+---
+
+### P01 — эталонная цепочка C2 (Player, MK18)
+
+Спавн `(-18.0, 0.0, 11.0)`. Attack dest ≈ `(1.3, 0.1, 75.4)`. Hop C2 `(-4.0, 0.1, 42.8)`.
+
+```text
+0.020  COVER_STATE  C2 Reserved
+0.020  COVER_REF    C2 candidateRef=MISSING phase=Reserve     ← объекта ещё нет
+0.020  COVER_STATE  C2 Approaching
+0.020  MOVE         dest=(-4.0, 0.1, 42.8) reason=Attack ok=1 path=pending
+0.353  COVER_DECISION Stay Committed current=C2 best=C2
+0.606  SNAP         cover=C2 coverState=Approaching vel=1.5     ← идёт
+24.617 POSITION_ACQUIRE Traversed dist=0.53 (промежуточный hop)
+24.733 COVER_REF    C2 candidateRef=0x3D8C8908 phase=Reserve
+24.733 COVER_REF    C2 candidateRef=0x3D8C8908 phase=Acquire    ← тот же объект
+24.733 COVER_STATE  C2 Acquired dist=0.38
+24.733 COVER_STATE  C2 Occupied
+24.733 COVER_REF    C2 candidateRef=0x3D8C8908 phase=ConfirmOccupied
+24.733 POSITION_ACQUIRE Acquired cover=C2 dist=0.38 remaining=0
+113.726 SNAP        cover=C2 coverState=Occupied coverDistance=0.38
+                    vel=0 dest=none ai=Attack Hold selected=none gate=NoWeapon
+```
+
+`MISSING` только на первом Reserve кадра 0.020. К acquire объект тот же (`0x3D8C8908`). `ConfirmOccupied` вызван. Юнит стоит в слоте до конца записи. Выстрелов нет: `obs=none vis=0 selected=none` — не видит противника из этой точки, не дыра Occupied.
+
+### P02 — быстрый Occupied без MISSING (Player, M249)
+
+Раньше (14:49:50) это был dest-only `OutOfTolerance` remaining=0 dist=0.85. Сейчас:
+
+```text
+0.353  COVER_REF C3 0xC21C0532 Reserve
+0.353  COVER_INVALID C3 CandidateMissing   ← current ещё C0, не слот
+0.606  COVER_DECISION Stay Committed C3
+3.909  COVER_REF C3 0xC21C0532 Acquire = ConfirmOccupied
+3.909  COVER_STATE Occupied
+3.909  POSITION_ACQUIRE Acquired dist=0.58 remaining=0 cover=C3
+113.726 SNAP cover=C3 Occupied vel=0
+```
+
+Тот же `candidateRef` на Reserve / Acquire / ConfirmOccupied. Диск 0.60 взят (0.58).
+
+### P03 — идёт, слот не занял (Player, M4)
+
+C5 `(-0.8, 0.1, 6.5)` — укрытие **сзади** спавна. Search↔Attack @ 42.7 / 44.4 / 50.1 / 63.3 (`LostCurrentTarget` / `HostileVisible` / `Expired`), каждый раз `COVER_STATE Released reason=CommandChanged` и снова Approaching тот же C5.
+
+Конец: `cover=C5 Approaching coverDistance=15.12 vel=1.5` к `(-0.8, 0.1, 6.5)`, `remaining=inf path=PathComplete`. Walk жив, acquire не наступил — сессия кончилась по дороге назад.
+
+### P04 — бой на подходе, Occupied не успел (Player, Benelli)
+
+`AI_TRANSITION` 10 раз (LostCurrentTarget ↔ HostileVisible/Expired). SHOT с 33.466 по P13 (дробина 9 pellets → 99 строк). Конец: Approaching C2, dist=2.28, remaining=2.3, `gate=Success`, `vel=1.4`. До диска 0.60 не дошёл.
+
+### P17 — огонь без Occupied, затем LIFE (Enemy, RPK74)
+
+Approaching C5 с 0.353. С 36.499 **18× SHOT** в P05, все `HitOther` (стенка арены), dist 60→56 м. @ 39.948 ImmediateThreat: слот C5→C1→C5 за один кадр. @ 40.731 `COVER_STATE Released reason=Unconscious` + `LIFE Unconscious`. Дальше нет SHOT/MOVE. Occupied не было.
+
+### P20 — ImmediateThreat качает Search↔Attack (Enemy, PKM)
+
+20 из 38 `AI_TRANSITION` сессии. Паттерн ~0.15 с @ 40.1–42.8:
+
+```text
+Attack → Search  reason=LostCurrentTarget  immediateThreat=1
+Search → Attack  reason=ImmediateThreat    immediateThreat=1
+COVER_STATE Released reason=CommandChanged
+```
+
+Слот C2/C1/C3 не удерживается. @ 47.540 Unconscious. Occupied нет. Это **не** LostVisible dwell 1.5 с: `ImmediateThreat` поднимает Attack из Search сам.
+
+### P16 — Occupied, потом Unconscious → Dead (Enemy, Mosin)
+
+Как P01: Reserve MISSING @ 0.020, затем @ 30.736 тот же `0x115FE984` Acquire → Occupied C2 dist=0.44. @ 73.069 Unconscious (`coverReleased=1`). @ 113.396 `LIFE Dead was=Unconscious health=0`. После KO тактики нет.
+
+### P21 — Neutral контроль
+
+`team=Neutral look=Civilian weapon=none scanCandidates=none`. Idle / Hold / SelfDefense. Нет Attack, cover, SHOT, MOVE. Стоит `(-16.0, 0.2, 42.0)` 114 с. P31 — единственный Neutral с LIFE (попал под огонь).
+
+---
+
+### Что следует (формулы не крутить)
+
+1. **Walk починился.** `MOVE ok=1 path=pending` больше не затирается каждым кадром. Юниты идут, SNAP `vel=1.5` на подходе.
+2. **Occupied есть.** 15× `COVER_STATE Occupied` + `COVER_REF ConfirmOccupied` с живым `candidateRef`. `cover=C2` на acquire, не dest-only `cover=0`. P01: Acquired dist=0.38 → Occupied → SNAP Occupied до конца.
+3. **`MISSING` на Reserve t=0.020** — объект слота ещё не проставлен в hop. К acquire hash совпадает. Это не дыра ConfirmOccupied из 14:49:50.
+4. **OutOfTolerance в этой сессии нет.** Все Acquired dist ≤ 0.60. Диск не поднимать.
+5. **Search↔Attack** у большинства редкий (`LostCurrentTarget` / `HostileVisible` / `Expired`). Ломает слот **P20**: `ImmediateThreat=1` сам возвращает Attack из Search каждые ~0.15 с → `Release reason=CommandChanged`.
+6. **LIFE PASS.** Unconscious/Dead: `ai/vision/combat/move=off`, `coverReleased=1`, `navStopped=1`. Dead `was=Unconscious health=0`.
+7. **P01 Occupied ≠ стрельба.** Слот занят, цели в vis нет (`gate=NoWeapon` / `selected=none`). Не ретюнить CoverScore из-за этого.
+
+Occupy **не FROZEN** автоматически: массовая арена всё ещё мешает (Search, ImmediateThreat, Neutral KO). Чистый прогон 1 P01 + cover больше не обязателен, чтобы *увидеть* Occupied — он уже в этом логе. #13/#14/#15 не открывать. Vision / G6 / Weapon / CoverScore / PathScore / 0.60 не трогать.
+
+Словарь тегов — 8.3–8.5. Карточки волны 0 / все слоты 11:35:30 — §8.8. Старт без cover (21.08) — §8.9. Следующий прогон (Search hold) — **§8.11**.
+
+---
+
+## 8.11. Play 28.08.2026: `Infantry_20260828_204049`
+
+**Когда:** 28.08.2026 **20:40:49**, запись **~123 с** (последний SNAP / timeline до t=123.5).
+**Сырые логи:** `_Docs/Logs/Runtime/Infantry_20260828_204049/` (`_index.txt`, `_timeline.log`, `Player/Pxx_*.log`).
+**Слоты:** файлы все в `Player/P01…P40`. `_index team=` врёт (все Player). Сторона — `SPAWN team=`: Player **P01–P10**, Enemy **P11–P20**, Neutral **P21–P40**.
+
+Полная арена 10+10+20. Прогон **после** Search/Attack hold: `ImmediateThreat` больше не делает Search→Attack. Предыдущий Occupied-отчёт — §8.10 (16:36:40).
+
+### Счётчики сессии (timeline)
+
+| Тег / факт | Число |
+|------------|-------|
+| `MOVE` source=Tactical | 191 |
+| `COVER_STATE Occupied` | **13** событий / **10** юнитов |
+| `COVER_STATE Acquired` | 13 |
+| `POSITION_ACQUIRE Acquired` | 13 |
+| `POSITION_ACQUIRE Traversed` | 7 |
+| `POSITION_ACQUIRE Rejected` / `OutOfTolerance` | **9** (P06×7 C2 + P16×2 C4) |
+| `COVER_REF candidateRef=MISSING` | 15, фаза Reserve t=0.020 |
+| `COVER_DECISION` | 121 (Stay **88**, Reposition **33** — только `CurrentInvalid` / `current=C0`) |
+| `COVER_INVALID` | 33 |
+| `COVER_HEARTBEAT` | 800 |
+| `MOVE_COVER` | 29 |
+| `AI_TRANSITION` | 150: LostCurrentTarget 79, HostileVisible 55, Expired 16 |
+| `Search→Attack reason=ImmediateThreat` | **0** |
+| `PEEK` | 16, все `decision=NoLean` `available=0` |
+| `EMERGENCY_COVER Selected` | 1 (P02 C1 @ 41.889) |
+| `SHOT` | 174 |
+| `LIFE Unconscious` | 18 боевых (все Player + 8 Enemy) |
+| `LIFE Dead` | 2 (P17 @ 71.934, P20 @ 116.113) |
+| Neutral LIFE / SHOT / COVER | **0** |
+
+Walk **идёт**. Occupied **есть**. Качалка P20 из §8.10 **снята**. Диск 0.60 не поднимать.
+
+### Occupied — кто и когда
+
+| t | Слот | Сторона | Слот cover | dist |
+|---|------|---------|------------|------|
+| 7.715 | P11 | Enemy, PKM | C4 | 0.57 |
+| 8.187 | P14 | Enemy | C3 | 0.60 |
+| 12.597 | P05 | Player | C4 | 0.58 |
+| 19.533 | P19 | Enemy | C2 | 0.55 |
+| 19.838 | P06 | Player, MK12 | C1 | 0.54 |
+| 19.911 | P18 | Enemy | C1 | 0.59 |
+| 24.223 | **P01** | Player, MK18 | **C2** | **0.54** |
+| 27.667 | P16 | Enemy | C2 | 0.53 |
+| 29.049 | P12 | Enemy | C1 | 0.55 |
+| 29.541 | P13 | Enemy | C4 | 0.53 |
+| 35.082 | P13 | Enemy | C4 | 0.59, повтор после Search |
+| 89.393 | P11 | Enemy | C2 | 0.59, повтор, стоит до конца |
+| 91.788 | P16 | Enemy | C4 | 0.60, повтор, стоит до конца |
+
+Не заняли слот: P02, P03, P04, P07, P08, P09, P10, P15, P17, P20 (KO / Search по дороге).
+
+Конец сессии **Alive + Occupied + vel=0**: **P11 C2** `pos≈(-3.1, 0.1, 66.6)` Attack Hold `gate=NoVisibleTarget`; **P16 C4** `pos≈(13.4, 0.1, 78.6)` Attack Hold `gate=Success` при vis=0. Остальные боевые Unconscious/Dead. Neutral стоят Idle.
+
+### LIFE
+
+18× `Unconscious was=Alive reason=Damage health=1 coverReleased=1 navStopped=1 ai/vision/combat/move=off`, затем Dead у P17 и P20 (`was=Unconscious health=0`). Neutral KO в этой сессии нет (в 16:36:40 был P31).
+
+После LIFE у боевых нет новых MOVE / COVER_DECISION / SHOT.
+
+### P01 — эталон (Player, MK18)
+
+Спавн `(-18.0, 0.0, 11.0)`. Attack dest ≈ `(0.4, 0.1, 76.3)`. Hop C2 `(-4.0, 0.1, 42.8)`. `routeMode=Tactical` `ROUTE_SELECT R102`.
+
+```text
+0.020  COVER_STATE  C2 Reserved / Approaching
+0.020  COVER_REF    C2 candidateRef=MISSING phase=Reserve
+0.020  MOVE         dest=(-4.0, 0.1, 42.8) reason=Attack ok=1 path=pending
+24.223 COVER_REF    C2 0xDFC976CA Reserve = Acquire = ConfirmOccupied
+24.223 COVER_STATE  C2 Occupied dist=0.54
+24.223 POSITION_ACQUIRE Acquired cover=C2
+28.545 Attack→Search LostCurrentTarget immediateThreat=0
+       COVER_STATE Released reason=CommandChanged     ← слот сброшен Search
+37.433 Search→Attack HostileVisible target=P12
+       снова C2 Approaching; **20× SHOT** по P12, все `HitOther` (стенка арены)
+38.215 слот C2→C1
+41.422 LIFE Unconscious coverReleased=1
+```
+
+Цепочка Reserve→Occupied с тем же `candidateRef` жива. Occupied **не держится через Search**: `CommandChanged` отпускает слот. Это не качалка ImmediateThreat.
+
+### P20 — hold сработал (Enemy)
+
+5 `AI_TRANSITION`, не 20 как в 16:36:40. Search→Attack только `Expired` / `HostileVisible`. **Нет** `reason=ImmediateThreat`. @ 37.142 Attack→Search `LostCurrentTarget` при `immediateThreat=1` — остаётся в Search. @ 41.067 Unconscious. Occupied не было.
+
+### P06 — OutOfTolerance не про диск 0.60
+
+Occupied C1 @ 19.838 dist=0.54. @ 28.545 Search отпустил слот. Дальше Attack/Search вокруг центра арены. @ 57.241 Nav Reached dest `(0.06, 76.35)` (точка приказа), acquire всё ещё C2 `(3.93, 66.83)` → `distance=9.69` `remaining=0`. Семь Rejected подряд. То же у **P16**: dest центра vs C4 `(13.95, 78.67)` → `distance=13.51` (×2). Это **приехал в центр, слот в 10–13 м**, не «agent чуть мимо 0.60». Tolerance не крутить. P06 @ 61.684 Unconscious.
+
+### P21 — Neutral контроль
+
+`team=Neutral look=Civilian weapon=none scanCandidates=none`. Idle / Hold / SelfDefense. Нет Attack, cover, SHOT, MOVE. Стоит `(-16.0, 0.2, 42.0)` 123 с.
+
+### Peek / Emergency
+
+Peek после Occupied: `direction=None available=0 NoLean` — угла/выгоды нет, lean не обязателен. Emergency: куча `Fallback NoAcceptableCandidate`; один `Selected` P02 C1 под ImmediateThreat (P02 к тому моменту уже шёл в Unconscious).
+
+### Что следует (формулы не крутить)
+
+1. **Юниты пользуются укрытиями на арене.** Attack → Tactical route → hop слота → Walk → Occupied. Не только тесты.
+2. **Search/Attack hold PASS.** `ImmediateThreat` не выдёргивает из Search. P20 больше не дёргает слот каждые 0.15 с.
+3. **Occupied всё ещё рвёт Search** (`LostCurrentTarget` / `Expired` / `HostileVisible` → `CommandChanged`). Массовые волны Attack→Search: Player @ 28.545, Enemy @ 29.762 (vis=0 из слота).
+4. **OutOfTolerance ≠ сломанный диск.** Юнит на dest приказа, acquire — другой слот. 0.60 не поднимать.
+5. **Peek не стартует** без доступного направления. Не ретюнить lean.
+6. **SHOT часто HitOther** (геометрия арены), не повод крутить G6/оружие.
+7. **LIFE PASS.** Neutral не воюют.
+
+Occupy **не FROZEN**. #13/#14/#15 не открывать. Vision / G6 / Weapon / CoverScore / PathScore / 0.60 не трогать.
+
+Словарь тегов — 8.3–8.5. Карточки 11:35:30 — §8.8. Occupied без hold — §8.10.
+
+---
+
 ## Практический вывод одной страницей
 
 Зрение, память и конверт 150/300 **готовы**. Личность в мире **FROZEN**. CombatIntent **FROZEN**. Второй стрелок не создавался. Search locomotion **FROZEN**. Attack/Retreat/Flee **FROZEN**. Контракт команды **6.1 CLOSED**. Игровой сервис **6.2 CLOSED**. Игровой ввод **6.3 CLOSED**. Слой команд **6.4 CLOSED**. Боевые прицелы (этап 8), дальность урона (этап 9), кривые точности (этап 10), дисциплина огня (этап 11) и projectile vision (этап 12) **CLOSED**.
@@ -2034,8 +4268,40 @@ Play в Editor пишет папку `Infantry_*`. Диагноз конкрет
 
 | Дата | Изменение |
 |------|-----------|
+| 29.08.2026 | Сверка **Attack / Defense / захват** с дорожной картой: одиночка ходит и занимает слот; Capture нет (#24); Defense на арене не выдаётся; MissionScore тонкий; Defense в коде ходит к якорю (6.4 «не ходит» устарел). |
+| 29.08.2026 | Документирован слой **поиска и запекания потенциальных укрытий**: конвейер Generate → classify → Editor bake → Play cache; достоинства и дыры (одна клетка 16 м, cap 16, stale bake, AABB). Формулы CoverScore / #13/#14 не трогать. |
 | 24.08.2026 | A10 CLOSED. Добавлены разделы: философия, цепочка shoot/no-shoot, RoE, площадка 150×50, матрица реализации, дорожная карта #7–#16. Снимок синхронизирован с закрытием стрельбы/отдачи. Следующий открытый слой — **#7 ImmediateThreat**. |
 | 24.08.2026 | Добавлены разделы **ранги юнитов** (5 пресетов, навыки, влияние на бой) и **оружие по дистанции** (три типа дальности, классы, WorkingRange, balance-kind). |
 | 24.08.2026 | Дорожная карта расширена до конечной системы: фазы I–VI, канон #1–#16 сохранён, #13–#16 уточнены (cover → movement → weapon/rank → group/CQB), добавлены #17–#26. Backlog этапа: цель / появление / приёмка / freeze. Следующий блок по-прежнему **#7**. |
 | 24.08.2026 | Создан дизайн-документ `Пехота_система_дизайн.md` v1.0. Дорожная карта и этапы #7–#26 привязаны к §6 дизайн-дока; цикл DESIGN/FREEZE требует соответствия. |
 | 24.08.2026 | **#7 CLOSED.** ImmediateThreat live + RoE. E: Use of Force 107/0, Combat Engage 36/0. Следующий слой — **#8**. |
+| 28.08.2026 | Play 11:35:30: карточки всех слотов в **§8.8**. |
+| 28.08.2026 | Play 16:36:40 **§8.10** (`Infantry_20260828_163640`): Walk PASS, **15 Occupied**, P01 C2 ConfirmOccupied тот же `candidateRef`. OutOfTolerance=0. P20 ImmediateThreat качает Search↔Attack. Отчёт 14:49:50 снят. |
+| 28.08.2026 | Play 20:40:49 **§8.11** (`Infantry_20260828_204049`): Walk PASS, **13 Occupied** / 10 юнитов. `Search→Attack ImmediateThreat` = **0**. Occupied рвёт Search (`CommandChanged`). OutOfTolerance = dest центра vs слот 10–13 м, диск 0.60 не поднимать. Occupy не FROZEN. #15 не открывать. |
+| 28.08.2026 | **#14B OPEN (14B.0).** Контракт `Readiness_State.md`. HostileVisible → Aim без обязательных ступеней. Aim ≠ Fire. #13/#14 не reopen. #15 не открывать. |
+| 28.08.2026 | **#14B.0 закрыт внутри открытого #14B.** EditMode **20/0** (21:47). Play не в 14B.0. |
+| 28.08.2026 | **#14B.1 закрыт внутри открытого #14B.** EditMode **38/0**. Play `Readiness_LAST.txt` **15/0** (22:08:12). Stimuli / RequestTransition / decay / hysteresis / прямой Patrol→Aim / канал READINESS. Без поз / Fire. |
+| 28.08.2026 | **#14B.2 закрыт внутри открытого #14B.** EditMode **51/0**. Play `Readiness_LAST.txt` **23/0** (22:21:20). Pose request → CombatReadiness. Mapping / LifeGate / Hold≠сломан / Engage без второго Auto / READINESS_POSE. Aim ≠ G6 ≠ Fire. |
+| 28.08.2026 | **#14B.3 закрыт внутри открытого #14B.** EditMode **81/0**. Play `Readiness_LAST.txt` **31/0** (22:40:08). HostileVisible из Observed+Hostile → Aim. Gunshot из sound. CombatActivity. Engage ≠ Aim ≠ Fire. LifeGate freeze. READINESS_EVENT / TRANSITION / DECAY. |
+| 28.08.2026 | **#14B.4 закрыт внутри открытого #14B.** EditMode **121/0**. Play `Readiness_LAST.txt` **40/0** (23:04:16). Ранг = ToReady/ToAim/Decay, не отдельный AI. Отношения, не freeze мс. ArmFatigue не в формуле. |
+| 28.08.2026 | **#14B.5 закрыт внутри открытого #14B.** EditMode **165/0**. Play `Readiness_LAST.txt` **55/0** (23:29:16). Hold от последней боевой активности, затем один step-down. Rising ≠ falling. Refresh без дребезга. Instant 1 с сохранён. ArmFatigue не в формуле. 14B.6 / #15 не открывать. |
+| 29.08.2026 | **#14B.6 OPEN (Arm Fatigue).** `ArmFatigue` 0..1. Load/recovery. AimTime↑ RecoilControl↓ TurnTime↑. Не ReadinessState. Instant load=0. LifeGate freeze. `ARM_FATIGUE` / `ARM_FATIGUE_EFFECT`. Не закрывать без PASS. #15 не открывать. |
+| 29.08.2026 | **#14B.6 закрыт внутри открытого #14B.** EditMode **205/0**. Play `Readiness_LAST.txt` **70/0** (10:18:31). AimTime↑ RecoilControl↓ TurnTime↑. Не ReadinessState. Instant load=0. LifeGate freeze. 14B.7 / #15 не открывать. #14B **не FROZEN**. |
+| 29.08.2026 | **#14B.7 OPEN (Combat Integration).** Perception→Readiness→ArmFatigue→AimTime/Turn/Recoil→Combat. Без новой механики. `ARM_FATIGUE value=` / `READINESS_EFFECT`. Не закрывать без PASS. #15 не открывать. |
+| 29.08.2026 | **#14B.7 закрыт внутри открытого #14B.** EditMode **252/0**. Play `Readiness_LAST.txt` **90/0** (10:33:24). AimTime↑ TurnTime↑ RecoilRecovery↓ в боевом контуре. Fatigue не двигает Readiness/G6/RoE/Cover/Movement. #15 не открывать. #14B **не FROZEN**. |
+| 29.08.2026 | **#14C OPEN (Threat Direction Knowledge).** `Threat_Direction_Knowledge.md`. Expected из существующих spawn points. Visual > Sound > Report > InitialEstimate. События, не polling. Не Cover / Movement / Readiness. Не закрывать без PASS 35+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C закрыт внутри открытого #14C.** EditMode **49/0**. Play `ThreatDirection_LAST.txt` **20/0** (11:56:21). Expected из spawn points. Visual > Sound > Report > InitialEstimate. События, не polling. Не Cover / Movement / Readiness. Cover не подключать. #14C **не FROZEN**. #15 не открывать. |
+| 29.08.2026 | **#14C.1 OPEN (Cover Orientation & Facing).** Overlay на CoverScore + event facing. Stay Committed. Не закрывать без PASS 35+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C.1 закрыт внутри открытого #14C.** EditMode **40/0**. Play `ThreatDirectionCover_LAST.txt` **22/0** (12:58:02). Expected влияет на cover до контакта. Visual заменяет Expected. Facing без дрожи. Stay Committed. #13/#14 не reopen. #14C **не FROZEN**. #15 не открывать. |
+| 29.08.2026 | **#14C.2 OPEN (Confidence & Uncertainty).** Качество знания → вес cover/facing. Не scan / CoverScore / Move. Не закрывать без PASS 30+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C.2 закрыт внутри открытого #14C.** EditMode **38/0**. Play `ThreatDirectionQuality_LAST.txt` **19/0** (13:15:02). Visual > Sound > Report > Expected. Stale слабеет. Cover/facing учитывают confidence. Stay Committed. #13/#14 не reopen. #14C **не FROZEN**. #15 не открывать. |
+| 29.08.2026 | **#14C.3 OPEN (Tactical Positioning).** `TacticalPositionPreference` поверх CoverScore. Direction + Facing × confidence × sector overlap. Stay Committed. Не Move / scan / CoverScore. Не закрывать без PASS 35+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C.3 закрыт внутри открытого #14C.** EditMode **43/0**. Play `ThreatDirectionPosition_LAST.txt` **18/0** (13:41:42). Direction/confidence/uncertainty влияют на preference. Stay Committed. Нет Move / скана. CoverScore не трогался. #13/#14 не reopen. #14C **не FROZEN**. #15 не открывать. |
+| 29.08.2026 | **#14C.4 OPEN (Dynamic Threat Reorientation).** SignificantChange (50° + conf 0.4). Facing + ThreatFit. Occupied не сбрасывается. Fatigue замедляет turn. Не Move / scan / CoverScore. Не закрывать без PASS 35+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C.4 закрыт внутри открытого #14C.** EditMode **36/0**. Play `ThreatDirectionReorientation_LAST.txt` **18/0** (14:47:14). Deadband / SignificantChange. Facing + ThreatFit. Occupied не сбрасывается. Fatigue замедляет turn. Нет Move / скана. CoverScore не трогался. #13/#14 не reopen. #14C **не FROZEN**. #15 не открывать. |
+| 29.08.2026 | **#14C.5 OPEN (Threat Direction → Reposition Decision).** FaceOnly / Stay / RepositionAllowed. Occupied не снимается. #13 исполняет только по флагу. Не Move / scan / CoverScore. Не закрывать без PASS 35+/0 + 15+/0. #13/#14 не reopen. #15 не открывать. |
+| 29.08.2026 | **#14C.5 закрыт внутри открытого #14C.** EditMode **39/0**. Play `ThreatDirectionReposition_LAST.txt` **18/0** (15:51:13). FaceOnly / Stay / RepositionAllowed. Occupied Stay Committed без флага. Fit Poor→Good даёт разрешение. Нет прямого Move / скана. CoverScore не трогался. #13/#14 не reopen. #14C **не FROZEN**. #15 не открывать. |
+| 28.08.2026 | **Search/Attack hold + Occupied hold.** `ImmediateThreat` больше не делает Search→Attack. Attack→Search: visual dwell 1.5 с **или** Search 2.0 gunshot/report. Occupied+valid+LOS не свапает по score. EmergencyCover overlay разрешён в Search. CoverScore/0.60/#13/#14/#15 не трогать. |
+| 28.08.2026 | **Occupy integration поверх frozen #13/#14.** Хранить CoverCandidate до acquire; ConfirmOccupied; `cover=C1` vs `cover=0`; Attack/Defense Walk диск 0.60; reservation на подходе; Attack Search dwell 1.5 с (не gunshot); commit пока Reserved. #13/#14 не открывать. #15 не открывать. Occupy не FROZEN (массовая арена). |
+| 28.08.2026 | **Диагностика occupy (события, не тик).** Теги `COVER_DECISION` `COVER_REF` `COVER_INVALID` `COVER_HEARTBEAT` `MOVE_COVER` `AI_TRANSITION`; `LIFE`/`SNAP`/`POSITION_ACQUIRE` расширены. |
+| 28.08.2026 | **Fix Walk: не reissue на pathPending.** `!hasPath` во время расчёта пути каждый кадр сбрасывал `SetDestination`. Диск 0.60 не трогать. |

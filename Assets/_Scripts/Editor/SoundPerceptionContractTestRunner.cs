@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class SoundPerceptionContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Sound Perception Contract (Play)", false, 21)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Sound Perception Contract (Play)", false, 163)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

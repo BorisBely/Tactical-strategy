@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Shared Walk / Reached / Cancel for Search, Attack, Defense, Retreat, Flee.
@@ -29,6 +30,18 @@ public sealed class TacticalNavigationExecutor
 		m_IssueFailed = false;
 		m_Cancelled = false;
 		m_Move = null;
+	}
+
+	/// <summary>
+	/// 14.7: keep the mover bound and walk the next hop after an intermediate traverse.
+	/// Does not issue Walk by itself.
+	/// </summary>
+	public void ContinueToNextHop()
+	{
+		m_Issued = false;
+		m_Reached = false;
+		m_IssueFailed = false;
+		m_Cancelled = false;
 	}
 
 	public void Cancel(UnitAIController _controller)
@@ -71,6 +84,9 @@ public sealed class TacticalNavigationExecutor
 			return;
 		}
 
+		if (m_Issued && ShouldReissueWalk(_controller, _destination, _arrivalRadius))
+			m_Issued = false;
+
 		if (m_Issued)
 			return;
 
@@ -101,6 +117,28 @@ public sealed class TacticalNavigationExecutor
 
 		if (_controller.TryGetComponent(out UnitNavLocomotionDriver driver) && driver.enabled)
 			m_Move = _controller.gameObject.AddComponent<UnitNavMoveCommand>();
+	}
+
+	private static bool ShouldReissueWalk(
+		UnitAIController _controller,
+		Vector3 _destination,
+		float _arrivalRadius)
+	{
+		if (_controller == null)
+			return false;
+		if (TacticalNavigationMath.IsInsideArrival(
+			    _controller.transform.position, _destination, _arrivalRadius))
+			return false;
+		if (!_controller.TryGetComponent(out NavMeshAgent agent) || !agent.enabled || !agent.isOnNavMesh)
+			return false;
+		float remaining = float.PositiveInfinity;
+		if (!float.IsPositiveInfinity(agent.remainingDistance))
+			remaining = agent.remainingDistance;
+		return TacticalNavigationMath.ShouldReissueStuckWalk(
+			false,
+			agent.pathPending,
+			agent.hasPath,
+			remaining);
 	}
 	#endregion
 }

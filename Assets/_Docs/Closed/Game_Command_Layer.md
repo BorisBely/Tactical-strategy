@@ -1,7 +1,7 @@
 # Game Command Layer
 
 **Статус: 6.4 CLOSED** (стабилизация и сквозная приёмка 6.1–6.3)  
-**#7 ImmediateThreat + живой RoE** — следующий слой *тактической* карты, не раньше этапов **A–E** `Пехота_дорожная_карта.md`. Overlay / `TryIssue` не подменять. SHOT не критерий этого слоя.
+**#11 Command Priority** накладывается на `IssueCommand`, не заменяет 6.4. Overlay / `TryIssue` не подменять.
 
 6.4 не добавляет новый способ управления. Доказывает, что уже существующая цепочка устойчива:
 
@@ -12,7 +12,7 @@ GameCommandRecipientQuery (живой collect)
         ↓
 GameCommandService.IssueMany
         ↓
-IssueCommand → state + context
+IssueCommand → Priority Resolver → table → state + context
         ↓
 существующие handlers / TacticalNavigationExecutor / CombatIntent
 ```
@@ -32,9 +32,10 @@ IssueCommand → state + context
 | Search(P) | любой | точка | Search | SearchPosition=P | Walk reason=Search | новый snapshot |
 | Retreat(P) | не из Idle/Flee; не из Retreat в Attack/Search | точка | Retreat | Destination=P | Walk reason=Retreat | новый dest |
 | Flee(P) | не из Flee в Attack/Defense/Search/Retreat | точка | Flee | dest | Walk reason=Flee | новый dest |
-| Cancel | любой, в т.ч. Idle | нет точки | Idle | Empty | Stop | stay Idle |
+| Cancel | любой, в т.ч. Idle | нет точки | Search → ReturnState; иначе Idle | Empty / resume | Stop | stay Idle |
 
-Reject (таблица, без bounce): Idle→Retreat; Retreat→Attack/Search; Flee→всё кроме Idle/Cancel.
+Reject (таблица, без bounce): Idle→Retreat; Retreat→Attack/Search; Flee→всё кроме Idle/Cancel.  
+**#11:** Retreat→Defense через `IssueCommand` → `LowerPriority` (High > Mission). Внутренний `TryApplyCommand` таблицу не сужает.
 
 Нет AI (Player) → `NoAI`, контроллер не создаётся. Enemy Debug вешает AI до Issue. Мёртвый / неактивный / уничтоженный → `InvalidUnit`.
 

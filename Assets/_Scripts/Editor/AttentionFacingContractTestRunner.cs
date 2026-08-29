@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class AttentionFacingContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Attention Facing Contract (Play)", false, 21)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Attention Facing Contract (Play)", false, 161)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

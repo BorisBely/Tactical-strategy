@@ -127,6 +127,8 @@ public static class GameCommandService
 				return GameCommandRejectReason.InvalidCommandData;
 			case TacticalCommandRejectReason.MissingDestination:
 				return GameCommandRejectReason.MissingDestination;
+			case TacticalCommandRejectReason.LowerPriority:
+				return GameCommandRejectReason.LowerPriority;
 			default:
 				return GameCommandRejectReason.InvalidCommandData;
 		}

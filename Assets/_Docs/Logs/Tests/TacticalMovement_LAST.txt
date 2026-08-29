@@ -1,0 +1,180 @@
+﻿STAGE 14.0 — TACTICAL MOVEMENT CONTRACT
+=======================================
+stamp=2026-08-27 23:52:56
+Destination ≠ Route. Overlay ≠ Move. Executor still Walks. 14.1 evaluates. 14.2 cover-to-cover. 14.3 wall bias. 14.4 exposure profile. 14.5 event replan. 14.6 under fire. 14.7 arrival. 14.8 moving lean. 14.9 tactical LOD. 14.10 final acceptance. Not #15.
+---
+[A1] Direct destination intact
+PASS A1_DirectDest
+PASS A1_HopIsDest
+[A4] Overlay does not Walk or Fire
+PASS A4_NoWalk
+PASS A4_NoFire
+[A2] Waypoint route keeps Destination
+PASS A2_DestIntact
+PASS A2_HopIsMid
+PASS A2_StillNoWalk
+[A3] Existing executor Walks current hop
+PASS A3_Issued
+PASS A3_Hop
+PASS A3_DestIntact
+[Stack] Attack still uses executor; cover still does not Move
+PASS S_CoverNoWalk
+PASS S_Attack
+PASS S_DestIntact
+PASS S_WalkDest
+[Contract] no second driver, formation none
+PASS C_NoAltDriver
+PASS C_FormationNone
+PASS V_Overlay
+[14.1] Tactical Route Evaluation
+PASS R_A1_Valid
+PASS R_A2_Unreachable
+PASS R_A3_InvalidDest
+PASS R_B_Shorter
+PASS R_C_TacticalCovered
+PASS R_D_NormalShort
+PASS R_E_Mission
+PASS R_F_Cover
+PASS R_G_Cap
+PASS R_H_Diversity
+PASS R_I_Determinism
+PASS R_UrbanNormal
+PASS R_UrbanTactical
+PASS R_DirectBaseline
+PASS R_C13_Dest
+PASS R_Emergency
+PASS R_OverlayNoWalk
+PASS R_SelectCovered
+PASS R_DestIntact
+PASS R_ExecutorHop
+PASS R_ExecutorDest
+PASS R_Explain
+[14.2] Cover-to-Cover Movement
+PASS C2_S1_Direct
+PASS C2_S2_Cover
+PASS C2_S3_NotAll
+PASS C2_S4_SkipReserved
+PASS C2_F_Release
+PASS C2_G_FinalHeld
+PASS C2_G_MidFree
+PASS C2_D_HopCap
+PASS C2_S5_Cache
+PASS C2_S5_Units
+PASS C2_H_NoWalk
+PASS C2_H_Executor
+PASS C2_I_Determinism
+[14.3] Urban Wall Bias
+PASS U_S1_Direct
+PASS U_S2_Wall
+PASS U_S3_TooLong
+PASS U_S4_Side
+PASS U_S5_Blocked
+PASS U_Corridor
+PASS U_NoWalk
+PASS U_Determinism
+PASS U_Cache
+PASS U_Explain
+[14.4] Exposure-aware Traversal
+PASS E_S1_Profile
+PASS E_S2_ShortDash
+PASS E_S3_LongOpen
+PASS E_S4_ShortCross
+PASS E_S5_SameAvg
+PASS E_Unknown
+PASS E_Bound
+PASS E_NoWalk
+PASS E_Cache
+PASS E_Explain
+[14.5] Event-driven Replanning
+PASS P_NoEvent
+PASS P_Minor
+PASS P_EnemyOnRoute
+PASS P_GeomOff
+PASS P_Blocked
+PASS P_Coalesce
+PASS P_Progress
+PASS P_SameRoute
+PASS P_Reserve
+PASS P_Perf
+PASS P_NoWalk
+PASS P_Overlay
+[14.6] Movement Under Fire
+PASS P_CoverAhead
+PASS P_Dangerous
+PASS P_Alt
+PASS P_NoCover
+PASS P_Command
+PASS P_DontPanic
+PASS P_DontSuicide
+PASS P_FireCoalesce
+PASS P_FireCooldown
+PASS P_FireReserve
+PASS P_FireProgress
+PASS P_FireNoWalk
+PASS P_FireOverlay
+[14.7] Arrival / Position Acquisition
+PASS A_Acquired
+PASS A_TooFar
+PASS A_OccupiedOther
+PASS A_Geometry
+PASS A_Hop
+PASS A_Reserved
+PASS A_CancelRelease
+PASS A_Transition
+PASS A_Mission
+PASS A_Determinism
+PASS A_NoWalk
+PASS A_Overlay
+[14.8] Moving Lean
+PASS L_Opportunity
+PASS L_NoBenefit
+PASS L_Direction
+PASS L_Small
+PASS L_Corner
+PASS L_Threat
+PASS L_Replan
+PASS L_Arrival
+PASS L_Coalesce
+PASS L_NoWalk
+PASS L_Overlay
+PASS L_Executor
+[14.9] Performance / Tactical LOD
+PASS P_A1_Background
+PASS P_A2_Reduced
+PASS P_A3_Full
+PASS P_Wake
+PASS P_Quiet
+PASS P_Invariant
+PASS P_Budget
+PASS P_Stagger
+PASS P_Priority
+PASS P_RouteCache
+PASS P_ExposureCache
+PASS P_LeanPause
+PASS P_LeanWake
+PASS P_NavContinues
+PASS P_MixWake
+PASS P_WithoutVsWith
+PASS P_NoWalk
+PASS P_Overlay
+[14.10] Final Acceptance
+PASS F_GoldenDest
+PASS F_Reserve
+PASS F_Lean
+PASS F_Hop
+PASS F_Stable
+PASS F_Acquire
+PASS F_Nav
+PASS F_UnderFire
+PASS F_Emergency
+PASS F_UrbanSafe
+PASS F_UrbanWall
+PASS F_NoPerFrame
+PASS F_NoThrash
+PASS F_LodMix
+PASS F_RoE
+PASS F_NoCoverPick
+PASS F_NoWalk
+PASS F_Overlay
+---
+RESULT=PASS pass=157 fail=0

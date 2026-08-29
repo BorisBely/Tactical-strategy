@@ -139,5 +139,29 @@ namespace Vision.Tests
 				TargetSelectionMath.Score(heard, Vector3.zero, policy),
 				TargetSelectionMath.Score(silent, Vector3.zero, policy));
 		}
+
+		[Test]
+		public void ScoreWithModifiers_MatchesScore_WhenNoWeaponOrMission()
+		{
+			ContactSelectionPolicy policy = ContactSelectionPolicy.CreateDefault();
+			policy.WeaponSuitabilityWeight = 0f;
+			policy.MissionBonus = 0f;
+			var contact = new PerceivedContact
+			{
+				ObservationState = ObservationState.Observed,
+				LastSeenConfidence = 1f,
+				LastKnownPosition = new Vector3(12f, 0f, 0f),
+				Threat = ThreatLevel.Low
+			};
+			float baseScore = TargetSelectionMath.Score(contact, Vector3.zero, policy);
+			float modified = TargetSelectionMath.ScoreWithModifiers(
+				contact,
+				Vector3.zero,
+				policy,
+				WeaponClassType.Unknown,
+				100f,
+				null);
+			Assert.AreEqual(baseScore, modified);
+		}
 	}
 }

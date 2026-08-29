@@ -1,9 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Stage 2 FROZEN: CombatIntent → existing ReadyHands request. Does not SetPose, does not Fire().
+/// CombatIntent + #14B.2 Readiness pose executor. Does not SetPose itself — ReadyHands does.
+/// Does not Fire(), does not write G6 / TargetSelector.
 /// Missing <see cref="ICombatIntentSource"/> = do not touch pose (player / RTS keep control).
-/// Engage raises Auto. Hold keeps the current pose (game default is Aiming).
+/// No AI Readiness: Engage → Auto (Stage 2). With Readiness: pose from <see cref="ReadinessPoseRequest"/>.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(27)]
@@ -17,11 +18,18 @@ public sealed class CombatReadinessController : MonoBehaviour
 	private EngagementDecisionController m_Engagement;
 	private UnitAIController m_Ai;
 	private CombatIntent m_LastApplied = CombatIntent.Hold;
+	private ReadinessPoseRequest m_LastPoseRequest;
+	private WeaponPoseState m_LastAppliedPose = (WeaponPoseState)(-1);
+	private ReadinessState m_LastAppliedReadiness = (ReadinessState)(-1);
+	private bool m_LastAppliedLifeGate;
+	private string m_LastPoseLogPayload = string.Empty;
 	#endregion
 
 	#region Public Properties
 	public CombatIntent LastAppliedIntent => m_LastApplied;
 	public bool ReadinessRequested => m_LastApplied == CombatIntent.Engage;
+	public ReadinessPoseRequest LastPoseRequest => m_LastPoseRequest;
+	public string LastPoseLogPayload => m_LastPoseLogPayload;
 	#endregion
 
 	#region Unity Lifecycle
@@ -33,6 +41,12 @@ public sealed class CombatReadinessController : MonoBehaviour
 	private void Update()
 	{
 		ApplyNow();
+	}
+
+	private void OnDisable()
+	{
+		if (!UnitLifeStateMath.AllowsCombatDecision(UnitLifeStateMath.Resolve(this)))
+			ApplyIncapacitatedPose();
 	}
 
 	private void OnGUI()
@@ -53,11 +67,12 @@ public sealed class CombatReadinessController : MonoBehaviour
 		string pose = m_ReadyHands != null ? m_ReadyHands.WantedMode.ToString() : "-";
 		bool mismatch = m_Engagement != null && m_Engagement.EngageTargetMismatch;
 
-		GUI.Box(new Rect(12f, 430f, 420f, 150f), "CombatIntent");
-		GUI.Label(new Rect(24f, 454f, 400f, 120f),
+		GUI.Box(new Rect(12f, 430f, 420f, 168f), "CombatIntent");
+		GUI.Label(new Rect(24f, 454f, 400f, 140f),
 			$"AI {(m_Ai != null ? m_Ai.CurrentState.ToString() : "-")} / {(m_Ai != null ? m_Ai.CurrentAction.ToString() : "-")}\n" +
 			$"Intent={m_Source.CurrentCombatIntent}  ROE={roe}\n" +
 			$"Decision={decision}  PoseWanted={pose}\n" +
+			$"ReadinessPose={m_LastPoseRequest.Pose}\n" +
 			$"AI.Engage={engage}  Combat.Selected={selected}\n" +
 			$"Mismatch={mismatch}");
 	}
@@ -66,17 +81,70 @@ public sealed class CombatReadinessController : MonoBehaviour
 	#region Public Methods
 	public void ApplyNow()
 	{
+		UnitLifeState life = UnitLifeStateMath.Resolve(this);
+		if (!UnitLifeStateMath.AllowsCombatDecision(life))
+		{
+			ApplyIncapacitatedPose();
+			return;
+		}
+
 		Bind();
-		if (m_Source == null || m_ReadyHands == null)
+		if (m_Source == null)
 			return;
 
 		CombatIntent intent = m_Source.CurrentCombatIntent;
+		m_LastApplied = intent;
+
+		if (m_Ai != null)
+		{
+			ReadinessPoseRequest request = ReadinessPoseMath.FromController(m_Ai.Readiness);
+			ApplyPoseRequest(in request);
+			if (intent == CombatIntent.Engage && m_ReadyHands != null)
+				m_ReadyHands.NotifyCombatAlert();
+			return;
+		}
+
+		if (m_ReadyHands == null)
+			return;
+
 		if (intent == CombatIntent.Engage)
 			RequestCombatReadiness(true);
-		else
-			RequestCombatReadiness(false);
+	}
 
-		m_LastApplied = intent;
+	public void ApplyIncapacitatedPose()
+	{
+		Bind();
+		ReadinessPoseRequest request = ReadinessPoseMath.Incapacitated();
+		ApplyPoseRequest(in request);
+	}
+
+	public void ApplyPoseRequest(in ReadinessPoseRequest _request)
+	{
+		m_LastPoseRequest = _request;
+		bool changed = _request.Pose != m_LastAppliedPose ||
+		               _request.State != m_LastAppliedReadiness ||
+		               _request.FromLifeGate != m_LastAppliedLifeGate;
+		if (changed)
+		{
+			m_LastAppliedPose = _request.Pose;
+			m_LastAppliedReadiness = _request.State;
+			m_LastAppliedLifeGate = _request.FromLifeGate;
+			m_LastPoseLogPayload = ReadinessPoseLog.Format(in _request);
+			ReadinessPoseLog.Emit(this, m_LastPoseLogPayload);
+		}
+
+		if (m_ReadyHands == null)
+			TryGetComponent(out m_ReadyHands);
+		if (m_ReadyHands == null)
+			return;
+
+		if (_request.IsPeaceful)
+		{
+			m_ReadyHands.SetPeacefulCarryPose(_request.Pose);
+			return;
+		}
+
+		m_ReadyHands.SetPoseModeWanted(_request.Mode, true);
 	}
 
 	public void RequestCombatReadiness(bool _ready)

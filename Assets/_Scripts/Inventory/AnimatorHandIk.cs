@@ -37,9 +37,9 @@ public class AnimatorHandIk : MonoBehaviour
 	[Tooltip("Пока идёт приказ гранатомёта, IK рук отключается.")]
 	[SerializeField] private UnitRocketLauncherOrderController m_RocketLauncherOrder;
 	[SerializeField] private UnitVehicleTurretReloadEvents m_TurretReloadEvents;
-	[Tooltip("Драйвер клика для движения. На беге IK рук: Left/Right Hand Ik Weight While Running.")]
+	[Tooltip("Драйвер клика для движения. На беге IK рук: Left/Right Hand Ik Weight While Running. Шаг в NotReady — левая на рукоятке, правая из Walk_F.")]
 	[SerializeField] private UnitClickToMove m_ClickToMove;
-	[Tooltip("NavMesh драйвер локомоции. На беге IK рук: Left/Right Hand Ik Weight While Running.")]
+	[Tooltip("NavMesh драйвер локомоции. На беге IK рук: Left/Right Hand Ik Weight While Running. Шаг в NotReady — левая на рукоятке, правая из Walk_F.")]
 	[SerializeField] private UnitNavLocomotionDriver m_LocomotionDriver;
 	[SerializeField] private UnitAnimatorStance m_Stance;
 	[Tooltip("Состояние пассажира в машине. На fire-capable месте — Vehicle поля ItemDefinition (NotReady/Ready через blend).")]
@@ -84,6 +84,9 @@ public class AnimatorHandIk : MonoBehaviour
 	#endregion
 
 	#region Private Fields
+	private static readonly int s_NavSpeed = Animator.StringToHash(UnitClickToMove.ParamNavSpeed);
+	private const float c_MoveNavSpeedIkThreshold = 0.055f;
+
 	private Animator m_Animator;
 	private bool m_ClearHandIkOnNextAnimatorIkPass;
 	private bool m_IsEquipBlendActive;
@@ -352,9 +355,42 @@ public class AnimatorHandIk : MonoBehaviour
 		return false;
 	}
 
+	private bool IsSprintingNow()
+	{
+		if (m_ClickToMove != null && m_ClickToMove.IsSprintMoveMode)
+			return true;
+		if (m_LocomotionDriver != null && m_LocomotionDriver.IsSprintMoveMode)
+			return true;
+		return false;
+	}
+
+	private bool IsStandingWalkNow()
+	{
+		if (IsInVehiclePassengerIkContext())
+			return false;
+		if (GetCurrentStance() != LocomotionStance.Standing)
+			return false;
+		if (IsRunningNow() || IsSprintingNow())
+			return false;
+		if (m_Animator == null)
+			return false;
+		return m_Animator.GetFloat(s_NavSpeed) >= c_MoveNavSpeedIkThreshold;
+	}
+
+	private bool IsPeacefulCarryIkPose()
+	{
+		if (m_RuntimeTuner != null && m_RuntimeTuner.IsTuningActive)
+			return m_RuntimeTuner.ActiveWeaponPoseState.IsPeacefulCarryPose();
+		if (m_EquippedWeaponPose == null)
+			return false;
+		return m_EquippedWeaponPose.GetEffectivePoseForIk().IsPeacefulCarryPose();
+	}
+
 	private bool ShouldSnapLeftHand()
 	{
 		if (m_CurrentLeftWeight < m_LeftSnapWeightThreshold)
+			return false;
+		if (m_LeftIntent == HandIkIntent.FullAnimation)
 			return false;
 		return m_CurrentMode == HandIkMode.Hold
 		       || m_CurrentMode == HandIkMode.SoftHold
@@ -387,6 +423,8 @@ public class AnimatorHandIk : MonoBehaviour
 			StanceBlending = stanceBlending,
 			StanceBusy = stanceBusy,
 			Running = IsRunningNow(),
+			Walking = IsStandingWalkNow(),
+			PeacefulCarry = IsPeacefulCarryIkPose(),
 			Reacquiring = m_Reacquiring
 		};
 
@@ -407,6 +445,15 @@ public class AnimatorHandIk : MonoBehaviour
 		m_RightIntent = result.RightIntent;
 		m_TargetLeftWeight = result.LeftWeightTarget * Mathf.Clamp01(m_UnreachableLeftScale);
 		m_TargetRightWeight = result.RightWeightTarget;
+
+		if (m_CurrentMode == HandIkMode.SoftHold &&
+		    m_LeftIntent == HandIkIntent.WeaponHold &&
+		    m_RightIntent == HandIkIntent.MovementRelaxation &&
+		    m_TargetRightWeight <= 0.001f)
+		{
+			m_CurrentLeftWeight = m_TargetLeftWeight;
+			m_CurrentRightWeight = 0f;
+		}
 
 		bool zeroMode = m_CurrentMode == HandIkMode.Disabled
 		                || m_CurrentMode == HandIkMode.Frozen
@@ -717,6 +764,9 @@ public class AnimatorHandIk : MonoBehaviour
 			return 1f;
 
 		if (m_EquippedWeaponPose == null && (m_UnitEquipment == null || !m_UnitEquipment.IsOperatingVehicleTurret))
+			return 0f;
+
+		if (IsStandingWalkNow() && IsPeacefulCarryIkPose())
 			return 0f;
 
 		float readyBlend = GetEffectiveReadyBlend01();

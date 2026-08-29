@@ -1,0 +1,27 @@
+﻿STAGE 14C — THREAT DIRECTION KNOWLEDGE
+======================================
+stamp=2026-08-29 11:56:21
+Spawn estimate → visual / sound / report. Event-driven. Not Cover / Move / Aim / Fire.
+---
+PASS P1_SpawnExpectedNorth
+PASS P2_VisualKnownNorthEast
+PASS P3_HostileLostStaleNorthEast
+PASS P4_QuietFallbackExpectedNorth
+PASS P5_GunshotEast
+PASS P6_VisualBeatsSound
+PASS P7_ReportFallback
+PASS P8_NoPollingEmptyFrames
+PASS P9_HeldVisualDoesNotPoll
+PASS P10_LogExpected
+PASS P11_NoLogEveryTick
+PASS P12_LogVisual
+PASS P13_LogStale
+PASS P14_DoesNotChangeReadiness
+PASS P15_DoesNotChangeAiState
+PASS P16_SceneSpawnPinsOpposite
+PASS P17_SidesGetOppositeExpected
+PASS P18_ExpectedQuality
+PASS P19_VisualConfidenceUp
+PASS P20_AgeIncreases
+---
+RESULT=PASS pass=20 fail=0

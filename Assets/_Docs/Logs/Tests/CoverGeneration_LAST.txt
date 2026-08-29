@@ -1,0 +1,30 @@
+﻿STAGE 13.1 — CANDIDATE GENERATION
+=================================
+stamp=2026-08-26 15:42:51
+Geometry → CoverCandidate → shared cache. Not score. Not Fire.
+---
+PASS S0_NavMeshBake
+[S1] First query generates from local geometry
+candidates=16 samples=34 navReject=0 clearReject=0 ms=19,31
+PASS S1_Miss
+PASS S1_GeometryQuery
+PASS S1_HasCandidates
+PASS S1_Cap
+PASS S1_Position
+PASS S1_Normal
+PASS S1_Region
+PASS S1_Version
+PASS S1_NavMeshValid
+PASS S1_NoClassification
+[S2] Second query reuses cache, no geometry query
+PASS S2_Hit
+PASS S2_NoRegen
+PASS S2_SameList
+[S3] 20 units / 3 regions → 3 generations
+PASS S3_Generations
+PASS S3_GeometryQueries
+PASS S3_NotPerUnit
+[S4] Debug capture (candidate + normal, no score)
+PASS S4_Debug
+---
+RESULT=PASS pass=18 fail=0

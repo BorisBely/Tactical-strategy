@@ -103,6 +103,8 @@ public struct WeaponPoseAutoCapabilityCache
 			return 0.01f;
 		if (_from.IsHipFireHold() && _to.IsHipFireHold())
 			return 0.15f;
+		if (_from.IsPeacefulCarryPose() && _to.IsPeacefulCarryPose())
+			return 0.18f;
 		if (_to.IsPeacefulCarryPose())
 			return 0.28f;
 		if (_from.IsPeacefulCarryPose() && _to == WeaponPoseState.LowReady)

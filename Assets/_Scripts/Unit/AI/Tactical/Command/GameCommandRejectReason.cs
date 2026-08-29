@@ -9,5 +9,6 @@ public enum GameCommandRejectReason
 	NoAI = 2,
 	InvalidStateTransition = 3,
 	InvalidCommandData = 4,
-	MissingDestination = 5
+	MissingDestination = 5,
+	LowerPriority = 6
 }

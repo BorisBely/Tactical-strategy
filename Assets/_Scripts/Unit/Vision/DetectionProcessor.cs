@@ -250,6 +250,8 @@ public sealed class DetectionProcessor : MonoBehaviour, IPerceivedContactRegistr
 
 	private void Update()
 	{
+		if (!UnitLifeStateMath.AllowsPerception(UnitLifeStateMath.Resolve(this)))
+			return;
 		if (m_HasSimulatedClock)
 			return;
 		Tick(Time.deltaTime, Time.time);

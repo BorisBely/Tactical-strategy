@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class VehicleVisionContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Vehicle Vision Contract (Play)", false, 23)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Vehicle Vision Contract (Play)", false, 165)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

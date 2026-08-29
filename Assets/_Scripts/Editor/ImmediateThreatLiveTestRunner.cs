@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class ImmediateThreatLiveTestRunner
 {
-	[MenuItem("Tools/Tests/Run Immediate Threat Live (Play)", false, 32)]
+	[MenuItem("Tools/Tests/Archive/Regression/Run Immediate Threat Live (Play)", false, 180)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

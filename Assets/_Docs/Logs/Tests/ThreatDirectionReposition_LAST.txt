@@ -1,0 +1,29 @@
+STAGE 14C.5 — THREAT DIRECTION REPOSITION DECISION
+==================================================
+stamp=2026-08-29 15:51:13
+Stay / FaceOnly / RepositionAllowed. Occupied stays until #13 is allowed. Not Move / scan.
+---
+[A] FaceOnly deadband / weak signal
+PASS P1_FiveDegreesFaceOnly
+PASS P2_NorthEastFaceOnly
+PASS P3_LowConfidenceFaceOnly
+[B] Stay vs RepositionAllowed
+PASS P4_GoodFitStay
+PASS P5_EastRepositionAllowed
+PASS P6_SouthRepositionAllowed
+PASS P7_TinyDeltaStay
+PASS P8_NoOscillation
+[C] Occupied stays; #13 only when allowed
+PASS P9_OccupiedNotReleased
+PASS P10_StayCommittedWithoutFlag
+PASS P11_AllowedRepositions
+[D] Isolation / live permission
+PASS P12_CoverScoreUnchanged
+PASS P13_AcquireUnchanged
+PASS P14_SearchUntouched
+PASS P15_NoPolling
+PASS P16_Channel
+PASS P17_LivePermissionDrivesSolver
+PASS P18_ReadinessUnchanged
+---
+RESULT=PASS pass=18 fail=0

@@ -2,7 +2,7 @@
 
 **Слой:** тактический **#9**.  
 **Дизайн:** `Пехота_система_дизайн.md` §6.2.  
-**Статус:** **CLOSED / FROZEN 25.08.2026.** EditMode `SoundInAiTests` **PASS 18/0** (23:10); Play `SoundInAi_LAST.txt` **PASS 20/0** (23:05); Arena `Infantry_20260825_231643`. #10 не открыт.
+**Статус:** **CLOSED / FROZEN 25.08.2026.** EditMode `SoundInAiTests` **PASS 18/0** (23:10); Play `SoundInAi_LAST.txt` **PASS 20/0** (23:05); Arena `Infantry_20260825_231643`. Report → Search перенесён в **#10** (`Search_2.md`). Этот слой не размораживать.
 
 **#8 gate.** CombatEventHub остаётся фактом мира. `Combat_Event_World.md` **CLOSED / FROZEN**. #9 не превращает CombatEventHub в sound-шину.
 
@@ -75,7 +75,7 @@ Report ≠ Fire
 Report ≠ «я вижу врага»
 ```
 
-#9 кладёт доклад в snapshot. **Report → Search не входит** в этот срез.
+#9 кладёт доклад в snapshot. **Report → Search** — слой **#10** (`Search_2.md`), не этот срез.
 
 ## Канон тактики (только это)
 
@@ -100,4 +100,4 @@ Visual Search по-прежнему: `LastKnown`. Sound Search: `SoundPosition`.
 | Play | `Tools/Tests/Run Sound In AI (Play)` → `SoundInAi_LAST.txt` **PASS 20/0** (25.08.2026 23:05) |
 | Arena | `Infantry_20260825_231643` (23:16): 10 Player / 10 Enemy / 20 Civilian; SHOT 95; THREAT 20 только у боевых, **0 THREAT / 0 Search у Civilian**. t=36.783 SHOT + SOUND Gunshot `pos=(-5.4, 1.5, 86.9)`; t=36.883 Search `search=(-5.4, 1.5, 86.9)` при `hostileVis=0` — это SoundPosition, не LastKnown `(-5.2, 0.1, 88.4)`. Все 10+10 боевых вошли в Search; Footstep до первого выстрела Search не стартовал. |
 
-Слой **FROZEN**. Report → Search, поворот на звук, огонь по звуку, Search 2.0 — не этот слой. #10 не открывать.
+Слой **FROZEN**. Поворот на звук, огонь по звуку — не этот слой. Report → Search — #10.

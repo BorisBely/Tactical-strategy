@@ -402,13 +402,14 @@ Pose vs стрельба (числа):
 
 ## 9. Hand IK
 
-- Один `HandIkMode` (`UnitHandIkModeResolver`): Frozen → Disabled → Reload → BoltHold → Transition → SoftHold (run) → Hold. Не от `WeaponReady`.
+- Один `HandIkMode` (`UnitHandIkModeResolver`): Frozen → Disabled → Reload → BoltHold → Transition → clip walk NotReady → SoftHold (run) → Hold. Не от `WeaponReady`.
 - **Правая:** target weight ≈ 0.35, soft OnAnimatorIK. LateUpdate snap **запрещён**.
 - **Левая:** target weight ≈ 0.9, LateUpdate two-bone snap если current weight ≥ ~0.85 и mode Hold/SoftHold/BoltHold. Цель — ребёнок оружия, позицию не сглаживать.
 - Веса: Current → Target экспонентой, raise быстрее release. Reload exit не 0→1 за кадр.
 - Правый target blend в **local оружия** (pose и stance). Left target не блендится.
 - **Выкл** (веса → 0): tuner HandsFrozen, mag, heal, drag, carry, grenade, reload/LMG. Bolt: только левая.
 - Бег: правая IK default 0; левая остаётся.
+- Шаг standing NotReady / Patrol: левая IK 1 (рукоятка + snap), правая 0 — из `Walk_F_Loop`.
 
 Что даёт дёрганье:
 

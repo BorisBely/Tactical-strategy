@@ -165,16 +165,26 @@ public sealed class UnitCombatStats : MonoBehaviour
 
 	public float GetRecoilAddedMultiplier()
 	{
+		return GetRecoilAddedMultiplier(m_RecoilControl);
+	}
+
+	public float GetRecoilAddedMultiplier(float _recoilControl)
+	{
 		return EvaluateSkillMultiplier(
-			m_RecoilControl,
+			_recoilControl,
 			m_WorstRecoilAddedMultiplier,
 			m_BestRecoilAddedMultiplier);
 	}
 
 	public float GetRecoilRecoveryMultiplier()
 	{
+		return GetRecoilRecoveryMultiplier(m_RecoilControl);
+	}
+
+	public float GetRecoilRecoveryMultiplier(float _recoilControl)
+	{
 		return EvaluateSkillMultiplier(
-			m_RecoilControl,
+			_recoilControl,
 			m_WorstRecoilRecoveryMultiplier,
 			m_BestRecoilRecoveryMultiplier);
 	}

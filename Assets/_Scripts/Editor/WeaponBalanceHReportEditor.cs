@@ -10,11 +10,11 @@ public static class WeaponBalanceHReportEditor
 {
 	#region Constants
 	private const string c_WeaponFolder = "Assets/GameData/Shooting";
-	private const string c_MenuPath = "Tools/Tests/Run Weapon Balance Report (H)";
+	private const string c_MenuPath = "Tools/Tests/Archive/Weapon/Run Weapon Balance Report (H)";
 	#endregion
 
 	#region Menu
-	[MenuItem(c_MenuPath, false, 34)]
+	[MenuItem(c_MenuPath, false, 184)]
 	public static void RunFromMenu()
 	{
 		List<WeaponDefinition> weapons = LoadReferenceWeapons();

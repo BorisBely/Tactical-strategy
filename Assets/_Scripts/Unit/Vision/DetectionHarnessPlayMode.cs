@@ -19,6 +19,26 @@ public static class DetectionHarnessPlayMode
 	private const string c_RunImmediateThreatKey = "DetectionCalib.RunImmediateThreat";
 	private const string c_RunCombatEventWorldKey = "DetectionCalib.RunCombatEventWorld";
 	private const string c_RunSoundInAiKey = "DetectionCalib.RunSoundInAi";
+	private const string c_RunSearch20Key = "DetectionCalib.RunSearch20";
+	private const string c_RunCommandPriorityKey = "DetectionCalib.RunCommandPriority";
+	private const string c_RunTargetCalibrationKey = "DetectionCalib.RunTargetCalibration";
+	private const string c_RunCoverGenerationKey = "DetectionCalib.RunCoverGeneration";
+	private const string c_RunCoverClassificationKey = "DetectionCalib.RunCoverClassification";
+	private const string c_RunCoverEvaluationKey = "DetectionCalib.RunCoverEvaluation";
+	private const string c_RunCoverEmergencyKey = "DetectionCalib.RunCoverEmergency";
+	private const string c_RunCoverTacticalKey = "DetectionCalib.RunCoverTactical";
+	private const string c_RunCoverOccupancyKey = "DetectionCalib.RunCoverOccupancy";
+	private const string c_RunCoverPeekKey = "DetectionCalib.RunCoverPeek";
+	private const string c_RunCoverIntegrationKey = "DetectionCalib.RunCoverIntegration";
+	private const string c_RunTacticalMovementKey = "DetectionCalib.RunTacticalMovement";
+	private const string c_RunReadinessKey = "DetectionCalib.RunReadiness";
+	private const string c_RunThreatDirectionKey = "DetectionCalib.RunThreatDirection";
+	private const string c_RunThreatDirectionCoverKey = "DetectionCalib.RunThreatDirectionCover";
+	private const string c_RunThreatDirectionQualityKey = "DetectionCalib.RunThreatDirectionQuality";
+	private const string c_RunThreatDirectionPositionKey = "DetectionCalib.RunThreatDirectionPosition";
+	private const string c_RunThreatDirectionReorientationKey = "DetectionCalib.RunThreatDirectionReorientation";
+	private const string c_RunThreatDirectionRepositionKey = "DetectionCalib.RunThreatDirectionReposition";
+	private const string c_RunFrozenLayersPlayKey = "DetectionCalib.RunFrozenLayersPlay";
 	private const string c_RunSearchExecutionKey = "DetectionCalib.RunSearchExecution";
 	private const string c_RunTacticalNavKey = "DetectionCalib.RunTacticalNav";
 	private const string c_RunTacticalCommandKey = "DetectionCalib.RunTacticalCommand";
@@ -161,6 +181,206 @@ public static class DetectionHarnessPlayMode
 		set
 		{
 			PlayerPrefs.SetInt(c_RunSoundInAiKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunSearch20
+	{
+		get => PlayerPrefs.GetInt(c_RunSearch20Key, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunSearch20Key, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCommandPriority
+	{
+		get => PlayerPrefs.GetInt(c_RunCommandPriorityKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCommandPriorityKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunTargetCalibration
+	{
+		get => PlayerPrefs.GetInt(c_RunTargetCalibrationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunTargetCalibrationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverGeneration
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverGenerationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverGenerationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverClassification
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverClassificationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverClassificationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverEvaluation
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverEvaluationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverEvaluationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverEmergency
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverEmergencyKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverEmergencyKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverTactical
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverTacticalKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverTacticalKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverOccupancy
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverOccupancyKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverOccupancyKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverPeek
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverPeekKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverPeekKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunCoverIntegration
+	{
+		get => PlayerPrefs.GetInt(c_RunCoverIntegrationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunCoverIntegrationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunTacticalMovement
+	{
+		get => PlayerPrefs.GetInt(c_RunTacticalMovementKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunTacticalMovementKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunReadiness
+	{
+		get => PlayerPrefs.GetInt(c_RunReadinessKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunReadinessKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirection
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirectionCover
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionCoverKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionCoverKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirectionQuality
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionQualityKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionQualityKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirectionPosition
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionPositionKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionPositionKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirectionReorientation
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionReorientationKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionReorientationKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunThreatDirectionReposition
+	{
+		get => PlayerPrefs.GetInt(c_RunThreatDirectionRepositionKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunThreatDirectionRepositionKey, value ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public static bool RunFrozenLayersPlay
+	{
+		get => PlayerPrefs.GetInt(c_RunFrozenLayersPlayKey, 0) == 1;
+		set
+		{
+			PlayerPrefs.SetInt(c_RunFrozenLayersPlayKey, value ? 1 : 0);
 			PlayerPrefs.Save();
 		}
 	}
@@ -481,6 +701,26 @@ public static class DetectionHarnessPlayMode
 		RunImmediateThreatLive = false;
 		RunCombatEventWorld = false;
 		RunSoundInAi = false;
+		RunSearch20 = false;
+		RunCommandPriority = false;
+		RunTargetCalibration = false;
+		RunCoverGeneration = false;
+		RunCoverClassification = false;
+		RunCoverEvaluation = false;
+		RunCoverEmergency = false;
+		RunCoverTactical = false;
+		RunCoverOccupancy = false;
+		RunCoverPeek = false;
+		RunCoverIntegration = false;
+		RunTacticalMovement = false;
+		RunReadiness = false;
+		RunThreatDirection = false;
+		RunThreatDirectionCover = false;
+		RunThreatDirectionQuality = false;
+		RunThreatDirectionPosition = false;
+		RunThreatDirectionReorientation = false;
+		RunThreatDirectionReposition = false;
+		RunFrozenLayersPlay = false;
 		RunSearchExecution = false;
 		RunTacticalNavigationExecution = false;
 		RunTacticalCommandContract = false;

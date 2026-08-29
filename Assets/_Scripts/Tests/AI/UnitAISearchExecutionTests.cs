@@ -80,7 +80,7 @@ namespace AI.Tests
 		public void AlreadyInsideRadius_DoesNotIssueMove()
 		{
 			(UnitAIController controller, UnitMoveCommandRecorder recorder, Transform target) = CreateWithRecorder();
-			Vector3 lastKnown = new Vector3(5f, 0f, 0f);
+			Vector3 lastKnown = new Vector3(0.4f, 0f, 0f);
 			try
 			{
 				StartSearch(controller, target, lastKnown);
@@ -105,7 +105,7 @@ namespace AI.Tests
 				StartSearch(controller, target, lastKnown);
 				Assert.AreEqual(1, recorder.MoveCount);
 
-				controller.transform.position = new Vector3(8f, 0f, 0f);
+				controller.transform.position = controller.CurrentContext.SearchPosition;
 				controller.Tick(0.05f);
 
 				Assert.AreEqual(UnitAIState.Search, controller.CurrentState);

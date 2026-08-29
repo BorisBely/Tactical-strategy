@@ -1,0 +1,29 @@
+﻿STAGE 14C.4 — DYNAMIC THREAT REORIENTATION
+==========================================
+stamp=2026-08-29 14:47:14
+Significant change → facing + ThreatFit. Occupied stays. Not Move / scan / Fire.
+---
+[A] N → NE → E and N → S
+PASS P1_DeadbandFive
+PASS P2_NorthEastFacingNoChanged
+PASS P3_EastSignificant
+PASS P4_SouthFacing
+PASS P5_LowConfidenceNoReaction
+[B] Occupied cover ThreatFit
+PASS P6_StayOccupied
+PASS P7_ThreatFitPoor
+[C] Visual override / weak sound
+PASS P8_WeakSoundIgnored
+PASS P9_VisualEastOverride
+[D] Fatigue / CoverScore / no polling
+PASS P10_FatigueSlowsTurn
+PASS P11_FatigueKeepsFacing
+PASS P12_CoverScoreUnchanged
+PASS P13_AcquireUnchanged
+PASS P14_SearchUntouched
+PASS P15_NoPolling
+PASS P16_ChangedChannel
+PASS P17_FitPayload
+PASS P18_ReadinessUnchanged
+---
+RESULT=PASS pass=18 fail=0

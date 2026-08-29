@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class CombatRetainContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Combat Retain Contract (Play)", false, 22)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Combat Retain Contract (Play)", false, 164)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

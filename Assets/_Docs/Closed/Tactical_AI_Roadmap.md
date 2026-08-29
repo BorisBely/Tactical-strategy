@@ -4,11 +4,17 @@
 **#7 ImmediateThreat + живой RoE: CLOSED 24.08.2026.**  
 **#8 Combat events / sound в мир: CLOSED / FROZEN 25.08.2026.**  
 **#9 Sound / Reports → AI snapshot: CLOSED / FROZEN 25.08.2026.**  
-**Следующий слой: #10 Search 2.0 — не открыт.**
+**#10 Search 2.0: CLOSED / FROZEN 26.08.2026.** Play 22/0; регрессия #7 18/0, #8 36/0, #9 20/0.  
+**#11 Command priority: CLOSED / FROZEN 26.08.2026.** EditMode 18/0; Play 18/0; регрессия #7 18/0, #8 36/0, #9 20/0, #10 Play 22/0 / EditMode 44/0.  
+**#12 Target + fire calibration: CLOSED / FROZEN 26.08.2026.** EditMode 18/0; Play 26/0; регрессия EditMode 62/0, Play 114/0.  
+**#13 Dynamic Cover: CLOSED / FROZEN 27.08.2026.** Контракт `Closed/Dynamic_Cover.md`. EditMode **169/0**. Play `CoverIntegration_LAST.txt` **18/0**.  
+**#14 Tactical Movement: CLOSED / FROZEN 27.08.2026.** Контракт `Closed/Tactical_Movement.md`. EditMode **178/0**. Play `TacticalMovement_LAST.txt` **157/0** (23:52).  
+**#14B Readiness: OPEN.** 14B.0–14B.7 ✅ EditMode **252/0**, Play **90/0**. Контракт `Readiness_State.md`.  
+**#14C Threat Direction: OPEN.** 14C.0–14C.6 ✅ EditMode **49/0**, Play **20/0**. **14C.1 ✅** EditMode **40/0**, Play **22/0**. **14C.2 ✅** EditMode **38/0**, Play **19/0**. **14C.3 ✅** EditMode **43/0**, Play **18/0**. **14C.4 ✅** EditMode **36/0**, Play **18/0**. **14C.5 ✅** EditMode **39/0**, Play **18/0**. Контракт `Threat_Direction_Knowledge.md`. #15 не открывать.
 
-**Дизайн-документ системы:** `Пехота_система_дизайн.md` (v1.0) — канон **что должно получиться**. Каждый этап #N при открытии сверяется с соответствующим §6.x дизайн-дока (таблица §11). Полный backlog — `Пехота_дорожная_карта.md`.
+**Дизайн-документ системы:** `Пехота_система_дизайн.md` (v1.3) — канон **что должно получиться**. Каждый этап #N при открытии сверяется с соответствующим §6.x дизайн-дока (таблица §11). Полный backlog — `Пехота_дорожная_карта.md`.
 
-Не открывать отряд, укрытия, CQB, командир, utility / HTN / GOAP / BT, пока не закрыт одиночный исполнительный контур #7–#12.
+Не открывать отряд, CQB, командир, utility / HTN / GOAP / BT, пока не закрыт индивидуальный контур. #13 Cover **CLOSED / FROZEN**. #14 **CLOSED / FROZEN**. **#14B OPEN.** **#14C OPEN.** #15 не открыт.
 
 ```text
 Decision  →  Command  →  State  →  Execution
@@ -43,11 +49,13 @@ DESIGN → CONTRACT → IMPLEMENT → EDITMODE → PLAY → ARENA → LOG → FR
 | 7 | ImmediateThreat + working RoE | **CLOSED 24.08.2026** |
 | 8 | World combat events / sound | **CLOSED 25.08.2026** |
 | 9 | Sound in AI perception | **CLOSED 25.08.2026** |
-| 10 | Search 2.0 | не открыт |
-| 11 | Command priority / cancellation | не открыт |
-| 12 | Target selection + fire calibration | не открыт |
-| 13 | Dynamic Cover | не открыт |
-| 14 | Tactical Movement + Lean / Readiness | не открыт |
+| 10 | Search 2.0 | **CLOSED / FROZEN 26.08.2026** |
+| 11 | Command priority / cancellation | **CLOSED / FROZEN 26.08.2026** |
+| 12 | Target selection + fire calibration | **CLOSED / FROZEN 26.08.2026** |
+| 13 | Dynamic Cover | **CLOSED / FROZEN 27.08.2026** |
+| 14 | Tactical Movement | **CLOSED / FROZEN 27.08.2026** |
+| 14B | Readiness State | **OPEN** (14B.0–14B.7 ✅) |
+| 14C | Threat Direction Knowledge | **OPEN** (14C.0–14C.6 ✅; 14C.1 ✅; 14C.2 ✅; 14C.3 ✅; 14C.4 ✅; 14C.5 ✅) |
 | 15 | Weapon role + Rank behaviour | не открыт |
 | 16 | Group + CQB | не открыт |
 | 17 | Under Fire + Wound | не открыт |
@@ -61,7 +69,7 @@ DESIGN → CONTRACT → IMPLEMENT → EDITMODE → PLAY → ARENA → LOG → FR
 | 25 | Squad tactics | не открыт |
 | 26 | High-level planner (HTN / GOAP / Utility / BT) | не открыт |
 
-Ближайшая последовательность: **открыть #10 после явного старта**. Не прыгать к #13–#26. #10 в этом проходе не открывать.
+Ближайшая последовательность: **#14B OPEN** (14B.0–14B.7 ✅), **#14C OPEN** (14C.0–14C.6 ✅; 14C.1–14C.5 ✅; слой **не FROZEN**). CoverDirectionScore / #15 не открывать. #13/#14 не reopen.
 
 Не сейчас (явно не открывать раньше своего номера): зоны RestrictedDefense как отдельный ранний трек, радио как отдельный трек, слияние 18 м и 500 м, патруль как новое состояние «на всякий случай».
 
@@ -71,8 +79,8 @@ DESIGN → CONTRACT → IMPLEMENT → EDITMODE → PLAY → ARENA → LOG → FR
 
 ```text
 ФАЗА I    Фундамент солдата           #1–#6          CLOSED
-ФАЗА II   Живой боевой контур         #7–#12         #9 CLOSED; #10 не открыт
-ФАЗА III  Индивидуальная тактика      #13–#15
+ФАЗА II   Живой боевой контур         #7–#12         CLOSED / FROZEN
+ФАЗА III  Индивидуальная тактика      #13–#15        #13 FROZEN, #14 FROZEN, #14B OPEN, #14C OPEN
 ФАЗА IV   Группа и CQB                #16
 ФАЗА V    Адаптивный бой              #17–#23
 ФАЗА VI   Командир и мышление         #24–#26
@@ -248,69 +256,72 @@ Report-канал в снимке есть. Report → Search **не** в это
 
 ## #10 — Search 2.0
 
-Только после рабочего звука. Не новое состояние. Более содержательное исполнение **существующего** Search:
+**CLOSED / FROZEN 26.08.2026.** Контракт: `Search_2.md`. Play `Search20_LAST.txt` **PASS 22/0**. Регрессия: ImmediateThreat **18/0**, Combat Event **36/0**, Sound In AI **20/0**. Не новое состояние. Исполнение существующего Search — область + кандидаты, не Investigate.
 
 ```text
-LastKnown → uncertainty area
-+ несколько SearchPosition
-+ оценка freshness / confidence / visibility / danger
+LastKnown / Sound / Report → SearchArea snapshot
++ несколько кандидатов (cache на Enter)
++ Walk → Inspect → next
++ Found / Exhausted / Expired / Threat / command
 ```
 
-Базовый Search остаётся:
-
-```text
-LastKnown snapshot → Walk → 15 m → остановка → Found / stale
-```
-
-Сектора и «умный прочёс» не импровизировать сверх контракта этапа.
+Baseline decision (снимок, не пишет память, Found = VisibleNow) сохраняется.  
+15 м = радиус области. Arrival кандидата = 1.5 м.  
+Сектора и «умный прочёс» не импровизировать сверх контракта этапа. Слой FROZEN. #11 **FROZEN**: `Command_Priority.md`.
 
 ---
 
 ## #11 — Отмена / приоритет приказов
 
-Единый контракт приоритетов. Порядок — **правила игры**, не заглушка в коде. Черновик для утверждения на старте этапа:
+**CLOSED / FROZEN 26.08.2026.** Контракт: `Command_Priority.md`. Не вторая FSM. Состояние не выбирает приоритет.
 
 ```text
-Flee > Retreat > Attack > Search > Defense > Idle
+Emergency > High > Mission > Tactical > Routine
+Flee = Emergency; Retreat = High; Attack/Defense = Mission; Search = Tactical overlay; Idle = Routine
 ```
 
-Явно решить и покрыть тестами: новый приказ во время Search; Flee во время Attack; можно ли отменить Flee; повтор того же состояния; что с контекстом; локальный override (приказ задаёт намерение, не каждый физический шаг).
-
-Это продолжение уже зафиксированной таблицы переходов, не вторая машина.
+ImmediateThreat не переводит в Flee. Search + ImmediateThreat → HoldState + EmergencyCover (не ReturnState). Cancel из Search → ReturnState.  
+IssueCommand: таблица сначала; table-legal ниже полосой → `LowerPriority` (Retreat → Defense).  
+Автономный Search из Attack/Defense по звуку/памяти не блокируется ImmediateThreat.  
+Очередь v1 не строится. Слой FROZEN. #13 CLOSED / FROZEN: `Dynamic_Cover.md`.
 
 ---
 
 ## #12 — Выбор цели и калибровка боя
 
-Открывать только после #6–#11. TargetSelector до этого не ретюнить.
+**CLOSED / FROZEN 26.08.2026.** Контракт: `Closed/Target_Fire_Calibration.md`. EditMode 18/0. Play 26/0. Регрессия Play 114/0, EditMode 62/0.
 
-Измерять: кого выбирает, как часто меняет, как долго держит, как далеко стреляет, как часто по Unknown.
+G5 Score не переписывается. Hysteresis: `NewScore > CurrentScore + SwitchThreshold`.  
+Selection ≠ Fire. High Threat ≠ Fire. LastKnown ≠ AimPoint.  
+`AI.EngageTarget` и `Combat.SelectedTarget` **не сливаются**; расхождение объяснимо (Hostile+VisibleNow max-Threat vs G5+hysteresis).
 
-Затем: TargetScore, Aim, Fire discipline, Retain = ResolvedMaxRange.  
-Окончательно решить связь `AI.EngageTarget` и `Combat.SelectedTarget` (сейчас расхождение сознательно допускается).
-
-После freeze не менять perception или G6 только ради выбора целей.
+Weapon suitability — маленький нюдж. Mission `TargetEntity` — бонус, не ForcedPriority.  
+Perception / G6 не менять только ради выбора целей. #13 CLOSED / FROZEN: `Dynamic_Cover.md`.
 
 ---
 
 ## #13 — Dynamic Cover
 
-Не Squad. Не hand-authored CoverPoints. Солдат читает геометрию: crouch cover / standing cover / partial / corner.
+**CLOSED / FROZEN 27.08.2026.** Контракт: `Closed/Dynamic_Cover.md`. EditMode **169/0**. Play `CoverIntegration_LAST.txt` **18/0** (10:27).
 
-NeedCover → локальный query → фильтр → 3–10 кандидатов → оценка → cache.  
-Emergency: ближайшее приемлемое. Tactical: смена только если `NewScore > CurrentScore + SwitchingCost` (принцип, не формула). Бой из укрытия: expose → fire → return → reassess.
-
-Формулу CoverScore не фиксировать заранее.
+Не Squad. Не hand-authored CoverPoints. Shared geometry на регион; individual score отдельно.  
+NeedCover → region → cache → cheap filter → оценка → `NewScore > Current + SwitchingCost`.  
+Emergency: overlay ImmediateThreat, ближайшее приемлемое **destination**, не Move и не новый `UnitAIState`.  
+Tactical (13.5): Stay / Reposition через SwitchingCost + hysteresis; invalid vs degraded; `PositionDecision`, не Move. Occupancy (13.6): runtime board, не geometry. Lean: существующий `UnitSpineLean` (13.7). Cover ≠ Fire. Cover ≠ Move. Путь до укрытия — #14 CLOSED / FROZEN.
 
 ---
 
 ## #14 — Tactical Movement + Lean / Readiness
 
-NavMesh = физический путь. Tactical route = путь с меньшим риском. В городе вдоль стен, если опасно. Cover-to-cover, не через открытое поле.
+**CLOSED / FROZEN 27.08.2026.** Контракт: `Closed/Tactical_Movement.md`. EditMode **178/0**. Play `TacticalMovement_LAST.txt` **157/0** (23:52).
 
-Lean уже есть (Quick / Smooth / Deep) — подключить, не переписать. Movement lean вдоль стены.
+NavMesh = физический путь. Tactical route = способ достичь Destination. Overlay не Move. `TacticalNavigationExecutor` без второго driver.
 
-Readiness: NotReady / LowReady / HighReady / HipFire / PointAim / Aiming. Точные пороги — на этапе.
+Cover-to-cover = 14.2. Urban Wall Bias = 14.3. Exposure-along-route = 14.4. Replan = 14.5 (event gate, не каждый кадр). Under fire = 14.6 (Continue / Replan / EmergencyCover / Hold). Arrival = 14.7. Moving lean = 14.8. Tactical LOD = 14.9. Final Acceptance = 14.10. Production movement = **Normal** (Direct обычно). #13 WHERE не переписывать.
+
+**#14B Readiness OPEN.** 14B.0–14B.7 ✅. Не часть route. Контракт: `Readiness_State.md`. Pose через CombatReadiness. Aim ≠ Fire. ArmFatigue = AimTime / RecoilControl / TurnTime. #15 не открывать.
+
+**#14C Threat Direction OPEN.** 14C.0–14C.6 ✅. **14C.1 ✅.** **14C.2 ✅.** **14C.3 ✅.** **14C.4 ✅.** **14C.5 ✅.** Контракт: `Threat_Direction_Knowledge.md`. Expected из spawn points. Visual > Sound > Report > InitialEstimate. 14C.5: FaceOnly / Stay / RepositionAllowed. Occupied не сбрасывается без разрешения. #14C **не FROZEN**.
 
 ---
 
@@ -379,6 +390,8 @@ Decision → Command → State → Execution
 | Выбор цели не калиброван | #12 |
 | Нет динамических укрытий | #13 |
 | Нет тактического движения / lean | #14 |
+| Нет Readiness State | #14B |
+| Нет направления угрозы | #14C |
 | Оружие и ранг не влияют на тактику | #15 |
 | Нет группы / CQB | #16 |
 | Нет адаптивного боя | #17–#23 |
@@ -389,8 +402,8 @@ Decision → Command → State → Execution
 ## Правило открытия следующего слоя
 
 Не начинать N+1, пока N не закрыт приёмкой (EditMode + Play, как #4/#5) и не помечен FROZEN.  
-#8 **FROZEN**. #9 **FROZEN**. **#10 не начинать**, пока слой явно не открыт.  
-Не открывать #13–#26, чтобы «сразу было видно группу». GROUND ASSAULT не является приёмкой #9.
+#8 **FROZEN**. #9 **FROZEN**. **#10 FROZEN.** **#11 FROZEN.** **#12 FROZEN.** **#13 FROZEN.** **#14 FROZEN.** **#14B OPEN** (14B.0–14B.7 ✅). **#14C OPEN** (14C.0–14C.6 ✅; 14C.1 ✅; 14C.2 ✅; 14C.3 ✅; 14C.4 ✅; 14C.5 ✅). Не начинать #15, пока не открыт явно.  
+Не открывать #13–#26, чтобы «сразу было видно группу». GROUND ASSAULT не является приёмкой #10.
 
 ---
 

@@ -10,11 +10,11 @@ using UnityEditor;
 /// <summary>
 /// #7 Play: live ImmediateThreat source → RoE Allow/Deny. Does not retune G6 or the UseOfForce matrix.
 /// Report: Assets/_Docs/Logs/Tests/ImmediateThreatLive_LAST.txt
-/// Menu: Tools/Tests/Run Immediate Threat Live (Play)
+/// Menu: Tools/Tests/Run Regression (Play)
 /// </summary>
 [DefaultExecutionOrder(62)]
 [DisallowMultipleComponent]
-public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour
+public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour, IPlaySmokeSuite
 {
 	#region Serialized
 	[SerializeField] private bool m_RunOnStart;
@@ -34,6 +34,9 @@ public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour
 	#region Public Properties
 	public bool WillRunOnStart =>
 		m_RunOnStart || DetectionHarnessPlayMode.RunImmediateThreatLive;
+
+	public int LastPassCount => m_PassCount;
+	public int LastFailCount => m_FailCount;
 	#endregion
 
 	#region Unity Lifecycle
@@ -58,7 +61,8 @@ public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour
 	private void OnDestroy()
 	{
 		DestroyActors();
-		if (DetectionHarnessPlayMode.RunImmediateThreatLive)
+		if (DetectionHarnessPlayMode.RunImmediateThreatLive &&
+		    !DetectionHarnessPlayMode.RunFrozenLayersPlay)
 			DetectionHarnessPlayMode.ResetFlags();
 	}
 	#endregion
@@ -70,6 +74,11 @@ public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour
 			return;
 		StopAllCoroutines();
 		StartCoroutine(RunSuite());
+	}
+
+	public IEnumerator RunAndWait()
+	{
+		yield return RunSuite();
 	}
 	#endregion
 
@@ -328,7 +337,8 @@ public sealed class ImmediateThreatLiveRuntimeSmoke : MonoBehaviour
 			" pass=" + m_PassCount + " fail=" + m_FailCount,
 			this);
 
-		bool exitPlay = m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunImmediateThreatLive;
+		bool exitPlay = !DetectionHarnessPlayMode.RunFrozenLayersPlay &&
+		                (m_ExitPlayModeWhenDone || DetectionHarnessPlayMode.RunImmediateThreatLive);
 #if UNITY_EDITOR
 		if (exitPlay && EditorApplication.isPlaying)
 			EditorApplication.isPlaying = false;

@@ -1,0 +1,30 @@
+﻿STAGE 14C.3 — THREAT DIRECTION TACTICAL POSITIONING
+===================================================
+stamp=2026-08-29 13:41:42
+TacticalPositionPreference overlay. Event-driven. Not CoverScore / Move / Fire.
+---
+[A] Expected North → Visual NE
+PASS P1_ExpectedPrefersNorth
+PASS P2_VisualNorthEastPrefersNE
+PASS P3_DirectionSigns
+[B] Confidence / uncertainty
+PASS P4_LowConfidenceWeakerThanVisual
+PASS P5_CoverScoreUnchanged
+PASS P6_NarrowOverlapLessThanWide
+PASS P7_FacingSigns
+PASS P8_Formula
+[C] Stay Committed / material change
+PASS P9_StayCommitted
+PASS P10_MaterialRecalcPermitted
+PASS P11_SlightNoRecalc
+[D] CoverScore / 0.60 / Search / no polling
+PASS P12_AcquireUnchanged
+PASS P13_SearchUntouched
+PASS P14_NoPolling
+PASS P15_ReadinessUnchanged
+[E] TACTICAL_POSITION
+PASS P16_LogPayload
+PASS P17_LogChannel
+PASS P18_FirstPickNorth
+---
+RESULT=PASS pass=18 fail=0

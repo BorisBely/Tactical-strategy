@@ -11,9 +11,9 @@ namespace Shooting.Tests.Editor
 	/// </summary>
 	public static class WeaponBalanceNUnitRunner
 	{
-		private const string c_MenuPath = "Tools/Tests/Run Weapon Balance G-TEST (EditMode)";
+		private const string c_MenuPath = "Tools/Tests/Archive/Weapon/Run Weapon Balance G-TEST (EditMode)";
 
-		[MenuItem(c_MenuPath, false, 33)]
+		[MenuItem(c_MenuPath, false, 183)]
 		public static void RunFromMenu()
 		{
 			EditModeNUnitRun.Execute(

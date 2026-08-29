@@ -22,8 +22,10 @@ Combat читает intent
   Engage → G6 как есть
         ↓
 CombatReadiness
-  Engage → RequestCombatReadiness (WantedMode=Auto)
-  Hold   → LowReady, без авто-прицеливания
+  без AI Readiness: Engage → Auto (Stage 2)
+  с Readiness: pose из ReadinessPoseRequest; Engage только NotifyCombatAlert
+  Hold → intent Hold; поза всё равно из Readiness
+  KO / Unconscious → NotReady (LifeGate)
         ↓
 TargetSelector выбирает свою цель
         ↓

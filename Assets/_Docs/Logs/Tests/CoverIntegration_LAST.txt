@@ -1,0 +1,32 @@
+﻿STAGE 13.8 — FINAL DYNAMIC COVER INTEGRATION
+============================================
+stamp=2026-08-27 10:27:54
+Golden chain. Not Move. Not Fire. Not #14.
+---
+[G] Golden: quiet → threat → C07 reserve → occupy → tactical C11 → lean
+PASS G_NoThreatNoQuery
+PASS G_EmergencyC07
+PASS G_Reserved
+PASS G_Occupied
+PASS G_RepositionC11
+PASS G_NoGeometryRegen
+PASS G_Lean
+PASS G_NoFire
+[B] Boundaries: no Walk, occupancy ≠ geometry
+PASS B_Idle
+PASS B_NoWalk
+PASS B_VersionsDiffer
+[G1] 20 units / 3 regions → 3 generations
+PASS G1_ThreeGen
+[G6] 2 units / 1 slot
+PASS G6_OneWinner
+[#11] Retreat releases reservation
+PASS Cmd_RetreatAccepted
+PASS Cmd_Released
+[V] Debug overlay
+PASS V_Overlay
+[S] Spine lean executor still UnitSpineLean
+PASS S_Spine
+PASS S_OneSpine
+---
+RESULT=PASS pass=18 fail=0

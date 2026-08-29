@@ -142,7 +142,7 @@ Defense + lost useful memory (`conf≈0.998`) → Search, `SearchPosition = Last
 
 Use of Force (AI-1A) — **отдельный** слой, FROZEN: `AI_UseOfForce_Policy.md` (Play PASS 107/0).  
 Combat execution — **FROZEN**: `Combat_Engage_Execution.md` (Play PASS 31/0).  
-Search locomotion — **FROZEN**: `Search_Navigation_Execution.md` (Play PASS 45/0, EditMode 18/0).  
+Search locomotion — **FROZEN** decision: `Search_Navigation_Execution.md`. Исполнение расширено **#10**: `Search_2.md` (area / candidates, не новое состояние).  
 Tactical navigation (Attack / Retreat / Flee) — **FROZEN**: `Tactical_Navigation_Execution.md` (Play PASS 36/0, EditMode 31/0).  
-Дорожная карта — **FROZEN**: `Tactical_AI_Roadmap.md`. Следующее — **#6 Real game commands**.  
+Дорожная карта: `Tactical_AI_Roadmap.md`. #10 **FROZEN**. #11 **FROZEN**: `Command_Priority.md`.  
 Squad, commander, utility, BT, auto-retreat, morale, cover, formations — не открывать раньше своих номеров.

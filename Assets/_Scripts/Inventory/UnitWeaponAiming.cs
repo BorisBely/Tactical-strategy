@@ -455,6 +455,14 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 	public AimSaturation CurrentAimSaturation => m_AimSaturation;
 	public float WalkPitchCompensationDegrees => m_DebugWalkPitchCompensationDegrees;
 
+	/// <summary>#14B.7: yaw smooth after ArmFatigue. Not a new turn solver.</summary>
+	public float SampleAimYawSmoothTime()
+	{
+		return Mathf.Max(
+			0.0001f,
+			m_AimYawSmoothTime * ArmFatigueBinding.EffectsOrNeutral(this).TurnTimeMultiplier);
+	}
+
 	public bool LogWeaponSpin
 	{
 		get => m_LogWeaponSpin;
@@ -650,7 +658,9 @@ public sealed class UnitWeaponAiming : MonoBehaviour
 			? Mathf.Atan2(xz.x, xz.z) * Mathf.Rad2Deg
 			: m_DesiredAimYawDegrees;
 
-		float yawSmooth = Mathf.Max(0.0001f, m_AimYawSmoothTime);
+		float yawSmooth = Mathf.Max(
+			0.0001f,
+			m_AimYawSmoothTime * ArmFatigueBinding.EffectsOrNeutral(this).TurnTimeMultiplier);
 		float pitchSmooth = Mathf.Max(0.0001f, m_PitchSmoothTime);
 		if (_firing)
 		{

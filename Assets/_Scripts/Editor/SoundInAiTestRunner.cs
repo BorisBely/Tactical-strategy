@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class SoundInAiTestRunner
 {
-	[MenuItem("Tools/Tests/Run Sound In AI (Play)", false, 34)]
+	[MenuItem("Tools/Tests/Archive/Regression/Run Sound In AI (Play)", false, 182)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

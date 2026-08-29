@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class FinalPerceptionContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Final Perception Contract (Play)", false, 2)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Final Perception Contract (Play)", false, 160)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

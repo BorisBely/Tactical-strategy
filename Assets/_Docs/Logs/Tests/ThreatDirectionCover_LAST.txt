@@ -1,0 +1,37 @@
+﻿STAGE 14C.1 — THREAT DIRECTION COVER ORIENTATION & FACING
+=========================================================
+stamp=2026-08-29 12:58:02
+Expected → cover preference + facing. Visual replaces Expected. Stay Committed. Not CoverScore / 0.60.
+---
+[A] Spawn Expected North → cover closing North + facing North
+PASS P1_ExpectedPrefersNorthCover
+PASS P2_ExpectedAdjustmentBonus
+PASS P3_FacingNorth
+[B] Visual NorthEast replaces Expected
+PASS P4_ExpectedPicksNorthWestById
+PASS P5_VisualPrefersNorthEastCover
+PASS P6_FacingUpdatesToNorthEast
+[C] Lost contact → Stale NE → Expected North. Occupied cover not forced out.
+PASS P7_VisualKnownNorthEast
+PASS P8_LostStaleNorthEast
+PASS P9_FallbackExpectedNorth
+PASS P10_StaleOrVisual_NoForcedSwap
+[Stay] Occupied + threat N→NE does not Reposition
+PASS P11_StayCommittedAfterDirectionChange
+PASS P12_DirectionChangeIsEvent
+[Facing] Deadband, no per-tick spin
+PASS P13_FacingDeadband
+PASS P14_FacingDeadbandDegrees
+[Events] Empty ticks do not rewrite direction or facing
+PASS P15_NoPollingThreatDirection
+PASS P16_NoPollingFacing
+[Independence] CoverScore / 0.60 / Search / Readiness / Fire
+PASS P17_CoverScoreUnchanged
+PASS P18_AcquireUnchanged
+PASS P19_SearchUntouched
+PASS P20_ReadinessUnchanged
+[Logs] COVER_DIRECTION / FACING_DIRECTION event format
+PASS P21_CoverDirectionLog
+PASS P22_FacingDirectionLog
+---
+RESULT=PASS pass=22 fail=0

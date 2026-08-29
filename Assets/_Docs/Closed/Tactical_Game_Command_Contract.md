@@ -1,7 +1,7 @@
 # Tactical Game Command Contract
 
 **Статус: 6.1 CLOSED** (контракт данных + `IssueCommand`)  
-**6.2 GameCommandSource — CLOSED.** **6.3 Game Command Input — CLOSED.** **6.4 command layer — CLOSED.** #7 — ImmediateThreat / RoE.
+**6.2–6.4 CLOSED.** **#11** слой приоритета поверх IssueCommand: `Command_Priority.md` (**CLOSED / FROZEN 26.08.2026**). Таблица переходов не заменяется.
 
 Внешний приказ говорит **что и где**. Не говорит, как стрелять или как ходить. Состояние машины — не тип команды.
 
@@ -10,7 +10,7 @@ Game / Test / Scenario
         ↓
 TacticalCommand
         ↓
-UnitAIController.IssueCommand
+IssueCommand → Priority Resolver → table
         ↓
 UnitAIState + UnitAIStateContext
         ↓
@@ -28,7 +28,7 @@ Vision, CombatIntent, G6, RoE, Search/Attack/Retreat/Flee executors и клет�
 
 `UnitAICommand` / `TryApplyCommand` — внутренний приказ машины. Тот же state **не** обновляет context (FROZEN).
 
-Не делать `state = command.Type`. Cancel ≠ отдельное состояние: это переход в Idle, если таблица позволяет.
+Не делать `state = command.Type`. Cancel ≠ отдельное состояние. **#11:** Cancel из Search возвращает `ReturnState`; иначе Idle, если таблица позволяет.
 
 ## Данные команды
 
@@ -50,7 +50,7 @@ Vision, CombatIntent, G6, RoE, Search/Attack/Retreat/Flee executors и клет�
 | Search | да | Search + существующий `ForSearch` / snapshot точка | тот же Search executor |
 | Retreat | да | Retreat + `ForRetreat` | Walk → Stop |
 | Flee | да | Flee + `ForFlee` | Walk → Stop → Idle |
-| Cancel | нет | Idle + empty | Exit отменяет nav |
+| Cancel | нет | Search → ReturnState; иначе Idle + empty | Exit отменяет nav |
 
 `Target` только копируется в `UnitAIStateContext.TargetEntity` у Attack. Выбор цели команда не делает.
 
@@ -64,6 +64,7 @@ Vision, CombatIntent, G6, RoE, Search/Attack/Retreat/Flee executors и клет�
 - Retreat → Attack / Search
 - Flee → Defense / Attack / любое не-Idle
 
+`LowerPriority` — клетка таблицы разрешена, но входящая полоса ниже текущей (#11): Retreat → Defense.  
 `MissingDestination` — тип требует точку, `HasPosition == false`.  
 `InvalidCommandData` — неизвестный тип, NaN/Inf.
 
@@ -75,7 +76,7 @@ Cancel из Idle = Accepted, остаёмся Idle.
 
 ## Лог
 
-Тег `CMD`: `issue` / `accepted` / `rejected reason=`. После 6.2 игра пишет ещё `GAMECMD` (сервис). Диагноз хода: `GAMECMD → CMD → AI → MOVE`.
+Тег `CMD`: `issue` / `accepted` / `rejected reason=`. **#11:** `CMD_PRIORITY` (`incoming/current/result/reason`). После 6.2 игра пишет ещё `GAMECMD` (сервис). Диагноз хода: `GAMECMD → CMD → CMD_PRIORITY → AI → MOVE`.
 
 ## Приёмка
 

@@ -120,6 +120,8 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			TryGetComponent(out m_ClickToMove);
 		if (m_Agent == null)
 			TryGetComponent(out m_Agent);
+		if (!TryGetComponent(out UnitLifeGate _))
+			gameObject.AddComponent<UnitLifeGate>();
 	}
 
 	private void WriteSpawnFromLiveState(UnitSpawnConfig _config)
@@ -181,6 +183,7 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 	private void WriteSnap()
 	{
 		Cache();
+		UnitLifeState life = UnitLifeStateMath.Resolve(this);
 		Vector3 vel = Vector3.zero;
 		string dest = "none";
 		string remaining = "-";
@@ -210,10 +213,13 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 		}
 
 		string aiPart = "ai=none";
-		if (m_Ai != null)
+		if (!UnitLifeStateMath.AllowsTactical(life))
+			aiPart = "ai=off";
+		else if (m_Ai != null)
 		{
 			string engage = m_Ai.CurrentEngageTarget != null ? UnitActionLog.Slot(m_Ai.CurrentEngageTarget) : "none";
-			aiPart = "ai=" + m_Ai.CurrentState + "/" + m_Ai.CurrentAction +
+			aiPart = "ai=" + m_Ai.CurrentState +
+			         " aiAction=" + m_Ai.CurrentAction +
 			         " intent=" + m_Ai.CurrentCombatIntent +
 			         " roe=" + m_Ai.CurrentUseOfForceLevel +
 			         " immediateThreat=" + (m_Ai.ImmediateThreat ? "1" : "0") +
@@ -246,8 +252,65 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			}
 		}
 
+		string coverId = "none";
+		string coverState = "None";
+		string coverDistance = "n/a";
+		string coverReserved = "0";
+		string moveKind = reason;
+		string moveGoal = dest;
+		if (UnitLifeStateMath.RequiresCoverRelease(life))
+		{
+			coverId = "none";
+			coverState = "None";
+		}
+		else if (m_Ai != null)
+		{
+			CoverCandidate reserved = m_Ai.TacticalMovement.ReservedCoverCandidate;
+			int reservedId = m_Ai.TacticalMovement.ReservedCoverCandidateId;
+			CurrentTacticalPosition pos = m_Ai.TacticalMovement.CurrentTacticalPosition;
+			if (pos.Occupied)
+			{
+				coverId = "C" + pos.CandidateId;
+				coverState = "Occupied";
+				coverReserved = "1";
+				coverDistance = UnitActionLog.F2(
+					TacticalArrivalMath.DistanceMeters(transform.position, pos.Position));
+			}
+			else if (reservedId != 0)
+			{
+				coverId = "C" + reservedId;
+				coverState = "Approaching";
+				coverReserved = "1";
+				Vector3 coverPos = reserved != null ? reserved.Position : pos.Position;
+				coverDistance = UnitActionLog.F2(
+					TacticalArrivalMath.DistanceMeters(transform.position, coverPos));
+				moveKind = "Cover";
+				if (reserved != null)
+					moveGoal = UnitActionLog.Vec(reserved.Position);
+			}
+		}
+
+		string obs = "none";
+		if (!UnitLifeStateMath.AllowsPerception(life))
+			obs = "off";
+		else if (vis > 0)
+			obs = "Observed";
+		else if (mem > 0)
+			obs = "RecentlyLost";
+
 		m_Scratch.Length = 0;
-		m_Scratch.Append("pos=").Append(UnitActionLog.Vec(transform.position));
+		m_Scratch.Append("life=").Append(life);
+		m_Scratch.Append(" vision=").Append(UnitLifeStateMath.AllowsPerception(life) ? "on" : "off");
+		m_Scratch.Append(" obs=").Append(obs);
+		m_Scratch.Append(" combat=").Append(UnitLifeStateMath.AllowsCombatDecision(life) ? "on" : "off");
+		m_Scratch.Append(" move=").Append(UnitLifeStateMath.AllowsMovement(life) ? "on" : "off");
+		m_Scratch.Append(" cover=").Append(coverId);
+		m_Scratch.Append(" coverState=").Append(coverState);
+		m_Scratch.Append(" coverDistance=").Append(coverDistance);
+		m_Scratch.Append(" coverTolerance=").Append(
+			UnitActionLog.F2(TacticalArrivalMath.DefaultAcquireToleranceMeters));
+		m_Scratch.Append(" coverReserved=").Append(coverReserved);
+		m_Scratch.Append(" pos=").Append(UnitActionLog.Vec(transform.position));
 		m_Scratch.Append(" vel=").Append(UnitActionLog.F1(vel.magnitude));
 		m_Scratch.Append(" stance=").Append(stance);
 		m_Scratch.Append(" pose=").Append(pose);
@@ -255,11 +318,24 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 		m_Scratch.Append(" selected=").Append(selected);
 		m_Scratch.Append(" engageable=").Append(engageable);
 		m_Scratch.Append(" dest=").Append(dest);
+		m_Scratch.Append(" moveGoal=").Append(moveGoal);
+		m_Scratch.Append(" moveKind=").Append(moveKind);
 		m_Scratch.Append(" remaining=").Append(remaining);
 		m_Scratch.Append(" path=").Append(path);
 		m_Scratch.Append(" reason=").Append(reason);
 		m_Scratch.Append(" gate=").Append(gate);
 		m_Scratch.Append(' ').Append(aiPart);
+		if (UnitLifeStateMath.AllowsTactical(life) && m_Ai != null && m_Ai.CurrentState == UnitAIState.Search)
+		{
+			UnitAISearchSession session = m_Ai.SearchSession;
+			m_Scratch.Append(" searchState=").Append(m_Ai.CurrentState);
+			m_Scratch.Append(" searchSource=").Append(m_Ai.CurrentContext.SearchCue);
+			m_Scratch.Append(" searchCandidate=").Append(UnitActionLog.Vec(m_Ai.CurrentContext.SearchPosition));
+			m_Scratch.Append(" searchRemaining=").Append(session != null ? session.Remaining.ToString() : "0");
+			m_Scratch.Append(" searchArea=").Append(UnitActionLog.Vec(m_Ai.CurrentContext.AreaCenter));
+			m_Scratch.Append("/").Append(UnitActionLog.F1(m_Ai.CurrentContext.AreaRadius));
+		}
+
 		m_Scratch.Append(" contacts=").Append(m_Detection != null ? m_Detection.Contacts.Count : 0);
 		m_Scratch.Append(" vis=").Append(vis);
 		m_Scratch.Append(" mem=").Append(mem);
@@ -268,6 +344,18 @@ public sealed class UnitActionLogBinder : MonoBehaviour
 			m_Scratch.Append(" |");
 			for (int i = 0; i < m_ContactScratch.Count; i++)
 				m_Scratch.Append(' ').Append(m_ContactScratch[i]);
+		}
+
+		if (UnitLifeStateMath.AllowsTactical(life) && m_Ai != null)
+		{
+			TacticalMovementDecision movement = m_Ai.LastTacticalMovement;
+			if (movement.HasRoute)
+			{
+				m_Scratch.Append(" routeMode=").Append(movement.Mode);
+				m_Scratch.Append(" routeCandidate=R").Append(movement.SelectedCandidateId);
+				m_Scratch.Append(" routeScore=").Append(UnitActionLog.F1(movement.SelectedScore));
+				m_Scratch.Append(" routeReason=").Append(movement.SelectReason);
+			}
 		}
 
 		UnitActionLog.Write(this, UnitActionLog.Snap, m_Scratch.ToString());

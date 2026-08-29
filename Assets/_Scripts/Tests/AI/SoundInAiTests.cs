@@ -176,7 +176,7 @@ namespace AI.Tests
 		}
 
 		[Test]
-		public void E2_Attack_HostileGunshot_SearchesSoundPosition()
+		public void E2_Attack_HostileGunshot_OverlaysSearch()
 		{
 			UnitAIController ai = m_Observer.GetComponent<UnitAIController>();
 			Vector3 soundPos = new Vector3(9f, 0f, 2f);

@@ -152,6 +152,12 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 	}
 	#endregion
 
+	/// <summary>#14B.7: same AimTime path as Update, including ArmFatigue.</summary>
+	public float SampleAimTimeSeconds()
+	{
+		return CalculateCurrentAimTimeSeconds();
+	}
+
 	#region Private Methods
 	private bool CanAccumulateAim()
 	{
@@ -223,7 +229,8 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 				? m_StanceCombatModifiers.GetAimTimeMultiplier()
 				: 1f;
 			float seconds = baseAim * weaponDistOnly * bakedPoseAim * poseDistanceAimMult * postureMultiplier;
-			return Mathf.Max(0.01f, ApplyLaserAimTime(seconds, pose, attachments, distance, _cacheIncludesAimingLaser: true));
+			return Mathf.Max(0.01f, ApplyFatigueAimTime(
+				ApplyLaserAimTime(seconds, pose, attachments, distance, _cacheIncludesAimingLaser: true)));
 		}
 
 		float unitMultiplier = m_CombatStats != null ? m_CombatStats.GetAimTimeMultiplier() : 1f;
@@ -239,7 +246,14 @@ public sealed class UnitWeaponAimProgressController : MonoBehaviour
 			: pose == WeaponPoseState.PreAim ? PreAimPoseUtility.AimTimeMult
 			: 1f;
 		float fallbackSeconds = weaponAimTimeSeconds * unitMultiplier * individualMultiplier * conditionMultiplier * postureMult * poseScale * poseDistanceAimMult;
-		return Mathf.Max(0.01f, ApplyLaserAimTime(fallbackSeconds, pose, attachments, distance, _cacheIncludesAimingLaser: false));
+		return Mathf.Max(0.01f, ApplyFatigueAimTime(
+			ApplyLaserAimTime(fallbackSeconds, pose, attachments, distance, _cacheIncludesAimingLaser: false)));
+	}
+
+	private float ApplyFatigueAimTime(float _seconds)
+	{
+		ArmFatigueEffects effects = ArmFatigueBinding.EffectsOrNeutral(this);
+		return _seconds * effects.AimTimeMultiplier;
 	}
 
 	private static float ApplyLaserAimTime(

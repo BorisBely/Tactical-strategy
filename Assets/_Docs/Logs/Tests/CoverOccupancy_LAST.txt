@@ -1,0 +1,34 @@
+﻿STAGE 13.6 — OCCUPANCY / RESERVATION
+====================================
+stamp=2026-08-26 22:54:00
+Available / Reserved / Occupied. Not Move. Not Group. OccupancyVersion ≠ GeometryVersion.
+---
+PASS S0_NavMeshBake
+[S1] Two soldiers, one cover — first reserves, second takes C2
+PASS S1_AReserved
+PASS S1_BPicksC2
+PASS S1_ScoreNotZero
+[S2] Release then B can take C1
+PASS S2_BGetsC1
+[S3] Death releases
+PASS S3_Available
+[S4] Emergency skips reserved, takes free
+PASS S4_SkipsReserved
+[S5] 20 units / 3 regions → 3 geometry; occupancy does not regenerate
+PASS S5_Generations
+PASS S5_Units
+PASS S5_NoRegenOnReserve
+PASS S5_OccupancyVersionMoved
+PASS S5_VersionsDiffer
+[S6] 100 simultaneous TryReserve → 1 winner
+PASS S6_OneWinner
+[S7] Overlay AVAILABLE / RESERVED + idle does not Walk
+PASS S7_OccupancySamples
+PASS S7_ReservedLabel
+PASS S7_Idle
+PASS S7_NoWalk
+[S8] ConfirmOccupied API (not Movement)
+PASS S8_Reserved
+PASS S8_Occupied
+---
+RESULT=PASS pass=19 fail=0

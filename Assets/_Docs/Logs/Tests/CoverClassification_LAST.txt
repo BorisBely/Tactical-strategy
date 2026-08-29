@@ -1,0 +1,24 @@
+﻿STAGE 13.2 — COVER CLASSIFICATION
+=================================
+stamp=2026-08-26 19:50:01
+Geometry type + protection profile. Not score. Not Fire. Not lean.
+---
+PASS S0_NavMeshBake
+[S1] Shared generate classifies once
+candidates=16 classified=16 standing=5 crouch=4 partial=0 corner=7 none=0
+PASS S1_HasCandidates
+PASS S1_ClassifiedOnce
+PASS S1_HasStanding
+PASS S1_HasCrouch
+PASS S1_NotAllNone
+[S2] Cache hit keeps the same classification
+PASS S2_Hit
+PASS S2_SameList
+PASS S2_SameType
+[S3] 20 units / 3 regions → 3 classification batches
+PASS S3_Generations
+PASS S3_NotPerUnit
+[S4] Debug overlay by CoverType, no score
+PASS S4_Debug
+---
+RESULT=PASS pass=12 fail=0

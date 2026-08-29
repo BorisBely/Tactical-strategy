@@ -113,6 +113,21 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		return CalculateCurrentRecoveryPerSecond();
 	}
 
+	/// <summary>#14B.7: RecoilControl after ArmFatigue. Existing skill curve.</summary>
+	public float SampleEffectiveRecoilControl()
+	{
+		return ResolveFatigueRecoilControl();
+	}
+
+	/// <summary>#14B.7: skill recovery multiplier on the closed RecoilOffset path.</summary>
+	public float SampleSkillRecoveryMultiplier()
+	{
+		UnitCombatStats stats = ResolveCombatStats();
+		if (stats == null)
+			return 1f;
+		return stats.GetRecoilRecoveryMultiplier(ResolveFatigueRecoilControl());
+	}
+
 	public float ComputeVisualImpulsePerShot(AmmoDefinition _ammoDefinition)
 	{
 		WeaponRecoilKick kick = CalculateKick(_ammoDefinition);
@@ -215,7 +230,10 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 			context.AttachmentRecoveryProduct = runtimeState.GetAttachmentRecoilRecoveryProduct();
 		}
 
-		float skillKick = m_CombatStats != null ? m_CombatStats.GetRecoilAddedMultiplier() : 1f;
+		UnitCombatStats combatStats = ResolveCombatStats();
+		float skillKick = combatStats != null
+			? combatStats.GetRecoilAddedMultiplier(ResolveFatigueRecoilControl())
+			: 1f;
 		float traitsKick = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilAddedMultiplier() : 1f;
 		float conditionKick = m_CombatCondition != null ? m_CombatCondition.GetRecoilAddedMultiplier() : 1f;
 		context.SkillKickMultiplier = skillKick;
@@ -224,7 +242,9 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		m_DebugSkillRecoilAddedMultiplier = skillKick * traitsKick;
 		m_DebugConditionRecoilAddedMultiplier = conditionKick;
 
-		float skillRecovery = m_CombatStats != null ? m_CombatStats.GetRecoilRecoveryMultiplier() : 1f;
+		float skillRecovery = combatStats != null
+			? combatStats.GetRecoilRecoveryMultiplier(ResolveFatigueRecoilControl())
+			: 1f;
 		float traitsRecovery = m_IndividualTraits != null ? m_IndividualTraits.GetRecoilRecoveryMultiplier() : 1f;
 		float conditionRecovery = m_CombatCondition != null ? m_CombatCondition.GetRecoilRecoveryMultiplier() : 1f;
 		context.SkillRecoveryMultiplier = skillRecovery;
@@ -250,5 +270,19 @@ public sealed class UnitWeaponRecoilController : MonoBehaviour
 		}
 
 		return context;
+	}
+
+	private UnitCombatStats ResolveCombatStats()
+	{
+		if (m_CombatStats == null)
+			TryGetComponent(out m_CombatStats);
+		return m_CombatStats;
+	}
+
+	private float ResolveFatigueRecoilControl()
+	{
+		UnitCombatStats stats = ResolveCombatStats();
+		float recoilControl = stats != null ? stats.RecoilControl : 1f;
+		return ArmFatigueBinding.EffectsOrNeutral(this).EffectiveRecoilControl(recoilControl);
 	}
 }

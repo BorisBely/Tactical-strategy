@@ -1,0 +1,31 @@
+﻿STAGE 14C.2 — THREAT DIRECTION CONFIDENCE & UNCERTAINTY
+=======================================================
+stamp=2026-08-29 13:15:02
+Source quality → aging → cover/facing weights. Event-driven. Not CoverScore / Move / Fire.
+---
+[Scenario] Spawn Expected → Sound E → Visual NE → Lost → Stale → Expected N
+PASS P1_SpawnExpectedNorthLow
+PASS P2_GunshotEastMedium
+PASS P3_VisualNorthEastHigh
+PASS P4_LostStaleKeepsNorthEast
+PASS P5_StaleDecays
+PASS P6_FallbackExpectedNorth
+[Weights] Cover and facing follow confidence / uncertainty
+PASS P7_ExpectedPrefersNorthWeak
+PASS P8_VisualStrongerCoverWeight
+PASS P9_FacingSlackVisualTighter
+PASS P10_StayCommitted
+[Events] Empty ticks do not rewrite direction
+PASS P11_NoPollingDirection
+PASS P12_NoPollingExpectedQuality
+[Independence] CoverScore / 0.60 / Search / Readiness
+PASS P13_CoverScoreUnchanged
+PASS P14_AcquireUnchanged
+PASS P15_SearchUntouched
+PASS P16_ReadinessUnchanged
+[Logs] THREAT_DIRECTION_UPDATE on quality events
+PASS P17_UpdatePayloadExpected
+PASS P18_UpdatePayloadVisual
+PASS P19_UpdateChannel
+---
+RESULT=PASS pass=19 fail=0

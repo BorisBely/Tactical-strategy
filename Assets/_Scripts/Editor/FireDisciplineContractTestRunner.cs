@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class FireDisciplineContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Fire Discipline Contract (Play)", false, 25)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Fire Discipline Contract (Play)", false, 167)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

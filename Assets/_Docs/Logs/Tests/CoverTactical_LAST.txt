@@ -1,0 +1,37 @@
+﻿STAGE 13.5 — TACTICAL COVER / POSITION SWITCHING
+================================================
+stamp=2026-08-26 22:30:08
+Stay / RepositionRequest. Destination ≠ Move. Not Fire. Not #14 pathing.
+---
+PASS S0_NavMeshBake
+[S1] Good current + slightly better nearby → Stay
+PASS S1_StayGate
+PASS S1_Stay
+[S2] Significantly better → RepositionRequest, no Walk
+PASS S2_SwitchGate
+PASS S2_Reposition
+PASS S2_HasDest
+PASS S2_Idle
+PASS S2_NoWalk
+PASS S2_DestNotContext
+[S3] Cover intact, target changed → reevaluate
+PASS S3_Reeval
+[S4] Current invalid → mandatory reposition
+PASS S4_Invalid
+PASS S4_GeometryReeval
+PASS S4_GeometryRegen
+[S5] Attack: mission-aware vs safer back
+PASS S5_MissionScoresDiffer
+PASS S5_DecisionsDifferOrScores
+[S6] 20 units / 3 regions → 3 geometry, idle does not Walk
+PASS S6_Generations
+PASS S6_Units
+[S7] Overlay CURRENT / BEST / SWITCH COST / RESULT
+PASS S7_TacticalActive
+PASS S7_Result
+PASS S7_BestHighlighted
+[S8] 100 ticks, no event → no recomputation
+PASS S8_NoRecompute
+PASS S8_NoGenerate
+---
+RESULT=PASS pass=22 fail=0

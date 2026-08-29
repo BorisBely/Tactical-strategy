@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class AccuracyAimCurveContractTestRunner
 {
-	[MenuItem("Tools/Tests/Run Accuracy Aim Curve Contract (Play)", false, 26)]
+	[MenuItem("Tools/Tests/Archive/Vision/Run Accuracy Aim Curve Contract (Play)", false, 168)]
 	public static void RunFromMenu()
 	{
 		DetectionHarnessPlayMode.ResetFlags();

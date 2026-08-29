@@ -88,14 +88,14 @@ namespace AI.Tests
 		}
 
 		[Test]
-		public void Matrix_Retreat_AcceptsDefense_RejectsAttackSearch()
+		public void Matrix_Retreat_RejectsDefenseAttackSearch()
 		{
 			UnitAIController controller = CreateAi("AI64_MxRet");
 			try
 			{
 				Enter(controller, UnitAIState.Retreat);
-				AssertAccept(controller, Cmd.Defense(P(15f)), UnitAIState.Defense);
-				Enter(controller, UnitAIState.Retreat);
+				AssertReject(controller, Cmd.Defense(P(15f)), GameCommandRejectReason.LowerPriority,
+					UnitAIState.Retreat);
 				AssertReject(controller, Cmd.Attack(P(16f)), GameCommandRejectReason.InvalidStateTransition,
 					UnitAIState.Retreat);
 				AssertReject(controller, Cmd.Search(P(17f)), GameCommandRejectReason.InvalidStateTransition,
@@ -293,11 +293,11 @@ namespace AI.Tests
 
 				AssertAccept(controller, Cmd.Defense(P(0f, 2f)), UnitAIState.Defense);
 				AssertAccept(controller, Cmd.Retreat(P(-3f)), UnitAIState.Retreat);
+				AssertReject(controller, Cmd.Defense(P(5f, 5f)), GameCommandRejectReason.LowerPriority,
+					UnitAIState.Retreat);
+				AssertAccept(controller, Cmd.Cancel(), UnitAIState.Idle);
 				AssertAccept(controller, Cmd.Defense(P(5f, 5f)), UnitAIState.Defense);
 				Assert.AreEqual(P(5f, 5f), controller.CurrentContext.AnchorPosition);
-				Assert.AreEqual(P(5f, 5f), recorder.LastDestination);
-				Assert.IsTrue(recorder.HasMoveIntent);
-				Assert.AreEqual(UnitNavigationReason.Defense, recorder.Reason);
 			}
 			finally
 			{

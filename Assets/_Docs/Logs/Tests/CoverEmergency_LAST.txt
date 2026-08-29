@@ -1,0 +1,33 @@
+﻿STAGE 13.4 — EMERGENCY COVER
+============================
+stamp=2026-08-26 21:53:58
+ImmediateThreat overlay. Destination ≠ Move. Not Fire. Not a new UnitAIState.
+---
+PASS S0_NavMeshBake
+[S1] Open ground — destination set, no Walk
+PASS S1_Idle
+PASS S1_Active
+PASS S1_HasDest
+PASS S1_NoWalk
+PASS S1_DestNotContext
+[S2] Already behind good cover → Stay
+PASS S2_HasOccupying
+PASS S2_Stay
+PASS S2_HasDecision
+PASS S2_Reuse
+PASS S2_NoSecondGenerate
+[S3] Close-poor vs far-good — emergency profile
+PASS S3_FarWins
+PASS S3_Selected
+[S4] Shared list, independent scores
+PASS S4_IndependentWeapon
+PASS S4_IndependentRank
+PASS S4_SharedIds
+[S5] 20 units / 3 regions / incoming fire → 3 geometry
+PASS S5_Generations
+PASS S5_Units
+[S6] Overlay Stay vs Selected
+PASS S6_EmergencyActive
+PASS S6_Selected
+---
+RESULT=PASS pass=20 fail=0

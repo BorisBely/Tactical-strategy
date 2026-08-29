@@ -111,6 +111,8 @@ public sealed class UnitWeaponFireDisciplineController : MonoBehaviour
 
 	private void Update()
 	{
+		if (!UnitLifeStateMath.AllowsCombatDecision(UnitLifeStateMath.Resolve(this)))
+			return;
 		if (m_FireController == null || m_WeaponRuntime == null)
 			return;
 

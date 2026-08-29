@@ -36,6 +36,8 @@ public sealed class UnitAISearchHandler : IUnitAIStateHandler
 {
 	#region Private Fields
 	private readonly TacticalNavigationExecutor m_Nav = new TacticalNavigationExecutor();
+	private float m_InspectTime;
+	private bool m_Inspecting;
 	#endregion
 
 	public UnitAIState State => UnitAIState.Search;
@@ -44,6 +46,9 @@ public sealed class UnitAISearchHandler : IUnitAIStateHandler
 	{
 		_controller.ClearSearchNavigationDebug();
 		m_Nav.Begin();
+		m_InspectTime = 0f;
+		m_Inspecting = false;
+		_controller.BeginSearchSession();
 		Step(_controller);
 	}
 
@@ -55,12 +60,40 @@ public sealed class UnitAISearchHandler : IUnitAIStateHandler
 			return;
 		}
 
+		if (m_Inspecting)
+		{
+			m_InspectTime += Mathf.Max(0f, _dt);
+			if (m_InspectTime < UnitAISearchDecision.InspectDuration)
+				return;
+
+			if (!_controller.TryAdvanceSearchCandidate())
+			{
+				_controller.TryCompleteSearchBecauseExhausted();
+				return;
+			}
+
+			m_Nav.Begin();
+			m_Inspecting = false;
+			m_InspectTime = 0f;
+			_controller.ClearSearchArrival();
+			Step(_controller);
+			return;
+		}
+
 		Step(_controller);
+		if (m_Nav.Reached && !m_Inspecting)
+		{
+			_controller.NotifySearchAreaReached();
+			_controller.NotifySearchCandidateInspected();
+			m_Inspecting = true;
+			m_InspectTime = 0f;
+		}
 	}
 
 	public void Exit(UnitAIController _controller)
 	{
 		m_Nav.Cancel(_controller);
+		_controller.FinishSearchSessionIfOpen();
 		_controller.ClearSearchNavigationDebug();
 	}
 
@@ -72,7 +105,7 @@ public sealed class UnitAISearchHandler : IUnitAIStateHandler
 			_controller,
 			true,
 			context.SearchPosition,
-			context.AreaRadius,
+			TacticalNavigationMath.DefaultPointArrivalRadius,
 			UnitNavigationReason.Search);
 		if (m_Nav.Issued)
 			_controller.NotifySearchNavigationIssued();
@@ -95,13 +128,14 @@ public sealed class UnitAIFleeHandler : UnitAIPointNavigationHandler
 }
 
 /// <summary>
-/// Attack / Defense / Retreat / Flee: one Walk to <see cref="UnitAIStateContext.Destination"/>.
-/// Reached stops the unit. Only Flee then goes Idle.
+/// Attack / Defense / Retreat / Flee: Walk current #14 hop (14.0 Direct = Destination).
+/// Reached stops the unit. Only Flee then goes Idle. Overlay does not call IUnitMoveCommand.
 /// </summary>
 public abstract class UnitAIPointNavigationHandler : IUnitAIStateHandler
 {
 	#region Private Fields
 	private readonly TacticalNavigationExecutor m_Nav = new TacticalNavigationExecutor();
+	private bool m_ArrivalHandled;
 	#endregion
 
 	public abstract UnitAIState State { get; }
@@ -111,6 +145,7 @@ public abstract class UnitAIPointNavigationHandler : IUnitAIStateHandler
 	public void Enter(UnitAIController _controller, in UnitAIStateContext _context)
 	{
 		_controller.ClearTacticalNavigationDebug();
+		m_ArrivalHandled = false;
 		m_Nav.Begin();
 		Step(_controller);
 	}
@@ -135,16 +170,33 @@ public abstract class UnitAIPointNavigationHandler : IUnitAIStateHandler
 			State,
 			_controller.CurrentContext,
 			out Vector3 destination);
+		Vector3 hop = _controller.ResolvePointMovementHop(hasDestination, destination);
 		m_Nav.Tick(
 			_controller,
 			hasDestination,
-			destination,
-			TacticalNavigationMath.DefaultPointArrivalRadius,
+			hop,
+			TacticalArrivalMath.WalkArrivalRadius(
+				State,
+				_controller.TacticalMovement.CurrentHopRequiresCoverAcquire),
 			TacticalNavigationMath.ReasonFor(State));
 		if (m_Nav.Issued)
 			_controller.NotifyTacticalNavigationIssued();
 		if (m_Nav.Reached)
-			_controller.NotifyTacticalDestinationReached();
+		{
+			if (!m_ArrivalHandled)
+			{
+				TacticalArrivalDecision arrival = _controller.NotifyTacticalArrival();
+				bool keepApproaching =
+					TacticalArrivalMath.IsTransientAcquireMiss(arrival.Reason) &&
+					(_controller.TacticalMovement.CurrentHopRequiresCoverAcquire ||
+					 State == UnitAIState.Attack ||
+					 State == UnitAIState.Defense);
+				if (arrival.Result == TacticalArrivalResult.Traversed || keepApproaching)
+					m_Nav.ContinueToNextHop();
+				else
+					m_ArrivalHandled = true;
+			}
+		}
 	}
 	#endregion
 }

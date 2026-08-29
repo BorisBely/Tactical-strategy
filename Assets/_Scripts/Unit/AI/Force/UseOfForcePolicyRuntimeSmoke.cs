@@ -58,6 +58,10 @@ public sealed class UseOfForcePolicyRuntimeSmoke : MonoBehaviour
 		!DetectionHarnessPlayMode.RunImmediateThreatLive &&
 		!DetectionHarnessPlayMode.RunCombatEventWorld &&
 		!DetectionHarnessPlayMode.RunSoundInAi &&
+		!DetectionHarnessPlayMode.RunSearch20 &&
+		!DetectionHarnessPlayMode.RunCommandPriority &&
+		!DetectionHarnessPlayMode.RunTargetCalibration &&
+		!DetectionHarnessPlayMode.RunFrozenLayersPlay &&
 		!DetectionHarnessPlayMode.RunSearchExecution &&
 		!DetectionHarnessPlayMode.RunTacticalNavigationExecution &&
 		!DetectionHarnessPlayMode.RunTacticalCommandContract &&

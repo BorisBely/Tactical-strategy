@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class DetectionGPlayTestRunner
 {
-	[MenuItem("Tools/Tests/Run Detection G1–G8 (Play)", false, 42)]
+	[MenuItem("Tools/Tests/Archive/G Stages/Run Detection G1–G8 (Play)", false, 110)]
 	public static void RunAllG() => EnterPlay(DetectionHarnessPlayMode.AllGStages);
 
 	[MenuItem("Tools/Tests/Archive/G Stages/Run DetectionG1 (Play)", false, 111)]
